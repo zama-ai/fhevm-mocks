@@ -36,9 +36,9 @@ export type FhevmUserDecryptOptions = {
 export interface HardhatFhevmRuntimeEnvironment {
   relayerSignerAddress: string;
   debugger: HardhatFhevmRuntimeDebugger;
-  createInstance(): Promise<FhevmInstance>;
   awaitAllDecryptionResults(): Promise<void>;
-  assertFHEInitialized(contract: AddressLike, contractName?: string): Promise<void>;
+  assertCoprocessorInitialized(contract: AddressLike, contractName?: string): Promise<void>;
+  assertDecryptionOracleInitialized(contract: AddressLike, contractName?: string): Promise<void>;
 
   createEncryptedInput(contractAddress: string, userAddress: string): RelayerEncryptedInput;
   createEIP712(

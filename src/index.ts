@@ -7,7 +7,6 @@ import { configExtender } from "./internal/ConfigExtender";
 import { envExtender } from "./internal/EnvironmentExtender";
 import { providerExtender } from "./internal/ProviderExtender";
 import "./tasks/builtin-tasks";
-
 /**
  * Tasks
  */
@@ -19,3 +18,5 @@ extendConfig(configExtender);
 extendEnvironment(envExtender);
 
 extendProvider(providerExtender);
+
+export * from "./types";

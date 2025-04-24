@@ -21,9 +21,45 @@ describe("TestFHENotInitialized", function () {
     testFHENotInitialized = contract;
   });
 
+  it("Assertion should fail if the DecryptionOracle contract address is uninitialized", async function () {
+    // Error message without contract name
+    await expect(hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(
+      new RegExp(
+        "^Contract at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
+      ),
+    );
+
+    // Error message including contract name
+    await expect(
+      hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitializedAddress, "TestFHENotInitialized"),
+    ).to.be.rejectedWith(
+      new RegExp(
+        "^Contract TestFHENotInitialized at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
+      ),
+    );
+  });
+
+  it("Assertion should fail if the DecryptionOracle contract address is uninitialized", async function () {
+    // Error message without contract name
+    await expect(hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitialized)).to.be.rejectedWith(
+      new RegExp(
+        "^Contract at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
+      ),
+    );
+
+    // Error message including contract name
+    await expect(
+      hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitialized, "TestFHENotInitialized"),
+    ).to.be.rejectedWith(
+      new RegExp(
+        "^Contract TestFHENotInitialized at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
+      ),
+    );
+  });
+
   it("Assertion should fail if the FHE contract address is uninitialized", async function () {
     // Error message without contract name
-    await expect(hre.fhevm.assertFHEInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(
+    await expect(hre.fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(
       new RegExp(
         "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),
@@ -31,7 +67,7 @@ describe("TestFHENotInitialized", function () {
 
     // Error message including contract name
     await expect(
-      hre.fhevm.assertFHEInitialized(testFHENotInitializedAddress, "TestFHENotInitialized"),
+      hre.fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress, "TestFHENotInitialized"),
     ).to.be.rejectedWith(
       new RegExp(
         "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
@@ -41,14 +77,16 @@ describe("TestFHENotInitialized", function () {
 
   it("Assertion should fail if the FHE contract is uninitialized", async function () {
     // Error message without contract name
-    await expect(hre.fhevm.assertFHEInitialized(testFHENotInitialized)).to.be.rejectedWith(
+    await expect(hre.fhevm.assertCoprocessorInitialized(testFHENotInitialized)).to.be.rejectedWith(
       new RegExp(
         "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),
     );
 
     // Error message including contract name
-    await expect(hre.fhevm.assertFHEInitialized(testFHENotInitialized, "TestFHENotInitialized")).to.be.rejectedWith(
+    await expect(
+      hre.fhevm.assertCoprocessorInitialized(testFHENotInitialized, "TestFHENotInitialized"),
+    ).to.be.rejectedWith(
       new RegExp(
         "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),

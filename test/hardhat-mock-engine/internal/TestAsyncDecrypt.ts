@@ -21,6 +21,8 @@ describe("TestAsyncDecrypt", function () {
     contract = await contractFactory.connect(signers.alice).deploy();
     await contract.waitForDeployment();
     contractAddress = await contract.getAddress();
+    await hre.fhevm.assertCoprocessorInitialized(contract, "TestAsyncDecrypt");
+    await hre.fhevm.assertDecryptionOracleInitialized(contract, "TestAsyncDecrypt");
   });
 
   it.skip("test async decrypt bool infinite loop", async function () {

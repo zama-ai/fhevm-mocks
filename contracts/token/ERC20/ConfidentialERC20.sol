@@ -44,7 +44,11 @@ abstract contract ConfidentialERC20 is IConfidentialERC20, IERC20Errors, FHEErro
     /**
      * @notice See {IConfidentialERC20-approve}.
      */
-    function approve(address spender, externalEuint64 encryptedAmount, bytes calldata inputProof) public virtual returns (bool) {
+    function approve(
+        address spender,
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
+    ) public virtual returns (bool) {
         approve(spender, FHE.fromExternal(encryptedAmount, inputProof));
         return true;
     }
@@ -63,7 +67,11 @@ abstract contract ConfidentialERC20 is IConfidentialERC20, IERC20Errors, FHEErro
     /**
      * @notice See {IConfidentialERC20-transfer}.
      */
-    function transfer(address to, externalEuint64 encryptedAmount, bytes calldata inputProof) public virtual returns (bool) {
+    function transfer(
+        address to,
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
+    ) public virtual returns (bool) {
         transfer(to, FHE.fromExternal(encryptedAmount, inputProof));
         return true;
     }

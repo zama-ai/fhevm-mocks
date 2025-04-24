@@ -1,4 +1,3 @@
-import { FhevmInstance } from "@fhevm/sdk/node";
 import { expect } from "chai";
 import hre from "hardhat";
 
@@ -11,14 +10,12 @@ describe("EncryptedErrors", function () {
   const NO_ERROR_CODE = 0n;
 
   let signers: Signers;
-  let instance: FhevmInstance;
   let encryptedErrors: TestEncryptedErrors;
   let encryptedErrorsAddress: string;
 
   before(async function () {
     await initSigners();
     signers = await getSigners();
-    instance = await hre.fhevm.createInstance();
   });
 
   beforeEach(async function () {
@@ -35,9 +32,7 @@ describe("EncryptedErrors", function () {
     for (let i = 0; i < 3; i++) {
       const handle = await encryptedErrors.connect(signers.alice).errorGetCodeDefinition(i);
       expect(
-        await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, {
-          instance,
-        }),
+        await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice),
       ).to.be.eq(i);
     }
   });
@@ -47,7 +42,7 @@ describe("EncryptedErrors", function () {
     const condition = true;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).encrypt();
 
     await encryptedErrors
@@ -55,9 +50,9 @@ describe("EncryptedErrors", function () {
       .errorDefineIf(encryptedData.handles[0], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(targetErrorCode);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      targetErrorCode,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -66,7 +61,7 @@ describe("EncryptedErrors", function () {
     const condition = false;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).encrypt();
 
     await encryptedErrors
@@ -74,9 +69,9 @@ describe("EncryptedErrors", function () {
       .errorDefineIf(encryptedData.handles[0], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(NO_ERROR_CODE);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      NO_ERROR_CODE,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -85,7 +80,7 @@ describe("EncryptedErrors", function () {
     const condition = true;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).encrypt();
 
     await encryptedErrors
@@ -93,9 +88,9 @@ describe("EncryptedErrors", function () {
       .errorDefineIfNot(encryptedData.handles[0], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(NO_ERROR_CODE);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      NO_ERROR_CODE,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -104,7 +99,7 @@ describe("EncryptedErrors", function () {
     const condition = false;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).encrypt();
 
     await encryptedErrors
@@ -112,9 +107,9 @@ describe("EncryptedErrors", function () {
       .errorDefineIfNot(encryptedData.handles[0], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(targetErrorCode);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      targetErrorCode,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -124,7 +119,7 @@ describe("EncryptedErrors", function () {
     const errorCode = 1;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).add8(errorCode).encrypt();
 
     await encryptedErrors
@@ -132,9 +127,9 @@ describe("EncryptedErrors", function () {
       .errorChangeIf(encryptedData.handles[0], encryptedData.handles[1], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(targetErrorCode);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      targetErrorCode,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -144,7 +139,7 @@ describe("EncryptedErrors", function () {
     const errorCode = 1;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).add8(errorCode).encrypt();
 
     await encryptedErrors
@@ -152,9 +147,9 @@ describe("EncryptedErrors", function () {
       .errorChangeIf(encryptedData.handles[0], encryptedData.handles[1], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(errorCode);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      errorCode,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -164,7 +159,7 @@ describe("EncryptedErrors", function () {
     const errorCode = 1;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).add8(errorCode).encrypt();
 
     await encryptedErrors
@@ -172,11 +167,9 @@ describe("EncryptedErrors", function () {
       .errorChangeIfNot(encryptedData.handles[0], encryptedData.handles[1], encryptedData.inputProof, targetErrorCode);
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, {
-        instance: instance,
-      }),
-    ).to.be.eq(errorCode);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      errorCode,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -186,7 +179,7 @@ describe("EncryptedErrors", function () {
     const errorCode = 1;
     const targetErrorCode = 2;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).add8(errorCode).encrypt();
 
     await encryptedErrors
@@ -195,9 +188,9 @@ describe("EncryptedErrors", function () {
 
     const handle = await encryptedErrors.connect(signers.alice).errorGetCodeEmitted(0);
 
-    expect(
-      await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice, { instance }),
-    ).to.be.eq(targetErrorCode);
+    expect(await hre.fhevm.userDecryptEuint(FhevmType.euint8, handle, encryptedErrorsAddress, signers.alice)).to.be.eq(
+      targetErrorCode,
+    );
     expect(await encryptedErrors.errorGetCounter()).to.be.eq(BigInt("1"));
   });
 
@@ -214,7 +207,7 @@ describe("EncryptedErrors", function () {
     const condition = true;
     const targetErrorCode = (await encryptedErrors.errorGetNumCodesDefined()) + 1n;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).encrypt();
 
     await expect(
@@ -234,7 +227,7 @@ describe("EncryptedErrors", function () {
     const condition = true;
     const targetErrorCode = 0;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).encrypt();
 
     await expect(
@@ -255,7 +248,7 @@ describe("EncryptedErrors", function () {
     const errorCode = 1;
     const targetErrorCode = (await encryptedErrors.errorGetNumCodesDefined()) + 1n;
 
-    const input = instance.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
+    const input = hre.fhevm.createEncryptedInput(encryptedErrorsAddress, signers.alice.address);
     const encryptedData = await input.addBool(condition).add8(errorCode).encrypt();
 
     await expect(

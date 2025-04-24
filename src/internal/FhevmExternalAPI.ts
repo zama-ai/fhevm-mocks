@@ -168,7 +168,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return getDecryptionOracleAddress(this._fhevmEnv.hre, contractAddress);
   }
 
-  public async assertFHEInitialized(contract: AddressLike, contractName?: string): Promise<void> {
+  public async assertCoprocessorInitialized(contract: AddressLike, contractName?: string): Promise<void> {
     const contractAddress = await this._fhevmEnv.hre.ethers.resolveAddress(contract);
     const addresses = await this.getFHEVMConfig(contractAddress);
 
@@ -205,6 +205,27 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     }
     if (addresses.KMSVerifierAddress !== expectedKMSVerifierAddress) {
       const errorMsg = `Coprocessor KMSVerifier address mismatch. ${addrMismatchErrorMsg}. KMSVerifier address: ${addresses.KMSVerifierAddress}, expected KMSVerifier address: ${expectedKMSVerifierAddress}`;
+      throw new HardhatFhevmError(errorMsg);
+    }
+  }
+
+  public async assertDecryptionOracleInitialized(contract: AddressLike, contractName?: string): Promise<void> {
+    const contractAddress = await this._fhevmEnv.hre.ethers.resolveAddress(contract);
+    const address = await this.getDecryptionOracleAddress(contractAddress);
+
+    const errorMsgPrefix =
+      contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
+
+    if (address === EthersT.ZeroAddress) {
+      const errorMsg = `${errorMsgPrefix} is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle() in its constructor.`;
+      throw new HardhatFhevmError(errorMsg);
+    }
+
+    const expectedAddress = this._fhevmEnv.getDecryptionOracleAddress();
+
+    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with a Decryption Oracle address that do not match the currently deployed Decryption Oracle contract.`;
+    if (address !== expectedAddress) {
+      const errorMsg = `Coprocessor DecryptionOracle address mismatch. ${addrMismatchErrorMsg}. DecryptionOracle address: ${address}, expected DecryptionOracle address: ${expectedAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
   }

@@ -29,15 +29,13 @@ describe("ConfidentialERC20", function () {
     confidentialERC20 = contract;
   });
 
-  // TODO : Task that generates addresses + FHEVMConfig.sol + DeployOracleAddress.sol
-  // Must be run on post-install
   it("post-deployment state", async function () {
     expect(await confidentialERC20.totalSupply()).to.equal(0);
     expect(await confidentialERC20.name()).to.equal("Naraggara");
     expect(await confidentialERC20.symbol()).to.equal("NARA");
     expect(await confidentialERC20.decimals()).to.be.eq(BigInt(6));
 
-    await hre.fhevm.assertFHEInitialized(confidentialERC20, "TestConfidentialERC20Mintable");
+    await hre.fhevm.assertCoprocessorInitialized(confidentialERC20, "TestConfidentialERC20Mintable");
   });
 
   it("should mint the contract", async function () {

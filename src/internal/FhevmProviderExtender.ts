@@ -1,8 +1,12 @@
+import assert from "assert";
 import { ethers as EthersT } from "ethers";
 import { ProviderWrapper } from "hardhat/plugins";
-import type { EIP1193Provider, HardhatConfig, RequestArguments } from "hardhat/types";
+import type { EIP1193Provider, HardhatConfig, HardhatRuntimeEnvironment, RequestArguments } from "hardhat/types";
 
 import constants from "../constants";
+import { isSolidityCoverageRunning } from "./utils/hh";
+
+const USE_ETHERS_PROVIDER: boolean = true;
 
 // Always instanciated at "test" startup
 export class FhevmProviderExtender extends ProviderWrapper {
@@ -88,4 +92,80 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
     return result;
   }
+}
+
+// isHardhat && !solidityCoverageRunning
+export async function getLastBlockSnapshot(
+  hre: HardhatRuntimeEnvironment,
+): Promise<{ lastBlockSnapshot: number; lastCounterRand: number }> {
+  // evm_snapshot is not supported in coverage mode
+  assert(hre.network.name === "hardhat");
+  assert(!isSolidityCoverageRunning(hre));
+
+  // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  const provider = USE_ETHERS_PROVIDER ? hre.ethers.provider : hre.network.provider;
+
+  const res = await provider.send("get_lastBlockSnapshot");
+
+  assert(Array.isArray(res));
+  assert(res.length === 2);
+
+  const lastBlockSnapshot = res[0];
+  const lastCounterRand = res[1];
+
+  assert(typeof lastBlockSnapshot === "number");
+  assert(typeof lastCounterRand === "number");
+
+  return {
+    lastBlockSnapshot,
+    lastCounterRand,
+  };
+}
+
+// isHardhat && !solidityCoverageRunning
+export async function setLastBlockSnapshot(hre: HardhatRuntimeEnvironment, lastBlockSnapshot: number): Promise<void> {
+  // evm_snapshot is not supported in coverage mode
+  assert(hre.network.name === "hardhat");
+  assert(!isSolidityCoverageRunning(hre));
+
+  // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  const provider = USE_ETHERS_PROVIDER ? hre.ethers.provider : hre.network.provider;
+
+  const res = await provider.send("set_lastBlockSnapshot", [lastBlockSnapshot]);
+
+  assert(res === lastBlockSnapshot);
+}
+
+// isHardhat && !solidityCoverageRunning
+export async function getLastBlockSnapshotForDecrypt(hre: HardhatRuntimeEnvironment): Promise<number> {
+  // evm_snapshot is not supported in coverage mode
+  assert(hre.network.name === "hardhat");
+  assert(!isSolidityCoverageRunning(hre));
+
+  // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  const provider = USE_ETHERS_PROVIDER ? hre.ethers.provider : hre.network.provider;
+
+  const res = await provider.send("get_lastBlockSnapshotForDecrypt");
+
+  assert(typeof res === "number");
+
+  return res;
+}
+
+// isHardhat && !solidityCoverageRunning
+export async function setLastBlockSnapshotForDecrypt(
+  hre: HardhatRuntimeEnvironment,
+  lastBlockSnapshotForDecrypt: number,
+) {
+  // evm_snapshot is not supported in coverage mode
+  assert(hre.network.name === "hardhat");
+  assert(!isSolidityCoverageRunning(hre));
+
+  // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  const provider = USE_ETHERS_PROVIDER ? hre.ethers.provider : hre.network.provider;
+
+  // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  const res = await provider.send("set_lastBlockSnapshotForDecrypt", [lastBlockSnapshotForDecrypt]);
+
+  assert(res === lastBlockSnapshotForDecrypt);
 }

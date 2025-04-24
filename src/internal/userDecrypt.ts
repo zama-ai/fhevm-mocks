@@ -6,6 +6,7 @@ import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { FhevmKeypair, FhevmUserDecryptOptions } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
+import { FhevmExternalAPI } from "./FhevmExternalAPI";
 import { FhevmType } from "./handle/FhevmType";
 import {
   buildDeterministicContractAddressesList,
@@ -38,7 +39,7 @@ async function resolveUserDecryptOptions(
   } else if (fhevmEnv.getInstanceOrUndefined()) {
     instance = fhevmEnv.instance;
   } else {
-    instance = await fhevmEnv.externalFhevmAPI.createInstance();
+    instance = await (fhevmEnv.externalFhevmAPI as FhevmExternalAPI).createInstance();
   }
 
   let keypair: FhevmKeypair;

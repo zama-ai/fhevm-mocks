@@ -14,11 +14,7 @@ import { ConfidentialERC20 } from "./ConfidentialERC20.sol";
  * @dev     This implementation does not support tokens with rebase functions or tokens with a fee on transfer.
  *          All ERC20 tokens must have decimals superior or equal to 6 decimals.
  */
-abstract contract ConfidentialERC20Wrapped is
-    ConfidentialERC20,
-    IConfidentialERC20Wrapped,
-    ReentrancyGuardTransient
-{
+abstract contract ConfidentialERC20Wrapped is ConfidentialERC20, IConfidentialERC20Wrapped, ReentrancyGuardTransient {
     using SafeERC20 for IERC20Metadata;
 
     /// @notice Returned if the maximum decryption delay is higher than 1 day.
@@ -113,11 +109,7 @@ abstract contract ConfidentialERC20Wrapped is
      * @param requestId   Request id.
      * @param canUnwrap   Whether it can be unwrapped.
      */
-    function callbackUnwrap(
-        uint256 requestId,
-        bool canUnwrap,
-        bytes[] memory signatures
-    ) public virtual nonReentrant {
+    function callbackUnwrap(uint256 requestId, bool canUnwrap, bytes[] memory signatures) public virtual nonReentrant {
         FHE.checkSignatures(requestId, signatures);
         UnwrapRequest memory unwrapRequest = unwrapRequests[requestId];
 

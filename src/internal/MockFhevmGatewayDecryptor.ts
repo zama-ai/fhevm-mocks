@@ -8,6 +8,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatFhevmError } from "../error";
 import { FhevmType } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
+import { getLastBlockSnapshotForDecrypt, setLastBlockSnapshotForDecrypt } from "./FhevmProviderExtender";
 import { getFhevmHandleTypeInfo, parseFhevmHandle } from "./handle/handle";
 import { createPublicDecryptVerificationEIP712 } from "./sign";
 import {
@@ -111,9 +112,10 @@ export class MockFhevmGatewayDecryptor {
     }
 
     const firstBlockListening = await hre.ethers.provider.getBlockNumber();
-    if (hre.network.name === "hardhat" && isSolidityCoverageRunning(hre)) {
+    if (hre.network.name === "hardhat" && !isSolidityCoverageRunning(hre)) {
       // evm_snapshot is not supported in coverage mode
-      await hre.ethers.provider.send("set_lastBlockSnapshotForDecrypt", [firstBlockListening]);
+      //await hre.ethers.provider.send("set_lastBlockSnapshotForDecrypt", [firstBlockListening]);
+      await setLastBlockSnapshotForDecrypt(hre, firstBlockListening);
     }
 
     return new MockFhevmGatewayDecryptor(fhevmEnv, {
@@ -127,17 +129,28 @@ export class MockFhevmGatewayDecryptor {
     });
   }
 
-  private async _getLastBlockSnapshotForDecrypt(): Promise<number> {
-    // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-    const ls = await this.#fhevmEnv.hre.network.provider.send("get_lastBlockSnapshotForDecrypt");
-    assert(ls !== undefined, "get_lastBlockSnapshotForDecrypt return value is undefined");
-    return ls;
-  }
+  // // isHardhat && !solidityCoverageRunning
+  // private static async _getLastBlockSnapshotForDecrypt(hre: HardhatRuntimeEnvironment): Promise<number> {
+  //   // evm_snapshot is not supported in coverage mode
+  //   assert(hre.network.name === "hardhat");
+  //   assert(!isSolidityCoverageRunning(hre));
 
-  private async _setLastBlockSnapshotForDecrypt(ls: number) {
-    // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-    await this.#fhevmEnv.hre.network.provider.send("set_lastBlockSnapshotForDecrypt", [ls]);
-  }
+  //   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  //   const ls = await hre.network.provider.send("get_lastBlockSnapshotForDecrypt");
+  //   assert(ls !== undefined, "get_lastBlockSnapshotForDecrypt return value is undefined");
+
+  //   return ls;
+  // }
+
+  // // isHardhat && !solidityCoverageRunning
+  // private static async _setLastBlockSnapshotForDecrypt(hre: HardhatRuntimeEnvironment, ls: number) {
+  //   // evm_snapshot is not supported in coverage mode
+  //   assert(hre.network.name === "hardhat");
+  //   assert(!isSolidityCoverageRunning(hre));
+
+  //   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
+  //   await hre.network.provider.send("set_lastBlockSnapshotForDecrypt", [ls]);
+  // }
 
   public async awaitAllDecryptionResults(): Promise<void> {
     if (this.#relayerSigner === undefined) {
@@ -151,7 +164,7 @@ export class MockFhevmGatewayDecryptor {
     // Read evm snapshot
     if (isHardhat && !solidityCoverageRunning) {
       // evm_snapshot is not supported in coverage mode
-      this.#lastBlockSnapshotForDecrypt = await this._getLastBlockSnapshotForDecrypt();
+      this.#lastBlockSnapshotForDecrypt = await getLastBlockSnapshotForDecrypt(this.#fhevmEnv.hre);
       if (this.#lastBlockSnapshotForDecrypt < this.#firstBlockListening) {
         this.#firstBlockListening = this.#lastBlockSnapshotForDecrypt + 1;
       }
@@ -163,7 +176,7 @@ export class MockFhevmGatewayDecryptor {
     this.#firstBlockListening = (await hre.ethers.provider.getBlockNumber()) + 1;
     if (isHardhat && !solidityCoverageRunning) {
       // evm_snapshot is not supported in coverage mode
-      await this._setLastBlockSnapshotForDecrypt(this.#firstBlockListening);
+      await setLastBlockSnapshotForDecrypt(this.#fhevmEnv.hre, this.#firstBlockListening);
     }
   }
 

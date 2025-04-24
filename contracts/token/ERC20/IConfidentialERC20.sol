@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {euint64, externalEuint64} from "@fhevm/solidity/lib/FHE.sol";
+import { euint64, externalEuint64 } from "@fhevm/solidity/lib/FHE.sol";
 
 /**
  * @title   IConfidentialERC20.
@@ -56,7 +56,11 @@ interface IConfidentialERC20 {
      * @param inputProof        Input proof.
      * @return isSuccess        Whether it succeeds.
      */
-    function transfer(address to, externalEuint64 encryptedAmount, bytes calldata inputProof) external returns (bool isSuccess);
+    function transfer(
+        address to,
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
+    ) external returns (bool isSuccess);
 
     /**
      * @notice              Transfer an amount from the message sender address to the `to` address.

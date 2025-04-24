@@ -511,11 +511,7 @@ abstract contract ConfidentialGovernorAlpha is Ownable2Step {
      * @param requestId     Request id (from the Gateway)
      * @param canInitiate   Whether the proposal can be initiated.
      */
-    function callbackInitiateProposal(
-        uint256 requestId,
-        bool canInitiate,
-        bytes[] memory signatures
-    ) public virtual {
+    function callbackInitiateProposal(uint256 requestId, bool canInitiate, bytes[] memory signatures) public virtual {
         FHE.checkSignatures(requestId, signatures);
         uint256 proposalId = _requestIdToProposalId[requestId];
 

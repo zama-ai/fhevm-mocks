@@ -207,6 +207,6 @@ function generatePriceChecks(prices: { [key: string]: number }): string {
         _updateFunding(${price});
         }`,
       )
-      .join(' else ') + 'else { revert UnsupportedOperation();}'
+      .join(" else ") + "else { revert UnsupportedOperation();}"
   );
 }

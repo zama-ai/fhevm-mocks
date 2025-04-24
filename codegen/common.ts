@@ -275,22 +275,22 @@ export enum ReturnType {
  */
 export function validateFHETypes(fheTypes: FheType[]): void {
   if (!fheTypes || !Array.isArray(fheTypes) || fheTypes.length === 0) {
-    throw new Error('fheTypes is not defined or invalid');
+    throw new Error("fheTypes is not defined or invalid");
   }
   fheTypes.forEach((fheType) => {
-    if (typeof fheType.type !== 'string' || typeof fheType.clearMatchingType !== 'string') {
+    if (typeof fheType.type !== "string" || typeof fheType.clearMatchingType !== "string") {
       throw new Error(`Invalid FHE type: ${JSON.stringify(fheType)}`);
     }
 
-    if (!Array.isArray(fheType.supportedOperators) || fheType.supportedOperators.some((op) => typeof op !== 'string')) {
+    if (!Array.isArray(fheType.supportedOperators) || fheType.supportedOperators.some((op) => typeof op !== "string")) {
       throw new Error(`Invalid supportedOperators for FHE type: ${fheType.type}`);
     }
 
-    if (typeof fheType.bitLength !== 'number' || fheType.bitLength < 0) {
+    if (typeof fheType.bitLength !== "number" || fheType.bitLength < 0) {
       throw new Error(`Invalid bitLength for FHE type: ${fheType.type}`);
     }
 
-    if (typeof fheType.value !== 'number' || fheType.value < 0) {
+    if (typeof fheType.value !== "number" || fheType.value < 0) {
       throw new Error(`Invalid value for FHE type: ${fheType.type}`);
     }
 
@@ -299,10 +299,10 @@ export function validateFHETypes(fheTypes: FheType[]): void {
       (!Array.isArray(fheType.aliases) ||
         fheType.aliases.some(
           (alias) =>
-            typeof alias.type !== 'string' ||
+            typeof alias.type !== "string" ||
             !Array.isArray(alias.supportedOperators) ||
-            alias.supportedOperators.some((op) => typeof op !== 'string') ||
-            typeof alias.clearMatchingType !== 'string',
+            alias.supportedOperators.some((op) => typeof op !== "string") ||
+            typeof alias.clearMatchingType !== "string",
         ))
     ) {
       throw new Error(`Invalid aliases for FHE type: ${fheType.type}`);
@@ -310,15 +310,15 @@ export function validateFHETypes(fheTypes: FheType[]): void {
 
     if (fheType.aliases) {
       fheType.aliases.forEach((alias) => {
-        if (typeof alias.type !== 'string') {
+        if (typeof alias.type !== "string") {
           throw new Error(`Invalid alias type: ${JSON.stringify(alias)}`);
         }
 
-        if (!Array.isArray(alias.supportedOperators) || alias.supportedOperators.some((op) => typeof op !== 'string')) {
+        if (!Array.isArray(alias.supportedOperators) || alias.supportedOperators.some((op) => typeof op !== "string")) {
           throw new Error(`Invalid supportedOperators for alias: ${alias.type}`);
         }
 
-        if (typeof alias.clearMatchingType !== 'string') {
+        if (typeof alias.clearMatchingType !== "string") {
           throw new Error(`Invalid clearMatchingType for alias: ${alias.type}`);
         }
       });
@@ -345,13 +345,13 @@ export function validateFHETypes(fheTypes: FheType[]): void {
  */
 export function validateOperators(operators: Operator[]): void {
   if (!operators || !Array.isArray(operators) || operators.length === 0) {
-    throw new Error('Operators is not defined or invalid');
+    throw new Error("Operators is not defined or invalid");
   }
 
   const nameMap: Record<string, boolean> = {};
 
   operators.forEach((op) => {
-    if (typeof op.name !== 'string' || op.name.trim() === '') {
+    if (typeof op.name !== "string" || op.name.trim() === "") {
       throw new Error(`Invalid operator name: ${JSON.stringify(op)}`);
     }
 
@@ -359,11 +359,11 @@ export function validateOperators(operators: Operator[]): void {
       throw new Error(`Duplicate operator name found: ${op.name}`);
     }
 
-    if (typeof op.hasScalar !== 'boolean') {
+    if (typeof op.hasScalar !== "boolean") {
       throw new Error(`Invalid hasScalar value for operator: ${op.name}`);
     }
 
-    if (typeof op.hasEncrypted !== 'boolean') {
+    if (typeof op.hasEncrypted !== "boolean") {
       throw new Error(`Invalid hasEncrypted value for operator: ${op.name}`);
     }
 
@@ -375,27 +375,27 @@ export function validateOperators(operators: Operator[]): void {
       throw new Error(`Invalid returnType for operator: ${op.name}`);
     }
 
-    if (op.leftScalarInvertOp && typeof op.leftScalarInvertOp !== 'string') {
+    if (op.leftScalarInvertOp && typeof op.leftScalarInvertOp !== "string") {
       throw new Error(`Invalid leftScalarInvertOp for operator: ${op.name}`);
     }
 
-    if (op.leftScalarEncrypt != null && typeof op.leftScalarEncrypt !== 'boolean') {
+    if (op.leftScalarEncrypt != null && typeof op.leftScalarEncrypt !== "boolean") {
       throw new Error(`Invalid leftScalarEncrypt value for operator: ${op.name}`);
     }
 
-    if (op.leftScalarDisable != null && typeof op.leftScalarDisable !== 'boolean') {
+    if (op.leftScalarDisable != null && typeof op.leftScalarDisable !== "boolean") {
       throw new Error(`Invalid leftScalarDisable value for operator: ${op.name}`);
     }
 
-    if (typeof op.fheLibName !== 'string' || op.fheLibName.trim() === '') {
+    if (typeof op.fheLibName !== "string" || op.fheLibName.trim() === "") {
       throw new Error(`Invalid fheLibName for operator: ${op.name}`);
     }
 
-    if (op.shiftOperator != null && typeof op.shiftOperator !== 'boolean') {
+    if (op.shiftOperator != null && typeof op.shiftOperator !== "boolean") {
       throw new Error(`Invalid shiftOperator value for operator: ${op.name}`);
     }
 
-    if (op.rotateOperator != null && typeof op.rotateOperator !== 'boolean') {
+    if (op.rotateOperator != null && typeof op.rotateOperator !== "boolean") {
       throw new Error(`Invalid rotateOperator value for operator: ${op.name}`);
     }
 

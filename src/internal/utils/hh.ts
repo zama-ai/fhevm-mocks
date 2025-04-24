@@ -6,7 +6,7 @@ import { HardhatFhevmError } from "../../error";
 import { FHEVMConfig } from "../../types";
 
 export function isSolidityCoverageRunning(hre: HardhatRuntimeEnvironment): boolean {
-  //process.env.SOLIDITY_COVERAGE
+  //console.log("process.env.SOLIDITY_COVERAGE = " + process.env.SOLIDITY_COVERAGE);
   return "__SOLIDITY_COVERAGE_RUNNING" in hre ? hre.__SOLIDITY_COVERAGE_RUNNING === true : false;
 }
 

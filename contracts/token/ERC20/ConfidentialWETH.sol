@@ -11,11 +11,7 @@ import { IConfidentialERC20Wrapped } from "./IConfidentialERC20Wrapped.sol";
  * @notice  This contract allows users to wrap/unwrap trustlessly
  *          ETH (or other native tokens) to ConfidentialERC20 tokens.
  */
-abstract contract ConfidentialWETH is
-    ConfidentialERC20,
-    IConfidentialERC20Wrapped,
-    ReentrancyGuardTransient
-{
+abstract contract ConfidentialWETH is ConfidentialERC20, IConfidentialERC20Wrapped, ReentrancyGuardTransient {
     /// @notice Returned if ETH transfer fails.
     error ETHTransferFail();
 
@@ -101,11 +97,7 @@ abstract contract ConfidentialWETH is
      * @param requestId   Request id.
      * @param canUnwrap   Whether it can be unwrapped.
      */
-    function callbackUnwrap(
-        uint256 requestId,
-        bool canUnwrap,
-        bytes[] memory signatures
-    ) public virtual nonReentrant {
+    function callbackUnwrap(uint256 requestId, bool canUnwrap, bytes[] memory signatures) public virtual nonReentrant {
         FHE.checkSignatures(requestId, signatures);
         UnwrapRequest memory unwrapRequest = unwrapRequests[requestId];
 

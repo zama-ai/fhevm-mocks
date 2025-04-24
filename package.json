@@ -2,13 +2,18 @@
   "name": "@fhevm/hardhat",
   "description": "fhEVM plugin for Hardhat.",
   "version": "0.0.1",
-  "author": {
-    "name": "zama-ai",
-    "url": "https://github.com/zama-ai"
-  },
+  "author": "",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
-  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zama-ai/fhevm-hardhat-plugin.git"
+  },
+  "license": "BSD-3-Clause-Clear",
+  "bugs": {
+    "url": "https://github.com/zama-ai/fhevm-hardhat-plugin/issues"
+  },
+  "homepage": "https://github.com/zama-ai/fhevm-hardhat-plugin#readme",
   "devDependencies": {
     "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",

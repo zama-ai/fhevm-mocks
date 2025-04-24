@@ -2,6 +2,7 @@ import assert from "assert";
 
 import { HardhatFhevmError } from "../error";
 import { FhevmEnvironment } from "./FhevmEnvironment";
+import { getLastBlockSnapshot, setLastBlockSnapshot } from "./FhevmProviderExtender";
 import { FheType } from "./handle/FheType";
 import { FhevmHandle, getFhevmHandleClearTextBitLength, parseFhevmHandle } from "./handle/handle";
 import {
@@ -187,7 +188,7 @@ export class MockFhevmCoprocessor {
   }
 
   private async processAllPastFHEVMExecutorEvents() {
-    const networkProvider = this.#fhevmEnv.hre.network.provider;
+    //const networkProvider = this.#fhevmEnv.hre.network.provider;
     const provider = this.#fhevmEnv.hre.ethers.provider;
     const latestBlockNumber = await provider.getBlockNumber();
     const solidityCoverageRunning = isSolidityCoverageRunning(this.#fhevmEnv.hre);
@@ -195,8 +196,12 @@ export class MockFhevmCoprocessor {
     if (!solidityCoverageRunning) {
       // evm_snapshot is not supported in coverage mode
       //[this.#lastBlockSnapshot, this.#lastCounterRand] = await provider.send!("get_lastBlockSnapshot");
-      [this.#lastBlockSnapshot, this.#lastCounterRand] = await networkProvider.send("get_lastBlockSnapshot");
+      //[this.#lastBlockSnapshot, this.#lastCounterRand] = await networkProvider.send("get_lastBlockSnapshot");
+      const res = await getLastBlockSnapshot(this.#fhevmEnv.hre);
+      this.#lastBlockSnapshot = res.lastBlockSnapshot;
+      this.#lastCounterRand = res.lastCounterRand;
 
+      assert(typeof this.#lastBlockSnapshot === "number");
       assert(typeof this.#lastCounterRand === "number");
 
       if (this.#lastBlockSnapshot < this.#firstBlockListening) {
@@ -206,7 +211,7 @@ export class MockFhevmCoprocessor {
     }
 
     const coprocessorAddress = this.#fhevmEnv.getFHEVMExecutorAddress();
-    const coprocessorContrat = this.#fhevmEnv.getFHEVMExecutorReadOnly();
+    const coprocessorContract = this.#fhevmEnv.getFHEVMExecutorReadOnly();
 
     // Fetch all events emitted by the contract
     const filter = {
@@ -220,7 +225,7 @@ export class MockFhevmCoprocessor {
     const events = logs
       .map((log) => {
         try {
-          const parsedLog = coprocessorContrat.interface.parseLog(log)!;
+          const parsedLog = coprocessorContract.interface.parseLog(log)!;
           return {
             eventName: parsedLog.name,
             args: parsedLog.args,
@@ -237,7 +242,8 @@ export class MockFhevmCoprocessor {
     if (!solidityCoverageRunning) {
       // evm_snapshot is not supported in coverage mode
       //await provider.send!("set_lastBlockSnapshot", [this.#firstBlockListening]);
-      await networkProvider.send("set_lastBlockSnapshot", [this.#firstBlockListening]);
+      //await networkProvider.send("set_lastBlockSnapshot", [this.#firstBlockListening]);
+      await setLastBlockSnapshot(this.#fhevmEnv.hre, this.#firstBlockListening);
     }
 
     for (let i = 0; i < events.length; ++i) {

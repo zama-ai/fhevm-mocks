@@ -116,9 +116,7 @@ abstract contract ConfidentialVestingWallet {
         } else {
             /// @dev It casts to euint128 to prevent overflow with the multiplication.
             return
-                FHE.asEuint64(
-                    FHE.div(FHE.mul(FHE.asEuint128(totalAllocation), timestamp - START_TIMESTAMP), DURATION)
-                );
+                FHE.asEuint64(FHE.div(FHE.mul(FHE.asEuint128(totalAllocation), timestamp - START_TIMESTAMP), DURATION));
         }
     }
 }

@@ -1,4 +1,4 @@
-import overloads from './overloads.json';
+import overloads from "./overloads.json";
 
 type OverloadTestJSON = {
   inputs: (number | bigint | string)[];
@@ -14,9 +14,9 @@ const transformBigInt = (o: { [methodName: string]: OverloadTestJSON[] }) => {
   Object.keys(o).forEach((k) => {
     o[k].forEach((test) => {
       test.inputs.forEach((input, i) => {
-        if (typeof input === 'string') test.inputs[i] = BigInt(input);
+        if (typeof input === "string") test.inputs[i] = BigInt(input);
       });
-      if (typeof test.output === 'string') test.output = BigInt(test.output);
+      if (typeof test.output === "string") test.output = BigInt(test.output);
     });
   });
 };
