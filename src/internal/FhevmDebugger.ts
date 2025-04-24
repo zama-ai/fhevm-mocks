@@ -1,3 +1,4 @@
+import assert from "assert";
 import { BigNumberish } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
@@ -63,7 +64,8 @@ export class FhevmDebugger implements HardhatFhevmRuntimeDebugger {
       await this.#fhevmEnv.coproc.awaitCoprocessor();
       const ebytesBigInt = await this.#fhevmEnv.db.sqlQueryHandleBytes32AsBigInt(handleBytes32Hex);
       const fhevmTypeInfo = getFhevmTypeInfo(fhevmType);
-      return this.#fhevmEnv.hre.ethers.toBeHex(ebytesBigInt, fhevmTypeInfo.clearTextBitLength);
+      assert(fhevmTypeInfo.clearTextBitLength % 8 === 0);
+      return this.#fhevmEnv.hre.ethers.toBeHex(ebytesBigInt, fhevmTypeInfo.clearTextBitLength / 8);
     } else {
       throw new HardhatFhevmError(`FhevmDebugger.decryptEbytes is not supported on network ${networkName}`);
     }
