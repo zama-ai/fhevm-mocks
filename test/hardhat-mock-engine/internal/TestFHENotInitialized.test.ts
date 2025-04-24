@@ -1,0 +1,57 @@
+import { expect } from "chai";
+import hre from "hardhat";
+
+import { TestFHENotInitialized } from "../../../typechain-types";
+import { Signers, getSigners, initSigners } from "../signers";
+import { deployTestFHENotInitializedFixture } from "./TestFHENotInitialized.fixture";
+
+describe("TestFHENotInitialized", function () {
+  let signers: Signers;
+  let testFHENotInitialized: TestFHENotInitialized;
+  let testFHENotInitializedAddress: string;
+
+  before(async function () {
+    await initSigners();
+    signers = await getSigners();
+  });
+
+  beforeEach(async function () {
+    const contract = await deployTestFHENotInitializedFixture(signers.alice);
+    testFHENotInitializedAddress = await contract.getAddress();
+    testFHENotInitialized = contract;
+  });
+
+  it("Assertion should fail if the FHE contract address is uninitialized", async function () {
+    // Error message without contract name
+    await expect(hre.fhevm.assertFHEInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(
+      new RegExp(
+        "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+      ),
+    );
+
+    // Error message including contract name
+    await expect(
+      hre.fhevm.assertFHEInitialized(testFHENotInitializedAddress, "TestFHENotInitialized"),
+    ).to.be.rejectedWith(
+      new RegExp(
+        "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+      ),
+    );
+  });
+
+  it("Assertion should fail if the FHE contract is uninitialized", async function () {
+    // Error message without contract name
+    await expect(hre.fhevm.assertFHEInitialized(testFHENotInitialized)).to.be.rejectedWith(
+      new RegExp(
+        "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+      ),
+    );
+
+    // Error message including contract name
+    await expect(hre.fhevm.assertFHEInitialized(testFHENotInitialized, "TestFHENotInitialized")).to.be.rejectedWith(
+      new RegExp(
+        "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+      ),
+    );
+  });
+});

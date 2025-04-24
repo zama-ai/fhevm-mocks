@@ -1,3 +1,10 @@
+*.trash/
+tmp/
+cache/
+artifacts/
+typechain-types/
+fhevmTemp/
+
 # Logs
 logs
 *.log
