@@ -1,5 +1,4 @@
 import assert from "assert";
-import { log2 } from "extra-bigint";
 
 import { HardhatFhevmError } from "../error";
 import { FhevmEnvironment } from "./FhevmEnvironment";
@@ -15,7 +14,7 @@ import {
   assertEventArgUint256,
 } from "./utils/ethers";
 import { isSolidityCoverageRunning } from "./utils/hh";
-import { bitwiseNotUIntBits } from "./utils/math";
+import { bitwiseNotUIntBits, log2BigInt } from "./utils/math";
 import { getRandomBigInt } from "./utils/random";
 
 interface FhevmEvent {
@@ -783,7 +782,7 @@ export class MockFhevmCoprocessor {
           `Rand type mismatch, (resultType:${resultType}) !== (randTypeUint8:${randTypeUint8})`,
         );
 
-        const clearText: bigint = getRandomBigInt(Number(log2(upperBoundUint256)));
+        const clearText: bigint = getRandomBigInt(Number(log2BigInt(upperBoundUint256)));
 
         return {
           resultBytes32,

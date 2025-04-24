@@ -15,7 +15,7 @@
       "moduleResolution": "node",
       "noImplicitAny": true
     },
-    "files": ["./hardhat.config.ts", "./register.ts"],
+    "files": ["./hardhat.config.ts"],
     "exclude": ["dist", "node_modules"],
     "include": ["./test", "./src", "./typechain-types"]
   }

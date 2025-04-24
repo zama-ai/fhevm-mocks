@@ -271,7 +271,7 @@ describe("TestAsyncDecrypt", function () {
     expect(y).to.equal(someUint64);
   });
 
-  it("BBB test async decrypt ebytes64 trivial", async function () {
+  it("test async decrypt ebytes64 trivial", async function () {
     const tx = await contract.requestEbytes64Trivial("0x78685689");
     await tx.wait();
     await hre.fhevm.awaitAllDecryptionResults();

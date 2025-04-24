@@ -82,3 +82,8 @@ export function getMaxBigInt(bitLength: number): bigint {
 
   return (1n << BigInt(bitLength)) - 1n;
 }
+
+export function log2BigInt(x: bigint) {
+  const n = x.toString(2).length - 1;
+  return x <= 0n ? 0n : BigInt(n);
+}
