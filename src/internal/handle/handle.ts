@@ -3,6 +3,7 @@ import { toBufferBE } from "bigint-buffer";
 import { ethers as EthersT } from "ethers";
 import { Keccak } from "sha3";
 
+import constants from "../../constants";
 import { HardhatFhevmError } from "../../error";
 import { assertAddress, assertBytes32 } from "../utils/ethers";
 import { toUIntNumber } from "../utils/math";
@@ -83,17 +84,18 @@ export function parseFhevmHandle(handleBytes32: string): FhevmHandle {
 
   // Byte31: handle version is 0 at this point
   const handleVersionHex = handleBytes32.slice(64, 66);
-  if (handleVersionHex !== "00") {
-    throw new Error(
-      `Invalid handle ${handleBytes32}, Byte 31 does not contain the expected version=00, got ${handleVersionHex} instead`,
-    );
-  }
 
   let version: number = 0;
   try {
-    version = toUIntNumber("0x" + handleTypeHex);
+    version = toUIntNumber("0x" + handleVersionHex);
   } catch {
     throw new Error(`Invalid handle ${handleBytes32}, Byte 31 does not contain a valid version number.`);
+  }
+
+  if (version !== constants.FHEVM_HANDLE_VERSION) {
+    throw new Error(
+      `Invalid handle ${handleBytes32}, Byte 31 does not contain the expected version=${constants.FHEVM_HANDLE_VERSION}, got ${version} instead`,
+    );
   }
 
   return {
