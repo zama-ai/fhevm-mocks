@@ -56,9 +56,9 @@ export const FhevmTypeMap: Readonly<Record<FhevmTypeName, FhevmType>> = {
   euint128: FhevmType.euint128,
   eaddress: FhevmType.eaddress,
   euint256: FhevmType.euint256,
-  ebytes64: FhevmType.euint64,
-  ebytes128: FhevmType.euint128,
-  ebytes256: FhevmType.euint256,
+  ebytes64: FhevmType.ebytes64,
+  ebytes128: FhevmType.ebytes128,
+  ebytes256: FhevmType.ebytes256,
 };
 Object.freeze(FhevmTypeMap);
 
@@ -262,6 +262,22 @@ export function isFhevmEuint(fhevmType: FhevmType) {
     fhevmType === FhevmType.euint128 ||
     fhevmType === FhevmType.euint256
   );
+}
+
+/**
+ * Returns `true` if `fhevmType` is a Fhevm bool type, `false` otherwise
+ * @param fhevmType
+ */
+export function isFhevmEbool(fhevmType: FhevmType) {
+  return fhevmType === FhevmType.ebool;
+}
+
+/**
+ * Returns `true` if `fhevmType` is a Fhevm address type, `false` otherwise
+ * @param fhevmType
+ */
+export function isFhevmEaddress(fhevmType: FhevmType) {
+  return fhevmType === FhevmType.eaddress;
 }
 
 /**
