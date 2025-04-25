@@ -1,3 +1,4 @@
+import { ethers as EthersT } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 export const mineNBlocks = async (hre: HardhatRuntimeEnvironment, n: number) => {
@@ -20,9 +21,8 @@ export const produceDummyTransactions = async (hre: HardhatRuntimeEnvironment, b
   while (counter >= 0) {
     counter--;
     const [signer] = await hre.ethers.getSigners();
-    const nullAddress = "0x0000000000000000000000000000000000000000";
     const tx = {
-      to: nullAddress,
+      to: EthersT.ZeroAddress,
       value: 0n,
     };
     const receipt = await signer.sendTransaction(tx);
