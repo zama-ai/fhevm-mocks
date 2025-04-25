@@ -16,7 +16,7 @@ const compat = new FlatCompat({
 
 export default [
   {
-    ignores: ["dist/*", "typechain-types/*"],
+    ignores: ["dist/*", "typechain-types/*", "codegen/*", "tmp/*"],
   },
   ...compat.extends("eslint:recommended", "prettier"),
   {
@@ -33,23 +33,49 @@ export default [
       },
     },
   },
-  ...compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier").map((config) => ({
-    ...config,
-    files: ["**/*.ts"],
-    ignores: ["./dist/**/*.js", "./typechain-types/*"],
-  })),
+  ...compat
+    .extends(
+      "eslint:recommended",
+      "plugin:@typescript-eslint/strict",
+      "plugin:@typescript-eslint/strict-type-checked",
+      "prettier",
+    )
+    .map((config) => ({
+      ...config,
+      files: ["**/*.ts"],
+      ignores: ["./dist/**/*.js", "./typechain-types/*"],
+      rules: {
+        "@typescript-eslint/no-floating-promises": "error",
+      },
+    })),
   {
     files: ["**/*.ts"],
-    ignores: ["./dist/**/*.js", "./typechain-types/*"],
-
+    ignores: ["./dist/**/*.js", "./typechain-types/*", "./codegen/*", "./tmp/*"],
     plugins: {
       "@typescript-eslint": typescriptEslint,
     },
 
     languageOptions: {
       parser: tsParser,
+      parserOptions: {
+        project: "./tsconfig.json",
+        tsconfigRootDir: __dirname,
+      },
       ecmaVersion: "latest",
       sourceType: "module",
+    },
+    rules: {
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          vars: "all",
+          args: "after-used",
+          ignoreRestSiblings: true,
+          varsIgnorePattern: "^_",
+          argsIgnorePattern: "^_",
+        },
+      ],
     },
   },
 ];
