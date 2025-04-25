@@ -100,7 +100,7 @@ export class MockFhevmGatewayDecryptor {
     const decryptionOracleReadOnly = fhevmEnv.getDecryptionOracleReadOnly();
 
     if (traceEvents === true) {
-      decryptionOracleReadOnly.on(
+      await decryptionOracleReadOnly.on(
         "DecryptionRequest",
         async (counter, requestID, cts, contractCaller, callbackSelector, eventData) => {
           const blockNumber = eventData.log.blockNumber;
