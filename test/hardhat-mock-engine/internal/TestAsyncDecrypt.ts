@@ -39,7 +39,7 @@ describe("TestAsyncDecrypt", function () {
     console.log("gas paid by user (request tx) : ", balanceBeforeU - balanceAfterU);
   });
 
-  it("test async decrypt bool", async function () {
+  it("BBB test async decrypt bool", async function () {
     const balanceBeforeR = await hre.ethers.provider.getBalance(relayerAddress);
     const balanceBeforeU = await hre.ethers.provider.getBalance(signers.carol.address);
     const tx2 = await contract.connect(signers.carol).requestBool();

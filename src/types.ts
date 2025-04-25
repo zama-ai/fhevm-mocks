@@ -4,9 +4,9 @@ import { AddressLike, BigNumberish, Numeric, Signer } from "ethers";
 import { FhevmType, FhevmTypeEbytes, FhevmTypeEuint } from "./internal/handle/FhevmType";
 
 export { FhevmType, FhevmTypeEuint, FhevmTypeEbytes };
-export type FhevmCoprocessorContratName = "ACL" | "FHEVMExecutor" | "InputVerifier" | "KMSVerifier" | "FHEGasLimit";
-export type FhevmGatewayContratName = "DecryptionOracle";
-export type FhevmContratName = FhevmCoprocessorContratName | FhevmGatewayContratName;
+export type FhevmCoprocessorContractName = "ACL" | "FHEVMExecutor" | "InputVerifier" | "KMSVerifier" | "FHEGasLimit";
+export type FhevmGatewayContractName = "DecryptionOracle";
+export type FhevmContractName = FhevmCoprocessorContractName | FhevmGatewayContractName;
 
 export type HardhatFhevmMockType = "onchain" | "mock";
 

@@ -8,7 +8,7 @@ import path from "path";
 
 import constants from "../constants";
 import { HardhatFhevmError } from "../error";
-import { FhevmCoprocessorContratName, FhevmGatewayContratName } from "../types";
+import { FhevmCoprocessorContractName, FhevmGatewayContractName } from "../types";
 import { ensureSuffix } from "./utils/hex";
 
 function __isHardhatSignerAddress(hhSigners: HardhatEthersSigner[], address: string) {
@@ -108,14 +108,14 @@ export async function getRelayerSignerAddress(hre: HardhatRuntimeEnvironment): P
 
 export async function getRelayerSigner(hre: HardhatRuntimeEnvironment): Promise<EthersT.Signer> {
   if (hre.network.name !== "hardhat") {
-    throw new Error("Relayer is only supported on the hardhat network");
+    throw new HardhatFhevmError("Relayer is only supported on the hardhat network");
   }
 
   const index = getRelayerSignerIndex();
   const signers = await hre.ethers.getSigners();
 
   if (index >= signers.length) {
-    throw new Error(
+    throw new HardhatFhevmError(
       `Hardhat relayer signer index out of bounds (index=${index}). The total number of signers is ${signers.length}.`,
     );
   }
@@ -319,14 +319,14 @@ function _resolveZamaFheOracleSolidityArtifactsPath(artifactsRelPath: string) {
 }
 
 // @fhevm/core-contracts/artifacts/contracts/...
-export async function getFhevmCoreContractsArtifact(contractName: FhevmCoprocessorContratName) {
+export async function getFhevmCoreContractsArtifact(contractName: FhevmCoprocessorContractName) {
   const modulePath = _resolveCoreContractsArtifactsPath(`artifacts/contracts/${contractName}.sol/${contractName}.json`);
   const artifact = await import(modulePath);
   return artifact;
 }
 
 // @zama-fhe/oracle-solidity/artifacts/contracts/...
-export async function getZamaFheOracleSolidityArtifact(contractName: FhevmGatewayContratName) {
+export async function getZamaFheOracleSolidityArtifact(contractName: FhevmGatewayContractName) {
   const modulePath = _resolveZamaFheOracleSolidityArtifactsPath(
     `artifacts/contracts/${contractName}.sol/${contractName}.json`,
   );

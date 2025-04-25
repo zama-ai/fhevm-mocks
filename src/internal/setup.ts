@@ -45,7 +45,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   assert(fheGasLimitAddress === constants.FHE_GASLIMIT_CONTRACT_ADDRESS);
   assert(decryptionOracleAddress === constants.DECRYPTION_ORACLE_ADDRESS);
 
-  // Setup TFHEExecutor
+  // Setup FHEVMExecutor
   const execArtifact = await getFhevmCoreContractsArtifact("FHEVMExecutor");
   const execBytecode = execArtifact.deployedBytecode;
   assert((await getCodeAt(hre, precompiledFHEVMExecutorAddress)) === "0x");

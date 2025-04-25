@@ -20,7 +20,7 @@ export async function getPrecompiledCoreContractsAddresses(
   const precompiledFHEVMExecutorAddress = await retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(hre);
 
   try {
-    // Setup TFHEExecutor
+    // Setup FHEVMExecutor
     const FHEVMExecutorArtifact = await getFhevmCoreContractsArtifact("FHEVMExecutor");
     const FHEVMExecutorBytecode = FHEVMExecutorArtifact.deployedBytecode;
     await setCodeAt(hre, precompiledFHEVMExecutorAddress, FHEVMExecutorBytecode);

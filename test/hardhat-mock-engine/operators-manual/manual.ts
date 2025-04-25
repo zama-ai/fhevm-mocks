@@ -17,7 +17,7 @@ async function deployFHEVMManualTestFixture(): Promise<FHEVMManualTestSuite> {
   return contract;
 }
 
-describe("BBB FHEVM manual operations", function () {
+describe("FHEVM manual operations", function () {
   let signers: Signers;
   let contractAddress: string;
   let contract: FHEVMManualTestSuite;
@@ -86,8 +86,6 @@ describe("BBB FHEVM manual operations", function () {
     expect(res).to.equal(
       ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 64),
     );
-    //126
-    //0xff0000000000000000000000000000000000000000000000000000006798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb
     const tx2 = await contract.test_select_ebytes64(false, "0x42", "0xaaaaaaaa");
     await tx2.wait();
     const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes64, await contract.resEbytes64());
