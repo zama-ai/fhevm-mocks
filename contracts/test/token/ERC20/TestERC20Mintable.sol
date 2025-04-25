@@ -5,10 +5,10 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
- * @title     ERC20Mintable
+ * @title     TestERC20Mintable
  * @notice    This contract is an ERC20 token that is mintable by the owner.
  */
-contract ERC20Mintable is ERC20, Ownable2Step {
+contract TestERC20Mintable is ERC20, Ownable2Step {
     /// @dev override number of decimals
     uint8 private immutable _DECIMALS;
 
