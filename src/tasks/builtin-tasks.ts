@@ -2,10 +2,11 @@ import assert from "assert";
 import {
   TASK_COMPILE_GET_REMAPPINGS,
   TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS,
+  TASK_NODE_SERVER_READY,
   TASK_TEST,
 } from "hardhat/builtin-tasks/task-names";
 import { subtask, task } from "hardhat/config";
-import { HardhatRuntimeEnvironment, TaskArguments } from "hardhat/types";
+import { EthereumProvider, HardhatRuntimeEnvironment, JsonRpcServer, TaskArguments } from "hardhat/types";
 
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
@@ -60,5 +61,31 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
     }
 
     return filePaths;
+  },
+);
+
+subtask(TASK_NODE_SERVER_READY).setAction(
+  async (
+    {
+      address,
+      port,
+      provider,
+      server,
+    }: {
+      address: string;
+      port: number;
+      provider: EthereumProvider;
+      server: JsonRpcServer;
+    },
+    hre,
+    runSuper,
+  ) => {
+    const fhevmEnv = fhevmContext.get();
+
+    await fhevmEnv.deploy();
+    assert(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+
+    const res = await runSuper();
+    return res;
   },
 );
