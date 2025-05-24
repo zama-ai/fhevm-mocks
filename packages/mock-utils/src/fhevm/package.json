@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/fhevm/index.d.ts",
+  "module": "../_esm/fhevm/index.js",
+  "main": "../_cjs/fhevm/index.js"
+}

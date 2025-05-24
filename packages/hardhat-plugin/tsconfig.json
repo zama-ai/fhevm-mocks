@@ -1,0 +1,6 @@
+{
+  // This configuration is used for local development and type checking.
+  "extends": "./tsconfig.base.json",
+  // Dont forget to add "./typechain-types" otherwise ts typecheck will throw errors when calling hre.ethers.getContractFactory(...)
+  "include": ["src", "test", "hardhat.config.ts", "./typechain-types"]
+}
