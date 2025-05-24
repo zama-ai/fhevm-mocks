@@ -1,0 +1,85 @@
+{
+  "name": "@fhevm/hardhat-plugin",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./_cjs/index.js",
+  "types": "./_types/index.d.ts",
+  "typings": "./_types/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "src/*",
+    "_types/*",
+    "_cjs/*",
+    "!**/*.tsbuildinfo"
+  ],
+  "exports": {
+    ".": {
+      "types": "./_types/index.d.ts",
+      "require": "./_cjs/index.js",
+      "default": "./_cjs/index.js"
+    },
+    "./package.json": "./_cjs/package.json"
+  },
+  "dependencies": {
+    "@fhevm/core-contracts": "^0.7.0-9",
+    "@fhevm/solidity": "^0.7.0-4",
+    "@zama-fhe/oracle-solidity": "^0.0.4-0",
+    "debug": "^4.1.1",
+    "picocolors": "^1.1.1",
+    "dotenv": "^16.5.0",
+    "resolve": "^1.22.10"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
+    "@openzeppelin/contracts": "^5.1.0",
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/debug": "^4.1.12",
+    "@types/resolve": "^1.20.6",
+    "@zama-fhe/relayer-sdk": "^0.1.0-1",
+    "chai": "^4.5.0",
+    "chai-as-promised": "^8.0.1",
+    "cross-env": "^7.0.3",
+    "ethers": "^6.1.0",
+    "hardhat-gas-reporter": "^2.2.3",
+    "hardhat": "^2.0.0",
+    "hardhat-ignore-warnings": "^0.2.12",
+    "solidity-coverage": "^0.8.16",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2"
+  },
+  "scripts": {
+    "tsc:cjs": "tsc --project tsconfig.build.cjs.json && printf '{\"type\":\"commonjs\"}' > ./_cjs/package.json",
+    "tsc:types": "tsc --project tsconfig.build.types.json",
+    "rebuild:cjs": "npm run clean:cjs && npm run tsc:cjs",
+    "rebuild:types": "npm run clean:types && npm run tsc:types",
+    "rebuild:ts": "npm run clean:ts && npm run tsc:ts",
+    "build": "npm run typechain && npm run rebuild:cjs && npm run rebuild:types",
+    "rebuild": "npm run clean && npm run build",
+    "tsc:ts": "tsc --project tsconfig.json",
+    "clean": "rm -rf dist build artifacts cache typechain-types fhevmTemp _cjs _types",
+    "clean:ts": "rm -rf build/cache/tsconfig.tsbuildinfo",
+    "clean:cjs": "rm -rf build/cache/tsconfig.build.cjs.tsbuildinfo _cjs",
+    "clean:types": "rm -rf build/cache/tsconfig.build.types.tsbuildinfo _types",
+    "lint": "npm run lint:ts",
+    "lint:ts": "eslint --ext .js,.ts .",
+    "typechain": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat typechain",
+    "compile": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat compile",
+    "test": "HARDHAT_NETWORK=hardhat npx hardhat test",
+    "test:node": "HARDHAT_NETWORK=localhost npx hardhat test",
+    "coverage:mock": "SOLIDITY_COVERAGE=true hardhat coverage"
+  },
+  "peerDependencies": {
+    "@fhevm/mock-utils": "^1.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
+    "@zama-fhe/relayer-sdk": "^0.1.0-1",
+    "ethers": "^6.1.0",
+    "hardhat": "^2.0.0"
+  }
+}

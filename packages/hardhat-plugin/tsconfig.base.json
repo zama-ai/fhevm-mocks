@@ -1,0 +1,45 @@
+{
+  "files": [],
+  "compilerOptions": {
+    // Interop Constraints
+    // ===================
+    "esModuleInterop": true, // require to import hh plugins and access hre.ethers
+    "allowSyntheticDefaultImports": false,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false, // not practical in a CommonJS module
+
+    // Type checking
+    // =============
+    "strict": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": false, // Otherwise call like contract.getACLAddress() will fail.
+    "noUncheckedIndexedAccess": false, // idem
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useDefineForClassFields": true,
+    "useUnknownInCatchVariables": true,
+
+    // Modules
+    // =======
+    // Hardhat is built using CommonJS and expects plugins to be require()-able.
+    "module": "CommonJS",
+    "moduleResolution": "node10",
+    "resolveJsonModule": true, // we need to resolve JSON files
+    "rootDirs": ["./src", "./test"],
+
+    // Language and Environment
+    // ========================
+    "target": "ES2021", // Setting this to `ES2021` enables native support for `Node v16+`: https://github.com/microsoft/TypeScript/wiki/Node-Target-Mapping.
+    "lib": ["es2020", "ES2021.String"],
+
+    // Completeness
+    // ============
+    "skipLibCheck": true
+  }
+}

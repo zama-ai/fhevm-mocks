@@ -1,0 +1,9 @@
+{
+  // This file is used to compile ESM
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    // Emit
+    // ====
+    "outDir": "./src/_esm"
+  }
+}
