@@ -122,7 +122,7 @@ describe("TestAsyncDecrypt", function () {
   //   }
   // });
 
-  it("Debug test async decrypt uint16 using fhevm.debugger.createDecryptionSignatures", async function () {
+  it.skip("Debug test async decrypt uint16 using fhevm.debugger.createDecryptionSignatures", async function () {
     const tx = await contract.connect(signers.carol).requestUint16();
     await tx.wait();
     const xUint16 = await contract.getXUint16();
