@@ -15,11 +15,12 @@ export class DecryptionOracleEventsIterator {
     decryptionOracleContractInterface: EthersT.Interface,
     decryptionOracleContractAddress: string,
     readonlyProvider: EthersT.Provider,
+    fromBlockNumber: number,
   ) {
     this.#decryptionOracleContractInterface = decryptionOracleContractInterface;
     this.#decryptionOracleContractAddress = decryptionOracleContractAddress;
     this.#readonlyProvider = readonlyProvider;
-    this.#cursor = new BlockLogCursor();
+    this.#cursor = new BlockLogCursor(fromBlockNumber);
   }
 
   public async next(): Promise<{
