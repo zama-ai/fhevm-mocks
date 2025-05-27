@@ -1,4 +1,8 @@
-import { FhevmCoprocessorContractName, FhevmDecryptionOracleContractName } from "@fhevm/mock-utils";
+import {
+  FhevmCoprocessorContractName,
+  FhevmDecryptionOracleContractName,
+  version as bundledMockUtilsVersion,
+} from "@fhevm/mock-utils";
 import * as fs from "fs";
 import * as path from "path";
 import * as resolve from "resolve";
@@ -11,6 +15,9 @@ export class FhevmEnvironmentPaths {
 
   constructor(root: string) {
     this._root = root;
+
+    // Make sure we are using the same mock-utils versions between the project and the HH plugin.
+    this._checkMockUtilsVersions();
   }
 
   /**
@@ -85,6 +92,19 @@ export class FhevmEnvironmentPaths {
   }
 
   /**
+   * Returns `/path/to/user-package/node_modules/mock-utils`
+   */
+  public get mockUtils(): string | undefined {
+    try {
+      return path.dirname(
+        this._resolveFromConsumer(path.join(constants.FHEVM_MOCK_UTILS_PACKAGE_NAME, "package.json")),
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Returns `/path/to/user-package/node_modules/@fhevm/solidity/config`
    */
   public get fhevmSolidityConfig(): string {
@@ -103,6 +123,7 @@ export class FhevmEnvironmentPaths {
    * - Returns `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity`
    * If using pnpm (strict no hoist):
    * - Returns `/path/to/user-package/node_modules/.pnpm/@zama-fhe+oracle-solidity@...@...@.../node_modules/@zama-fhe/oracle-solidity`
+   * If using any other package manager: path to the installed module
    */
   public get zamaFheOracleSolidity(): string {
     return path.dirname(
@@ -115,6 +136,7 @@ export class FhevmEnvironmentPaths {
    * - Returns `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address`
    * If using pnpm (strict no hoist):
    * - Returns `/path/to/user-package/node_modules/.pnpm/@zama-fhe+oracle-solidity@...@...@.../node_modules/@zama-fhe/oracle-solidity/address`
+   * If using any other package manager: path to the installed module
    */
   public get zamaFheOracleSolidityAddress(): string {
     return path.join(this.zamaFheOracleSolidity, "address");
@@ -205,6 +227,43 @@ export class FhevmEnvironmentPaths {
     const modulePath = this.resolveZamaFheOracleSolidityArtifactPath(contractName);
     const artifact = await import(modulePath);
     return { artifact, path: modulePath };
+  }
+
+  public getMockUtilsVersion(): string | undefined {
+    try {
+      const dir = this.mockUtils;
+      if (!dir) {
+        return undefined;
+      }
+      const pkgJson = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+      return pkgJson.version;
+    } catch {
+      return undefined;
+    }
+  }
+
+  public getBundledMockUtilsVersion(): string | undefined {
+    return bundledMockUtilsVersion;
+  }
+
+  private _checkMockUtilsVersions() {
+    const projectVersion = this.getMockUtilsVersion();
+    if (!projectVersion) {
+      return;
+    }
+    const bundledVersion = this.getBundledMockUtilsVersion();
+    if (bundledVersion !== projectVersion) {
+      throw new HardhatFhevmError(
+        `Version mismatch detected for @fhevm/mock-utils.\n` +
+          `> Installed in your project: @fhevm/mock-utils:${projectVersion}\n` +
+          `> Expected (plugin): @fhevm/mock-utils:${bundledVersion}\n\n` +
+          `Please ensure that your project is using the same version of @fhevm/mock-utils.\n` +
+          `You can either:\n` +
+          `- Align the versions by updating your dependencies\n` +
+          `- Rely solely on the version provided by @fhevm/hardhat-plugin (no direct install)\n\n` +
+          `This mismatch may lead to subtle runtime issues due to type incompatibilities or conflicting behavior.`,
+      );
+    }
   }
 
   private _resolveFromConsumer(modulePathId: string): string {

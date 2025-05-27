@@ -10,6 +10,11 @@ import { assertHHFhevm } from "../error";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
+/**
+ * This function parses `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol` file
+ * and replaces the address listed by the address used in the current mock FHEVM environment.
+ * @returns The absolute path to the generated `ZamaOracleAddress.sol`
+ */
 export function generateZamaOracleAddressDotSol(
   paths: FhevmEnvironmentPaths,
   sepoliaZamaOracleAddress: string,
@@ -31,6 +36,7 @@ export function generateZamaOracleAddressDotSol(
   }
 
   const origContent: string = fs.readFileSync(origPath, "utf8");
+  // This will throw an error in case the new `ZamaOracleAddress.sol` has been modified
   assertHHFhevm(origContent.indexOf("SepoliaZamaOracleAddress = 0x33347831500F1e73f0ccCBb95c9f86B94d7b1123;") >= 0);
 
   const dstContent = origContent.replaceAll("0x33347831500F1e73f0ccCBb95c9f86B94d7b1123", sepoliaZamaOracleAddress);

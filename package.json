@@ -33,6 +33,8 @@
     "vitest": "^3.1.4"
   },
   "scripts": {
+    "prepare": "npm run build",
+    "version": "cd packages/mock-utils/scripts && node ./generate-version.cjs",
     "build": "npm run build:utils && npm run build:hh",
     "build:hh": "cd packages/hardhat-plugin && npm run build",
     "build:utils": "cd packages/mock-utils && npm run build",

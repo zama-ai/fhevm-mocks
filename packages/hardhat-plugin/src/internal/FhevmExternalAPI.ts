@@ -299,30 +299,6 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     const errorMsgPrefix =
       contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
 
-    // if (isSolidityCoverageRunning(this._fhevmEnv.hre)) {
-    //   const code = await this._fhevmEnv.ethersProvider.getCodeAt(contractAddress);
-    //   console.log(code);
-    //   if (!code || code === "0x") {
-    //     throw new HardhatFhevmError(`${errorMsgPrefix} is not deployed.`);
-    //   }
-    //   if (code.indexOf(expectedACLAddress) < 0) {
-    //     const errorMsg = `${errorMsgPrefix} is not properly initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor() in its constructor (error: unable to verify ACL address).`;
-    //     throw new HardhatFhevmError(errorMsg);
-    //   }
-    //   if (code.indexOf(expectedFHEVMExecutorAddress) < 0) {
-    //     const errorMsg = `${errorMsgPrefix} is not properly initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor() in its constructor (error: unable to verify FHEVMExecutor address).`;
-    //     throw new HardhatFhevmError(errorMsg);
-    //   }
-    //   if (code.indexOf(expectedInputVerifierAddress) < 0) {
-    //     const errorMsg = `${errorMsgPrefix} is not properly initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor() in its constructor (error: unable to verify InputVerifier address).`;
-    //     throw new HardhatFhevmError(errorMsg);
-    //   }
-    //   if (code.indexOf(expectedKMSVerifierAddress) < 0) {
-    //     const errorMsg = `${errorMsgPrefix} is not properly initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor() in its constructor (error: unable to verify KMSVerifier address).`;
-    //     throw new HardhatFhevmError(errorMsg);
-    //   }
-    // }
-
     const addresses = await this.getFHEVMConfig(contractAddress);
 
     if (

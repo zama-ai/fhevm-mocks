@@ -169,7 +169,7 @@ export function getGatewayDecryptionAddress(): string {
  * Fhevm Gateway contracts
  * @returns Address of the deployed 'InputVerification.sol' contract.
  */
-export function getInputVerifierVerifyingContractSource(): string {
+export function getGatewayInputVerificationAddress(): string {
   try {
     const addr = __getStringConstant("INPUT_VERIFICATION_ADDRESS");
     if (!EthersT.isAddress(addr)) {

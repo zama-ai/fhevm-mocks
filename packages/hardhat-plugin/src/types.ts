@@ -17,6 +17,8 @@ import { AddressLike, BigNumberish, Numeric, Provider, Signer, ethers } from "et
 
 import { FhevmContractError } from "./internal/errors/FhevmContractError";
 
+export { FhevmType, FhevmTypeEbytes, FhevmTypeEuint } from "@fhevm/mock-utils";
+
 export interface FhevmProvider extends Provider {
   send(method: string, params?: any[]): Promise<any>;
 }
