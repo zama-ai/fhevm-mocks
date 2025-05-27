@@ -115,6 +115,7 @@ export class MockDecryptionOracle implements DecryptionOracle {
       decryptionOracleContractInterface,
       decryptionOracleContractAddress,
       readonlyProvider,
+      db.fromBlockNumber,
     );
     this.#handler = new DecryptionOracleEventsHandler(db, kmsVerifier, kmsSigners, relayerSigner);
     this.#acl = acl;

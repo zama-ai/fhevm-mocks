@@ -60,7 +60,7 @@ export async function getDecryptionOracleEvents(
 
   const logs = await readonlyProvider.getLogs(filter);
 
-  const cursor = new BlockLogCursor();
+  const cursor = new BlockLogCursor(-1);
   const events: DecryptionOracleEvent[] = logs
     .map((log) => {
       try {
