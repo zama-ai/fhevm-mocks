@@ -1,0 +1,19 @@
+{
+  // This file is used to compile CommonJS
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    // Modules
+    // =======
+    "module": "CommonJS",
+    "moduleResolution": "node10",
+
+    // Emit
+    // ====
+    "outDir": "./_cjs",
+    "removeComments": true,
+
+    // Interop Constraints
+    // ===================
+    "verbatimModuleSyntax": false
+  }
+}

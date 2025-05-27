@@ -1,0 +1,38 @@
+on:
+  release:
+    types: [prereleased]
+
+jobs:
+  publish:
+    permissions:
+      id-token: "write"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22.x
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - run: npm ci
+      - run: npm run prettier:check
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:node
+      - run: npm run test:anvil
+      - uses: JS-DevTools/npm-publish@19c28f1ef146469e409470805ea4279d47c3d35c # v3.1.1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}
+          package: packages/mock-utils/src
+          provenance: true
+          tag: prerelease
+          access: public
+      - uses: JS-DevTools/npm-publish@19c28f1ef146469e409470805ea4279d47c3d35c # v3.1.1
+        with:
+          token: ${{ secrets.NPM_TOKEN }}
+          package: packages/hardhat-plugin
+          provenance: true
+          tag: prerelease
+          access: public

@@ -1,0 +1,16 @@
+{
+  // This file is used to compile the for .d.ts files
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    // Emit
+    // ====
+    "declaration": true,
+    "declarationDir": "./_types",
+    "declarationMap": true,
+    "emitDeclarationOnly": true, // will ignore "sourceMap=true"
+
+    // Interop Constraints
+    // ===================
+    "esModuleInterop": true
+  }
+}

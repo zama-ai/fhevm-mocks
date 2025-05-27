@@ -1,1 +1,5 @@
-# fhevm-hardhat-mocks
+# Install
+
+```sh
+npm install
+```

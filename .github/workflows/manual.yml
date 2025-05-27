@@ -1,0 +1,25 @@
+name: Manual Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    permissions:
+      id-token: "write"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22.x
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - run: npm ci
+      - run: npm run prettier:check
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:node
+      - run: npm run test:anvil

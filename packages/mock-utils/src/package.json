@@ -1,0 +1,80 @@
+{
+  "name": "@fhevm/mock-utils",
+  "description": "FHEVM mock library",
+  "version": "0.1.0-1",
+  "type": "module",
+  "main": "./_cjs/index.js",
+  "module": "./_esm/index.js",
+  "types": "./_types/index.d.ts",
+  "typings": "./_types/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "*",
+    "!**/*.tsbuildinfo",
+    "!tsconfig.build.json",
+    "!**/*.test.ts",
+    "!**/*.test-d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./_types/index.d.ts",
+      "import": "./_esm/index.js",
+      "default": "./_cjs/index.js"
+    },
+    "./ethers": {
+      "types": "./_types/ethers/index.d.ts",
+      "import": "./_esm/ethers/index.js",
+      "default": "./_cjs/ethers/index.js"
+    },
+    "./fhevm": {
+      "types": "./_types/fhevm/index.d.ts",
+      "import": "./_esm/fhevm/index.js",
+      "default": "./_cjs/fhevm/index.js"
+    },
+    "./utils": {
+      "types": "./_types/utils/index.d.ts",
+      "import": "./_esm/utils/index.js",
+      "default": "./_cjs/utils/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "ethers": [
+        "./_types/ethers/index.d.ts"
+      ],
+      "fhevm": [
+        "./_types/fhevm/index.d.ts"
+      ],
+      "utils": [
+        "./_types/utils/index.d.ts"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@zama-fhe/relayer-sdk": "^0.1.0-2",
+    "ethers": "^6.1.0",
+    "typescript": ">=5.0.4"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "license": "BSD-3-Clause-Clear",
+  "homepage": "https://github.com/zama-ai/fhevm-hardhat-plugin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zama-ai/fhevm-hardhat-plugin.git"
+  },
+  "keywords": [
+    "fhevm",
+    "zama",
+    "eth",
+    "ethereum",
+    "dapps",
+    "wallet",
+    "web3",
+    "typescript"
+  ]
+}
