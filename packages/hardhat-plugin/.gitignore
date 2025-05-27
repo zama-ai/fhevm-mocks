@@ -1,0 +1,11 @@
+# hh
+cache/
+artifacts/
+typechain-types/
+fhevmTemp/
+coverage/
+coverage.json
+
+# tsc
+_cjs/
+_types/
