@@ -11,37 +11,10 @@ import { fhevmContext } from "../EnvironmentExtender";
 import { assertHHFhevm } from "../error";
 import { mutateErrorInPlace, mutateProviderErrorInPlace } from "../errors/FhevmContractError";
 
-//import { FhevmMethod } from "./FhevmMethod";
-// import { mutateErrorInPlace, mutateProviderErrorInPlace } from "./errors/FhevmError";
-// import { MinimalProvider, minimalProviderSend } from "./libs/base/ethers/provider";
-// import { FhevmHandle } from "./libs/base/fhevm/FhevmHandle";
-// import {
-//   RELAYER_METADATA,
-//   RELAYER_V1_INPUT_PROOF,
-//   RELAYER_V1_PUBLIC_DECRYPT,
-//   RELAYER_V1_USER_DECRYPT,
-// } from "./libs/base/fhevm/relayer/methods";
-// import { assertIsMockRelayerV1InputProofPayload } from "./libs/base/fhevm/relayer/mock_payloads";
-// import {
-//   RelayerMetadata,
-//   RelayerV1InputProofResponse,
-//   assertIsRelayerV1PublicDecryptPayload,
-//   assertIsRelayerV1UserDecryptPayload,
-// } from "./libs/base/fhevm/relayer/payloads";
-// import { assertFhevm } from "./libs/base/utils/error";
-// import { toUIntNumber } from "./libs/base/utils/math";
-// import { ensurePrefix } from "./libs/base/utils/string";
-
-// This is meant to be remove. It's only there for testing purpose.
-
 // Always instanciated at "test" startup
 export class FhevmProviderExtender extends ProviderWrapper {
   protected readonly _config: HardhatConfig;
   protected readonly _networkName: string;
-
-  // private lastBlockSnapshot: number;
-  // private lastCounterRand: number;
-  // private lastBlockSnapshotForDecrypt: number;
 
   // override estimated gasLimit by 120%, to avoid some edge case with ethermint gas estimation
   private static readonly ESTIMATEGAS_PERCENTAGE: bigint = 120n;
@@ -50,10 +23,6 @@ export class FhevmProviderExtender extends ProviderWrapper {
     super(_wrappedProvider);
     this._config = _config;
     this._networkName = _network;
-
-    // this.lastBlockSnapshot = Number(_blockNumber); // Initialize the variable
-    // this.lastCounterRand = 0;
-    // this.lastBlockSnapshotForDecrypt = Number(_blockNumber);
   }
 
   public async request(args: RequestArguments) {
@@ -76,14 +45,6 @@ export class FhevmProviderExtender extends ProviderWrapper {
         return this._handleFhevmAwaitDecryptionOracle(args);
       case relayer.FHEVM_GET_CLEAR_TEXT:
         return this._handleFhevmGetClearText(args);
-      // case FhevmMethod.FHEVM_GET_LAST_BLOCK_SNAPSHOT:
-      //   return this._handleFhevmGetLastBlockSnapshot(args);
-      // case FhevmMethod.FHEVM_GET_LAST_BLOCK_SNAPSHOT_FOR_DECRYPT:
-      //   return this._handleFhevmGetLastBlockSnapshotForDecrypt(args);
-      // case FhevmMethod.FHEVM_SET_LAST_BLOCK_SNAPSHOT:
-      //   return this._handleFhevmSetLastBlockSnapshot(args);
-      // case FhevmMethod.FHEVM_SET_LAST_BLOCK_SNAPSHOT_FOR_DECRYPT:
-      //   return this._handleFhevmSetLastBlockSnapshotForDecrypt(args);
       default:
         return this._wrappedProvider.request(args);
     }
@@ -328,12 +289,6 @@ export class FhevmProviderExtender extends ProviderWrapper {
     // Retreive the new current block number
     const blockNumberHex = (await this._wrappedProvider.request({ method: "eth_blockNumber" })) as string;
 
-    // Reset
-    // this.lastBlockSnapshot = parseInt(blockNumberHex);
-    // this.lastBlockSnapshotForDecrypt = parseInt(blockNumberHex);
-    //this.lastCounterRand = await this.solidityMockedPrecompileGetCounterRand();
-
-    // TODO
     const fhevmEnv = fhevmContext.get();
 
     if (fhevmEnv.useEmbeddedMockEngine) {
@@ -342,43 +297,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
     return result;
   }
-
-  // private async _handleFhevmGetLastBlockSnapshot(args: RequestArguments): Promise<unknown> {
-  //   // To silence ts unused variable
-  //   assert(args.method === FhevmMethod.FHEVM_GET_LAST_BLOCK_SNAPSHOT);
-  //   return [this.lastBlockSnapshot, this.lastCounterRand];
-  // }
-
-  // private async _handleFhevmGetLastBlockSnapshotForDecrypt(args: RequestArguments): Promise<unknown> {
-  //   // To silence ts unused variable
-  //   assert(args.method === FhevmMethod.FHEVM_GET_LAST_BLOCK_SNAPSHOT_FOR_DECRYPT);
-  //   return this.lastBlockSnapshotForDecrypt;
-  // }
-
-  // private async _handleFhevmSetLastBlockSnapshot(args: RequestArguments) {
-  //   assert(args.method === FhevmMethod.FHEVM_SET_LAST_BLOCK_SNAPSHOT);
-  //   this.lastBlockSnapshot = _getRequestSingleNumberParam(args);
-  //   return this.lastBlockSnapshot;
-  // }
-
-  // private async _handleFhevmSetLastBlockSnapshotForDecrypt(args: RequestArguments): Promise<unknown> {
-  //   assert(args.method === FhevmMethod.FHEVM_SET_LAST_BLOCK_SNAPSHOT_FOR_DECRYPT);
-  //   this.lastBlockSnapshotForDecrypt = _getRequestSingleNumberParam(args);
-  //   return this.lastBlockSnapshotForDecrypt;
-  // }
 }
-
-// export async function sendFhevmAwaitForAllDecryptionResults(hre: HardhatRuntimeEnvironment): Promise<any> {
-//   //assert(!isSolidityCoverageRunning(hre));
-//   return await hre.ethers.provider.send(FhevmMethod.FHEVM_AWAIT_DECRYPTION_ORACLE, []);
-// }
-
-// export async function sendFhevmGetClearText(provider: MinimalProvider, payload: string[]): Promise<any> {
-//   //assert(!isSolidityCoverageRunning(hre));
-//   //return await provider.send(FhevmMethod.FHEVM_GET_CLEAR_TEXT, [payload]);
-//   const response = await minimalProviderSend(provider, FhevmMethod.FHEVM_GET_CLEAR_TEXT, [payload]);
-//   return response;
-// }
 
 function _getRequestSingleParam(args: RequestArguments): unknown {
   assertHHFhevm(args.params !== undefined);
@@ -401,78 +320,3 @@ function _assertSingleParamArray(args: any): asserts args is { params: [any] } {
   assertHHFhevm(Array.isArray(args.params));
   assertHHFhevm(args.params.length === 1);
 }
-
-// isHardhat && !solidityCoverageRunning
-// export async function sendFhevmSetLastBlockSnapshotForDecrypt(
-//   hre: HardhatRuntimeEnvironment,
-//   lastBlockSnapshotForDecrypt: number,
-// ) {
-//   // evm_snapshot is not supported in coverage mode
-//   assert(!isSolidityCoverageRunning(hre));
-
-//   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-//   const provider = __USE_ETHERS_PROVIDER__ ? hre.ethers.provider : hre.network.provider;
-
-//   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-//   const res = await provider.send(FhevmMethod.FHEVM_SET_LAST_BLOCK_SNAPSHOT_FOR_DECRYPT, [lastBlockSnapshotForDecrypt]);
-
-//   assert(res === lastBlockSnapshotForDecrypt);
-// }
-
-// // isHardhat && !solidityCoverageRunning
-// export async function sendFhevmGetLastBlockSnapshotForDecrypt(hre: HardhatRuntimeEnvironment): Promise<number> {
-//   // evm_snapshot is not supported in coverage mode
-//   assert(!isSolidityCoverageRunning(hre));
-
-//   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-//   const provider = __USE_ETHERS_PROVIDER__ ? hre.ethers.provider : hre.network.provider;
-
-//   const res = await provider.send(FhevmMethod.FHEVM_GET_LAST_BLOCK_SNAPSHOT_FOR_DECRYPT);
-
-//   assert(typeof res === "number");
-
-//   return res;
-// }
-
-// // isHardhat && !solidityCoverageRunning
-// export async function sendFhevmSetLastBlockSnapshot(
-//   hre: HardhatRuntimeEnvironment,
-//   lastBlockSnapshot: number,
-// ): Promise<void> {
-//   // evm_snapshot is not supported in coverage mode
-//   assert(!isSolidityCoverageRunning(hre));
-
-//   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-//   const provider = __USE_ETHERS_PROVIDER__ ? hre.ethers.provider : hre.network.provider;
-
-//   const res = await provider.send(FhevmMethod.FHEVM_SET_LAST_BLOCK_SNAPSHOT, [lastBlockSnapshot]);
-
-//   assert(res === lastBlockSnapshot);
-// }
-
-// // isHardhat && !solidityCoverageRunning
-// export async function sendFhevmGetLastBlockSnapshot(
-//   hre: HardhatRuntimeEnvironment,
-// ): Promise<{ lastBlockSnapshot: number; lastCounterRand: number }> {
-//   // evm_snapshot is not supported in coverage mode
-//   assert(!isSolidityCoverageRunning(hre));
-
-//   // Using this.#hre.network.provider or this.#hre.ethers.provider ??
-//   const provider = __USE_ETHERS_PROVIDER__ ? hre.ethers.provider : hre.network.provider;
-
-//   const res = await provider.send(FhevmMethod.FHEVM_GET_LAST_BLOCK_SNAPSHOT);
-
-//   assert(Array.isArray(res));
-//   assert(res.length === 2);
-
-//   const lastBlockSnapshot = res[0];
-//   const lastCounterRand = res[1];
-
-//   assert(typeof lastBlockSnapshot === "number");
-//   assert(typeof lastCounterRand === "number");
-
-//   return {
-//     lastBlockSnapshot,
-//     lastCounterRand,
-//   };
-// }

@@ -10,6 +10,11 @@ import { assertHHFhevm } from "../error";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
+/**
+ * This function parses `/path/to/user-package/node_modules/@fhevm/solidity/config/FHEVMConfig.sol` file
+ * and replaces the addresses listed by the addresses used in the current mock FHEVM environment.
+ * @returns The absolute path to the generated `FHEVMConfig.sol`
+ */
 export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresses: FHEVMConfig): string {
   const dstPath = paths.cacheFHEVMConfigSol;
 

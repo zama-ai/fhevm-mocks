@@ -26,4 +26,6 @@ export { MockDecryptionOracle } from "./fhevm/decryptionOracle/MockDecryptionOra
 export { MockRelayerEncryptedInput } from "./fhevm/MockRelayerEncryptedInput.js";
 export { MockFhevmInstance } from "./fhevm/MockFhevmInstance.js";
 
+export { version } from "./_version.js";
+
 export { constants };

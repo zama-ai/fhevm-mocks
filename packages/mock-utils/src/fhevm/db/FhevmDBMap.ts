@@ -5,7 +5,7 @@ import { FhevmError } from "../../utils/error.js";
 import type { FhevmDB, FhevmDBEntry, FhevmDBHandleMetadata } from "./FhevmDB.js";
 import { checkInsertArgs, checkQueryArgs, fhevmDBEntryToString, stringToFhevmDBEntry } from "./utils.js";
 
-const __STRICT__: boolean = !true;
+const __STRICT__: boolean = false;
 
 export class FhevmDBMap implements FhevmDB {
   #handleBytes32HexToClearText: Map<string, string> | undefined;

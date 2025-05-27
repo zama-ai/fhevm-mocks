@@ -48,7 +48,7 @@ export type FhevmEnvironmentConfig = {
   DecryptionOracleReadOnly: EthersT.Contract;
   kmsSigners: EthersT.Signer[];
   coprocessorSigners: EthersT.Signer[];
-  inputVerifierVerifyingContractSource: string;
+  gatewayInputVerificationAddress: string;
   gatewayChainId: number;
   gatewayDecryptionAddress: string;
 };
@@ -280,11 +280,11 @@ export class FhevmEnvironment {
    * for input values
    * @returns InputVerification contract address
    */
-  public getInputVerifierVerifyingContractSource(): string {
+  public getGatewayInputVerificationAddress(): string {
     if (!this._config) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
-    return this._config.inputVerifierVerifyingContractSource;
+    return this._config.gatewayInputVerificationAddress;
   }
 
   /**
@@ -567,7 +567,7 @@ export class FhevmEnvironment {
   public async createInstance(): Promise<MockFhevmInstance> {
     return MockFhevmInstance.create(this.hre.ethers.provider, this.hre.ethers.provider, {
       verifyingContractAddressDecryption: this.getGatewayDecryptionAddress(),
-      verifyingContractAddressInputVerification: this.getInputVerifierVerifyingContractSource(),
+      verifyingContractAddressInputVerification: this.getGatewayInputVerificationAddress(),
       kmsContractAddress: this.getKMSVerifierAddress(),
       inputVerifierContractAddress: this.getInputVerifierAddress(),
       aclContractAddress: this.getACLAddress(),

@@ -1,9 +1,10 @@
 {
   "name": "@fhevm/hardhat-plugin",
-  "version": "1.0.0",
+  "version": "0.1.0-1",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "npm": ">=7.0.0"
   },
   "main": "./_cjs/index.js",
   "types": "./_types/index.d.ts",
@@ -73,7 +74,7 @@
     "coverage:mock": "SOLIDITY_COVERAGE=true hardhat coverage"
   },
   "peerDependencies": {
-    "@fhevm/mock-utils": "^1.0.0",
+    "@fhevm/mock-utils": "^0.1.0-1",
     "@fhevm/solidity": "^0.7.0-4",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",

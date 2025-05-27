@@ -14,7 +14,7 @@ import {
   getDecryptionOracleAddress,
   getGatewayChainId,
   getGatewayDecryptionAddress,
-  getInputVerifierVerifyingContractSource,
+  getGatewayInputVerificationAddress,
   getKMSThreshold,
 } from "./addresses";
 
@@ -134,13 +134,6 @@ export async function setupMockUsingCoreContractsArtifacts(
   const inputVerifierAddress = fhevmAddresses.FHEVMConfig.InputVerifierAddress;
   const fheGasLimitAddress = fhevmAddresses.FHEGasLimitAddress;
   const decryptionOracleAddress = getDecryptionOracleAddress();
-
-  // assert(aclAddress === constants.ACL_CONTRACT_ADDRESS);
-  // assert(FHEVMExecutorAddress === constants.FHEVM_EXECUTOR_CONTRACT_ADDRESS);
-  // assert(kmsVerifierAddress === constants.KMS_VERIFIER_CONTRACT_ADDRESS);
-  // assert(inputVerifierAddress === constants.INPUT_VERIFIER_CONTRACT_ADDRESS);
-  // assert(fheGasLimitAddress === constants.FHE_GASLIMIT_CONTRACT_ADDRESS);
-  // assert(decryptionOracleAddress === constants.DECRYPTION_ORACLE_ADDRESS);
 
   // Setup FHEVMExecutor
   const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
@@ -337,7 +330,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   const _kmsSigners: string[] = await kmsVerifierReadOnly.getKmsSigners();
   await assertSignersMatchAddresses(kmsSigners, _kmsSigners);
 
-  const inputVerifierVerifyingContractSource = getInputVerifierVerifyingContractSource();
+  const inputVerifierVerifyingContractSource = getGatewayInputVerificationAddress();
 
   // Setup Input Verifier
   // 1. transfer ownership
@@ -421,7 +414,7 @@ export async function setupMockUsingCoreContractsArtifacts(
     DecryptionOracleReadOnly: decryptionOracleReadOnly,
     kmsSigners,
     coprocessorSigners,
-    inputVerifierVerifyingContractSource: inputVerifierVerifyingContractSource,
+    gatewayInputVerificationAddress: inputVerifierVerifyingContractSource,
     gatewayChainId,
     gatewayDecryptionAddress: gatewayDecryptionAddress,
   };

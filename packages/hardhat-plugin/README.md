@@ -1,5 +1,1 @@
-# Install
-
-```sh
-npm install
-```
+# FHEVM hardhat plugin
