@@ -23,15 +23,26 @@ export class DecryptionOracleEventsHandler {
     decryptionRequestEvent: DecryptionRequestEvent,
   ): Promise<{ tx: EthersT.TransactionResponse; receipt: EthersT.TransactionReceipt | null }> {
     const clearTextsHex: string[] = [];
+    const handlesBytes32Hex: string[] = [];
     for (let i = 0; i < decryptionRequestEvent.handlesBytes32Hex.length; ++i) {
+      assertFhevm(
+        decryptionRequestEvent.blockNumber >= this.#db.fromBlockNumber,
+        `Unexpected event blockNumber: decryptionRequestEvent.blockNumber < this.#db.fromBlockNumber`,
+      );
+      // if (decryptionRequestEvent.blockNumber < this.#db.fromBlockNumber) {
+      //   // Ignore. This is an old decryption request. This usually occurs when running
+      //   // tests using Anvil
+      //   continue;
+      // }
       const entry = await this.#db.queryHandleBytes32(decryptionRequestEvent.handlesBytes32Hex[i]);
       // should have thrown an exception earlier
       assertFhevm(entry.clearTextHex !== "0x");
       clearTextsHex.push(entry.clearTextHex);
+      handlesBytes32Hex.push(decryptionRequestEvent.handlesBytes32Hex[i]);
     }
 
     const { calldata } = await computeDecryptionCallbackSignaturesAndCalldata(
-      decryptionRequestEvent.handlesBytes32Hex,
+      handlesBytes32Hex,
       clearTextsHex,
       decryptionRequestEvent.requestID,
       decryptionRequestEvent.callbackSelectorBytes4Hex,

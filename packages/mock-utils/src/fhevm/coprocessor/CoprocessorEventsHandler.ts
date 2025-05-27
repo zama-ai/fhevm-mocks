@@ -28,6 +28,18 @@ export class CoprocessorEventsHandler {
   }
 
   public async handleEvent(coprocessorEvent: CoprocessorEvent) {
+    // Should be properly handled by the event iterator
+    assertFhevm(
+      coprocessorEvent.blockNumber >= this.#db.fromBlockNumber,
+      "coprocessorEvent.blockNumber < this.#db.fromBlockNumber",
+    );
+    // if (coprocessorEvent.blockNumber < this.#db.fromBlockNumber) {
+    //   // ignore, the db exclusively contains handles generated from `firstBlockNumber` and above.
+    //   console.log(
+    //     `coprocessorEvent.blockNumber=${coprocessorEvent.blockNumber} < db.firstBlockNumber=${this.#db.fromBlockNumber}`,
+    //   );
+    //   return;
+    // }
     if (coprocessorEvent.eventName === "VerifyCiphertext") {
       await this.verifyCipherText(coprocessorEvent.args);
     } else {

@@ -15,11 +15,12 @@ export class CoprocessorEventsIterator {
     coprocessorContractInterface: EthersT.Interface,
     coprocessorContractAddress: string,
     readonlyProvider: EthersT.Provider,
+    fromBlockNumber: number,
   ) {
     this.#coprocessorContractInterface = coprocessorContractInterface;
     this.#coprocessorContractAddress = coprocessorContractAddress;
     this.#readonlyProvider = readonlyProvider;
-    this.#cursor = new BlockLogCursor();
+    this.#cursor = new BlockLogCursor(fromBlockNumber);
   }
 
   public async next(): Promise<CoprocessorEvent[]> {

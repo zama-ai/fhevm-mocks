@@ -120,17 +120,14 @@ export async function parseFhevmError(
 
   const kmsVerifierError = fhevmEnv.getKMSVerifierReadOnly().interface.parseError(errData.data);
   if (kmsVerifierError) {
-    console.log("KMS");
     return undefined;
   }
   const aclError = fhevmEnv.getACLReadOnly().interface.parseError(errData.data);
   if (aclError) {
-    console.log("ACL");
     return undefined;
   }
   const execError = fhevmEnv.getFHEVMExecutorReadOnly().interface.parseError(errData.data);
   if (execError) {
-    console.log("EXEC");
     return undefined;
   }
   const inputVerifierError = fhevmEnv.getInputVerifierReadOnly().interface.parseError(errData.data);
@@ -332,38 +329,65 @@ export async function mutateErrorInPlace(fhevmEnv: FhevmEnvironment, e: Error, a
  *    }
  *    message: string,
  * }
+ *
+ * or
+ *
+ * {
+ *    data: string
+ * }
  */
-export async function mutateProviderErrorInPlace(fhevmEnv: FhevmEnvironment, e: ProviderError) {
+export async function mutateProviderErrorInPlace(
+  fhevmEnv: FhevmEnvironment,
+  e: ProviderError,
+  txFromTo?: { from: string; to: string | null },
+) {
   if (!ProviderError.isProviderError(e)) {
     return;
   }
-
-  if (!("data" in e && typeof e.data === "object" && e.data)) {
-    return;
-  }
-  const providerErrorData = e.data;
-  if (!("message" in providerErrorData && "txHash" in providerErrorData && "data" in providerErrorData)) {
-    return;
-  }
-  if (
-    typeof providerErrorData.data !== "string" ||
-    typeof providerErrorData.message !== "string" ||
-    typeof providerErrorData.txHash !== "string"
-  ) {
-    return;
-  }
-  const dataBytesLike = providerErrorData.data;
-  if (!(EthersT.isBytesLike(dataBytesLike) && EthersT.isHexString(providerErrorData.txHash))) {
-    return;
-  }
-  if (
-    providerErrorData.message !==
-    `Error: VM Exception while processing transaction: reverted with an unrecognized custom error (return data: ${providerErrorData.data})`
-  ) {
+  if (!("data" in e)) {
     return;
   }
 
-  await __mutateFhevmErrorAndPrintBox(fhevmEnv, e, dataBytesLike, providerErrorData.txHash);
+  if (e.data === undefined || e.data === null) {
+    return;
+  }
+
+  let dataBytesLike: string;
+  let txHash: string | undefined = undefined;
+
+  if (typeof e.data === "string") {
+    dataBytesLike = e.data;
+  } else {
+    if (typeof e.data !== "object") {
+      return;
+    }
+    const providerErrorData = e.data;
+    if (!("message" in providerErrorData && "txHash" in providerErrorData && "data" in providerErrorData)) {
+      return;
+    }
+    if (
+      typeof providerErrorData.data !== "string" ||
+      typeof providerErrorData.message !== "string" ||
+      typeof providerErrorData.txHash !== "string"
+    ) {
+      return;
+    }
+    dataBytesLike = providerErrorData.data;
+
+    if (!(EthersT.isBytesLike(dataBytesLike) && EthersT.isHexString(providerErrorData.txHash))) {
+      return;
+    }
+
+    if (
+      providerErrorData.message !==
+      `Error: VM Exception while processing transaction: reverted with an unrecognized custom error (return data: ${providerErrorData.data})`
+    ) {
+      return;
+    }
+
+    txHash = providerErrorData.txHash;
+  }
+  await __mutateFhevmErrorAndPrintBox(fhevmEnv, e, dataBytesLike, txHash, txFromTo);
 }
 
 async function __mutateFhevmErrorAndPrintBox(
@@ -371,9 +395,9 @@ async function __mutateFhevmErrorAndPrintBox(
   e: { message: string },
   dataBytesLike: BytesLike,
   txHash?: string,
-  tx?: { from: string; to: string | null },
+  txFromTo?: { from: string; to: string | null },
 ) {
-  const msgs = await __formatFhevmErrorMessages(fhevmEnv, dataBytesLike, txHash, tx);
+  const msgs = await __formatFhevmErrorMessages(fhevmEnv, dataBytesLike, txHash, txFromTo);
   if (!msgs) {
     return;
   }
@@ -392,7 +416,7 @@ async function __formatFhevmErrorMessages(
   fhevmEnv: FhevmEnvironment,
   dataBytesLike: BytesLike,
   txHash?: string,
-  tx?: { from: string; to: string | null },
+  txFromTo?: { from: string; to: string | null },
 ): Promise<FhevmErrorMessages | undefined> {
   const map = fhevmEnv.getFHEVMContractsMap();
   const res: {
@@ -403,12 +427,16 @@ async function __formatFhevmErrorMessages(
   }[] = [];
 
   Object.keys(map).forEach((key) => {
-    const errorDesc = map[key].contract.interface.parseError(dataBytesLike);
-    if (errorDesc) {
-      res.push({
-        ...map[key],
-        errorDesc,
-      });
+    try {
+      const errorDesc = map[key].contract.interface.parseError(dataBytesLike);
+      if (errorDesc) {
+        res.push({
+          ...map[key],
+          errorDesc,
+        });
+      }
+    } catch {
+      console.log("PROBLEMOS!");
     }
   });
 
@@ -431,11 +459,11 @@ async function __formatFhevmErrorMessages(
       resolvedTx.to = _tx.to;
     }
   } else {
-    if (tx?.from) {
-      resolvedTx.from = tx.from;
+    if (txFromTo?.from) {
+      resolvedTx.from = txFromTo.from;
     }
-    if (tx?.to) {
-      resolvedTx.to = tx.to;
+    if (txFromTo?.to) {
+      resolvedTx.to = txFromTo.to;
     }
   }
 

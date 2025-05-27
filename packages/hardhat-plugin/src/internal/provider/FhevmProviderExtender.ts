@@ -146,9 +146,19 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
       return increasedGasLimit;
     } catch (e) {
+      const fhevmEnv = fhevmContext.get();
+
+      let tx: { from: string; to: string } | undefined = undefined;
+      if (args.params !== undefined && Array.isArray(args.params) && args.params.length > 0) {
+        const p = args.params[0];
+        if (typeof p.from === "string" && typeof p.to === "string") {
+          tx = { from: p.from, to: p.to };
+        }
+      }
+
       // This is happening when using Metamask + Hardhat node
       // TODO: should display a human readable error
-      console.log("ERROR in eth_estimateGas");
+      await mutateProviderErrorInPlace(fhevmEnv, e as unknown as ProviderError, tx);
       throw e;
     }
   }

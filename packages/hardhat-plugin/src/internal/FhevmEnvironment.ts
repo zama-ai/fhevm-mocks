@@ -519,9 +519,10 @@ export class FhevmEnvironment {
      CREATED if : network === hardhat (inside hardhat node or hardhat runner) or ANVIL or TESTNET ?
     */
     if (this.useEmbeddedMockEngine) {
+      const blockNumber = await this.hre.ethers.provider.getBlockNumber();
       //const db = new MockFhevmSQLDatabase();
       const db = new FhevmDBMap();
-      await db.init();
+      await db.init(blockNumber);
 
       // To be improved (called twice at least...)
       const inputVerifier = await contracts.InputVerifier.create(

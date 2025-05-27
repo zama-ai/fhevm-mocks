@@ -122,10 +122,13 @@ describe("TestAsyncDecrypt", function () {
   //   }
   // });
 
-  it("BBB Debug test async decrypt uint16 using fhevm.debugger.createDecryptionSignatures", async function () {
+  it("Debug test async decrypt uint16 using fhevm.debugger.createDecryptionSignatures", async function () {
     const tx = await contract.connect(signers.carol).requestUint16();
     await tx.wait();
     const xUint16 = await contract.getXUint16();
+    // if test fails in Anvil, this means that requestIDs are probably not in sync.
+    // An old test has been executed and the chain is not in sync with the current test.
+    // Restart anvil.
     const signatures = await hre.fhevm.debugger.createDecryptionSignatures([xUint16], [16n]);
     await contract.callbackUint16(0, 16, signatures);
     const y = await contract.yUint16();
@@ -382,7 +385,7 @@ describe("TestAsyncDecrypt", function () {
     expect(y).to.equal(someHex256);
   });
 
-  it("BBB test async decrypt ebytes256 non-trivial with snapshot [skip-on-coverage]", async function () {
+  it("test async decrypt ebytes256 non-trivial with snapshot [skip-on-coverage]", async function () {
     if (hre.network.name === "hardhat" || hre.network.name === "localCoprocessorL1") {
       const snapshotId = await hre.ethers.provider.send("evm_snapshot");
       const inputAlice = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
@@ -434,8 +437,6 @@ describe("TestAsyncDecrypt", function () {
     await hre.fhevm.awaitDecryptionOracle();
     const y = await contract.yBytes64();
     expect(y).to.equal(hre.ethers.toBeHex(BigInt("0x78685689"), 64));
-
-    console.log(signers.alice.address);
 
     const dummySig =
       "0x0a2c9b9dc10f296331f223a9ce6c859e332fff6fc8143462200c66f368cfb7f7432ace062b2381fc8071d89f01f0e38748da641fa8433fc24c8ff6fec9e321bd1b";

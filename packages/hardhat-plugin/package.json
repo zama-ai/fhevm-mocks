@@ -39,7 +39,6 @@
     "@typechain/hardhat": "^9.1.0",
     "@types/debug": "^4.1.12",
     "@types/resolve": "^1.20.6",
-    "@zama-fhe/relayer-sdk": "^0.1.0-1",
     "chai": "^4.5.0",
     "chai-as-promised": "^8.0.1",
     "cross-env": "^7.0.3",
@@ -70,6 +69,7 @@
     "compile": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat compile",
     "test": "HARDHAT_NETWORK=hardhat npx hardhat test",
     "test:node": "HARDHAT_NETWORK=localhost npx hardhat test",
+    "test:anvil": "HARDHAT_NETWORK=anvil npx hardhat test",
     "coverage:mock": "SOLIDITY_COVERAGE=true hardhat coverage"
   },
   "peerDependencies": {
@@ -78,7 +78,7 @@
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@zama-fhe/oracle-solidity": "^0.0.4-0",
-    "@zama-fhe/relayer-sdk": "^0.1.0-1",
+    "@zama-fhe/relayer-sdk": "^0.1.0-2",
     "ethers": "^6.1.0",
     "hardhat": "^2.0.0"
   }

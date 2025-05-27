@@ -604,7 +604,7 @@ describe("ConfidentialGovernorAlpha", function () {
     );
   });
 
-  it("AAA proposer cannot make a new proposal while he still has an already pending or active proposal", async function () {
+  it("proposer cannot make a new proposal while he still has an already pending or active proposal", async function () {
     const targets = [signers.bob.address];
     const values = ["0"];
     const signatures = ["getBalanceOf(address)"];
@@ -629,7 +629,7 @@ describe("ConfidentialGovernorAlpha", function () {
     ).to.be.revertedWithCustomError(governor, "ProposerHasAnotherProposal");
   });
 
-  it("AAA cannot queue twice or execute before queuing", async function () {
+  it("cannot queue twice or execute before queuing", async function () {
     const targets = [signers.bob.address];
     const values = ["0"];
     const signatures = ["getBalanceOf(address)"];

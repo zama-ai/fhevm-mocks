@@ -80,7 +80,13 @@ export class BlockLogCursor {
   #blockNumber: number = -1;
   #blockLogIndex: number = -1;
 
-  constructor() {}
+  constructor(fromBlockNumber: number) {
+    // We want the next block number to be `fromBlockNumber`
+    // This usually happens when running tests in Anvil. The node is running with
+    // plenty of old handles. So we need to start parsing events at a specific block number.
+    // All events prior to this block number should be ignored
+    this.#blockNumber = fromBlockNumber <= 0 ? -1 : fromBlockNumber - 1;
+  }
 
   static check(blockNumber: number, blockLogIndex: number) {
     if (blockNumber < 0 || blockLogIndex < 0) {

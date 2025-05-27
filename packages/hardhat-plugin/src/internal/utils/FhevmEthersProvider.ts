@@ -155,6 +155,11 @@ export class FhevmEthersProvider {
 
     if (this.info.type === FhevmEthersProviderType.Anvil) {
       const jsonRpcProvider = new EthersT.JsonRpcProvider(this.info.url);
+      // In dev mode, speedup anvil tx processing by increasing polling frequency.
+      // There is a difference between anvil and HH node. HH node process a tx instantly and tx.wait()
+      // returns instantly. However anvil process the tx slighly later, therefore the first poll fails and
+      // we have to wait for the next poll (4s later by default) to get the tx confirmation.
+      jsonRpcProvider.pollingInterval = 100;
       return await jsonRpcProvider.getSigner(address);
     } else if (this.isHardhatWeb3Client) {
       return await hre.ethers.getSigner(address);
