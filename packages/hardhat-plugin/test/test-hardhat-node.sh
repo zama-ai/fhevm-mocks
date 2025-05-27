@@ -34,12 +34,12 @@ if [ $ATTEMPTS -eq $TIMEOUT_SECONDS ]; then
     exit 1
 fi
 
-# --- Run Vitest tests ---
-echo "--- Running Vitest tests against external Hardhat Node ---"
-npm run test:node || true # This runs 'vitest run' without watch mode
+# --- Run tests ---
+echo "--- Running tests against external Hardhat Node ---"
+npm run test:node || true
 
-# Capture the exit code of the Vitest run
-VITEST_EXIT_CODE=$?
+# Capture the test exit code 
+TEST_EXIT_CODE=$?
 
 # --- Kill Hardhat Node ---
 echo "--- Killing Hardhat Node (PID: $HARDHAT_PID) ---"
@@ -52,6 +52,5 @@ if ps -p $HARDHAT_PID > /dev/null; then
     wait $HARDHAT_PID || true # wait for process to finish, ignore errors
 fi
 
-# Exit with the same exit code as the Vitest tests
-# This ensures CI/CD pipelines fail if tests fail
-exit "$VITEST_EXIT_CODE"
+# Exit with the same exit code 
+exit "$TEST_EXIT_CODE"

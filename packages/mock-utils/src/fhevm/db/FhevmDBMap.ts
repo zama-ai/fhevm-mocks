@@ -9,8 +9,9 @@ const __STRICT__: boolean = !true;
 
 export class FhevmDBMap implements FhevmDB {
   #handleBytes32HexToClearText: Map<string, string> | undefined;
-  #counter: BlockLogCursor = new BlockLogCursor();
+  #counter: BlockLogCursor | undefined;
   #randomCounter: number = 0;
+  #fromBlockNumber: number = -1;
 
   public constructor() {}
 
@@ -20,6 +21,10 @@ export class FhevmDBMap implements FhevmDB {
 
   get randomCounter(): number {
     return this.#randomCounter;
+  }
+
+  get fromBlockNumber(): number {
+    return this.#fromBlockNumber;
   }
 
   get countHandles(): number {
@@ -36,10 +41,12 @@ export class FhevmDBMap implements FhevmDB {
     return this.#handleBytes32HexToClearText;
   }
 
-  public async init(): Promise<boolean> {
+  public async init(fromBlockNumber: number): Promise<boolean> {
     if (this.#handleBytes32HexToClearText) {
       throw new FhevmError(`FhevmDB already initialized`);
     }
+    this.#fromBlockNumber = fromBlockNumber;
+    this.#counter = new BlockLogCursor(fromBlockNumber);
     this.#handleBytes32HexToClearText = new Map();
     return true;
   }
@@ -57,6 +64,9 @@ export class FhevmDBMap implements FhevmDB {
     metadata: FhevmDBHandleMetadata,
     options?: { replace?: boolean },
   ): Promise<void> {
+    if (!this.#counter) {
+      throw new FhevmError(`FhevmDB not yet initialized`);
+    }
     const map: Map<string, string> = this._get();
     if (__STRICT__) {
       if (options?.replace !== true) {

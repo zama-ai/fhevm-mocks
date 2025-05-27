@@ -44,7 +44,7 @@ export async function getCoprocessorEvents(
 
   const logs = await readonlyProvider.getLogs(filter);
 
-  const cursor = new BlockLogCursor();
+  const cursor = new BlockLogCursor(-1);
   const events: CoprocessorEvent[] = logs
     .map((log) => {
       try {

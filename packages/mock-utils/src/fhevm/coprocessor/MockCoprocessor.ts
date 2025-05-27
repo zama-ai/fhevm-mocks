@@ -29,6 +29,7 @@ export class MockCoprocessor implements Coprocessor {
       coprocessorContractInterface,
       coprocessorContractAddress,
       readonlyProvider,
+      db.fromBlockNumber,
     );
     this.#handler = new CoprocessorEventsHandler(db);
     this.#db = db;

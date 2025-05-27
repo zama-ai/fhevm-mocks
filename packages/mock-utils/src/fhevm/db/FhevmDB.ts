@@ -10,7 +10,7 @@ export type FhevmDBEntry = {
 };
 
 export interface FhevmDB {
-  init(): Promise<boolean>;
+  init(fromBlockNumber: number): Promise<boolean>;
   get countHandles(): number;
   tryInsertHandleBytes32(
     handleBytes32Hex: string,
@@ -33,4 +33,5 @@ export interface FhevmDB {
   reset(): Promise<void>;
   incRand(): void;
   get randomCounter(): number;
+  get fromBlockNumber(): number;
 }

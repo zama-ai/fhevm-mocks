@@ -12,11 +12,16 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 22.x
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
       - run: npm ci
       - run: npm run prettier:check
       - run: npm run lint
       - run: npm run build
       - run: npm test
+      - run: npm test:node
+      - run: npm test:anvil
       - uses: JS-DevTools/npm-publish@19c28f1ef146469e409470805ea4279d47c3d35c # v3.1.1
         with:
           token: ${{ secrets.NPM_TOKEN }}
