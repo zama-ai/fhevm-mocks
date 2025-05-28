@@ -5,6 +5,9 @@ import { FhevmProvider } from "../../types";
 
 export async function anvilNodeInfo(provider: FhevmProvider) {
   const res = await provider.send("anvil_nodeInfo", []);
+  console.log("---------- anvilNodeInfo -----------");
+  console.log(JSON.stringify(res, null, 2));
+  console.log("------------------------------------");
   return res;
 }
 
