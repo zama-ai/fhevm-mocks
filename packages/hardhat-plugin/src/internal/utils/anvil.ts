@@ -4,8 +4,8 @@ import { ProviderError } from "hardhat/internal/core/providers/errors";
 import { FhevmProvider } from "../../types";
 
 export async function anvilNodeInfo(provider: FhevmProvider) {
-  const res = await provider.send("anvil_nodeInfo", []);
   console.log("---------- anvilNodeInfo -----------");
+  const res = await provider.send("anvil_nodeInfo", []);
   console.log(JSON.stringify(res, null, 2));
   console.log("------------------------------------");
   return res;
@@ -27,6 +27,9 @@ export async function isAnvilProvider(networkName: string, provider: FhevmProvid
     }
     return true;
   } catch (e) {
+    console.log("----------- ERROR -------------------------");
+    console.log(e);
+
     if (ProviderError.isProviderError(e)) {
       if (e.code === -32004) {
         return false;
