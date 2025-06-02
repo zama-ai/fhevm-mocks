@@ -64,11 +64,14 @@ sleep 1
 
 echo "--- Starting Anvil in background ---"
 # Start Anvil in the background
-anvil &> /dev/null &
+# anvil &> /dev/null &
+anvil > anvil.log 2>&1 &
 ANVIL_PID=$! # Get the PID of the background process
 sleep 2
 
 echo "Anvil started with PID: $ANVIL_PID. Waiting for it to be ready..."
+
+cat anvil.log
 
 # --- Wait for Anvil to be ready ---
 ATTEMPTS=0
