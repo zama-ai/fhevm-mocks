@@ -50,13 +50,14 @@ kill "$HARDHAT_PID"
 
 # Wait for the process to actually terminate
 # This might not be strictly necessary, but good practice
-if ps -p $HARDHAT_PID > /dev/null; then
-    echo "Waiting for Hardhat Node to terminate..."
-    wait $HARDHAT_PID || true # wait for process to finish, ignore errors
-fi
+# if ps -p $HARDHAT_PID > /dev/null; then
+#     echo "Waiting for Hardhat Node to terminate..."
+#     wait $HARDHAT_PID || true # wait for process to finish, ignore errors
+# fi
 
 echo "Checking Hardhat node PID is killed 2"
-ps -p $HARDHAT_PID || true
+wait "$HARDHAT_PID" 2>/dev/null || true
+sleep 1
 
 ########################################################################
 
