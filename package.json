@@ -1,6 +1,7 @@
 {
   "name": "root",
   "private": true,
+  "version": "0.0.0",
   "workspaces": [
     "packages/mock-utils",
     "packages/mock-utils/src",
@@ -34,7 +35,7 @@
   },
   "scripts": {
     "prepare": "npm run build",
-    "version": "VERSION=$(npm pkg get version | tr -d '\"') && echo $VERSION",
+    "version": "cd ./scripts && ./bump-version.sh",
     "genversion:utils": "cd packages/mock-utils/scripts && node ./generate-version.cjs",
     "build": "npm run build:utils && npm run build:hh",
     "build:hh": "cd packages/hardhat-plugin && npm run build",
