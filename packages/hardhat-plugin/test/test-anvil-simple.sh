@@ -42,6 +42,9 @@ fi
 echo "Checking Hardhat node PID"
 ps -p $HARDHAT_PID
 
+echo "--- Request Hardhat Node web3_clientVersion ---"
+curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' "$HARDHAT_NODE_URL"
+
 echo "--- Killing Hardhat Node (PID: $HARDHAT_PID) ---"
 kill "$HARDHAT_PID"
 
@@ -76,6 +79,9 @@ while [ $ATTEMPTS -lt $TIMEOUT_SECONDS ]; do
     sleep "$CHECK_INTERVAL_SECONDS"
     ATTEMPTS=$((ATTEMPTS+1))
 done
+
+echo "--- Request Hardhat Node web3_clientVersion ---"
+curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' "$ANVIL_URL"
 
 if [ $ATTEMPTS -eq $TIMEOUT_SECONDS ]; then
     echo "Error: Anvil did not start within $TIMEOUT_SECONDS seconds."
