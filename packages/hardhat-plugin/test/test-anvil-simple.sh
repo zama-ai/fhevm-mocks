@@ -11,6 +11,8 @@ CHECK_INTERVAL_SECONDS=1 # How often to poll the node
 
 ########################################################################
 
+HARDHAT_NODE_URL="http://${ANVIL_HOST}:${ANVIL_PORT}"
+
 echo "--- Starting Hardhat Node in background ---"
 # Start Hardhat Node in the background, redirecting output to a log file
 # Or /dev/null if you want to suppress all output from the node itself
