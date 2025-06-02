@@ -44,6 +44,7 @@
     "prettier:write": "prettier --config ./.prettierrc.yml --write \"**/*.{js,json,md,sol,ts,yml}\"",
     "test": "npm run test --workspaces --if-present",
     "test:node": "cd ./packages/hardhat-plugin/test && ./test-hardhat-node.sh",
-    "test:anvil": "cd ./packages/hardhat-plugin/test && ./test-anvil.sh"
+    "test:anvil": "cd ./packages/hardhat-plugin/test && ./test-anvil.sh",
+    "test:anvilsimple": "cd ./packages/hardhat-plugin/test && ./test-anvil-simple.sh"
   }
 }
