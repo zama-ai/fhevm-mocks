@@ -17,7 +17,7 @@ jobs:
           node-version: 22.x
       - uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
         with:
-          version: nightly
+          version: stable
       - run: npm ci
       - run: npm run prettier:check
       - run: npm run lint

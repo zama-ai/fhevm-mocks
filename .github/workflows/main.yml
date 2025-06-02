@@ -1,7 +1,9 @@
-name: Manual Test
+name: Main
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build-and-test:
