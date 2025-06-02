@@ -1,4 +1,4 @@
-name: Manual Test
+name: Manual Minimal Anvil Only Test
 
 on:
   workflow_dispatch:
