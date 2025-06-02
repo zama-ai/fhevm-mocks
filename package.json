@@ -34,7 +34,8 @@
   },
   "scripts": {
     "prepare": "npm run build",
-    "version": "cd packages/mock-utils/scripts && node ./generate-version.cjs",
+    "version": "VERSION=$(npm pkg get version | tr -d '\"') && cd packages/mock-utils && npm version $VERSION --no-git-tag-version && npm run genversion:utils",
+    "genversion:utils": "cd packages/mock-utils/scripts && node ./generate-version.cjs",
     "build": "npm run build:utils && npm run build:hh",
     "build:hh": "cd packages/hardhat-plugin && npm run build",
     "build:utils": "cd packages/mock-utils && npm run build",
