@@ -10,4 +10,4 @@ const out = `export const version: string = "${version}";\n`;
 const outputPath = path.resolve(__dirname, "../src/_version.ts");
 fs.writeFileSync(outputPath, out);
 
-console.log("✅ Generated src/_version.ts");
+console.log(`✅ Generated ${outputPath}`);

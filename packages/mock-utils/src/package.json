@@ -1,7 +1,6 @@
 {
   "name": "@fhevm/mock-utils",
   "description": "FHEVM mock library",
-  "version": "0.1.0-1",
   "type": "module",
   "main": "./_cjs/index.js",
   "module": "./_esm/index.js",
@@ -76,5 +75,6 @@
     "wallet",
     "web3",
     "typescript"
-  ]
+  ],
+  "version": "0.0.0"
 }
