@@ -428,13 +428,9 @@ export class FhevmEnvironment {
   }
 
   public async minimalInit(): Promise<void> {
-    console.log("enter minimalInit...");
     if (this._fhevmEthersProvider === undefined) {
-      console.log("minimal init...");
       this._fhevmEthersProvider = await FhevmEthersProvider.create(this.hre);
-      console.log("minimal init done");
     }
-    console.log("exit minimalInit...");
   }
 
   private async _createSigners(): Promise<FhevmSigners> {
