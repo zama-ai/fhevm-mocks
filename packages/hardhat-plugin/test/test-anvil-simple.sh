@@ -53,7 +53,7 @@ if ps -p $HARDHAT_PID > /dev/null; then
 fi
 
 echo "Checking Hardhat node PID is killed 2"
-ps -p $HARDHAT_PID
+ps -p $HARDHAT_PID || true
 
 ########################################################################
 
