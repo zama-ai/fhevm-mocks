@@ -71,7 +71,7 @@
     "test": "HARDHAT_NETWORK=hardhat npx hardhat test",
     "test:node": "HARDHAT_NETWORK=localhost npx hardhat test",
     "test:anvil": "HARDHAT_NETWORK=anvil npx hardhat test",
-    "test:anvilsimple": "HARDHAT_NETWORK=anvil npx hardhat test --grep TestAsync",
+    "test:anvilsimple": "HARDHAT_NETWORK=anvil npx hardhat test",
     "coverage:mock": "SOLIDITY_COVERAGE=true hardhat coverage"
   },
   "peerDependencies": {
