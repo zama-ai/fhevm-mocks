@@ -9,8 +9,7 @@ TIMEOUT_SECONDS=60 # Max time to wait for Anvil to start
 CHECK_INTERVAL_SECONDS=1 # How often to poll the node
 
 echo "--- Starting Anvil in background ---"
-# Start Anvil in the background, redirecting output to a log file
-# Or /dev/null if you want to suppress all output from the node itself
+# Start Anvil in the background
 anvil &> /dev/null &
 ANVIL_PID=$! # Get the PID of the background process
 
