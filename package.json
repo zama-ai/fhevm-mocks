@@ -1,7 +1,8 @@
 {
   "name": "root",
   "private": true,
-  "version": "0.0.0",
+  "license": "BSD-3-Clause-Clear",
+  "version": "0.0.1-0",
   "workspaces": [
     "packages/mock-utils",
     "packages/mock-utils/src",
