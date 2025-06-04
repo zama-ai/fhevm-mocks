@@ -1,8 +1,8 @@
 <p align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-hardhat-plugin/main/assets/fhevm-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-hardhat-plugin/main/assets/fhevm-light.png">
-  <img src="https://raw.githubusercontent.com/zama-ai/fhevm-hardhat-plugin/main/assets/fhevm-light.png" width="600" alt="fhevm">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-light.png">
+  <img src="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-light.png" width="600" alt="fhevm">
 </picture>
 </p>
 
@@ -13,9 +13,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zama-ai/fhevm-hardhat-plugin/releases">
-    <img src="https://img.shields.io/github/v/release/zama-ai/fhevm-hardhat-plugin?style=flat-square"></a>
-  <a href="https://github.com/zama-ai/fhevm-hardhat-plugin/blob/main/LICENSE">
+  <a href="https://github.com/zama-ai/fhevm-mocks/releases">
+    <img src="https://img.shields.io/github/v/release/zama-ai/fhevm-mocks?style=flat-square"></a>
+  <a href="https://github.com/zama-ai/fhevm-mocks/blob/main/LICENSE">
     <!-- markdown-link-check-disable-next-line -->
     <img src="https://img.shields.io/badge/License-BSD--3--Clause--Clear-%23ffb243?style=flat-square"></a>
   <a href="https://github.com/zama-ai/bounty-program">

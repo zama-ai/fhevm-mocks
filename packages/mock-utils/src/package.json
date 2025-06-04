@@ -61,10 +61,10 @@
     }
   },
   "license": "BSD-3-Clause-Clear",
-  "homepage": "https://github.com/zama-ai/fhevm-hardhat-plugin#readme",
+  "homepage": "https://github.com/zama-ai/fhevm-mocks#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zama-ai/fhevm-hardhat-plugin.git"
+    "url": "git+https://github.com/zama-ai/fhevm-mocks.git"
   },
   "keywords": [
     "fhevm",
