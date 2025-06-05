@@ -147,7 +147,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   // Call reinitialize ?
-  console.log("TODO FHEVMExecutor.reinitialize is missing!");
+  // console.log("TODO FHEVMExecutor.reinitialize is missing!");
 
   // Retrieve precompiled FHE addresses using FHEVMExecutor.
   const fhevmExecutorReadOnly = new EthersT.Contract(
@@ -231,8 +231,8 @@ export async function setupMockUsingCoreContractsArtifacts(
     ethersProvider.provider,
   );
 
-  console.log("TODO ACL.reinitialize is missing!");
-  console.log("TODO FHEGasLimit.reinitialize is missing!");
+  // console.log("TODO ACL.reinitialize is missing!");
+  // console.log("TODO FHEGasLimit.reinitialize is missing!");
 
   // aclFHEVMExecutorAddress = ACL.getFHEVMExecutorAddress();
   const aclFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(aclReadOnly, "ACL", aclAddress);
