@@ -61,7 +61,7 @@
     }
   },
   "license": "BSD-3-Clause-Clear",
-  "homepage": "https://github.com/zama-ai/fhevm-mocks#readme",
+  "homepage": "https://github.com/zama-ai/fhevm-mocks/blob/main/packages/mock-utils/src/README.md",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zama-ai/fhevm-mocks.git"
