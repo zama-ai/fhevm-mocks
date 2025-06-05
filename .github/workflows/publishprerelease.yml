@@ -1,3 +1,5 @@
+name: Publish Pre-release
+
 on:
   release:
     types: [prereleased]
