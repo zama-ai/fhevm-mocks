@@ -80,15 +80,15 @@
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@zama-fhe/oracle-solidity": "^0.0.4-0",
-    "@zama-fhe/relayer-sdk": "^0.1.0-2",
+    "@zama-fhe/relayer-sdk": "^0.1.0-4",
     "ethers": "^6.1.0",
     "hardhat": "^2.0.0"
   },
   "license": "BSD-3-Clause-Clear",
-  "homepage": "https://github.com/zama-ai/fhevm-hardhat-plugin#readme",
+  "homepage": "https://github.com/zama-ai/fhevm-mocks/blob/main/packages/hardhat-plugin/README.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zama-ai/fhevm-hardhat-plugin.git"
+    "url": "git+https://github.com/zama-ai/fhevm-mocks.git"
   },
   "keywords": [
     "fhevm",
