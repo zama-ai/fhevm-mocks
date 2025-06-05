@@ -80,7 +80,7 @@
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@zama-fhe/oracle-solidity": "^0.0.4-0",
-    "@zama-fhe/relayer-sdk": "^0.1.0-2",
+    "@zama-fhe/relayer-sdk": "^0.1.0-4",
     "ethers": "^6.1.0",
     "hardhat": "^2.0.0"
   },

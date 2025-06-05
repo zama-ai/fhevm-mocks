@@ -15,7 +15,7 @@ const constants = {
   KMS_THRESHOLD: 1,
   INPUT_VERIFICATION_ADDRESS: "0x812b06e1CDCE800494b79fFE4f925A504a9A9810",
   FHEVM_HANDLE_VERSION: 0,
-  HARDHAT_PLUGIN_NAME: "hardhat-fhevm",
+  HARDHAT_PLUGIN_NAME: "@fhevm/hardhat-plugin",
   FHEVM_CORE_CONTRACTS_PACKAGE_NAME: "@fhevm/core-contracts",
   ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME: "@zama-fhe/oracle-solidity",
   FHEVM_SOLIDITY_PACKAGE_NAME: "@fhevm/solidity",
