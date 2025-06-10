@@ -135,6 +135,13 @@ export class FhevmEnvironment {
    * Constructor must be ultra-lightweight!
    */
   constructor(hre: HardhatRuntimeEnvironment) {
+    //
+    // Important node:
+    // ===============
+    // - calling `import { fhevm } from "hardhat"` does NOT call the `FhevmEnvironment` constructor
+    // - since we are overriding the "hardhat test" command, the `FhevmEnvironment` is created
+    //   in our builtin-task.ts/task(TASK_TEST, ...) command.
+    //
     FhevmEnvironment._idCount++;
     this._id = FhevmEnvironment._idCount;
 

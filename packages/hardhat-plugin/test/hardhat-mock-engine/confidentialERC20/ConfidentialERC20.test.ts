@@ -1,6 +1,8 @@
 import { utils } from "@fhevm/mock-utils";
 import { expect } from "chai";
 import * as hre from "hardhat";
+// test using 'fhevm' environment extension via `import { fhevm } from "hardhat";`
+import { fhevm } from "hardhat";
 
 import { TestConfidentialERC20Mintable } from "../../../typechain-types";
 import { Signers, getSigners, initSigners } from "../signers";
@@ -35,7 +37,8 @@ describe("ConfidentialERC20", function () {
     expect(await confidentialERC20.symbol()).to.equal("NARA");
     expect(await confidentialERC20.decimals()).to.be.eq(BigInt(6));
 
-    await hre.fhevm.assertCoprocessorInitialized(confidentialERC20, "TestConfidentialERC20Mintable");
+    // test using 'fhevm' environment extension via `import { fhevm } from "hardhat";`
+    await fhevm.assertCoprocessorInitialized(confidentialERC20, "TestConfidentialERC20Mintable");
   });
 
   it("should mint the contract", async function () {
