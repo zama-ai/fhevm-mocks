@@ -2,7 +2,9 @@ import { ethers as EthersT } from "ethers";
 
 import { multiSignEIP712 } from "../../ethers/eip712.js";
 import { assertIsBytes32String } from "../../utils/bytes.js";
+import { assertFhevm } from "../../utils/error.js";
 import { removePrefix } from "../../utils/string.js";
+import { FHEVMExecutorPartialInterface } from "../contracts/FHEVMExecutor.itf.js";
 import { InputVerifier } from "../contracts/InputVerifier.js";
 import type { FhevmDB, FhevmDBHandleMetadata } from "../db/FhevmDB.js";
 import type { Coprocessor } from "./Coprocessor.js";
@@ -11,33 +13,48 @@ import { CoprocessorEventsHandler } from "./CoprocessorEventsHandler.js";
 import { CoprocessorEventsIterator } from "./CoprocessorEventsIterator.js";
 
 export class MockCoprocessor implements Coprocessor {
-  #iterator: CoprocessorEventsIterator;
-  #handler: CoprocessorEventsHandler;
-  #db: FhevmDB;
-  #coprocessorSigners: EthersT.Signer[];
-  #inputVerifier: InputVerifier;
+  #iterator: CoprocessorEventsIterator | undefined;
+  #handler: CoprocessorEventsHandler | undefined;
+  #db: FhevmDB | undefined;
+  #coprocessorSigners: EthersT.Signer[] | undefined;
+  #inputVerifier: InputVerifier | undefined;
 
-  constructor(
-    coprocessorContractInterface: EthersT.Interface,
-    coprocessorContractAddress: string,
+  constructor() {}
+
+  public static async create(
     readonlyProvider: EthersT.Provider,
-    db: FhevmDB,
-    inputVerifier: InputVerifier,
-    coprocessorSigners: EthersT.Signer[],
-  ) {
-    this.#iterator = new CoprocessorEventsIterator(
-      coprocessorContractInterface,
-      coprocessorContractAddress,
+    params: {
+      coprocessorContractAddress: string;
+      coprocessorContractInterface?: EthersT.Interface;
+      coprocessorSigners: EthersT.Signer[];
+      inputVerifierContractAddress: string;
+      db: FhevmDB;
+    },
+  ): Promise<MockCoprocessor> {
+    const mc = new MockCoprocessor();
+    const coprocessorItf = params.coprocessorContractInterface ?? FHEVMExecutorPartialInterface;
+    mc.#iterator = new CoprocessorEventsIterator(
+      coprocessorItf,
+      params.coprocessorContractAddress,
       readonlyProvider,
-      db.fromBlockNumber,
+      params.db.fromBlockNumber,
     );
-    this.#handler = new CoprocessorEventsHandler(db);
-    this.#db = db;
-    this.#inputVerifier = inputVerifier;
-    this.#coprocessorSigners = coprocessorSigners;
+    mc.#handler = new CoprocessorEventsHandler(params.db);
+    mc.#db = params.db;
+    mc.#inputVerifier = await InputVerifier.create(readonlyProvider, params.inputVerifierContractAddress);
+    mc.#coprocessorSigners = params.coprocessorSigners;
+    return mc;
+  }
+
+  public getDB(): FhevmDB {
+    assertFhevm(this.#db !== undefined, `MockCoprocessor not initialized`);
+    return this.#db;
   }
 
   public async awaitCoprocessor() {
+    assertFhevm(this.#iterator !== undefined, `MockCoprocessor not initialized`);
+    assertFhevm(this.#handler !== undefined, `MockCoprocessor not initialized`);
+
     // Warning test: solidityCoverageRunning
     const events: CoprocessorEvent[] = await this.#iterator.next();
     for (let i = 0; i < events.length; ++i) {
@@ -46,6 +63,8 @@ export class MockCoprocessor implements Coprocessor {
   }
 
   public async clearHandleDB() {
+    assertFhevm(this.#db !== undefined, `MockCoprocessor not initialized`);
+
     // Call awaitCoprocessor() to flush yet unprocessed events
     // This is critical otherwise we might have to process input handles that are
     // no more in the db. This is a scenario that randomly occurs between 2 reset
@@ -59,10 +78,14 @@ export class MockCoprocessor implements Coprocessor {
   }
 
   public async insertHandleBytes32(handleBytes32Hex: string, clearTextHex: string, metadata: FhevmDBHandleMetadata) {
+    assertFhevm(this.#db !== undefined, `MockCoprocessor not initialized`);
+
     await this.#db.insertHandleBytes32(handleBytes32Hex, clearTextHex, metadata);
   }
 
   public async queryHandlesBytes32AsHex(handlesBytes32: string[]): Promise<string[]> {
+    assertFhevm(this.#db !== undefined, `MockCoprocessor not initialized`);
+
     await this.awaitCoprocessor();
 
     const clearTextHexList: string[] = [];
@@ -88,6 +111,9 @@ export class MockCoprocessor implements Coprocessor {
     contractAddress: string,
     userAddress: string,
   ): Promise<{ handles: string[]; signatures: string[] }> {
+    assertFhevm(this.#inputVerifier !== undefined, `MockCoprocessor not initialized`);
+    assertFhevm(this.#coprocessorSigners !== undefined, `MockCoprocessor not initialized`);
+
     const numHandles = handlesBytes32List.length;
 
     const handlesBytes32HexNoPrefixList: string[] = [];

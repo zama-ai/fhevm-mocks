@@ -31,6 +31,11 @@ export type CoprocessorEventName =
   | "Cast"
   | "FheIfThenElse";
 
+/**
+ * Coprocessor Solidity event emitted by a
+ * [`FHEVMExecutor.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/FHEVMExecutor.sol)
+ * contract from `@fhevm/core-contracts`.
+ */
 export type CoprocessorEvent = {
   eventName: CoprocessorEventName;
   args: object;

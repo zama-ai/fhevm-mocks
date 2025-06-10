@@ -19,12 +19,24 @@ export type {
   FhevmCoprocessorContractName,
 } from "./fhevm/contracts/index.js";
 export { parseCoprocessorEventsFromLogs } from "./fhevm/coprocessor/utils.js";
+export { FhevmMockProvider, FhevmMockProviderType } from "./ethers/FhevmMockProvider.js";
+export type { FhevmMockProviderInfo, FhevmMockProviderMethods } from "./ethers/FhevmMockProvider.js";
 export { MockCoprocessor } from "./fhevm/coprocessor/MockCoprocessor.js";
 export { parseDecryptionRequestEventsFromLogs } from "./fhevm/decryptionOracle/utils.js";
 export type { DecryptionOracle } from "./fhevm/decryptionOracle/DecryptionOracle.js";
 export { MockDecryptionOracle } from "./fhevm/decryptionOracle/MockDecryptionOracle.js";
 export { MockRelayerEncryptedInput } from "./fhevm/MockRelayerEncryptedInput.js";
 export { MockFhevmInstance } from "./fhevm/MockFhevmInstance.js";
+export type { FhevmKeypair, FhevmUserDecryptOptions, FhevmUserDecryptValidity } from "./fhevm/userDecrypt.js";
+export { userDecryptHandleBytes32 } from "./fhevm/userDecrypt.js";
+
+export { isHardhatProvider } from "./ethers/hardhat.js";
+export { isAnvilProvider } from "./ethers/anvil.js";
+export type { MinimalProvider } from "./ethers/provider.js";
+export { minimalProviderSend, connectedChainId } from "./ethers/provider.js";
+export { getFHEVMConfig } from "./fhevm/FHEVMConfig.js";
+export type { FHEVMConfig } from "./fhevm/FHEVMConfig.js";
+export { getDecryptionOracleAddress } from "./fhevm/decryptionOracle/utils.js";
 
 export { version } from "./_version.js";
 

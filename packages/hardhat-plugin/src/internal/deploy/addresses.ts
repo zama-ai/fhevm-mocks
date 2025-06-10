@@ -70,7 +70,7 @@ function __getUintConstant(name: keyof typeof constants, defaultValue?: number):
     return defaultValue;
   }
 
-  throw new Error(`Unable to determine integer constant ${name}`);
+  throw new HardhatFhevmError(`Unable to determine integer constant ${name}`);
 }
 
 function __getStringConstant(name: keyof typeof constants, defaultValue?: string, dotenvRelPath?: string): string {
@@ -98,7 +98,7 @@ function __getStringConstant(name: keyof typeof constants, defaultValue?: string
     return defaultValue;
   }
 
-  throw new Error(`Unable to determine string constant ${name}`);
+  throw new HardhatFhevmError(`Unable to determine string constant ${name}`);
 }
 
 export function getGatewayChainId(): number {
@@ -116,9 +116,7 @@ export async function getRelayerSignerAddress(hre: HardhatRuntimeEnvironment): P
 }
 
 export async function getRelayerSigner(hre: HardhatRuntimeEnvironment): Promise<EthersT.Signer> {
-  //await checkSupportedNetwork(hre);
-
-  const index = getRelayerSignerIndex();
+  const index = __getRelayerSignerIndex();
   const signers: HardhatEthersSigner[] = await hre.ethers.getSigners();
 
   if (index >= signers.length) {
@@ -130,12 +128,12 @@ export async function getRelayerSigner(hre: HardhatRuntimeEnvironment): Promise<
   return signers[index];
 }
 
-export function getRelayerSignerIndex(): number {
+function __getRelayerSignerIndex(): number {
   try {
     const tStr = __getStringConstant("HARDHAT_RELAYER_SIGNER_INDEX");
     const t = parseInt(tStr);
     if (Number.isNaN(t)) {
-      throw new Error(`Invalid hardhat relayer signer index: ${tStr}`);
+      throw new HardhatFhevmError(`Invalid hardhat relayer signer index: ${tStr}`);
     }
     return t;
   } catch {
@@ -156,7 +154,9 @@ export function getGatewayDecryptionAddress(): string {
   try {
     const addr = __getStringConstant("DECRYPTION_ADDRESS");
     if (!EthersT.isAddress(addr)) {
-      throw new Error(`Invalid Decryption contract address: ${addr} (KMS Verifying contract source address)`);
+      throw new HardhatFhevmError(
+        `Invalid Decryption contract address: ${addr} (KMS Verifying contract source address)`,
+      );
     }
     return addr;
   } catch {
@@ -173,7 +173,7 @@ export function getGatewayInputVerificationAddress(): string {
   try {
     const addr = __getStringConstant("INPUT_VERIFICATION_ADDRESS");
     if (!EthersT.isAddress(addr)) {
-      throw new Error(`Invalid InputVerifier verifyingContractSource address: ${addr}`);
+      throw new HardhatFhevmError(`Invalid InputVerifier verifyingContractSource address: ${addr}`);
     }
     return addr;
   } catch {
@@ -182,7 +182,7 @@ export function getGatewayInputVerificationAddress(): string {
   }
 }
 
-export async function getCoprocessorSigners(
+export async function loadCoprocessorSigners(
   hre: HardhatRuntimeEnvironment,
   provider?: EthersT.Provider,
 ): Promise<EthersT.Signer[]> {
@@ -194,10 +194,10 @@ export async function getCoprocessorSigners(
       - address of env.PRIVATE_KEY_COPROCESSOR_SIGNER
     3. Try to build a list with one element using:
       - address of constant.PRIVATE_KEY_COPROCESSOR_SIGNER
-   */
+  */
   try {
     const hhSigners = await hre.ethers.getSigners();
-    const coprocessorSignersAddresses = envGetHardhatSignersAddresses(
+    const coprocessorSignersAddresses = __envGetHardhatSignersAddresses(
       "NUM_COPROCESSORS",
       "COPROCESSOR_SIGNER_ADDRESS_",
       hhSigners,
@@ -211,14 +211,16 @@ export async function getCoprocessorSigners(
 
     return coprocessorSigners;
   } catch {
-    const coprocessorSignerKey = __getStringConstant(
-      "PRIVATE_KEY_COPROCESSOR_SIGNER",
-      constants["PRIVATE_KEY_COPROCESSOR_SIGNER"],
-    );
-
-    const signer = new EthersT.Wallet(coprocessorSignerKey).connect(provider ?? null);
-    return [signer];
+    //
   }
+
+  const coprocessorSignerKey = __getStringConstant(
+    "PRIVATE_KEY_COPROCESSOR_SIGNER",
+    constants["PRIVATE_KEY_COPROCESSOR_SIGNER"],
+  );
+
+  const signer = new EthersT.Wallet(coprocessorSignerKey).connect(provider ?? null);
+  return [signer];
 }
 
 /*
@@ -230,13 +232,13 @@ export async function getCoprocessorSigners(
   3. Try to build a list with one element using:
       - address of constant.PRIVATE_KEY_KMS_SIGNER
 */
-export async function getKMSSigners(
+export async function loadKMSSigners(
   hre: HardhatRuntimeEnvironment,
-  provider: EthersT.Provider,
+  provider?: EthersT.Provider,
 ): Promise<EthersT.Signer[]> {
   try {
     const hhSigners = await hre.ethers.getSigners();
-    const kmsSignersAddresses = envGetHardhatSignersAddresses("NUM_KMS_NODES", "KMS_SIGNER_ADDRESS_", hhSigners);
+    const kmsSignersAddresses = __envGetHardhatSignersAddresses("NUM_KMS_NODES", "KMS_SIGNER_ADDRESS_", hhSigners);
 
     const kmsSigners = [];
     for (let idx = 0; idx < kmsSignersAddresses.length; idx++) {
@@ -248,7 +250,7 @@ export async function getKMSSigners(
   } catch {
     const kmsSignerKey = __getStringConstant("PRIVATE_KEY_KMS_SIGNER", constants["PRIVATE_KEY_KMS_SIGNER"]);
 
-    const signer = new EthersT.Wallet(kmsSignerKey).connect(provider);
+    const signer = new EthersT.Wallet(kmsSignerKey).connect(provider ?? null);
     return [signer];
   }
 }
@@ -294,19 +296,19 @@ function removeNonHardhatSignerAddresses(
     COPROCESSOR_SIGNER_ADDRESS_1="0x..."
     COPROCESSOR_SIGNER_ADDRESS_2="0x..."
 */
-export function envGetHardhatSignersAddresses(
+function __envGetHardhatSignersAddresses(
   numEnvVarName: string,
   listEnvVarNamePrefix: string,
   hhSigners: HardhatEthersSigner[],
 ): string[] {
   const num = __getOptionalUintEnvVar(numEnvVarName);
   if (num === undefined) {
-    throw new Error();
+    throw new HardhatFhevmError(`Undefined env var name '${numEnvVarName}'`);
   }
   const envList = envGetList(listEnvVarNamePrefix);
   const addresses: string[] = removeNonHardhatSignerAddresses(envList, hhSigners, listEnvVarNamePrefix);
   if (addresses.length < num) {
-    throw new Error();
+    throw new HardhatFhevmError(`Unexpected number of addresses. Got '${addresses.length}', expecting at least ${num}`);
   }
   const res = addresses.slice(0, num - 1);
   assertHHFhevm(res.length === num);

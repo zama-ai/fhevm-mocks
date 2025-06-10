@@ -1,5 +1,6 @@
 const constants = {
   FHEVM_HANDLE_VERSION: 0,
+  DEFAULT_DURATION_DAYS: 365,
   DECRYPTION_EIP712_DOMAIN: { version: "1", name: "Decryption" },
   PUBLIC_DECRYPT_EIP712_TYPE: {
     PublicDecryptVerification: [

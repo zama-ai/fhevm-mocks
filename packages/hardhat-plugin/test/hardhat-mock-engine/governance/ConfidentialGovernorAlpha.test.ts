@@ -56,7 +56,7 @@ describe("ConfidentialGovernorAlpha", function () {
     TIMELOCK_DELAY = await timelock.delay();
   });
 
-  it("can propose a vote that becomes active if votes match the token threshold", async function () {
+  it("BBB can propose a vote that becomes active if votes match the token threshold", async function () {
     const transferAmount = hre.ethers.parseUnits(String(500_000), 6);
     const targets = [signers.bob.address];
     const values = ["0"];

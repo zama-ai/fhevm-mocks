@@ -1,10 +1,10 @@
+import { FHEVMConfig } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import * as fs from "fs";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
 import { HardhatFhevmError } from "../../error";
-import type { FHEVMConfig } from "../../types";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { assertHHFhevm } from "../error";
 

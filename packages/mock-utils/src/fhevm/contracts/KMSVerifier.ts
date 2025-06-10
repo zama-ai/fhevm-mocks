@@ -5,43 +5,47 @@ import type { EIP712Domain, EthersEIP712 } from "../../ethers/eip712.js";
 import { multiSignEIP712 } from "../../ethers/eip712.js";
 import { assertIsAddress, assertIsAddressArray } from "../../utils/address.js";
 import { assertIsBytes32String } from "../../utils/bytes.js";
-import { FhevmError, assertFhevm } from "../../utils/error.js";
+import { FhevmError, assertFhevm, assertIsArray } from "../../utils/error.js";
 import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
 import { assertIsString } from "../../utils/string.js";
 import { FhevmHandle } from "../FhevmHandle.js";
 import { FhevmType, type FhevmTypeInfo } from "../FhevmType.js";
+import { FhevmCoprocessorContractWrapper } from "./FhevmCoprocessorContractWrapper.js";
+import { KMSVerifierPartialInterface } from "./KMSVerifier.itf.js";
 
-const abiKMSVerifier = [
-  "function getKmsSigners() view returns (address[])",
-  "function getThreshold() view returns (uint256)",
-  "function eip712Domain() view returns (bytes1,string,string,uint256,address,bytes32,uint256[])",
-];
-
-export class KMSVerifier {
-  #kmsVerifierContract: EthersT.Contract;
-  #kmsVerifierContractAddress: string;
+// Shareable
+export class KMSVerifier extends FhevmCoprocessorContractWrapper {
+  #kmsVerifierContract: EthersT.Contract | undefined;
+  #kmsVerifierContractAddress: string | undefined;
   #signersAddresses: string[] | undefined;
   #threshold: number | undefined;
   #eip712Domain: EIP712Domain | undefined;
 
-  constructor(runner: EthersT.ContractRunner, kmsVerifierContractAddress: string) {
-    assertIsAddress(kmsVerifierContractAddress, "kmsVerifierContractAddress");
-    this.#kmsVerifierContractAddress = kmsVerifierContractAddress;
-    this.#kmsVerifierContract = new EthersT.Contract(kmsVerifierContractAddress, abiKMSVerifier, runner);
-  }
-
-  public get runner(): EthersT.ContractRunner {
-    assertFhevm(this.#kmsVerifierContract.runner);
-    return this.#kmsVerifierContract.runner;
+  constructor() {
+    super("KMSVerifier");
   }
 
   public static async create(runner: EthersT.ContractRunner, kmsVerifierContractAddress: string): Promise<KMSVerifier> {
-    const kmsVerifier = new KMSVerifier(runner, kmsVerifierContractAddress);
-    await kmsVerifier.initialize();
+    assertIsAddress(kmsVerifierContractAddress, "kmsVerifierContractAddress");
+
+    const kmsVerifier = new KMSVerifier();
+    kmsVerifier.#kmsVerifierContractAddress = kmsVerifierContractAddress;
+    kmsVerifier.#kmsVerifierContract = new EthersT.Contract(
+      kmsVerifierContractAddress,
+      KMSVerifierPartialInterface,
+      runner,
+    );
+    await kmsVerifier._initialize();
     return kmsVerifier;
   }
 
-  public async initialize() {
+  public override get interface(): EthersT.Interface {
+    assertFhevm(this.#kmsVerifierContract !== undefined, `KMSVerifier wrapper is not yet initialized`);
+    return this.#kmsVerifierContract.interface;
+  }
+
+  private async _initialize() {
+    assertFhevm(this.#kmsVerifierContract !== undefined, `KMSVerifier wrapper is not initialized`);
     assertFhevm(this.#signersAddresses === undefined, `KMSVerifier wrapper already initialized`);
     assertFhevm(this.#threshold === undefined, `KMSVerifier wrapper already initialized`);
 
@@ -77,6 +81,7 @@ export class KMSVerifier {
   }
 
   public get address(): string {
+    assertFhevm(this.#kmsVerifierContractAddress !== undefined, `KMSVerifier wrapper not initialized`);
     return this.#kmsVerifierContractAddress;
   }
 
@@ -101,6 +106,18 @@ export class KMSVerifier {
   public getKmsSignersAddresses(): string[] {
     assertFhevm(this.#signersAddresses !== undefined, `KMSVerifier wrapper not initialized`);
     return this.#signersAddresses;
+  }
+
+  public async assertMatchKmsSigners(signers: EthersT.Signer[]) {
+    const addresses = this.getKmsSignersAddresses();
+
+    assertIsArray(signers, "signers");
+    assertFhevm(signers.length === addresses.length, "signers.length === addresses.length");
+
+    for (let i = 0; i < addresses.length; ++i) {
+      const s = await signers[i].getAddress();
+      assertFhevm(addresses[i] === s, `addresses[${i}] === await signers[${i}].getAddress()`);
+    }
   }
 
   public getThreshold(): number {

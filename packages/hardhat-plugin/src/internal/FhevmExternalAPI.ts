@@ -1,31 +1,29 @@
 import {
   CoprocessorEvent,
   DecryptionRequestEvent,
+  FHEVMConfig,
   FhevmContractName,
   FhevmHandle,
   FhevmType,
   FhevmTypeEbytes,
   FhevmTypeEuint,
   FhevmTypeName,
+  FhevmUserDecryptOptions,
+  getDecryptionOracleAddress,
+  getFHEVMConfig,
   getFhevmTypeInfo,
 } from "@fhevm/mock-utils";
 import { parseCoprocessorEventsFromLogs, parseDecryptionRequestEventsFromLogs } from "@fhevm/mock-utils";
 import { relayer } from "@fhevm/mock-utils";
+import { userDecryptHandleBytes32 as mockUtilsUserDecryptHandleBytes32 } from "@fhevm/mock-utils";
 import type { DecryptedResults } from "@zama-fhe/relayer-sdk/node";
 import type { EIP712, FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
 import { HardhatFhevmError } from "../error";
-import {
-  FHEVMConfig,
-  FhevmUserDecryptOptions,
-  HardhatFhevmRuntimeDebugger,
-  HardhatFhevmRuntimeEnvironment,
-} from "../types";
+import { HardhatFhevmRuntimeDebugger, HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
 import { FhevmContractError, parseFhevmError } from "./errors/FhevmContractError";
-import { userDecryptHandleBytes32 } from "./userDecrypt";
-import { getDecryptionOracleAddress, getFHEVMConfig } from "./utils/hh";
 import { logBox } from "./utils/log";
 
 /**
@@ -39,10 +37,16 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
   }
 
   public get isMock(): boolean {
-    return this._fhevmEnv.ethersProvider.isMock;
+    //minimalInit
+    return this._fhevmEnv.mockProvider.isMock;
+  }
+
+  public get debugger(): HardhatFhevmRuntimeDebugger {
+    return this._fhevmEnv.debugger;
   }
 
   public async createInstance(): Promise<FhevmInstance> {
+    //_deployCore
     return await this._fhevmEnv.createInstance();
   }
 
@@ -75,43 +79,24 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return [{ interface: itf }, customErrorName];
   }
 
-  public get debugger(): HardhatFhevmRuntimeDebugger {
-    return this._fhevmEnv.debugger;
-  }
-
-  public get relayerSignerAddress(): string {
-    return this._fhevmEnv.getRelayerSignerAddress();
-  }
-
   public parseDecryptionRequestEvents(
     logs: (EthersT.EventLog | EthersT.Log)[] | null | undefined,
   ): DecryptionRequestEvent[] {
-    // Accept null or undefined as argument to enable `parseDecryptionRequestEvents(receipt?.logs)`
-    if (!logs || logs.length === 0) {
-      return [];
-    }
-    const itf = this._fhevmEnv.interfaceFromName("DecryptionOracle")!;
-    return parseDecryptionRequestEventsFromLogs(itf, logs);
+    return parseDecryptionRequestEventsFromLogs(logs);
   }
 
   public parseCoprocessorEvents(logs: (EthersT.EventLog | EthersT.Log)[] | null | undefined): CoprocessorEvent[] {
-    // Accept null or undefined as argument to enable `parseCoprocessorEvents(receipt?.logs)`
-    if (!logs || logs.length === 0) {
-      return [];
-    }
-    const itf = this._fhevmEnv.interfaceFromName("FHEVMExecutor")!;
-    return parseCoprocessorEventsFromLogs(itf, logs);
+    return parseCoprocessorEventsFromLogs(logs);
+  }
+
+  public async getRelayerMetadata(): Promise<relayer.RelayerMetadata> {
+    return await relayer.requestRelayerMetadata(this._fhevmEnv.relayerProvider);
   }
 
   public async awaitDecryptionOracle() {
-    if (this._fhevmEnv.hre.network.name === "localhost") {
-      await relayer.requestFhevmAwaitDecryptionOracle(this._fhevmEnv.hre.ethers.provider);
-    } else {
-      await this._fhevmEnv.decryptionOracle.awaitDecryptionOracle();
-    }
+    await relayer.requestFhevmAwaitDecryptionOracle(this._fhevmEnv.relayerProvider);
   }
 
-  // Much simpler, get rid of instance
   public createEncryptedInput(contractAddress: string, userAddress: string): RelayerEncryptedInput {
     return this._fhevmEnv.instance.createEncryptedInput(contractAddress, userAddress);
   }
@@ -139,6 +124,10 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     startTimestamp: string | number,
     durationDays: string | number,
   ): Promise<DecryptedResults> {
+    if (this._fhevmEnv.isRunningInHHNode) {
+      // Cannot be called from the server process
+      throw new HardhatFhevmError(`Cannot call userDecrypt from a 'hardhat node' server.`);
+    }
     return await this._fhevmEnv.instance.userDecrypt(
       handles,
       privateKey,
@@ -158,8 +147,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<boolean> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults = await userDecryptHandleBytes32(
-      this._fhevmEnv,
+    const decryptedResults = await _userDecryptHandleBytes32(
+      this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType: FhevmType.ebool }],
       user,
       options,
@@ -187,8 +176,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await userDecryptHandleBytes32(
-      this._fhevmEnv,
+    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+      options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType }],
       user,
       options,
@@ -218,8 +207,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await userDecryptHandleBytes32(
-      this._fhevmEnv,
+    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+      options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType }],
       user,
       options,
@@ -253,8 +242,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<string> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await userDecryptHandleBytes32(
-      this._fhevmEnv,
+    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+      options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType: FhevmType.eaddress }],
       user,
       options,
@@ -281,11 +270,11 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
   }
 
   public async getFHEVMConfig(contractAddress: string): Promise<FHEVMConfig> {
-    return getFHEVMConfig(this._fhevmEnv.hre, contractAddress);
+    return getFHEVMConfig(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
   }
 
   public async getDecryptionOracleAddress(contractAddress: string): Promise<string> {
-    return getDecryptionOracleAddress(this._fhevmEnv.hre, contractAddress);
+    return getDecryptionOracleAddress(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
   }
 
   public async assertCoprocessorInitialized(contract: AddressLike, contractName?: string): Promise<void> {
@@ -350,4 +339,13 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
       throw new HardhatFhevmError(errorMsg);
     }
   }
+}
+
+async function _userDecryptHandleBytes32(
+  instance: FhevmInstance,
+  handleContractPairs: { handleBytes32: string; contractAddress: string; fhevmType?: FhevmType }[],
+  user: EthersT.Signer,
+  options?: Omit<FhevmUserDecryptOptions, "instance">,
+): Promise<DecryptedResults> {
+  return mockUtilsUserDecryptHandleBytes32(instance, handleContractPairs, user, options);
 }

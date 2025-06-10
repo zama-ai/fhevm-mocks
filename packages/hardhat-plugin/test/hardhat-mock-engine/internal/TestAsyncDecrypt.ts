@@ -15,7 +15,8 @@ describe("TestAsyncDecrypt", function () {
   before(async function () {
     await initSigners();
     signers = await getSigners();
-    relayerAddress = hre.fhevm.relayerSignerAddress;
+    const metadata = await hre.fhevm.getRelayerMetadata();
+    relayerAddress = metadata.relayerSignerAddress;
   });
 
   beforeEach(async function () {
@@ -55,6 +56,7 @@ describe("TestAsyncDecrypt", function () {
     const y = await contract.yBool();
     expect(y).to.equal(true);
     const balanceAfterR = await hre.ethers.provider.getBalance(relayerAddress);
+    expect(balanceBeforeR - balanceAfterR).to.be.greaterThan(10000000000000n);
     console.log("gas paid by relayer (fulfil tx) : ", balanceBeforeR - balanceAfterR);
     console.log("gas paid by user (request tx) : ", balanceBeforeU - balanceAfterU);
   });

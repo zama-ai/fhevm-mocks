@@ -2,6 +2,7 @@ import { ethers as EthersT } from "ethers";
 
 import { BlockLogCursor } from "../../ethers/event.js";
 import { FhevmError } from "../../utils/error.js";
+import { FHEVMExecutorPartialInterface } from "../contracts/FHEVMExecutor.itf.js";
 import { type CoprocessorEvent, isCoprocessorEventName } from "./CoprocessorEvents.js";
 
 export async function getCoprocessorEvents(
@@ -85,12 +86,16 @@ export async function getCoprocessorEvents(
 }
 
 export function parseCoprocessorEventsFromLogs(
-  coprocessorContractInterface: EthersT.Interface,
-  logs: EthersT.Log[],
+  logs: (EthersT.EventLog | EthersT.Log)[] | null | undefined,
 ): CoprocessorEvent[] {
+  // flexible
+  if (!logs) {
+    return [];
+  }
+
   const events: CoprocessorEvent[] = [];
   for (const log of logs) {
-    const event: EthersT.LogDescription | null = coprocessorContractInterface.parseLog(log);
+    const event: EthersT.LogDescription | null = FHEVMExecutorPartialInterface.parseLog(log);
 
     if (!event) {
       continue;

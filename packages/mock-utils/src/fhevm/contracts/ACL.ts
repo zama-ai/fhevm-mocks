@@ -3,31 +3,36 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
+import { ACLPartialInterface } from "./ACL.itf.js";
+import { FhevmCoprocessorContractWrapper } from "./FhevmCoprocessorContractWrapper.js";
 
-const abiACL = [
-  "function getVersion() pure returns (string memory)",
-  "function getFHEVMExecutorAddress() view returns (address)",
-  "function isAllowedForDecryption(bytes32 handle) view returns (bool)",
-];
-
-export class ACL {
-  #aclReadOnlyContract: EthersT.Contract;
-  #aclContractAddress: string;
+// Shareable
+export class ACL extends FhevmCoprocessorContractWrapper {
+  #aclReadOnlyContract: EthersT.Contract | undefined;
+  #aclContractAddress: string | undefined;
   #fhevmExecutorAddress: string | undefined;
   #version: string | undefined;
 
-  constructor(runner: EthersT.ContractRunner, aclContractAddress: string) {
-    assertIsAddress(aclContractAddress, "aclContractAddress");
-    this.#aclContractAddress = aclContractAddress;
-    this.#aclReadOnlyContract = new EthersT.Contract(aclContractAddress, abiACL, runner);
+  constructor() {
+    super("ACL");
   }
 
-  public get runner(): EthersT.ContractRunner {
-    assertFhevm(this.#aclReadOnlyContract.runner);
-    return this.#aclReadOnlyContract.runner;
+  public static async create(runner: EthersT.ContractRunner, aclContractAddress: string): Promise<ACL> {
+    assertIsAddress(aclContractAddress, "aclContractAddress");
+    const acl = new ACL();
+    acl.#aclContractAddress = aclContractAddress;
+    acl.#aclReadOnlyContract = new EthersT.Contract(aclContractAddress, ACLPartialInterface, runner);
+    await acl._initialize();
+    return acl;
+  }
+
+  public override get interface(): EthersT.Interface {
+    assertFhevm(this.#aclReadOnlyContract !== undefined, `ACL wrapper is not yet initialized`);
+    return this.#aclReadOnlyContract.interface;
   }
 
   public get address(): string {
+    assertFhevm(this.#aclContractAddress !== undefined, `ACL wrapper is not yet initialized`);
     return this.#aclContractAddress;
   }
 
@@ -41,13 +46,8 @@ export class ACL {
     return this.#fhevmExecutorAddress;
   }
 
-  public static async create(runner: EthersT.ContractRunner, aclContractAddress: string): Promise<ACL> {
-    const acl = new ACL(runner, aclContractAddress);
-    await acl.initialize();
-    return acl;
-  }
-
-  public async initialize() {
+  private async _initialize() {
+    assertFhevm(this.#aclReadOnlyContract !== undefined, `ACL wrapper is not yet initialized`);
     assertFhevm(this.#fhevmExecutorAddress === undefined, `ACL wrapper already initialized`);
 
     this.#fhevmExecutorAddress = await this.#aclReadOnlyContract.getFHEVMExecutorAddress();
@@ -58,6 +58,7 @@ export class ACL {
   }
 
   public async checkIsAllowedForDecryption(handlesBytes32Hex: string[], readonlyProvider: EthersT.Provider) {
+    assertFhevm(this.#aclReadOnlyContract !== undefined, `ACL wrapper is not yet initialized`);
     const c = this.#aclReadOnlyContract.connect(readonlyProvider) as EthersT.Contract;
 
     const isAllowedForDec: boolean[] = await Promise.all(

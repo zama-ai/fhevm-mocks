@@ -70,4 +70,44 @@ export function assertIsObjectProperty<K extends string>(
   }
 }
 
-export class FhevmError extends Error {}
+export class FhevmError extends Error {
+  //@ts-ignore
+  private readonly __isFhevmError;
+
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options);
+    this.__isFhevmError = true;
+  }
+}
+
+export function isHardhatProviderError(other: any): other is Error & { code: number } {
+  if (other === undefined || other === null) {
+    return false;
+  }
+  if (!(other instanceof Error)) {
+    return false;
+  }
+  if (!("code" in other)) {
+    return false;
+  }
+  if (!("_isProviderError" in other)) {
+    return false;
+  }
+  return other._isProviderError === true;
+}
+
+export function isHardhatError(other: any): other is Error & { number: number } {
+  if (other === undefined || other === null) {
+    return false;
+  }
+  if (!(other instanceof Error)) {
+    return false;
+  }
+  if (!("number" in other)) {
+    return false;
+  }
+  if (!("_isHardhatError" in other)) {
+    return false;
+  }
+  return other._isHardhatError === true;
+}

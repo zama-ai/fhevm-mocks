@@ -1,11 +1,14 @@
 import {
   DecryptionOracle,
+  FHEVMConfig,
   FhevmContractName,
   FhevmDBMap,
+  FhevmMockProvider,
+  FhevmMockProviderType,
+  MinimalProvider,
   MockCoprocessor,
   MockDecryptionOracle,
   MockFhevmInstance,
-  contracts,
 } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -15,7 +18,6 @@ import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../task-names";
 import { HardhatFhevmRuntimeEnvironment } from "../types";
-import { FHEVMConfig } from "../types";
 import { FhevmDebugger } from "./FhevmDebugger";
 import { FhevmEnvironmentPaths } from "./FhevmEnvironmentPaths";
 import { FhevmExternalAPI } from "./FhevmExternalAPI";
@@ -24,16 +26,16 @@ import { loadPrecompiledFhevmCoreContractsAddresses } from "./deploy/Precompiled
 import { parseSepoliaZamaOracleAddress } from "./deploy/PrecompiledZamaFheOracleSolidity";
 import { generateZamaOracleAddressDotSol } from "./deploy/ZamaOracleAddress";
 import {
-  getCoprocessorSigners,
-  getKMSSigners,
   getKMSVerifierAddress,
   getRelayerSigner,
   getRelayerSignerAddress,
+  loadCoprocessorSigners,
+  loadKMSSigners,
 } from "./deploy/addresses";
 import { setupMockUsingCoreContractsArtifacts } from "./deploy/setup";
 import { assertHHFhevm } from "./error";
 import { PrecompiledCoreContractsAddresses } from "./types";
-import { FhevmEthersProvider, FhevmEthersProviderType } from "./utils/FhevmEthersProvider";
+import { checkHardhatRuntimeEnvironment } from "./utils/hh";
 
 export type FhevmEnvironmentConfig = {
   ACLAddress: string;
@@ -46,10 +48,8 @@ export type FhevmEnvironmentConfig = {
   KMSVerifierReadOnly: EthersT.Contract;
   DecryptionOracleAddress: string;
   DecryptionOracleReadOnly: EthersT.Contract;
-  kmsSigners: EthersT.Signer[];
-  coprocessorSigners: EthersT.Signer[];
-  gatewayInputVerificationAddress: string;
   gatewayChainId: number;
+  gatewayInputVerificationAddress: string;
   gatewayDecryptionAddress: string;
 };
 
@@ -59,7 +59,7 @@ export type FhevmEnvironmentAddresses = {
    */
   FHEVMConfig: FHEVMConfig;
   /**
-   * Indicates the addresse of the solidity contract `FHEGasLimit.sol` used in the project.
+   * Indicates the address of the solidity contract `FHEGasLimit.sol` used in the project.
    */
   FHEGasLimitAddress: string;
   /**
@@ -106,26 +106,27 @@ export type FhevmContractRecordEntry = {
 };
 
 export class FhevmEnvironment {
+  private _hre: HardhatRuntimeEnvironment;
   private _runningInHHNode: boolean | undefined;
   private _runningInHHTest: boolean | undefined;
   private _runningInHHFHEVMInstallSolidity: boolean | undefined;
-  private _fhevmEthersProvider: FhevmEthersProvider | undefined;
-  private _hre: HardhatRuntimeEnvironment;
-  private _config: FhevmEnvironmentConfig | undefined;
-  private _addresses: FhevmEnvironmentAddresses | undefined;
-  private _instance: MockFhevmInstance | undefined;
   private _paths: FhevmEnvironmentPaths;
-  private _relayerSigner: EthersT.Signer | undefined;
+  private _deployRunning: boolean = false;
+  private _deployCompleted: boolean = false;
+  private _setupAddressesRunning: boolean = false;
+  private _setupAddressesCompleted: boolean = false;
+  private _addresses: FhevmEnvironmentAddresses | undefined;
+
+  private _fhevmMockProvider: FhevmMockProvider | undefined;
+  private _config: FhevmEnvironmentConfig | undefined;
+  private _instance: MockFhevmInstance | undefined;
   private _fhevmAPI: FhevmExternalAPI;
   private _fhevmDebugger: FhevmDebugger;
   private _mockDecryptionOracle: DecryptionOracle | undefined;
   private _mockCoprocessor: MockCoprocessor | undefined;
   private _relayerSignerAddress: string | undefined;
-  private _deployRunning: boolean = false;
-  private _deployCompleted: boolean = false;
-  private _setupAddressesRunning: boolean = false;
-  private _setupAddressesCompleted: boolean = false;
   private _addressToReadonlyContract: Record<string, FhevmContractRecordEntry> | undefined;
+  //private _contractsRepository: contracts.FhevmContractsRepository | undefined;
 
   private _id: number = -1;
   private static _idCount: number = -1;
@@ -142,9 +143,18 @@ export class FhevmEnvironment {
     this._fhevmAPI = new FhevmExternalAPI(this);
     this._fhevmDebugger = new FhevmDebugger(this);
     this._paths = new FhevmEnvironmentPaths(hre.config.paths.root);
+
+    checkHardhatRuntimeEnvironment(hre);
   }
 
+  /**
+   * This command is only supported using the 'hardhat' network.
+   */
   public setRunningInHHFHEVMInstallSolidity() {
+    assertHHFhevm(
+      this._hre.network.name === "hardhat",
+      `Expecting network 'hardhat'. Got '${this._hre.network.name}' instead.`,
+    );
     if (this._runningInHHFHEVMInstallSolidity !== undefined) {
       throw new HardhatFhevmError(
         `The fhevm hardhat plugin is already running inside a 'hardhat ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_INSTALL_SOLIDITY}' command.`,
@@ -154,6 +164,10 @@ export class FhevmEnvironment {
   }
 
   public unsetRunningInHHFHEVMInstallSolidity() {
+    assertHHFhevm(
+      this._hre.network.name === "hardhat",
+      `Expecting network 'hardhat'. Got '${this._hre.network.name}' instead.`,
+    );
     if (this._runningInHHFHEVMInstallSolidity !== true) {
       throw new HardhatFhevmError(
         `The fhevm hardhat plugin is not running inside a 'hardhat ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_INSTALL_SOLIDITY}' command.`,
@@ -172,7 +186,17 @@ export class FhevmEnvironment {
     this._runningInHHTest = true;
   }
 
+  /**
+   * `npx hardhat node` only supports the 'hardhat' network
+   * Running `npx hardhat node --network <anything-other-than-hardhat>` will raise the following error
+   * Error HH605: Unsupported network for JSON-RPC server. Only hardhat is currently supported.
+   * Note that `npx hardhat node --network localhost` also fails.
+   */
   public setRunningInHHNode() {
+    assertHHFhevm(
+      this._hre.network.name === "hardhat",
+      `Expecting network 'hardhat'. Got '${this._hre.network.name}' instead.`,
+    );
     if (this._runningInHHTest !== undefined) {
       throw new HardhatFhevmError(`The fhevm hardhat plugin is already running inside a hardhat test command.`);
     }
@@ -194,11 +218,57 @@ export class FhevmEnvironment {
     return this._runningInHHFHEVMInstallSolidity === true;
   }
 
+  /*
+    We need a mock engine if there is no mock engine on the server.
+    For example:
+    - No: `npx hardhat test --network localhost` does not create a new mock engine since it is available
+      on the `npx hardhat node` server.
+    - Yes: `npx hardhat test` must create a mock engine
+    - Yes: `npx hardhat test --localhost anvil` must create a mock engine since there is no mock engine 
+      on the anvil server.
+  */
+  public get useEmbeddedMockEngine(): boolean {
+    return this.mockProvider.info.type !== FhevmMockProviderType.HardhatNode;
+  }
+
   public get hre(): HardhatRuntimeEnvironment {
     if (!this._hre) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
     return this._hre;
+  }
+
+  /*
+    Warning: MUST BE instance of `HardhatEthersProvider`
+    Same as `readonlyEthersProvider` but in `MinimalProvider` format
+  */
+  public get relayerProvider(): MinimalProvider {
+    return this.hre.ethers.provider;
+  }
+
+  /*
+    Warning: MUST NOT BE window.ethereum!!!!!
+    Same as `readonlyEthersProvider` but in `MinimalProvider` format
+    To call view function on contracts
+  */
+  public get readonlyEthersProvider(): EthersT.Provider {
+    return this.hre.ethers.provider;
+  }
+
+  /*
+    Warning: MUST NOT BE window.ethereum!!!!!
+    Same as `readonlyEthersProvider` but in `MinimalProvider` format
+  */
+  public get readonlyEip1193Provider(): MinimalProvider {
+    return this.hre.network.provider;
+  }
+
+  // Should be replaced!
+  public get mockProvider(): FhevmMockProvider {
+    if (!this._fhevmMockProvider) {
+      throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
+    }
+    return this._fhevmMockProvider;
   }
 
   public get paths(): FhevmEnvironmentPaths {
@@ -212,6 +282,9 @@ export class FhevmEnvironment {
     return this._fhevmDebugger;
   }
 
+  /**
+   * Only called by the FhevmProviderExtender
+   */
   public get coprocessor(): MockCoprocessor {
     if (!this._mockCoprocessor) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
@@ -219,6 +292,9 @@ export class FhevmEnvironment {
     return this._mockCoprocessor;
   }
 
+  /**
+   * Only called by the FhevmProviderExtender
+   */
   public get decryptionOracle(): DecryptionOracle {
     if (!this._mockDecryptionOracle) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
@@ -330,46 +406,11 @@ export class FhevmEnvironment {
     return this._config.DecryptionOracleReadOnly;
   }
 
-  public getKMSSigners(): EthersT.Signer[] {
-    if (!this._config) {
-      throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-    }
-    return this._config.kmsSigners;
-  }
-
   public getKMSVerifierReadOnly(): EthersT.Contract {
     if (!this._config) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
     return this._config.KMSVerifierReadOnly;
-  }
-
-  public getCoprocessorSigners(): EthersT.Signer[] {
-    if (!this._config) {
-      throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-    }
-    return this._config.coprocessorSigners;
-  }
-
-  public getRelayerSignerAddress(): string {
-    if (!this._relayerSignerAddress) {
-      throw new HardhatFhevmError(
-        `Relayer signer address is not defined. Ensure that the Fhevm environment has been properly initialized by calling runSetup() (${this._id}/${FhevmEnvironment._idCount})`,
-      );
-    }
-    return this._relayerSignerAddress;
-  }
-
-  /**
-   * Called by the MockFhevmGatewayDecryptor
-   */
-  public getRelayerSigner(): EthersT.Signer {
-    if (!this._relayerSigner) {
-      throw new HardhatFhevmError(
-        "Relayer signer is not defined. Ensure that the Fhevm environment has been properly initialized by calling runSetup()",
-      );
-    }
-    return this._relayerSigner;
   }
 
   public getGatewayChainId(): number {
@@ -380,19 +421,36 @@ export class FhevmEnvironment {
   }
 
   public get chainId(): number {
-    if (!this._fhevmEthersProvider) {
+    if (!this._fhevmMockProvider) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
-    return this._fhevmEthersProvider.chainId;
+    return this._fhevmMockProvider.chainId;
+  }
+
+  // Only called by the FhevmProviderExtender
+  public getRelayerSignerAddress(): string {
+    if (!this._relayerSignerAddress) {
+      throw new HardhatFhevmError(
+        `Relayer signer address is not defined. Ensure that the Fhevm environment has been properly initialized by calling runSetup() (${this._id}/${FhevmEnvironment._idCount})`,
+      );
+    }
+    return this._relayerSignerAddress;
   }
 
   /**
-   *  API
+   *  Client API
    */
   get externalFhevmAPI(): HardhatFhevmRuntimeEnvironment {
+    if (this.isRunningInHHNode) {
+      // Cannot be called from the server process
+      throw new HardhatFhevmError(
+        `the HardhatFhevmRuntimeEnvironment 'fhevm' is not accessible from the 'hardhat node' server`,
+      );
+    }
     return this._fhevmAPI;
   }
 
+  // Accessible after _deloyCore
   public getFHEVMContractsMap() {
     if (!this._addressToReadonlyContract) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
@@ -420,151 +478,197 @@ export class FhevmEnvironment {
     this._deployRunning = false;
   }
 
-  public get ethersProvider(): FhevmEthersProvider {
-    if (!this._fhevmEthersProvider) {
-      throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
+  private _guessDefaultProvider(): {
+    networkName: string;
+    type: FhevmMockProviderType;
+    chainId: number | undefined;
+    url: string | undefined;
+  } {
+    const url: string | undefined = "url" in this.hre.network.config ? this.hre.network.config.url : undefined;
+
+    if (this.hre.network.name === "hardhat") {
+      assertHHFhevm(url === undefined);
+      return {
+        networkName: this.hre.network.name,
+        type: FhevmMockProviderType.Hardhat,
+        chainId: this.hre.network.config.chainId,
+        url,
+      };
     }
-    return this._fhevmEthersProvider;
+
+    if (!url) {
+      throw new HardhatFhevmError(`Missing network url`);
+    }
+
+    // Check if url is well formed
+    const urlObj = new URL(url);
+
+    // Note: specifying the chainId in the HardhatUserConfig for network "localhost"
+    // has no effect when running the 'npx hardhat node' command
+    // the chainId is automatically set to 31337
+    if (this.hre.network.name === "localhost") {
+      assertHHFhevm(urlObj.port === "8545");
+      return {
+        networkName: "localhost",
+        type: FhevmMockProviderType.HardhatNode,
+        chainId: 31337,
+        url,
+      };
+    }
+
+    if (this.hre.network.name === "anvil") {
+      return {
+        networkName: this.hre.network.name,
+        type: FhevmMockProviderType.Anvil,
+        chainId: this.hre.network.config.chainId,
+        url,
+      };
+    }
+
+    return {
+      networkName: this.hre.network.name,
+      type: FhevmMockProviderType.Unknown,
+      chainId: this.hre.network.config.chainId,
+      url,
+    };
   }
 
   public async minimalInit(): Promise<void> {
-    if (this._fhevmEthersProvider === undefined) {
-      this._fhevmEthersProvider = await FhevmEthersProvider.create(this.hre);
+    if (this._fhevmMockProvider === undefined) {
+      const defaults = this._guessDefaultProvider();
+
+      this._fhevmMockProvider = await FhevmMockProvider.fromProvider(
+        this.hre.ethers.provider,
+        this.hre.network.name,
+        defaults.type,
+        defaults.chainId,
+        defaults.url,
+      );
     }
   }
 
   private async _createSigners(): Promise<FhevmSigners> {
-    const kmsSigners = await getKMSSigners(this.hre, this.ethersProvider.provider);
-    const coprocessorSigners = await getCoprocessorSigners(this.hre, this.ethersProvider.provider);
+    const kmsSigners = await loadKMSSigners(this.hre, this.mockProvider.ethersProvider);
+    const coprocessorSigners = await loadCoprocessorSigners(this.hre, this.mockProvider.ethersProvider);
     const oneAddress = "0x0000000000000000000000000000000000000001";
     // Should be very very high in case of solidity coverage
     // Solidity coverage performs code instrumentations thus considerably increasing
     // the gas cost. Therefore any test account must have a huge balance at startup.
     const balance = EthersT.parseEther("10000");
+    let zero = await this.mockProvider.impersonateAddressAndSetBalance(EthersT.ZeroAddress, balance);
+    // If the mockProvider could not resolve the signer, do it now using HardhatEthersHelpers
+    if (zero === undefined) {
+      zero = await this.hre.ethers.getSigner(EthersT.ZeroAddress);
+    }
+    let one = await this.mockProvider.impersonateAddressAndSetBalance(oneAddress, balance);
+    // If the mockProvider could not resolve the signer, do it now using HardhatEthersHelpers
+    if (one === undefined) {
+      one = await this.hre.ethers.getSigner(oneAddress);
+    }
     return {
       coprocessor: coprocessorSigners,
       kms: kmsSigners,
       oneAddress,
       zeroAddress: EthersT.ZeroAddress,
-      zero: await this.ethersProvider.impersonateAddressAndSetBalance(this.hre, EthersT.ZeroAddress, balance),
-      one: await this.ethersProvider.impersonateAddressAndSetBalance(this.hre, oneAddress, balance),
+      zero,
+      one,
     };
-  }
-
-  /*
-    In the case of:
-    npx hardhat test --network localhost 
-    - The process running `npx hardhat test --network localhost` does not trigger a mock engine
-    - However, the process running `npx hardhat node` will.
-  */
-  public get useEmbeddedMockEngine(): boolean {
-    return this.ethersProvider.info.type !== FhevmEthersProviderType.HardhatNode;
   }
 
   private async _deployCore() {
     await this.minimalInit();
 
-    this._relayerSignerAddress = await getRelayerSignerAddress(this.hre);
-    this._relayerSigner = await getRelayerSigner(this.hre);
+    if (!this.mockProvider.isMock) {
+      throw new HardhatFhevmError(
+        "The current version of the fhevm hardhat plugin only supports the 'hardhat' network, 'localhost' hardhat node or anvil.",
+      );
+    }
 
     const fhevmAddresses = await this.initializeAddresses(false /* ignoreCache */);
+
     const fhevmSigners = await this._createSigners();
 
-    await this.ethersProvider.setTemporaryMinimumBlockGasLimit(0x1fffffffffffffn);
+    let coprocessorSigners: EthersT.Signer[];
+    let kmsSigners: EthersT.Signer[];
 
+    await this.mockProvider.setTemporaryMinimumBlockGasLimit(0x1fffffffffffffn);
     try {
-      this._config = await setupMockUsingCoreContractsArtifacts(
-        this.ethersProvider,
+      // 'setup' should contain the FhevmContractsRepository instance as well
+      const setup = await setupMockUsingCoreContractsArtifacts(
+        this.mockProvider,
         fhevmAddresses,
         fhevmSigners,
         this.paths,
       );
-
-      this._addressToReadonlyContract = {};
-      this._addressToReadonlyContract[this._config.ACLAddress.toLowerCase()] = {
-        contractName: "ACL",
-        address: this._config.ACLAddress,
-        contract: this._config.ACLReadOnly,
-        package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
-      };
-      this._addressToReadonlyContract[this._config.FHEVMExecutorAddress.toLowerCase()] = {
-        contractName: "FHEVMExecutor",
-        address: this._config.FHEVMExecutorAddress,
-        contract: this._config.FHEVMExecutorReadOnly,
-        package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
-      };
-      this._addressToReadonlyContract[this._config.DecryptionOracleAddress.toLowerCase()] = {
-        contractName: "DecryptionOracle",
-        address: this._config.DecryptionOracleAddress,
-        contract: this._config.DecryptionOracleReadOnly,
-        package: constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME,
-      };
-      this._addressToReadonlyContract[this._config.InputVerifierAddress.toLowerCase()] = {
-        contractName: "InputVerifier",
-        address: this._config.InputVerifierAddress,
-        contract: this._config.InputVerifierReadOnly,
-        package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
-      };
-      this._addressToReadonlyContract[this._config.KMSVerifierAddress.toLowerCase()] = {
-        contractName: "KMSVerifier",
-        address: this._config.KMSVerifierAddress,
-        contract: this._config.KMSVerifierReadOnly,
-        package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
-      };
+      this._config = setup.config;
+      coprocessorSigners = setup.coprocessorSigners;
+      kmsSigners = setup.kmsSigners;
     } finally {
-      await this.ethersProvider.unsetTemporaryMinimumBlockGasLimit();
+      await this.mockProvider.unsetTemporaryMinimumBlockGasLimit();
     }
 
+    // Duplicated! should be executed in setup!
+    // this._contractsRepository = await contracts.FhevmContractsRepository.create(this.readonlyEthersProvider, {
+    //   aclContractAddress: this._config.ACLAddress,
+    //   kmsContractAddress: this._config.KMSVerifierAddress,
+    // });
+
+    this._buildAddressToReadonlyContract();
+
     /*
-     CREATED if : network === hardhat (inside hardhat node or hardhat runner) or ANVIL or TESTNET ?
+     CREATED if env is not running inside a hardhat node
     */
     if (this.useEmbeddedMockEngine) {
-      const blockNumber = await this.hre.ethers.provider.getBlockNumber();
-      //const db = new MockFhevmSQLDatabase();
+      const ethersProvider = this.mockProvider.ethersProvider;
+      if (!ethersProvider) {
+        throw new HardhatFhevmError(
+          `Missing ethers.Provider. The FhevmMockProvider instance does not have a valid ethers.Provider.`,
+        );
+      }
+
+      const blockNumber = await this.mockProvider.getBlockNumber();
+
       const db = new FhevmDBMap();
       await db.init(blockNumber);
 
-      // To be improved (called twice at least...)
-      const inputVerifier = await contracts.InputVerifier.create(
-        this.hre.ethers.provider,
-        this.getInputVerifierAddress(),
-      );
-      const kmsVerifier = await contracts.KMSVerifier.create(this.hre.ethers.provider, this.getKMSVerifierAddress());
-      const acl = await contracts.ACL.create(this.hre.ethers.provider, this.getACLAddress());
+      this._relayerSignerAddress = await getRelayerSignerAddress(this.hre);
+      const relayerSigner = await getRelayerSigner(this.hre);
 
-      this._mockCoprocessor = new MockCoprocessor(
-        this.interfaceFromName("FHEVMExecutor")!,
-        this.getFHEVMExecutorAddress(),
-        this.ethersProvider.provider,
-        db,
-        inputVerifier,
-        this.getCoprocessorSigners(),
-      );
+      /*
+        mockProvider: FhevmMockProvider
+        MockConfig = FhevmInstanceConfig & {
+          kmsSigners: EthersT.Signer[] | string[],
+          coprocessorSigners: EthersT.Signer[] | string[],
+          relayerSigner: EtherT.Signer | string
+          db: FhevmDB,
+        }
+      */
 
-      this._mockDecryptionOracle = new MockDecryptionOracle(
-        this.interfaceFromName("DecryptionOracle")!,
-        this.getDecryptionOracleAddress(),
-        this.ethersProvider.provider,
-        this._mockCoprocessor,
+      this._mockCoprocessor = await MockCoprocessor.create(ethersProvider, {
+        coprocessorContractAddress: this.getFHEVMExecutorAddress(),
+        coprocessorSigners,
+        inputVerifierContractAddress: this.getInputVerifierAddress(),
         db,
-        kmsVerifier,
-        acl,
-        this.getKMSSigners(),
-        this.getRelayerSigner(),
-      );
+      });
+
+      this._mockDecryptionOracle = await MockDecryptionOracle.create(ethersProvider, {
+        decryptionOracleContractAddress: this.getDecryptionOracleAddress(),
+        aclContractAddress: this.getACLAddress(),
+        kmsVerifierContractAddress: this.getKMSVerifierAddress(),
+        coprocessor: this._mockCoprocessor,
+        kmsSigners,
+        relayerSigner,
+      });
     }
 
-    // instance creation could be transfered to 'runSetupAddresses' instead.
-    if (this.ethersProvider.isMock) {
+    // TODO: instance creation could be transfered to 'runSetupAddresses' instead.
+    if (!this.isRunningInHHNode) {
       this._instance = await this.createInstance();
-    } else {
-      throw new HardhatFhevmError(
-        "The current version of the fhevm hardhat plugin only supports the 'hardhat' network or 'localhost' hardhat node.",
-      );
     }
   }
 
   public async createInstance(): Promise<MockFhevmInstance> {
+    assertHHFhevm(!this.isRunningInHHNode, "Cannot create a MockFhevmInstance object in the 'hardhat node' server");
     return MockFhevmInstance.create(this.hre.ethers.provider, this.hre.ethers.provider, {
       verifyingContractAddressDecryption: this.getGatewayDecryptionAddress(),
       verifyingContractAddressInputVerification: this.getGatewayInputVerificationAddress(),
@@ -609,7 +713,7 @@ export class FhevmEnvironment {
 
   private async _initializeAddressesCore(ignoreCache: boolean): Promise<FhevmEnvironmentAddresses> {
     const precompiledAddresses: PrecompiledCoreContractsAddresses = await loadPrecompiledFhevmCoreContractsAddresses(
-      this.ethersProvider,
+      this.mockProvider,
       this.paths,
       ignoreCache,
       this.isRunningInHHFHEVMInstallSolidity,
@@ -643,7 +747,7 @@ export class FhevmEnvironment {
   }
 
   public getRemappings(): Record<string, string> {
-    if (!this.ethersProvider.isMock) {
+    if (!this.mockProvider.isMock) {
       return {};
     }
     return {
@@ -696,6 +800,44 @@ export class FhevmEnvironment {
     }
 
     return undefined;
+  }
+
+  // _deployCore
+  private _buildAddressToReadonlyContract() {
+    assertHHFhevm(this._config !== undefined);
+    assertHHFhevm(this._addressToReadonlyContract === undefined);
+
+    this._addressToReadonlyContract = {};
+    this._addressToReadonlyContract[this._config.ACLAddress.toLowerCase()] = {
+      contractName: "ACL",
+      address: this._config.ACLAddress,
+      contract: this._config.ACLReadOnly,
+      package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
+    };
+    this._addressToReadonlyContract[this._config.FHEVMExecutorAddress.toLowerCase()] = {
+      contractName: "FHEVMExecutor",
+      address: this._config.FHEVMExecutorAddress,
+      contract: this._config.FHEVMExecutorReadOnly,
+      package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
+    };
+    this._addressToReadonlyContract[this._config.DecryptionOracleAddress.toLowerCase()] = {
+      contractName: "DecryptionOracle",
+      address: this._config.DecryptionOracleAddress,
+      contract: this._config.DecryptionOracleReadOnly,
+      package: constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME,
+    };
+    this._addressToReadonlyContract[this._config.InputVerifierAddress.toLowerCase()] = {
+      contractName: "InputVerifier",
+      address: this._config.InputVerifierAddress,
+      contract: this._config.InputVerifierReadOnly,
+      package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
+    };
+    this._addressToReadonlyContract[this._config.KMSVerifierAddress.toLowerCase()] = {
+      contractName: "KMSVerifier",
+      address: this._config.KMSVerifierAddress,
+      contract: this._config.KMSVerifierReadOnly,
+      package: constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME,
+    };
   }
 
   public readonlyContractFromAddress(address: string) {

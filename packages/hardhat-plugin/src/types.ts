@@ -5,50 +5,25 @@ import {
   FhevmHandleCoder,
   FhevmTypeEbytes,
   FhevmTypeEuint,
+  FhevmUserDecryptOptions,
 } from "@fhevm/mock-utils";
-import type {
-  DecryptedResults,
-  EIP712,
-  FhevmInstance,
-  HandleContractPair,
-  RelayerEncryptedInput,
-} from "@zama-fhe/relayer-sdk/node";
-import { AddressLike, BigNumberish, Numeric, Provider, Signer, ethers } from "ethers";
+import { relayer } from "@fhevm/mock-utils";
+import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
+import { ethers } from "ethers";
 
 import { FhevmContractError } from "./internal/errors/FhevmContractError";
 
-export { FhevmType, FhevmTypeEbytes, FhevmTypeEuint } from "@fhevm/mock-utils";
-
-export interface FhevmProvider extends Provider {
-  send(method: string, params?: any[]): Promise<any>;
-}
-
-export type FHEVMConfig = {
-  ACLAddress: string;
-  FHEVMExecutorAddress: string;
-  KMSVerifierAddress: string;
-  InputVerifierAddress: string;
-};
-
-export type FhevmKeypair = {
-  publicKey: string;
-  privateKey: string;
-};
-
-export type FhevmUserDecryptValidity = {
-  startTimestamp: Numeric; // number of seconds
-  durationDays: Numeric;
-};
-
-export type FhevmUserDecryptOptions = {
-  instance?: FhevmInstance;
-  keypair?: FhevmKeypair;
-  validity?: FhevmUserDecryptValidity;
-};
+export {
+  FhevmType,
+  FhevmTypeEbytes,
+  FhevmTypeEuint,
+  FhevmUserDecryptOptions,
+  FhevmKeypair,
+  FhevmUserDecryptValidity,
+} from "@fhevm/mock-utils";
 
 export interface HardhatFhevmRuntimeEnvironment {
   isMock: boolean;
-  relayerSignerAddress: string;
   debugger: HardhatFhevmRuntimeDebugger;
 
   parseCoprocessorEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): CoprocessorEvent[];
@@ -56,8 +31,10 @@ export interface HardhatFhevmRuntimeEnvironment {
 
   awaitDecryptionOracle(): Promise<void>;
 
-  assertCoprocessorInitialized(contract: AddressLike, contractName?: string): Promise<void>;
-  assertDecryptionOracleInitialized(contract: AddressLike, contractName?: string): Promise<void>;
+  assertCoprocessorInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
+  assertDecryptionOracleInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
+
+  getRelayerMetadata(): Promise<relayer.RelayerMetadata>;
 
   revertedWithCustomErrorArgs(
     contractName: FhevmContractName,
@@ -96,31 +73,72 @@ export interface HardhatFhevmRuntimeEnvironment {
 
   userDecryptEbool(
     handleBytes32: string,
-    contractAddress: AddressLike,
-    user: Signer,
+    contractAddress: ethers.AddressLike,
+    user: ethers.Signer,
     options?: FhevmUserDecryptOptions,
   ): Promise<boolean>;
 
+  /**
+   * Decrypts a single FHE-encrypted unsigned integer of type `fhevmType` represented by a bytes32 handle.
+   *
+   * The function only succeeds if the user and the contract both have been granted FHE access to the handle.
+   *
+   * To grant FHE access, call FHE permission Solidity methods such as `FHE.allow(handle, account)`
+   * for both the user and the contract address.
+   *
+   * @param fhevmType - The expected `FhevmTypeEuint` enum value, used to validate that the handle’s encrypted type matches the requested decryption type.
+   * @param handleBytes32 - A 32-byte on-chain handle referencing the encrypted data.
+   * @param contractAddress - An contract address represented as an `ethers.AddressLike` that has FHE permission to access the handle.
+   * @param user - An `ethers.Signer` user account representing the user attempting to decrypt the value. This signer must have FHE permission to access the handle.
+   * @param options - Optional decryption parameters including:
+   *   - `instance`: A custom `FhevmInstance` to use for decryption in place of the default one.
+   *   - `keypair`: A public/private keypair to use for decryption. If not provided, the function will automatically generate one using `generateKeypair()`.
+   *   - `validity`: A time-bound validity constraint for the decryption operation
+   *
+   * @returns A Promise that resolves to the decrypted value as a `bigint`.
+   *
+   * @throws Will throw if:
+   * - The user has not been granted FHE decryption access to the handle.
+   * - The contract at `contractAddress` does not have decryption permission.
+   * - The handle is invalid or unavailable in the contract storage.
+   *
+   * @example
+   * ```ts
+   * const result = await userDecryptEuint(
+   *   encryptedEuint,
+   *   "0xabc123...handle",
+   *   "0xContractAddress",
+   *   signer,
+   *   {
+   *     keypair: {
+   *       publicKey: "0x...",
+   *       privateKey: "0x..."
+   *     }
+   *   }
+   * );
+   * console.log(result); // e.g., 123n
+   * ```
+   */
   userDecryptEuint(
     fhevmType: FhevmTypeEuint,
     handleBytes32: string,
-    contractAddress: AddressLike,
-    user: Signer,
+    contractAddress: ethers.AddressLike,
+    user: ethers.Signer,
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint>;
 
   userDecryptEbytes(
     fhevmType: FhevmTypeEbytes,
     handleBytes32: string,
-    contractAddress: AddressLike,
-    user: Signer,
+    contractAddress: ethers.AddressLike,
+    user: ethers.Signer,
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint>;
 
   userDecryptEaddress(
     handleBytes32: string,
-    contractAddress: AddressLike,
-    user: Signer,
+    contractAddress: ethers.AddressLike,
+    user: ethers.Signer,
     options?: FhevmUserDecryptOptions,
   ): Promise<string>;
 }
@@ -133,8 +151,8 @@ export interface HardhatFhevmRuntimeDebugger {
     clearTextValues: (bigint | string | boolean)[],
   ): Promise<string[]>;
 
-  decryptEbool(handleBytes32: BigNumberish): Promise<boolean>;
-  decryptEuint(fhevmType: FhevmTypeEuint, handleBytes32: BigNumberish): Promise<bigint>;
-  decryptEbytes(fhevmType: FhevmTypeEbytes, handleBytes32: BigNumberish): Promise<string>;
-  decryptEaddress(handleBytes32: BigNumberish): Promise<string>;
+  decryptEbool(handleBytes32: ethers.BigNumberish): Promise<boolean>;
+  decryptEuint(fhevmType: FhevmTypeEuint, handleBytes32: ethers.BigNumberish): Promise<bigint>;
+  decryptEbytes(fhevmType: FhevmTypeEbytes, handleBytes32: ethers.BigNumberish): Promise<string>;
+  decryptEaddress(handleBytes32: ethers.BigNumberish): Promise<string>;
 }

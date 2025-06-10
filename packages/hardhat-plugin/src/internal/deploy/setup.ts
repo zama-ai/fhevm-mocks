@@ -1,4 +1,9 @@
-import { FhevmContractName, assertIsEIP712Domain, constants as constantsBase } from "@fhevm/mock-utils";
+import {
+  FhevmContractName,
+  FhevmMockProvider,
+  assertIsEIP712Domain,
+  constants as constantsBase,
+} from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
 import * as picocolors from "picocolors";
@@ -8,7 +13,6 @@ import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentAddresses, FhevmEnvironmentConfig, FhevmSigners } from "../FhevmEnvironment";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { assertHHFhevm } from "../error";
-import { FhevmEthersProvider } from "../utils/FhevmEthersProvider";
 import { assertSignersMatchAddresses } from "../utils/ethers";
 import {
   getDecryptionOracleAddress,
@@ -31,14 +35,14 @@ function __logAlreadyDeployed(contractName: string, contractAddress: string, art
 }
 
 async function __tryDeploy(
-  ethersProvider: FhevmEthersProvider,
+  mockProvider: FhevmMockProvider,
   contractName: FhevmContractName,
   contractAddress: string,
   artifactPath: string,
   bytecode: string,
 ): Promise<{ deployed: boolean; alreadyDeployed: boolean }> {
   try {
-    const deployedBytecode = await ethersProvider.getCodeAt(contractAddress);
+    const deployedBytecode = await mockProvider.getCodeAt(contractAddress);
     if (deployedBytecode === bytecode) {
       __logAlreadyDeployed(contractName, contractAddress, artifactPath);
       return {
@@ -51,7 +55,7 @@ async function __tryDeploy(
         `${contractName} contract's bytecode at ${contractAddress} is not empty.`,
       );
       __logDeploy(contractName, contractAddress, artifactPath);
-      await ethersProvider.setCodeAt(contractAddress, bytecode);
+      await mockProvider.setCodeAt(contractAddress, bytecode);
       return {
         deployed: true,
         alreadyDeployed: false,
@@ -123,11 +127,11 @@ async function __tryCallGetInputVerifierAddress(
 
 // Called by FhevmEnvironment
 export async function setupMockUsingCoreContractsArtifacts(
-  ethersProvider: FhevmEthersProvider,
+  mockProvider: FhevmMockProvider,
   fhevmAddresses: FhevmEnvironmentAddresses,
   fhevmSigners: FhevmSigners,
   fhevmPaths: FhevmEnvironmentPaths,
-): Promise<FhevmEnvironmentConfig> {
+): Promise<{ config: FhevmEnvironmentConfig; coprocessorSigners: EthersT.Signer[]; kmsSigners: EthersT.Signer[] }> {
   const FHEVMExecutorAddress = fhevmAddresses.FHEVMConfig.FHEVMExecutorAddress;
   const aclAddress = fhevmAddresses.FHEVMConfig.ACLAddress;
   const kmsVerifierAddress = fhevmAddresses.FHEVMConfig.KMSVerifierAddress;
@@ -139,7 +143,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
   //const execBytecode = execArtifact.artifact.deployedBytecode;
   await __tryDeploy(
-    ethersProvider,
+    mockProvider,
     "FHEVMExecutor",
     FHEVMExecutorAddress,
     execArtifact.path,
@@ -153,7 +157,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   const fhevmExecutorReadOnly = new EthersT.Contract(
     FHEVMExecutorAddress,
     execArtifact.artifact.abi,
-    ethersProvider.provider,
+    mockProvider.ethersProvider,
   );
 
   const precompiledACLAddress = (await fhevmExecutorReadOnly.getACLAddress()) as string;
@@ -166,12 +170,12 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Setup ACL
   const aclArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("ACL");
-  await __tryDeploy(ethersProvider, "ACL", aclAddress, aclArtifact.path, aclArtifact.artifact.deployedBytecode);
+  await __tryDeploy(mockProvider, "ACL", aclAddress, aclArtifact.path, aclArtifact.artifact.deployedBytecode);
 
   // Setup KMSVerifier
   const kmsArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("KMSVerifier");
   const kmsDeployment = await __tryDeploy(
-    ethersProvider,
+    mockProvider,
     "KMSVerifier",
     kmsVerifierAddress,
     kmsArtifact.path,
@@ -181,7 +185,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   // Setup InputVerifier
   const inputArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("InputVerifier");
   const inputVerifierDeployment = await __tryDeploy(
-    ethersProvider,
+    mockProvider,
     "InputVerifier",
     inputVerifierAddress,
     inputArtifact.path,
@@ -191,7 +195,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   // Setup FHEGasLimit
   const fheGasLimitArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEGasLimit");
   await __tryDeploy(
-    ethersProvider,
+    mockProvider,
     "FHEGasLimit",
     fheGasLimitAddress,
     fheGasLimitArtifact.path,
@@ -201,34 +205,34 @@ export async function setupMockUsingCoreContractsArtifacts(
   // Setup DecryptionOracle
   const decryptionOracleArtifact = await fhevmPaths.getZamaFheOracleSolidityArtifact("DecryptionOracle");
   await __tryDeploy(
-    ethersProvider,
+    mockProvider,
     "DecryptionOracle",
     decryptionOracleAddress,
     decryptionOracleArtifact.path,
     decryptionOracleArtifact.artifact.deployedBytecode,
   );
 
-  const aclReadOnly = new EthersT.Contract(aclAddress, aclArtifact.artifact.abi, ethersProvider.provider);
+  const aclReadOnly = new EthersT.Contract(aclAddress, aclArtifact.artifact.abi, mockProvider.ethersProvider);
   const fheGasLimitReadOnly = new EthersT.Contract(
     fheGasLimitAddress,
     fheGasLimitArtifact.artifact.abi,
-    ethersProvider.provider,
+    mockProvider.ethersProvider,
   );
   const inputVerifierReadOnly = new EthersT.Contract(
     inputVerifierAddress,
     inputArtifact.artifact.abi,
-    ethersProvider.provider,
+    mockProvider.ethersProvider,
   );
   const kmsVerifierReadOnly = new EthersT.Contract(
     kmsVerifierAddress,
     kmsArtifact.artifact.abi,
-    ethersProvider.provider,
+    mockProvider.ethersProvider,
   );
 
   const decryptionOracleReadOnly = new EthersT.Contract(
     decryptionOracleAddress,
     decryptionOracleArtifact.artifact.abi,
-    ethersProvider.provider,
+    mockProvider.ethersProvider,
   );
 
   // console.log("TODO ACL.reinitialize is missing!");
@@ -327,8 +331,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   // Make sure everything is properly setup
   assertHHFhevm((await kmsVerifierReadOnly.getThreshold()) === BigInt(getKMSThreshold()));
   // Verify signers
-  const _kmsSigners: string[] = await kmsVerifierReadOnly.getKmsSigners();
-  await assertSignersMatchAddresses(kmsSigners, _kmsSigners);
+  const _kmsSignersAddresses: string[] = await kmsVerifierReadOnly.getKmsSigners();
+  await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
 
   const inputVerifierVerifyingContractSource = getGatewayInputVerificationAddress();
 
@@ -371,8 +375,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   }
 
   // Verify signers
-  const _inputSigners: string[] = await inputVerifierReadOnly.getCoprocessorSigners();
-  await assertSignersMatchAddresses(coprocessorSigners, _inputSigners);
+  const _inputSignersAddresses: string[] = await inputVerifierReadOnly.getCoprocessorSigners();
+  await assertSignersMatchAddresses(coprocessorSigners, _inputSignersAddresses);
 
   // InputVerifier eip712Domain
   const _inputVerifier712Domain = await inputVerifierReadOnly.eip712Domain();
@@ -402,21 +406,23 @@ export async function setupMockUsingCoreContractsArtifacts(
   debug(`Gateway Decryption address              : ${gatewayDecryptionAddress}`);
 
   return {
-    ACLAddress: aclAddress,
-    ACLReadOnly: aclReadOnly,
-    FHEVMExecutorAddress: FHEVMExecutorAddress,
-    FHEVMExecutorReadOnly: fhevmExecutorReadOnly,
-    InputVerifierAddress: inputVerifierAddress,
-    InputVerifierReadOnly: inputVerifierReadOnly,
-    KMSVerifierAddress: kmsVerifierAddress,
-    KMSVerifierReadOnly: kmsVerifierReadOnly,
-    DecryptionOracleAddress: decryptionOracleAddress,
-    DecryptionOracleReadOnly: decryptionOracleReadOnly,
+    config: {
+      ACLAddress: aclAddress,
+      ACLReadOnly: aclReadOnly,
+      FHEVMExecutorAddress: FHEVMExecutorAddress,
+      FHEVMExecutorReadOnly: fhevmExecutorReadOnly,
+      InputVerifierAddress: inputVerifierAddress,
+      InputVerifierReadOnly: inputVerifierReadOnly,
+      KMSVerifierAddress: kmsVerifierAddress,
+      KMSVerifierReadOnly: kmsVerifierReadOnly,
+      DecryptionOracleAddress: decryptionOracleAddress,
+      DecryptionOracleReadOnly: decryptionOracleReadOnly,
+      gatewayInputVerificationAddress: inputVerifierVerifyingContractSource,
+      gatewayChainId,
+      gatewayDecryptionAddress: gatewayDecryptionAddress,
+    },
     kmsSigners,
     coprocessorSigners,
-    gatewayInputVerificationAddress: inputVerifierVerifyingContractSource,
-    gatewayChainId,
-    gatewayDecryptionAddress: gatewayDecryptionAddress,
   };
 }
 

@@ -1,3 +1,4 @@
+import { FhevmMockProvider } from "@fhevm/mock-utils";
 import { exec } from "child_process";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
@@ -9,7 +10,6 @@ import { HardhatFhevmError } from "../../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../../task-names";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { PrecompiledCoreContractsAddresses } from "../types";
-import { FhevmEthersProvider } from "../utils/FhevmEthersProvider";
 import { computeDummyAddress } from "../utils/hh";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
@@ -60,21 +60,21 @@ async function childProcessExecNpxHardhatFhevmInstallSolidity(alreadyRunning: bo
 }
 
 export async function getPrecompiledFhevmCoreContractsAddresses(
-  ethersProvider: FhevmEthersProvider,
+  mockProvider: FhevmMockProvider,
   fhevmPaths: FhevmEnvironmentPaths,
 ): Promise<PrecompiledCoreContractsAddresses> {
   debug(
     `Resolving precompiled @fhevm/core-contracts addresses using artifacts at ${fhevmPaths.resolveFhevmCoreContractsArtifactRootDir()} ...`,
   );
 
-  if (ethersProvider.info.networkName !== "hardhat") {
+  if (mockProvider.info.networkName !== "hardhat") {
     throw new HardhatFhevmError(
-      `Can't retrieve ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} precompiled addresses. This operation is only supported on 'hardhat' network. Current network: ${ethersProvider.info.networkName}`,
+      `Can't retrieve ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} precompiled addresses. This operation is only supported on 'hardhat' network. Current network: ${mockProvider.info.networkName}`,
     );
   }
 
   const precompiledFHEVMExecutorAddress = await retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
-    ethersProvider,
+    mockProvider,
     fhevmPaths,
   );
 
@@ -82,13 +82,13 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
     // Setup FHEVMExecutor
     const FHEVMExecutorArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
     const FHEVMExecutorBytecode = FHEVMExecutorArtifact.artifact.deployedBytecode;
-    await ethersProvider.setCodeAt(precompiledFHEVMExecutorAddress, FHEVMExecutorBytecode);
+    await mockProvider.setCodeAt(precompiledFHEVMExecutorAddress, FHEVMExecutorBytecode);
 
     // Retrieve precompiled FHE addresses using FHEVMExecutor.
     const FHEVMExecutorReadOnly = new EthersT.Contract(
       precompiledFHEVMExecutorAddress,
       FHEVMExecutorArtifact.artifact.abi,
-      ethersProvider.provider,
+      mockProvider.ethersProvider,
     );
 
     const precompiledACLAddress = (await FHEVMExecutorReadOnly.getACLAddress()) as string;
@@ -106,17 +106,17 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
 
     return addresses;
   } finally {
-    await ethersProvider.setCodeAt(precompiledFHEVMExecutorAddress, "0x");
+    await mockProvider.setCodeAt(precompiledFHEVMExecutorAddress, "0x");
   }
 }
 
 export async function retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
-  ethersProvider: FhevmEthersProvider,
+  mockProvider: FhevmMockProvider,
   fhevmPaths: FhevmEnvironmentPaths,
 ): Promise<string> {
   const DUMMY_ACL_ADDR = computeDummyAddress();
 
-  if ((await ethersProvider.getCodeAt(DUMMY_ACL_ADDR)) !== "0x") {
+  if ((await mockProvider.getCodeAt(DUMMY_ACL_ADDR)) !== "0x") {
     throw new HardhatFhevmError("Unable to determine precompiled FHEVMExecutor address.");
   }
 
@@ -124,19 +124,19 @@ export async function retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
     const aclArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("ACL");
     const aclBytecode = aclArtifact.artifact.deployedBytecode;
 
-    await ethersProvider.setCodeAt(DUMMY_ACL_ADDR, aclBytecode);
+    await mockProvider.setCodeAt(DUMMY_ACL_ADDR, aclBytecode);
 
-    const dummyAcl = new EthersT.Contract(DUMMY_ACL_ADDR, aclArtifact.artifact.abi, ethersProvider.provider);
+    const dummyAcl = new EthersT.Contract(DUMMY_ACL_ADDR, aclArtifact.artifact.abi, mockProvider.ethersProvider);
 
     const precompiledFHEVMExecutorAddress = await dummyAcl.getFHEVMExecutorAddress();
     return precompiledFHEVMExecutorAddress;
   } finally {
-    await ethersProvider.setCodeAt(DUMMY_ACL_ADDR, "0x");
+    await mockProvider.setCodeAt(DUMMY_ACL_ADDR, "0x");
   }
 }
 
 export async function loadPrecompiledFhevmCoreContractsAddresses(
-  ethersProvider: FhevmEthersProvider,
+  mockProvider: FhevmMockProvider,
   fhevmPaths: FhevmEnvironmentPaths,
   ignoreCache: boolean,
   isRunningInHHFHEVMInstallSolidity: boolean,
@@ -150,10 +150,10 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
     }
   }
 
-  if (ethersProvider.info.networkName !== "hardhat") {
+  if (mockProvider.info.networkName !== "hardhat") {
     /*
       This address resolution method must be exclusively executed using the hardhat network.
-      If it's not the case we spawn a process and run `npx hardhat --network hardhat> ...` manually
+      If it's not the case we spawn a process and run `npx hardhat --network hardhat ...` manually
       This will throw an error if we are running this command recursively.
 
       This mechanism is required to solve situations like
@@ -184,7 +184,7 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
     };
   }
 
-  const addresses = await getPrecompiledFhevmCoreContractsAddresses(ethersProvider, fhevmPaths);
+  const addresses = await getPrecompiledFhevmCoreContractsAddresses(mockProvider, fhevmPaths);
 
   if (!fs.existsSync(fhevmPaths.cache)) {
     fs.mkdirSync(fhevmPaths.cache);

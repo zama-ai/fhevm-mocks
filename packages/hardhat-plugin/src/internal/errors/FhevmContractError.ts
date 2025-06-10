@@ -1,4 +1,3 @@
-//import { RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/lib";
 import { FhevmContractName, MockRelayerEncryptedInput } from "@fhevm/mock-utils";
 import { RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { BytesLike, ethers as EthersT } from "ethers";
@@ -114,7 +113,7 @@ export async function parseFhevmError(
     return undefined;
   }
 
-  const tx = await fhevmEnv.ethersProvider.provider.getTransaction(errData.txHash);
+  const tx = await fhevmEnv.mockProvider.ethersProvider.getTransaction(errData.txHash);
   const txFrom = tx ? tx.from : undefined;
   const txContract = tx && tx.to ? tx.to : undefined;
 
@@ -451,7 +450,7 @@ async function __formatFhevmErrorMessages(
 
   if (txHash) {
     //VM Exception while processing transaction: reverted with an unrecognized custom error
-    const _tx = await fhevmEnv.ethersProvider.provider.getTransaction(txHash);
+    const _tx = await fhevmEnv.mockProvider.ethersProvider.getTransaction(txHash);
     if (_tx?.from) {
       resolvedTx.from = _tx.from;
     }
