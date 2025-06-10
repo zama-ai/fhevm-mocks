@@ -11,6 +11,7 @@ import { subtask, task } from "hardhat/config";
 import { HardhatRuntimeEnvironment, TaskArguments } from "hardhat/types";
 import * as picocolors from "picocolors";
 
+import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
 import { assertHHFhevm } from "../internal/error";
@@ -52,7 +53,7 @@ task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironmen
       debug(`${picocolors.greenBright(TASK_CLEAN)} directory ${fhevmEnv.paths.cache} already removed.`);
     }
   } catch {
-    console.log(`@fhevm/hardhat: Unable to remove directory '${fhevmEnv.paths.cache}'.`);
+    console.log(`${constants.HARDHAT_PLUGIN_NAME}: Unable to remove directory '${fhevmEnv.paths.cache}'.`);
   }
 
   const res = await runSuper();
