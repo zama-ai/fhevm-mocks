@@ -36,6 +36,10 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     this._fhevmEnv = fhevmEnv;
   }
 
+  public async initializeCLIApi(): Promise<void> {
+    await this._fhevmEnv.initializeCLIApi();
+  }
+
   public get isMock(): boolean {
     //minimalInit
     return this._fhevmEnv.mockProvider.isMock;

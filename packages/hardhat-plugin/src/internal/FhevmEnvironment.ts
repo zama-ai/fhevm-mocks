@@ -469,6 +469,39 @@ export class FhevmEnvironment {
     return this._deployCompleted;
   }
 
+  // Client API only
+  public async initializeCLIApi() {
+    if (this.isDeployed) {
+      return;
+    }
+
+    if (this.hre.network.name === "hardhat") {
+      throw new HardhatFhevmError(
+        `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${this.hre.network.name}')`,
+      );
+    }
+
+    await this.minimalInit();
+
+    // Add support for Sepolia here!
+    // Ex: `npx hardhat fhevm user-decrypt --network sepolia ...`
+    if (this.mockProvider.info.type !== FhevmMockProviderType.HardhatNode) {
+      throw new HardhatFhevmError(
+        `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${this.hre.network.name}')`,
+      );
+    }
+
+    // TODO: should improve deploy() (see function commentary)
+    await this.deploy();
+  }
+
+  /**
+   * TODO: Should be improved:
+   * - if `Sepolia`: no need to deploy! just create instance and pick up addresses
+   *   Ex: `npx hardhat fhevm user-decrypt --network sepolia ...`
+   * - if `Hardhat Node`: it's already deployed (because of `npx hardhat node` CLI auto deploy)
+   * - if `Anvil`: may no be deployed (maybe add `npx hardhat fhevm anvil`)
+   */
   public async deploy() {
     if (this._deployCompleted) {
       throw new HardhatFhevmError("The Fhevm environment is already initialized.");

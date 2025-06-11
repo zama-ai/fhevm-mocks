@@ -4,6 +4,7 @@ import {
   TASK_CLEAN,
   TASK_COMPILE_GET_REMAPPINGS,
   TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS,
+  TASK_NODE_GET_PROVIDER,
   TASK_NODE_SERVER_READY,
   TASK_TEST,
 } from "hardhat/builtin-tasks/task-names";
@@ -96,6 +97,20 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
   },
 );
 
+subtask(TASK_NODE_GET_PROVIDER).setAction(async (_taskArgs: TaskArguments, _hre, runSuper) => {
+  // This task is not supposed to be called multiple times.
+  const fhevmEnv = fhevmContext.get();
+
+  if (!fhevmEnv.isDeployed) {
+    fhevmEnv.setRunningInHHNode();
+    await fhevmEnv.deploy();
+    assertHHFhevm(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+  }
+
+  const res = await runSuper();
+  return res;
+});
+
 subtask(TASK_NODE_SERVER_READY).setAction(
   async (
     _taskArgs: TaskArguments,
@@ -115,10 +130,12 @@ subtask(TASK_NODE_SERVER_READY).setAction(
   ) => {
     // This task is not supposed to be called multiple times.
     const fhevmEnv = fhevmContext.get();
-    fhevmEnv.setRunningInHHNode();
 
-    await fhevmEnv.deploy();
-    assertHHFhevm(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+    if (!fhevmEnv.isDeployed) {
+      fhevmEnv.setRunningInHHNode();
+      await fhevmEnv.deploy();
+      assertHHFhevm(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+    }
 
     const res = await runSuper();
     return res;

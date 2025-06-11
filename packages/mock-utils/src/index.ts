@@ -6,7 +6,15 @@ export * as contracts from "./fhevm/contracts/index.js";
 
 export { assertIsEIP712Domain } from "./ethers/eip712.js";
 export { FhevmDBMap } from "./fhevm/db/FhevmDBMap.js";
-export { FhevmType, getFhevmTypeInfo, isFhevmEuint, isFhevmEbytes } from "./fhevm/FhevmType.js";
+export {
+  FhevmType,
+  getFhevmTypeInfo,
+  isFhevmEuint,
+  isFhevmEbytes,
+  isFhevmEaddress,
+  isFhevmEbool,
+  tryParseFhevmType,
+} from "./fhevm/FhevmType.js";
 export type { FhevmTypeEbytes, FhevmTypeEuint, FhevmTypeName } from "./fhevm/FhevmType.js";
 
 export { FhevmHandleCoder } from "./fhevm/FhevmHandleCoder.js";

@@ -30,7 +30,7 @@ export function logBox(
   const left = " ".repeat(1);
   const inner = " ".repeat(2);
 
-  const prefix = constants.HARDHAT_PLUGIN_NAME;
+  const prefix = constants.HARDHAT_PLUGIN_NAME + ":";
 
   let len = msg.length + prefix.length + 1;
 

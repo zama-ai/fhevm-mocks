@@ -26,6 +26,8 @@ export interface HardhatFhevmRuntimeEnvironment {
   isMock: boolean;
   debugger: HardhatFhevmRuntimeDebugger;
 
+  initializeCLIApi(): Promise<void>;
+
   parseCoprocessorEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): CoprocessorEvent[];
   parseDecryptionRequestEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): DecryptionRequestEvent[];
 
