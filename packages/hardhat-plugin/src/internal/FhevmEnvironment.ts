@@ -57,6 +57,7 @@ export type FhevmEnvironmentConfig = {
 };
 
 const debugProvider = debug("@fhevm/hardhat:provider");
+const debugInstance = debug("@fhevm/hardhat:instance");
 
 export type FhevmEnvironmentAddresses = {
   /**
@@ -722,13 +723,16 @@ export class FhevmEnvironment {
         gatewayChainId: this.getGatewayChainId(),
       });
     } else if (this.mockProvider.isSepoliaEthereum) {
-      return await zamaFheRelayerSdkCreateInstance({
+      debugInstance("Creating @zama-fhe/relayer-sdk instance (might take some time)...");
+      const instance = await zamaFheRelayerSdkCreateInstance({
         ...this.getContractsRepository().getFhevmInstanceConfig({
           chainId: this.mockProvider.chainId,
           relayerUrl: constants.RELAYER_URL,
         }),
         network: this.hre.network.provider,
       });
+      debugInstance("@zama-fhe/relayer-sdk instance created.");
+      return instance;
     } else {
       throw new HardhatFhevmError(`Unsupported network.`);
     }
