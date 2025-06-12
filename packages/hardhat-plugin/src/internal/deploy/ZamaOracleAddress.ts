@@ -6,7 +6,6 @@ import * as picocolors from "picocolors";
 import constants from "../../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
-import { assertHHFhevm } from "../error";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
@@ -19,14 +18,6 @@ export function generateZamaOracleAddressDotSol(
   paths: FhevmEnvironmentPaths,
   sepoliaZamaOracleAddress: string,
 ): string {
-  const dstPath = paths.cacheZamaOracleAddressSol;
-
-  if (fs.existsSync(dstPath)) {
-    debug(`Skip ${picocolors.yellowBright("ZamaOracleAddress.sol")} generation. File ${dstPath} already exists.`);
-    return dstPath;
-  }
-
-  const dstDir = path.dirname(dstPath);
   const origPath = path.join(paths.zamaFheOracleSolidityAddress, "ZamaOracleAddress.sol");
 
   if (!fs.existsSync(origPath)) {
@@ -35,12 +26,30 @@ export function generateZamaOracleAddressDotSol(
     );
   }
 
+  const expectedAddr = "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812";
+
   const origContent: string = fs.readFileSync(origPath, "utf8");
   // This will throw an error in case the new `ZamaOracleAddress.sol` has been modified
-  assertHHFhevm(origContent.indexOf("SepoliaZamaOracleAddress = 0x33347831500F1e73f0ccCBb95c9f86B94d7b1123;") >= 0);
+  if (origContent.indexOf(`SepoliaZamaOracleAddress = ${expectedAddr};`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ZamaOracleAddress.sol file. File located at '${origPath}' has changed and is not supported. 'SepoliaZamaOracleAddress' as changed.`,
+    );
+  }
 
-  const dstContent = origContent.replaceAll("0x33347831500F1e73f0ccCBb95c9f86B94d7b1123", sepoliaZamaOracleAddress);
+  const dstContent = origContent.replaceAll(expectedAddr, sepoliaZamaOracleAddress);
 
+  const dstPath = paths.cacheZamaOracleAddressSol;
+  if (fs.existsSync(dstPath)) {
+    const existingContent: string = fs.readFileSync(dstPath, "utf8");
+    if (existingContent === dstContent) {
+      debug(
+        `Skip ${picocolors.yellowBright("ZamaOracleAddress.sol")} generation. File ${dstPath} already exists with exact same content.`,
+      );
+      return dstPath;
+    }
+  }
+
+  const dstDir = path.dirname(dstPath);
   if (!fs.existsSync(dstDir)) {
     fs.mkdirSync(dstDir, { recursive: true });
   }

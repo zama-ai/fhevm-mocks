@@ -25,7 +25,7 @@
     "./package.json": "./_cjs/package.json"
   },
   "dependencies": {
-    "@fhevm/core-contracts": "^0.7.0-9",
+    "@fhevm/core-contracts": "^0.7.0-10",
     "debug": "^4.1.1",
     "picocolors": "^1.1.1",
     "dotenv": "^16.5.0",
@@ -34,7 +34,6 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
     "@typechain/hardhat": "^9.1.0",
@@ -78,9 +77,8 @@
     "@fhevm/mock-utils": "0.0.1-0",
     "@fhevm/solidity": "^0.7.0-4",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
-    "@zama-fhe/oracle-solidity": "^0.0.4-0",
-    "@zama-fhe/relayer-sdk": "^0.1.0-4",
+    "@zama-fhe/oracle-solidity": "^0.1.0",
+    "@zama-fhe/relayer-sdk": "^0.1.0-5",
     "ethers": "^6.1.0",
     "hardhat": "^2.0.0"
   },

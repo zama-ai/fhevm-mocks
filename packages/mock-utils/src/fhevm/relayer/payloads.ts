@@ -7,6 +7,10 @@ export type RelayerMetadata = {
   FHEVMExecutorAddress: string;
   InputVerifierAddress: string;
   KMSVerifierAddress: string;
+  relayerSignerAddress: string;
+  // relayerSignerPrivateKey or wallet info
+  // kmsSigners or wallet info
+  // inputVerifierSigners or wallet info
 };
 
 export type RelayerV1UserDecryptHandleContractPair = {
@@ -93,6 +97,7 @@ export function assertIsRelayerMetadata(value: unknown): asserts value is Relaye
     "FHEVMExecutorAddress",
     "InputVerifierAddress",
     "KMSVerifierAddress",
+    "relayerSignerAddress",
   ];
-  assertIsAddressProperty(value, keys, "RelayerV1InputProofResponse");
+  assertIsAddressProperty(value, keys, "RelayerMetadata");
 }

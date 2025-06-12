@@ -19,6 +19,15 @@ export class FhevmProviderExtender extends ProviderWrapper {
   // override estimated gasLimit by 120%, to avoid some edge case with ethermint gas estimation
   private static readonly ESTIMATEGAS_PERCENTAGE: bigint = 120n;
 
+  /*
+    Should be initialized with:
+    - chainId
+    - few addresses like ACL etc.
+    - trace: isRunningInHHNode 
+    - useEmbeddedMockEngine
+    - coprocessor
+    - decryptionOracle
+  */
   constructor(_wrappedProvider: EIP1193Provider, _config: HardhatConfig, _network: string, _blockNumber: bigint) {
     super(_wrappedProvider);
     this._config = _config;
@@ -26,13 +35,19 @@ export class FhevmProviderExtender extends ProviderWrapper {
   }
 
   public async request(args: RequestArguments) {
+    // test init
+    // if not init forward!
     switch (args.method) {
+      // window.ethereum
       case "eth_estimateGas":
         return this._handleEthEstimateGas(args);
+      // window.ethereum
       case "eth_sendTransaction":
         return this._handleEthSendTransaction(args);
+      // Dev
       case "evm_revert":
         return this._handleEvmRevert(args);
+      // Relayer
       case relayer.RELAYER_METADATA:
         return this._handleFhevmRelayerMetadata(args);
       case relayer.RELAYER_V1_USER_DECRYPT:
@@ -43,6 +58,8 @@ export class FhevmProviderExtender extends ProviderWrapper {
         return this._handleFhevmRelayerV1InputProof(args);
       case relayer.FHEVM_AWAIT_DECRYPTION_ORACLE:
         return this._handleFhevmAwaitDecryptionOracle(args);
+      case relayer.FHEVM_CREATE_DECRYPTION_SIGNATURES:
+        return this._handleFhevmCreateDecryptionSignatures(args);
       case relayer.FHEVM_GET_CLEAR_TEXT:
         return this._handleFhevmGetClearText(args);
       default:
@@ -50,6 +67,8 @@ export class FhevmProviderExtender extends ProviderWrapper {
     }
   }
 
+  // curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"fhevm_relayer_metadata","params":[],"id":1}' http://127.0.0.1:8545
+  //
   private async _handleFhevmRelayerMetadata(args: RequestArguments) {
     const fhevmEnv = fhevmContext.get();
 
@@ -58,16 +77,23 @@ export class FhevmProviderExtender extends ProviderWrapper {
       return this._wrappedProvider.request(args);
     }
 
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+    }
+
     const metadata: relayer.RelayerMetadata = {
       ACLAddress: fhevmEnv.getACLAddress(),
       FHEVMExecutorAddress: fhevmEnv.getFHEVMExecutorAddress(),
       InputVerifierAddress: fhevmEnv.getInputVerifierAddress(),
       KMSVerifierAddress: fhevmEnv.getKMSVerifierAddress(),
+      relayerSignerAddress: fhevmEnv.getRelayerSignerAddress(),
     };
 
     return metadata;
   }
 
+  // Try to show a human readable error message
+  // Forward to ethers.Signer or window.ethereum
   private async _handleEthSendTransaction(args: RequestArguments) {
     // Do not perform any action if we are running in HH node.
     // We could, but we prefer to keep it centralized.
@@ -131,12 +157,38 @@ export class FhevmProviderExtender extends ProviderWrapper {
       return this._wrappedProvider.request(args);
     }
 
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+    }
+
     const payload = _getRequestSingleParam(args);
 
     relayer.assertIsRelayerV1PublicDecryptPayload(payload);
 
     // TODO
     throw new HardhatFhevmError(`Fhevm Public Decrypt is not yet supported.`);
+  }
+
+  private async _handleFhevmCreateDecryptionSignatures(args: RequestArguments) {
+    const fhevmEnv = fhevmContext.get();
+
+    // forward if we are not running the mock engine
+    if (!fhevmEnv.useEmbeddedMockEngine) {
+      return this._wrappedProvider.request(args);
+    }
+
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+    }
+
+    const payload = _getRequestSingleParam(args) as { handlesBytes32Hex: string[]; clearTextValuesHex: string[] };
+
+    const res = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
+      payload.handlesBytes32Hex,
+      payload.clearTextValuesHex,
+    );
+
+    return res;
   }
 
   private async _handleFhevmAwaitDecryptionOracle(args: RequestArguments) {
@@ -163,6 +215,10 @@ export class FhevmProviderExtender extends ProviderWrapper {
       return this._wrappedProvider.request(args);
     }
 
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+    }
+
     //
     // Should verify signature !!!
     //
@@ -172,7 +228,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
     relayer.assertIsRelayerV1UserDecryptPayload(payload);
 
     const handleBytes32HexList: string[] = payload.handleContractPairs.map((h) => {
-      return fhevmEnv.hre.ethers.toBeHex(fhevmEnv.hre.ethers.toBigInt(h.handle), 32);
+      return EthersT.toBeHex(EthersT.toBigInt(h.handle), 32);
     });
 
     const clearTextHexList: string[] = await fhevmEnv.coprocessor.queryHandlesBytes32AsHex(handleBytes32HexList);
@@ -195,6 +251,10 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
     if (!fhevmEnv.useEmbeddedMockEngine) {
       return this._wrappedProvider.request(args);
+    }
+
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
     }
 
     const payload = _getRequestSingleStringArrayParam(args);
@@ -236,6 +296,10 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
     if (!fhevmEnv.useEmbeddedMockEngine) {
       return this._wrappedProvider.request(args);
+    }
+
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
     }
 
     const payload = _getRequestSingleParam(args);

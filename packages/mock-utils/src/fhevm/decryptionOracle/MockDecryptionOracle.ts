@@ -9,6 +9,7 @@ import type { DecryptionOracle } from "./DecryptionOracle.js";
 import type { DecryptionRequestEvent } from "./DecryptionOracleEvents.js";
 import { DecryptionOracleEventsHandler } from "./DecryptionOracleEventsHandler.js";
 import { DecryptionOracleEventsIterator } from "./DecryptionOracleEventsIterator.js";
+import { DecryptionOraclePartialInterface } from "./abi.js";
 import { toDecryptionRequestEvent } from "./utils.js";
 
 type DecryptionRequestDBEntry = {
@@ -89,44 +90,52 @@ class MockDecryptionOracleDB {
 }
 
 export class MockDecryptionOracle implements DecryptionOracle {
-  #iterator: DecryptionOracleEventsIterator;
-  #handler: DecryptionOracleEventsHandler;
-  #readonlyProvider: EthersT.Provider;
-  #coprocessor: Coprocessor;
+  #iterator: DecryptionOracleEventsIterator | undefined;
+  #handler: DecryptionOracleEventsHandler | undefined;
+  #readonlyProvider: EthersT.Provider | undefined;
+  #coprocessor: Coprocessor | undefined;
   #requestDB: MockDecryptionOracleDB = new MockDecryptionOracleDB();
-  #acl: ACL;
-  #kmsVerifier: KMSVerifier;
-  #kmsSigners: EthersT.Signer[];
+  #acl: ACL | undefined;
+  #kmsVerifier: KMSVerifier | undefined;
+  #kmsSigners: EthersT.Signer[] | undefined;
 
-  constructor(
-    decryptionOracleContractInterface: EthersT.Interface,
-    decryptionOracleContractAddress: string,
+  public static async create(
     readonlyProvider: EthersT.Provider,
-    coprocessor: Coprocessor,
-    db: FhevmDB,
-    kmsVerifier: KMSVerifier,
-    acl: ACL,
-    kmsSigners: EthersT.Signer[],
-    relayerSigner: EthersT.Signer,
-  ) {
-    this.#readonlyProvider = readonlyProvider;
-    this.#coprocessor = coprocessor;
-    this.#iterator = new DecryptionOracleEventsIterator(
-      decryptionOracleContractInterface,
-      decryptionOracleContractAddress,
+    params: {
+      decryptionOracleContractAddress: string;
+      decryptionOracleContractInterface?: EthersT.Interface;
+      kmsSigners: EthersT.Signer[];
+      kmsVerifierContractAddress: string;
+      aclContractAddress: string;
+      coprocessor: Coprocessor;
+      relayerSigner: EthersT.Signer;
+    },
+  ): Promise<MockDecryptionOracle> {
+    const mdo = new MockDecryptionOracle();
+    const db: FhevmDB = params.coprocessor.getDB();
+    const decryptionOracleContractItf = params.decryptionOracleContractInterface ?? DecryptionOraclePartialInterface;
+    mdo.#readonlyProvider = readonlyProvider;
+    mdo.#coprocessor = params.coprocessor;
+    mdo.#iterator = new DecryptionOracleEventsIterator(
+      decryptionOracleContractItf,
+      params.decryptionOracleContractAddress,
       readonlyProvider,
       db.fromBlockNumber,
     );
-    this.#handler = new DecryptionOracleEventsHandler(db, kmsVerifier, kmsSigners, relayerSigner);
-    this.#acl = acl;
-    this.#kmsVerifier = kmsVerifier;
-    this.#kmsSigners = kmsSigners;
+    mdo.#kmsVerifier = await KMSVerifier.create(readonlyProvider, params.kmsVerifierContractAddress);
+    mdo.#acl = await ACL.create(readonlyProvider, params.aclContractAddress);
+    mdo.#handler = new DecryptionOracleEventsHandler(db, mdo.#kmsVerifier, params.kmsSigners, params.relayerSigner);
+    mdo.#kmsSigners = params.kmsSigners;
+    return mdo;
   }
 
   public async createDecryptionSignatures(
     handlesBytes32Hex: string[],
     clearTextValues: (bigint | string | boolean)[],
   ): Promise<string[]> {
+    assertFhevm(this.#kmsVerifier !== undefined, `MockDecryptionOracle not initialized`);
+    assertFhevm(this.#kmsSigners !== undefined, `MockDecryptionOracle not initialized`);
+
     return (
       await computeDecryptionSignatures(
         handlesBytes32Hex,
@@ -139,6 +148,12 @@ export class MockDecryptionOracle implements DecryptionOracle {
   }
 
   public async awaitDecryptionOracle(): Promise<void> {
+    assertFhevm(this.#coprocessor !== undefined, `MockDecryptionOracle not initialized`);
+    assertFhevm(this.#iterator !== undefined, `MockDecryptionOracle not initialized`);
+    assertFhevm(this.#readonlyProvider !== undefined, `MockDecryptionOracle not initialized`);
+    assertFhevm(this.#acl !== undefined, `MockDecryptionOracle not initialized`);
+    assertFhevm(this.#handler !== undefined, `MockDecryptionOracle not initialized`);
+
     // Required (healthier to do it even if events in empty)
     await this.#coprocessor.awaitCoprocessor();
 

@@ -1,8 +1,10 @@
-import { FHEVMConfig } from "../types";
+import { FHEVMConfig } from "@fhevm/mock-utils";
+import { ethers as EthersT } from "ethers";
+
 import type { FhevmEnvironment } from "./FhevmEnvironment";
 
 export type PrecompiledCoreContractsAddresses = Omit<FHEVMConfig, "KMSVerifierAddress"> & {
-  FHEGasLimitAddress: string;
+  HCULimitAddress: string;
 };
 
 export type FhevmContext = {
@@ -10,3 +12,7 @@ export type FhevmContext = {
   rand: number;
   get: () => FhevmEnvironment;
 };
+
+export interface FhevmProvider extends EthersT.Provider {
+  send(method: string, params?: any[]): Promise<any>;
+}

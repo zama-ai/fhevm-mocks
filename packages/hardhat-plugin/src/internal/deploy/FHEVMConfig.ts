@@ -1,10 +1,10 @@
+import { FHEVMConfig } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import * as fs from "fs";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
 import { HardhatFhevmError } from "../../error";
-import type { FHEVMConfig } from "../../types";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { assertHHFhevm } from "../error";
 
@@ -16,14 +16,6 @@ const debug = setupDebug("@fhevm/hardhat:addresses");
  * @returns The absolute path to the generated `FHEVMConfig.sol`
  */
 export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresses: FHEVMConfig): string {
-  const dstPath = paths.cacheFHEVMConfigSol;
-
-  if (fs.existsSync(dstPath)) {
-    debug(`Skip ${picocolors.yellowBright("FHEVMConfig.sol")} generation. File ${dstPath} already exists.`);
-    return dstPath;
-  }
-
-  const dstDir = path.dirname(dstPath);
   const origPath = path.join(paths.fhevmSolidityConfig, "FHEVMConfig.sol");
 
   if (!fs.existsSync(origPath)) {
@@ -48,6 +40,18 @@ export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresse
     .replaceAll("0x9D6891A6240D6130c54ae243d8005063D05fE14b", addresses.KMSVerifierAddress)
     .replaceAll("0x3a2DA6f1daE9eF988B48d9CF27523FA31a8eBE50", addresses.InputVerifierAddress);
 
+  const dstPath = paths.cacheFHEVMConfigSol;
+  if (fs.existsSync(dstPath)) {
+    const existingContent: string = fs.readFileSync(dstPath, "utf8");
+    if (existingContent === dstContent) {
+      debug(
+        `Skip ${picocolors.yellowBright("FHEVMConfig.sol")} generation. File ${dstPath} already exists with exact same content.`,
+      );
+      return dstPath;
+    }
+  }
+
+  const dstDir = path.dirname(dstPath);
   if (!fs.existsSync(dstDir)) {
     fs.mkdirSync(dstDir, { recursive: true });
   }

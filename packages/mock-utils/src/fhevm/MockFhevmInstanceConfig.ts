@@ -2,30 +2,26 @@ import { ethers as EthersT } from "ethers";
 
 import constants from "../constants.js";
 import { getProviderChainId } from "../ethers/provider.js";
-import { defaultWallets, walletsFromPrivateKeys } from "../ethers/wallet.js";
+import { defaultWalletsAsMap, walletsFromPrivateKeys } from "../ethers/wallet.js";
 import type { FhevmInstanceConfig } from "../relayer-sdk/types.js";
-import { addressesInAddressList } from "../utils/address.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
-import { type FhevmContractsInfo, initFhevmContractsInfo } from "./contracts/index.js";
+import { FhevmContractsRepository } from "./contracts/FhevmContractsRepository.js";
 import { requestRelayerMetadata } from "./relayer/MockRelayer.js";
 
 export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
-  #kmsContractAddress: string | undefined;
-  #aclContractAddress: string | undefined;
+  #contractsRepository: FhevmContractsRepository | undefined;
   #gatewayChainId: number | undefined;
   #chainId: number | undefined;
   #verifyingContractAddressDecryption: string | undefined;
   #verifyingContractAddressInputVerification: string | undefined;
-  #inputVerifierContractAddress: string | undefined;
   #relayerUrl: string | undefined;
   #networkUrl: string | undefined;
-  #contractsInfo: FhevmContractsInfo | undefined;
   #relayerProvider: EthersT.JsonRpcProvider | undefined;
   #readonlyRunner: EthersT.JsonRpcProvider | undefined;
+  // Belongs to a "engine" config. Should be removed
   #kmsSigners: EthersT.Signer[] | undefined;
   #coprocessorSigners: EthersT.Signer[] | undefined;
-  // TODO Gateway only
-  //#relayerSigner: EthersT.Signer | undefined;
+  //#relayerSignerPrivateKey
 
   private constructor() {}
 
@@ -33,6 +29,7 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
     config: FhevmInstanceConfig,
     options?: {
       noMetamaskChainSwap?: boolean;
+      // Belongs to a "engine" config. Should be removed
       kmsSignersPrivateKeys?: string[];
       coprocessorSignersPrivateKeys?: string[];
       relayerSignerPrivateKey?: string;
@@ -93,20 +90,16 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
       mockConfig.#gatewayChainId = networkChainId;
     }
 
-    mockConfig.#aclContractAddress = config.aclContractAddress;
-    mockConfig.#kmsContractAddress = config.kmsContractAddress;
+    mockConfig.#contractsRepository = await FhevmContractsRepository.create(mockConfig.#readonlyRunner, config);
     mockConfig.#verifyingContractAddressDecryption = config.verifyingContractAddressDecryption;
     mockConfig.#verifyingContractAddressInputVerification = config.verifyingContractAddressInputVerification;
-    mockConfig.#inputVerifierContractAddress = config.inputVerifierContractAddress;
 
-    const contractsInfo: FhevmContractsInfo = await initFhevmContractsInfo(
-      mockConfig.#readonlyRunner,
-      mockConfig.#aclContractAddress,
-      mockConfig.#kmsContractAddress,
-    );
-    if (contractsInfo.inputVerifier.address !== mockConfig.#inputVerifierContractAddress) {
+    if (
+      mockConfig.#contractsRepository.inputVerifier.address.toLowerCase() !==
+      config.inputVerifierContractAddress.toLocaleLowerCase()
+    ) {
       throw new FhevmError(
-        `InputVerifier address mismatch: the ACL contract at '${config.aclContractAddress}' on network '${config.network}' (chainId: ${config.chainId}) is using InputVerifier at '${contractsInfo.inputVerifier.address}', but 'FhevmInstanceConfig.inputVerifierContractAddress' is set to '${config.inputVerifierContractAddress}'. Please update the configuration to match.`,
+        `InputVerifier address mismatch: the ACL contract at '${config.aclContractAddress}' on network '${config.network}' (chainId: ${config.chainId}) is using InputVerifier at '${mockConfig.#contractsRepository.inputVerifier.address}', but 'FhevmInstanceConfig.inputVerifierContractAddress' is set to '${config.inputVerifierContractAddress}'. Please update the configuration to match.`,
       );
     }
 
@@ -115,8 +108,8 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
       categoryName: "KMS",
       default: constants.DEFAULT_KMS_SIGNERS_ACCOUNTS,
       ...(options?.kmsSignersPrivateKeys !== undefined && { privateKeys: options?.kmsSignersPrivateKeys }),
-      signersAddresses: contractsInfo.kmsVerifier.getKmsSignersAddresses(),
-      threshold: contractsInfo.kmsVerifier.getThreshold(),
+      signersAddresses: mockConfig.#contractsRepository.kmsVerifier.getKmsSignersAddresses(),
+      threshold: mockConfig.#contractsRepository.kmsVerifier.getThreshold(),
     });
 
     // Resolve coprocessor signers wallets
@@ -126,8 +119,8 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
       ...(options?.coprocessorSignersPrivateKeys !== undefined && {
         privateKeys: options?.coprocessorSignersPrivateKeys,
       }),
-      signersAddresses: contractsInfo.inputVerifier.getCoprocessorSigners(),
-      threshold: contractsInfo.inputVerifier.getThreshold(),
+      signersAddresses: mockConfig.#contractsRepository.inputVerifier.getCoprocessorSigners(),
+      threshold: mockConfig.#contractsRepository.inputVerifier.getThreshold(),
     });
 
     return mockConfig;
@@ -143,18 +136,10 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
     return this.#relayerProvider;
   }
 
-  public get contractsInfo(): FhevmContractsInfo {
-    assertFhevm(this.#contractsInfo !== undefined, "MockFhevmInstanceConfig is not initialized");
-    return this.#contractsInfo;
+  public get contractsRepository(): FhevmContractsRepository {
+    assertFhevm(this.#contractsRepository !== undefined, "MockFhevmInstanceConfig is not initialized");
+    return this.#contractsRepository;
   }
-
-  // public get publicParams() {
-  //   return undefined;
-  // }
-
-  // public get publicKey() {
-  //   return undefined;
-  // }
 
   public get network(): string {
     assertFhevm(this.#networkUrl !== undefined, "MockFhevmInstanceConfig is not initialized");
@@ -172,18 +157,18 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
   }
 
   public get aclContractAddress(): string {
-    assertFhevm(this.#aclContractAddress !== undefined, "MockFhevmInstanceConfig is not initialized");
-    return this.#aclContractAddress;
+    assertFhevm(this.#contractsRepository !== undefined, "MockFhevmInstanceConfig is not initialized");
+    return this.#contractsRepository.acl.address;
   }
 
   public get kmsContractAddress(): string {
-    assertFhevm(this.#kmsContractAddress !== undefined, "MockFhevmInstanceConfig is not initialized");
-    return this.#kmsContractAddress;
+    assertFhevm(this.#contractsRepository !== undefined, "MockFhevmInstanceConfig is not initialized");
+    return this.#contractsRepository.kmsVerifier.address;
   }
 
   public get inputVerifierContractAddress(): string {
-    assertFhevm(this.#inputVerifierContractAddress !== undefined, "MockFhevmInstanceConfig is not initialized");
-    return this.#inputVerifierContractAddress;
+    assertFhevm(this.#contractsRepository !== undefined, "MockFhevmInstanceConfig is not initialized");
+    return this.#contractsRepository.inputVerifier.address;
   }
 
   public get gatewayChainId(): number {
@@ -283,7 +268,7 @@ function _loadSignersCategory(signersCategory: {
   threshold: number;
   signersAddresses: string[];
   privateKeys?: string[];
-  default: { initialIndex: number; path: string };
+  default: { mnemonic?: string; initialIndex: number; path: string };
 }): EthersT.Signer[] {
   let resolvedSigners: EthersT.Signer[] = [];
   if (signersCategory.privateKeys) {
@@ -298,15 +283,18 @@ function _loadSignersCategory(signersCategory: {
     }
     resolvedSigners = wallets;
   } else {
-    // Try with default kms signers
-    const wallets = defaultWallets(
+    // Try with default signers
+    const wallets = defaultWalletsAsMap(
       signersCategory.default.initialIndex,
       signersCategory.threshold,
       signersCategory.default.path,
+      signersCategory.default.mnemonic,
     );
-    const walletAddresses = wallets.map((w) => w.address);
-    if (addressesInAddressList(walletAddresses, signersCategory.signersAddresses)) {
-      resolvedSigners = wallets;
+    for (let i = 0; i < signersCategory.signersAddresses.length; ++i) {
+      const w = wallets.get(signersCategory.signersAddresses[i]);
+      if (w) {
+        resolvedSigners.push(w);
+      }
     }
   }
 
