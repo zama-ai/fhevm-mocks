@@ -13,6 +13,7 @@ export enum FhevmMockProviderType {
   Hardhat = 1,
   HardhatNode = 2,
   Anvil = 3,
+  SepoliaEthereum = 4,
 }
 
 function fhevmMockProviderTypeToString(value: FhevmMockProviderType) {
@@ -25,6 +26,8 @@ function fhevmMockProviderTypeToString(value: FhevmMockProviderType) {
       return "Hardhat Node";
     case FhevmMockProviderType.Anvil:
       return "Anvil";
+    case FhevmMockProviderType.SepoliaEthereum:
+      return "SepoliaEthereum";
   }
 }
 
@@ -46,24 +49,31 @@ export type FhevmMockProviderInfo = {
 // WRONG name!!!
 export class FhevmMockProvider {
   #minimalProvider: MinimalProvider | undefined;
-  #ethersProvider: EthersT.Provider | undefined;
+  #readonlyEthersProvider: EthersT.Provider | undefined;
   #info: FhevmMockProviderInfo | undefined;
   #savedBlockGasLimit: bigint | undefined;
   #debugFunc: ((message: string) => void) | undefined;
 
-  public static async fromProvider(
-    provider: EthersT.Provider & MinimalProvider,
+  public static async fromReadonlyProvider(
+    readonlyProvider: EthersT.Provider & MinimalProvider,
     networkName: string,
     defaultProviderType: FhevmMockProviderType | undefined,
     defaultChainId: number | undefined,
     url: string | undefined,
   ) {
-    return FhevmMockProvider.create(provider, provider, networkName, defaultProviderType, defaultChainId, url);
+    return FhevmMockProvider.create(
+      readonlyProvider,
+      readonlyProvider,
+      networkName,
+      defaultProviderType,
+      defaultChainId,
+      url,
+    );
   }
 
   public static async create(
     minimalProvider: MinimalProvider,
-    ethersProvider: EthersT.Provider | undefined,
+    readonlyEthersProvider: EthersT.Provider | undefined,
     networkName: string,
     defaultProviderType: FhevmMockProviderType | undefined,
     defaultChainId: number | undefined,
@@ -74,13 +84,13 @@ export class FhevmMockProvider {
     p.#minimalProvider = minimalProvider;
     p.#info = info;
 
-    if (ethersProvider === undefined && info.url !== undefined) {
+    if (readonlyEthersProvider === undefined && info.url !== undefined) {
       // no need to change the polling interval since
-      // ethersProvider is read-only and does not listen to events
-      ethersProvider = new JsonRpcProvider(info.url);
+      // readonlyEthersProvider is read-only and does not listen to events
+      readonlyEthersProvider = new JsonRpcProvider(info.url);
     }
 
-    p.#ethersProvider = ethersProvider;
+    p.#readonlyEthersProvider = readonlyEthersProvider;
 
     return p;
   }
@@ -94,15 +104,15 @@ export class FhevmMockProvider {
   //   return await this.ethersProvider.getTransaction(txHash);
   // }
 
-  public get ethersProvider(): EthersT.Provider {
+  public get readonlyEthersProvider(): EthersT.Provider {
     // Make sure it is properly initialize. Use another property since #ethersProvider can be undefined
     if (!this.#minimalProvider) {
       throw new FhevmError(`the FhevmMockProvider instance is not initialized.`);
     }
-    if (!this.#ethersProvider) {
+    if (!this.#readonlyEthersProvider) {
       throw new FhevmError(`the FhevmMockProvider instance is not able to provide a valid ethers.Provider instance.`);
     }
-    return this.#ethersProvider;
+    return this.#readonlyEthersProvider;
   }
 
   public get minimalProvider(): MinimalProvider {
@@ -123,7 +133,18 @@ export class FhevmMockProvider {
     if (!this.#info) {
       throw new FhevmError(`the FhevmMockProvider instance is not initialized.`);
     }
-    return this.#info.type !== FhevmMockProviderType.Unknown;
+    return (
+      this.#info.type === FhevmMockProviderType.Hardhat ||
+      this.#info.type === FhevmMockProviderType.HardhatNode ||
+      this.#info.type === FhevmMockProviderType.Anvil
+    );
+  }
+
+  public get isSepoliaEthereum(): boolean {
+    if (!this.#info) {
+      throw new FhevmError(`the FhevmMockProvider instance is not initialized.`);
+    }
+    return this.#info.type === FhevmMockProviderType.SepoliaEthereum;
   }
 
   public get isHardhatWeb3Client(): boolean {
@@ -283,6 +304,18 @@ async function _resolveProviderInfo(
   url?: string,
 ): Promise<FhevmMockProviderInfo> {
   assertIsString(networkName, "networkName");
+
+  if (networkName !== "hardhat" && networkName !== "localhost" && defaultChainId === 11155111) {
+    assertFhevm(url !== undefined, "Missing sepolia url");
+    return {
+      type: FhevmMockProviderType.SepoliaEthereum,
+      chainId: 11155111,
+      methods: {},
+      url,
+      networkName,
+      web3ClientVersion: "",
+    };
+  }
 
   const p = await _resolveProvider(minimalProvider, defaultProviderType, defaultChainId, url);
   switch (p.type) {

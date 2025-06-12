@@ -336,6 +336,14 @@ export function getDecryptionOracleAddress(): string {
   if (!EthersT.isAddress(decryptionOracleAddress)) {
     throw new HardhatFhevmError(`Invalid DecryptionOracle address ${decryptionOracleAddress}`);
   }
+  assertHHFhevm(
+    decryptionOracleAddress !== "0x33347831500F1e73f0ccCBb95c9f86B94d7b1123",
+    'decryptionOracleAddress !== "0x33347831500F1e73f0ccCBb95c9f86B94d7b1123"',
+  );
+  assertHHFhevm(
+    decryptionOracleAddress === "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
+    'decryptionOracleAddress === "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812"',
+  );
   return decryptionOracleAddress;
 }
 
@@ -375,14 +383,14 @@ export function getKMSVerifierAddress(): string {
   return kmsVerifierAddress;
 }
 
-export function getFHEGasLimitAddress(): string {
+export function getHCULimitAddress(): string {
   const address = __getStringConstant(
-    "FHE_GASLIMIT_CONTRACT_ADDRESS",
-    constants["FHE_GASLIMIT_CONTRACT_ADDRESS"],
-    "addresses/.env.fhegaslimit",
+    "HCULIMIT_CONTRACT_ADDRESS",
+    constants["HCULIMIT_CONTRACT_ADDRESS"],
+    "addresses/.env.hculimit",
   );
   if (!EthersT.isAddress(address)) {
-    throw new HardhatFhevmError(`Invalid FHEGasLimit address ${address}`);
+    throw new HardhatFhevmError(`Invalid HCULimit address ${address}`);
   }
   return address;
 }

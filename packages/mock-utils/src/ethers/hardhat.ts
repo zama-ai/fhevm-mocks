@@ -31,8 +31,8 @@ export async function isHardhatProvider(
     return { couldNotConnect: false, isHardhat: true, chainId: Number(BigInt(metadata.chainId)) };
   } catch (e) {
     if (isHardhatProviderError(e)) {
-      // RPC method not supported
-      if (e.code === -32004) {
+      // RPC method not supported or not found
+      if (e.code === -32004 || e.code === -32601) {
         return { couldNotConnect: false, isHardhat: false };
       }
     } else if (isHardhatError(e)) {

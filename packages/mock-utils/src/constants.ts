@@ -48,6 +48,8 @@ const constants = {
     initialIndex: 0,
     path: "m/44'/60'/3'/0",
   },
+  FHEVM_CORE_CONTRACTS_PACKAGE_NAME: "@fhevm/core-contracts",
+  ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME: "@zama-fhe/oracle-solidity",
 };
 Object.freeze(constants);
 

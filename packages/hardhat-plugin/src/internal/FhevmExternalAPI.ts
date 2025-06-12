@@ -76,7 +76,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     contractName: FhevmContractName,
     customErrorName: string,
   ): [{ interface: EthersT.Interface }, string] {
-    const itf = this._fhevmEnv.interfaceFromName(contractName);
+    const itf = this._fhevmEnv.getContractsRepository().getContractFromName(contractName)?.interface;
     if (!itf) {
       throw new HardhatFhevmError(`Unable to retreive FHEVM contrat interface for contract ${contractName}`);
     }
@@ -337,7 +337,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
 
     const expectedAddress = this._fhevmEnv.getDecryptionOracleAddress();
 
-    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with a Decryption Oracle address that do not match the currently deployed Decryption Oracle contract.`;
+    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with a Decryption Oracle address that do not match the currently deployed Decryption Oracle contract`;
     if (address !== expectedAddress) {
       const errorMsg = `Coprocessor DecryptionOracle address mismatch. ${addrMismatchErrorMsg}. DecryptionOracle address: ${address}, expected DecryptionOracle address: ${expectedAddress}`;
       throw new HardhatFhevmError(errorMsg);

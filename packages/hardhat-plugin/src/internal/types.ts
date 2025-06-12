@@ -4,7 +4,7 @@ import { ethers as EthersT } from "ethers";
 import type { FhevmEnvironment } from "./FhevmEnvironment";
 
 export type PrecompiledCoreContractsAddresses = Omit<FHEVMConfig, "KMSVerifierAddress"> & {
-  FHEGasLimitAddress: string;
+  HCULimitAddress: string;
 };
 
 export type FhevmContext = {

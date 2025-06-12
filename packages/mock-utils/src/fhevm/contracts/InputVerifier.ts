@@ -9,8 +9,14 @@ import { FhevmError, assertFhevm, assertIsArray } from "../../utils/error.js";
 import { numberToHexNoPrefix } from "../../utils/hex.js";
 import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
 import { assertIsString, ensurePrefix, removePrefix } from "../../utils/string.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmCoprocessorContractWrapper.js";
+import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { InputVerifierPartialInterface } from "./InputVerifier.itf.js";
+
+export type InputVerifierProperties = {
+  signersAddresses?: string[];
+  threshold?: number;
+  eip712Domain?: EIP712Domain;
+};
 
 // Shareable
 export class InputVerifier extends FhevmCoprocessorContractWrapper {
@@ -27,6 +33,8 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
   public static async create(
     runner: EthersT.ContractRunner,
     inputVerifierContractAddress: string,
+    abi?: EthersT.Interface | EthersT.InterfaceAbi,
+    properties?: InputVerifierProperties,
   ): Promise<InputVerifier> {
     assertIsAddress(inputVerifierContractAddress, "inputVerifierContractAddress");
 
@@ -34,12 +42,20 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     inputVerifier.#inputVerifierContractAddress = inputVerifierContractAddress;
     inputVerifier.#inputVerifierReadonlyContract = new EthersT.Contract(
       inputVerifierContractAddress,
-      InputVerifierPartialInterface,
+      abi ?? InputVerifierPartialInterface,
       runner,
     );
+    inputVerifier.#eip712Domain = properties?.eip712Domain;
+    inputVerifier.#signersAddresses = properties?.signersAddresses;
+    inputVerifier.#threshold = properties?.threshold;
 
     await inputVerifier._initialize();
     return inputVerifier;
+  }
+
+  public override get readonlyContract(): EthersT.Contract {
+    assertFhevm(this.#inputVerifierReadonlyContract !== undefined, `InputVerifier wrapper is not initialized`);
+    return this.#inputVerifierReadonlyContract;
   }
 
   public override get interface(): EthersT.Interface {
@@ -49,35 +65,39 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
 
   private async _initialize() {
     assertFhevm(this.#inputVerifierReadonlyContract !== undefined, `InputVerifier wrapper is not initialized`);
-    assertFhevm(this.#signersAddresses === undefined, `InputVerifier wrapper already initialized`);
-    assertFhevm(this.#threshold === undefined, `InputVerifier wrapper already initialized`);
 
-    const signers = await this.#inputVerifierReadonlyContract.getCoprocessorSigners();
-    assertIsAddressArray(signers);
-    this.#signersAddresses = signers;
+    if (!this.#signersAddresses) {
+      const signers = await this.#inputVerifierReadonlyContract.getCoprocessorSigners();
+      this.#signersAddresses = signers;
+    }
+    assertIsAddressArray(this.#signersAddresses);
 
-    const threshold = await this.#inputVerifierReadonlyContract.getThreshold();
-    assertIsBigUint8(threshold);
-    this.#threshold = Number(threshold);
+    if (this.#threshold === undefined) {
+      const threshold = await this.#inputVerifierReadonlyContract.getThreshold();
+      assertIsBigUint8(threshold);
+      this.#threshold = Number(threshold);
+    }
 
-    // ignore extensions
-    const eip712Domain = await this.#inputVerifierReadonlyContract.eip712Domain();
-    assertFhevm(eip712Domain.length === 7);
-    assertIsString(eip712Domain[0], "eip712Domain[0]");
-    assertIsString(eip712Domain[1], "eip712Domain[1]");
-    assertIsString(eip712Domain[2], "eip712Domain[2]");
-    assertIsBigUint256(eip712Domain[3], "eip712Domain[3]");
-    assertIsAddress(eip712Domain[4], "eip712Domain[4]");
-    assertIsBytes32String(eip712Domain[5], "eip712Domain[5]");
+    if (this.#eip712Domain === undefined) {
+      // ignore extensions
+      const eip712Domain = await this.#inputVerifierReadonlyContract.eip712Domain();
+      assertFhevm(eip712Domain.length === 7);
+      assertIsString(eip712Domain[0], "eip712Domain[0]");
+      assertIsString(eip712Domain[1], "eip712Domain[1]");
+      assertIsString(eip712Domain[2], "eip712Domain[2]");
+      assertIsBigUint256(eip712Domain[3], "eip712Domain[3]");
+      assertIsAddress(eip712Domain[4], "eip712Domain[4]");
+      assertIsBytes32String(eip712Domain[5], "eip712Domain[5]");
 
-    this.#eip712Domain = {
-      fields: Number(BigInt(eip712Domain[0])),
-      name: eip712Domain[1],
-      version: eip712Domain[2],
-      chainId: eip712Domain[3],
-      verifyingContract: eip712Domain[4],
-      salt: eip712Domain[5],
-    };
+      this.#eip712Domain = {
+        fields: Number(BigInt(eip712Domain[0])),
+        name: eip712Domain[1],
+        version: eip712Domain[2],
+        chainId: eip712Domain[3],
+        verifyingContract: eip712Domain[4],
+        salt: eip712Domain[5],
+      };
+    }
 
     assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.name === this.#eip712Domain.name);
     assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.version === this.#eip712Domain.version);

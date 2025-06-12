@@ -133,6 +133,8 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
       return increasedGasLimit;
     } catch (e) {
+      console.log(JSON.stringify(e, null, 2));
+
       const fhevmEnv = fhevmContext.get();
 
       let tx: { from: string; to: string } | undefined = undefined;

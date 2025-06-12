@@ -10,8 +10,14 @@ import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
 import { assertIsString } from "../../utils/string.js";
 import { FhevmHandle } from "../FhevmHandle.js";
 import { FhevmType, type FhevmTypeInfo } from "../FhevmType.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmCoprocessorContractWrapper.js";
+import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { KMSVerifierPartialInterface } from "./KMSVerifier.itf.js";
+
+export type KMSVerifierProperties = {
+  signersAddresses?: string[];
+  threshold?: number;
+  eip712Domain?: EIP712Domain;
+};
 
 // Shareable
 export class KMSVerifier extends FhevmCoprocessorContractWrapper {
@@ -25,18 +31,32 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
     super("KMSVerifier");
   }
 
-  public static async create(runner: EthersT.ContractRunner, kmsVerifierContractAddress: string): Promise<KMSVerifier> {
+  public static async create(
+    runner: EthersT.ContractRunner,
+    kmsVerifierContractAddress: string,
+    abi?: EthersT.Interface | EthersT.InterfaceAbi,
+    properties?: KMSVerifierProperties,
+  ): Promise<KMSVerifier> {
     assertIsAddress(kmsVerifierContractAddress, "kmsVerifierContractAddress");
+
+    if (properties !== undefined) {
+      throw new FhevmError("Not yet implemented");
+    }
 
     const kmsVerifier = new KMSVerifier();
     kmsVerifier.#kmsVerifierContractAddress = kmsVerifierContractAddress;
     kmsVerifier.#kmsVerifierContract = new EthersT.Contract(
       kmsVerifierContractAddress,
-      KMSVerifierPartialInterface,
+      abi ?? KMSVerifierPartialInterface,
       runner,
     );
     await kmsVerifier._initialize();
     return kmsVerifier;
+  }
+
+  public override get readonlyContract(): EthersT.Contract {
+    assertFhevm(this.#kmsVerifierContract !== undefined, `KMSVerifier wrapper is not initialized`);
+    return this.#kmsVerifierContract;
   }
 
   public override get interface(): EthersT.Interface {

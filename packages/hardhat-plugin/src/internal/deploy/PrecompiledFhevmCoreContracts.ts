@@ -23,9 +23,7 @@ function __logPrecompiledAddresses(addresses: PrecompiledCoreContractsAddresses,
   debug(
     `${prefix} precompiled ${picocolors.cyanBright("InputVerifierAddress")} address : ${addresses.InputVerifierAddress}`,
   );
-  debug(
-    `${prefix} precompiled ${picocolors.cyanBright("FHEGasLimitAddress")} address   : ${addresses.FHEGasLimitAddress}`,
-  );
+  debug(`${prefix} precompiled ${picocolors.cyanBright("HCULimitAddress")} address   : ${addresses.HCULimitAddress}`);
 }
 
 async function childProcessExecNpxHardhatFhevmInstallSolidity(alreadyRunning: boolean) {
@@ -88,17 +86,17 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
     const FHEVMExecutorReadOnly = new EthersT.Contract(
       precompiledFHEVMExecutorAddress,
       FHEVMExecutorArtifact.artifact.abi,
-      mockProvider.ethersProvider,
+      mockProvider.readonlyEthersProvider,
     );
 
     const precompiledACLAddress = (await FHEVMExecutorReadOnly.getACLAddress()) as string;
-    const precompiledFHEGasLimitAddress = (await FHEVMExecutorReadOnly.getFHEGasLimitAddress()) as string;
+    const precompiledHCULimitAddress = (await FHEVMExecutorReadOnly.getHCULimitAddress()) as string;
     const precompiledInputVerifierAddress = (await FHEVMExecutorReadOnly.getInputVerifierAddress()) as string;
 
     const addresses = {
       ACLAddress: precompiledACLAddress,
       FHEVMExecutorAddress: precompiledFHEVMExecutorAddress,
-      FHEGasLimitAddress: precompiledFHEGasLimitAddress,
+      HCULimitAddress: precompiledHCULimitAddress,
       InputVerifierAddress: precompiledInputVerifierAddress,
     };
 
@@ -126,7 +124,11 @@ export async function retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
 
     await mockProvider.setCodeAt(DUMMY_ACL_ADDR, aclBytecode);
 
-    const dummyAcl = new EthersT.Contract(DUMMY_ACL_ADDR, aclArtifact.artifact.abi, mockProvider.ethersProvider);
+    const dummyAcl = new EthersT.Contract(
+      DUMMY_ACL_ADDR,
+      aclArtifact.artifact.abi,
+      mockProvider.readonlyEthersProvider,
+    );
 
     const precompiledFHEVMExecutorAddress = await dummyAcl.getFHEVMExecutorAddress();
     return precompiledFHEVMExecutorAddress;
@@ -179,7 +181,7 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
     return {
       ACLAddress: o.ACLAddress,
       FHEVMExecutorAddress: o.FHEVMExecutorAddress,
-      FHEGasLimitAddress: o.FHEGasLimitAddress,
+      HCULimitAddress: o.HCULimitAddress,
       InputVerifierAddress: o.InputVerifierAddress,
     };
   }

@@ -1,4 +1,4 @@
-import { FhevmContractName, MockRelayerEncryptedInput } from "@fhevm/mock-utils";
+import { MockRelayerEncryptedInput, contracts } from "@fhevm/mock-utils";
 import { RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { BytesLike, ethers as EthersT } from "ethers";
 import { ProviderError } from "hardhat/internal/core/providers/errors";
@@ -13,9 +13,7 @@ import { ERRORS, applyErrorTemplate } from "./FhevmContractErrorList";
 type FhevmErrorInfos = {
   tx: { from?: string; to?: string };
   errorDesc: EthersT.ErrorDescription;
-  address: string;
-  contract: EthersT.Contract;
-  contractName: FhevmContractName;
+  contractWrapper: contracts.FhevmContractWrapper;
 };
 
 export type FhevmInputVerifierError = {
@@ -113,7 +111,7 @@ export async function parseFhevmError(
     return undefined;
   }
 
-  const tx = await fhevmEnv.mockProvider.ethersProvider.getTransaction(errData.txHash);
+  const tx = await fhevmEnv.mockProvider.readonlyEthersProvider.getTransaction(errData.txHash);
   const txFrom = tx ? tx.from : undefined;
   const txContract = tx && tx.to ? tx.to : undefined;
 
@@ -227,7 +225,9 @@ function _parseEdrError(
     return undefined;
   }
 
-  const fhevmContractEntry = fhevmEnv.readonlyContractFromAddress(lastCallContractAddress);
+  const fhevmContractEntry = fhevmEnv
+    .getContractsRepository()
+    .getContractFromAddress(lastCallContractAddress)?.properties;
   if (!fhevmContractEntry) {
     return undefined;
   }
@@ -308,12 +308,12 @@ export async function mutateErrorInPlace(fhevmEnv: FhevmEnvironment, e: Error, a
   const i = err.stack.indexOf("\n");
   err.stack = "Error: " + err.message + err.stack.substring(i);
 
-  const map = fhevmEnv.getFHEVMContractsMap();
+  const map = fhevmEnv.getContractsRepository().addressToContractMap();
 
-  Object.keys(map).forEach((key) => {
+  Object.keys(map).forEach((contractAddress) => {
     err.stack = err.stack?.replaceAll(
-      `at <UnrecognizedContract>.<unknown> (${key})`,
-      `at ${map[key].contractName}.<unknown> (${key}, ${map[key].package}/contracts/${map[key].contractName}.sol:0:0)`,
+      `at <UnrecognizedContract>.<unknown> (${contractAddress})`,
+      `at ${map[contractAddress].name}.<unknown> (${contractAddress}, ${map[contractAddress].package}/contracts/${map[contractAddress].name}.sol:0:0)`,
     );
   });
 }
@@ -417,25 +417,23 @@ async function __formatFhevmErrorMessages(
   txHash?: string,
   txFromTo?: { from: string; to: string | null },
 ): Promise<FhevmErrorMessages | undefined> {
-  const map = fhevmEnv.getFHEVMContractsMap();
+  const map = fhevmEnv.getContractsRepository().addressToContractMap();
   const res: {
     errorDesc: EthersT.ErrorDescription;
-    contractName: FhevmContractName;
-    address: string;
-    contract: EthersT.Contract;
+    contractWrapper: contracts.FhevmContractWrapper;
   }[] = [];
 
-  Object.keys(map).forEach((key) => {
+  Object.keys(map).forEach((contractAddress) => {
     try {
-      const errorDesc = map[key].contract.interface.parseError(dataBytesLike);
+      const errorDesc = map[contractAddress].interface.parseError(dataBytesLike);
       if (errorDesc) {
         res.push({
-          ...map[key],
+          contractWrapper: map[contractAddress],
           errorDesc,
         });
       }
     } catch {
-      console.log("PROBLEMOS!");
+      //
     }
   });
 
@@ -450,7 +448,7 @@ async function __formatFhevmErrorMessages(
 
   if (txHash) {
     //VM Exception while processing transaction: reverted with an unrecognized custom error
-    const _tx = await fhevmEnv.mockProvider.ethersProvider.getTransaction(txHash);
+    const _tx = await fhevmEnv.mockProvider.readonlyEthersProvider.getTransaction(txHash);
     if (_tx?.from) {
       resolvedTx.from = _tx.from;
     }
@@ -476,7 +474,7 @@ async function __formatFhevmErrorMessages(
   let msgs: FhevmErrorMessages | undefined = undefined;
 
   const info = res[0];
-  switch (info.contractName) {
+  switch (info.contractWrapper.name) {
     case "ACL": {
       msgs = _formatACLErrorMessages({ ...info, tx: resolvedTx });
       break;
@@ -493,8 +491,8 @@ async function __formatFhevmErrorMessages(
       msgs = _formatKMSVerifierErrorMessages({ ...info, tx: resolvedTx });
       break;
     }
-    case "FHEGasLimit": {
-      msgs = _formatFHEGasLimitErrorMessages({ ...info, tx: resolvedTx });
+    case "HCULimit": {
+      msgs = _formatHCULimitErrorMessages({ ...info, tx: resolvedTx });
       break;
     }
     case "DecryptionOracle": {
@@ -591,7 +589,7 @@ function _formatFHEVMExecutorErrorMessages(infos: FhevmErrorInfos): FhevmErrorMe
   // const e = fhevmExecutor.interface.getError(infos.errorDesc.name);
   // e?.inputs[0].name
 
-  const abiError = infos.contract.interface.getError(infos.errorDesc.name);
+  const abiError = infos.contractWrapper.interface.getError(infos.errorDesc.name);
 
   let values: { [templateVar: string]: any } | undefined = undefined;
   if (abiError) {
@@ -616,7 +614,7 @@ function _formatInputVerifierErrorMessages(infos: FhevmErrorInfos): FhevmErrorMe
     }
     default: {
       return {
-        message: `VM Exception while processing transaction: reverted with FHEVM ${infos.contractName} custom error '${infos.errorDesc.name}'`,
+        message: `VM Exception while processing transaction: reverted with FHEVM ${infos.contractWrapper.name} custom error '${infos.errorDesc.name}'`,
       };
     }
   }
@@ -626,7 +624,7 @@ function _formatKMSVerifierErrorMessages(infos: FhevmErrorInfos): FhevmErrorMess
   return _applyErrorTemplates(infos);
 }
 
-function _formatFHEGasLimitErrorMessages(infos: FhevmErrorInfos): FhevmErrorMessages {
+function _formatHCULimitErrorMessages(infos: FhevmErrorInfos): FhevmErrorMessages {
   return _applyErrorTemplates(infos);
 }
 
@@ -661,8 +659,8 @@ function _applyErrorTemplates(infos: FhevmErrorInfos, values?: { [templateVar: s
   let title: string | undefined = undefined;
   let message = applyErrorTemplate(ERRORS.CustomError.default, { customError: `${infos.errorDesc.name}()` });
 
-  if (infos.contractName in ERRORS) {
-    const error = (ERRORS as Record<string, any>)[infos.contractName];
+  if (infos.contractWrapper.name in ERRORS) {
+    const error = (ERRORS as Record<string, any>)[infos.contractWrapper.name];
     if (infos.errorDesc.name in error) {
       const templates = (error as Record<string, any>)[infos.errorDesc.name];
       if ("shortMessage" in templates && typeof templates.shortMessage === "string") {

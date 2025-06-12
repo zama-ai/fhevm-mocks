@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-9"
-export const FHEVMExecutorInterfaceVersion = "0.7.0-9";
+// version "0.7.0-10"
+export const FHEVMExecutorInterfaceVersion = "0.7.0-10";
 
 export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -2150,7 +2150,7 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "getFHEGasLimitAddress",
+    name: "getHCULimitAddress",
     outputs: [
       {
         internalType: "address",

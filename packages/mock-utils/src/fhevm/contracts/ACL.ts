@@ -4,7 +4,12 @@ import { assertIsAddress } from "../../utils/address.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
 import { ACLPartialInterface } from "./ACL.itf.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmCoprocessorContractWrapper.js";
+import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+
+export type ACLProperties = {
+  fhevmExecutorAddress?: string;
+  version?: string;
+};
 
 // Shareable
 export class ACL extends FhevmCoprocessorContractWrapper {
@@ -17,13 +22,25 @@ export class ACL extends FhevmCoprocessorContractWrapper {
     super("ACL");
   }
 
-  public static async create(runner: EthersT.ContractRunner, aclContractAddress: string): Promise<ACL> {
+  public static async create(
+    runner: EthersT.ContractRunner,
+    aclContractAddress: string,
+    abi?: EthersT.Interface | EthersT.InterfaceAbi,
+    properties?: ACLProperties,
+  ): Promise<ACL> {
     assertIsAddress(aclContractAddress, "aclContractAddress");
     const acl = new ACL();
     acl.#aclContractAddress = aclContractAddress;
-    acl.#aclReadOnlyContract = new EthersT.Contract(aclContractAddress, ACLPartialInterface, runner);
+    acl.#aclReadOnlyContract = new EthersT.Contract(aclContractAddress, abi ?? ACLPartialInterface, runner);
+    acl.#fhevmExecutorAddress = properties?.fhevmExecutorAddress;
+    acl.#version = properties?.version;
     await acl._initialize();
     return acl;
+  }
+
+  public override get readonlyContract(): EthersT.Contract {
+    assertFhevm(this.#aclReadOnlyContract !== undefined, `ACL wrapper is not yet initialized`);
+    return this.#aclReadOnlyContract;
   }
 
   public override get interface(): EthersT.Interface {
@@ -48,12 +65,15 @@ export class ACL extends FhevmCoprocessorContractWrapper {
 
   private async _initialize() {
     assertFhevm(this.#aclReadOnlyContract !== undefined, `ACL wrapper is not yet initialized`);
-    assertFhevm(this.#fhevmExecutorAddress === undefined, `ACL wrapper already initialized`);
 
-    this.#fhevmExecutorAddress = await this.#aclReadOnlyContract.getFHEVMExecutorAddress();
+    if (!this.#fhevmExecutorAddress) {
+      this.#fhevmExecutorAddress = await this.#aclReadOnlyContract.getFHEVMExecutorAddress();
+    }
     assertIsAddress(this.#fhevmExecutorAddress, "fhemExecutorAddress");
 
-    this.#version = await this.#aclReadOnlyContract.getVersion();
+    if (!this.#version) {
+      this.#version = await this.#aclReadOnlyContract.getVersion();
+    }
     assertIsString(this.#version, "version");
   }
 

@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-9"
-export const ACLInterfaceVersion = "0.7.0-9";
+// version "0.7.0-10"
+export const ACLInterfaceVersion = "0.7.0-10";
 
 export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -64,6 +64,16 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   },
   {
     inputs: [],
+    name: "EnforcedPause",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "ExpectedPause",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "FailedCall",
     type: "error",
   },
@@ -75,6 +85,11 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     name: "InvalidInitialization",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InvalidNullPauser",
     type: "error",
   },
   {
@@ -96,6 +111,17 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     name: "NotInitializing",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "NotOwnerOrPauser",
     type: "error",
   },
   {
@@ -282,6 +308,19 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     anonymous: false,
     inputs: [
       {
+        indexed: false,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "Paused",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
         indexed: true,
         internalType: "address",
         name: "caller",
@@ -301,6 +340,32 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     name: "RevokedDelegation",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "Unpaused",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newPauser",
+        type: "address",
+      },
+    ],
+    name: "UpdatePauser",
     type: "event",
   },
   {
@@ -483,6 +548,19 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   },
   {
     inputs: [],
+    name: "getPauser",
+    outputs: [
+      {
+        internalType: "address",
+        name: "pauser",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "getVersion",
     outputs: [
       {
@@ -552,6 +630,26 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   },
   {
     inputs: [],
+    name: "pause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "paused",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "pendingOwner",
     outputs: [
       {
@@ -601,7 +699,13 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     type: "function",
   },
   {
-    inputs: [],
+    inputs: [
+      {
+        internalType: "address",
+        name: "initialPauser",
+        type: "address",
+      },
+    ],
     name: "reinitialize",
     outputs: [],
     stateMutability: "nonpayable",
@@ -641,6 +745,26 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "unpause",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "newPauser",
+        type: "address",
+      },
+    ],
+    name: "updatePauser",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

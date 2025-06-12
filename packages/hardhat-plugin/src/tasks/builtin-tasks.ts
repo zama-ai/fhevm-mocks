@@ -41,6 +41,8 @@ task(TASK_TEST, async (taskArgs: TaskArguments, hre: HardhatRuntimeEnvironment, 
 });
 
 task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironment, runSuper) => {
+  debug(`execute TASK_CLEAN`);
+
   // no 'minimalInit' needed here. We only need paths.
   const fhevmEnv = fhevmContext.get();
 
@@ -62,6 +64,8 @@ task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironmen
 });
 
 subtask(TASK_COMPILE_GET_REMAPPINGS).setAction(async (_taskArgs, _hre, runSuper): Promise<Record<string, string>> => {
+  debug(`execute TASK_COMPILE_GET_REMAPPINGS`);
+
   const fhevmEnv = fhevmContext.get();
   await fhevmEnv.minimalInit();
 
@@ -80,6 +84,8 @@ subtask(TASK_COMPILE_GET_REMAPPINGS).setAction(async (_taskArgs, _hre, runSuper)
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
   async (/*{ sourcePath }: { sourcePath?: string }*/ _taskArgs: TaskArguments, _hre, runSuper): Promise<string[]> => {
+    debug(`execute TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS`);
+
     const fhevmEnv = fhevmContext.get();
     await fhevmEnv.minimalInit();
     await fhevmEnv.initializeAddresses(false /* ignoreCache */);

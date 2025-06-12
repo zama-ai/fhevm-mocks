@@ -4,14 +4,21 @@ import { assertIsAddress } from "../../utils/address.js";
 import { assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
 import { FHEVMExecutorPartialInterface } from "./FHEVMExecutor.itf.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmCoprocessorContractWrapper.js";
+import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+
+export type FHEVMExecutorProperties = {
+  aclAddress?: string;
+  hcuLimitAddress?: string;
+  inputVerifierAddress?: string;
+  version?: string;
+};
 
 // Shareable
 export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
   #fhevmExecutorReadonlyContract: EthersT.Contract | undefined;
   #fhevmExecutorContractAddress: string | undefined;
   #aclAddress: string | undefined;
-  #fheGasLimitAddress: string | undefined;
+  #hcuLimitAddress: string | undefined;
   #inputVerifierAddress: string | undefined;
   #version: string | undefined;
 
@@ -22,17 +29,28 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
   public static async create(
     runner: EthersT.ContractRunner,
     fhevmExecutorContractAddress: string,
+    abi?: EthersT.Interface | EthersT.InterfaceAbi,
+    properties?: FHEVMExecutorProperties,
   ): Promise<FHEVMExecutor> {
     assertIsAddress(fhevmExecutorContractAddress, "fhevmExecutorContractAddress");
     const fhevmExecutor = new FHEVMExecutor();
     fhevmExecutor.#fhevmExecutorContractAddress = fhevmExecutorContractAddress;
     fhevmExecutor.#fhevmExecutorReadonlyContract = new EthersT.Contract(
       fhevmExecutorContractAddress,
-      FHEVMExecutorPartialInterface,
+      abi ?? FHEVMExecutorPartialInterface,
       runner,
     );
+    fhevmExecutor.#aclAddress = properties?.aclAddress;
+    fhevmExecutor.#hcuLimitAddress = properties?.hcuLimitAddress;
+    fhevmExecutor.#inputVerifierAddress = properties?.inputVerifierAddress;
+    fhevmExecutor.#version = properties?.version;
     await fhevmExecutor._initialize();
     return fhevmExecutor;
+  }
+
+  public override get readonlyContract(): EthersT.Contract {
+    assertFhevm(this.#fhevmExecutorReadonlyContract !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
+    return this.#fhevmExecutorReadonlyContract;
   }
 
   public override get interface(): EthersT.Interface {
@@ -55,9 +73,9 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
     return this.#aclAddress;
   }
 
-  public get fheGasLimitAddress(): string {
-    assertFhevm(this.#fheGasLimitAddress !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
-    return this.#fheGasLimitAddress;
+  public get hcuLimitAddress(): string {
+    assertFhevm(this.#hcuLimitAddress !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
+    return this.#hcuLimitAddress;
   }
 
   public get inputVerifierAddress(): string {
@@ -67,21 +85,34 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
 
   private async _initialize() {
     assertFhevm(this.#fhevmExecutorReadonlyContract !== undefined, `FHEVMExecutor wrapper is not initialized`);
-    assertFhevm(this.#aclAddress === undefined, `FHEVMExecutor wrapper already initialized`);
-    assertFhevm(this.#fheGasLimitAddress === undefined, `FHEVMExecutor wrapper already initialized`);
-    assertFhevm(this.#inputVerifierAddress === undefined, `FHEVMExecutor wrapper already initialized`);
-    assertFhevm(this.#version === undefined, `FHEVMExecutor wrapper already initialized`);
 
-    this.#aclAddress = await this.#fhevmExecutorReadonlyContract.getACLAddress();
+    if (!this.#aclAddress) {
+      this.#aclAddress = await this._callOrThrow(
+        this.#fhevmExecutorReadonlyContract.getACLAddress(),
+        "getACLAddress()",
+      );
+    }
     assertIsAddress(this.#aclAddress, "aclAddress");
 
-    this.#fheGasLimitAddress = await this.#fhevmExecutorReadonlyContract.getFHEGasLimitAddress();
-    assertIsAddress(this.#fheGasLimitAddress, "fheGasLimitAddress");
+    if (!this.#hcuLimitAddress) {
+      this.#hcuLimitAddress = await this._callOrThrow(
+        this.#fhevmExecutorReadonlyContract.getHCULimitAddress(),
+        "getHCULimitAddress()",
+      );
+    }
+    assertIsAddress(this.#hcuLimitAddress, "hcuLimitAddress");
 
-    this.#inputVerifierAddress = await this.#fhevmExecutorReadonlyContract.getInputVerifierAddress();
+    if (!this.#inputVerifierAddress) {
+      this.#inputVerifierAddress = await this._callOrThrow(
+        this.#fhevmExecutorReadonlyContract.getInputVerifierAddress(),
+        "getInputVerifierAddress()",
+      );
+    }
     assertIsAddress(this.#inputVerifierAddress, "inputVerifierAddress");
 
-    this.#version = await this.#fhevmExecutorReadonlyContract.getVersion();
+    if (!this.#version) {
+      this.#version = await this._callOrThrow(this.#fhevmExecutorReadonlyContract.getVersion(), "getVersion()");
+    }
     assertIsString(this.#version, "version");
   }
 }

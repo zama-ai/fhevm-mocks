@@ -3,6 +3,7 @@ import {
   FhevmMockProvider,
   assertIsEIP712Domain,
   constants as constantsBase,
+  contracts,
 } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
@@ -15,7 +16,6 @@ import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { assertHHFhevm } from "../error";
 import { assertSignersMatchAddresses } from "../utils/ethers";
 import {
-  getDecryptionOracleAddress,
   getGatewayChainId,
   getGatewayDecryptionAddress,
   getGatewayInputVerificationAddress,
@@ -99,15 +99,15 @@ async function __tryCallGetACLAddress(
   }
 }
 
-async function __tryCallGetFHEGasLimitAddress(
+async function __tryCallGetHCULimitAddress(
   contract: EthersT.Contract,
   contractName: FhevmContractName,
   contractAddress: string,
 ): Promise<string> {
   try {
-    return await contract.getFHEGasLimitAddress();
+    return await contract.getHCULimitAddress();
   } catch {
-    __logCallFuncFailed(contractName, contractAddress, "getFHEGasLimitAddress()");
+    __logCallFuncFailed(contractName, contractAddress, "getHCULimitAddress()");
     throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} contracts.`);
   }
 }
@@ -131,13 +131,18 @@ export async function setupMockUsingCoreContractsArtifacts(
   fhevmAddresses: FhevmEnvironmentAddresses,
   fhevmSigners: FhevmSigners,
   fhevmPaths: FhevmEnvironmentPaths,
-): Promise<{ config: FhevmEnvironmentConfig; coprocessorSigners: EthersT.Signer[]; kmsSigners: EthersT.Signer[] }> {
+): Promise<{
+  contracts: contracts.FhevmContractsRepository;
+  config?: FhevmEnvironmentConfig;
+  coprocessorSigners: EthersT.Signer[];
+  kmsSigners: EthersT.Signer[];
+}> {
   const FHEVMExecutorAddress = fhevmAddresses.FHEVMConfig.FHEVMExecutorAddress;
   const aclAddress = fhevmAddresses.FHEVMConfig.ACLAddress;
   const kmsVerifierAddress = fhevmAddresses.FHEVMConfig.KMSVerifierAddress;
   const inputVerifierAddress = fhevmAddresses.FHEVMConfig.InputVerifierAddress;
-  const fheGasLimitAddress = fhevmAddresses.FHEGasLimitAddress;
-  const decryptionOracleAddress = getDecryptionOracleAddress();
+  const hcuLimitAddress = fhevmAddresses.HCULimitAddress;
+  const decryptionOracleAddress = fhevmAddresses.SepoliaZamaOracleAddress;
 
   // Setup FHEVMExecutor
   const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
@@ -157,15 +162,15 @@ export async function setupMockUsingCoreContractsArtifacts(
   const fhevmExecutorReadOnly = new EthersT.Contract(
     FHEVMExecutorAddress,
     execArtifact.artifact.abi,
-    mockProvider.ethersProvider,
+    mockProvider.readonlyEthersProvider,
   );
 
   const precompiledACLAddress = (await fhevmExecutorReadOnly.getACLAddress()) as string;
-  const precompiledFHEGasLimitAddress = (await fhevmExecutorReadOnly.getFHEGasLimitAddress()) as string;
+  const precompiledHCULimitAddress = (await fhevmExecutorReadOnly.getHCULimitAddress()) as string;
   const precompiledInputVerifierAddress = (await fhevmExecutorReadOnly.getInputVerifierAddress()) as string;
 
   __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledACLAddress, aclAddress);
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledFHEGasLimitAddress, fheGasLimitAddress);
+  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledHCULimitAddress, hcuLimitAddress);
   __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledInputVerifierAddress, inputVerifierAddress);
 
   // Setup ACL
@@ -192,14 +197,14 @@ export async function setupMockUsingCoreContractsArtifacts(
     inputArtifact.artifact.deployedBytecode,
   );
 
-  // Setup FHEGasLimit
-  const fheGasLimitArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEGasLimit");
+  // Setup HCULimit
+  const hcuLimitArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("HCULimit");
   await __tryDeploy(
     mockProvider,
-    "FHEGasLimit",
-    fheGasLimitAddress,
-    fheGasLimitArtifact.path,
-    fheGasLimitArtifact.artifact.deployedBytecode,
+    "HCULimit",
+    hcuLimitAddress,
+    hcuLimitArtifact.path,
+    hcuLimitArtifact.artifact.deployedBytecode,
   );
 
   // Setup DecryptionOracle
@@ -212,53 +217,48 @@ export async function setupMockUsingCoreContractsArtifacts(
     decryptionOracleArtifact.artifact.deployedBytecode,
   );
 
-  const aclReadOnly = new EthersT.Contract(aclAddress, aclArtifact.artifact.abi, mockProvider.ethersProvider);
-  const fheGasLimitReadOnly = new EthersT.Contract(
-    fheGasLimitAddress,
-    fheGasLimitArtifact.artifact.abi,
-    mockProvider.ethersProvider,
+  const aclReadOnly = new EthersT.Contract(aclAddress, aclArtifact.artifact.abi, mockProvider.readonlyEthersProvider);
+  const hcuLimitReadOnly = new EthersT.Contract(
+    hcuLimitAddress,
+    hcuLimitArtifact.artifact.abi,
+    mockProvider.readonlyEthersProvider,
   );
   const inputVerifierReadOnly = new EthersT.Contract(
     inputVerifierAddress,
     inputArtifact.artifact.abi,
-    mockProvider.ethersProvider,
+    mockProvider.readonlyEthersProvider,
   );
   const kmsVerifierReadOnly = new EthersT.Contract(
     kmsVerifierAddress,
     kmsArtifact.artifact.abi,
-    mockProvider.ethersProvider,
+    mockProvider.readonlyEthersProvider,
   );
 
   const decryptionOracleReadOnly = new EthersT.Contract(
     decryptionOracleAddress,
     decryptionOracleArtifact.artifact.abi,
-    mockProvider.ethersProvider,
+    mockProvider.readonlyEthersProvider,
   );
 
   // console.log("TODO ACL.reinitialize is missing!");
-  // console.log("TODO FHEGasLimit.reinitialize is missing!");
+  // console.log("TODO HCULimit.reinitialize is missing!");
 
-  // aclFHEVMExecutorAddress = ACL.getFHEVMExecutorAddress();
   const aclFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(aclReadOnly, "ACL", aclAddress);
-  // fheGasLimitFHEVMExecutorAddress = FHEGasLimit.getFHEVMExecutorAddress();
-  const fheGasLimitFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(
-    fheGasLimitReadOnly,
-    "FHEGasLimit",
-    fheGasLimitAddress,
+  const hcuLimitFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(
+    hcuLimitReadOnly,
+    "HCULimit",
+    hcuLimitAddress,
   );
-  // fhevmExecutorACLAddress = FHEVMExecutor.getACLAddress();
   const fhevmExecutorACLAddress = await __tryCallGetACLAddress(
     fhevmExecutorReadOnly,
     "FHEVMExecutor",
     FHEVMExecutorAddress,
   );
-  // fhevmExecutorFHEGasLimitAddress = FHEVMExecutor.geFHEGasLimitAddress();
-  const fhevmExecutorFHEGasLimitAddress = await __tryCallGetFHEGasLimitAddress(
+  const fhevmExecutorHCULimitAddress = await __tryCallGetHCULimitAddress(
     fhevmExecutorReadOnly,
     "FHEVMExecutor",
     FHEVMExecutorAddress,
   );
-  // fhevmExecutorInputVerifierAddress = FHEVMExecutor.geFHEInputVerifierAddress();
   const fhevmExecutorInputVerifierAddress = await __tryCallGetInputVerifierAddress(
     fhevmExecutorReadOnly,
     "FHEVMExecutor",
@@ -267,9 +267,9 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Verify addresses
   __checkHardCodedAddress("ACL", aclAddress, aclFHEVMExecutorAddress, FHEVMExecutorAddress);
-  __checkHardCodedAddress("FHEGasLimit", fheGasLimitAddress, fheGasLimitFHEVMExecutorAddress, FHEVMExecutorAddress);
+  __checkHardCodedAddress("HCULimit", hcuLimitAddress, hcuLimitFHEVMExecutorAddress, FHEVMExecutorAddress);
   __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, fhevmExecutorACLAddress, aclAddress);
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, fhevmExecutorFHEGasLimitAddress, fheGasLimitAddress);
+  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, fhevmExecutorHCULimitAddress, hcuLimitAddress);
   __checkHardCodedAddress(
     "FHEVMExecutor",
     FHEVMExecutorAddress,
@@ -405,7 +405,28 @@ export async function setupMockUsingCoreContractsArtifacts(
   debug(`InputVerifier verifying contract source : ${inputVerifierVerifyingContractSource}`);
   debug(`Gateway Decryption address              : ${gatewayDecryptionAddress}`);
 
+  const repo = await contracts.FhevmContractsRepository.create(mockProvider.readonlyEthersProvider, {
+    aclContractAddress: aclAddress,
+    aclAbi: aclArtifact.artifact.abi,
+    aclProperties: {
+      fhevmExecutorAddress: aclFHEVMExecutorAddress,
+    },
+    fhevmExecutorAbi: execArtifact.artifact.abi,
+    fhevmExecutorProperties: {
+      aclAddress: fhevmExecutorACLAddress,
+      hcuLimitAddress: fhevmExecutorHCULimitAddress,
+      inputVerifierAddress: fhevmExecutorInputVerifierAddress,
+    },
+    hcuLimitAbi: hcuLimitArtifact.artifact.abi,
+    inputVerifierAbi: inputArtifact.artifact.abi,
+    kmsContractAddress: kmsVerifierAddress,
+    kmsVerifierAbi: kmsArtifact.artifact.abi,
+    zamaFheDecryptionOracleAbi: decryptionOracleArtifact.artifact.abi,
+    zamaFheDecryptionOracleAddress: decryptionOracleAddress,
+  });
+
   return {
+    contracts: repo,
     config: {
       ACLAddress: aclAddress,
       ACLReadOnly: aclReadOnly,

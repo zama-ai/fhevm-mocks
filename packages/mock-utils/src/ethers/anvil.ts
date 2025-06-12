@@ -41,8 +41,8 @@ export async function isAnvilProvider(
     return { isAnvil: true, chainId: Number(BigInt(env.chainId)), couldNotConnect: false };
   } catch (e) {
     if (isHardhatProviderError(e)) {
-      // RPC method not supported
-      if (e.code === -32004) {
+      // RPC method not supported / method not found
+      if (e.code === -32004 || e.code === -32601) {
         return { isAnvil: false, couldNotConnect: false };
       }
     } else if (isHardhatError(e)) {
