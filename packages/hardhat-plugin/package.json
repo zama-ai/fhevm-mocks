@@ -1,7 +1,7 @@
 {
   "name": "@fhevm/hardhat-plugin",
   "type": "commonjs",
-  "version": "0.0.1-0",
+  "version": "0.0.1-1",
   "engines": {
     "node": ">=20",
     "npm": ">=7.0.0"
@@ -74,7 +74,7 @@
     "coverage:mock": "SOLIDITY_COVERAGE=true hardhat coverage"
   },
   "peerDependencies": {
-    "@fhevm/mock-utils": "0.0.1-0",
+    "@fhevm/mock-utils": "0.0.1-1",
     "@fhevm/solidity": "^0.7.0-4",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@zama-fhe/oracle-solidity": "^0.1.0",
