@@ -1,5 +1,7 @@
 import * as picocolors from "picocolors";
 
+import constants from "../../constants";
+
 function _log(msg: string, options?: { nocolor?: boolean; out?: "stderr" | "stdout" | "console" }) {
   if (options?.out === "stderr") {
     // use process.sterr.write instead of console.log to escape HH catpure
@@ -28,7 +30,7 @@ export function logBox(
   const left = " ".repeat(1);
   const inner = " ".repeat(2);
 
-  const prefix = "@fhevm/hardhat:";
+  const prefix = constants.HARDHAT_PLUGIN_NAME + ":";
 
   let len = msg.length + prefix.length + 1;
 

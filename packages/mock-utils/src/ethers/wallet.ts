@@ -8,11 +8,27 @@ export function defaultWallets(
   initialIndex: number,
   count: number,
   path: string,
+  mnemonic?: string,
   provider?: EthersT.Provider | null,
 ): EthersT.HDNodeWallet[] {
   const wallets: EthersT.HDNodeWallet[] = [];
   for (let i = 0; i < count; ++i) {
-    wallets.push(walletFromMnemonic(i + initialIndex, constants.TEST_MNEMONIC, path, provider ?? null));
+    wallets.push(walletFromMnemonic(i + initialIndex, mnemonic ?? constants.TEST_MNEMONIC, path, provider ?? null));
+  }
+  return wallets;
+}
+
+export function defaultWalletsAsMap(
+  initialIndex: number,
+  count: number,
+  path: string,
+  mnemonic?: string,
+  provider?: EthersT.Provider | null,
+): Map<string, EthersT.HDNodeWallet> {
+  const wallets: Map<string, EthersT.HDNodeWallet> = new Map();
+  for (let i = 0; i < count; ++i) {
+    const w = walletFromMnemonic(i + initialIndex, mnemonic ?? constants.TEST_MNEMONIC, path, provider ?? null);
+    wallets.set(w.address, w);
   }
   return wallets;
 }

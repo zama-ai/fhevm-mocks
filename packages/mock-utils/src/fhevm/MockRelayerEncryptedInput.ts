@@ -11,7 +11,7 @@ import { FhevmHandle } from "./FhevmHandle.js";
 import { FhevmType, FhevmTypeToFheType, getFhevmTypeInfo, isFhevmEbytes, isFhevmEuint } from "./FhevmType.js";
 import { InputVerifier, computeInputProofHex } from "./contracts/InputVerifier.js";
 import type { FhevmDBHandleMetadata } from "./db/FhevmDB.js";
-import { requestRelayerV1InputProof } from "./relayer/MockRelayer.js";
+import * as relayer from "./relayer/index.js";
 import type { MockRelayerData, MockRelayerV1InputProofPayload } from "./relayer/mock_payloads.js";
 
 type FhevmSdkEncryptionBitWidths = keyof typeof ENCRYPTION_TYPES;
@@ -26,7 +26,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
   #contractAddress: string;
   #userAddress: string;
 
-  #provider: MinimalProvider;
+  #relayerProvider: MinimalProvider;
   #aclContractAddress: string;
   #inputVerifier: InputVerifier;
 
@@ -34,7 +34,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
   static readonly MAX_VAR_COUNT: number = 256;
 
   constructor(
-    provider: MinimalProvider,
+    relayerProvider: MinimalProvider,
     contractChainId: number,
     contractAddress: string,
     userAddress: string,
@@ -46,7 +46,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
       throw new Error("ChainId exceeds maximum allowed value (8 bytes)"); // fhevm assumes chainID is only taking up to 8 bytes
     }
 
-    this.#provider = provider;
+    this.#relayerProvider = relayerProvider;
     this.#contractChainId = contractChainId;
     this.#contractAddress = contractAddress;
     this.#userAddress = userAddress;
@@ -192,7 +192,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     return this._addBytes(value, FhevmType.ebytes256);
   }
 
-  private toMockFhevmRelayerV1InputProofPayload(): MockRelayerV1InputProofPayload {
+  private _toMockFhevmRelayerV1InputProofPayload(): MockRelayerV1InputProofPayload {
     const numHandles = this.#clearTextValues.length;
     const clearTextValuesBigIntHex: string[] = [];
     const clearTextValuesBigInt: bigint[] = [];
@@ -210,7 +210,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
       });
     }
 
-    const mockCiphertextWithInputVerification: Uint8Array = MockRelayerEncryptedInput.computeMockCiphertextWithZKProof(
+    const mockCiphertextWithInputVerification: Uint8Array = MockRelayerEncryptedInput._computeMockCiphertextWithZKProof(
       clearTextValuesBigInt,
       this.#fheTypes,
       rand32BufferList,
@@ -236,7 +236,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     return mockPayload;
   }
 
-  private static computeMockCiphertextWithZKProof(
+  private static _computeMockCiphertextWithZKProof(
     clearTextValuesBigInt: bigint[],
     fheTypes: FheType[],
     rand32BufferList: Uint8Array[],
@@ -268,8 +268,6 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
   }
 
   public async encrypt() {
-    //const numHandles = this.#clearTextValues.length;
-
     /*
       Mock equivalent to https://github.com/zama-ai/fhevm-js/blob/main/src/relayer/sendEncryption.ts
 
@@ -286,7 +284,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
         };
 
     */
-    const payload = this.toMockFhevmRelayerV1InputProofPayload();
+    const payload = this._toMockFhevmRelayerV1InputProofPayload();
     const mockCiphertextWithZKProof = EthersT.getBytes(payload.ciphertextWithInputVerification);
 
     /*
@@ -315,15 +313,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
           body: JSON.stringify(payload),
         };
     */
-    const response = await requestRelayerV1InputProof(this.#provider, payload);
-
-    // const handlesBytes32List = computeInputHandlesBytes32AsBytes(
-    //   mockCiphertextWithZKProof,
-    //   this.#fheTypes,
-    //   this.#contractChainId,
-    //   this.#aclContractAddress,
-    //   constants.FHEVM_HANDLE_VERSION,
-    // );
+    const response = await relayer.requestRelayerV1InputProof(this.#relayerProvider, payload);
 
     const handlesBytes32List = FhevmHandle.computeHandles(
       mockCiphertextWithZKProof,
@@ -333,8 +323,6 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
       constants.FHEVM_HANDLE_VERSION,
     );
 
-    // assertArrayOfUint8ArrayDeepEqual(handlesBytes32List, h2);
-
     this.#inputVerifier.verifySignatures(
       handlesBytes32List,
       this.#userAddress,
@@ -343,80 +331,6 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
       response.signatures,
     );
 
-    // const handlesBytes32HexNoPrefixList: string[] = [];
-    // const handlesBytes32BigIntList: bigint[] = [];
-
-    // assertFhevm(handlesBytes32List.length === numHandles);
-
-    // for (let index = 0; index < numHandles; ++index) {
-    //   const handleBytes32 = handlesBytes32List[index];
-    //   const handleBytes32BigInt = EthersT.toBigInt(handleBytes32);
-    //   const handleBytes32HexNoPrefix = uint8ArrayToHexNoPrefix(handleBytes32);
-
-    //   assertFhevm("0x" + handleBytes32HexNoPrefix === EthersT.hexlify(handleBytes32));
-    //   assertFhevm("0x" + handleBytes32HexNoPrefix === EthersT.toBeHex(handleBytes32BigInt, 32));
-    //   assertFhevm(BigInt("0x" + handleBytes32HexNoPrefix) === handleBytes32BigInt);
-
-    //   // no "0x" prefix!
-    //   handlesBytes32HexNoPrefixList.push(handleBytes32HexNoPrefix);
-    //   handlesBytes32BigIntList.push(handleBytes32BigInt);
-    // }
-
-    // Simulate coprocessor signature.
-    // Compute Coprocessor signatures (see InputVerification.sol)
-    // const eip712 = createCiphertextVerificationEIP712(
-    //   this.#inputVerificationEIP712Domain.chainId!,
-    //   this.#inputVerificationEIP712Domain.verifyingContract!,
-    //   handlesBytes32BigIntList,
-    //   this.#chainId,
-    //   this.#contractAddress,
-    //   this.#userAddress,
-    // );
-    // const signaturesHex: string[] = await multiSignEIP712(
-    //   this.#inputVerifierCoprocessorSigners,
-    //   eip712.domain,
-    //   eip712.types,
-    //   eip712.message,
-    // );
-
-    // Input proof format:
-    //    <number of handles>
-    //  + <number of coprocessor signers>
-    //  + <list of handles as bytes32 in hex format>
-    //  + signatureCoprocessorSigners (total length: 1 + 1 + 32 + numHandles*32 + numSigners*65)
-
-    // const numHandlesHexByte1 = numberToHex(numHandles);
-    // assertFhevm(numHandlesHexByte1.length === 2); // 1 byte
-
-    // const numCoprocessorSignersHexByte1 = numberToHex(this.#inputVerifier.getCoprocessorSigners().length);
-    // assertFhevm(numCoprocessorSignersHexByte1.length === 2); // 1 byte
-
-    // // Compute inputProof
-    // let inputProofHex = "0x" + numHandlesHexByte1 + numCoprocessorSignersHexByte1;
-
-    // // Append the list of handles
-    // for (let i = 0; i < numHandles; ++i) {
-    //   assertFhevm(handlesBytes32HexNoPrefixList[i].length === 2 * 32);
-    //   inputProofHex += handlesBytes32HexNoPrefixList[i];
-    // }
-
-    // // Append list of coprocessor signatures
-    // signaturesHex.map((signatureHex) => {
-    //   const signatureBytes65HexNoPrefix = removePrefix(signatureHex, "0x");
-    //   assertFhevm(signatureBytes65HexNoPrefix.length === 2 * 65);
-    //   inputProofHex += signatureBytes65HexNoPrefix;
-    // });
-
-    // // Verify it has been inserted in DB
-    // for (let i = 0; i < handlesBytes32HexNoPrefixList.length; ++i) {
-    //   const responseGetClearText = await sendFhevmGetClearText(this.#provider, [handlesBytes32HexNoPrefixList[i]]);
-    //   assertFhevm(Array.isArray(responseGetClearText));
-    //   assertFhevm(responseGetClearText.length === 1);
-    //   assertFhevm(BigInt(responseGetClearText[0]) === BigInt(this.#clearTextValues[i]));
-    // }
-
-    // assertFhevm(computeInputProofHex(handlesBytes32HexNoPrefixList, signaturesHex) === inputProofHex);
-    //assertFhevm(computeInputProofHex(response.handles, response.signatures) === inputProofHex);
     const inputProofHex = computeInputProofHex(response.handles, response.signatures);
 
     return {
@@ -429,63 +343,3 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     throw new FhevmError("ZKInput interface method: Not supported in mock mode");
   }
 }
-
-/*
-
-        // Note that the hex strings returned by the relayer do have have the 0x prefix
-        if (json.response.handles && json.response.handles.length > 0) {
-          const responseHandles = json.response.handles.map(fromHexString);
-          if (handles.length != responseHandles.length) {
-            throw new Error(
-              `Incorrect Handles list sizes: (expected) ${handles.length} != ${responseHandles.length} (received)`,
-            );
-          }
-          for (let index = 0; index < handles.length; index += 1) {
-            let handle = handles[index];
-            let responseHandle = responseHandles[index];
-            let expected = toHexString(handle);
-            let current = toHexString(responseHandle);
-            if (expected !== current) {
-              throw new Error(
-                `Incorrect Handle ${index}: (expected) ${expected} != ${current} (received)`,
-              );
-            }
-          }
-        }
-        const signatures = json.response.signatures;
-
-
-// verify signatures for inputs:
-        const domain = {
-          name: 'InputVerification',
-          version: '1',
-          chainId: gatewayChainId,
-          verifyingContract: verifyingContractAddressInputVerification,
-        };
-        const types = {
-          CiphertextVerification: [
-            { name: 'ctHandles', type: 'bytes32[]' },
-            { name: 'userAddress', type: 'address' },
-            { name: 'contractAddress', type: 'address' },
-            { name: 'contractChainId', type: 'uint256' },
-          ],
-        };
-
-        const recoveredAddresses = signatures.map((signature: string) => {
-          const sig = signature.startsWith('0x') ? signature : `0x${signature}`;
-          const recoveredAddress = ethers.verifyTypedData(
-            domain,
-            types,
-            {
-              ctHandles: handles,
-              userAddress,
-              contractAddress,
-              contractChainId: chainId,
-            },
-            sig,
-          );
-          return recoveredAddress;
-        });
-
-
-*/

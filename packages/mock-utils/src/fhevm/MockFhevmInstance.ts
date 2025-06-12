@@ -29,11 +29,12 @@ import { assertIsNumber } from "../utils/math.js";
 import { MockRelayerEncryptedInput } from "./MockRelayerEncryptedInput.js";
 import { InputVerifier } from "./contracts/InputVerifier.js";
 import { KMSVerifier } from "./contracts/KMSVerifier.js";
-import { requestRelayerV1UserDecrypt } from "./relayer/MockRelayer.js";
+import * as relayer from "./relayer/MockRelayer.js";
 import type { RelayerV1UserDecryptHandleContractPair, RelayerV1UserDecryptPayload } from "./relayer/payloads.js";
 
 export type MockFhevmInstanceConfigExtra = {
   relayerProvider: MinimalProvider;
+  readonlyEthersProvider: EthersT.Provider;
   inputVerifier: InputVerifier;
   kmsVerifier: KMSVerifier;
 };
@@ -53,7 +54,7 @@ export type MockFhevmInstanceConfig = {
 */
 export class MockFhevmInstance implements FhevmInstance {
   #relayerProvider: MinimalProvider;
-  #readonlyRunner: EthersT.ContractRunner;
+  #readonlyEthersProvider: EthersT.Provider;
   #chainId: number; //provider's chainId
   #gatewayChainId: number;
   #verifyingContractAddressInputVerification: string;
@@ -62,7 +63,6 @@ export class MockFhevmInstance implements FhevmInstance {
   #aclContractAddress: string;
   #kmsVerifier: KMSVerifier;
   #inputVerifier: InputVerifier;
-  //#fhevmSdkModule: FhevmSdkModule;
 
   #fhevmSdkCreateEIP712ForDecryptionFunc: (
     publicKey: string,
@@ -71,7 +71,7 @@ export class MockFhevmInstance implements FhevmInstance {
     durationDays: string | number,
   ) => EIP712;
 
-  constructor(config: MockFhevmInstanceConfig, extra: MockFhevmInstanceConfigExtra) {
+  private constructor(config: MockFhevmInstanceConfig, extra: MockFhevmInstanceConfigExtra) {
     assertIsAddress(
       config.verifyingContractAddressInputVerification,
       "config.verifyingContractAddressInputVerification",
@@ -80,7 +80,7 @@ export class MockFhevmInstance implements FhevmInstance {
     assertIsNumber(config.gatewayChainId, "config.gatewayChainId");
 
     this.#relayerProvider = extra.relayerProvider;
-    this.#readonlyRunner = extra.inputVerifier.runner;
+    this.#readonlyEthersProvider = extra.readonlyEthersProvider;
     this.#chainId = config.chainId;
     this.#gatewayChainId = config.gatewayChainId;
     this.#verifyingContractAddressInputVerification = config.verifyingContractAddressInputVerification;
@@ -101,23 +101,24 @@ export class MockFhevmInstance implements FhevmInstance {
   }
 
   public static async create(
-    readonlyRunner: EthersT.ContractRunner,
     relayerProvider: MinimalProvider,
+    readonlyEthersProvider: EthersT.Provider,
     config: MockFhevmInstanceConfig,
-    //fhevmSdkModule: FhevmSdkModule,
   ): Promise<MockFhevmInstance> {
-    const kmsVerifier = await KMSVerifier.create(readonlyRunner, config.kmsContractAddress);
-    const inputVerifier = await InputVerifier.create(readonlyRunner, config.inputVerifierContractAddress);
-    return new MockFhevmInstance(config, {
+    const kmsVerifier = await KMSVerifier.create(readonlyEthersProvider, config.kmsContractAddress);
+    const inputVerifier = await InputVerifier.create(readonlyEthersProvider, config.inputVerifierContractAddress);
+
+    const instance = new MockFhevmInstance(config, {
       relayerProvider,
+      readonlyEthersProvider,
       inputVerifier,
       kmsVerifier,
-      //fhevmSdkModule,
     });
+
+    return instance;
   }
 
   public static createEIP712(
-    //fhevmSdkModule: FhevmSdkModule,
     publicKey: string,
     contractAddresses: string[],
     startTimestamp: string | number,
@@ -172,10 +173,6 @@ export class MockFhevmInstance implements FhevmInstance {
     return eip712;
   }
 
-  private get relayerProvider(): MinimalProvider {
-    return this.#relayerProvider;
-  }
-
   public createEncryptedInput(contractAddress: string, userAddress: string): MockRelayerEncryptedInput {
     assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.name === this.#inputVerifier.eip712Domain.name);
     assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.version === this.#inputVerifier.eip712Domain.version);
@@ -183,7 +180,7 @@ export class MockFhevmInstance implements FhevmInstance {
     assertFhevm(BigInt(this.#gatewayChainId) === this.#inputVerifier.eip712Domain.chainId);
 
     return new MockRelayerEncryptedInput(
-      this.relayerProvider,
+      this.#relayerProvider,
       this.#chainId,
       contractAddress,
       userAddress,
@@ -193,7 +190,6 @@ export class MockFhevmInstance implements FhevmInstance {
   }
 
   public generateKeypair(): { publicKey: string; privateKey: string } {
-    //return this.#fhevmSdkModule.generateKeypair();
     return fhevmSdkGenerateKeypair();
   }
 
@@ -243,7 +239,7 @@ export class MockFhevmInstance implements FhevmInstance {
     checkDeadlineValidity(BigInt(startTimestamp), BigInt(durationDays));
 
     await MockFhevmInstance.verifyACLPermissions(
-      this.#readonlyRunner,
+      this.#readonlyEthersProvider,
       this.#aclContractAddress,
       relayerHandles,
       userAddress,
@@ -268,7 +264,10 @@ export class MockFhevmInstance implements FhevmInstance {
       publicKey: publicKey.replace(/^(0x)/, ""),
     };
 
-    const clearTextHexList: string[] = await requestRelayerV1UserDecrypt(this.relayerProvider, payloadForRequest);
+    const clearTextHexList: string[] = await relayer.requestRelayerV1UserDecrypt(
+      this.#relayerProvider,
+      payloadForRequest,
+    );
 
     await this._verifySignature(publicKey, signature, contractAddresses, userAddress, startTimestamp, durationDays);
 
@@ -311,13 +310,13 @@ export class MockFhevmInstance implements FhevmInstance {
 
   // (Duplicated code) Should be imported from @fhevm/sdk
   public static async verifyACLPermissions(
-    runner: EthersT.ContractRunner,
+    readonlyEthersProvider: EthersT.Provider,
     aclContractAddress: string,
     handles: HandleContractPair[],
     userAddress: string,
   ) {
     const aclABI = ["function persistAllowed(bytes32 handle, address account) view returns (bool)"];
-    const acl = new EthersT.Contract(aclContractAddress, aclABI, runner);
+    const acl = new EthersT.Contract(aclContractAddress, aclABI, readonlyEthersProvider);
 
     const verifications = handles.map(async ({ handle, contractAddress }) => {
       const ctHandleHex = EthersT.toBeHex(EthersT.toBigInt(handle), 32);

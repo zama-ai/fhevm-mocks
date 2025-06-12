@@ -4,6 +4,7 @@ import {
   TASK_CLEAN,
   TASK_COMPILE_GET_REMAPPINGS,
   TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS,
+  TASK_NODE_GET_PROVIDER,
   TASK_NODE_SERVER_READY,
   TASK_TEST,
 } from "hardhat/builtin-tasks/task-names";
@@ -11,6 +12,7 @@ import { subtask, task } from "hardhat/config";
 import { HardhatRuntimeEnvironment, TaskArguments } from "hardhat/types";
 import * as picocolors from "picocolors";
 
+import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
 import { assertHHFhevm } from "../internal/error";
@@ -39,6 +41,8 @@ task(TASK_TEST, async (taskArgs: TaskArguments, hre: HardhatRuntimeEnvironment, 
 });
 
 task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironment, runSuper) => {
+  debug(`execute TASK_CLEAN`);
+
   // no 'minimalInit' needed here. We only need paths.
   const fhevmEnv = fhevmContext.get();
 
@@ -52,7 +56,7 @@ task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironmen
       debug(`${picocolors.greenBright(TASK_CLEAN)} directory ${fhevmEnv.paths.cache} already removed.`);
     }
   } catch {
-    console.log(`@fhevm/hardhat: Unable to remove directory '${fhevmEnv.paths.cache}'.`);
+    console.log(`${constants.HARDHAT_PLUGIN_NAME}: Unable to remove directory '${fhevmEnv.paths.cache}'.`);
   }
 
   const res = await runSuper();
@@ -60,6 +64,8 @@ task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironmen
 });
 
 subtask(TASK_COMPILE_GET_REMAPPINGS).setAction(async (_taskArgs, _hre, runSuper): Promise<Record<string, string>> => {
+  debug(`execute TASK_COMPILE_GET_REMAPPINGS`);
+
   const fhevmEnv = fhevmContext.get();
   await fhevmEnv.minimalInit();
 
@@ -78,6 +84,8 @@ subtask(TASK_COMPILE_GET_REMAPPINGS).setAction(async (_taskArgs, _hre, runSuper)
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
   async (/*{ sourcePath }: { sourcePath?: string }*/ _taskArgs: TaskArguments, _hre, runSuper): Promise<string[]> => {
+    debug(`execute TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS`);
+
     const fhevmEnv = fhevmContext.get();
     await fhevmEnv.minimalInit();
     await fhevmEnv.initializeAddresses(false /* ignoreCache */);
@@ -94,6 +102,20 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
     return filePaths;
   },
 );
+
+subtask(TASK_NODE_GET_PROVIDER).setAction(async (_taskArgs: TaskArguments, _hre, runSuper) => {
+  // This task is not supposed to be called multiple times.
+  const fhevmEnv = fhevmContext.get();
+
+  if (!fhevmEnv.isDeployed) {
+    fhevmEnv.setRunningInHHNode();
+    await fhevmEnv.deploy();
+    assertHHFhevm(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+  }
+
+  const res = await runSuper();
+  return res;
+});
 
 subtask(TASK_NODE_SERVER_READY).setAction(
   async (
@@ -114,10 +136,12 @@ subtask(TASK_NODE_SERVER_READY).setAction(
   ) => {
     // This task is not supposed to be called multiple times.
     const fhevmEnv = fhevmContext.get();
-    fhevmEnv.setRunningInHHNode();
 
-    await fhevmEnv.deploy();
-    assertHHFhevm(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+    if (!fhevmEnv.isDeployed) {
+      fhevmEnv.setRunningInHHNode();
+      await fhevmEnv.deploy();
+      assertHHFhevm(fhevmEnv.isDeployed, "FhevmEnvironment is not initialized");
+    }
 
     const res = await runSuper();
     return res;

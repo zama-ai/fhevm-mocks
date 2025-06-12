@@ -332,3 +332,17 @@ export function getFhevmTypeMaxClearTextBigInt(fhevmType: FhevmType): bigint {
   const clearTextBitLen = fhevmTypeInfo.clearTextBitLength;
   return getMaxBigInt(clearTextBitLen);
 }
+
+export function tryParseFhevmType(name: string): FhevmType | undefined {
+  if (typeof name !== "string") {
+    return undefined;
+  }
+  if (!(name in FhevmTypeMap)) {
+    return undefined;
+  }
+  try {
+    return FhevmTypeMap[name as keyof typeof FhevmTypeMap];
+  } catch {
+    return undefined;
+  }
+}

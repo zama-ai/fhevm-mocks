@@ -54,6 +54,9 @@ describe("ConfidentialGovernorAlpha", function () {
     VOTING_DELAY = await governor.VOTING_DELAY();
     VOTING_PERIOD = await governor.VOTING_PERIOD();
     TIMELOCK_DELAY = await timelock.delay();
+
+    await hre.fhevm.assertCoprocessorInitialized(governorAddress);
+    await hre.fhevm.assertDecryptionOracleInitialized(governorAddress);
   });
 
   it("can propose a vote that becomes active if votes match the token threshold", async function () {
