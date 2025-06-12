@@ -8,8 +8,12 @@ import "solidity-coverage";
 // We load the plugin here.
 import "./src/index";
 
-const MNEMONIC: string = vars.get("MNEMONIC");
-const INFURA_API_KEY: string = vars.get("INFURA_API_KEY");
+const MNEMONIC: string = vars.has("MNEMONIC")
+  ? vars.get("MNEMONIC")
+  : "test test test test test test test test test test test junk";
+const INFURA_API_KEY: string = vars.has("INFURA_API_KEY")
+  ? vars.get("INFURA_API_KEY")
+  : "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz";
 
 const config: HardhatUserConfig = {
   solidity: {
