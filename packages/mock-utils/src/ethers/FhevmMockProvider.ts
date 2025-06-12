@@ -1,5 +1,6 @@
 import { ethers as EthersT, JsonRpcProvider } from "ethers";
 
+import constants from "../constants.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
 import { assertIsString } from "../utils/string.js";
 import { isAnvilProvider } from "./anvil.js";
@@ -305,11 +306,15 @@ async function _resolveProviderInfo(
 ): Promise<FhevmMockProviderInfo> {
   assertIsString(networkName, "networkName");
 
-  if (networkName !== "hardhat" && networkName !== "localhost" && defaultChainId === 11155111) {
+  if (
+    networkName !== "hardhat" &&
+    networkName !== "localhost" &&
+    defaultChainId === constants.SEPOLIA_ETHEREUM_TESTNET_CHAINID
+  ) {
     assertFhevm(url !== undefined, "Missing sepolia url");
     return {
       type: FhevmMockProviderType.SepoliaEthereum,
-      chainId: 11155111,
+      chainId: constants.SEPOLIA_ETHEREUM_TESTNET_CHAINID,
       methods: {},
       url,
       networkName,
