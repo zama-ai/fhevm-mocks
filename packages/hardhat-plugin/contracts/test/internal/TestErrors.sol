@@ -3,10 +3,10 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaFHEVMConfig } from "@fhevm/solidity/config/FHEVMConfig.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 import { SepoliaZamaOracleAddress } from "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol";
 
-contract TestErrors is SepoliaFHEVMConfig {
+contract TestErrors is SepoliaConfig {
     euint64 private _aCypherTextUint64;
     uint64 private _aClearTextUint64;
     euint64 private _bCypherTextUint64;

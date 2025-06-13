@@ -75,7 +75,7 @@
   },
   "peerDependencies": {
     "@fhevm/mock-utils": "0.0.1-1",
-    "@fhevm/solidity": "^0.7.0-4",
+    "@fhevm/solidity": "^0.7.0-5",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@zama-fhe/oracle-solidity": "^0.1.0",
     "@zama-fhe/relayer-sdk": "^0.1.0-5",

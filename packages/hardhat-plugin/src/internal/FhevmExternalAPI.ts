@@ -20,6 +20,7 @@ import type { DecryptedResults } from "@zama-fhe/relayer-sdk/node";
 import type { EIP712, FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
+import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { HardhatFhevmRuntimeDebugger, HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
@@ -300,11 +301,11 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
       addresses.InputVerifierAddress === EthersT.ZeroAddress ||
       addresses.KMSVerifierAddress === EthersT.ZeroAddress
     ) {
-      const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/FHEVMConfig.sol:SepoliaFHEVMConfig or explicitly calls FHE.setCoprocessor() in its constructor.`;
+      const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}:${constants.FHEVM_CONFIG_CONTRACT_NAME} or explicitly calls FHE.setCoprocessor() in its constructor.`;
       throw new HardhatFhevmError(errorMsg);
     }
 
-    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file @fhevm/solidity/config/FHEVMConfig.sol`;
+    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}`;
     if (addresses.ACLAddress !== expectedACLAddress) {
       const errorMsg = `Coprocessor ACL address mismatch. ${addrMismatchErrorMsg}. ACL address: ${addresses.ACLAddress}, expected ACL address: ${expectedACLAddress}`;
       throw new HardhatFhevmError(errorMsg);

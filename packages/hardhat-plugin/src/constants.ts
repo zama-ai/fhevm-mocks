@@ -20,6 +20,8 @@ const constants = {
   ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME: "@zama-fhe/oracle-solidity",
   FHEVM_SOLIDITY_PACKAGE_NAME: "@fhevm/solidity",
   SOLIDITY_COVERAGE_PACKAGE_NAME: "solidity-coverage",
+  FHEVM_CONFIG_SOLIDITY_FILE: "ZamaConfig.sol",
+  FHEVM_CONFIG_CONTRACT_NAME: "SepoliaConfig",
   FHEVM_MOCK_UTILS_PACKAGE_NAME: "@fhevm/mock-utils",
   DEFAULT_DURATION_DAYS: 1,
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
