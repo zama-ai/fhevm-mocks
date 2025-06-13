@@ -3,7 +3,7 @@ import {
   DecryptionRequestEvent,
   FhevmContractName,
   FhevmHandleCoder,
-  FhevmTypeEbytes,
+  //FhevmTypeEbytes,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
 } from "@fhevm/mock-utils";
@@ -15,7 +15,7 @@ import { FhevmContractError } from "./internal/errors/FhevmContractError";
 
 export {
   FhevmType,
-  FhevmTypeEbytes,
+  //FhevmTypeEbytes,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
   FhevmKeypair,
@@ -129,13 +129,13 @@ export interface HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint>;
 
-  userDecryptEbytes(
-    fhevmType: FhevmTypeEbytes,
-    handleBytes32: string,
-    contractAddress: ethers.AddressLike,
-    user: ethers.Signer,
-    options?: FhevmUserDecryptOptions,
-  ): Promise<bigint>;
+  // userDecryptEbytes(
+  //   fhevmType: FhevmTypeEbytes,
+  //   handleBytes32: string,
+  //   contractAddress: ethers.AddressLike,
+  //   user: ethers.Signer,
+  //   options?: FhevmUserDecryptOptions,
+  // ): Promise<bigint>;
 
   userDecryptEaddress(
     handleBytes32: string,
@@ -155,6 +155,6 @@ export interface HardhatFhevmRuntimeDebugger {
 
   decryptEbool(handleBytes32: ethers.BigNumberish): Promise<boolean>;
   decryptEuint(fhevmType: FhevmTypeEuint, handleBytes32: ethers.BigNumberish): Promise<bigint>;
-  decryptEbytes(fhevmType: FhevmTypeEbytes, handleBytes32: ethers.BigNumberish): Promise<string>;
+  //decryptEbytes(fhevmType: FhevmTypeEbytes, handleBytes32: ethers.BigNumberish): Promise<string>;
   decryptEaddress(handleBytes32: ethers.BigNumberish): Promise<string>;
 }

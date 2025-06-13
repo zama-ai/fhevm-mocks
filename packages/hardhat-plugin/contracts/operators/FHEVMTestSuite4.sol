@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaFHEVMConfig } from "@fhevm/solidity/config/FHEVMConfig.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract FHEVMTestSuite4 is SepoliaFHEVMConfig {
+contract FHEVMTestSuite4 is SepoliaConfig {
     ebool public resEbool;
     euint8 public resEuint8;
     euint16 public resEuint16;
@@ -12,9 +12,6 @@ contract FHEVMTestSuite4 is SepoliaFHEVMConfig {
     euint64 public resEuint64;
     euint128 public resEuint128;
     euint256 public resEuint256;
-    ebytes64 public resEbytes64;
-    ebytes128 public resEbytes128;
-    ebytes256 public resEbytes256;
 
     constructor() {}
 

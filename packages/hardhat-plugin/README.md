@@ -128,9 +128,9 @@ Then, inside the `contracts` directory, create a new Solidity file named `APlusB
 pragma solidity ^0.8.24;
 
 import { FHE, euint8, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaFHEVMConfig } from "@fhevm/solidity/config/FHEVMConfig.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract APlusB is SepoliaFHEVMConfig {
+contract APlusB is SepoliaConfig {
   euint8 private _a;
   euint8 private _b;
   euint8 private _aplusb;

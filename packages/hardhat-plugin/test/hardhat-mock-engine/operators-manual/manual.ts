@@ -75,56 +75,56 @@ describe("FHEVM manual operations", function () {
     expect(res2).to.equal(true);
   });
 
-  it("Select ebytes64", async function () {
-    const tx = await contract.test_select_ebytes64(
-      true,
-      "0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x11",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes64, await contract.resEbytes64());
-    expect(res).to.equal(
-      ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 64),
-    );
-    const tx2 = await contract.test_select_ebytes64(false, "0x42", "0xaaaaaaaa");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes64, await contract.resEbytes64());
-    expect(res2).to.equal(ethers.toBeHex(BigInt("0xaaaaaaaa"), 64));
-  });
+  // it("Select ebytes64", async function () {
+  //   const tx = await contract.test_select_ebytes64(
+  //     true,
+  //     "0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x11",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes64, await contract.resEbytes64());
+  //   expect(res).to.equal(
+  //     ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 64),
+  //   );
+  //   const tx2 = await contract.test_select_ebytes64(false, "0x42", "0xaaaaaaaa");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes64, await contract.resEbytes64());
+  //   expect(res2).to.equal(ethers.toBeHex(BigInt("0xaaaaaaaa"), 64));
+  // });
 
-  it("Select ebytes128", async function () {
-    const tx = await contract.test_select_ebytes128(
-      true,
-      "0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x11",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes128, await contract.resEbytes128());
-    expect(res).to.equal(
-      ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 128),
-    );
-    const tx2 = await contract.test_select_ebytes128(false, "0x42", "0xaaaaaaaa");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes128, await contract.resEbytes128());
-    expect(res2).to.equal(ethers.toBeHex(BigInt("0xaaaaaaaa"), 128));
-  });
+  // it("Select ebytes128", async function () {
+  //   const tx = await contract.test_select_ebytes128(
+  //     true,
+  //     "0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x11",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes128, await contract.resEbytes128());
+  //   expect(res).to.equal(
+  //     ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 128),
+  //   );
+  //   const tx2 = await contract.test_select_ebytes128(false, "0x42", "0xaaaaaaaa");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes128, await contract.resEbytes128());
+  //   expect(res2).to.equal(ethers.toBeHex(BigInt("0xaaaaaaaa"), 128));
+  // });
 
-  it("Select ebytes256", async function () {
-    const tx = await contract.test_select_ebytes256(
-      true,
-      "0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x11",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes256, await contract.resEbytes256());
-    expect(res).to.equal(
-      ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 256),
-    );
-    const tx2 = await contract.test_select_ebytes256(false, "0x428899", "0xaaaaaabb");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes256, await contract.resEbytes256());
-    expect(res2).to.equal(ethers.toBeHex(BigInt("0xaaaaaabb"), 256));
-  });
+  // it("Select ebytes256", async function () {
+  //   const tx = await contract.test_select_ebytes256(
+  //     true,
+  //     "0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x11",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes256, await contract.resEbytes256());
+  //   expect(res).to.equal(
+  //     ethers.toBeHex(BigInt("0x6798aa6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb"), 256),
+  //   );
+  //   const tx2 = await contract.test_select_ebytes256(false, "0x428899", "0xaaaaaabb");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbytes(FhevmType.ebytes256, await contract.resEbytes256());
+  //   expect(res2).to.equal(ethers.toBeHex(BigInt("0xaaaaaabb"), 256));
+  // });
 
   it("Select works for eaddress returning if false", async function () {
     const input = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
@@ -725,333 +725,333 @@ describe("FHEVM manual operations", function () {
     expect(res4).to.equal(true);
   });
 
-  it("eq ebytes256,ebytes256 true", async function () {
-    const someHex256 = hre.ethers.toBeHex(18446744073709550022n, 256);
+  // it("eq ebytes256,ebytes256 true", async function () {
+  //   const someHex256 = hre.ethers.toBeHex(18446744073709550022n, 256);
 
-    const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
-    const encryptedAmountA = await inputAliceA.encrypt();
+  //   const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
+  //   const encryptedAmountA = await inputAliceA.encrypt();
 
-    const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceB.addBytes256(hre.ethers.getBytes(someHex256));
-    const encryptedAmountB = await inputAliceB.encrypt();
+  //   const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceB.addBytes256(hre.ethers.getBytes(someHex256));
+  //   const encryptedAmountB = await inputAliceB.encrypt();
 
-    const tx = await contract.eqEbytes256(
-      encryptedAmountA.handles[0],
-      encryptedAmountA.inputProof,
-      encryptedAmountB.handles[0],
-      encryptedAmountB.inputProof,
-    );
-    await tx.wait();
+  //   const tx = await contract.eqEbytes256(
+  //     encryptedAmountA.handles[0],
+  //     encryptedAmountA.inputProof,
+  //     encryptedAmountB.handles[0],
+  //     encryptedAmountB.inputProof,
+  //   );
+  //   await tx.wait();
 
-    const res = await contract.resEbool();
-    const decRes = await hre.fhevm.debugger.decryptEbool(res);
-    expect(decRes).to.equal(true);
-  });
+  //   const res = await contract.resEbool();
+  //   const decRes = await hre.fhevm.debugger.decryptEbool(res);
+  //   expect(decRes).to.equal(true);
+  // });
 
-  it("eq ebytes256,ebytes256 false", async function () {
-    const someHex256 = hre.ethers.toBeHex(18446744073709550022n, 256);
-    const someOtherHex256 = hre.ethers.toBeHex(18446744073709550021n, 256);
+  // it("eq ebytes256,ebytes256 false", async function () {
+  //   const someHex256 = hre.ethers.toBeHex(18446744073709550022n, 256);
+  //   const someOtherHex256 = hre.ethers.toBeHex(18446744073709550021n, 256);
 
-    const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
-    const encryptedAmountA = await inputAliceA.encrypt();
+  //   const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
+  //   const encryptedAmountA = await inputAliceA.encrypt();
 
-    const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceB.addBytes256(hre.ethers.getBytes(someOtherHex256));
-    const encryptedAmountB = await inputAliceB.encrypt();
+  //   const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceB.addBytes256(hre.ethers.getBytes(someOtherHex256));
+  //   const encryptedAmountB = await inputAliceB.encrypt();
 
-    const tx = await contract.eqEbytes256(
-      encryptedAmountA.handles[0],
-      encryptedAmountA.inputProof,
-      encryptedAmountB.handles[0],
-      encryptedAmountB.inputProof,
-    );
-    await tx.wait();
+  //   const tx = await contract.eqEbytes256(
+  //     encryptedAmountA.handles[0],
+  //     encryptedAmountA.inputProof,
+  //     encryptedAmountB.handles[0],
+  //     encryptedAmountB.inputProof,
+  //   );
+  //   await tx.wait();
 
-    const res = await contract.resEbool();
-    const decRes = await hre.fhevm.debugger.decryptEbool(res);
-    expect(decRes).to.equal(false);
-  });
+  //   const res = await contract.resEbool();
+  //   const decRes = await hre.fhevm.debugger.decryptEbool(res);
+  //   expect(decRes).to.equal(false);
+  // });
 
-  it("ne ebytes256,ebytes256 true", async function () {
-    const someHex256 = hre.ethers.toBeHex(18446744073709550022n, 256);
-    const someOtherHex256 = hre.ethers.toBeHex(18446744073709550021n, 256);
+  // it("ne ebytes256,ebytes256 true", async function () {
+  //   const someHex256 = hre.ethers.toBeHex(18446744073709550022n, 256);
+  //   const someOtherHex256 = hre.ethers.toBeHex(18446744073709550021n, 256);
 
-    const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
-    const encryptedAmountA = await inputAliceA.encrypt();
+  //   const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
+  //   const encryptedAmountA = await inputAliceA.encrypt();
 
-    const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceB.addBytes256(hre.ethers.getBytes(someOtherHex256));
-    const encryptedAmountB = await inputAliceB.encrypt();
+  //   const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceB.addBytes256(hre.ethers.getBytes(someOtherHex256));
+  //   const encryptedAmountB = await inputAliceB.encrypt();
 
-    const tx = await contract.neEbytes256(
-      encryptedAmountA.handles[0],
-      encryptedAmountA.inputProof,
-      encryptedAmountB.handles[0],
-      encryptedAmountB.inputProof,
-    );
-    await tx.wait();
+  //   const tx = await contract.neEbytes256(
+  //     encryptedAmountA.handles[0],
+  //     encryptedAmountA.inputProof,
+  //     encryptedAmountB.handles[0],
+  //     encryptedAmountB.inputProof,
+  //   );
+  //   await tx.wait();
 
-    const res = await contract.resEbool();
-    const decRes = await hre.fhevm.debugger.decryptEbool(res);
-    expect(decRes).to.equal(true);
-  });
+  //   const res = await contract.resEbool();
+  //   const decRes = await hre.fhevm.debugger.decryptEbool(res);
+  //   expect(decRes).to.equal(true);
+  // });
 
-  it("ne ebytes256,ebytes256 false", async function () {
-    const someHex256 = hre.ethers.toBeHex(184467440184467440184467440184467440n, 256);
+  // it("ne ebytes256,ebytes256 false", async function () {
+  //   const someHex256 = hre.ethers.toBeHex(184467440184467440184467440184467440n, 256);
 
-    const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
-    const encryptedAmountA = await inputAliceA.encrypt();
+  //   const inputAliceA = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceA.addBytes256(hre.ethers.getBytes(someHex256));
+  //   const encryptedAmountA = await inputAliceA.encrypt();
 
-    const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
-    inputAliceB.addBytes256(hre.ethers.getBytes(someHex256));
-    const encryptedAmountB = await inputAliceB.encrypt();
+  //   const inputAliceB = hre.fhevm.createEncryptedInput(contractAddress, signers.alice.address);
+  //   inputAliceB.addBytes256(hre.ethers.getBytes(someHex256));
+  //   const encryptedAmountB = await inputAliceB.encrypt();
 
-    const tx = await contract.neEbytes256(
-      encryptedAmountA.handles[0],
-      encryptedAmountA.inputProof,
-      encryptedAmountB.handles[0],
-      encryptedAmountB.inputProof,
-    );
-    await tx.wait();
+  //   const tx = await contract.neEbytes256(
+  //     encryptedAmountA.handles[0],
+  //     encryptedAmountA.inputProof,
+  //     encryptedAmountB.handles[0],
+  //     encryptedAmountB.inputProof,
+  //   );
+  //   await tx.wait();
 
-    const res = await contract.resEbool();
-    const decRes = await hre.fhevm.debugger.decryptEbool(res);
-    expect(decRes).to.equal(false);
-  });
+  //   const res = await contract.resEbool();
+  //   const decRes = await hre.fhevm.debugger.decryptEbool(res);
+  //   expect(decRes).to.equal(false);
+  // });
 
-  it("ebytes64 eq ebytes64", async function () {
-    const tx = await contract.eqEbytes64(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.eqEbytes64("0x1100", "0x0011");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes64 eq ebytes64", async function () {
+  //   const tx = await contract.eqEbytes64(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.eqEbytes64("0x1100", "0x0011");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes64 eq ebytes64 - scalarL", async function () {
-    const tx = await contract.eqEbytes64ScalarL(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.eqEbytes64ScalarL("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes64 eq ebytes64 - scalarL", async function () {
+  //   const tx = await contract.eqEbytes64ScalarL(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.eqEbytes64ScalarL("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes64 eq ebytes64 - scalarR", async function () {
-    const tx = await contract.eqEbytes64ScalarR(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.eqEbytes64ScalarR("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes64 eq ebytes64 - scalarR", async function () {
+  //   const tx = await contract.eqEbytes64ScalarR(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.eqEbytes64ScalarR("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes64 ne ebytes64", async function () {
-    const tx = await contract.neEbytes64(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.neEbytes64("0x1100", "0x0011");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes64 ne ebytes64", async function () {
+  //   const tx = await contract.neEbytes64(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.neEbytes64("0x1100", "0x0011");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes64 ne ebytes64 - scalarL", async function () {
-    const tx = await contract.neEbytes64ScalarL(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.neEbytes64ScalarL("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes64 ne ebytes64 - scalarL", async function () {
+  //   const tx = await contract.neEbytes64ScalarL(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.neEbytes64ScalarL("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes64 ne ebytes64 - scalarR", async function () {
-    const tx = await contract.neEbytes64ScalarR(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.neEbytes64ScalarR("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes64 ne ebytes64 - scalarR", async function () {
+  //   const tx = await contract.neEbytes64ScalarR(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.neEbytes64ScalarR("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes128 eq ebytes128", async function () {
-    const tx = await contract.eqEbytes128(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.eqEbytes128(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb71",
-    );
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes128 eq ebytes128", async function () {
+  //   const tx = await contract.eqEbytes128(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.eqEbytes128(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb71",
+  //   );
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes128 eq ebytes128 - scalarL", async function () {
-    const tx = await contract.eqEbytes128ScalarL(
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.eqEbytes128ScalarL("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes128 eq ebytes128 - scalarL", async function () {
+  //   const tx = await contract.eqEbytes128ScalarL(
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.eqEbytes128ScalarL("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes128 eq ebytes128 - scalarR", async function () {
-    const tx = await contract.eqEbytes128ScalarR(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.eqEbytes128ScalarR("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes128 eq ebytes128 - scalarR", async function () {
+  //   const tx = await contract.eqEbytes128ScalarR(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.eqEbytes128ScalarR("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes128 ne ebytes128", async function () {
-    const tx = await contract.neEbytes128(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.neEbytes128(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb71",
-    );
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes128 ne ebytes128", async function () {
+  //   const tx = await contract.neEbytes128(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.neEbytes128(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb73",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbd4fdd06bd752b24ffb9f307805c4e698bf10aed0a47a103e5c1ade64bd31eb71",
+  //   );
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes128 ne ebytes128 - scalarL", async function () {
-    const tx = await contract.neEbytes128ScalarL(
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.neEbytes128ScalarL("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes128 ne ebytes128 - scalarL", async function () {
+  //   const tx = await contract.neEbytes128ScalarL(
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.neEbytes128ScalarL("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes128 ne ebytes128 - scalarR", async function () {
-    const tx = await contract.neEbytes128ScalarR(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.neEbytes128ScalarR("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes128 ne ebytes128 - scalarR", async function () {
+  //   const tx = await contract.neEbytes128ScalarR(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.neEbytes128ScalarR("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes256 eq ebytes256 - scalarL", async function () {
-    const tx = await contract.eqEbytes256ScalarL(
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.eqEbytes256ScalarL("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes256 eq ebytes256 - scalarL", async function () {
+  //   const tx = await contract.eqEbytes256ScalarL(
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.eqEbytes256ScalarL("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes256 eq ebytes256 - scalarR", async function () {
-    const tx = await contract.eqEbytes256ScalarR(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbaa",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(false);
-    const tx2 = await contract.eqEbytes256ScalarR("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(true);
-  });
+  // it("ebytes256 eq ebytes256 - scalarR", async function () {
+  //   const tx = await contract.eqEbytes256ScalarR(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbaa",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(false);
+  //   const tx2 = await contract.eqEbytes256ScalarR("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(true);
+  // });
 
-  it("ebytes256 ne ebytes256 - scalarL", async function () {
-    const tx = await contract.neEbytes256ScalarL(
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
-      "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.neEbytes256ScalarL("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes256 ne ebytes256 - scalarL", async function () {
+  //   const tx = await contract.neEbytes256ScalarL(
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabb",
+  //     "0x6d4b2086ba8e3d2104fbf4a8dfe9679d6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.neEbytes256ScalarL("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
-  it("ebytes256 ne ebytes256 - scalarR", async function () {
-    const tx = await contract.neEbytes256ScalarR(
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbaa",
-      "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaaaa",
-    );
-    await tx.wait();
-    const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res).to.equal(true);
-    const tx2 = await contract.neEbytes256ScalarR("0x1100", "0x1100");
-    await tx2.wait();
-    const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
-    expect(res2).to.equal(false);
-  });
+  // it("ebytes256 ne ebytes256 - scalarR", async function () {
+  //   const tx = await contract.neEbytes256ScalarR(
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbabbaa",
+  //     "0x6bb8166128b0e7a16f60dc255c953288d03107895b0904ea18f7a242bf335fbaaaaa",
+  //   );
+  //   await tx.wait();
+  //   const res = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res).to.equal(true);
+  //   const tx2 = await contract.neEbytes256ScalarR("0x1100", "0x1100");
+  //   await tx2.wait();
+  //   const res2 = await hre.fhevm.debugger.decryptEbool(await contract.resEbool());
+  //   expect(res2).to.equal(false);
+  // });
 
   it("ebool ne ebool", async function () {
     const tx = await contract.neEbool(true, true);

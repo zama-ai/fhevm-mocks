@@ -53,7 +53,7 @@ export async function getFHEVMConfig(provider: MinimalProvider, contractAddress:
   assertFhevm(fhevmConfigStorageLocation === "0xed8d60e34876f751cc8b014c560745351147d9de11b9347c854e881b128ea600");
 
   /*
-    See: @fhevm/solidity/config/FHEVMConfig.sol and @fhevm/solidity/lib/Impl.sol
+    See: @fhevm/solidity/config/ZamaConfig.sol and @fhevm/solidity/lib/Impl.sol
     
     struct FHEVMConfigStruct {
         address ACLAddress;
