@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import { ConfidentialGovernorAlpha } from "../../governance/ConfidentialGovernorAlpha.sol";
 import { FHE } from "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaFHEVMConfig } from "@fhevm/solidity/config/FHEVMConfig.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 import { SepoliaZamaOracleAddress } from "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol";
 
-contract TestConfidentialGovernorAlpha is SepoliaFHEVMConfig, ConfidentialGovernorAlpha {
+contract TestConfidentialGovernorAlpha is SepoliaConfig, ConfidentialGovernorAlpha {
     constructor(
         address owner_,
         address timelock_,

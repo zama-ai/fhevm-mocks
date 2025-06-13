@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { ConfidentialVestingWalletCliff } from "../../finance/ConfidentialVestingWalletCliff.sol";
-import { SepoliaFHEVMConfig } from "@fhevm/solidity/config/FHEVMConfig.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestConfidentialVestingWalletCliff is SepoliaFHEVMConfig, ConfidentialVestingWalletCliff {
+contract TestConfidentialVestingWalletCliff is SepoliaConfig, ConfidentialVestingWalletCliff {
     constructor(
         address beneficiary_,
         uint64 startTimestamp_,

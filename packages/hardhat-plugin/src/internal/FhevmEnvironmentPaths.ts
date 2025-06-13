@@ -64,10 +64,10 @@ export class FhevmEnvironmentPaths {
   }
 
   /**
-   * Returns `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/FHEVMConfig.sol`
+   * Returns `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol`
    */
   public get cacheFHEVMConfigSol(): string {
-    return path.join(this.cacheFhevmSolidityConfig, "FHEVMConfig.sol");
+    return path.join(this.cacheFhevmSolidityConfig, constants.FHEVM_CONFIG_SOLIDITY_FILE);
   }
 
   /**

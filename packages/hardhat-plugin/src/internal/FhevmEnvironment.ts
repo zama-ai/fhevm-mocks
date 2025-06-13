@@ -69,7 +69,7 @@ export type FhevmEnvironmentAddresses = {
    */
   HCULimitAddress: string;
   /**
-   * Indicates the absolute path of the 'FHEVMConfig.sol' solidity file used in the project.
+   * Indicates the absolute path of the 'ZamaConfig.sol' solidity file used in the project.
    */
   FHEVMConfigDotSolPath: string;
   /**
@@ -740,7 +740,7 @@ export class FhevmEnvironment {
 
   /**
    * Generates:
-   *  - `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/FHEVMConfig.sol`
+   *  - `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol`
    *  - `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`
    */
   public async initializeAddresses(ignoreCache: boolean): Promise<FhevmEnvironmentAddresses> {
