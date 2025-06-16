@@ -29,7 +29,7 @@
 [![NPM Version](https://img.shields.io/npm/v/%40fhevm%2Fhardhat-plugin)](https://www.npmjs.com/package/@fhevm/hardhat-plugin)
 [![hardhat](https://hardhat.org/buidler-plugin-badge.svg?1)](https://hardhat.org)
 
-Hardhat plugin for developping and testing FHEVM contracts.
+Hardhat plugin for developing and testing FHEVM contracts.
 
 ## List of peer dependencies
 
