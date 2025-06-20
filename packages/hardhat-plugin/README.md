@@ -9,7 +9,7 @@
 <hr/>
 
 <p align="center">
-  <a href="https://github.com/zama-ai/fhevm-solidity/blob/main/fhevm-whitepaper-v2.pdf"> 📃 Read white paper</a> | <a href="https://docs.zama.ai/fhevm"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
+  <a href="https://github.com/zama-ai/fhevm/blob/main/fhevm-whitepaper-v2.pdf"> 📃 Read white paper</a> | <a href="https://docs.zama.ai/fhevm"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
 </p>
 
 <p align="center">
@@ -38,7 +38,6 @@ This Hardhat plugin relies on the following peer dependencies to function correc
 - `@fhevm/mock-utils`
 - `@fhevm/solidity`
 - `@nomicfoundation/hardhat-ethers`
-- `@nomicfoundation/hardhat-network-helpers`,
 - `@zama-fhe/oracle-solidity`
 - `@zama-fhe/relayer-sdk`
 - `ethers`
@@ -164,8 +163,8 @@ In the project root directory `hello_fhevm`, create a new Typescript file named 
 content:
 
 ```ts
+// Add the FHEVM Hardhat plugin here!
 import "@fhevm/hardhat-plugin";
-// 👈 Add the fhevm hardhat plugin here!
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
 import { HardhatUserConfig } from "hardhat/config";
@@ -283,3 +282,7 @@ From the project root directory, run the test by executing the following hardhat
 ```sh
 npx hardhat test
 ```
+
+# 📘 FHEVM Documentation and Examples
+
+For more FHEVM examples and detailed documentation please go [here](https://docs.zama.ai/fhevm)

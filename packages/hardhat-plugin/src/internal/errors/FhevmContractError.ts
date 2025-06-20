@@ -42,7 +42,7 @@ function formatInputVerifierErrorMessages(error: FhevmInputVerifierError) {
   let longMessage: string = "";
 
   if (!error.inputContractAddress || !error.txContractAddress || !error.inputUserAddress || !error.txUserAddress) {
-    shortMessage = `The transaction's contract address or signer account differs from the ones originally used to create the encrypted input. Please ensure they match to avoid decryption errors.`;
+    shortMessage = `The transaction's contract address or signer account differs from the ones originally used to create the encrypted input. Please ensure they match to avoid encryption errors.`;
     longMessage = `You created an encrypted input using createEncryptedInput() with a specific 
 contract address and user address.
 
@@ -50,7 +50,7 @@ However, you're now attempting to use this encrypted input in a contract
 transaction involving a different contract address and/or signing account.
 
 Encrypted inputs are bound to both the contract and the user they were 
-created for. To ensure proper decryption and execution, the same contract 
+created for. To ensure proper encryption and execution, the same contract 
 address and user address must be used.
 
 For example:

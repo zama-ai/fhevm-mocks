@@ -1,7 +1,7 @@
 import {
-  FhevmMockProviderType,
   FhevmType,
   contracts,
+  getDecryptionOracleAddress,
   getFHEVMConfig,
   isFhevmEaddress,
   isFhevmEbool,
@@ -16,11 +16,14 @@ import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
 import {
   SCOPE_FHEVM,
-  SCOPE_FHEVM_TASK_CHECK_CONTRACT,
+  SCOPE_FHEVM_TASK_CHECK_FHEVM_COMPATIBILITY,
   SCOPE_FHEVM_TASK_INSTALL_SOLIDITY,
+  SCOPE_FHEVM_TASK_PUBLIC_DECRYPT,
   SCOPE_FHEVM_TASK_RESOLVE_FHEVM_CONFIG,
   SCOPE_FHEVM_TASK_USER_DECRYPT,
 } from "../task-names";
+
+import picocolors = require("picocolors");
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
@@ -65,29 +68,29 @@ fhevmScope
     },
   );
 
-async function initializeFhevmCLI(hre: HardhatRuntimeEnvironment) {
-  const fhevmEnv = fhevmContext.get();
-  if (fhevmEnv.isDeployed) {
-    return;
-  }
+// async function initializeFhevmCLI(hre: HardhatRuntimeEnvironment) {
+//   const fhevmEnv = fhevmContext.get();
+//   if (fhevmEnv.isDeployed) {
+//     return;
+//   }
 
-  if (hre.network.name !== "localhost") {
-    throw new HardhatFhevmError(
-      `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
-    );
-  }
+//   if (hre.network.name !== "localhost") {
+//     throw new HardhatFhevmError(
+//       `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
+//     );
+//   }
 
-  await fhevmEnv.minimalInit();
+//   await fhevmEnv.minimalInit();
 
-  // Only Hardhat Node or Sepolia (TODO)
-  if (fhevmEnv.mockProvider.info.type !== FhevmMockProviderType.HardhatNode) {
-    throw new HardhatFhevmError(
-      `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
-    );
-  }
+//   // Only Hardhat Node or Sepolia (TODO)
+//   if (fhevmEnv.mockProvider.info.type !== FhevmMockProviderType.HardhatNode) {
+//     throw new HardhatFhevmError(
+//       `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
+//     );
+//   }
 
-  await fhevmEnv.deploy();
-}
+//   await fhevmEnv.deploy();
+// }
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_USER_DECRYPT)
@@ -111,9 +114,8 @@ fhevmScope
       },
       hre: HardhatRuntimeEnvironment,
     ) => {
-      // Can only run with --network localhost or --network sepolia or if called from another task (like 'test').
-      // Because the --handle argument never exists in every other situation
-      await initializeFhevmCLI(hre);
+      const fhevmEnv = fhevmContext.get();
+      await fhevmEnv.initializeCLIApi();
 
       const t: FhevmType | undefined = tryParseFhevmType(type);
       if (t === undefined) {
@@ -132,7 +134,7 @@ fhevmScope
           `Invalid account index '${user}', expecting a positive integer between 0 and ${signers.length - 1}.`,
         );
       }
-
+      //npx hardhat fhevm user-decrypt --type euint32 --handle 0x9b01877d34a170d07905d4a4224a6ca6f7bc1f5695ff0000000000aa36a70400 --user 0 --contract 0x2C6A7e015B77E7c984c0a9280b89aa70721DEeCe
       if (isFhevmEuint(t)) {
         try {
           const clearUint = await hre.fhevm.userDecryptEuint(t, handle, contract, signers[accountIndex]);
@@ -172,9 +174,72 @@ fhevmScope
     },
   );
 
+fhevmScope
+  .task(SCOPE_FHEVM_TASK_PUBLIC_DECRYPT)
+  .setDescription("Performs a public decryption of the specified byte-32 handle")
+  .addParam("type", "Specify the FHEVM primitive type name (e.g. ebool, euint8, euint16, etc.)")
+  .addParam("handle", "Specify the byte-32 handle to decrypt")
+  .setAction(
+    async (
+      {
+        type,
+        handle,
+      }: {
+        type: string;
+        handle: string;
+      },
+      hre: HardhatRuntimeEnvironment,
+    ) => {
+      const fhevmEnv = fhevmContext.get();
+      await fhevmEnv.initializeCLIApi();
+
+      const t: FhevmType | undefined = tryParseFhevmType(type);
+      if (t === undefined) {
+        throw new HardhatFhevmError(`Unknown FHEVM primitive type name ${type}`);
+      }
+
+      if (isFhevmEuint(t)) {
+        try {
+          const clearUint = await hre.fhevm.publicDecryptEuint(t, handle);
+          console.log(clearUint);
+        } catch (e) {
+          if (e instanceof Error) {
+            throw new HardhatFhevmError(e.message, e);
+          } else {
+            throw e;
+          }
+        }
+      } else if (isFhevmEbool(t)) {
+        try {
+          const clearBool = await hre.fhevm.publicDecryptEbool(handle);
+          console.log(clearBool);
+        } catch (e) {
+          if (e instanceof Error) {
+            throw new HardhatFhevmError(e.message, e);
+          } else {
+            throw e;
+          }
+        }
+      } else if (isFhevmEaddress(t)) {
+        try {
+          const clearAddress = await hre.fhevm.publicDecryptEaddress(handle);
+          console.log(clearAddress);
+        } catch (e) {
+          if (e instanceof Error) {
+            throw new HardhatFhevmError(e.message, e);
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        throw new HardhatFhevmError(`Unsupported FHEVM type: ${t}`);
+      }
+    },
+  );
+
 // npx hardhat --network sepolia fhevm check-contract --address 0x8D94d6f1593A50DDF52D317016e3dD1af1EE1292
 fhevmScope
-  .task(SCOPE_FHEVM_TASK_CHECK_CONTRACT)
+  .task(SCOPE_FHEVM_TASK_CHECK_FHEVM_COMPATIBILITY)
   .setDescription("Checks if a FHEVM contract is well configured to perform FHEVM operations")
   .addParam("address", "Specify the contract address")
   .setAction(
@@ -186,26 +251,53 @@ fhevmScope
       },
       hre: HardhatRuntimeEnvironment,
     ) => {
+      if (!hre.ethers.isAddress(address)) {
+        throw new HardhatFhevmError(`Invalid --address parameter value. '${address}' is not a valid address.`);
+      }
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
 
       const fhevmConfig = await getFHEVMConfig(hre.ethers.provider, address);
+      if (
+        fhevmConfig.ACLAddress === hre.ethers.ZeroAddress &&
+        fhevmConfig.FHEVMExecutorAddress === hre.ethers.ZeroAddress &&
+        fhevmConfig.InputVerifierAddress === hre.ethers.ZeroAddress &&
+        fhevmConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
+      ) {
+        const deployedCode = await fhevmEnv.mockProvider.getCodeAt(address);
+        if (deployedCode === undefined || deployedCode === "0x") {
+          throw new HardhatFhevmError(`The address '${address}' does not correspond to a deployed contract.`);
+        }
+      }
 
-      const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
-        aclContractAddress: fhevmConfig.ACLAddress,
-        kmsContractAddress: fhevmConfig.KMSVerifierAddress,
-      });
+      const decryptionOracleAddress = await getDecryptionOracleAddress(hre.ethers.provider, address);
 
-      const o = {
-        address,
-        FHEVMConfigStruct: fhevmConfig,
-        FhevmInstanceConfig: repo.getFhevmInstanceConfig({
-          chainId: fhevmEnv.chainId,
-          relayerUrl: constants.RELAYER_URL,
-        }),
-      };
+      try {
+        const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
+          aclContractAddress: fhevmConfig.ACLAddress,
+          kmsContractAddress: fhevmConfig.KMSVerifierAddress,
+          zamaFheDecryptionOracleAddress: decryptionOracleAddress,
+        });
 
-      console.log(JSON.stringify(o, null, 2));
+        const o = {
+          address,
+          FHEVMConfigStruct: fhevmConfig,
+          FhevmInstanceConfig: repo.getFhevmInstanceConfig({
+            chainId: fhevmEnv.chainId,
+            relayerUrl: constants.RELAYER_URL,
+          }),
+        };
+
+        if (o.FhevmInstanceConfig.decryptionOracleAddress === undefined) {
+          o.FhevmInstanceConfig.decryptionOracleAddress = hre.ethers.ZeroAddress;
+        }
+
+        console.log(JSON.stringify(o, null, 2));
+      } catch {
+        console.log(picocolors.red("Invalid FHEVM Configuration:"));
+        console.log(JSON.stringify({ ...fhevmConfig, decryptionOracleAddress }, null, 2));
+        throw new HardhatFhevmError(`The contract deployed at ${address} is not using a valid FHEVM configuration`);
+      }
     },
   );
 

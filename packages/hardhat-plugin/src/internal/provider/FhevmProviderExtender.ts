@@ -150,7 +150,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
     }
   }
 
-  private _handleFhevmRelayerV1PublicDecrypt(args: RequestArguments) {
+  private async _handleFhevmRelayerV1PublicDecrypt(args: RequestArguments) {
     const fhevmEnv = fhevmContext.get();
 
     if (!fhevmEnv.useEmbeddedMockEngine) {
@@ -165,8 +165,19 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
     relayer.assertIsRelayerV1PublicDecryptPayload(payload);
 
-    // TODO
-    throw new HardhatFhevmError(`Fhevm Public Decrypt is not yet supported.`);
+    const clearTextHexList: string[] = await fhevmEnv.coprocessor.queryHandlesBytes32AsHex(payload.ciphertextHandles);
+
+    const { decryptedResult, signatures } = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
+      payload.ciphertextHandles,
+      clearTextHexList,
+    );
+
+    const response: relayer.RelayerV1PublicDecryptResponse = {
+      decrypted_value: decryptedResult,
+      signatures: signatures,
+    };
+
+    return response;
   }
 
   private async _handleFhevmCreateDecryptionSignatures(args: RequestArguments) {

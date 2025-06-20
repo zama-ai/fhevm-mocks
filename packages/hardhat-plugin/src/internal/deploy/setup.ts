@@ -4,9 +4,11 @@ import {
   assertIsEIP712Domain,
   constants as constantsBase,
   contracts,
+  setInitializableStorage,
 } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
+import * as path from "path";
 import * as picocolors from "picocolors";
 
 import constants from "../../constants";
@@ -82,7 +84,7 @@ async function __tryCallGetFHEVMExecutorAddress(
     return await contract.getFHEVMExecutorAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getFHEVMExecutorAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
@@ -95,7 +97,7 @@ async function __tryCallGetACLAddress(
     return await contract.getACLAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getACLAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
@@ -108,7 +110,7 @@ async function __tryCallGetHCULimitAddress(
     return await contract.getHCULimitAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getHCULimitAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
@@ -121,8 +123,26 @@ async function __tryCallGetInputVerifierAddress(
     return await contract.getInputVerifierAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getInputVerifierAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
+}
+
+function __requireResolveFhevmCoreContracts(): { version: string; packagePath: string } {
+  const pkgPath = require.resolve(path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "package.json"), {
+    paths: [__dirname],
+  });
+  const pkgJson = require(pkgPath);
+  const pkg = require(path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "package.json"));
+  assertHHFhevm(pkgJson.version === pkg.version, "__requireResolveFhevmCoreContracts version mismatch");
+  return { version: pkg.version, packagePath: pkgPath };
+}
+
+function __requireConsumerFhevmCoreContracts(root: string): { version: string; packagePath: string } {
+  const pkgPath = require.resolve(path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "package.json"), {
+    paths: [root],
+  });
+  const pkg = require(pkgPath);
+  return { version: pkg.version, packagePath: pkgPath };
 }
 
 // Called by FhevmEnvironment
@@ -137,6 +157,22 @@ export async function setupMockUsingCoreContractsArtifacts(
   coprocessorSigners: EthersT.Signer[];
   kmsSigners: EthersT.Signer[];
 }> {
+  const consumerCoreContractsPkg = __requireConsumerFhevmCoreContracts(fhevmPaths.root);
+  const hhPluginCoreContractsPkg = __requireResolveFhevmCoreContracts();
+
+  // Make sure the consumer of the HH Plugin uses the expected version of core-contracts
+  if (consumerCoreContractsPkg.version !== constants.FHEVM_CORE_CONTRACTS_PACKAGE.version) {
+    throw new HardhatFhevmError(
+      `Invalid ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.version}. Got ${consumerCoreContractsPkg.version} instead (at ${consumerCoreContractsPkg.packagePath}).`,
+    );
+  }
+  // Make sure the HH Plugin uses the expected version of core-contracts
+  if (hhPluginCoreContractsPkg.version !== constants.FHEVM_CORE_CONTRACTS_PACKAGE.version) {
+    throw new HardhatFhevmError(
+      `Invalid ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.version}. Got ${hhPluginCoreContractsPkg.version} instead (at ${hhPluginCoreContractsPkg.packagePath}).`,
+    );
+  }
+
   const FHEVMExecutorAddress = fhevmAddresses.FHEVMConfig.FHEVMExecutorAddress;
   const aclAddress = fhevmAddresses.FHEVMConfig.ACLAddress;
   const kmsVerifierAddress = fhevmAddresses.FHEVMConfig.KMSVerifierAddress;
@@ -324,7 +360,17 @@ export async function setupMockUsingCoreContractsArtifacts(
     tx = await kmsOne.acceptOwnership();
     await tx.wait();
 
-    tx = await kmsOne.reinitialize(gatewayDecryptionAddress, gatewayChainId, kmsSigners, kmsInitialThreshold);
+    await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
+      initialized: 1n,
+      initializing: false,
+    });
+
+    tx = await kmsOne.initializeFromEmptyProxy(
+      gatewayDecryptionAddress,
+      gatewayChainId,
+      kmsSigners,
+      kmsInitialThreshold,
+    );
     await tx.wait();
   }
 
@@ -370,7 +416,16 @@ export async function setupMockUsingCoreContractsArtifacts(
     tx = await inputVerifierOne.acceptOwnership();
     await tx.wait();
 
-    tx = await inputVerifierOne.reinitialize(inputVerifierVerifyingContractSource, gatewayChainId, coprocessorSigners);
+    await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
+      initialized: 1n,
+      initializing: false,
+    });
+
+    tx = await inputVerifierOne.initializeFromEmptyProxy(
+      inputVerifierVerifyingContractSource,
+      gatewayChainId,
+      coprocessorSigners,
+    );
     await tx.wait();
   }
 
@@ -457,6 +512,6 @@ function __checkHardCodedAddress(
     debug(
       `${picocolors.bgRedBright(picocolors.bold("ERROR"))} deployed ${contractName} contact at ${contractAddress} does not use the expected ACL address. Got ${hardCodedAddress}, expecting ${expectedHardCodedAddress}`,
     );
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
