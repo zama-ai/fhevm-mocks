@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-10"
-export const FHEVMExecutorInterfaceVersion = "0.7.0-10";
+// version "0.7.0-12"
+export const FHEVMExecutorInterfaceVersion = "0.7.0-12";
 
 export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -106,6 +106,11 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [],
     name: "NotInitializing",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "NotInitializingFromEmptyProxy",
     type: "error",
   },
   {
@@ -412,43 +417,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     name: "FheEq",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "caller",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "lhs",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "bytes",
-        name: "rhs",
-        type: "bytes",
-      },
-      {
-        indexed: false,
-        internalType: "bytes1",
-        name: "scalarByte",
-        type: "bytes1",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    name: "FheEqBytes",
     type: "event",
   },
   {
@@ -782,43 +750,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     name: "FheNe",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "caller",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "lhs",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "bytes",
-        name: "rhs",
-        type: "bytes",
-      },
-      {
-        indexed: false,
-        internalType: "bytes1",
-        name: "scalarByte",
-        type: "bytes1",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    name: "FheNeBytes",
     type: "event",
   },
   {
@@ -1249,37 +1180,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       {
         indexed: true,
         internalType: "address",
-        name: "caller",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "bytes",
-        name: "pt",
-        type: "bytes",
-      },
-      {
-        indexed: false,
-        internalType: "enum FheType",
-        name: "toType",
-        type: "uint8",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    name: "TrivialEncryptBytes",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
         name: "implementation",
         type: "address",
       },
@@ -1522,35 +1422,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     name: "fheDiv",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes32",
-        name: "lhs",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes",
-        name: "rhs",
-        type: "bytes",
-      },
-      {
-        internalType: "bytes1",
-        name: "scalarByte",
-        type: "bytes1",
-      },
-    ],
-    name: "fheEq",
     outputs: [
       {
         internalType: "bytes32",
@@ -1812,35 +1683,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     name: "fheMul",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes32",
-        name: "lhs",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes",
-        name: "rhs",
-        type: "bytes",
-      },
-      {
-        internalType: "bytes1",
-        name: "scalarByte",
-        type: "bytes1",
-      },
-    ],
-    name: "fheNe",
     outputs: [
       {
         internalType: "bytes32",
@@ -2189,6 +2031,13 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
+    name: "initializeFromEmptyProxy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "owner",
     outputs: [
       {
@@ -2228,7 +2077,7 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "reinitialize",
+    name: "reinitializeV2",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -2250,30 +2099,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
     ],
     name: "transferOwnership",
     outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "bytes",
-        name: "pt",
-        type: "bytes",
-      },
-      {
-        internalType: "enum FheType",
-        name: "toType",
-        type: "uint8",
-      },
-    ],
-    name: "trivialEncrypt",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
     stateMutability: "nonpayable",
     type: "function",
   },

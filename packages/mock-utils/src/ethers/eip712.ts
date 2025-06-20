@@ -74,13 +74,18 @@ export function assertIsEIP712Domain(
   );
 }
 
-export function isThresholdReached(signersAddress: string[], recoveredAddresses: string[], threshold: number): boolean {
+export function isThresholdReached(
+  signersAddress: string[],
+  recoveredAddresses: string[],
+  threshold: number,
+  signerType: string,
+): boolean {
   const addressMap = new Map<string, number>();
   recoveredAddresses.forEach((address, index) => {
     if (addressMap.has(address)) {
       const duplicateValue = address;
       throw new FhevmError(
-        `Duplicate coprocessor signer address found: ${duplicateValue} appears multiple times in recovered addresses`,
+        `Duplicate ${signerType} signer address found: ${duplicateValue} appears multiple times in recovered addresses`,
       );
     }
     addressMap.set(address, index);
@@ -88,7 +93,7 @@ export function isThresholdReached(signersAddress: string[], recoveredAddresses:
 
   for (const address of recoveredAddresses) {
     if (!signersAddress.includes(address)) {
-      throw new FhevmError(`Invalid address found: ${address} is not in the list of coprocessor signers`);
+      throw new FhevmError(`Invalid address found: ${address} is not in the list of ${signerType} signers`);
     }
   }
 

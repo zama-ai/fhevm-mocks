@@ -25,7 +25,7 @@
     "./package.json": "./_cjs/package.json"
   },
   "dependencies": {
-    "@fhevm/core-contracts": "^0.7.0-10",
+    "@fhevm/core-contracts": "0.7.0-12",
     "debug": "^4.1.1",
     "picocolors": "^1.1.1",
     "dotenv": "^16.5.0",
@@ -75,7 +75,7 @@
   },
   "peerDependencies": {
     "@fhevm/mock-utils": "0.0.1-2",
-    "@fhevm/solidity": "^0.7.0-5",
+    "@fhevm/solidity": "^0.7.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@zama-fhe/oracle-solidity": "^0.1.0",
     "@zama-fhe/relayer-sdk": "^0.1.0-5",

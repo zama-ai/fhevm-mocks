@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-10"
-export const InputVerifierInterfaceVersion = "0.7.0-10";
+// version "0.7.0-12"
+export const InputVerifierInterfaceVersion = "0.7.0-12";
 
 export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -137,6 +137,11 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [],
     name: "NotInitializing",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "NotInitializingFromEmptyProxy",
     type: "error",
   },
   {
@@ -464,6 +469,29 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
     inputs: [
       {
         internalType: "address",
+        name: "verifyingContractSource",
+        type: "address",
+      },
+      {
+        internalType: "uint64",
+        name: "chainIDSource",
+        type: "uint64",
+      },
+      {
+        internalType: "address[]",
+        name: "initialSigners",
+        type: "address[]",
+      },
+    ],
+    name: "initializeFromEmptyProxy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
         name: "account",
         type: "address",
       },
@@ -516,29 +544,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "verifyingContractSource",
-        type: "address",
-      },
-      {
-        internalType: "uint64",
-        name: "chainIDSource",
-        type: "uint64",
-      },
-      {
-        internalType: "address[]",
-        name: "initialSigners",
-        type: "address[]",
-      },
-    ],
-    name: "reinitialize",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -607,7 +612,7 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
             type: "address",
           },
         ],
-        internalType: "struct FHEVMExecutorNoEvents.ContextUserInputs",
+        internalType: "struct FHEVMExecutor.ContextUserInputs",
         name: "context",
         type: "tuple",
       },

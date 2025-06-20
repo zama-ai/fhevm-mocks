@@ -46,8 +46,10 @@ export type RelayerV1UserDecryptValidity = {
 };
 
 export type RelayerV1PublicDecryptPayload = {
-  ciphertext_handle: string;
+  ciphertextHandles: string[];
 };
+
+export type RelayerV1PublicDecryptResponse = { decrypted_value: string; signatures: string[] };
 
 function _assertIsRelayerV1UserDecryptValidity(value: unknown): asserts value is RelayerV1UserDecryptValidity {
   const stringFields: (keyof RelayerV1UserDecryptValidity)[] = ["durationDays", "startTimestamp"];
@@ -70,8 +72,17 @@ export function assertIsRelayerV1InputProofResponse(value: unknown): asserts val
 }
 
 export function assertIsRelayerV1PublicDecryptPayload(value: unknown): asserts value is RelayerV1PublicDecryptPayload {
-  const stringFields: (keyof RelayerV1PublicDecryptPayload)[] = ["ciphertext_handle"];
-  assertIsStringProperty(value, stringFields, "RelayerV1PublicDecryptPayload");
+  const stringFields: (keyof RelayerV1PublicDecryptPayload)[] = ["ciphertextHandles"];
+  assertIsStringArrayProperty(value, stringFields, "RelayerV1PublicDecryptPayload");
+}
+
+export function assertIsRelayerV1PublicDecryptResponse(
+  value: unknown,
+): asserts value is RelayerV1PublicDecryptResponse {
+  const arrayKeys: (keyof RelayerV1PublicDecryptResponse)[] = ["signatures"];
+  const stringKeys: (keyof RelayerV1PublicDecryptResponse)[] = ["decrypted_value"];
+  assertIsStringArrayProperty(value, arrayKeys, "RelayerV1PublicDecryptResponse");
+  assertIsStringProperty(value, stringKeys, "RelayerV1PublicDecryptResponse");
 }
 
 export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts value is RelayerV1UserDecryptPayload {

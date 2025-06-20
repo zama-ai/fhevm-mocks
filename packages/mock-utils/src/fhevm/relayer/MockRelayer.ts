@@ -1,5 +1,5 @@
 import { type MinimalProvider, minimalProviderSend } from "../../ethers/provider.js";
-import { assertIsString, assertIsStringArray } from "../../utils/string.js";
+import { assertIsStringArray } from "../../utils/string.js";
 import {
   FHEVM_AWAIT_DECRYPTION_ORACLE,
   FHEVM_CREATE_DECRYPTION_SIGNATURES,
@@ -14,12 +14,14 @@ import type {
   RelayerMetadata,
   RelayerV1InputProofResponse,
   RelayerV1PublicDecryptPayload,
+  RelayerV1PublicDecryptResponse,
   RelayerV1UserDecryptPayload,
 } from "./payloads.js";
 import {
   assertIsRelayerMetadata,
   assertIsRelayerV1InputProofResponse,
   assertIsRelayerV1PublicDecryptPayload,
+  assertIsRelayerV1PublicDecryptResponse,
   assertIsRelayerV1UserDecryptPayload,
 } from "./payloads.js";
 
@@ -59,12 +61,11 @@ export async function requestRelayerV1UserDecrypt(
 export async function requestRelayerV1PublicDecrypt(
   relayerProvider: MinimalProvider,
   payload: RelayerV1PublicDecryptPayload,
-): Promise<string> {
+): Promise<{ response: RelayerV1PublicDecryptResponse[] }> {
   assertIsRelayerV1PublicDecryptPayload(payload);
   const response = await minimalProviderSend(relayerProvider, RELAYER_V1_PUBLIC_DECRYPT, [payload]);
-  assertIsString(response, "publicDecryptResponse");
-
-  return response;
+  assertIsRelayerV1PublicDecryptResponse(response);
+  return { response: [response] };
 }
 
 /**

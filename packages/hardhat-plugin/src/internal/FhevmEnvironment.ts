@@ -482,20 +482,18 @@ export class FhevmEnvironment {
 
     if (this.hre.network.name === "hardhat") {
       throw new HardhatFhevmError(
-        `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${this.hre.network.name}')`,
+        `The FHEVM CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
       );
     }
 
     await this.minimalInit();
 
-    // Add support for Sepolia here!
-    // Ex: `npx hardhat fhevm user-decrypt --network sepolia ...`
     if (
       this.mockProvider.info.type !== FhevmMockProviderType.HardhatNode &&
       this.mockProvider.info.type !== FhevmMockProviderType.SepoliaEthereum
     ) {
       throw new HardhatFhevmError(
-        `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${this.hre.network.name}')`,
+        `The FHEVM CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
       );
     }
 

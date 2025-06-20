@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-10"
-export const ACLInterfaceVersion = "0.7.0-10";
+// version "0.7.0-12"
+export const ACLInterfaceVersion = "0.7.0-12";
 
 export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -111,6 +111,11 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     name: "NotInitializing",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "NotInitializingFromEmptyProxy",
     type: "error",
   },
   {
@@ -575,6 +580,19 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [
       {
+        internalType: "address",
+        name: "initialPauser",
+        type: "address",
+      },
+    ],
+    name: "initializeFromEmptyProxy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
         internalType: "bytes32",
         name: "handle",
         type: "bytes32",
@@ -706,7 +724,7 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
         type: "address",
       },
     ],
-    name: "reinitialize",
+    name: "reinitializeV2",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

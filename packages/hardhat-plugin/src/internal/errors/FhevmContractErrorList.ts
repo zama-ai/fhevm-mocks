@@ -5,7 +5,7 @@ export const ERRORS = {
     InvalidSigner: {
       title: "FHEVM Input verification error 'InvalidSigner()'",
       shortMessage:
-        "The contract address %txContractAddress% or signer account %txUserAddress% used in this transaction differs from the values originally provided to the 'createEncryptedInput()' function. Please ensure they match to avoid decryption errors.",
+        "The contract address %txContractAddress% or signer account %txUserAddress% used in this transaction differs from the values originally provided to the 'createEncryptedInput()' function. Please ensure they match to avoid encryption errors.",
       longMessage: `You created an encrypted input using createEncryptedInput() with a specific 
 contract address and user address.
           
@@ -32,7 +32,7 @@ This is NOT working:
 
   ACL: {
     SenderNotAllowed: {
-      title: "FHEVM ACL permission error 'SenderNotAllowed()",
+      title: "FHEVM ACL permission error 'SenderNotAllowed()'",
       shortMessage:
         "The contract or account at address %address% attempted to call FHE.allow(<some-handle>, ...) or a related function like FHE.allowXXX(<some-handle>, ...) to grant FHE access permissions on <some-handle>, without having the necessary access permissions themselves.",
       longMessage:
