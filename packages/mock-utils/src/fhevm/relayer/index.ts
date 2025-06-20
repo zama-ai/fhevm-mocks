@@ -21,12 +21,14 @@ export type {
   RelayerV1InputProofPayload,
   RelayerV1InputProofResponse,
   RelayerV1PublicDecryptPayload,
+  RelayerV1PublicDecryptResponse,
   RelayerV1UserDecryptHandleContractPair,
   RelayerV1UserDecryptPayload,
   RelayerV1UserDecryptValidity,
 } from "./payloads.js";
 export {
   assertIsRelayerV1PublicDecryptPayload,
+  assertIsRelayerV1PublicDecryptResponse,
   assertIsRelayerV1UserDecryptPayload,
   assertIsRelayerMetadata,
   assertIsRelayerV1InputProofResponse,

@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-10"
-export const HCULimitInterfaceVersion = "0.7.0-10";
+// version "0.7.0-12"
+export const HCULimitInterfaceVersion = "0.7.0-12";
 
 export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -64,6 +64,11 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
   {
     inputs: [],
     name: "NotInitializing",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "NotInitializingFromEmptyProxy",
     type: "error",
   },
   {
@@ -433,34 +438,6 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
       },
       {
         internalType: "bytes32",
-        name: "ct",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    name: "checkHCUForFheEqBytes",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "enum FheType",
-        name: "resultType",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes1",
-        name: "scalarByte",
-        type: "bytes1",
-      },
-      {
-        internalType: "bytes32",
         name: "lhs",
         type: "bytes32",
       },
@@ -707,34 +684,6 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
       },
     ],
     name: "checkHCUForFheNe",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "enum FheType",
-        name: "resultType",
-        type: "uint8",
-      },
-      {
-        internalType: "bytes1",
-        name: "scalarByte",
-        type: "bytes1",
-      },
-      {
-        internalType: "bytes32",
-        name: "ct",
-        type: "bytes32",
-      },
-      {
-        internalType: "bytes32",
-        name: "result",
-        type: "bytes32",
-      },
-    ],
-    name: "checkHCUForFheNeBytes",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -1098,6 +1047,13 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
   },
   {
     inputs: [],
+    name: "initializeFromEmptyProxy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "owner",
     outputs: [
       {
@@ -1137,7 +1093,7 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
   },
   {
     inputs: [],
-    name: "reinitialize",
+    name: "reinitializeV2",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

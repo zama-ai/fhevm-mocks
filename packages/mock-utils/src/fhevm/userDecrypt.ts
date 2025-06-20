@@ -47,6 +47,10 @@ export type FhevmUserDecryptOptions = {
   validity?: FhevmUserDecryptValidity;
 };
 
+export type FhevmPublicDecryptOptions = {
+  instance?: FhevmInstance;
+};
+
 export async function userDecryptHandleBytes32(
   instance: FhevmInstance,
   handleContractPairs: { handleBytes32: string; contractAddress: string; fhevmType?: FhevmType }[],

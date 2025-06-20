@@ -244,11 +244,13 @@ export class FhevmContractsRepository {
   public getFhevmInstanceConfig(params: {
     chainId: number;
     relayerUrl: string;
-  }): FhevmInstanceConfig & { fhevmExecutorContractAddress: string } {
+  }): FhevmInstanceConfig & { fhevmExecutorContractAddress: string; decryptionOracleAddress?: string } {
     assertFhevm(this.#acl !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#fhevmExecutor !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#kmsVerifier !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#inputVerifier !== undefined, "FhevmContractsRepository is not initialized");
+
+    const decryptionOracleAddress = this.#zamaFheDecryptionOracle?.address;
 
     return {
       aclContractAddress: this.#acl.address,
@@ -260,6 +262,7 @@ export class FhevmContractsRepository {
       verifyingContractAddressDecryption: this.#kmsVerifier.gatewayDecryptionAddress,
       verifyingContractAddressInputVerification: this.#inputVerifier.gatewayInputVerificationAddress,
       relayerUrl: params.relayerUrl,
+      ...(decryptionOracleAddress && { decryptionOracleAddress }),
     };
   }
 }

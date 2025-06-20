@@ -181,7 +181,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
       return recoveredAddress;
     });
 
-    if (!isThresholdReached(this.getCoprocessorSigners(), recoveredAddresses, this.getThreshold())) {
+    if (!isThresholdReached(this.getCoprocessorSigners(), recoveredAddresses, this.getThreshold(), "coprocessor")) {
       throw new FhevmError("Coprocessor signers threshold is not reached");
     }
   }

@@ -4,7 +4,10 @@
 import { ethers as EthersT } from "ethers";
 
 import constants from "../constants.js";
+import { isThresholdReached } from "../ethers/eip712.js";
 import type { MinimalProvider } from "../ethers/provider.js";
+import { checkEncryptedBits } from "../relayer-sdk/relayer/decryptUtils.js";
+import { deserializeDecryptedResult } from "../relayer-sdk/relayer/publicDecrypt.js";
 import {
   buildUserDecryptedResult,
   checkDeadlineValidity,
@@ -30,7 +33,11 @@ import { MockRelayerEncryptedInput } from "./MockRelayerEncryptedInput.js";
 import { InputVerifier } from "./contracts/InputVerifier.js";
 import { KMSVerifier } from "./contracts/KMSVerifier.js";
 import * as relayer from "./relayer/MockRelayer.js";
-import type { RelayerV1UserDecryptHandleContractPair, RelayerV1UserDecryptPayload } from "./relayer/payloads.js";
+import type {
+  RelayerV1PublicDecryptPayload,
+  RelayerV1UserDecryptHandleContractPair,
+  RelayerV1UserDecryptPayload,
+} from "./relayer/payloads.js";
 
 export type MockFhevmInstanceConfigExtra = {
   relayerProvider: MinimalProvider;
@@ -207,8 +214,75 @@ export class MockFhevmInstance implements FhevmInstance {
     throw new FhevmError("Not supported in mock mode");
   }
 
-  public async publicDecrypt(_handle: (string | Uint8Array)[]): Promise<DecryptedResults> {
-    throw new FhevmError(`publicDecrypt is not yet supported in mock mode`);
+  public async publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults> {
+    // Intercept future type change...
+    for (let i = 0; i < handles.length; ++i) {
+      assertFhevm(
+        typeof handles[i] === "string" || handles[i] instanceof Uint8Array,
+        "handle is not a string or a Uint8Array",
+      );
+    }
+
+    // Casting handles if string
+    const relayerHandles: string[] = handles.map((h) =>
+      typeof h === "string" ? toHexString(fromHexString(h), true) : toHexString(h, true),
+    );
+
+    // relayer-sdk
+    checkEncryptedBits(relayerHandles);
+
+    await MockFhevmInstance.verifyPublicACLPermissions(
+      this.#readonlyEthersProvider,
+      this.#aclContractAddress,
+      relayerHandles,
+    );
+
+    // relayer-sdk
+    const payloadForRequest: RelayerV1PublicDecryptPayload = {
+      ciphertextHandles: relayerHandles,
+    };
+
+    const json = await relayer.requestRelayerV1PublicDecrypt(this.#relayerProvider, payloadForRequest);
+
+    // verify signatures on decryption:
+    const domain = {
+      name: "Decryption",
+      version: "1",
+      chainId: this.#gatewayChainId,
+      verifyingContract: this.#verifyingContractAddressDecryption,
+    };
+    const types = {
+      PublicDecryptVerification: [
+        { name: "ctHandles", type: "bytes32[]" },
+        { name: "decryptedResult", type: "bytes" },
+      ],
+    };
+    const result = json.response[0];
+    const decryptedResult = result.decrypted_value.startsWith("0x")
+      ? result.decrypted_value
+      : `0x${result.decrypted_value}`;
+    const signatures = result.signatures;
+
+    const recoveredAddresses = signatures.map((signature: string) => {
+      const sig = signature.startsWith("0x") ? signature : `0x${signature}`;
+      const recoveredAddress = EthersT.verifyTypedData(domain, types, { ctHandles: handles, decryptedResult }, sig);
+      return recoveredAddress;
+    });
+
+    const thresholdReached = isThresholdReached(
+      this.#kmsVerifier.getKmsSignersAddresses(),
+      recoveredAddresses,
+      this.#kmsVerifier.getThreshold(),
+      "KMS",
+    );
+
+    if (!thresholdReached) {
+      throw Error("KMS signers threshold is not reached");
+    }
+
+    const results = deserializeDecryptedResult(relayerHandles, decryptedResult);
+
+    return results;
   }
 
   public async userDecrypt(
@@ -236,9 +310,12 @@ export class MockFhevmInstance implements FhevmInstance {
     }));
 
     // relayer-sdk
+    checkEncryptedBits(relayerHandles.map((h) => h.handle));
+
+    // relayer-sdk
     checkDeadlineValidity(BigInt(startTimestamp), BigInt(durationDays));
 
-    await MockFhevmInstance.verifyACLPermissions(
+    await MockFhevmInstance.verifyUserACLPermissions(
       this.#readonlyEthersProvider,
       this.#aclContractAddress,
       relayerHandles,
@@ -264,6 +341,8 @@ export class MockFhevmInstance implements FhevmInstance {
       publicKey: publicKey.replace(/^(0x)/, ""),
     };
 
+    // TODO
+    // Check json.response content: https://github.com/zama-ai/relayer-sdk/blob/main/src/relayer/userDecrypt.ts#L255
     const clearTextHexList: string[] = await relayer.requestRelayerV1UserDecrypt(
       this.#relayerProvider,
       payloadForRequest,
@@ -308,8 +387,30 @@ export class MockFhevmInstance implements FhevmInstance {
     }
   }
 
+  public static async verifyPublicACLPermissions(
+    readonlyEthersProvider: EthersT.Provider,
+    aclContractAddress: string,
+    handles: string[],
+  ) {
+    const aclABI = ["function isAllowedForDecryption(bytes32 handle) view returns (bool)"];
+    const acl = new EthersT.Contract(aclContractAddress, aclABI, readonlyEthersProvider);
+
+    const verifications = handles.map(async (h) => {
+      const ctHandleHex = EthersT.toBeHex(EthersT.toBigInt(h), 32);
+
+      const allowed = await acl.isAllowedForDecryption(ctHandleHex);
+      if (!allowed) {
+        throw new FhevmError(`Handle ${h} is not allowed for public decryption!`);
+      }
+    });
+
+    return Promise.all(verifications).catch((e) => {
+      throw e;
+    });
+  }
+
   // (Duplicated code) Should be imported from @fhevm/sdk
-  public static async verifyACLPermissions(
+  public static async verifyUserACLPermissions(
     readonlyEthersProvider: EthersT.Provider,
     aclContractAddress: string,
     handles: HandleContractPair[],

@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-10"
-export const KMSVerifierInterfaceVersion = "0.7.0-10";
+// version "0.7.0-12"
+export const KMSVerifierInterfaceVersion = "0.7.0-12";
 
 export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -113,6 +113,11 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   {
     inputs: [],
     name: "NotInitializing",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "NotInitializingFromEmptyProxy",
     type: "error",
   },
   {
@@ -407,6 +412,34 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
     inputs: [
       {
         internalType: "address",
+        name: "verifyingContractSource",
+        type: "address",
+      },
+      {
+        internalType: "uint64",
+        name: "chainIDSource",
+        type: "uint64",
+      },
+      {
+        internalType: "address[]",
+        name: "initialSigners",
+        type: "address[]",
+      },
+      {
+        internalType: "uint256",
+        name: "initialThreshold",
+        type: "uint256",
+      },
+    ],
+    name: "initializeFromEmptyProxy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
         name: "account",
         type: "address",
       },
@@ -459,34 +492,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "verifyingContractSource",
-        type: "address",
-      },
-      {
-        internalType: "uint64",
-        name: "chainIDSource",
-        type: "uint64",
-      },
-      {
-        internalType: "address[]",
-        name: "initialSigners",
-        type: "address[]",
-      },
-      {
-        internalType: "uint256",
-        name: "initialThreshold",
-        type: "uint256",
-      },
-    ],
-    name: "reinitialize",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {

@@ -52,7 +52,10 @@ export class FhevmEnvironmentPaths {
    * Returns `/path/to/user-package/fhevmTemp/@fhevm/solidity/config`
    */
   public get cacheFhevmSolidityConfig(): string {
-    return path.join(this.cache, path.join(constants.FHEVM_SOLIDITY_PACKAGE_NAME, "config"));
+    return path.join(
+      this.cache,
+      path.join(constants.FHEVM_SOLIDITY_PACKAGE.name, path.dirname(constants.FHEVM_SOLIDITY_PACKAGE.configFile)),
+    );
   }
 
   /**
@@ -75,7 +78,7 @@ export class FhevmEnvironmentPaths {
    * This is legit since the user-package must have @fhevm/solidity in its dependencies.
    */
   public get fhevmSolidity(): string {
-    return path.dirname(this._resolveFromConsumer(path.join(constants.FHEVM_SOLIDITY_PACKAGE_NAME, "package.json")));
+    return path.dirname(this._resolveFromConsumer(path.join(constants.FHEVM_SOLIDITY_PACKAGE.name, "package.json")));
   }
 
   /**
@@ -108,7 +111,14 @@ export class FhevmEnvironmentPaths {
    * Returns `/path/to/user-package/node_modules/@fhevm/solidity/config`
    */
   public get fhevmSolidityConfig(): string {
-    return path.join(this.fhevmSolidity, "config");
+    return path.join(this.fhevmSolidity, path.dirname(constants.FHEVM_SOLIDITY_PACKAGE.configFile));
+  }
+
+  /**
+   * Returns `/path/to/user-package/node_modules/@fhevm/solidity/config/ZamaConfig.sol`
+   */
+  public get fhevmSolidityConfigFile(): string {
+    return path.join(this.fhevmSolidity, constants.FHEVM_SOLIDITY_PACKAGE.configFile);
   }
 
   /**
@@ -127,7 +137,7 @@ export class FhevmEnvironmentPaths {
    */
   public get zamaFheOracleSolidity(): string {
     return path.dirname(
-      this._resolveFromConsumer(path.join(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME, "package.json")),
+      this._resolveFromConsumer(path.join(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name, "package.json")),
     );
   }
 
@@ -139,28 +149,31 @@ export class FhevmEnvironmentPaths {
    * If using any other package manager: path to the installed module
    */
   public get zamaFheOracleSolidityAddress(): string {
-    return path.join(this.zamaFheOracleSolidity, "address");
+    return path.join(this.zamaFheOracleSolidity, path.dirname(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile));
   }
 
   /**
    * Returns `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity`
    */
   public get cacheZamaFheOracleSolidity(): string {
-    return path.join(this.cache, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME);
+    return path.join(this.cache, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name);
   }
 
   /**
    * Returns `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity/address`
    */
   public get cacheZamaFheOracleSolidityAddress(): string {
-    return path.join(this.cacheZamaFheOracleSolidity, "address");
+    return path.join(
+      this.cacheZamaFheOracleSolidity,
+      path.dirname(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile),
+    );
   }
 
   /**
    * Returns `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`
    */
   public get cacheZamaOracleAddressSol(): string {
-    return path.join(this.cacheZamaFheOracleSolidityAddress, "ZamaOracleAddress.sol");
+    return path.join(this.cacheZamaFheOracleSolidity, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile);
   }
 
   /**
@@ -177,9 +190,9 @@ export class FhevmEnvironmentPaths {
    *   - `@fhevm/core-contracts/artifacts`
    */
   public resolveFhevmCoreContractsArtifactRootDir() {
-    let modulePath = path.resolve(path.join("artifacts", constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME));
+    let modulePath = path.resolve(path.join("artifacts", constants.FHEVM_CORE_CONTRACTS_PACKAGE.name));
     if (!fs.existsSync(modulePath)) {
-      modulePath = path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME, "artifacts");
+      modulePath = path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "artifacts");
     }
     return modulePath;
   }
@@ -190,9 +203,9 @@ export class FhevmEnvironmentPaths {
    *   - `@zama-fhe/oracle-solidity/artifacts`
    */
   public resolveZamaFheOracleSolidityArtifactRootDir() {
-    let modulePath = path.resolve(path.join("artifacts", constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME));
+    let modulePath = path.resolve(path.join("artifacts", constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name));
     if (!fs.existsSync(modulePath)) {
-      modulePath = path.join(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME, "artifacts");
+      modulePath = path.join(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name, "artifacts");
     }
     return modulePath;
   }

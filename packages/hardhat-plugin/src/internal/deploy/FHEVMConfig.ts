@@ -17,27 +17,43 @@ const debug = setupDebug("@fhevm/hardhat:addresses");
  * @returns The absolute path to the generated `ZamaConfig.sol`
  */
 export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresses: FHEVMConfig): string {
-  const origPath = path.join(paths.fhevmSolidityConfig, constants.FHEVM_CONFIG_SOLIDITY_FILE);
+  const origPath = paths.fhevmSolidityConfigFile;
 
   if (!fs.existsSync(origPath)) {
     throw new HardhatFhevmError(
-      `Unable to retrieve ${origPath}, make sure the package '@fhevm/solidity' is properly installed'`,
+      `Unable to retrieve ${origPath}, make sure the package '${constants.FHEVM_SOLIDITY_PACKAGE.name}' is properly installed'`,
     );
   }
 
-  //https://github.com/zama-ai/fhevm/blob/main/host-contracts/.env.example
-  const expectedACLAddress = "0x687820221192C5B662b25367F70076A37bc79b6c";
-  const expectedFHEVMExecutorAddress = "0x848B0066793BcC60346Da1F49049357399B8D595";
-  const expectedKMSVerifierAddress = "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC";
-  const expectedInputVerifierAddress = "0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4";
+  const expectedACLAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.ACLAddress;
+  const expectedFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.FHEVMExecutorAddress;
+  const expectedKMSVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.KMSVerifierAddress;
+  const expectedInputVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.InputVerifierAddress;
 
   const origContent: string = fs.readFileSync(origPath, "utf8");
   assertHHFhevm(origContent.indexOf("../lib/FHE.sol") >= 0);
   assertHHFhevm(origContent.indexOf("../lib/Impl.sol") >= 0);
-  assertHHFhevm(origContent.indexOf(`ACLAddress: ${expectedACLAddress}`) >= 0);
-  assertHHFhevm(origContent.indexOf(`FHEVMExecutorAddress: ${expectedFHEVMExecutorAddress}`) >= 0);
-  assertHHFhevm(origContent.indexOf(`KMSVerifierAddress: ${expectedKMSVerifierAddress}`) >= 0);
-  assertHHFhevm(origContent.indexOf(`InputVerifierAddress: ${expectedInputVerifierAddress}`) >= 0);
+
+  if (origContent.indexOf(`ACLAddress: ${expectedACLAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected ACLAddress=${expectedACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
+  if (origContent.indexOf(`FHEVMExecutorAddress: ${expectedFHEVMExecutorAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected FHEVMExecutorAddress=${expectedFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
+  if (origContent.indexOf(`KMSVerifierAddress: ${expectedKMSVerifierAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected KMSVerifierAddress=${expectedKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
+  if (origContent.indexOf(`InputVerifierAddress: ${expectedInputVerifierAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected InputVerifierAddress=${expectedInputVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
 
   const dstContent = origContent
     .replaceAll("../lib/FHE.sol", "@fhevm/solidity/lib/FHE.sol")
