@@ -164,8 +164,8 @@ In the project root directory `hello_fhevm`, create a new Typescript file named 
 content:
 
 ```ts
+// Add the FHEVM Hardhat plugin here!
 import "@fhevm/hardhat-plugin";
-// 👈 Add the fhevm hardhat plugin here!
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
 import { HardhatUserConfig } from "hardhat/config";

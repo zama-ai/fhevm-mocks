@@ -22,11 +22,11 @@ export function generateZamaOracleAddressDotSol(
 
   if (!fs.existsSync(origPath)) {
     throw new HardhatFhevmError(
-      `Unable to retrieve ${origPath}, make sure the package ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME} is properly installed'`,
+      `Unable to retrieve ${origPath}, make sure the package ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name} is properly installed'`,
     );
   }
 
-  const expectedAddr = "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812";
+  const expectedAddr = constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.SepoliaZamaOracleAddress;
 
   const origContent: string = fs.readFileSync(origPath, "utf8");
   // This will throw an error in case the new `ZamaOracleAddress.sol` has been modified

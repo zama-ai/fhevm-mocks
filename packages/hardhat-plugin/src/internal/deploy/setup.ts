@@ -4,6 +4,7 @@ import {
   assertIsEIP712Domain,
   constants as constantsBase,
   contracts,
+  setInitializableStorage,
 } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
@@ -324,7 +325,17 @@ export async function setupMockUsingCoreContractsArtifacts(
     tx = await kmsOne.acceptOwnership();
     await tx.wait();
 
-    tx = await kmsOne.reinitialize(gatewayDecryptionAddress, gatewayChainId, kmsSigners, kmsInitialThreshold);
+    await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
+      initialized: 1n,
+      initializing: false,
+    });
+
+    tx = await kmsOne.initializeFromEmptyProxy(
+      gatewayDecryptionAddress,
+      gatewayChainId,
+      kmsSigners,
+      kmsInitialThreshold,
+    );
     await tx.wait();
   }
 
@@ -370,7 +381,16 @@ export async function setupMockUsingCoreContractsArtifacts(
     tx = await inputVerifierOne.acceptOwnership();
     await tx.wait();
 
-    tx = await inputVerifierOne.reinitialize(inputVerifierVerifyingContractSource, gatewayChainId, coprocessorSigners);
+    await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
+      initialized: 1n,
+      initializing: false,
+    });
+
+    tx = await inputVerifierOne.initializeFromEmptyProxy(
+      inputVerifierVerifyingContractSource,
+      gatewayChainId,
+      coprocessorSigners,
+    );
     await tx.wait();
   }
 

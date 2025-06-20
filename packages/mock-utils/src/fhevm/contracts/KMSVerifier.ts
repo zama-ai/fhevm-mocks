@@ -173,7 +173,12 @@ export async function computeDecryptionSignatures(
   abiCoder: EthersT.AbiCoder,
   kmsVerifier: KMSVerifier,
   kmsSigners: EthersT.Signer[],
-): Promise<{ signatures: string[]; types: ReadonlyArray<string | EthersT.ParamType>; values: ReadonlyArray<any> }> {
+): Promise<{
+  signatures: string[];
+  types: ReadonlyArray<string | EthersT.ParamType>;
+  values: ReadonlyArray<any>;
+  decryptedResult: string;
+}> {
   const fhevmHandles: FhevmHandle[] = handlesBytes32Hex.map((handleBytes32Hex) =>
     FhevmHandle.fromBytes32Hex(handleBytes32Hex),
   );
@@ -256,7 +261,7 @@ export async function computeDecryptionSignatures(
     eip712.message,
   );
 
-  return { signatures: decryptResultsEIP712signatures, types: abiTypes, values: abiValues };
+  return { signatures: decryptResultsEIP712signatures, types: abiTypes, values: abiValues, decryptedResult };
 }
 
 export async function computeDecryptionCallbackSignaturesAndCalldata(

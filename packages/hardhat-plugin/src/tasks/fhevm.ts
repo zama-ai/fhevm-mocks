@@ -2,6 +2,7 @@ import {
   FhevmMockProviderType,
   FhevmType,
   contracts,
+  getDecryptionOracleAddress,
   getFHEVMConfig,
   isFhevmEaddress,
   isFhevmEbool,
@@ -21,6 +22,8 @@ import {
   SCOPE_FHEVM_TASK_RESOLVE_FHEVM_CONFIG,
   SCOPE_FHEVM_TASK_USER_DECRYPT,
 } from "../task-names";
+
+import picocolors = require("picocolors");
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
@@ -186,26 +189,53 @@ fhevmScope
       },
       hre: HardhatRuntimeEnvironment,
     ) => {
+      if (!hre.ethers.isAddress(address)) {
+        throw new HardhatFhevmError(`Invalid --address parameter value. '${address}' is not a valid address.`);
+      }
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
 
       const fhevmConfig = await getFHEVMConfig(hre.ethers.provider, address);
+      if (
+        fhevmConfig.ACLAddress === hre.ethers.ZeroAddress &&
+        fhevmConfig.FHEVMExecutorAddress === hre.ethers.ZeroAddress &&
+        fhevmConfig.InputVerifierAddress === hre.ethers.ZeroAddress &&
+        fhevmConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
+      ) {
+        const deployedCode = await fhevmEnv.mockProvider.getCodeAt(address);
+        if (deployedCode === undefined || deployedCode === "0x") {
+          throw new HardhatFhevmError(`The address '${address}' does not correspond to a deployed contract.`);
+        }
+      }
 
-      const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
-        aclContractAddress: fhevmConfig.ACLAddress,
-        kmsContractAddress: fhevmConfig.KMSVerifierAddress,
-      });
+      const decryptionOracleAddress = await getDecryptionOracleAddress(hre.ethers.provider, address);
 
-      const o = {
-        address,
-        FHEVMConfigStruct: fhevmConfig,
-        FhevmInstanceConfig: repo.getFhevmInstanceConfig({
-          chainId: fhevmEnv.chainId,
-          relayerUrl: constants.RELAYER_URL,
-        }),
-      };
+      try {
+        const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
+          aclContractAddress: fhevmConfig.ACLAddress,
+          kmsContractAddress: fhevmConfig.KMSVerifierAddress,
+          zamaFheDecryptionOracleAddress: decryptionOracleAddress,
+        });
 
-      console.log(JSON.stringify(o, null, 2));
+        const o = {
+          address,
+          FHEVMConfigStruct: fhevmConfig,
+          FhevmInstanceConfig: repo.getFhevmInstanceConfig({
+            chainId: fhevmEnv.chainId,
+            relayerUrl: constants.RELAYER_URL,
+          }),
+        };
+
+        if (o.FhevmInstanceConfig.decryptionOracleAddress === undefined) {
+          o.FhevmInstanceConfig.decryptionOracleAddress = hre.ethers.ZeroAddress;
+        }
+
+        console.log(JSON.stringify(o, null, 2));
+      } catch {
+        console.log(picocolors.red("Invalid FHEVM Configuration:"));
+        console.log(JSON.stringify({ ...fhevmConfig, decryptionOracleAddress }, null, 2));
+        throw new HardhatFhevmError(`The contract deployed at ${address} is not using a valid FHEVM configuration`);
+      }
     },
   );
 

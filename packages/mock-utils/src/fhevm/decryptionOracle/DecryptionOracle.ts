@@ -3,5 +3,5 @@ export interface DecryptionOracle {
   createDecryptionSignatures(
     handlesBytes32Hex: string[],
     clearTextValues: (bigint | string | boolean)[],
-  ): Promise<string[]>;
+  ): Promise<{ decryptedResult: string; signatures: string[] }>;
 }

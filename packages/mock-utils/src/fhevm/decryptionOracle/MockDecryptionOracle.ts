@@ -132,19 +132,19 @@ export class MockDecryptionOracle implements DecryptionOracle {
   public async createDecryptionSignatures(
     handlesBytes32Hex: string[],
     clearTextValues: (bigint | string | boolean)[],
-  ): Promise<string[]> {
+  ): Promise<{ decryptedResult: string; signatures: string[] }> {
     assertFhevm(this.#kmsVerifier !== undefined, `MockDecryptionOracle not initialized`);
     assertFhevm(this.#kmsSigners !== undefined, `MockDecryptionOracle not initialized`);
 
-    return (
-      await computeDecryptionSignatures(
-        handlesBytes32Hex,
-        clearTextValues,
-        EthersT.AbiCoder.defaultAbiCoder(),
-        this.#kmsVerifier,
-        this.#kmsSigners,
-      )
-    ).signatures;
+    const res = await computeDecryptionSignatures(
+      handlesBytes32Hex,
+      clearTextValues,
+      EthersT.AbiCoder.defaultAbiCoder(),
+      this.#kmsVerifier,
+      this.#kmsSigners,
+    );
+
+    return { decryptedResult: res.decryptedResult, signatures: res.signatures };
   }
 
   public async awaitDecryptionOracle(): Promise<void> {

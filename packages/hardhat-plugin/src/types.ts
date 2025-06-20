@@ -3,6 +3,7 @@ import {
   DecryptionRequestEvent,
   FhevmContractName,
   FhevmHandleCoder,
+  FhevmPublicDecryptOptions,
   //FhevmTypeEbytes,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
@@ -80,6 +81,8 @@ export interface HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<boolean>;
 
+  publicDecryptEbool(handleBytes32: string, options?: FhevmPublicDecryptOptions): Promise<boolean>;
+
   /**
    * Decrypts a single FHE-encrypted unsigned integer of type `fhevmType` represented by a bytes32 handle.
    *
@@ -129,6 +132,12 @@ export interface HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint>;
 
+  publicDecryptEuint(
+    fhevmType: FhevmTypeEuint,
+    handleBytes32: string,
+    options?: FhevmPublicDecryptOptions,
+  ): Promise<bigint>;
+
   // userDecryptEbytes(
   //   fhevmType: FhevmTypeEbytes,
   //   handleBytes32: string,
@@ -143,6 +152,8 @@ export interface HardhatFhevmRuntimeEnvironment {
     user: ethers.Signer,
     options?: FhevmUserDecryptOptions,
   ): Promise<string>;
+
+  publicDecryptEaddress(handleBytes32: string, options?: FhevmPublicDecryptOptions): Promise<string>;
 }
 
 export interface HardhatFhevmRuntimeDebugger {

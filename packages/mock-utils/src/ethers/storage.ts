@@ -2,7 +2,7 @@ import { ethers as EthersT } from "ethers";
 
 import { assertIsAddress } from "../utils/address.js";
 import { assertIsBytes32String } from "../utils/bytes.js";
-import { FhevmError } from "../utils/error.js";
+import { FhevmError, assertFhevm } from "../utils/error.js";
 import { type MinimalProvider, minimalProviderSend } from "./provider.js";
 
 /*
@@ -48,6 +48,25 @@ export async function getStorageAt(provider: MinimalProvider, address: string, i
   return data;
 }
 
+export async function setStorageAt(
+  provider: MinimalProvider,
+  methodName: string,
+  address: string,
+  index: bigint,
+  valueBytes32: string,
+) {
+  assertIsAddress(address);
+  assertIsBytes32String(valueBytes32);
+
+  if (methodName !== "hardhat_setStorageAt") {
+    throw new FhevmError(`Only hardhat_setStorageAt is supported. Got ${methodName} instead.`);
+  }
+
+  const indexParam = EthersT.toBeHex(index, 32);
+
+  await minimalProviderSend(provider, methodName, [address, indexParam, valueBytes32]);
+}
+
 /**
  * Reads a fixed number of consecutive addresses stored at a given storage location.
  *
@@ -66,17 +85,12 @@ export async function getAddressesFromStorage(
   numAddresses: number,
 ): Promise<string[]> {
   const addresses: string[] = [];
-  for (let i = 0; i < numAddresses + 1; ++i) {
+  for (let i = 0; i < numAddresses; ++i) {
     const addr = await getStorageAt(provider, contractAddress, BigInt(storageLocationBytes32) + BigInt(i));
     addresses.push(addr);
   }
 
-  const errorMsg = `The contract at address ${contractAddress} has not been initialized properly. Please call FHE.setFHEVM before.`;
-
-  // should be numAddresses long!
-  if (addresses[numAddresses] !== EthersT.ZeroHash) {
-    throw new FhevmError(errorMsg);
-  }
+  const errorMsg = `The contract at address ${contractAddress} has not been initialized properly.`;
 
   for (let i = 0; i < numAddresses; ++i) {
     const addr = addresses[i];
@@ -93,4 +107,75 @@ export async function getAddressesFromStorage(
   }
 
   return addresses;
+}
+
+export async function getInitializableStorage(
+  provider: MinimalProvider,
+  contractAddress: string,
+): Promise<{ initialized: bigint; initializing: boolean }> {
+  const storageLocationBytes32 = computeStorageLocation("openzeppelin.storage.Initializable");
+  assertFhevm(
+    storageLocationBytes32 === "0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00",
+    "Wrong 'openzeppelin.storage.Initializable' storage location",
+  );
+
+  // One single 32 bytes slot with data packed in reverse order
+  // 0x0000000000000000000000000000000000000000000000_01_0000000000000005
+  //                                                 bool      uint64
+  let data = await getStorageAt(provider, contractAddress, BigInt(storageLocationBytes32) + BigInt(0));
+  data = data.replace(/^0x/, "").padStart(64, "0");
+
+  // _initialized (uint64): first 8 bytes
+  const initializedHex = "0x" + data.slice(-16); // 8 bytes = 16 hex chars
+  const initialized = BigInt(initializedHex);
+
+  // _initializing (bool): next byte (9th byte)
+  const initializingByte = parseInt(data.slice(-18, -16), 16);
+  const initializing = initializingByte !== 0;
+
+  return { initialized, initializing };
+}
+
+export async function setInitializableStorage(
+  provider: MinimalProvider,
+  contractAddress: string,
+  value: { initialized: bigint; initializing: boolean },
+) {
+  //
+  // @openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol
+  // struct InitializableStorage {
+  //     /**
+  //      * @dev Indicates that the contract has been initialized.
+  //      */
+  //     uint64 _initialized;
+  //     /**
+  //      * @dev Indicates that the contract is in the process of being initialized.
+  //      */
+  //     bool _initializing;
+  // }
+  //
+  // // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~bytes32(uint256(0xff))
+  // bytes32 private constant INITIALIZABLE_STORAGE = 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
+  //
+  const storageLocationBytes32 = computeStorageLocation("openzeppelin.storage.Initializable");
+  assertFhevm(
+    storageLocationBytes32 === "0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00",
+    "Wrong 'openzeppelin.storage.Initializable' storage location",
+  );
+
+  // Encode uint64 _initialized
+  const initializedBytes = EthersT.toBeHex(value.initialized, 8); // 8 bytes
+  // Encode bool _initializing (1 byte)
+  const initializingByte = value.initializing ? "0x01" : "0x00";
+
+  const packedHex = initializingByte + initializedBytes.slice(2); // drop '0x' from bool byte
+  const paddedSlotValue = EthersT.zeroPadValue(packedHex, 32); // full 32-byte slot
+
+  await setStorageAt(
+    provider,
+    "hardhat_setStorageAt",
+    contractAddress,
+    BigInt(storageLocationBytes32) + BigInt(0),
+    paddedSlotValue,
+  );
 }
