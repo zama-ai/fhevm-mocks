@@ -16,7 +16,6 @@ const constants = {
   INPUT_VERIFICATION_ADDRESS: "0x812b06e1CDCE800494b79fFE4f925A504a9A9810",
   FHEVM_HANDLE_VERSION: 0,
   HARDHAT_PLUGIN_NAME: "@fhevm/hardhat-plugin",
-  FHEVM_CORE_CONTRACTS_PACKAGE_NAME: "@fhevm/core-contracts",
   // @zama-fhe/oracle-solidity@0.1.0
   ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE: {
     version: "0.1.0",
@@ -24,9 +23,9 @@ const constants = {
     addressFile: "address/ZamaOracleAddress.sol",
     SepoliaZamaOracleAddress: "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
   },
-  // @fhevm/solidity@0.7.0-5
+  // @fhevm/solidity@0.7.0
   FHEVM_SOLIDITY_PACKAGE: {
-    version: "0.7.0-5",
+    version: "0.7.0",
     name: "@fhevm/solidity",
     configFile: "config/ZamaConfig.sol",
     SepoliaConfig: {
@@ -35,6 +34,11 @@ const constants = {
       InputVerifierAddress: "0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4",
       KMSVerifierAddress: "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC",
     },
+  },
+  // @fhevm/core-contracts@0.7.0-12
+  FHEVM_CORE_CONTRACTS_PACKAGE: {
+    version: "0.7.0-12",
+    name: "@fhevm/core-contracts",
   },
   SOLIDITY_COVERAGE_PACKAGE_NAME: "solidity-coverage",
   FHEVM_CONFIG_SOLIDITY_FILE: "ZamaConfig.sol",

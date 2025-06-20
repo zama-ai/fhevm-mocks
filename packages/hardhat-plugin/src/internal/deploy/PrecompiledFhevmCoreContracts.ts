@@ -67,7 +67,7 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
 
   if (mockProvider.info.networkName !== "hardhat") {
     throw new HardhatFhevmError(
-      `Can't retrieve ${constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME} precompiled addresses. This operation is only supported on 'hardhat' network. Current network: ${mockProvider.info.networkName}`,
+      `Can't retrieve ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} precompiled addresses. This operation is only supported on 'hardhat' network. Current network: ${mockProvider.info.networkName}`,
     );
   }
 

@@ -190,9 +190,9 @@ export class FhevmEnvironmentPaths {
    *   - `@fhevm/core-contracts/artifacts`
    */
   public resolveFhevmCoreContractsArtifactRootDir() {
-    let modulePath = path.resolve(path.join("artifacts", constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME));
+    let modulePath = path.resolve(path.join("artifacts", constants.FHEVM_CORE_CONTRACTS_PACKAGE.name));
     if (!fs.existsSync(modulePath)) {
-      modulePath = path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME, "artifacts");
+      modulePath = path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "artifacts");
     }
     return modulePath;
   }
