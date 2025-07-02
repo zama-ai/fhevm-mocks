@@ -23,4 +23,4 @@ jobs:
       # - run: npm run prettier:check
       # - run: npm run lint
       - run: npm run build
-      # - run: npm test
+      - run: npm test
