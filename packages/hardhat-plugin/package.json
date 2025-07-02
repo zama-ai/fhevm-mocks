@@ -67,11 +67,11 @@
     "lint:ts": "eslint --ext .js,.ts .",
     "typechain": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat typechain",
     "compile": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat compile",
-    "test": "HARDHAT_NETWORK=hardhat npx hardhat test",
-    "test:node": "HARDHAT_NETWORK=localhost npx hardhat test",
-    "test:anvil": "HARDHAT_NETWORK=anvil npx hardhat test",
-    "test:anvilsimple": "HARDHAT_NETWORK=anvil npx hardhat test --grep 'test async decrypt uint64'",
-    "coverage:mock": "SOLIDITY_COVERAGE=true hardhat coverage"
+    "test": "cross-env HARDHAT_NETWORK=hardhat npx hardhat test",
+    "test:node": "cross-env HARDHAT_NETWORK=localhost npx hardhat test",
+    "test:anvil": "cross-env HARDHAT_NETWORK=anvil npx hardhat test",
+    "test:anvilsimple": "cross-env HARDHAT_NETWORK=anvil npx hardhat test --grep 'test async decrypt uint64'",
+    "coverage:mock": "cross-env SOLIDITY_COVERAGE=true hardhat coverage"
   },
   "peerDependencies": {
     "@fhevm/mock-utils": "0.0.1-3",
