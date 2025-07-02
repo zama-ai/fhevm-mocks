@@ -835,9 +835,10 @@ export class FhevmEnvironment {
     if (!this.mockProvider.isMock && !this.mockProvider.isSepoliaEthereum) {
       throw new HardhatFhevmError(`This network configuration is not yet supported by the FHEVM hardhat plugin`);
     }
+
     return {
-      "@fhevm/solidity/config": this.paths.relCacheFhevmSolidityConfig,
-      "@zama-fhe/oracle-solidity/address": this.paths.relCacheZamaFheOracleSolidityAddress,
+      "@fhevm/solidity/config": this.paths.relCacheFhevmSolidityConfigUnix,
+      "@zama-fhe/oracle-solidity/address": this.paths.relCacheZamaFheOracleSolidityAddressUnix,
     };
   }
 

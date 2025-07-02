@@ -9,6 +9,7 @@ import * as resolve from "resolve";
 
 import constants from "../constants";
 import { HardhatFhevmError } from "../error";
+import { toUnixRelPath } from "./utils/path";
 
 export class FhevmEnvironmentPaths {
   private _root: string;
@@ -59,11 +60,21 @@ export class FhevmEnvironmentPaths {
   }
 
   /**
-   * Returns `fhevmTemp/@fhevm/solidity/config`
+   * Returns:
+   * - Unix: `fhevmTemp/@fhevm/solidity/config`
+   * - Windows: `fhevmTemp\@fhevm\solidity\config`
    */
   public get relCacheFhevmSolidityConfig(): string {
     const abs = this.cacheFhevmSolidityConfig;
     return path.relative(this.root, abs);
+  }
+
+  /**
+   * Returns `fhevmTemp/@fhevm/solidity/config` (in Unix format)
+   */
+  public get relCacheFhevmSolidityConfigUnix(): string {
+    const abs = this.cacheFhevmSolidityConfig;
+    return toUnixRelPath(path.relative(this.root, abs));
   }
 
   /**
@@ -177,11 +188,21 @@ export class FhevmEnvironmentPaths {
   }
 
   /**
-   * Returns `fhevmTemp/@zama-fhe/oracle-solidity/address`
+   * Returns:
+   * - Unix: `fhevmTemp/@zama-fhe/oracle-solidity/address`
+   * - Windows: `fhevmTemp\@zama-fhe\oracle-solidity\address`
    */
   public get relCacheZamaFheOracleSolidityAddress(): string {
     const abs = this.cacheZamaFheOracleSolidityAddress;
     return path.relative(this.root, abs);
+  }
+
+  /**
+   * Returns `fhevmTemp/@zama-fhe/oracle-solidity/address` (in Unix format)
+   */
+  public get relCacheZamaFheOracleSolidityAddressUnix(): string {
+    const abs = this.cacheZamaFheOracleSolidityAddress;
+    return toUnixRelPath(path.relative(this.root, abs));
   }
 
   /**
