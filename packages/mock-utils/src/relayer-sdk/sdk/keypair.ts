@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
 import { FhevmError, assertFhevm } from "../../utils/error.js";
-import { removePrefix } from "../../utils/string.js";
+import { remove0x } from "../../utils/string.js";
 import type { EIP712 } from "../types.js";
 
 // Follows relayer-sdk keys lengths
@@ -12,8 +12,8 @@ const PUBLIC_KEY_LENGTH: number = (ML_KEM_CT_PK_LENGTH + 8) * 2;
 const PRIVATE_KEY_LENGTH: number = (ML_KEM_SK_LENGTH + 8) * 2;
 
 function _verifyKeypair(keyPair: { publicKey: string; privateKey: string }) {
-  keyPair.publicKey = removePrefix(keyPair.publicKey, "0x");
-  keyPair.privateKey = removePrefix(keyPair.privateKey, "0x");
+  keyPair.publicKey = remove0x(keyPair.publicKey);
+  keyPair.privateKey = remove0x(keyPair.privateKey);
 
   if (!EthersT.isHexString("0x" + keyPair.publicKey, PUBLIC_KEY_LENGTH)) {
     throw new FhevmError(
@@ -33,8 +33,8 @@ export function generateKeypair(): {
 } {
   const wallet = EthersT.Wallet.createRandom();
 
-  const walletPublicKeyNoPrefix = removePrefix(wallet.publicKey, "0x");
-  const walletPrivateKeyNoPrefix = removePrefix(wallet.privateKey, "0x");
+  const walletPublicKeyNoPrefix = remove0x(wallet.publicKey);
+  const walletPrivateKeyNoPrefix = remove0x(wallet.privateKey);
 
   assertFhevm(walletPublicKeyNoPrefix.length === walletPrivateKeyNoPrefix.length + 2);
 
@@ -65,8 +65,23 @@ export function generateKeypair(): {
   return keypair;
 }
 
+/*
+  Copy/Paste from https://github.com/zama-ai/relayer-sdk/main/src/sdk/keypair.ts
+*/
+
+/**
+ * Creates an EIP712 structure specifically for user decrypt requests
+ *
+ * @param verifyingContract - The address of the contract that will verify the signature
+ * @param publicKey - The user's public key as a hex string or Uint8Array
+ * @param contractAddresses - Array of contract addresses that can access the decryption
+ * @param contractsChainId - The chain ID where the contracts are deployed
+ * @param startTimestamp - The timestamp when the decryption permission becomes valid
+ * @param durationDays - How many days the decryption permission remains valid
+ * @returns EIP712 typed data structure for user decryption
+ */
 export const createEIP712 =
-  (gatewayChainId: number, verifyingContract: string, contractsChainId: number) =>
+  (verifyingContract: string, contractsChainId: number) =>
   (
     publicKey: string | Uint8Array,
     contractAddresses: string[],
@@ -102,7 +117,7 @@ export const createEIP712 =
     const domain = {
       name: "Decryption",
       version: "1",
-      chainId: gatewayChainId,
+      chainId: contractsChainId,
       verifyingContract,
     };
 

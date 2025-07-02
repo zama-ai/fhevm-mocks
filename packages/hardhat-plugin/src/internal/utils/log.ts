@@ -82,3 +82,7 @@ export function logBox(
   _log(box, options);
   _log("", options);
 }
+
+export function jsonStringifyBigInt(value: any, space?: string | number): string {
+  return JSON.stringify(value, (_, v) => (typeof v === "bigint" ? v.toString() : v), space);
+}
