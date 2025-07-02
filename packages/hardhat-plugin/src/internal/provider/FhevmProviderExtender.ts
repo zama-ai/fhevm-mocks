@@ -1,4 +1,4 @@
-import { FhevmHandle, relayer, utils } from "@fhevm/mock-utils";
+import { FhevmHandle, MockFhevmInstance, relayer, utils } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 import { ProviderError } from "hardhat/internal/core/providers/errors";
 import { ProviderWrapper } from "hardhat/plugins";
@@ -230,13 +230,22 @@ export class FhevmProviderExtender extends ProviderWrapper {
       console.log(picocolors.greenBright(`${args.method}`));
     }
 
-    //
-    // Should verify signature !!!
-    //
     _assertSingleParamArray(args);
 
     const payload = args.params[0];
     relayer.assertIsRelayerV1UserDecryptPayload(payload);
+
+    // Verify signature
+    await MockFhevmInstance.verifySignature(
+      payload.publicKey,
+      payload.signature,
+      payload.contractAddresses,
+      payload.userAddress,
+      payload.requestValidity.startTimestamp,
+      payload.requestValidity.durationDays,
+      fhevmEnv.getGatewayDecryptionAddress(),
+      Number(payload.contractsChainId),
+    );
 
     const handleBytes32HexList: string[] = payload.handleContractPairs.map((h) => {
       return EthersT.toBeHex(EthersT.toBigInt(h.handle), 32);
