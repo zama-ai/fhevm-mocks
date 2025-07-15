@@ -14,6 +14,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
+import { jsonStringifyBigInt } from "../internal/utils/log";
 import {
   SCOPE_FHEVM,
   SCOPE_FHEVM_TASK_CHECK_FHEVM_COMPATIBILITY,
@@ -328,6 +329,15 @@ fhevmScope
 
       const cfg = repo.getFhevmInstanceConfig({ chainId: fhevmEnv.chainId, relayerUrl: constants.RELAYER_URL });
 
-      console.log(JSON.stringify(cfg, null, 2));
+      const inputEIP712 = repo.inputVerifier.eip712Domain;
+      const kmsEIP712 = repo.kmsVerifier.eip712Domain;
+
+      const res = {
+        config: cfg,
+        inputVerifierEIP712: inputEIP712,
+        kmsVerifierEIP712: kmsEIP712,
+      };
+
+      console.log(jsonStringifyBigInt(res, 2));
     },
   );

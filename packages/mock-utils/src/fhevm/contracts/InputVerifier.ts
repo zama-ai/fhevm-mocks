@@ -8,7 +8,7 @@ import { assertIsBytes32String } from "../../utils/bytes.js";
 import { FhevmError, assertFhevm, assertIsArray } from "../../utils/error.js";
 import { numberToHexNoPrefix } from "../../utils/hex.js";
 import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
-import { assertIsString, ensurePrefix, removePrefix } from "../../utils/string.js";
+import { assertIsString, ensure0x, removePrefix } from "../../utils/string.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { InputVerifierPartialInterface } from "./InputVerifier.itf.js";
 
@@ -166,7 +166,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     const types = constants.INPUT_VERIFICATION_EIP712_TYPE;
 
     const recoveredAddresses: string[] = signatures.map((signature: string) => {
-      const sig = ensurePrefix(signature, "0x");
+      const sig = ensure0x(signature);
       const recoveredAddress = EthersT.verifyTypedData(
         domain,
         types,

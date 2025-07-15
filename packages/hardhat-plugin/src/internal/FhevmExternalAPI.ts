@@ -79,7 +79,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
   ): [{ interface: EthersT.Interface }, string] {
     const itf = this._fhevmEnv.getContractsRepository().getContractFromName(contractName)?.interface;
     if (!itf) {
-      throw new HardhatFhevmError(`Unable to retreive FHEVM contrat interface for contract ${contractName}`);
+      throw new HardhatFhevmError(`Unable to retrieve FHEVM contrat interface for contract ${contractName}`);
     }
     return [{ interface: itf }, customErrorName];
   }
