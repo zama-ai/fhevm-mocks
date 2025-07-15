@@ -14,7 +14,7 @@ export const providerExtender: ProviderExtender = async (
 ) => {
   const firstBlock = await provider.request({ method: "eth_blockNumber" });
   if (typeof firstBlock !== "string") {
-    throw new HardhatFhevmError("Unable to retreive chain block number.");
+    throw new HardhatFhevmError("Unable to retrieve chain block number.");
   }
 
   return new FhevmProviderExtender(provider, config, network, BigInt(firstBlock));

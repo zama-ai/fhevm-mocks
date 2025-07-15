@@ -29,6 +29,7 @@ import { assertIsAddress, assertIsAddressArray } from "../utils/address.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
 import { fromHexString, toHexString } from "../utils/hex.js";
 import { assertIsNumber } from "../utils/math.js";
+import { ensure0x, remove0x } from "../utils/string.js";
 import { MockRelayerEncryptedInput } from "./MockRelayerEncryptedInput.js";
 import { InputVerifier } from "./contracts/InputVerifier.js";
 import { KMSVerifier } from "./contracts/KMSVerifier.js";
@@ -97,7 +98,6 @@ export class MockFhevmInstance implements FhevmInstance {
     this.#kmsVerifier = extra.kmsVerifier;
     this.#inputVerifier = extra.inputVerifier;
     this.#fhevmSdkCreateEIP712ForDecryptionFunc = fhevmSdkCreateEIP712ForDecryption(
-      this.#gatewayChainId,
       this.#verifyingContractAddressDecryption,
       this.#contractsChainId,
     );
@@ -130,18 +130,12 @@ export class MockFhevmInstance implements FhevmInstance {
     contractAddresses: string[],
     startTimestamp: string | number,
     durationDays: string | number,
-    gatewayChainId: number,
     verifyingContractAddressDecryption: string,
     contractsChainId: number,
   ): EIP712 {
     assertIsAddressArray(contractAddresses, "contractAddresses");
 
-    //const eip712Func = fhevmSdkModule.createEIP712(
-    const eip712Func = fhevmSdkCreateEIP712ForDecryption(
-      gatewayChainId,
-      verifyingContractAddressDecryption,
-      contractsChainId,
-    );
+    const eip712Func = fhevmSdkCreateEIP712ForDecryption(verifyingContractAddressDecryption, contractsChainId);
     const eip712 = eip712Func(publicKey, contractAddresses, startTimestamp, durationDays);
 
     //Debug Make sure we are in sync with @fhevm/sdk
@@ -175,7 +169,8 @@ export class MockFhevmInstance implements FhevmInstance {
     assertFhevm(eip712.domain.verifyingContract === this.#kmsVerifier.eip712Domain.verifyingContract);
     assertFhevm(eip712.domain.version === this.#kmsVerifier.eip712Domain.version);
     assertFhevm(eip712.domain.name === this.#kmsVerifier.eip712Domain.name);
-    assertFhevm(BigInt(eip712.domain.chainId) === this.#kmsVerifier.eip712Domain.chainId);
+    assertFhevm(BigInt(eip712.domain.chainId) === BigInt(this.#contractsChainId));
+    assertFhevm(this.#kmsVerifier.eip712Domain.chainId === BigInt(this.#gatewayChainId));
 
     return eip712;
   }
@@ -337,8 +332,8 @@ export class MockFhevmInstance implements FhevmInstance {
       contractsChainId: this.#chainId.toString(), // Convert to string
       contractAddresses: contractAddresses.map((c) => EthersT.getAddress(c)),
       userAddress: EthersT.getAddress(userAddress),
-      signature: signature.replace(/^(0x)/, ""),
-      publicKey: publicKey.replace(/^(0x)/, ""),
+      signature: remove0x(signature),
+      publicKey: remove0x(publicKey),
     };
 
     // TODO
@@ -360,19 +355,27 @@ export class MockFhevmInstance implements FhevmInstance {
     return results;
   }
 
-  private async _verifySignature(
+  public static async verifySignature(
     publicKey: string,
     signature: string,
     contractAddresses: string[],
     userAddress: string,
     startTimestamp: string | number,
     durationDays: string | number,
+    verifyingContractAddressDecryption: string,
+    contractsChainId: number,
   ) {
-    const eip712: EIP712 = this.createEIP712(publicKey, contractAddresses, startTimestamp, durationDays);
+    publicKey = ensure0x(publicKey);
+    signature = ensure0x(signature);
 
-    if (!signature.startsWith("0x")) {
-      signature = "0x" + signature;
-    }
+    const eip712: EIP712 = MockFhevmInstance.createEIP712(
+      publicKey,
+      contractAddresses,
+      startTimestamp,
+      durationDays,
+      verifyingContractAddressDecryption,
+      contractsChainId,
+    );
 
     const types: Record<string, EIP712Type[]> = {};
     types[eip712.primaryType] = eip712.types[eip712.primaryType];
@@ -385,6 +388,26 @@ export class MockFhevmInstance implements FhevmInstance {
     if (normalizedSignerAddress !== normalizedUserAddress) {
       throw new FhevmError("Invalid EIP-712 signature!");
     }
+  }
+
+  private async _verifySignature(
+    publicKey: string,
+    signature: string,
+    contractAddresses: string[],
+    userAddress: string,
+    startTimestamp: string | number,
+    durationDays: string | number,
+  ) {
+    await MockFhevmInstance.verifySignature(
+      publicKey,
+      signature,
+      contractAddresses,
+      userAddress,
+      startTimestamp,
+      durationDays,
+      this.#verifyingContractAddressDecryption,
+      this.#contractsChainId,
+    );
   }
 
   public static async verifyPublicACLPermissions(
