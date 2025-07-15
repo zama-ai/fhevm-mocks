@@ -190,7 +190,7 @@ export class FhevmMockProvider {
       return await jsonRpcProvider.getSigner(address);
     } else if (this.isHardhatWeb3Client) {
       // HH runtime is in charge to call getSigner with the impersonated `address` as argument
-      // to retreive the signer object.
+      // to retrieve the signer object.
       // Example: await hre.ethers.getSigner(impersonated_address);
       return undefined;
     } else {
@@ -408,7 +408,7 @@ async function _resolveProvider(
       }
 
       if (!clientRes.client) {
-        throw new FhevmError(`Unable to retreive Anvil web3 client version.`);
+        throw new FhevmError(`Unable to retrieve Anvil web3 client version.`);
       }
 
       return {
@@ -439,7 +439,7 @@ async function _resolveProvider(
       }
 
       if (!clientRes.client) {
-        throw new FhevmError(`Unable to retreive Hardhat web3 client version.`);
+        throw new FhevmError(`Unable to retrieve Hardhat web3 client version.`);
       }
 
       return {
@@ -473,7 +473,7 @@ async function _resolveProvider(
     }
 
     if (!clientRes.client) {
-      throw new FhevmError(`Unable to retreive provider web3 client version.`);
+      throw new FhevmError(`Unable to retrieve provider web3 client version.`);
     }
 
     return { type: FhevmMockProviderType.Unknown, chainId, web3ClientVersion: clientRes.client };
@@ -489,257 +489,3 @@ async function _resolveProvider(
 
   return { type: defaultProviderType, chainId: defaultChainId, web3ClientVersion: undefined };
 }
-
-// export class FhevMockProvider {
-//   #provider: MinimalProvider;
-//   #info: FhevmMockProviderInfo;
-//   #savedBlockGasLimit: bigint | undefined;
-
-//   public static async create(  minimalProvider: MinimalProvider,
-//   networkName: string,
-//   defaultProviderType: FhevmMockProviderType | undefined,
-//   defaultChainId: number | undefined,
-//   url?: string,
-// ) {
-//     const url: string | undefined = "url" in hre.network.config ? hre.network.config.url : undefined;
-//     const defaults = FhevmEthersProvider._guessDefault(hre, url);
-//     return FhevmEthersProvider.create2(hre.ethers.provider, hre.network.name, defaults.type, defaults.chainId, url);
-//   }
-
-//   public static async create2(
-//     minimalProvider: HardhatEthersProvider,
-//     networkName: string,
-//     defaultProviderType: FhevmEthersProviderType,
-//     defaultChainId: number | undefined,
-//     url?: string,
-//   ) {
-//     const provider = new FhevmEthersProvider();
-
-//     provider.#provider = minimalProvider;
-
-//     const web3ClientVersion = await getWeb3ClientVersion(minimalProvider);
-
-//     let _isAnvil = false;
-//     let _isHardhatNode = false;
-//     let _chainId: number | undefined = undefined;
-
-//     if (url) {
-//       let res = await isHardhatProvider(minimalProvider);
-//       if (res.couldNotConnect) {
-//         _isHardhatNode = defaultProviderType === FhevmEthersProviderType.HardhatNode;
-//         _chainId = defaultProviderType === FhevmEthersProviderType.HardhatNode ? defaultChainId : undefined;
-//       } else {
-//         _isHardhatNode = res.isHardhat;
-//         if (res.isHardhat) {
-//           _chainId = res.chainId;
-//         }
-//       }
-
-//       res = await isAnvilProvider(minimalProvider);
-//       if (res.couldNotConnect) {
-//         _isAnvil = defaultProviderType === FhevmEthersProviderType.Anvil;
-//       } else {
-//         _isAnvil = res.isAnvil;
-//         if (res.isAnvil) {
-//           _chainId = res.chainId;
-//         }
-//       }
-//     }
-//     const isAnvil = networkName === "hardhat" ? false : await isAnvilProvider(provider.#provider);
-
-//     assert(!isAnvil);
-
-//     const isNetworkHardhatNode = await isHardhatNode(networkName, hre.network.config.chainId, provider.#provider);
-//     const chainId = await resolveNetworkConfigChainId(hre, true);
-
-//     //let url: string | undefined = undefined;
-
-//     let type: FhevmEthersProviderType = FhevmEthersProviderType.Unknown;
-//     let methods: FhevmEthersProviderMethods = {};
-
-//     if (isAnvil) {
-//       type = FhevmEthersProviderType.Anvil;
-//       methods = {
-//         setBalance: "anvil_setBalance",
-//         setCode: "anvil_setCode",
-//         impersonateAccount: "anvil_impersonateAccount",
-//       };
-//     } else if (isNetworkHardhatNode) {
-//       type = FhevmEthersProviderType.HardhatNode;
-//       methods = {
-//         setBalance: "hardhat_setBalance",
-//         setCode: "hardhat_setCode",
-//         impersonateAccount: "hardhat_impersonateAccount",
-//       };
-//     } else if (networkName === "hardhat") {
-//       type = FhevmEthersProviderType.Hardhat;
-//       methods = {
-//         setBalance: "hardhat_setBalance",
-//         setCode: "hardhat_setCode",
-//         impersonateAccount: "hardhat_impersonateAccount",
-//       };
-//     }
-
-//     if (isAnvil || isNetworkHardhatNode) {
-//       url = (hre.network.config as HttpNetworkConfig).url;
-//       if (!url) {
-//         throw new HardhatFhevmError(`Unable to determine the url of network ${networkName}`);
-//       }
-//     }
-
-//     provider.#info = {
-//       web3ClientVersion,
-//       type,
-//       methods,
-//       ...(url !== undefined && { url }),
-//       chainId,
-//       networkName,
-//     };
-
-//     return provider;
-//   }
-
-//   public get provider(): EthersT.Provider & { send(method: string, params?: any[]): Promise<any> } {
-//     if (!this.#provider) {
-//       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-//     }
-//     return this.#provider;
-//   }
-
-//   public get info(): FhevmEthersProviderInfo {
-//     if (!this.#info) {
-//       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-//     }
-//     return this.#info;
-//   }
-
-//   public get isMock(): boolean {
-//     if (!this.#info) {
-//       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-//     }
-//     return this.#info.type !== FhevmEthersProviderType.Unknown;
-//   }
-
-//   public get isHardhatWeb3Client(): boolean {
-//     if (!this.#info) {
-//       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-//     }
-//     return (
-//       this.#info.type === FhevmEthersProviderType.Hardhat || this.#info.type === FhevmEthersProviderType.HardhatNode
-//     );
-//   }
-
-//   public get chainId(): number {
-//     return this.info.chainId;
-//   }
-
-//   public send(method: string, params?: any[]): Promise<any> {
-//     return this.provider.send(method, params);
-//   }
-
-//   public async impersonateAddressAndSetBalance(hre: HardhatRuntimeEnvironment, address: string, balance: bigint) {
-//     if (!this.info.methods.impersonateAccount) {
-//       throw new HardhatFhevmError(`Network ${this.info.networkName} does not support account impersonation`);
-//     }
-//     if (!this.info.methods.setBalance) {
-//       throw new HardhatFhevmError(`Network ${this.info.networkName} does not support account setBalance`);
-//     }
-
-//     // for mocked mode
-//     // await provider.request({
-//     //   method: "hardhat_impersonateAccount",
-//     //   params: [address],
-//     // });
-//     await this.provider.send(this.info.methods.impersonateAccount, [address]);
-//     await this.provider.send(this.info.methods.setBalance, [address, EthersT.toBeHex(balance)]);
-
-//     if (this.info.type === FhevmEthersProviderType.Anvil) {
-//       const jsonRpcProvider = new EthersT.JsonRpcProvider(this.info.url);
-//       // In dev mode, speedup anvil tx processing by increasing polling frequency.
-//       // There is a difference between anvil and HH node. HH node process a tx instantly and tx.wait()
-//       // returns instantly. However anvil process the tx slighly later, therefore the first poll fails and
-//       // we have to wait for the next poll (4s later by default) to get the tx confirmation.
-//       jsonRpcProvider.pollingInterval = 100;
-//       return await jsonRpcProvider.getSigner(address);
-//     } else if (this.isHardhatWeb3Client) {
-//       return await hre.ethers.getSigner(address);
-//     } else {
-//       throw new HardhatFhevmError(`Network ${this.info.networkName} does not support account impersonation`);
-//     }
-//   }
-
-//   public async setCodeAt(address: string, byteCode: string) {
-//     const methodName = this.info.methods.setCode;
-//     if (!methodName) {
-//       throw new HardhatFhevmError(`Network ${this.info.networkName} does not support 'setCode' method.`);
-//     }
-//     if (typeof byteCode !== "string") {
-//       throw new HardhatFhevmError(`Invalid contract bytecode.`);
-//     }
-
-//     await this.provider.send(methodName, [address, byteCode]);
-//   }
-
-//   public async getCodeAt(address: string): Promise<string> {
-//     const byteCode = await this.provider.send("eth_getCode", [address, "latest"]);
-
-//     if (typeof byteCode !== "string") {
-//       throw new HardhatFhevmError(`Invalid contract bytecode.`);
-//     }
-
-//     return byteCode;
-//   }
-
-//   public async getBlockNumber(): Promise<number> {
-//     return await this.provider.getBlockNumber();
-//   }
-
-//   public async unsetTemporaryMinimumBlockGasLimit() {
-//     if (!this.#savedBlockGasLimit) {
-//       return;
-//     }
-
-//     try {
-//       await this.setBlockGasLimit(this.#savedBlockGasLimit);
-//     } finally {
-//       this.#savedBlockGasLimit = undefined;
-//     }
-//   }
-
-//   public async setTemporaryMinimumBlockGasLimit(minBlockGasLimit: bigint) {
-//     if (this.#savedBlockGasLimit) {
-//       throw new HardhatFhevmError(`The minimum block gas limit has already been set.`);
-//     }
-
-//     const currentBlockGasLimit = await this.getBlockGasLimit();
-
-//     if (!currentBlockGasLimit) {
-//       debug(`Unable to setup minimum block gas limit.`);
-//       return undefined;
-//     }
-
-//     if (minBlockGasLimit <= currentBlockGasLimit) {
-//       return undefined;
-//     }
-
-//     debug(
-//       `Adjust block gas limit to: ${minBlockGasLimit}. Current block gas limit is too low: ${currentBlockGasLimit}`,
-//     );
-
-//     await this.setBlockGasLimit(minBlockGasLimit);
-
-//     this.#savedBlockGasLimit = currentBlockGasLimit;
-//   }
-
-//   public async setBlockGasLimit(blockGasLimit: bigint) {
-//     const blockGasLimitHex = "0x" + blockGasLimit.toString(16);
-
-//     await this.provider.send("evm_setBlockGasLimit", [blockGasLimitHex]);
-
-//     debug(`Call evm_setBlockGasLimit ${blockGasLimit}`);
-//   }
-
-//   public async getBlockGasLimit(): Promise<bigint | undefined> {
-//     return (await this.provider.getBlock("latest"))?.gasLimit;
-//   }
-// }

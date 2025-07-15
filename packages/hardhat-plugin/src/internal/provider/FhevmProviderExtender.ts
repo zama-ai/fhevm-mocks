@@ -370,7 +370,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
     // Execute the revert method
     const result = await this._wrappedProvider.request(args);
 
-    // Retreive the new current block number
+    // Retrieve the new current block number
     const blockNumberHex = (await this._wrappedProvider.request({ method: "eth_blockNumber" })) as string;
 
     const fhevmEnv = fhevmContext.get();
