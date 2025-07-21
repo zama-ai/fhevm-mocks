@@ -11,7 +11,7 @@ import {
   MockFhevmInstance,
   contracts,
 } from "@fhevm/mock-utils";
-import { FhevmInstance, createInstance as zamaFheRelayerSdkCreateInstance } from "@zama-fhe/relayer-sdk";
+import { FhevmInstance, createInstance as zamaFheRelayerSdkCreateInstance } from "@zama-fhe/relayer-sdk/node";
 import debug from "debug";
 import { ethers as EthersT } from "ethers";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
