@@ -51,7 +51,7 @@ export class FhevmHandleCoder {
     this.#chainId = chainId;
   }
   public fheAdd(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createNumericalOpHandle(
+    return createNumericalOpHandle(
       FhevmOperator.fheAdd,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -61,7 +61,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheSub(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createNumericalOpHandle(
+    return createNumericalOpHandle(
       FhevmOperator.fheSub,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -71,7 +71,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheMul(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createNumericalOpHandle(
+    return createNumericalOpHandle(
       FhevmOperator.fheMul,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -81,7 +81,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheDiv(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createNumericalOpHandle(
+    return createNumericalOpHandle(
       FhevmOperator.fheDiv,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -91,7 +91,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheRem(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createNumericalOpHandle(
+    return createNumericalOpHandle(
       FhevmOperator.fheRem,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -101,7 +101,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheBitAnd(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(
+    return createBitwiseOpHandle(
       FhevmOperator.fheBitAnd,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -111,7 +111,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheBitOr(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(
+    return createBitwiseOpHandle(
       FhevmOperator.fheBitOr,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -121,7 +121,7 @@ export class FhevmHandleCoder {
     );
   }
   public fheBitXor(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(
+    return createBitwiseOpHandle(
       FhevmOperator.fheBitXor,
       lhsBytes32Hex,
       rhsBytes32Hex,
@@ -131,34 +131,104 @@ export class FhevmHandleCoder {
     );
   }
   public fheShl(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(FhevmOperator.fheShl, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createBitwiseOpHandle(
+      FhevmOperator.fheShl,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheShr(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(FhevmOperator.fheShr, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createBitwiseOpHandle(
+      FhevmOperator.fheShr,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheRotl(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(FhevmOperator.fheRotl, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createBitwiseOpHandle(
+      FhevmOperator.fheRotl,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheRotr(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createBitwiseOpHandle(FhevmOperator.fheRotr, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createBitwiseOpHandle(
+      FhevmOperator.fheRotr,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheEq(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createCompareOpHandle(FhevmOperator.fheEq, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createCompareOpHandle(
+      FhevmOperator.fheEq,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheNe(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createCompareOpHandle(FhevmOperator.fheNe, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createCompareOpHandle(
+      FhevmOperator.fheNe,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheGe(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createCompareOpHandle(FhevmOperator.fheGe, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createCompareOpHandle(
+      FhevmOperator.fheGe,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheGt(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createCompareOpHandle(FhevmOperator.fheGt, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createCompareOpHandle(
+      FhevmOperator.fheGt,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheLe(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createCompareOpHandle(FhevmOperator.fheLe, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createCompareOpHandle(
+      FhevmOperator.fheLe,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
   public fheLt(lhsBytes32Hex: string, rhsBytes32Hex: string, scalar: boolean) {
-    createCompareOpHandle(FhevmOperator.fheLt, lhsBytes32Hex, rhsBytes32Hex, scalar, this.#aclAddress, this.#chainId);
+    return createCompareOpHandle(
+      FhevmOperator.fheLt,
+      lhsBytes32Hex,
+      rhsBytes32Hex,
+      scalar,
+      this.#aclAddress,
+      this.#chainId,
+    );
   }
 }
 
