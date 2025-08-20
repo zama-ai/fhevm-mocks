@@ -1,10 +1,14 @@
-import { FHEVMConfig } from "@fhevm/mock-utils";
+import { CoprocessorConfig } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 
 import type { FhevmEnvironment } from "./FhevmEnvironment";
 
-export type PrecompiledCoreContractsAddresses = Omit<FHEVMConfig, "KMSVerifierAddress"> & {
+export type PrecompiledCoreContractsAddresses = Omit<
+  CoprocessorConfig,
+  "KMSVerifierAddress" | "DecryptionOracleAddress"
+> & {
   HCULimitAddress: string;
+  InputVerifierAddress: string;
 };
 
 export type FhevmContext = {

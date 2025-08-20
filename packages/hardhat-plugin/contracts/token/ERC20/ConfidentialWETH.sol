@@ -93,12 +93,19 @@ abstract contract ConfidentialWETH is ConfidentialERC20, IConfidentialERC20Wrapp
     }
 
     /**
-     * @notice            Callback function for the gateway.
-     * @param requestId   Request id.
-     * @param canUnwrap   Whether it can be unwrapped.
+     * @notice                Callback function for the gateway.
+     * @param requestId       Request id.
+     * @param cleartexts      The decrypted values ABI encoded in bytes
+     * @param decryptionProof The decryption proof containing KMS signatures and extra data
      */
-    function callbackUnwrap(uint256 requestId, bool canUnwrap, bytes[] memory signatures) public virtual nonReentrant {
-        FHE.checkSignatures(requestId, signatures);
+    function callbackUnwrap(
+        uint256 requestId,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) public virtual nonReentrant {
+        FHE.checkSignatures(requestId, cleartexts, decryptionProof);
+        bool canUnwrap = abi.decode(cleartexts, (bool));
+
         UnwrapRequest memory unwrapRequest = unwrapRequests[requestId];
 
         if (canUnwrap) {

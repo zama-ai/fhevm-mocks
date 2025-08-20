@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const ACLInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const ACLInterfaceVersion = "0.8.0-0";
 
 export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -126,7 +126,7 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
         type: "address",
       },
     ],
-    name: "NotOwnerOrPauser",
+    name: "NotPauser",
     type: "error",
   },
   {

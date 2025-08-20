@@ -4,9 +4,10 @@ import { assertIsStringArrayProperty, assertIsStringProperty } from "../../utils
 
 export type RelayerMetadata = {
   ACLAddress: string;
-  FHEVMExecutorAddress: string;
-  InputVerifierAddress: string;
+  CoprocessorAddress: string;
+  DecryptionOracleAddress: string;
   KMSVerifierAddress: string;
+  InputVerifierAddress: string;
   relayerSignerAddress: string;
   // relayerSignerPrivateKey or wallet info
   // kmsSigners or wallet info
@@ -23,6 +24,7 @@ export type RelayerV1InputProofPayload = {
   userAddress: string;
   ciphertextWithInputVerification: string;
   contractChainId: string;
+  extraData: string;
 };
 
 export type RelayerV1InputProofResponse = {
@@ -38,6 +40,7 @@ export type RelayerV1UserDecryptPayload = {
   userAddress: string;
   signature: string;
   publicKey: string;
+  extraData: string;
 };
 
 export type RelayerV1UserDecryptValidity = {
@@ -47,6 +50,7 @@ export type RelayerV1UserDecryptValidity = {
 
 export type RelayerV1PublicDecryptPayload = {
   ciphertextHandles: string[];
+  extraData: string;
 };
 
 export type RelayerV1PublicDecryptResponse = { decrypted_value: string; signatures: string[] };
@@ -62,6 +66,7 @@ export function assertIsRelayerV1InputProofPayload(value: unknown): asserts valu
     "userAddress",
     "ciphertextWithInputVerification",
     "contractChainId",
+    "extraData",
   ];
   assertIsStringProperty(value, stringFields, "RelayerV1InputProofPayload");
 }
@@ -72,8 +77,10 @@ export function assertIsRelayerV1InputProofResponse(value: unknown): asserts val
 }
 
 export function assertIsRelayerV1PublicDecryptPayload(value: unknown): asserts value is RelayerV1PublicDecryptPayload {
-  const stringFields: (keyof RelayerV1PublicDecryptPayload)[] = ["ciphertextHandles"];
-  assertIsStringArrayProperty(value, stringFields, "RelayerV1PublicDecryptPayload");
+  const arrayKeys: (keyof RelayerV1PublicDecryptPayload)[] = ["ciphertextHandles"];
+  const stringKeys: (keyof RelayerV1PublicDecryptPayload)[] = ["extraData"];
+  assertIsStringArrayProperty(value, arrayKeys, "RelayerV1PublicDecryptPayload");
+  assertIsStringProperty(value, stringKeys, "RelayerV1PublicDecryptResponse");
 }
 
 export function assertIsRelayerV1PublicDecryptResponse(
@@ -92,6 +99,7 @@ export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts val
     "publicKey",
     "signature",
     "userAddress",
+    "extraData",
   ];
   const objectKeys: (keyof RelayerV1UserDecryptPayload)[] = ["requestValidity"];
 
@@ -105,7 +113,7 @@ export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts val
 export function assertIsRelayerMetadata(value: unknown): asserts value is RelayerMetadata {
   const keys: (keyof RelayerMetadata)[] = [
     "ACLAddress",
-    "FHEVMExecutorAddress",
+    "CoprocessorAddress",
     "InputVerifierAddress",
     "KMSVerifierAddress",
     "relayerSignerAddress",

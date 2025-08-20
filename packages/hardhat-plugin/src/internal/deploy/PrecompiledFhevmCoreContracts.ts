@@ -18,7 +18,7 @@ function __logPrecompiledAddresses(addresses: PrecompiledCoreContractsAddresses,
   const prefix = !useCache ? "Resolve" : `${picocolors.yellowBright("Cache")}`;
   debug(`${prefix} precompiled ${picocolors.cyanBright("ACL")} address                  : ${addresses.ACLAddress}`);
   debug(
-    `${prefix} precompiled ${picocolors.cyanBright("FHEVMExecutor")} address        : ${addresses.FHEVMExecutorAddress}`,
+    `${prefix} precompiled ${picocolors.cyanBright("FHEVMExecutor")} address        : ${addresses.CoprocessorAddress}`,
   );
   debug(
     `${prefix} precompiled ${picocolors.cyanBright("InputVerifierAddress")} address : ${addresses.InputVerifierAddress}`,
@@ -93,9 +93,9 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
     const precompiledHCULimitAddress = (await FHEVMExecutorReadOnly.getHCULimitAddress()) as string;
     const precompiledInputVerifierAddress = (await FHEVMExecutorReadOnly.getInputVerifierAddress()) as string;
 
-    const addresses = {
+    const addresses: PrecompiledCoreContractsAddresses = {
       ACLAddress: precompiledACLAddress,
-      FHEVMExecutorAddress: precompiledFHEVMExecutorAddress,
+      CoprocessorAddress: precompiledFHEVMExecutorAddress,
       HCULimitAddress: precompiledHCULimitAddress,
       InputVerifierAddress: precompiledInputVerifierAddress,
     };
@@ -180,7 +180,7 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
 
     return {
       ACLAddress: o.ACLAddress,
-      FHEVMExecutorAddress: o.FHEVMExecutorAddress,
+      CoprocessorAddress: o.CoprocessorAddress,
       HCULimitAddress: o.HCULimitAddress,
       InputVerifierAddress: o.InputVerifierAddress,
     };

@@ -41,9 +41,12 @@ export class DecryptionOracleEventsHandler {
       handlesBytes32Hex.push(decryptionRequestEvent.handlesBytes32Hex[i]);
     }
 
+    const extraDataV0: string = EthersT.solidityPacked(["uint8"], [0]);
+
     const { calldata } = await computeDecryptionCallbackSignaturesAndCalldata(
       handlesBytes32Hex,
       clearTextsHex,
+      extraDataV0,
       decryptionRequestEvent.requestID,
       decryptionRequestEvent.callbackSelectorBytes4Hex,
       EthersT.AbiCoder.defaultAbiCoder(),

@@ -80,7 +80,7 @@ export class FhevmEnvironmentPaths {
   /**
    * Returns `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol`
    */
-  public get cacheFHEVMConfigSol(): string {
+  public get cacheCoprocessorConfigSol(): string {
     return path.join(this.cacheFhevmSolidityConfig, constants.FHEVM_CONFIG_SOLIDITY_FILE);
   }
 

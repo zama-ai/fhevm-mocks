@@ -7,8 +7,6 @@ import {
   assertEventArgIsBytes4String,
   assertEventArgIsBytes32String,
 } from "../../ethers/event.js";
-import type { MinimalProvider } from "../../ethers/provider.js";
-import { computeStorageLocation, getAddressesFromStorage } from "../../ethers/storage.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import type { DecryptionOracleEvent, DecryptionRequestEvent } from "./DecryptionOracleEvents.js";
 import { isDecryptionOracleEventName } from "./DecryptionOracleEvents.js";
@@ -173,43 +171,4 @@ export function parseDecryptionRequestEventsFromLogs(
   }
 
   return events;
-}
-
-/**
- * Retrieves the `DecryptionOracleAddress` from a smart contract that utilizes the FHEVM framework,
- * deployed at the given `contractAddress`.
- *
- * This function computes the storage slot corresponding to the `DecryptionRequestsStruct` defined in
- * [`@fhevm/solidity/lib/Impl.sol`](https://github.com/zama-ai/fhevm-solidity/blob/main/lib/Impl.sol),
- * then reads the first address field (the oracle address) directly from storage.
- *
- * @param provider - A `MinimalProvider` that implements either `send` or `request` for JSON-RPC communication.
- * @param contractAddress - The on-chain address of the FHEVM contract to query.
- * @returns A Promise that resolves to the decryption oracle's Ethereum address.
- *
- * @throws If the computed storage slot does not match the expected constant layout, indicating a version or layout mismatch.
- */
-export async function getDecryptionOracleAddress(provider: MinimalProvider, contractAddress: string): Promise<string> {
-  const decryptionRequestsStorageLocation = computeStorageLocation("fhevm.storage.DecryptionRequests");
-  assertFhevm(
-    decryptionRequestsStorageLocation === "0x5ea69329017273582817d320489fbd94f775580e90c092699ca6f3d12fdf7d00",
-  );
-
-  /*
-    See: @fhevm/solidity/lib/Impl.sol
-
-    struct DecryptionRequestsStruct {
-        address DecryptionOracleAddress;
-        uint256 counterRequest;
-        mapping(uint256 => bytes32[]) requestedHandles;
-    }
-  */
-  const addresses: string[] = await getAddressesFromStorage(
-    provider,
-    contractAddress,
-    decryptionRequestsStorageLocation,
-    1 /* number of addresses in the struct */,
-  );
-
-  return addresses[0];
 }

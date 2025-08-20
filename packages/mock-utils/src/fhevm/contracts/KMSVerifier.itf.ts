@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const KMSVerifierInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const KMSVerifierInterfaceVersion = "0.8.0-0";
 
 export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -18,6 +18,11 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     name: "AddressEmptyCode",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "DeserializingDecryptionProofFail",
     type: "error",
   },
   {
@@ -61,6 +66,11 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   {
     inputs: [],
     name: "ERC1967NonPayable",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "EmptyDecryptionProof",
     type: "error",
   },
   {
@@ -558,9 +568,9 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
         type: "bytes",
       },
       {
-        internalType: "bytes[]",
-        name: "signatures",
-        type: "bytes[]",
+        internalType: "bytes",
+        name: "decryptionProof",
+        type: "bytes",
       },
     ],
     name: "verifyDecryptionEIP712KMSSignatures",

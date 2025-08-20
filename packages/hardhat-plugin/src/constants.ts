@@ -30,8 +30,8 @@ const constants = {
     configFile: "config/ZamaConfig.sol",
     SepoliaConfig: {
       ACLAddress: "0x687820221192C5B662b25367F70076A37bc79b6c",
-      FHEVMExecutorAddress: "0x848B0066793BcC60346Da1F49049357399B8D595",
-      InputVerifierAddress: "0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4",
+      CoprocessorAddress: "0x848B0066793BcC60346Da1F49049357399B8D595",
+      DecryptionOracleAddress: "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
       KMSVerifierAddress: "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC",
     },
   },
@@ -49,12 +49,13 @@ const constants = {
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   SEPOLIA: {
     chainId: 11155111,
-    FHEVMConfig: {
+    CoprocessorConfig: {
       ACLAddress: "0x687820221192C5B662b25367F70076A37bc79b6c",
-      FHEVMExecutorAddress: "0x848B0066793BcC60346Da1F49049357399B8D595",
-      InputVerifierAddress: "0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4",
+      CoprocessorAddress: "0x848B0066793BcC60346Da1F49049357399B8D595",
+      DecryptionOracleAddress: "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
       KMSVerifierAddress: "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC",
     },
+    InputVerifierAddress: "0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4",
     HCULimitAddress: "0x594BB474275918AF9609814E68C61B1587c5F838",
     ZamaOracleAddress: "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
   },

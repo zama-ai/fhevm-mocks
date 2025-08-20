@@ -148,6 +148,7 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
   public createPublicDecryptVerificationEIP712(
     handlesBytes32List: EthersT.BigNumberish[],
     decryptedResult: string,
+    extraData: string,
   ): EthersEIP712 {
     const eip712: EthersEIP712 = {
       domain: {
@@ -160,6 +161,7 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
       message: {
         ctHandles: handlesBytes32List,
         decryptedResult: decryptedResult,
+        extraData,
       },
     };
 
@@ -170,6 +172,7 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
 export async function computeDecryptionSignatures(
   handlesBytes32Hex: string[],
   clearTextValues: (string | bigint | boolean)[],
+  extraData: string,
   abiCoder: EthersT.AbiCoder,
   kmsVerifier: KMSVerifier,
   kmsSigners: EthersT.Signer[],
@@ -251,8 +254,12 @@ export async function computeDecryptionSignatures(
   // 1. We pop the dummy requestID to get the correct value to pass for `decryptedCts`
   // 2. We also pop the last 32 bytes (empty bytes[])
   const decryptedResult = "0x" + encodedData.slice(66).slice(0, -64);
+  assertFhevm(
+    decryptedResult === "0x" + encodedData.slice(66, -64),
+    "decryptedResult === '0x' + encodedData.slice(66, -64)",
+  );
 
-  const eip712 = kmsVerifier.createPublicDecryptVerificationEIP712(handlesBytes32Hex, decryptedResult);
+  const eip712 = kmsVerifier.createPublicDecryptVerificationEIP712(handlesBytes32Hex, decryptedResult, extraData);
 
   const decryptResultsEIP712signatures: string[] = await multiSignEIP712(
     kmsSigners,
@@ -267,23 +274,35 @@ export async function computeDecryptionSignatures(
 export async function computeDecryptionCallbackSignaturesAndCalldata(
   handlesBytes32Hex: string[],
   clearTextValuesString: string[],
+  extraData: string,
   requestID: bigint,
   callbackSelectorBytes4Hex: string,
   abiCoder: EthersT.AbiCoder,
   kmsVerifier: KMSVerifier,
   kmsSigners: EthersT.Signer[],
-): Promise<{ calldata: string; signatures: string[] }> {
+): Promise<{ calldata: string }> {
+  assertFhevm(extraData === EthersT.solidityPacked(["uint8"], [0]), "extraData must be 0x00");
+
   const { signatures, types, values } = await computeDecryptionSignatures(
     handlesBytes32Hex,
     clearTextValuesString,
+    extraData,
     abiCoder,
     kmsVerifier,
     kmsSigners,
   );
 
-  const calldata: string =
-    callbackSelectorBytes4Hex +
-    abiCoder.encode(["uint256", ...types, "bytes[]"], [requestID, ...values, signatures]).slice(2);
+  // Build the decryptionProof as numSigners + KMS signatures + extraData
+  const packedNumSigners = EthersT.solidityPacked(["uint8"], [signatures.length]);
+  const packedSignatures = EthersT.solidityPacked(Array(signatures.length).fill("bytes"), signatures);
+  const decryptionProof = EthersT.concat([packedNumSigners, packedSignatures, extraData]);
 
-  return { calldata, signatures };
+  // ABI encode the list of values in order to pass them in the callback
+  const encodedCleartexts = abiCoder.encode([...types], [...values]);
+
+  const calldata =
+    callbackSelectorBytes4Hex +
+    abiCoder.encode(["uint256", "bytes", "bytes"], [requestID, encodedCleartexts, decryptionProof]).slice(2);
+
+  return { calldata };
 }

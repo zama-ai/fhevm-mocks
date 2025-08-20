@@ -35,7 +35,6 @@ export interface HardhatFhevmRuntimeEnvironment {
   awaitDecryptionOracle(): Promise<void>;
 
   assertCoprocessorInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
-  assertDecryptionOracleInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
 
   getRelayerMetadata(): Promise<relayer.RelayerMetadata>;
 

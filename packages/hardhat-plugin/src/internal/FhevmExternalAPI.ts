@@ -1,7 +1,7 @@
 import {
+  CoprocessorConfig,
   CoprocessorEvent,
   DecryptionRequestEvent,
-  FHEVMConfig,
   FhevmContractName,
   FhevmHandle,
   FhevmPublicDecryptOptions,
@@ -9,8 +9,7 @@ import {
   FhevmTypeEuint,
   FhevmTypeName,
   FhevmUserDecryptOptions,
-  getDecryptionOracleAddress,
-  getFHEVMConfig,
+  getCoprocessorConfig,
   getFhevmTypeInfo,
 } from "@fhevm/mock-utils";
 import { parseCoprocessorEventsFromLogs, parseDecryptionRequestEventsFromLogs } from "@fhevm/mock-utils";
@@ -415,12 +414,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return decryptedResults[handleBytes32];
   }
 
-  public async getFHEVMConfig(contractAddress: string): Promise<FHEVMConfig> {
-    return getFHEVMConfig(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
-  }
-
-  public async getDecryptionOracleAddress(contractAddress: string): Promise<string> {
-    return getDecryptionOracleAddress(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
+  public async getCoprocessorConfig(contractAddress: string): Promise<CoprocessorConfig> {
+    return getCoprocessorConfig(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
   }
 
   public async assertCoprocessorInitialized(contract: AddressLike, contractName?: string): Promise<void> {
@@ -428,60 +423,39 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
 
     const expectedACLAddress = this._fhevmEnv.getACLAddress();
     const expectedFHEVMExecutorAddress = this._fhevmEnv.getFHEVMExecutorAddress();
-    const expectedInputVerifierAddress = this._fhevmEnv.getInputVerifierAddress();
+    const expectedDecryptionOracleAddress = this._fhevmEnv.getDecryptionOracleAddress();
     const expectedKMSVerifierAddress = this._fhevmEnv.getKMSVerifierAddress();
 
     const errorMsgPrefix =
       contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
 
-    const addresses = await this.getFHEVMConfig(contractAddress);
+    const coprocessorConfig = await this.getCoprocessorConfig(contractAddress);
 
     if (
-      addresses.ACLAddress === EthersT.ZeroAddress ||
-      addresses.FHEVMExecutorAddress === EthersT.ZeroAddress ||
-      addresses.InputVerifierAddress === EthersT.ZeroAddress ||
-      addresses.KMSVerifierAddress === EthersT.ZeroAddress
+      coprocessorConfig.ACLAddress === EthersT.ZeroAddress ||
+      coprocessorConfig.CoprocessorAddress === EthersT.ZeroAddress ||
+      coprocessorConfig.DecryptionOracleAddress === EthersT.ZeroAddress ||
+      coprocessorConfig.KMSVerifierAddress === EthersT.ZeroAddress
     ) {
       const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}:${constants.FHEVM_CONFIG_CONTRACT_NAME} or explicitly calls FHE.setCoprocessor() in its constructor.`;
       throw new HardhatFhevmError(errorMsg);
     }
 
     const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}`;
-    if (addresses.ACLAddress !== expectedACLAddress) {
-      const errorMsg = `Coprocessor ACL address mismatch. ${addrMismatchErrorMsg}. ACL address: ${addresses.ACLAddress}, expected ACL address: ${expectedACLAddress}`;
+    if (coprocessorConfig.ACLAddress !== expectedACLAddress) {
+      const errorMsg = `Coprocessor ACL address mismatch. ${addrMismatchErrorMsg}. ACL address: ${coprocessorConfig.ACLAddress}, expected ACL address: ${expectedACLAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
-    if (addresses.FHEVMExecutorAddress !== expectedFHEVMExecutorAddress) {
-      const errorMsg = `Coprocessor FHEVMExecutor address mismatch. ${addrMismatchErrorMsg}. FHEVMExecutor address: ${addresses.FHEVMExecutorAddress}, expected FHEVMExecutor address: ${expectedFHEVMExecutorAddress}`;
+    if (coprocessorConfig.CoprocessorAddress !== expectedFHEVMExecutorAddress) {
+      const errorMsg = `Coprocessor FHEVMExecutor address mismatch. ${addrMismatchErrorMsg}. FHEVMExecutor address: ${coprocessorConfig.CoprocessorAddress}, expected FHEVMExecutor address: ${expectedFHEVMExecutorAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
-    if (addresses.InputVerifierAddress !== expectedInputVerifierAddress) {
-      const errorMsg = `Coprocessor InputVerifier address mismatch. ${addrMismatchErrorMsg}. InputVerifier address: ${addresses.InputVerifierAddress}, expected InputVerifier address: ${expectedInputVerifierAddress}`;
+    if (coprocessorConfig.DecryptionOracleAddress !== expectedDecryptionOracleAddress) {
+      const errorMsg = `Coprocessor DecryptionOracle address mismatch. ${addrMismatchErrorMsg}. DecryptionOracle address: ${coprocessorConfig.DecryptionOracleAddress}, expected DecryptionOracle address: ${expectedDecryptionOracleAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
-    if (addresses.KMSVerifierAddress !== expectedKMSVerifierAddress) {
-      const errorMsg = `Coprocessor KMSVerifier address mismatch. ${addrMismatchErrorMsg}. KMSVerifier address: ${addresses.KMSVerifierAddress}, expected KMSVerifier address: ${expectedKMSVerifierAddress}`;
-      throw new HardhatFhevmError(errorMsg);
-    }
-  }
-
-  public async assertDecryptionOracleInitialized(contract: AddressLike, contractName?: string): Promise<void> {
-    const contractAddress = await this._fhevmEnv.hre.ethers.resolveAddress(contract);
-    const address = await this.getDecryptionOracleAddress(contractAddress);
-
-    const errorMsgPrefix =
-      contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
-
-    if (address === EthersT.ZeroAddress) {
-      const errorMsg = `${errorMsgPrefix} is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle() in its constructor.`;
-      throw new HardhatFhevmError(errorMsg);
-    }
-
-    const expectedAddress = this._fhevmEnv.getDecryptionOracleAddress();
-
-    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with a Decryption Oracle address that do not match the currently deployed Decryption Oracle contract`;
-    if (address !== expectedAddress) {
-      const errorMsg = `Coprocessor DecryptionOracle address mismatch. ${addrMismatchErrorMsg}. DecryptionOracle address: ${address}, expected DecryptionOracle address: ${expectedAddress}`;
+    if (coprocessorConfig.KMSVerifierAddress !== expectedKMSVerifierAddress) {
+      const errorMsg = `Coprocessor KMSVerifier address mismatch. ${addrMismatchErrorMsg}. KMSVerifier address: ${coprocessorConfig.KMSVerifierAddress}, expected KMSVerifier address: ${expectedKMSVerifierAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
   }

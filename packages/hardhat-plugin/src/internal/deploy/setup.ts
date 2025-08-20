@@ -173,12 +173,12 @@ export async function setupMockUsingCoreContractsArtifacts(
     );
   }
 
-  const FHEVMExecutorAddress = fhevmAddresses.FHEVMConfig.FHEVMExecutorAddress;
-  const aclAddress = fhevmAddresses.FHEVMConfig.ACLAddress;
-  const kmsVerifierAddress = fhevmAddresses.FHEVMConfig.KMSVerifierAddress;
-  const inputVerifierAddress = fhevmAddresses.FHEVMConfig.InputVerifierAddress;
+  const FHEVMExecutorAddress = fhevmAddresses.CoprocessorConfig.CoprocessorAddress;
+  const aclAddress = fhevmAddresses.CoprocessorConfig.ACLAddress;
+  const kmsVerifierAddress = fhevmAddresses.CoprocessorConfig.KMSVerifierAddress;
+  const inputVerifierAddress = fhevmAddresses.InputVerifierAddress;
   const hcuLimitAddress = fhevmAddresses.HCULimitAddress;
-  const decryptionOracleAddress = fhevmAddresses.SepoliaZamaOracleAddress;
+  const decryptionOracleAddress = fhevmAddresses.CoprocessorConfig.DecryptionOracleAddress;
 
   // Setup FHEVMExecutor
   const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");

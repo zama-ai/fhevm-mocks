@@ -1,8 +1,7 @@
 import {
   FhevmType,
   contracts,
-  getDecryptionOracleAddress,
-  getFHEVMConfig,
+  getCoprocessorConfig,
   isFhevmEaddress,
   isFhevmEbool,
   isFhevmEuint,
@@ -258,12 +257,12 @@ fhevmScope
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
 
-      const fhevmConfig = await getFHEVMConfig(hre.ethers.provider, address);
+      const coprocessorConfig = await getCoprocessorConfig(hre.ethers.provider, address);
       if (
-        fhevmConfig.ACLAddress === hre.ethers.ZeroAddress &&
-        fhevmConfig.FHEVMExecutorAddress === hre.ethers.ZeroAddress &&
-        fhevmConfig.InputVerifierAddress === hre.ethers.ZeroAddress &&
-        fhevmConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
+        coprocessorConfig.ACLAddress === hre.ethers.ZeroAddress &&
+        coprocessorConfig.CoprocessorAddress === hre.ethers.ZeroAddress &&
+        coprocessorConfig.DecryptionOracleAddress === hre.ethers.ZeroAddress &&
+        coprocessorConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
       ) {
         const deployedCode = await fhevmEnv.mockProvider.getCodeAt(address);
         if (deployedCode === undefined || deployedCode === "0x") {
@@ -271,18 +270,16 @@ fhevmScope
         }
       }
 
-      const decryptionOracleAddress = await getDecryptionOracleAddress(hre.ethers.provider, address);
-
       try {
         const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
-          aclContractAddress: fhevmConfig.ACLAddress,
-          kmsContractAddress: fhevmConfig.KMSVerifierAddress,
-          zamaFheDecryptionOracleAddress: decryptionOracleAddress,
+          aclContractAddress: coprocessorConfig.ACLAddress,
+          kmsContractAddress: coprocessorConfig.KMSVerifierAddress,
+          zamaFheDecryptionOracleAddress: coprocessorConfig.DecryptionOracleAddress,
         });
 
         const o = {
           address,
-          FHEVMConfigStruct: fhevmConfig,
+          coprocessorConfig,
           FhevmInstanceConfig: repo.getFhevmInstanceConfig({
             chainId: fhevmEnv.chainId,
             relayerUrl: constants.RELAYER_URL,
@@ -295,9 +292,11 @@ fhevmScope
 
         console.log(JSON.stringify(o, null, 2));
       } catch {
-        console.log(picocolors.red("Invalid FHEVM Configuration:"));
-        console.log(JSON.stringify({ ...fhevmConfig, decryptionOracleAddress }, null, 2));
-        throw new HardhatFhevmError(`The contract deployed at ${address} is not using a valid FHEVM configuration`);
+        console.log(picocolors.red("Invalid Coprocessor Configuration:"));
+        console.log(JSON.stringify(coprocessorConfig, null, 2));
+        throw new HardhatFhevmError(
+          `The contract deployed at ${address} is not using a valid Coprocessor configuration`,
+        );
       }
     },
   );

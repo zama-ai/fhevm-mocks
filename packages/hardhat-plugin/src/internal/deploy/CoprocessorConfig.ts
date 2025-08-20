@@ -1,4 +1,4 @@
-import { FHEVMConfig } from "@fhevm/mock-utils";
+import type { CoprocessorConfig } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import * as fs from "fs";
 import * as path from "path";
@@ -16,7 +16,7 @@ const debug = setupDebug("@fhevm/hardhat:addresses");
  * and replaces the addresses listed by the addresses used in the current mock FHEVM environment.
  * @returns The absolute path to the generated `ZamaConfig.sol`
  */
-export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresses: FHEVMConfig): string {
+export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresses: CoprocessorConfig): string {
   const origPath = paths.fhevmSolidityConfigFile;
 
   if (!fs.existsSync(origPath)) {
@@ -26,9 +26,8 @@ export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresse
   }
 
   const expectedACLAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.ACLAddress;
-  const expectedFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.FHEVMExecutorAddress;
+  const expectedFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.CoprocessorAddress;
   const expectedKMSVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.KMSVerifierAddress;
-  const expectedInputVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.InputVerifierAddress;
 
   const origContent: string = fs.readFileSync(origPath, "utf8");
   assertHHFhevm(origContent.indexOf("../lib/FHE.sol") >= 0);
@@ -39,7 +38,7 @@ export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresse
       `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected ACLAddress=${expectedACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
-  if (origContent.indexOf(`FHEVMExecutorAddress: ${expectedFHEVMExecutorAddress}`) < 0) {
+  if (origContent.indexOf(`CoprocessorAddress: ${expectedFHEVMExecutorAddress}`) < 0) {
     throw new HardhatFhevmError(
       `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected FHEVMExecutorAddress=${expectedFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
@@ -49,21 +48,15 @@ export function generateFHEVMConfigDotSol(paths: FhevmEnvironmentPaths, addresse
       `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected KMSVerifierAddress=${expectedKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
-  if (origContent.indexOf(`InputVerifierAddress: ${expectedInputVerifierAddress}`) < 0) {
-    throw new HardhatFhevmError(
-      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected InputVerifierAddress=${expectedInputVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
-    );
-  }
 
   const dstContent = origContent
     .replaceAll("../lib/FHE.sol", "@fhevm/solidity/lib/FHE.sol")
     .replaceAll("../lib/Impl.sol", "@fhevm/solidity/lib/Impl.sol")
     .replaceAll(expectedACLAddress, addresses.ACLAddress)
-    .replaceAll(expectedFHEVMExecutorAddress, addresses.FHEVMExecutorAddress)
-    .replaceAll(expectedKMSVerifierAddress, addresses.KMSVerifierAddress)
-    .replaceAll(expectedInputVerifierAddress, addresses.InputVerifierAddress);
+    .replaceAll(expectedFHEVMExecutorAddress, addresses.CoprocessorAddress)
+    .replaceAll(expectedKMSVerifierAddress, addresses.KMSVerifierAddress);
 
-  const dstPath = paths.cacheFHEVMConfigSol;
+  const dstPath = paths.cacheCoprocessorConfigSol;
   if (fs.existsSync(dstPath)) {
     const existingContent: string = fs.readFileSync(dstPath, "utf8");
     if (existingContent === dstContent) {

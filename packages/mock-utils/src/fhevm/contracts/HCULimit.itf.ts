@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const HCULimitInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const HCULimitInterfaceVersion = "0.8.0-0";
 
 export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface([
   {

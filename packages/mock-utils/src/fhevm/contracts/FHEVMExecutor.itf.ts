@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const FHEVMExecutorInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const FHEVMExecutorInterfaceVersion = "0.8.0-0";
 
 export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -96,11 +96,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [],
     name: "IsNotScalar",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "IsScalar",
     type: "error",
   },
   {
@@ -1232,19 +1227,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "HANDLE_VERSION",
-    outputs: [
-      {
-        internalType: "uint8",
-        name: "",
-        type: "uint8",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "UPGRADE_INTERFACE_VERSION",
     outputs: [
       {
@@ -2001,6 +1983,19 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getHandleVersion",
+    outputs: [
+      {
+        internalType: "uint8",
+        name: "",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "pure",
     type: "function",
   },
   {

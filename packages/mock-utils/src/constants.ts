@@ -12,6 +12,10 @@ const constants = {
         name: "decryptedResult",
         type: "bytes",
       },
+      {
+        name: "extraData",
+        type: "bytes",
+      },
     ],
   },
   INPUT_VERIFICATION_EIP712_DOMAIN: { version: "1", name: "InputVerification" },
@@ -32,6 +36,10 @@ const constants = {
       {
         name: "contractChainId",
         type: "uint256",
+      },
+      {
+        name: "extraData",
+        type: "bytes",
       },
     ],
   },

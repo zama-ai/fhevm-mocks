@@ -87,7 +87,7 @@ export async function requestFhevmGetClearText(relayerProvider: MinimalProvider,
 
 export async function requestFhevmCreateDecryptionSignatures(
   relayerProvider: MinimalProvider,
-  payload: { handlesBytes32Hex: string[]; clearTextValuesHex: string[] },
+  payload: { handlesBytes32Hex: string[]; clearTextValuesHex: string[]; extraData: string },
 ): Promise<any> {
   return await minimalProviderSend(relayerProvider, FHEVM_CREATE_DECRYPTION_SIGNATURES, [payload]);
 }

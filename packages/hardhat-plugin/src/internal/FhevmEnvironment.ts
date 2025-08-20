@@ -1,6 +1,6 @@
 import {
+  CoprocessorConfig,
   DecryptionOracle,
-  FHEVMConfig,
   FhevmContractName,
   FhevmDBMap,
   FhevmMockProvider,
@@ -24,7 +24,7 @@ import { HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmDebugger } from "./FhevmDebugger";
 import { FhevmEnvironmentPaths } from "./FhevmEnvironmentPaths";
 import { FhevmExternalAPI } from "./FhevmExternalAPI";
-import { generateFHEVMConfigDotSol } from "./deploy/FHEVMConfig";
+import { generateCoprocessorDotSol } from "./deploy/CoprocessorConfig";
 import { loadPrecompiledFhevmCoreContractsAddresses } from "./deploy/PrecompiledFhevmCoreContracts";
 import { generateZamaOracleAddressDotSol } from "./deploy/ZamaOracleAddress";
 import {
@@ -61,9 +61,13 @@ const debugInstance = debug("@fhevm/hardhat:instance");
 
 export type FhevmEnvironmentAddresses = {
   /**
-   * Indicates the addresses stored in the solidity `FHEVMConfigStruct` used in the project.
+   * Indicates the addresses stored in the solidity `CoprocessorConfig` struct used in the project.
    */
-  FHEVMConfig: FHEVMConfig;
+  CoprocessorConfig: CoprocessorConfig;
+  /**
+   * Indicates the address of the solidity contract `InputVerifier.sol` used in the project.
+   */
+  InputVerifierAddress: string;
   /**
    * Indicates the address of the solidity contract `HCULimit.sol` used in the project.
    */
@@ -71,11 +75,7 @@ export type FhevmEnvironmentAddresses = {
   /**
    * Indicates the absolute path of the 'ZamaConfig.sol' solidity file used in the project.
    */
-  FHEVMConfigDotSolPath: string;
-  /**
-   * Indicates the address stored in the 'ZamaOracleAddress.sol' solidity file used in the project.
-   */
-  SepoliaZamaOracleAddress: string;
+  CoprocessorConfigDotSolPath: string;
   /**
    * Indicates the absolute path of the 'ZamaOracleAddress.sol' solidity file used in the project.
    */
@@ -696,8 +696,8 @@ export class FhevmEnvironment {
       }
     } else {
       const repo = await contracts.FhevmContractsRepository.create(this.readonlyEthersProvider, {
-        aclContractAddress: fhevmAddresses.FHEVMConfig.ACLAddress,
-        kmsContractAddress: fhevmAddresses.FHEVMConfig.KMSVerifierAddress,
+        aclContractAddress: fhevmAddresses.CoprocessorConfig.ACLAddress,
+        kmsContractAddress: fhevmAddresses.CoprocessorConfig.KMSVerifierAddress,
       });
       this._contractsRepository = repo;
     }
@@ -764,7 +764,7 @@ export class FhevmEnvironment {
         addresses = await this._initializeAddressesCore(ignoreCache);
       }
       Object.freeze(addresses);
-      Object.freeze(addresses.FHEVMConfig);
+      Object.freeze(addresses.CoprocessorConfig);
 
       this._addresses = addresses;
     }
@@ -776,25 +776,22 @@ export class FhevmEnvironment {
   }
 
   private async _initializeAddressesCoreSepolia(): Promise<FhevmEnvironmentAddresses> {
-    const fhevmConfig: FHEVMConfig = constants.SEPOLIA.FHEVMConfig;
-    const fhevmConfigDotSolPath = generateFHEVMConfigDotSol(this.paths, fhevmConfig);
+    const coprocessorConfig: CoprocessorConfig = constants.SEPOLIA.CoprocessorConfig;
+    const coprocessorConfigDotSolPath = generateCoprocessorDotSol(this.paths, coprocessorConfig);
 
-    const zamaOracleAddress = {
-      SepoliaZamaOracleAddress: constants.SEPOLIA.ZamaOracleAddress,
-    };
     const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(
       this.paths,
-      zamaOracleAddress.SepoliaZamaOracleAddress,
+      coprocessorConfig.DecryptionOracleAddress,
     );
 
-    assertHHFhevm(path.isAbsolute(fhevmConfigDotSolPath));
+    assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
     assertHHFhevm(path.isAbsolute(zamaOracleAddressDotSolPath));
 
     return {
-      ...zamaOracleAddress,
-      FHEVMConfig: fhevmConfig,
+      CoprocessorConfig: coprocessorConfig,
+      InputVerifierAddress: constants.SEPOLIA.InputVerifierAddress,
       HCULimitAddress: constants.SEPOLIA.HCULimitAddress,
-      FHEVMConfigDotSolPath: fhevmConfigDotSolPath,
+      CoprocessorConfigDotSolPath: coprocessorConfigDotSolPath,
       ZamaOracleAddressDotSolPath: zamaOracleAddressDotSolPath,
     };
   }
@@ -807,26 +804,26 @@ export class FhevmEnvironment {
       this.isRunningInHHFHEVMInstallSolidity,
     );
     const kmsVerifierAddress: string = getKMSVerifierAddress();
+    const decryptionOracleAddress: string = getDecryptionOracleAddress();
 
-    const fhevmConfig: FHEVMConfig = {
+    const coprocessorConfig: CoprocessorConfig = {
       ACLAddress: precompiledAddresses.ACLAddress,
-      FHEVMExecutorAddress: precompiledAddresses.FHEVMExecutorAddress,
-      InputVerifierAddress: precompiledAddresses.InputVerifierAddress,
+      CoprocessorAddress: precompiledAddresses.CoprocessorAddress,
+      DecryptionOracleAddress: decryptionOracleAddress,
       KMSVerifierAddress: kmsVerifierAddress,
     };
-    const fhevmConfigDotSolPath = generateFHEVMConfigDotSol(this.paths, fhevmConfig);
+    const coprocessorConfigDotSolPath = generateCoprocessorDotSol(this.paths, coprocessorConfig);
 
-    const zamaOracleAddress = getDecryptionOracleAddress();
-    const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(this.paths, zamaOracleAddress);
+    const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(this.paths, decryptionOracleAddress);
 
-    assertHHFhevm(path.isAbsolute(fhevmConfigDotSolPath));
+    assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
     assertHHFhevm(path.isAbsolute(zamaOracleAddressDotSolPath));
 
     return {
-      FHEVMConfig: fhevmConfig,
+      CoprocessorConfig: coprocessorConfig,
+      InputVerifierAddress: precompiledAddresses.InputVerifierAddress,
       HCULimitAddress: precompiledAddresses.HCULimitAddress,
-      FHEVMConfigDotSolPath: fhevmConfigDotSolPath,
-      SepoliaZamaOracleAddress: zamaOracleAddress,
+      CoprocessorConfigDotSolPath: coprocessorConfigDotSolPath,
       ZamaOracleAddressDotSolPath: zamaOracleAddressDotSolPath,
     };
   }

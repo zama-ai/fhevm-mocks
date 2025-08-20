@@ -210,6 +210,8 @@ export class MockFhevmInstance implements FhevmInstance {
   }
 
   public async publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults> {
+    const extraData: `0x${string}` = "0x00";
+
     // Intercept future type change...
     for (let i = 0; i < handles.length; ++i) {
       assertFhevm(
@@ -235,6 +237,7 @@ export class MockFhevmInstance implements FhevmInstance {
     // relayer-sdk
     const payloadForRequest: RelayerV1PublicDecryptPayload = {
       ciphertextHandles: relayerHandles,
+      extraData,
     };
 
     const json = await relayer.requestRelayerV1PublicDecrypt(this.#relayerProvider, payloadForRequest);
@@ -246,21 +249,27 @@ export class MockFhevmInstance implements FhevmInstance {
       chainId: this.#gatewayChainId,
       verifyingContract: this.#verifyingContractAddressDecryption,
     };
-    const types = {
-      PublicDecryptVerification: [
-        { name: "ctHandles", type: "bytes32[]" },
-        { name: "decryptedResult", type: "bytes" },
-      ],
-    };
+    const types = constants.PUBLIC_DECRYPT_EIP712_TYPE;
     const result = json.response[0];
     const decryptedResult = result.decrypted_value.startsWith("0x")
       ? result.decrypted_value
       : `0x${result.decrypted_value}`;
     const signatures = result.signatures;
 
+    // TODO: in relayer-sdk, signedExtraData === "0x". However, here, we use "0x00".
+    const signedExtraData = "0x00";
+
+    // Refacto: Use kmsVerifier.createPublicDecryptVerificationEIP712 instead!
+    // const eip712 = this.#kmsVerifier.createPublicDecryptVerificationEIP712(handles, decryptedResult, signedExtraData);
+
     const recoveredAddresses = signatures.map((signature: string) => {
       const sig = signature.startsWith("0x") ? signature : `0x${signature}`;
-      const recoveredAddress = EthersT.verifyTypedData(domain, types, { ctHandles: handles, decryptedResult }, sig);
+      const recoveredAddress = EthersT.verifyTypedData(
+        domain,
+        types,
+        { ctHandles: handles, decryptedResult, extraData: signedExtraData },
+        sig,
+      );
       return recoveredAddress;
     });
 
@@ -290,6 +299,8 @@ export class MockFhevmInstance implements FhevmInstance {
     startTimestamp: string | number,
     durationDays: string | number,
   ): Promise<DecryptedResults> {
+    const extraData: `0x${string}` = "0x00";
+
     // Intercept future type change...
     for (let i = 0; i < handles.length; ++i) {
       assertFhevm(
@@ -334,6 +345,7 @@ export class MockFhevmInstance implements FhevmInstance {
       userAddress: EthersT.getAddress(userAddress),
       signature: remove0x(signature),
       publicKey: remove0x(publicKey),
+      extraData,
     };
 
     // TODO

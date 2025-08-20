@@ -153,6 +153,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     userAddress: string,
     contractAddress: string,
     contractChainId: number,
+    extraData: string,
     signatures: string[],
   ) {
     assertIsArray(signatures);
@@ -175,6 +176,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
           userAddress,
           contractAddress,
           contractChainId,
+          extraData,
         },
         sig,
       );
@@ -192,6 +194,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     contractChainId: number,
     contractAddress: string,
     userAddress: string,
+    extraData: string,
   ): EthersEIP712 {
     assertIsAddress(userAddress, "userAddress");
     assertIsAddress(contractAddress, "contractAddress");
@@ -209,6 +212,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
         userAddress: userAddress,
         contractAddress: contractAddress,
         contractChainId: contractChainId,
+        extraData,
       },
     };
 
@@ -216,7 +220,11 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
   }
 }
 
-export function computeInputProofHex(handlesBytes32Hex: string[], coprocessorsSignaturesHex: string[]): string {
+export function computeInputProofHex(
+  handlesBytes32Hex: string[],
+  coprocessorsSignaturesHex: string[],
+  extraData: string,
+): string {
   const numHandles = handlesBytes32Hex.length;
   const numCoprocessorSigners = coprocessorsSignaturesHex.length;
 
@@ -244,6 +252,9 @@ export function computeInputProofHex(handlesBytes32Hex: string[], coprocessorsSi
     }
     inputProofHex += signatureBytes65HexNoPrefix;
   });
+
+  // Append the extra data to the input proof
+  inputProofHex = EthersT.concat([inputProofHex, extraData]);
 
   return inputProofHex;
 }
