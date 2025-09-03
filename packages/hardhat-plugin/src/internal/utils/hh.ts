@@ -2,7 +2,7 @@ import { connectedChainId, isHardhatProvider } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import constants from "../../constants";
+import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmProvider } from "../types";
 

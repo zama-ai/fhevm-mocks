@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
+import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 

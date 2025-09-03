@@ -12,7 +12,7 @@ import { subtask, task } from "hardhat/config";
 import { HardhatRuntimeEnvironment, TaskArguments } from "hardhat/types";
 import * as picocolors from "picocolors";
 
-import constants from "../constants";
+import constants from "../internal/constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
 import { assertHHFhevm } from "../internal/error";

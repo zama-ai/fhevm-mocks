@@ -17,7 +17,7 @@ import { ethers as EthersT } from "ethers";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import * as path from "path";
 
-import constants from "../constants";
+import constants from "./constants";
 import { HardhatFhevmError } from "../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../task-names";
 import { HardhatFhevmRuntimeEnvironment } from "../types";
@@ -28,8 +28,6 @@ import { generateCoprocessorDotSol } from "./deploy/CoprocessorConfig";
 import { loadPrecompiledFhevmCoreContractsAddresses } from "./deploy/PrecompiledFhevmCoreContracts";
 import { generateZamaOracleAddressDotSol } from "./deploy/ZamaOracleAddress";
 import {
-  getDecryptionOracleAddress,
-  getKMSVerifierAddress,
   getRelayerSigner,
   getRelayerSignerAddress,
   loadCoprocessorSigners,
@@ -125,7 +123,6 @@ export class FhevmEnvironment {
 
   private _fhevmMockProvider: FhevmMockProvider | undefined;
   private _contractsRepository: contracts.FhevmContractsRepository | undefined;
-  //private _instance: MockFhevmInstance | undefined;
   private _instance: FhevmInstance | undefined;
   private _fhevmAPI: FhevmExternalAPI;
   private _fhevmDebugger: FhevmDebugger;
@@ -725,7 +722,7 @@ export class FhevmEnvironment {
       const instance = await zamaFheRelayerSdkCreateInstance({
         ...this.getContractsRepository().getFhevmInstanceConfig({
           chainId: this.mockProvider.chainId,
-          relayerUrl: constants.RELAYER_URL,
+          relayerUrl: constants.SEPOLIA.relayerUrl,
         }),
         network: this.hre.network.provider,
       });
@@ -761,7 +758,7 @@ export class FhevmEnvironment {
       if (this.mockProvider.isSepoliaEthereum) {
         addresses = await this._initializeAddressesCoreSepolia();
       } else {
-        addresses = await this._initializeAddressesCore(ignoreCache);
+        addresses = await this._initializeAddressesCoreMock(ignoreCache);
       }
       Object.freeze(addresses);
       Object.freeze(addresses.CoprocessorConfig);
@@ -796,25 +793,24 @@ export class FhevmEnvironment {
     };
   }
 
-  private async _initializeAddressesCore(ignoreCache: boolean): Promise<FhevmEnvironmentAddresses> {
+  private async _initializeAddressesCoreMock(ignoreCache: boolean): Promise<FhevmEnvironmentAddresses> {
     const precompiledAddresses: PrecompiledCoreContractsAddresses = await loadPrecompiledFhevmCoreContractsAddresses(
       this.mockProvider,
       this.paths,
       ignoreCache,
       this.isRunningInHHFHEVMInstallSolidity,
     );
-    const kmsVerifierAddress: string = getKMSVerifierAddress();
-    const decryptionOracleAddress: string = getDecryptionOracleAddress();
 
     const coprocessorConfig: CoprocessorConfig = {
       ACLAddress: precompiledAddresses.ACLAddress,
       CoprocessorAddress: precompiledAddresses.CoprocessorAddress,
-      DecryptionOracleAddress: decryptionOracleAddress,
-      KMSVerifierAddress: kmsVerifierAddress,
+      // Use Sepolia addresses for all other missing addresses.
+      DecryptionOracleAddress: constants.SEPOLIA.CoprocessorConfig.DecryptionOracleAddress,
+      KMSVerifierAddress: constants.SEPOLIA.CoprocessorConfig.KMSVerifierAddress,
     };
-    const coprocessorConfigDotSolPath = generateCoprocessorDotSol(this.paths, coprocessorConfig);
 
-    const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(this.paths, decryptionOracleAddress);
+    const coprocessorConfigDotSolPath = generateCoprocessorDotSol(this.paths, coprocessorConfig);
+    const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(this.paths, coprocessorConfig.DecryptionOracleAddress);
 
     assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
     assertHHFhevm(path.isAbsolute(zamaOracleAddressDotSolPath));

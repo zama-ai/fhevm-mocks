@@ -8,7 +8,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
+import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { assertHHFhevm } from "../error";
 
@@ -99,14 +99,6 @@ function __getStringConstant(name: keyof typeof constants, defaultValue?: string
   }
 
   throw new HardhatFhevmError(`Unable to determine string constant ${name}`);
-}
-
-export function getGatewayChainId(): number {
-  return __getUintConstant("CHAIN_ID_GATEWAY", constants["CHAIN_ID_GATEWAY"]);
-}
-
-export function getRelayerUrl(): string {
-  return __getStringConstant("RELAYER_URL", constants["RELAYER_URL"]);
 }
 
 export async function getRelayerSignerAddress(hre: HardhatRuntimeEnvironment): Promise<string> {
@@ -315,82 +307,78 @@ function __envGetHardhatSignersAddresses(
   return res;
 }
 
-export function getACLAddress(): string {
-  const aclAddress = __getStringConstant(
-    "ACL_CONTRACT_ADDRESS",
-    constants["ACL_CONTRACT_ADDRESS"],
-    "addresses/.env.acl",
-  );
-  if (!EthersT.isAddress(aclAddress)) {
-    throw new HardhatFhevmError(`Invalid ACL address ${aclAddress}`);
-  }
-  return aclAddress;
-}
+// export function getACLAddress(): string {
+//   const aclAddress = __getStringConstant(
+//     "ACL_CONTRACT_ADDRESS",
+//     constants["ACL_CONTRACT_ADDRESS"],
+//     "addresses/.env.acl",
+//   );
+//   if (!EthersT.isAddress(aclAddress)) {
+//     throw new HardhatFhevmError(`Invalid ACL address ${aclAddress}`);
+//   }
+//   return aclAddress;
+// }
 
-export function getDecryptionOracleAddress(): string {
-  const decryptionOracleAddress = __getStringConstant(
-    "DECRYPTION_ORACLE_ADDRESS",
-    constants["DECRYPTION_ORACLE_ADDRESS"],
-    "addresses/.env.decryptionoracle",
-  );
-  if (!EthersT.isAddress(decryptionOracleAddress)) {
-    throw new HardhatFhevmError(`Invalid DecryptionOracle address ${decryptionOracleAddress}`);
-  }
-  assertHHFhevm(
-    decryptionOracleAddress !== "0x33347831500F1e73f0ccCBb95c9f86B94d7b1123",
-    'decryptionOracleAddress !== "0x33347831500F1e73f0ccCBb95c9f86B94d7b1123"',
-  );
-  assertHHFhevm(
-    decryptionOracleAddress === "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
-    'decryptionOracleAddress === "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812"',
-  );
-  return decryptionOracleAddress;
-}
+// export function getDecryptionOracleAddress(): string {
+//   const decryptionOracleAddress = __getStringConstant(
+//     "DEFAULT_DECRYPTION_ORACLE_ADDRESS",
+//     constants.DEFAULT_DECRYPTION_ORACLE_ADDRESS,
+//     "addresses/.env.decryptionoracle",
+//   );
+//   if (!EthersT.isAddress(decryptionOracleAddress)) {
+//     throw new HardhatFhevmError(`Invalid DecryptionOracle address ${decryptionOracleAddress}`);
+//   }
+//   assertHHFhevm(
+//     decryptionOracleAddress === constants.SEPOLIA.CoprocessorConfig.DecryptionOracleAddress,
+//     `decryptionOracleAddress === "${constants.SEPOLIA.CoprocessorConfig.DecryptionOracleAddress}"`,
+//   );
+//   return decryptionOracleAddress;
+// }
 
-export function getFHEVMExecutorAddress(): string {
-  const fhevmExecutorAddress = __getStringConstant(
-    "FHEVM_EXECUTOR_CONTRACT_ADDRESS",
-    constants["FHEVM_EXECUTOR_CONTRACT_ADDRESS"],
-    "addresses/.env.exec",
-  );
-  if (!EthersT.isAddress(fhevmExecutorAddress)) {
-    throw new HardhatFhevmError(`Invalid FHEVMExecutor address ${fhevmExecutorAddress}`);
-  }
-  return fhevmExecutorAddress;
-}
+// export function getFHEVMExecutorAddress(): string {
+//   const fhevmExecutorAddress = __getStringConstant(
+//     "FHEVM_EXECUTOR_CONTRACT_ADDRESS",
+//     constants["FHEVM_EXECUTOR_CONTRACT_ADDRESS"],
+//     "addresses/.env.exec",
+//   );
+//   if (!EthersT.isAddress(fhevmExecutorAddress)) {
+//     throw new HardhatFhevmError(`Invalid FHEVMExecutor address ${fhevmExecutorAddress}`);
+//   }
+//   return fhevmExecutorAddress;
+// }
 
-export function getInputVerifierAddress(): string {
-  const inputVerifierAddress = __getStringConstant(
-    "INPUT_VERIFIER_CONTRACT_ADDRESS",
-    constants["INPUT_VERIFIER_CONTRACT_ADDRESS"],
-    "addresses/.env.inputverifier",
-  );
-  if (!EthersT.isAddress(inputVerifierAddress)) {
-    throw new HardhatFhevmError(`Invalid InputVerifier address ${inputVerifierAddress}`);
-  }
-  return inputVerifierAddress;
-}
+// export function getInputVerifierAddress(): string {
+//   const inputVerifierAddress = __getStringConstant(
+//     "INPUT_VERIFIER_CONTRACT_ADDRESS",
+//     constants["INPUT_VERIFIER_CONTRACT_ADDRESS"],
+//     "addresses/.env.inputverifier",
+//   );
+//   if (!EthersT.isAddress(inputVerifierAddress)) {
+//     throw new HardhatFhevmError(`Invalid InputVerifier address ${inputVerifierAddress}`);
+//   }
+//   return inputVerifierAddress;
+// }
 
-export function getKMSVerifierAddress(): string {
-  const kmsVerifierAddress = __getStringConstant(
-    "KMS_VERIFIER_CONTRACT_ADDRESS",
-    constants["KMS_VERIFIER_CONTRACT_ADDRESS"],
-    "addresses/.env.kmsverifier",
-  );
-  if (!EthersT.isAddress(kmsVerifierAddress)) {
-    throw new HardhatFhevmError(`Invalid KMSVerifier address ${kmsVerifierAddress}`);
-  }
-  return kmsVerifierAddress;
-}
+// export function getKMSVerifierAddress(): string {
+//   const kmsVerifierAddress = __getStringConstant(
+//     "DEFAULT_KMS_VERIFIER_CONTRACT_ADDRESS",
+//     constants.DEFAULT_KMS_VERIFIER_CONTRACT_ADDRESS,
+//     "addresses/.env.kmsverifier",
+//   );
+//   if (!EthersT.isAddress(kmsVerifierAddress)) {
+//     throw new HardhatFhevmError(`Invalid KMSVerifier address ${kmsVerifierAddress}`);
+//   }
+//   return kmsVerifierAddress;
+// }
 
-export function getHCULimitAddress(): string {
-  const address = __getStringConstant(
-    "HCULIMIT_CONTRACT_ADDRESS",
-    constants["HCULIMIT_CONTRACT_ADDRESS"],
-    "addresses/.env.hculimit",
-  );
-  if (!EthersT.isAddress(address)) {
-    throw new HardhatFhevmError(`Invalid HCULimit address ${address}`);
-  }
-  return address;
-}
+// export function getHCULimitAddress(): string {
+//   const address = __getStringConstant(
+//     "HCULIMIT_CONTRACT_ADDRESS",
+//     constants["HCULIMIT_CONTRACT_ADDRESS"],
+//     "addresses/.env.hculimit",
+//   );
+//   if (!EthersT.isAddress(address)) {
+//     throw new HardhatFhevmError(`Invalid HCULimit address ${address}`);
+//   }
+//   return address;
+// }

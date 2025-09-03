@@ -121,6 +121,17 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
     type: "error",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "NotHostOwner",
+    type: "error",
+  },
+  {
     inputs: [],
     name: "NotInitializing",
     type: "error",
@@ -502,6 +513,13 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "reinitializeV3",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

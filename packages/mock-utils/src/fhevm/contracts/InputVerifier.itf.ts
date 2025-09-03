@@ -135,6 +135,17 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
     type: "error",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "NotHostOwner",
+    type: "error",
+  },
+  {
     inputs: [],
     name: "NotInitializing",
     type: "error",
@@ -544,6 +555,13 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "reinitializeV3",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

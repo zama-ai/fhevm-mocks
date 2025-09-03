@@ -11,14 +11,13 @@ import { ethers as EthersT } from "ethers";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
+import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentAddresses, FhevmEnvironmentConfig, FhevmSigners } from "../FhevmEnvironment";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { assertHHFhevm } from "../error";
 import { assertSignersMatchAddresses } from "../utils/ethers";
 import {
-  getGatewayChainId,
   getGatewayDecryptionAddress,
   getGatewayInputVerificationAddress,
   getKMSThreshold,
@@ -182,17 +181,13 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Setup FHEVMExecutor
   const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
-  //const execBytecode = execArtifact.artifact.deployedBytecode;
-  await __tryDeploy(
+  const execDeployment = await __tryDeploy(
     mockProvider,
     "FHEVMExecutor",
     FHEVMExecutorAddress,
     execArtifact.path,
     execArtifact.artifact.deployedBytecode,
   );
-
-  // Call reinitialize ?
-  // console.log("TODO FHEVMExecutor.reinitialize is missing!");
 
   // Retrieve precompiled FHE addresses using FHEVMExecutor.
   const fhevmExecutorReadOnly = new EthersT.Contract(
@@ -211,7 +206,13 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Setup ACL
   const aclArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("ACL");
-  await __tryDeploy(mockProvider, "ACL", aclAddress, aclArtifact.path, aclArtifact.artifact.deployedBytecode);
+  const aclDeployment = await __tryDeploy(
+    mockProvider,
+    "ACL",
+    aclAddress,
+    aclArtifact.path,
+    aclArtifact.artifact.deployedBytecode,
+  );
 
   // Setup KMSVerifier
   const kmsArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("KMSVerifier");
@@ -235,7 +236,7 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Setup HCULimit
   const hcuLimitArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("HCULimit");
-  await __tryDeploy(
+  const hcuLimitDeployment = await __tryDeploy(
     mockProvider,
     "HCULimit",
     hcuLimitAddress,
@@ -276,9 +277,6 @@ export async function setupMockUsingCoreContractsArtifacts(
     mockProvider.readonlyEthersProvider,
   );
 
-  // console.log("TODO ACL.reinitialize is missing!");
-  // console.log("TODO HCULimit.reinitialize is missing!");
-
   const aclFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(aclReadOnly, "ACL", aclAddress);
   const hcuLimitFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(
     hcuLimitReadOnly,
@@ -314,7 +312,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   const gatewayDecryptionAddress = getGatewayDecryptionAddress();
-  const gatewayChainId: number = getGatewayChainId();
+  const gatewayChainId = constants.SEPOLIA.gatewayChainId;
   const kmsInitialThreshold = getKMSThreshold();
 
   const kmsSigners = fhevmSigners.kms;
@@ -330,33 +328,40 @@ export async function setupMockUsingCoreContractsArtifacts(
   const zero = fhevmSigners.zero;
   const one = fhevmSigners.one;
 
-  const kmsOne = kmsVerifierReadOnly.connect(one) as EthersT.Contract;
+  const zeroAddress = fhevmSigners.zeroAddress;
+  const oneAddress = fhevmSigners.oneAddress;
 
-  const kmsOwner = await kmsVerifierReadOnly.owner();
-  const kmsDeployer = fhevmSigners.zeroAddress;
-  const kmsDeployerSigner = zero;
-  const expectedKmsOwner = fhevmSigners.oneAddress;
-  const expectedKmsOwnerSigner = one;
+  // No need to call:
+  // - FHEVMExecutor.initializeFromEmptyProxy() 
+  // - ACL.initializeFromEmptyProxy() 
+  // - HCULimit.initializeFromEmptyProxy() 
+  // since these initializers are currently pretty much empty right now
+  
+  await __setContractOwner(fhevmExecutorReadOnly, "FHEVMExecutor", zero, one, execDeployment.alreadyDeployed);
+  await __setContractOwner(aclReadOnly, "ACL", zero, one, aclDeployment.alreadyDeployed);
+  await __setContractOwner(hcuLimitReadOnly, "HCULimit", zero, one, hcuLimitDeployment.alreadyDeployed);
+
+  const kmsOwner: `0x${string}` = await kmsVerifierReadOnly.owner();
 
   if (kmsDeployment.alreadyDeployed) {
-    if (kmsOwner !== expectedKmsOwner) {
-      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${expectedKmsOwner}`);
+    if (kmsOwner !== oneAddress) {
+      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${oneAddress}`);
     }
   } else {
-    if (kmsOwner !== kmsDeployer) {
-      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${kmsDeployer}`);
+    if (kmsOwner !== zeroAddress) {
+      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${zeroAddress}`);
     }
   }
 
-  if (kmsOwner !== fhevmSigners.oneAddress) {
+  if (kmsOwner !== oneAddress) {
     // Setup KMS Verifier
     // 1. transfer ownership
     // 2. call reinitialize
-    const kmsZero = kmsVerifierReadOnly.connect(kmsDeployerSigner) as EthersT.Contract;
-
-    let tx = await kmsZero.transferOwnership(expectedKmsOwnerSigner);
+    const kmsZero = kmsVerifierReadOnly.connect(zero) as EthersT.Contract;
+    let tx = await kmsZero.transferOwnership(one);
     await tx.wait();
 
+    const kmsOne = kmsVerifierReadOnly.connect(one) as EthersT.Contract;
     tx = await kmsOne.acceptOwnership();
     await tx.wait();
 
@@ -365,10 +370,15 @@ export async function setupMockUsingCoreContractsArtifacts(
       initializing: false,
     });
 
+    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
     tx = await kmsOne.initializeFromEmptyProxy(
+      // address verifyingContractSource,
       gatewayDecryptionAddress,
+      // uint64 chainIDSource,
       gatewayChainId,
+      // address[] calldata initialSigners,
       kmsSigners,
+      // uint256 initialThreshold
       kmsInitialThreshold,
     );
     await tx.wait();
@@ -381,38 +391,31 @@ export async function setupMockUsingCoreContractsArtifacts(
   await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
 
   const inputVerifierVerifyingContractSource = getGatewayInputVerificationAddress();
-
-  // Setup Input Verifier
-  // 1. transfer ownership
-  // 2. call reinitialize
-  const inputVerifierOne = inputVerifierReadOnly.connect(one) as EthersT.Contract;
-
-  const inputVerifierOwner = await inputVerifierReadOnly.owner();
-  const inputVerifierDeployer = fhevmSigners.zeroAddress;
-  const inputVerifierDeployerSigner = zero;
-  const expectedInputVerifierOwner = fhevmSigners.oneAddress;
-  const expectedInputVerifierOwnerSigner = one;
+  const inputVerifierOwner: `0x${string}` = await inputVerifierReadOnly.owner();
 
   if (inputVerifierDeployment.alreadyDeployed) {
-    if (inputVerifierOwner !== expectedInputVerifierOwner) {
+    if (inputVerifierOwner !== oneAddress) {
       throw new HardhatFhevmError(
-        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${expectedInputVerifierOwner}`,
+        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${oneAddress}`,
       );
     }
   } else {
-    if (inputVerifierOwner !== inputVerifierDeployer) {
+    if (inputVerifierOwner !== zeroAddress) {
       throw new HardhatFhevmError(
-        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${inputVerifierDeployer}`,
+        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${zeroAddress}`,
       );
     }
   }
 
-  if (inputVerifierOwner !== expectedInputVerifierOwner) {
-    const inputVerifierZero = inputVerifierReadOnly.connect(inputVerifierDeployerSigner) as EthersT.Contract;
-
-    let tx = await inputVerifierZero.transferOwnership(expectedInputVerifierOwnerSigner);
+  if (inputVerifierOwner !== oneAddress) {
+    // Setup Input Verifier
+    // 1. transfer ownership
+    // 2. call reinitialize
+    const inputVerifierZero = inputVerifierReadOnly.connect(zero) as EthersT.Contract;
+    let tx = await inputVerifierZero.transferOwnership(one);
     await tx.wait();
 
+    const inputVerifierOne = inputVerifierReadOnly.connect(one) as EthersT.Contract;
     tx = await inputVerifierOne.acceptOwnership();
     await tx.wait();
 
@@ -421,9 +424,13 @@ export async function setupMockUsingCoreContractsArtifacts(
       initializing: false,
     });
 
+    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
     tx = await inputVerifierOne.initializeFromEmptyProxy(
+      // address verifyingContractSource,
       inputVerifierVerifyingContractSource,
+      // uint64 chainIDSource,
       gatewayChainId,
+      // address[] calldata initialSigners
       coprocessorSigners,
     );
     await tx.wait();
@@ -514,4 +521,45 @@ function __checkHardCodedAddress(
     );
     throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
+}
+
+async function __setContractOwner(
+  contract: EthersT.Contract,
+  contractName: string,
+  currentOwnerSigner: EthersT.Signer,
+  newOwnerSigner: EthersT.Signer,
+  alreadyDeployed: boolean,
+) {
+  const ownerAddress = await contract.owner();
+
+  const currentOwnerAddress = await currentOwnerSigner.getAddress();
+  const newOwnerAddress = await newOwnerSigner.getAddress();
+
+  if (alreadyDeployed) {
+    if (ownerAddress !== newOwnerAddress) {
+      throw new HardhatFhevmError(
+        `Wrong ${contractName} owner address. Got ${ownerAddress}, expected ${newOwnerAddress}`,
+      );
+    }
+  } else {
+    if (ownerAddress !== currentOwnerAddress) {
+      throw new HardhatFhevmError(
+        `Wrong ${contractName} owner address. Got ${ownerAddress}, expected ${currentOwnerAddress}`,
+      );
+    }
+  }
+
+  if (ownerAddress === newOwnerAddress) {
+    return;
+  }
+
+  const currentContract = contract.connect(currentOwnerSigner) as EthersT.Contract;
+  let tx = await currentContract.transferOwnership(newOwnerSigner);
+  await tx.wait();
+
+  const newContract = contract.connect(newOwnerSigner) as EthersT.Contract;
+  tx = await newContract.acceptOwnership();
+  await tx.wait();
+
+  assertHHFhevm((await contract.owner()) === (await newOwnerSigner.getAddress()), "Unexpected contract owner");
 }

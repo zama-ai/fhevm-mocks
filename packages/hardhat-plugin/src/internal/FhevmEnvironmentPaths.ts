@@ -7,7 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as resolve from "resolve";
 
-import constants from "../constants";
+import constants from "./constants";
 import { HardhatFhevmError } from "../error";
 import { toUnixRelPath } from "./utils/path";
 
@@ -81,7 +81,7 @@ export class FhevmEnvironmentPaths {
    * Returns `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol`
    */
   public get cacheCoprocessorConfigSol(): string {
-    return path.join(this.cacheFhevmSolidityConfig, constants.FHEVM_CONFIG_SOLIDITY_FILE);
+    return path.join(this.cacheFhevmSolidityConfig, path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile));
   }
 
   /**
@@ -288,13 +288,13 @@ export class FhevmEnvironmentPaths {
     const bundledVersion = this.getBundledMockUtilsVersion();
     if (bundledVersion !== projectVersion) {
       throw new HardhatFhevmError(
-        `Version mismatch detected for @fhevm/mock-utils.\n` +
-          `> Installed in your project: @fhevm/mock-utils:${projectVersion}\n` +
-          `> Expected (plugin): @fhevm/mock-utils:${bundledVersion}\n\n` +
-          `Please ensure that your project is using the same version of @fhevm/mock-utils.\n` +
+        `Version mismatch detected for ${constants.FHEVM_MOCK_UTILS_PACKAGE_NAME}.\n` +
+          `> Installed in your project: ${constants.FHEVM_MOCK_UTILS_PACKAGE_NAME}:${projectVersion}\n` +
+          `> Expected (plugin): ${constants.FHEVM_MOCK_UTILS_PACKAGE_NAME}:${bundledVersion}\n\n` +
+          `Please ensure that your project is using the same version of ${constants.FHEVM_MOCK_UTILS_PACKAGE_NAME}.\n` +
           `You can either:\n` +
           `- Align the versions by updating your dependencies\n` +
-          `- Rely solely on the version provided by @fhevm/hardhat-plugin (no direct install)\n\n` +
+          `- Rely solely on the version provided by ${constants.HARDHAT_PLUGIN_NAME} (no direct install)\n\n` +
           `This mismatch may lead to subtle runtime issues due to type incompatibilities or conflicting behavior.`,
       );
     }

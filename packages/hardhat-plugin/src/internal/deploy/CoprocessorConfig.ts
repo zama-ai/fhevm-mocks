@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
+import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import { assertHHFhevm } from "../error";
@@ -61,7 +61,7 @@ export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresse
     const existingContent: string = fs.readFileSync(dstPath, "utf8");
     if (existingContent === dstContent) {
       debug(
-        `Skip ${picocolors.yellowBright(constants.FHEVM_CONFIG_SOLIDITY_FILE)} generation. File ${dstPath} already exists with exact same content.`,
+        `Skip ${picocolors.yellowBright(path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile))} generation. File ${dstPath} already exists with exact same content.`,
       );
       return dstPath;
     }
@@ -74,7 +74,7 @@ export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresse
 
   fs.writeFileSync(dstPath, dstContent, "utf8");
 
-  debug(`Generate ${picocolors.yellowBright(constants.FHEVM_CONFIG_SOLIDITY_FILE)} at ${dstPath}. Source ${origPath}`);
+  debug(`Generate ${picocolors.yellowBright(path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile))} at ${dstPath}. Source ${origPath}`);
 
   return dstPath;
 }

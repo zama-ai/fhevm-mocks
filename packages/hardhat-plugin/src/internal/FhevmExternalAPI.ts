@@ -19,7 +19,7 @@ import type { DecryptedResults } from "@zama-fhe/relayer-sdk/node";
 import type { EIP712, FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
-import constants from "../constants";
+import constants from "./constants";
 import { HardhatFhevmError } from "../error";
 import { HardhatFhevmRuntimeDebugger, HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
@@ -430,6 +430,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
       contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
 
     const coprocessorConfig = await this.getCoprocessorConfig(contractAddress);
+    const configFile = `${constants.FHEVM_SOLIDITY_PACKAGE.name}/${constants.FHEVM_SOLIDITY_PACKAGE.configFile}`;
 
     if (
       coprocessorConfig.ACLAddress === EthersT.ZeroAddress ||
@@ -437,11 +438,11 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
       coprocessorConfig.DecryptionOracleAddress === EthersT.ZeroAddress ||
       coprocessorConfig.KMSVerifierAddress === EthersT.ZeroAddress
     ) {
-      const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}:${constants.FHEVM_CONFIG_CONTRACT_NAME} or explicitly calls FHE.setCoprocessor() in its constructor.`;
+      const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from ${configFile}:${constants.FHEVM_SOLIDITY_PACKAGE.configContractName} or explicitly calls FHE.setCoprocessor() in its constructor.`;
       throw new HardhatFhevmError(errorMsg);
     }
 
-    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}`;
+    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file ${configFile}`;
     if (coprocessorConfig.ACLAddress !== expectedACLAddress) {
       const errorMsg = `Coprocessor ACL address mismatch. ${addrMismatchErrorMsg}. ACL address: ${coprocessorConfig.ACLAddress}, expected ACL address: ${expectedACLAddress}`;
       throw new HardhatFhevmError(errorMsg);

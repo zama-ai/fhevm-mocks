@@ -1,22 +1,18 @@
-import {
+import type {
   CoprocessorEvent,
   DecryptionRequestEvent,
   FhevmContractName,
-  FhevmHandleCoder,
   FhevmPublicDecryptOptions,
-  //FhevmTypeEbytes,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
 } from "@fhevm/mock-utils";
-import { relayer } from "@fhevm/mock-utils";
+import { relayer, FhevmHandleCoder } from "@fhevm/mock-utils";
 import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { ethers } from "ethers";
-
-import { FhevmContractError } from "./internal/errors/FhevmContractError";
+import type { FhevmContractError } from "./internal/errors/FhevmContractError";
 
 export {
   FhevmType,
-  //FhevmTypeEbytes,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
   FhevmKeypair,
@@ -137,14 +133,6 @@ export interface HardhatFhevmRuntimeEnvironment {
     options?: FhevmPublicDecryptOptions,
   ): Promise<bigint>;
 
-  // userDecryptEbytes(
-  //   fhevmType: FhevmTypeEbytes,
-  //   handleBytes32: string,
-  //   contractAddress: ethers.AddressLike,
-  //   user: ethers.Signer,
-  //   options?: FhevmUserDecryptOptions,
-  // ): Promise<bigint>;
-
   userDecryptEaddress(
     handleBytes32: string,
     contractAddress: ethers.AddressLike,
@@ -165,6 +153,5 @@ export interface HardhatFhevmRuntimeDebugger {
 
   decryptEbool(handleBytes32: ethers.BigNumberish): Promise<boolean>;
   decryptEuint(fhevmType: FhevmTypeEuint, handleBytes32: ethers.BigNumberish): Promise<bigint>;
-  //decryptEbytes(fhevmType: FhevmTypeEbytes, handleBytes32: ethers.BigNumberish): Promise<string>;
   decryptEaddress(handleBytes32: ethers.BigNumberish): Promise<string>;
 }

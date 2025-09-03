@@ -10,7 +10,7 @@ import {
 import { scope } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import constants from "../constants";
+import constants from "../internal/constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
 import { jsonStringifyBigInt } from "../internal/utils/log";
@@ -67,30 +67,6 @@ fhevmScope
       }
     },
   );
-
-// async function initializeFhevmCLI(hre: HardhatRuntimeEnvironment) {
-//   const fhevmEnv = fhevmContext.get();
-//   if (fhevmEnv.isDeployed) {
-//     return;
-//   }
-
-//   if (hre.network.name !== "localhost") {
-//     throw new HardhatFhevmError(
-//       `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
-//     );
-//   }
-
-//   await fhevmEnv.minimalInit();
-
-//   // Only Hardhat Node or Sepolia (TODO)
-//   if (fhevmEnv.mockProvider.info.type !== FhevmMockProviderType.HardhatNode) {
-//     throw new HardhatFhevmError(
-//       `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
-//     );
-//   }
-
-//   await fhevmEnv.deploy();
-// }
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_USER_DECRYPT)
@@ -282,7 +258,7 @@ fhevmScope
           coprocessorConfig,
           FhevmInstanceConfig: repo.getFhevmInstanceConfig({
             chainId: fhevmEnv.chainId,
-            relayerUrl: constants.RELAYER_URL,
+            relayerUrl: constants.SEPOLIA.relayerUrl,
           }),
         };
 
@@ -326,7 +302,7 @@ fhevmScope
         kmsContractAddress: kms,
       });
 
-      const cfg = repo.getFhevmInstanceConfig({ chainId: fhevmEnv.chainId, relayerUrl: constants.RELAYER_URL });
+      const cfg = repo.getFhevmInstanceConfig({ chainId: fhevmEnv.chainId, relayerUrl: constants.SEPOLIA.relayerUrl });
 
       const inputEIP712 = repo.inputVerifier.eip712Domain;
       const kmsEIP712 = repo.kmsVerifier.eip712Domain;

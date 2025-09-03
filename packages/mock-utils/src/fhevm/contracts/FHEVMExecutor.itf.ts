@@ -99,6 +99,17 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
     type: "error",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "NotHostOwner",
+    type: "error",
+  },
+  {
     inputs: [],
     name: "NotInitializing",
     type: "error",
@@ -2072,7 +2083,7 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "reinitializeV2",
+    name: "reinitializeV3",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
