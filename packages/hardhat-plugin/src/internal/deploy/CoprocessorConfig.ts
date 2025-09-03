@@ -4,9 +4,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
+import constants from "../constants";
 import { assertHHFhevm } from "../error";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
@@ -74,7 +74,9 @@ export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresse
 
   fs.writeFileSync(dstPath, dstContent, "utf8");
 
-  debug(`Generate ${picocolors.yellowBright(path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile))} at ${dstPath}. Source ${origPath}`);
+  debug(
+    `Generate ${picocolors.yellowBright(path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile))} at ${dstPath}. Source ${origPath}`,
+  );
 
   return dstPath;
 }

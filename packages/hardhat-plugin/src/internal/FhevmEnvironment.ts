@@ -17,22 +17,17 @@ import { ethers as EthersT } from "ethers";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import * as path from "path";
 
-import constants from "./constants";
 import { HardhatFhevmError } from "../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../task-names";
 import { HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmDebugger } from "./FhevmDebugger";
 import { FhevmEnvironmentPaths } from "./FhevmEnvironmentPaths";
 import { FhevmExternalAPI } from "./FhevmExternalAPI";
+import constants from "./constants";
 import { generateCoprocessorDotSol } from "./deploy/CoprocessorConfig";
 import { loadPrecompiledFhevmCoreContractsAddresses } from "./deploy/PrecompiledFhevmCoreContracts";
 import { generateZamaOracleAddressDotSol } from "./deploy/ZamaOracleAddress";
-import {
-  getRelayerSigner,
-  getRelayerSignerAddress,
-  loadCoprocessorSigners,
-  loadKMSSigners,
-} from "./deploy/addresses";
+import { getRelayerSigner, getRelayerSignerAddress, loadCoprocessorSigners, loadKMSSigners } from "./deploy/addresses";
 import { setupMockUsingCoreContractsArtifacts } from "./deploy/setup";
 import { assertHHFhevm } from "./error";
 import { PrecompiledCoreContractsAddresses } from "./types";
@@ -810,7 +805,10 @@ export class FhevmEnvironment {
     };
 
     const coprocessorConfigDotSolPath = generateCoprocessorDotSol(this.paths, coprocessorConfig);
-    const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(this.paths, coprocessorConfig.DecryptionOracleAddress);
+    const zamaOracleAddressDotSolPath = generateZamaOracleAddressDotSol(
+      this.paths,
+      coprocessorConfig.DecryptionOracleAddress,
+    );
 
     assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
     assertHHFhevm(path.isAbsolute(zamaOracleAddressDotSolPath));

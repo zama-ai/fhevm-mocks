@@ -6,9 +6,10 @@ import type {
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
 } from "@fhevm/mock-utils";
-import { relayer, FhevmHandleCoder } from "@fhevm/mock-utils";
+import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
 import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { ethers } from "ethers";
+
 import type { FhevmContractError } from "./internal/errors/FhevmContractError";
 
 export {

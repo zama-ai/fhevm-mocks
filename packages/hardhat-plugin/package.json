@@ -44,7 +44,7 @@
     "cross-env": "^7.0.3",
     "ethers": "^6.1.0",
     "hardhat-gas-reporter": "^2.2.3",
-    "hardhat": "^2.0.0",
+    "hardhat": "^2.26.3",
     "hardhat-ignore-warnings": "^0.2.12",
     "solidity-coverage": "^0.8.16",
     "ts-node": "^10.9.2",

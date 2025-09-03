@@ -8,8 +8,8 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
+import constants from "../constants";
 import { assertHHFhevm } from "../error";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");

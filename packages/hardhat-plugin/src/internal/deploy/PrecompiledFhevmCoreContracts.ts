@@ -5,10 +5,10 @@ import { ethers as EthersT } from "ethers";
 import * as fs from "fs";
 import * as picocolors from "picocolors";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../../task-names";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
+import constants from "../constants";
 import { PrecompiledCoreContractsAddresses } from "../types";
 import { computeDummyAddress } from "../utils/hh";
 

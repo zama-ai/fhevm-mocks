@@ -35,16 +35,16 @@ type EIP712 = {
 };
 
 type BearerToken = {
-  __type: 'BearerToken';
+  __type: "BearerToken";
   token: string;
 };
 type ApiKeyHeader = {
-  __type: 'ApiKeyHeader';
+  __type: "ApiKeyHeader";
   header?: string;
   value: string;
 };
 type ApiKeyCookie = {
-  __type: 'ApiKeyCookie';
+  __type: "ApiKeyCookie";
   cookie?: string;
   value: string;
 };

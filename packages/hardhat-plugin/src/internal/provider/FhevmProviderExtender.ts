@@ -5,9 +5,9 @@ import { ProviderWrapper } from "hardhat/plugins";
 import type { EIP1193Provider, HardhatConfig, RequestArguments } from "hardhat/types";
 import * as picocolors from "picocolors";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { fhevmContext } from "../EnvironmentExtender";
+import constants from "../constants";
 import { assertHHFhevm } from "../error";
 import { mutateErrorInPlace, mutateProviderErrorInPlace } from "../errors/FhevmContractError";
 

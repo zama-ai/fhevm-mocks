@@ -19,10 +19,10 @@ import type { DecryptedResults } from "@zama-fhe/relayer-sdk/node";
 import type { EIP712, FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
-import constants from "./constants";
 import { HardhatFhevmError } from "../error";
 import { HardhatFhevmRuntimeDebugger, HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
+import constants from "./constants";
 import { FhevmContractError, parseFhevmError } from "./errors/FhevmContractError";
 import { logBox } from "./utils/log";
 

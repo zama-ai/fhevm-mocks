@@ -11,17 +11,13 @@ import { ethers as EthersT } from "ethers";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentAddresses, FhevmEnvironmentConfig, FhevmSigners } from "../FhevmEnvironment";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
+import constants from "../constants";
 import { assertHHFhevm } from "../error";
 import { assertSignersMatchAddresses } from "../utils/ethers";
-import {
-  getGatewayDecryptionAddress,
-  getGatewayInputVerificationAddress,
-  getKMSThreshold,
-} from "./addresses";
+import { getGatewayDecryptionAddress, getGatewayInputVerificationAddress, getKMSThreshold } from "./addresses";
 
 const debug = setupDebug("@fhevm/hardhat:setup");
 
@@ -332,11 +328,11 @@ export async function setupMockUsingCoreContractsArtifacts(
   const oneAddress = fhevmSigners.oneAddress;
 
   // No need to call:
-  // - FHEVMExecutor.initializeFromEmptyProxy() 
-  // - ACL.initializeFromEmptyProxy() 
-  // - HCULimit.initializeFromEmptyProxy() 
+  // - FHEVMExecutor.initializeFromEmptyProxy()
+  // - ACL.initializeFromEmptyProxy()
+  // - HCULimit.initializeFromEmptyProxy()
   // since these initializers are currently pretty much empty right now
-  
+
   await __setContractOwner(fhevmExecutorReadOnly, "FHEVMExecutor", zero, one, execDeployment.alreadyDeployed);
   await __setContractOwner(aclReadOnly, "ACL", zero, one, aclDeployment.alreadyDeployed);
   await __setContractOwner(hcuLimitReadOnly, "HCULimit", zero, one, hcuLimitDeployment.alreadyDeployed);

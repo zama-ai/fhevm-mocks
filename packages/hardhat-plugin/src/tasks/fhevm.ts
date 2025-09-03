@@ -10,9 +10,9 @@ import {
 import { scope } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import constants from "../internal/constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
+import constants from "../internal/constants";
 import { jsonStringifyBigInt } from "../internal/utils/log";
 import {
   SCOPE_FHEVM,

@@ -7,8 +7,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as resolve from "resolve";
 
-import constants from "./constants";
 import { HardhatFhevmError } from "../error";
+import constants from "./constants";
 import { toUnixRelPath } from "./utils/path";
 
 export class FhevmEnvironmentPaths {
