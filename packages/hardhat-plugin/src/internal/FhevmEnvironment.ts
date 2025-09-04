@@ -112,11 +112,14 @@ export class FhevmEnvironment {
   private _paths: FhevmEnvironmentPaths;
   private _deployRunning: boolean = false;
   private _deployCompleted: boolean = false;
+  private _cliAPIInitializing: boolean = false;
+  private _cliAPIInitialized: boolean = false;
   private _setupAddressesRunning: boolean = false;
   private _setupAddressesCompleted: boolean = false;
   private _addresses: FhevmEnvironmentAddresses | undefined;
-
   private _fhevmMockProvider: FhevmMockProvider | undefined;
+  private _minimalInitPromise: Promise<void> | undefined;
+  private _initializeCLIApiPromise: Promise<void> | undefined;
   private _contractsRepository: contracts.FhevmContractsRepository | undefined;
   private _instance: FhevmInstance | undefined;
   private _fhevmAPI: FhevmExternalAPI;
@@ -466,31 +469,65 @@ export class FhevmEnvironment {
     return this._deployCompleted;
   }
 
-  // Client API only
-  public async initializeCLIApi() {
-    if (this.isDeployed) {
+  public async initializeCLIApi(): Promise<void> {
+    if (this._initializeCLIApiPromise !== undefined) {
+      return this._initializeCLIApiPromise;
+    }
+
+    // Create one in-flight promise and allow retries on failure
+    this._initializeCLIApiPromise = (async () => {
+      try {
+        await this.__initializeCLIApi();
+      } finally {
+        // Clear whether success or failure, so callers can retry if it failed.
+        this._initializeCLIApiPromise = undefined;
+      }
+    })();
+
+    return this._initializeCLIApiPromise;
+  }
+
+  private async __initializeCLIApi() {
+    // Allow multiple calls
+    if (this._cliAPIInitialized) {
       return;
     }
-
-    if (this.hre.network.name === "hardhat") {
-      throw new HardhatFhevmError(
-        `The FHEVM CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
-      );
+    // Defensive: this should already be guaranteed by _initializeCLIApiPromise
+    if (this._cliAPIInitializing) {
+      throw new HardhatFhevmError(`The Fhevm CLI initialization is already in progress.`);
     }
 
-    await this.minimalInit();
+    this._cliAPIInitializing = true;
 
-    if (
-      this.mockProvider.info.type !== FhevmMockProviderType.HardhatNode &&
-      this.mockProvider.info.type !== FhevmMockProviderType.SepoliaEthereum
-    ) {
-      throw new HardhatFhevmError(
-        `The FHEVM CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
-      );
+    try {
+      if (this.isDeployed) {
+        return;
+      }
+
+      if (this.hre.network.name === "hardhat") {
+        throw new HardhatFhevmError(
+          `The Fhevm CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
+        );
+      }
+
+      await this.minimalInit();
+
+      if (
+        this.mockProvider.info.type !== FhevmMockProviderType.HardhatNode &&
+        this.mockProvider.info.type !== FhevmMockProviderType.SepoliaEthereum
+      ) {
+        throw new HardhatFhevmError(
+          `The Fhevm CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
+        );
+      }
+
+      // TODO: should improve deploy() (see function commentary)
+      await this.deploy();
+
+      this._cliAPIInitialized = true;
+    } finally {
+      this._cliAPIInitializing = false;
     }
-
-    // TODO: should improve deploy() (see function commentary)
-    await this.deploy();
   }
 
   /**
@@ -505,15 +542,18 @@ export class FhevmEnvironment {
       throw new HardhatFhevmError("The Fhevm environment is already initialized.");
     }
     if (this._deployRunning) {
-      throw new HardhatFhevmError("The Fhevm environment is already being initialized.");
+      throw new HardhatFhevmError(`The Fhevm environment initialization is already in progress.`);
     }
 
     this._deployRunning = true;
 
-    await this._deployCore();
+    try {
+      await this._deployCore();
 
-    this._deployCompleted = true;
-    this._deployRunning = false;
+      this._deployCompleted = true;
+    } finally {
+      this._deployRunning = false;
+    }
   }
 
   private _guessDefaultProvider(): {
@@ -571,7 +611,7 @@ export class FhevmEnvironment {
     };
   }
 
-  public async minimalInit(): Promise<void> {
+  private async __minimalInit(): Promise<void> {
     if (this._fhevmMockProvider === undefined) {
       const defaults = this._guessDefaultProvider();
 
@@ -587,6 +627,25 @@ export class FhevmEnvironment {
         `Provider name: ${this._fhevmMockProvider.info.networkName} chainId: ${this._fhevmMockProvider.info.chainId} type: ${this._fhevmMockProvider.info.type}`,
       );
     }
+  }
+
+  // Can be called multiple times
+  public async minimalInit(): Promise<void> {
+    if (this._minimalInitPromise !== undefined) {
+      return this._minimalInitPromise;
+    }
+
+    // Create one in-flight promise and allow retries on failure
+    this._minimalInitPromise = (async () => {
+      try {
+        await this.__minimalInit();
+      } finally {
+        // Clear whether success or failure, so callers can retry if it failed.
+        this._minimalInitPromise = undefined;
+      }
+    })();
+
+    return this._minimalInitPromise;
   }
 
   private async _createSigners(): Promise<FhevmSigners> {

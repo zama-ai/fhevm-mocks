@@ -27,6 +27,8 @@ import picocolors = require("picocolors");
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
+// This is an internal fhevm subtask.
+// It is exclusively used by `packages/hardhat-plugin/src/internal/deploy/PrecompiledFhevmCoreContracts.ts`
 fhevmScope
   .subtask(SCOPE_FHEVM_TASK_INSTALL_SOLIDITY)
   .setDescription("Install all the required fhevm solidity files associated with the selected network.")
