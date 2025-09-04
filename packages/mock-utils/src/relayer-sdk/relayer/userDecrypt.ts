@@ -9,6 +9,7 @@ import type { DecryptedResults } from "../types.js";
 const MAX_USER_DECRYPT_CONTRACT_ADDRESSES: number = 10;
 const MAX_USER_DECRYPT_DURATION_DAYS: bigint = 365n;
 
+// Duplicated code from relayer-sdk/src/relayer/userDecrypt.ts
 export function checkDeadlineValidity(startTimestamp: bigint, durationDays: bigint) {
   if (durationDays === BigInt(0)) {
     throw new FhevmError("durationDays is null");
@@ -29,6 +30,7 @@ export function checkDeadlineValidity(startTimestamp: bigint, durationDays: bigi
   }
 }
 
+// Duplicated code from relayer-sdk/src/relayer/userDecrypt.ts
 function formatAccordingToType(decryptedBigInt: bigint, type: number): boolean | bigint | string {
   if (type === 0) {
     // ebool
@@ -49,6 +51,7 @@ function formatAccordingToType(decryptedBigInt: bigint, type: number): boolean |
   return decryptedBigInt;
 }
 
+// Duplicated code from relayer-sdk/src/relayer/userDecrypt.ts
 export function buildUserDecryptedResult(handles: string[], listBigIntDecryptions: bigint[]): DecryptedResults {
   let typesList: number[] = [];
   for (const handle of handles) {

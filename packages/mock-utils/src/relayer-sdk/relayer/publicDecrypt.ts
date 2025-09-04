@@ -5,6 +5,7 @@ import { ethers as EthersT } from "ethers";
 
 import type { DecryptedResults } from "../types.js";
 
+// Duplicated code from relayer-sdk/src/relayer/publicDecrypt.ts
 const CiphertextType: Record<number, "bool" | "uint256" | "address" | "bytes"> = {
   0: "bool",
   2: "uint256",
@@ -14,11 +15,9 @@ const CiphertextType: Record<number, "bool" | "uint256" | "address" | "bytes"> =
   6: "uint256",
   7: "address",
   8: "uint256",
-  9: "bytes",
-  10: "bytes",
-  11: "bytes",
 };
 
+// Duplicated code from relayer-sdk/src/relayer/publicDecrypt.ts
 export function deserializeDecryptedResult(handles: string[], decryptedResult: string): DecryptedResults {
   let typesList: number[] = [];
   for (const handle of handles) {
