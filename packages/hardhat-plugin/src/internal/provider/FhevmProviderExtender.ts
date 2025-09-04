@@ -1,4 +1,4 @@
-import { FhevmHandle, MockFhevmInstance, relayer, utils } from "@fhevm/mock-utils";
+import { FhevmHandle, MockFhevmInstance, relayer, utils, version } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 import { ProviderError } from "hardhat/internal/core/providers/errors";
 import { ProviderWrapper } from "hardhat/plugins";
@@ -82,6 +82,9 @@ export class FhevmProviderExtender extends ProviderWrapper {
     }
 
     const metadata: relayer.RelayerMetadata = {
+      version,
+      chainId: fhevmEnv.chainId,
+      gatewayChainId: fhevmEnv.getGatewayChainId(),
       ACLAddress: fhevmEnv.getACLAddress(),
       CoprocessorAddress: fhevmEnv.getFHEVMExecutorAddress(),
       DecryptionOracleAddress: fhevmEnv.getDecryptionOracleAddress(),

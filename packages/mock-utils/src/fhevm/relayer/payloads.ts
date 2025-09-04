@@ -3,6 +3,9 @@ import { assertIsArrayProperty, assertIsObjectProperty } from "../../utils/error
 import { assertIsStringArrayProperty, assertIsStringProperty } from "../../utils/string.js";
 
 export type RelayerMetadata = {
+  version: string;
+  chainId: number;
+  gatewayChainId: number;
   ACLAddress: string;
   CoprocessorAddress: string;
   DecryptionOracleAddress: string;
@@ -111,6 +114,10 @@ export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts val
 }
 
 export function assertIsRelayerMetadata(value: unknown): asserts value is RelayerMetadata {
+  const stringKeys: (keyof RelayerMetadata)[] = [
+    "version",
+  ];
+  assertIsStringProperty(value, stringKeys, "RelayerMetadata");
   const keys: (keyof RelayerMetadata)[] = [
     "ACLAddress",
     "CoprocessorAddress",

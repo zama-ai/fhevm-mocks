@@ -320,42 +320,6 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return decryptedResults[handleBytes32];
   }
 
-  // public async userDecryptEbytes(
-  //   fhevmType: FhevmTypeEbytes,
-  //   handleBytes32: string,
-  //   contractAddress: EthersT.AddressLike,
-  //   user: EthersT.Signer,
-  //   options?: FhevmUserDecryptOptions,
-  // ): Promise<bigint> {
-  //   const addr = await EthersT.resolveAddress(contractAddress);
-  //   const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
-  //     options?.instance ?? this._fhevmEnv.instance,
-  //     [{ handleBytes32, contractAddress: addr, fhevmType }],
-  //     user,
-  //     options,
-  //   );
-
-  //   const fhevmTypeInfo = getFhevmTypeInfo(fhevmType);
-
-  //   if (!(handleBytes32 in decryptedResults)) {
-  //     throw new HardhatFhevmError(
-  //       `Failed to retrieve decrypted value for ${fhevmTypeInfo.name} handle '${handleBytes32}' from the DecryptedResults response.`,
-  //     );
-  //   }
-  //   if (typeof decryptedResults[handleBytes32] !== "string") {
-  //     throw new HardhatFhevmError(
-  //       `Unexpected type for decrypted value of ${fhevmTypeInfo.name} handle '${handleBytes32}': expected a hex string, but got '${typeof decryptedResults[handleBytes32]}' instead.`,
-  //     );
-  //   }
-  //   if (!EthersT.isHexString(decryptedResults[handleBytes32])) {
-  //     throw new HardhatFhevmError(
-  //       `Invalid decrypted value for ${fhevmTypeInfo.name} handle '${handleBytes32}': expected a valid hex string, but received '${decryptedResults[handleBytes32]}'.`,
-  //     );
-  //   }
-
-  //   return EthersT.toBigInt(decryptedResults[handleBytes32]);
-  // }
-
   public async userDecryptEaddress(
     handleBytes32: string,
     contractAddress: EthersT.AddressLike,
