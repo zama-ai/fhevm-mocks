@@ -18,7 +18,9 @@ export function generateZamaOracleAddressDotSol(
   paths: FhevmEnvironmentPaths,
   sepoliaZamaOracleAddress: string,
 ): string {
-  const origPath = path.join(paths.zamaFheOracleSolidityAddress, "ZamaOracleAddress.sol");
+  const zamaOracleAddressDotSol = paths.zamaOracleAddressSolFilename;
+
+  const origPath = path.join(paths.zamaFheOracleSolidityAddressDir, zamaOracleAddressDotSol);
 
   if (!fs.existsSync(origPath)) {
     throw new HardhatFhevmError(
@@ -32,7 +34,7 @@ export function generateZamaOracleAddressDotSol(
   // This will throw an error in case the new `ZamaOracleAddress.sol` has been modified
   if (origContent.indexOf(`SepoliaZamaOracleAddress = ${expectedAddr};`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ZamaOracleAddress.sol file. File located at '${origPath}' has changed and is not supported. 'SepoliaZamaOracleAddress' as changed.`,
+      `Unexpected ${zamaOracleAddressDotSol} file. File located at '${origPath}' has changed and is not supported. 'SepoliaZamaOracleAddress' as changed.`,
     );
   }
 
@@ -43,7 +45,7 @@ export function generateZamaOracleAddressDotSol(
     const existingContent: string = fs.readFileSync(dstPath, "utf8");
     if (existingContent === dstContent) {
       debug(
-        `Skip ${picocolors.yellowBright("ZamaOracleAddress.sol")} generation. File ${dstPath} already exists with exact same content.`,
+        `Skip ${picocolors.yellowBright(zamaOracleAddressDotSol)} generation. File ${dstPath} already exists with exact same content.`,
       );
       return dstPath;
     }
@@ -56,7 +58,7 @@ export function generateZamaOracleAddressDotSol(
 
   fs.writeFileSync(dstPath, dstContent, "utf8");
 
-  debug(`Generate ${picocolors.yellowBright("ZamaOracleAddress.sol")} at ${dstPath}. Source ${origPath}`);
+  debug(`Generate ${picocolors.yellowBright(zamaOracleAddressDotSol)} at ${dstPath}. Source ${origPath}`);
 
   return dstPath;
 }

@@ -12,12 +12,14 @@ import { assertHHFhevm } from "../error";
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
 /**
- * This function parses `/path/to/user-package/node_modules/@fhevm/solidity/config/ZamaConfig.sol` file
+ * This function generates `/path/to/user-package/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol`.
+ * It parses `/path/to/user-package/node_modules/@fhevm/solidity/config/ZamaConfig.sol` file
  * and replaces the addresses listed by the addresses used in the current mock FHEVM environment.
  * @returns The absolute path to the generated `ZamaConfig.sol`
  */
-export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresses: CoprocessorConfig): string {
+export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses: CoprocessorConfig): string {
   const origPath = paths.fhevmSolidityConfigFile;
+  const filename = path.basename(origPath);
 
   if (!fs.existsSync(origPath)) {
     throw new HardhatFhevmError(
@@ -35,17 +37,17 @@ export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresse
 
   if (origContent.indexOf(`ACLAddress: ${expectedACLAddress}`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected ACLAddress=${expectedACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected ACLAddress=${expectedACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
   if (origContent.indexOf(`CoprocessorAddress: ${expectedFHEVMExecutorAddress}`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected FHEVMExecutorAddress=${expectedFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected FHEVMExecutorAddress=${expectedFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
   if (origContent.indexOf(`KMSVerifierAddress: ${expectedKMSVerifierAddress}`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ${path.basename(origPath)} file. File located at '${origPath}' has changed and is not supported. Expected KMSVerifierAddress=${expectedKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected KMSVerifierAddress=${expectedKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
 
@@ -61,7 +63,7 @@ export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresse
     const existingContent: string = fs.readFileSync(dstPath, "utf8");
     if (existingContent === dstContent) {
       debug(
-        `Skip ${picocolors.yellowBright(path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile))} generation. File ${dstPath} already exists with exact same content.`,
+        `Skip ${picocolors.yellowBright(filename)} generation. File ${dstPath} already exists with exact same content.`,
       );
       return dstPath;
     }
@@ -74,9 +76,7 @@ export function generateCoprocessorDotSol(paths: FhevmEnvironmentPaths, addresse
 
   fs.writeFileSync(dstPath, dstContent, "utf8");
 
-  debug(
-    `Generate ${picocolors.yellowBright(path.basename(constants.FHEVM_SOLIDITY_PACKAGE.configFile))} at ${dstPath}. Source ${origPath}`,
-  );
+  debug(`Generate ${picocolors.yellowBright(filename)} at ${dstPath}. Source ${origPath}`);
 
   return dstPath;
 }

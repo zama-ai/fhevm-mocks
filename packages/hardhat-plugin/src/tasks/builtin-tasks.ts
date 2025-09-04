@@ -48,15 +48,15 @@ task(TASK_CLEAN, async (_taskArgs: TaskArguments, _hre: HardhatRuntimeEnvironmen
 
   // Should not block the whole thing...
   try {
-    if (fs.existsSync(fhevmEnv.paths.cache)) {
-      fs.rmSync(fhevmEnv.paths.cache, { force: true, recursive: true });
+    if (fs.existsSync(fhevmEnv.paths.cacheDir)) {
+      fs.rmSync(fhevmEnv.paths.cacheDir, { force: true, recursive: true });
 
-      debug(`${picocolors.greenBright(TASK_CLEAN)} remove directory ${fhevmEnv.paths.cache}`);
+      debug(`${picocolors.greenBright(TASK_CLEAN)} remove directory ${fhevmEnv.paths.cacheDir}`);
     } else {
-      debug(`${picocolors.greenBright(TASK_CLEAN)} directory ${fhevmEnv.paths.cache} already removed.`);
+      debug(`${picocolors.greenBright(TASK_CLEAN)} directory ${fhevmEnv.paths.cacheDir} already removed.`);
     }
   } catch {
-    console.log(`${constants.HARDHAT_PLUGIN_NAME}: Unable to remove directory '${fhevmEnv.paths.cache}'.`);
+    console.log(`${constants.HARDHAT_PLUGIN_NAME}: Unable to remove directory '${fhevmEnv.paths.cacheDir}'.`);
   }
 
   const res = await runSuper();

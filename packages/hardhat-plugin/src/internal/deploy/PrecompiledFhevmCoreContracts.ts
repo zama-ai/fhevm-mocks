@@ -188,8 +188,8 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
 
   const addresses = await getPrecompiledFhevmCoreContractsAddresses(mockProvider, fhevmPaths);
 
-  if (!fs.existsSync(fhevmPaths.cache)) {
-    fs.mkdirSync(fhevmPaths.cache);
+  if (!fs.existsSync(fhevmPaths.cacheDir)) {
+    fs.mkdirSync(fhevmPaths.cacheDir);
   }
 
   debug(`Save precompiled fhevm core contracts addresses cache file ${jsonPath}.`);

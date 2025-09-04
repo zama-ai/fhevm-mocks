@@ -152,7 +152,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   coprocessorSigners: EthersT.Signer[];
   kmsSigners: EthersT.Signer[];
 }> {
-  const consumerCoreContractsPkg = __requireConsumerFhevmCoreContracts(fhevmPaths.root);
+  const consumerCoreContractsPkg = __requireConsumerFhevmCoreContracts(fhevmPaths.rootDir);
   const hhPluginCoreContractsPkg = __requireResolveFhevmCoreContracts();
 
   // Make sure the consumer of the HH Plugin uses the expected version of core-contracts

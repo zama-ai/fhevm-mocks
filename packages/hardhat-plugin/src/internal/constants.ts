@@ -20,7 +20,7 @@ const constants = {
   },
   // @fhevm/solidity@0.8.0
   FHEVM_SOLIDITY_PACKAGE: {
-    version: "0.7.0",
+    version: "0.8.0",
     name: "@fhevm/solidity",
     configFile: "config/ZamaConfig.sol",
     configContractName: "SepoliaConfig",
@@ -44,12 +44,10 @@ const constants = {
     relayerUrl: "https://relayer.testnet.zama.cloud/",
     gatewayChainId: 55815,
     chainId: 11155111,
-    CoprocessorConfig: {
-      ACLAddress: "0x687820221192C5B662b25367F70076A37bc79b6c",
-      CoprocessorAddress: "0x848B0066793BcC60346Da1F49049357399B8D595",
-      DecryptionOracleAddress: "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
-      KMSVerifierAddress: "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC",
-    },
+    ACLAddress: "0x687820221192C5B662b25367F70076A37bc79b6c",
+    CoprocessorAddress: "0x848B0066793BcC60346Da1F49049357399B8D595",
+    DecryptionOracleAddress: "0xa02Cda4Ca3a71D7C46997716F4283aa851C28812",
+    KMSVerifierAddress: "0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC",
     InputVerifierAddress: "0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4",
     HCULimitAddress: "0x594BB474275918AF9609814E68C61B1587c5F838",
   },
