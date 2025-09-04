@@ -246,7 +246,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
     relayer.assertIsRelayerV1UserDecryptPayload(payload);
 
     // Verify signature
-    await MockFhevmInstance.verifySignature(
+    await MockFhevmInstance.verifyUserDecryptSignature(
       payload.publicKey,
       payload.signature,
       payload.contractAddresses,
@@ -273,7 +273,12 @@ export class FhevmProviderExtender extends ProviderWrapper {
       }
     }
 
-    return clearTextHexList;
+    const response: relayer.RelayerV1UserDecryptResponse = {
+      payload: { decrypted_values: clearTextHexList },
+      signature: EthersT.ZeroHash,
+    };
+
+    return response;
   }
 
   private async _handleFhevmGetClearText(args: RequestArguments) {

@@ -57,6 +57,8 @@ export type RelayerV1PublicDecryptPayload = {
 };
 
 export type RelayerV1PublicDecryptResponse = { decrypted_value: string; signatures: string[] };
+// Try to follow relayer response format. Here signature is always Bytes32(0)
+export type RelayerV1UserDecryptResponse = { payload: { decrypted_values: string[] }; signature: string };
 
 function _assertIsRelayerV1UserDecryptValidity(value: unknown): asserts value is RelayerV1UserDecryptValidity {
   const stringFields: (keyof RelayerV1UserDecryptValidity)[] = ["durationDays", "startTimestamp"];
@@ -93,6 +95,14 @@ export function assertIsRelayerV1PublicDecryptResponse(
   const stringKeys: (keyof RelayerV1PublicDecryptResponse)[] = ["decrypted_value"];
   assertIsStringArrayProperty(value, arrayKeys, "RelayerV1PublicDecryptResponse");
   assertIsStringProperty(value, stringKeys, "RelayerV1PublicDecryptResponse");
+}
+
+export function assertIsRelayerV1UserDecryptResponse(value: unknown): asserts value is RelayerV1UserDecryptResponse {
+  const stringKeys: (keyof RelayerV1UserDecryptResponse)[] = ["signature"];
+  const objectKeys: (keyof RelayerV1UserDecryptResponse)[] = ["payload"];
+  assertIsStringProperty(value, stringKeys, "RelayerV1UserDecryptResponse");
+  assertIsObjectProperty(value, objectKeys, "RelayerV1UserDecryptResponse");
+  assertIsStringArrayProperty(value.payload, ["decrypted_values"], "RelayerV1UserDecryptResponse");
 }
 
 export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts value is RelayerV1UserDecryptPayload {

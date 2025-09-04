@@ -77,27 +77,33 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
     assertIsBigUint8(threshold);
     this.#threshold = Number(threshold);
 
-    // ignore extensions
-    const eip712Domain = await this.#kmsVerifierContract.eip712Domain();
-    assertFhevm(eip712Domain.length === 7);
-    assertIsString(eip712Domain[0], "eip712Domain[0]");
-    assertIsString(eip712Domain[1], "eip712Domain[1]");
-    assertIsString(eip712Domain[2], "eip712Domain[2]");
-    assertIsBigUint256(eip712Domain[3], "eip712Domain[3]");
-    assertIsAddress(eip712Domain[4], "eip712Domain[4]");
-    assertIsBytes32String(eip712Domain[5], "eip712Domain[5]");
+    if (this.#eip712Domain === undefined) {
+      // ignore extensions
+      const eip712Domain = await this.#kmsVerifierContract.eip712Domain();
+      assertFhevm(eip712Domain.length === 7);
+      assertIsString(eip712Domain[0], "eip712Domain[0]");
+      assertIsString(eip712Domain[1], "eip712Domain[1]");
+      assertIsString(eip712Domain[2], "eip712Domain[2]");
+      assertIsBigUint256(eip712Domain[3], "eip712Domain[3]");
+      assertIsAddress(eip712Domain[4], "eip712Domain[4]");
+      assertIsBytes32String(eip712Domain[5], "eip712Domain[5]");
 
-    this.#eip712Domain = {
-      fields: Number(BigInt(eip712Domain[0])),
-      name: eip712Domain[1],
-      version: eip712Domain[2],
-      chainId: eip712Domain[3],
-      verifyingContract: eip712Domain[4],
-      salt: eip712Domain[5],
-    };
+      this.#eip712Domain = {
+        fields: Number(BigInt(eip712Domain[0])),
+        name: eip712Domain[1],
+        version: eip712Domain[2],
+        chainId: eip712Domain[3],
+        verifyingContract: eip712Domain[4],
+        salt: eip712Domain[5],
+        // last field is ignored
+      };
+    }
 
-    assertFhevm(constants.DECRYPTION_EIP712_DOMAIN.name === this.#eip712Domain.name);
-    assertFhevm(constants.DECRYPTION_EIP712_DOMAIN.version === this.#eip712Domain.version);
+    // Add extra checks (in case EIP712 are chanbging)
+    assertFhevm(this.#eip712Domain.fields === Number(0x0f));
+    assertFhevm(this.#eip712Domain.salt === EthersT.ZeroHash);
+    assertFhevm(this.#eip712Domain.name === constants.PUBLIC_DECRYPT_EIP712.domain.name);
+    assertFhevm(this.#eip712Domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version);
   }
 
   public get address(): string {
@@ -150,14 +156,15 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
     decryptedResult: string,
     extraData: string,
   ): EthersEIP712 {
+    const domain = this.eip712Domain;
     const eip712: EthersEIP712 = {
       domain: {
-        chainId: this.gatewayChainId,
-        name: this.eip712Domain.name,
-        version: this.eip712Domain.version,
-        verifyingContract: this.gatewayDecryptionAddress,
+        chainId: domain.chainId,
+        name: domain.name,
+        version: domain.version,
+        verifyingContract: domain.verifyingContract,
       },
-      types: constants.PUBLIC_DECRYPT_EIP712_TYPE,
+      types: constants.PUBLIC_DECRYPT_EIP712.types,
       message: {
         ctHandles: handlesBytes32List,
         decryptedResult: decryptedResult,

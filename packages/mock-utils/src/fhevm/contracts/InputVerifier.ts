@@ -81,6 +81,8 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     if (this.#eip712Domain === undefined) {
       // ignore extensions
       const eip712Domain = await this.#inputVerifierReadonlyContract.eip712Domain();
+
+      // Add extra checks (in case EIP712 are changing)
       assertFhevm(eip712Domain.length === 7);
       assertIsString(eip712Domain[0], "eip712Domain[0]");
       assertIsString(eip712Domain[1], "eip712Domain[1]");
@@ -88,6 +90,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
       assertIsBigUint256(eip712Domain[3], "eip712Domain[3]");
       assertIsAddress(eip712Domain[4], "eip712Domain[4]");
       assertIsBytes32String(eip712Domain[5], "eip712Domain[5]");
+      assertFhevm(Array.isArray(eip712Domain[6]) && eip712Domain[6].length === 0, "eip712Domain[6]");
 
       this.#eip712Domain = {
         fields: Number(BigInt(eip712Domain[0])),
@@ -96,11 +99,15 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
         chainId: eip712Domain[3],
         verifyingContract: eip712Domain[4],
         salt: eip712Domain[5],
+        // last field is ignored
       };
     }
 
-    assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.name === this.#eip712Domain.name);
-    assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.version === this.#eip712Domain.version);
+    // Add extra checks (in case EIP712 are chanbging)
+    assertFhevm(this.#eip712Domain.fields === Number(0x0f));
+    assertFhevm(this.#eip712Domain.salt === EthersT.ZeroHash);
+    assertFhevm(this.#eip712Domain.name === constants.INPUT_VERIFICATION_EIP712.domain.name);
+    assertFhevm(this.#eip712Domain.version === constants.INPUT_VERIFICATION_EIP712.domain.version);
   }
 
   public get address(): string {
@@ -158,19 +165,18 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
   ) {
     assertIsArray(signatures);
 
-    const domain = {
-      name: this.eip712Domain.name,
-      version: this.eip712Domain.version,
-      chainId: this.eip712Domain.chainId,
-      verifyingContract: this.eip712Domain.verifyingContract,
-    };
-    const types = constants.INPUT_VERIFICATION_EIP712_TYPE;
+    const domain = this.eip712Domain;
 
     const recoveredAddresses: string[] = signatures.map((signature: string) => {
       const sig = ensure0x(signature);
       const recoveredAddress = EthersT.verifyTypedData(
-        domain,
-        types,
+        {
+          name: domain.name,
+          version: domain.version,
+          chainId: domain.chainId,
+          verifyingContract: domain.verifyingContract,
+        },
+        constants.INPUT_VERIFICATION_EIP712.types,
         {
           ctHandles: handlesBytes32List,
           userAddress,
@@ -199,14 +205,16 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     assertIsAddress(userAddress, "userAddress");
     assertIsAddress(contractAddress, "contractAddress");
 
+    const domain = this.eip712Domain;
+
     const eip712: EthersEIP712 = {
       domain: {
-        chainId: this.gatewayChainId,
-        name: this.eip712Domain.name,
-        version: this.eip712Domain.version,
-        verifyingContract: this.gatewayInputVerificationAddress,
+        chainId: domain.chainId,
+        name: domain.name,
+        version: domain.version,
+        verifyingContract: domain.verifyingContract,
       },
-      types: constants.INPUT_VERIFICATION_EIP712_TYPE,
+      types: constants.INPUT_VERIFICATION_EIP712.types,
       message: {
         ctHandles: handlesBytes32List.map((handle) => EthersT.zeroPadValue(EthersT.toBeHex(handle), 32)),
         userAddress: userAddress,

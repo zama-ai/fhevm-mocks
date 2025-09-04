@@ -439,8 +439,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   // InputVerifier eip712Domain
   const _inputVerifier712Domain = await inputVerifierReadOnly.eip712Domain();
   assertIsEIP712Domain(_inputVerifier712Domain, "InputVerifier", {
-    name: constantsBase.INPUT_VERIFICATION_EIP712_DOMAIN.name,
-    version: constantsBase.INPUT_VERIFICATION_EIP712_DOMAIN.version,
+    name: constantsBase.INPUT_VERIFICATION_EIP712.domain.name,
+    version: constantsBase.INPUT_VERIFICATION_EIP712.domain.version,
     chainId: BigInt(gatewayChainId),
     verifyingContract: inputVerifierVerifyingContractSource,
   });
@@ -448,8 +448,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   // KMSVerifier eip712Domain
   const _kms712Domain = await kmsVerifierReadOnly.eip712Domain();
   assertIsEIP712Domain(_kms712Domain, "KMSVerifier", {
-    name: constantsBase.DECRYPTION_EIP712_DOMAIN.name,
-    version: constantsBase.DECRYPTION_EIP712_DOMAIN.version,
+    name: constantsBase.PUBLIC_DECRYPT_EIP712.domain.name,
+    version: constantsBase.PUBLIC_DECRYPT_EIP712.domain.version,
     chainId: BigInt(gatewayChainId),
     verifyingContract: gatewayDecryptionAddress,
   });

@@ -35,8 +35,8 @@ export const fromHexString = (hexString: string): Uint8Array => {
 };
 
 // To be removed
-export const toHexString = (bytes: Uint8Array, with0x = false) =>
-  `${with0x ? "0x" : ""}${bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, "0"), "")}`;
+export const toHexString = (bytes: Uint8Array): `0x${string}` =>
+  `0x${bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, "0"), "")}`;
 
 export function assertIsHexString(value: unknown, valueName?: string): asserts value is string {
   assertIsString(value, valueName);

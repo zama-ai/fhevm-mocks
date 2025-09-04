@@ -59,6 +59,7 @@ export interface HardhatFhevmRuntimeEnvironment {
     publicKey: string;
     privateKey: string;
   };
+
   userDecrypt(
     handles: HandleContractPair[],
     privateKey: string,
@@ -68,6 +69,10 @@ export interface HardhatFhevmRuntimeEnvironment {
     userAddress: string,
     startTimestamp: string | number,
     durationDays: string | number,
+  ): Promise<DecryptedResults>;
+
+  publicDecrypt(
+    handles: (string | Uint8Array)[],
   ): Promise<DecryptedResults>;
 
   userDecryptEbool(

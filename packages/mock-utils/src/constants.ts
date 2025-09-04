@@ -1,47 +1,51 @@
 const constants = {
   FHEVM_HANDLE_VERSION: 0,
   DEFAULT_DURATION_DAYS: 365,
-  DECRYPTION_EIP712_DOMAIN: { version: "1", name: "Decryption" },
-  PUBLIC_DECRYPT_EIP712_TYPE: {
-    PublicDecryptVerification: [
-      {
-        name: "ctHandles",
-        type: "bytes32[]",
-      },
-      {
-        name: "decryptedResult",
-        type: "bytes",
-      },
-      {
-        name: "extraData",
-        type: "bytes",
-      },
-    ],
+  PUBLIC_DECRYPT_EIP712: {
+    domain: { version: "1", name: "Decryption" },
+    types: {
+      PublicDecryptVerification: [
+        {
+          name: "ctHandles",
+          type: "bytes32[]",
+        },
+        {
+          name: "decryptedResult",
+          type: "bytes",
+        },
+        {
+          name: "extraData",
+          type: "bytes",
+        },
+      ],
+    },
   },
-  INPUT_VERIFICATION_EIP712_DOMAIN: { version: "1", name: "InputVerification" },
-  INPUT_VERIFICATION_EIP712_TYPE: {
-    CiphertextVerification: [
-      {
-        name: "ctHandles",
-        type: "bytes32[]",
-      },
-      {
-        name: "userAddress",
-        type: "address",
-      },
-      {
-        name: "contractAddress",
-        type: "address",
-      },
-      {
-        name: "contractChainId",
-        type: "uint256",
-      },
-      {
-        name: "extraData",
-        type: "bytes",
-      },
-    ],
+  INPUT_VERIFICATION_EIP712: {
+    domain: { version: "1", name: "InputVerification" },
+    types: {
+      CiphertextVerification: [
+        {
+          name: "ctHandles",
+          type: "bytes32[]",
+        },
+        {
+          name: "userAddress",
+          type: "address",
+        },
+        {
+          name: "contractAddress",
+          type: "address",
+        },
+        {
+          name: "contractChainId",
+          type: "uint256",
+        },
+        {
+          name: "extraData",
+          type: "bytes",
+        },
+      ],
+    },
   },
   TEST_MNEMONIC: "test test test test test test test future home encrypt virtual machine",
   DEFAULT_KMS_SIGNERS_ACCOUNTS: {

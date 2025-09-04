@@ -219,6 +219,18 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     );
   }
 
+  async publicDecrypt(
+    handles: (string | Uint8Array)[],
+  ): Promise<DecryptedResults> {
+    if (this._fhevmEnv.isRunningInHHNode) {
+      // Cannot be called from the server process
+      throw new HardhatFhevmError(`Cannot call publicDecrypt from a 'hardhat node' server.`);
+    }
+    return await this._fhevmEnv.instance.publicDecrypt(
+      handles
+    );
+  }
+
   public async userDecryptEbool(
     handleBytes32: string,
     contractAddress: EthersT.AddressLike,
@@ -226,7 +238,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<boolean> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults = await _userDecryptHandleBytes32(
+    const decryptedResults = await mockUtilsUserDecryptHandleBytes32(
       this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType: FhevmType.ebool }],
       user,
@@ -273,7 +285,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+    const decryptedResults: DecryptedResults = await mockUtilsUserDecryptHandleBytes32(
       options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType }],
       user,
@@ -327,7 +339,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<string> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+    const decryptedResults: DecryptedResults = await mockUtilsUserDecryptHandleBytes32(
       options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType: FhevmType.eaddress }],
       user,
@@ -424,13 +436,4 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
       throw new HardhatFhevmError(errorMsg);
     }
   }
-}
-
-async function _userDecryptHandleBytes32(
-  instance: FhevmInstance,
-  handleContractPairs: { handleBytes32: string; contractAddress: string; fhevmType?: FhevmType }[],
-  user: EthersT.Signer,
-  options?: Omit<FhevmUserDecryptOptions, "instance">,
-): Promise<DecryptedResults> {
-  return mockUtilsUserDecryptHandleBytes32(instance, handleContractPairs, user, options);
 }
