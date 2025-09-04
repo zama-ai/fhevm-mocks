@@ -71,9 +71,7 @@ export interface HardhatFhevmRuntimeEnvironment {
     durationDays: string | number,
   ): Promise<DecryptedResults>;
 
-  publicDecrypt(
-    handles: (string | Uint8Array)[],
-  ): Promise<DecryptedResults>;
+  publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults>;
 
   userDecryptEbool(
     handleBytes32: string,

@@ -219,16 +219,12 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     );
   }
 
-  async publicDecrypt(
-    handles: (string | Uint8Array)[],
-  ): Promise<DecryptedResults> {
+  async publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults> {
     if (this._fhevmEnv.isRunningInHHNode) {
       // Cannot be called from the server process
       throw new HardhatFhevmError(`Cannot call publicDecrypt from a 'hardhat node' server.`);
     }
-    return await this._fhevmEnv.instance.publicDecrypt(
-      handles
-    );
+    return await this._fhevmEnv.instance.publicDecrypt(handles);
   }
 
   public async userDecryptEbool(
