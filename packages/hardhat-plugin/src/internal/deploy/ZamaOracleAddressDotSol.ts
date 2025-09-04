@@ -10,8 +10,9 @@ import constants from "../constants";
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
 /**
- * This function parses `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol` file
- * and replaces the address listed by the address used in the current mock FHEVM environment.
+ * This function generates `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`.
+ * It parses `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol` file
+ * and replaces the addresses listed by the addresses used in the current mock FHEVM environment.
  * @returns The absolute path to the generated `ZamaOracleAddress.sol`
  */
 export function generateZamaOracleAddressDotSol(
