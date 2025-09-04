@@ -11,7 +11,7 @@ import { assertIsString } from "../../utils/string.js";
 import { FhevmHandle } from "../FhevmHandle.js";
 import { FhevmType, type FhevmTypeInfo } from "../FhevmType.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
-import { KMSVerifierPartialInterface } from "./KMSVerifier.itf.js";
+import { KMSVerifierPartialInterface } from "./interfaces/KMSVerifier.itf.js";
 
 export type KMSVerifierProperties = {
   signersAddresses?: string[];

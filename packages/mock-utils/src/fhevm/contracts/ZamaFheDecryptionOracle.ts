@@ -3,7 +3,7 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { assertFhevm } from "../../utils/error.js";
 import { FhevmDecryptionOracleContractWrapper } from "./FhevmContractWrapper.js";
-import { KMSVerifierPartialInterface } from "./KMSVerifier.itf.js";
+import { KMSVerifierPartialInterface } from "./interfaces/KMSVerifier.itf.js";
 
 // Shareable
 export class ZamaFheDecryptionOracle extends FhevmDecryptionOracleContractWrapper {

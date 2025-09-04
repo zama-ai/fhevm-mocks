@@ -114,9 +114,7 @@ export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts val
 }
 
 export function assertIsRelayerMetadata(value: unknown): asserts value is RelayerMetadata {
-  const stringKeys: (keyof RelayerMetadata)[] = [
-    "version",
-  ];
+  const stringKeys: (keyof RelayerMetadata)[] = ["version"];
   assertIsStringProperty(value, stringKeys, "RelayerMetadata");
   const keys: (keyof RelayerMetadata)[] = [
     "ACLAddress",

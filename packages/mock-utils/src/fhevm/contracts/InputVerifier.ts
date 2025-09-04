@@ -10,7 +10,7 @@ import { numberToHexNoPrefix } from "../../utils/hex.js";
 import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
 import { assertIsString, ensure0x, removePrefix } from "../../utils/string.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
-import { InputVerifierPartialInterface } from "./InputVerifier.itf.js";
+import { InputVerifierPartialInterface } from "./interfaces/InputVerifier.itf.js";
 
 export type InputVerifierProperties = {
   signersAddresses?: string[];
