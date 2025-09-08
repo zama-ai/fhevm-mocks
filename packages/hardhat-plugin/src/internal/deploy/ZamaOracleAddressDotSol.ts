@@ -3,22 +3,25 @@ import * as fs from "fs";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
+import constants from "../constants";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
 /**
- * This function parses `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol` file
- * and replaces the address listed by the address used in the current mock FHEVM environment.
+ * This function generates `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`.
+ * It parses `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol` file
+ * and replaces the addresses listed by the addresses used in the current mock FHEVM environment.
  * @returns The absolute path to the generated `ZamaOracleAddress.sol`
  */
 export function generateZamaOracleAddressDotSol(
   paths: FhevmEnvironmentPaths,
   sepoliaZamaOracleAddress: string,
 ): string {
-  const origPath = path.join(paths.zamaFheOracleSolidityAddress, "ZamaOracleAddress.sol");
+  const zamaOracleAddressDotSol = paths.zamaOracleAddressSolFilename;
+
+  const origPath = path.join(paths.zamaFheOracleSolidityAddressDir, zamaOracleAddressDotSol);
 
   if (!fs.existsSync(origPath)) {
     throw new HardhatFhevmError(
@@ -32,7 +35,7 @@ export function generateZamaOracleAddressDotSol(
   // This will throw an error in case the new `ZamaOracleAddress.sol` has been modified
   if (origContent.indexOf(`SepoliaZamaOracleAddress = ${expectedAddr};`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ZamaOracleAddress.sol file. File located at '${origPath}' has changed and is not supported. 'SepoliaZamaOracleAddress' as changed.`,
+      `Unexpected ${zamaOracleAddressDotSol} file. File located at '${origPath}' has changed and is not supported. 'SepoliaZamaOracleAddress' as changed.`,
     );
   }
 
@@ -43,7 +46,7 @@ export function generateZamaOracleAddressDotSol(
     const existingContent: string = fs.readFileSync(dstPath, "utf8");
     if (existingContent === dstContent) {
       debug(
-        `Skip ${picocolors.yellowBright("ZamaOracleAddress.sol")} generation. File ${dstPath} already exists with exact same content.`,
+        `Skip ${picocolors.yellowBright(zamaOracleAddressDotSol)} generation. File ${dstPath} already exists with exact same content.`,
       );
       return dstPath;
     }
@@ -56,7 +59,7 @@ export function generateZamaOracleAddressDotSol(
 
   fs.writeFileSync(dstPath, dstContent, "utf8");
 
-  debug(`Generate ${picocolors.yellowBright("ZamaOracleAddress.sol")} at ${dstPath}. Source ${origPath}`);
+  debug(`Generate ${picocolors.yellowBright(zamaOracleAddressDotSol)} at ${dstPath}. Source ${origPath}`);
 
   return dstPath;
 }

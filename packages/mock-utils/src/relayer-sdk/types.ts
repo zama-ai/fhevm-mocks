@@ -34,6 +34,22 @@ type EIP712 = {
   };
 };
 
+type BearerToken = {
+  __type: "BearerToken";
+  token: string;
+};
+type ApiKeyHeader = {
+  __type: "ApiKeyHeader";
+  header?: string;
+  value: string;
+};
+type ApiKeyCookie = {
+  __type: "ApiKeyCookie";
+  cookie?: string;
+  value: string;
+};
+type Auth = BearerToken | ApiKeyHeader | ApiKeyCookie;
+
 type FhevmInstanceConfig = {
   verifyingContractAddressDecryption: string;
   verifyingContractAddressInputVerification: string;
@@ -49,6 +65,7 @@ type FhevmInstanceConfig = {
     data: Uint8Array | null;
     id: string | null;
   };
+  auth?: Auth;
 };
 
 type DecryptedResults = Record<string, bigint | boolean | string>;

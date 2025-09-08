@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { ConfidentialGovernorAlpha } from "../../governance/ConfidentialGovernorAlpha.sol";
 import { FHE } from "@fhevm/solidity/lib/FHE.sol";
 import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
-import { SepoliaZamaOracleAddress } from "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol";
 
 contract TestConfidentialGovernorAlpha is SepoliaConfig, ConfidentialGovernorAlpha {
     constructor(
@@ -14,6 +13,6 @@ contract TestConfidentialGovernorAlpha is SepoliaConfig, ConfidentialGovernorAlp
         uint256 votingPeriod_,
         uint256 maxDecryptionDelay_
     ) ConfidentialGovernorAlpha(owner_, timelock_, confidentialERC20Votes_, votingPeriod_, maxDecryptionDelay_) {
-        FHE.setDecryptionOracle(SepoliaZamaOracleAddress);
+        //
     }
 }

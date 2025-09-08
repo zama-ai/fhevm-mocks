@@ -45,7 +45,7 @@ describe("ConfidentialERC20", function () {
     //await helpers.getStorageAt(address, storageSlot);
     /*
 When you encouter this kind of error:
-        FHEVMConfigStruct storage $ = getFHEVMConfig(); return "undefined" => FHE.setFHEVMConfig was not called!
+        CoprocessorConfig storage $ = getCoprocessorConfig(); return "undefined" => FHE.setCoprocessor was not called!
         We must ADD a test!!!!!! for the user!!
 
      Error: Transaction reverted: function returned an unexpected amount of data

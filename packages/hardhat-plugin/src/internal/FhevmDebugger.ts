@@ -24,10 +24,14 @@ export class FhevmDebugger implements HardhatFhevmRuntimeDebugger {
     this.#fhevmEnv = fhevmEnv;
   }
 
+  /**
+   * TODO: Should be modified. We want a function that returns the list of callback arguments
+   */
   public async createDecryptionSignatures(
     handlesBytes32Hex: string[],
     clearTextValues: (bigint | string | boolean)[],
   ): Promise<string[]> {
+    const extraDataV0 = EthersT.solidityPacked(["uint8"], [0]);
     const clearTextValuesHex: string[] = [];
     for (let i = 0; i < clearTextValues.length; ++i) {
       const ct = clearTextValues[i];
@@ -44,6 +48,7 @@ export class FhevmDebugger implements HardhatFhevmRuntimeDebugger {
     return await relayer.requestFhevmCreateDecryptionSignatures(this.#fhevmEnv.relayerProvider, {
       handlesBytes32Hex,
       clearTextValuesHex,
+      extraData: extraDataV0,
     });
   }
 

@@ -2,7 +2,7 @@ import { ethers as EthersT } from "ethers";
 
 import { BlockLogCursor } from "../../ethers/event.js";
 import { FhevmError } from "../../utils/error.js";
-import { FHEVMExecutorPartialInterface } from "../contracts/FHEVMExecutor.itf.js";
+import { FHEVMExecutorPartialInterface } from "../contracts/interfaces/FHEVMExecutor.itf.js";
 import { type CoprocessorEvent, isCoprocessorEventName } from "./CoprocessorEvents.js";
 
 export async function getCoprocessorEvents(

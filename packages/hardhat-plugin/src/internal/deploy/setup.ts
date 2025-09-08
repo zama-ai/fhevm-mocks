@@ -1,28 +1,25 @@
 import {
   FhevmContractName,
   FhevmMockProvider,
+  MinimalProvider,
   assertIsEIP712Domain,
   constants as constantsBase,
   contracts,
   setInitializableStorage,
+  setOwnableStorage,
 } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
 import * as path from "path";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
 import { HardhatFhevmError } from "../../error";
 import { FhevmEnvironmentAddresses, FhevmEnvironmentConfig, FhevmSigners } from "../FhevmEnvironment";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
+import constants from "../constants";
 import { assertHHFhevm } from "../error";
 import { assertSignersMatchAddresses } from "../utils/ethers";
-import {
-  getGatewayChainId,
-  getGatewayDecryptionAddress,
-  getGatewayInputVerificationAddress,
-  getKMSThreshold,
-} from "./addresses";
+import { getGatewayDecryptionAddress, getGatewayInputVerificationAddress, getKMSThreshold } from "./addresses";
 
 const debug = setupDebug("@fhevm/hardhat:setup");
 
@@ -157,7 +154,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   coprocessorSigners: EthersT.Signer[];
   kmsSigners: EthersT.Signer[];
 }> {
-  const consumerCoreContractsPkg = __requireConsumerFhevmCoreContracts(fhevmPaths.root);
+  const consumerCoreContractsPkg = __requireConsumerFhevmCoreContracts(fhevmPaths.rootDir);
   const hhPluginCoreContractsPkg = __requireResolveFhevmCoreContracts();
 
   // Make sure the consumer of the HH Plugin uses the expected version of core-contracts
@@ -173,26 +170,22 @@ export async function setupMockUsingCoreContractsArtifacts(
     );
   }
 
-  const FHEVMExecutorAddress = fhevmAddresses.FHEVMConfig.FHEVMExecutorAddress;
-  const aclAddress = fhevmAddresses.FHEVMConfig.ACLAddress;
-  const kmsVerifierAddress = fhevmAddresses.FHEVMConfig.KMSVerifierAddress;
-  const inputVerifierAddress = fhevmAddresses.FHEVMConfig.InputVerifierAddress;
+  const FHEVMExecutorAddress = fhevmAddresses.CoprocessorConfig.CoprocessorAddress;
+  const aclAddress = fhevmAddresses.CoprocessorConfig.ACLAddress;
+  const kmsVerifierAddress = fhevmAddresses.CoprocessorConfig.KMSVerifierAddress;
+  const inputVerifierAddress = fhevmAddresses.InputVerifierAddress;
   const hcuLimitAddress = fhevmAddresses.HCULimitAddress;
-  const decryptionOracleAddress = fhevmAddresses.SepoliaZamaOracleAddress;
+  const decryptionOracleAddress = fhevmAddresses.CoprocessorConfig.DecryptionOracleAddress;
 
   // Setup FHEVMExecutor
   const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
-  //const execBytecode = execArtifact.artifact.deployedBytecode;
-  await __tryDeploy(
+  const execDeployment = await __tryDeploy(
     mockProvider,
     "FHEVMExecutor",
     FHEVMExecutorAddress,
     execArtifact.path,
     execArtifact.artifact.deployedBytecode,
   );
-
-  // Call reinitialize ?
-  // console.log("TODO FHEVMExecutor.reinitialize is missing!");
 
   // Retrieve precompiled FHE addresses using FHEVMExecutor.
   const fhevmExecutorReadOnly = new EthersT.Contract(
@@ -211,7 +204,13 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Setup ACL
   const aclArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("ACL");
-  await __tryDeploy(mockProvider, "ACL", aclAddress, aclArtifact.path, aclArtifact.artifact.deployedBytecode);
+  const aclDeployment = await __tryDeploy(
+    mockProvider,
+    "ACL",
+    aclAddress,
+    aclArtifact.path,
+    aclArtifact.artifact.deployedBytecode,
+  );
 
   // Setup KMSVerifier
   const kmsArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("KMSVerifier");
@@ -235,7 +234,7 @@ export async function setupMockUsingCoreContractsArtifacts(
 
   // Setup HCULimit
   const hcuLimitArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("HCULimit");
-  await __tryDeploy(
+  const hcuLimitDeployment = await __tryDeploy(
     mockProvider,
     "HCULimit",
     hcuLimitAddress,
@@ -276,9 +275,6 @@ export async function setupMockUsingCoreContractsArtifacts(
     mockProvider.readonlyEthersProvider,
   );
 
-  // console.log("TODO ACL.reinitialize is missing!");
-  // console.log("TODO HCULimit.reinitialize is missing!");
-
   const aclFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(aclReadOnly, "ACL", aclAddress);
   const hcuLimitFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(
     hcuLimitReadOnly,
@@ -314,7 +310,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   const gatewayDecryptionAddress = getGatewayDecryptionAddress();
-  const gatewayChainId: number = getGatewayChainId();
+  const gatewayChainId = constants.SEPOLIA.gatewayChainId;
   const kmsInitialThreshold = getKMSThreshold();
 
   const kmsSigners = fhevmSigners.kms;
@@ -330,45 +326,69 @@ export async function setupMockUsingCoreContractsArtifacts(
   const zero = fhevmSigners.zero;
   const one = fhevmSigners.one;
 
-  const kmsOne = kmsVerifierReadOnly.connect(one) as EthersT.Contract;
+  const zeroAddress = fhevmSigners.zeroAddress;
+  const oneAddress = fhevmSigners.oneAddress;
 
-  const kmsOwner = await kmsVerifierReadOnly.owner();
-  const kmsDeployer = fhevmSigners.zeroAddress;
-  const kmsDeployerSigner = zero;
-  const expectedKmsOwner = fhevmSigners.oneAddress;
-  const expectedKmsOwnerSigner = one;
+  // No need to call:
+  // - FHEVMExecutor.initializeFromEmptyProxy()
+  // - ACL.initializeFromEmptyProxy()
+  // - HCULimit.initializeFromEmptyProxy()
+  // since these initializers are currently pretty much empty right now
+
+  await __setContractOwner(
+    mockProvider.minimalProvider,
+    fhevmExecutorReadOnly,
+    "FHEVMExecutor",
+    zero,
+    one,
+    execDeployment.alreadyDeployed,
+  );
+  await __setContractOwner(mockProvider.minimalProvider, aclReadOnly, "ACL", zero, one, aclDeployment.alreadyDeployed);
+  await __setContractOwner(
+    mockProvider.minimalProvider,
+    hcuLimitReadOnly,
+    "HCULimit",
+    zero,
+    one,
+    hcuLimitDeployment.alreadyDeployed,
+  );
+
+  const kmsOwner: `0x${string}` = await kmsVerifierReadOnly.owner();
 
   if (kmsDeployment.alreadyDeployed) {
-    if (kmsOwner !== expectedKmsOwner) {
-      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${expectedKmsOwner}`);
+    if (kmsOwner !== oneAddress) {
+      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${oneAddress}`);
     }
   } else {
-    if (kmsOwner !== kmsDeployer) {
-      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${kmsDeployer}`);
+    if (kmsOwner !== zeroAddress) {
+      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${zeroAddress}`);
     }
   }
 
-  if (kmsOwner !== fhevmSigners.oneAddress) {
-    // Setup KMS Verifier
-    // 1. transfer ownership
-    // 2. call reinitialize
-    const kmsZero = kmsVerifierReadOnly.connect(kmsDeployerSigner) as EthersT.Contract;
+  if (kmsOwner !== oneAddress) {
+    // set KMSVerifier owner using setOwnableStorage cheat code
+    await setOwnableStorage(mockProvider.minimalProvider, kmsVerifierAddress, oneAddress);
+    if ((await kmsVerifierReadOnly.owner()) !== oneAddress) {
+      throw new HardhatFhevmError(`Set KMSVerifier OwnableStorage failed.`);
+    }
 
-    let tx = await kmsZero.transferOwnership(expectedKmsOwnerSigner);
-    await tx.wait();
-
-    tx = await kmsOne.acceptOwnership();
-    await tx.wait();
-
+    // set KMSVerifier initializable struct using setInitializableStorage cheat code
     await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
       initialized: 1n,
       initializing: false,
     });
 
-    tx = await kmsOne.initializeFromEmptyProxy(
+    const kmsOne = kmsVerifierReadOnly.connect(one) as EthersT.Contract;
+
+    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
+    let tx = await kmsOne.initializeFromEmptyProxy(
+      // address verifyingContractSource,
       gatewayDecryptionAddress,
+      // uint64 chainIDSource,
       gatewayChainId,
+      // address[] calldata initialSigners,
       kmsSigners,
+      // uint256 initialThreshold
       kmsInitialThreshold,
     );
     await tx.wait();
@@ -381,49 +401,43 @@ export async function setupMockUsingCoreContractsArtifacts(
   await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
 
   const inputVerifierVerifyingContractSource = getGatewayInputVerificationAddress();
-
-  // Setup Input Verifier
-  // 1. transfer ownership
-  // 2. call reinitialize
-  const inputVerifierOne = inputVerifierReadOnly.connect(one) as EthersT.Contract;
-
-  const inputVerifierOwner = await inputVerifierReadOnly.owner();
-  const inputVerifierDeployer = fhevmSigners.zeroAddress;
-  const inputVerifierDeployerSigner = zero;
-  const expectedInputVerifierOwner = fhevmSigners.oneAddress;
-  const expectedInputVerifierOwnerSigner = one;
+  const inputVerifierOwner: `0x${string}` = await inputVerifierReadOnly.owner();
 
   if (inputVerifierDeployment.alreadyDeployed) {
-    if (inputVerifierOwner !== expectedInputVerifierOwner) {
+    if (inputVerifierOwner !== oneAddress) {
       throw new HardhatFhevmError(
-        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${expectedInputVerifierOwner}`,
+        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${oneAddress}`,
       );
     }
   } else {
-    if (inputVerifierOwner !== inputVerifierDeployer) {
+    if (inputVerifierOwner !== zeroAddress) {
       throw new HardhatFhevmError(
-        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${inputVerifierDeployer}`,
+        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${zeroAddress}`,
       );
     }
   }
 
-  if (inputVerifierOwner !== expectedInputVerifierOwner) {
-    const inputVerifierZero = inputVerifierReadOnly.connect(inputVerifierDeployerSigner) as EthersT.Contract;
+  if (inputVerifierOwner !== oneAddress) {
+    // set InputVerifier owner using setOwnableStorage cheat code
+    await setOwnableStorage(mockProvider.minimalProvider, inputVerifierAddress, oneAddress);
+    if ((await inputVerifierReadOnly.owner()) !== oneAddress) {
+      throw new HardhatFhevmError(`Set InputVerifier OwnableStorage failed.`);
+    }
 
-    let tx = await inputVerifierZero.transferOwnership(expectedInputVerifierOwnerSigner);
-    await tx.wait();
-
-    tx = await inputVerifierOne.acceptOwnership();
-    await tx.wait();
-
+    // set InputVerifier initializable struct using setInitializableStorage cheat code
     await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
       initialized: 1n,
       initializing: false,
     });
 
-    tx = await inputVerifierOne.initializeFromEmptyProxy(
+    const inputVerifierOne = inputVerifierReadOnly.connect(one) as EthersT.Contract;
+    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
+    let tx = await inputVerifierOne.initializeFromEmptyProxy(
+      // address verifyingContractSource,
       inputVerifierVerifyingContractSource,
+      // uint64 chainIDSource,
       gatewayChainId,
+      // address[] calldata initialSigners
       coprocessorSigners,
     );
     await tx.wait();
@@ -436,8 +450,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   // InputVerifier eip712Domain
   const _inputVerifier712Domain = await inputVerifierReadOnly.eip712Domain();
   assertIsEIP712Domain(_inputVerifier712Domain, "InputVerifier", {
-    name: constantsBase.INPUT_VERIFICATION_EIP712_DOMAIN.name,
-    version: constantsBase.INPUT_VERIFICATION_EIP712_DOMAIN.version,
+    name: constantsBase.INPUT_VERIFICATION_EIP712.domain.name,
+    version: constantsBase.INPUT_VERIFICATION_EIP712.domain.version,
     chainId: BigInt(gatewayChainId),
     verifyingContract: inputVerifierVerifyingContractSource,
   });
@@ -445,8 +459,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   // KMSVerifier eip712Domain
   const _kms712Domain = await kmsVerifierReadOnly.eip712Domain();
   assertIsEIP712Domain(_kms712Domain, "KMSVerifier", {
-    name: constantsBase.DECRYPTION_EIP712_DOMAIN.name,
-    version: constantsBase.DECRYPTION_EIP712_DOMAIN.version,
+    name: constantsBase.PUBLIC_DECRYPT_EIP712.domain.name,
+    version: constantsBase.PUBLIC_DECRYPT_EIP712.domain.version,
     chainId: BigInt(gatewayChainId),
     verifyingContract: gatewayDecryptionAddress,
   });
@@ -514,4 +528,45 @@ function __checkHardCodedAddress(
     );
     throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
   }
+}
+
+async function __setContractOwner(
+  provider: MinimalProvider,
+  contract: EthersT.Contract,
+  contractName: string,
+  currentOwnerSigner: EthersT.Signer,
+  newOwnerSigner: EthersT.Signer,
+  alreadyDeployed: boolean,
+) {
+  const ownerAddress = await contract.owner();
+  const contractAddress = await contract.getAddress();
+
+  const currentOwnerAddress = await currentOwnerSigner.getAddress();
+  const newOwnerAddress = await newOwnerSigner.getAddress();
+
+  if (alreadyDeployed) {
+    if (ownerAddress !== newOwnerAddress) {
+      throw new HardhatFhevmError(
+        `Wrong ${contractName} owner address. Got ${ownerAddress}, expected ${newOwnerAddress}`,
+      );
+    }
+  } else {
+    if (ownerAddress !== currentOwnerAddress) {
+      throw new HardhatFhevmError(
+        `Wrong ${contractName} owner address. Got ${ownerAddress}, expected ${currentOwnerAddress}`,
+      );
+    }
+  }
+
+  if (ownerAddress === newOwnerAddress) {
+    return;
+  }
+
+  // set contract owner using setOwnableStorage cheatcode
+  await setOwnableStorage(provider, contractAddress, newOwnerAddress);
+
+  assertHHFhevm(
+    (await contract.owner()) === (await newOwnerSigner.getAddress()),
+    `Set ${contractName} owner failed. Unexpected contract owner.`,
+  );
 }

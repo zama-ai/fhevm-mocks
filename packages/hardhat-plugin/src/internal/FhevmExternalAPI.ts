@@ -1,7 +1,7 @@
 import {
+  CoprocessorConfig,
   CoprocessorEvent,
   DecryptionRequestEvent,
-  FHEVMConfig,
   FhevmContractName,
   FhevmHandle,
   FhevmPublicDecryptOptions,
@@ -9,8 +9,7 @@ import {
   FhevmTypeEuint,
   FhevmTypeName,
   FhevmUserDecryptOptions,
-  getDecryptionOracleAddress,
-  getFHEVMConfig,
+  getCoprocessorConfig,
   getFhevmTypeInfo,
 } from "@fhevm/mock-utils";
 import { parseCoprocessorEventsFromLogs, parseDecryptionRequestEventsFromLogs } from "@fhevm/mock-utils";
@@ -20,10 +19,10 @@ import type { DecryptedResults } from "@zama-fhe/relayer-sdk/node";
 import type { EIP712, FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { HardhatFhevmRuntimeDebugger, HardhatFhevmRuntimeEnvironment } from "../types";
 import { FhevmEnvironment } from "./FhevmEnvironment";
+import constants from "./constants";
 import { FhevmContractError, parseFhevmError } from "./errors/FhevmContractError";
 import { logBox } from "./utils/log";
 
@@ -220,6 +219,14 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     );
   }
 
+  async publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults> {
+    if (this._fhevmEnv.isRunningInHHNode) {
+      // Cannot be called from the server process
+      throw new HardhatFhevmError(`Cannot call publicDecrypt from a 'hardhat node' server.`);
+    }
+    return await this._fhevmEnv.instance.publicDecrypt(handles);
+  }
+
   public async userDecryptEbool(
     handleBytes32: string,
     contractAddress: EthersT.AddressLike,
@@ -227,7 +234,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<boolean> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults = await _userDecryptHandleBytes32(
+    const decryptedResults = await mockUtilsUserDecryptHandleBytes32(
       this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType: FhevmType.ebool }],
       user,
@@ -274,7 +281,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<bigint> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+    const decryptedResults: DecryptedResults = await mockUtilsUserDecryptHandleBytes32(
       options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType }],
       user,
@@ -321,42 +328,6 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return decryptedResults[handleBytes32];
   }
 
-  // public async userDecryptEbytes(
-  //   fhevmType: FhevmTypeEbytes,
-  //   handleBytes32: string,
-  //   contractAddress: EthersT.AddressLike,
-  //   user: EthersT.Signer,
-  //   options?: FhevmUserDecryptOptions,
-  // ): Promise<bigint> {
-  //   const addr = await EthersT.resolveAddress(contractAddress);
-  //   const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
-  //     options?.instance ?? this._fhevmEnv.instance,
-  //     [{ handleBytes32, contractAddress: addr, fhevmType }],
-  //     user,
-  //     options,
-  //   );
-
-  //   const fhevmTypeInfo = getFhevmTypeInfo(fhevmType);
-
-  //   if (!(handleBytes32 in decryptedResults)) {
-  //     throw new HardhatFhevmError(
-  //       `Failed to retrieve decrypted value for ${fhevmTypeInfo.name} handle '${handleBytes32}' from the DecryptedResults response.`,
-  //     );
-  //   }
-  //   if (typeof decryptedResults[handleBytes32] !== "string") {
-  //     throw new HardhatFhevmError(
-  //       `Unexpected type for decrypted value of ${fhevmTypeInfo.name} handle '${handleBytes32}': expected a hex string, but got '${typeof decryptedResults[handleBytes32]}' instead.`,
-  //     );
-  //   }
-  //   if (!EthersT.isHexString(decryptedResults[handleBytes32])) {
-  //     throw new HardhatFhevmError(
-  //       `Invalid decrypted value for ${fhevmTypeInfo.name} handle '${handleBytes32}': expected a valid hex string, but received '${decryptedResults[handleBytes32]}'.`,
-  //     );
-  //   }
-
-  //   return EthersT.toBigInt(decryptedResults[handleBytes32]);
-  // }
-
   public async userDecryptEaddress(
     handleBytes32: string,
     contractAddress: EthersT.AddressLike,
@@ -364,7 +335,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     options?: FhevmUserDecryptOptions,
   ): Promise<string> {
     const addr = await EthersT.resolveAddress(contractAddress);
-    const decryptedResults: DecryptedResults = await _userDecryptHandleBytes32(
+    const decryptedResults: DecryptedResults = await mockUtilsUserDecryptHandleBytes32(
       options?.instance ?? this._fhevmEnv.instance,
       [{ handleBytes32, contractAddress: addr, fhevmType: FhevmType.eaddress }],
       user,
@@ -415,12 +386,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return decryptedResults[handleBytes32];
   }
 
-  public async getFHEVMConfig(contractAddress: string): Promise<FHEVMConfig> {
-    return getFHEVMConfig(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
-  }
-
-  public async getDecryptionOracleAddress(contractAddress: string): Promise<string> {
-    return getDecryptionOracleAddress(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
+  public async getCoprocessorConfig(contractAddress: string): Promise<CoprocessorConfig> {
+    return getCoprocessorConfig(this._fhevmEnv.readonlyEip1193Provider, contractAddress);
   }
 
   public async assertCoprocessorInitialized(contract: AddressLike, contractName?: string): Promise<void> {
@@ -428,70 +395,41 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
 
     const expectedACLAddress = this._fhevmEnv.getACLAddress();
     const expectedFHEVMExecutorAddress = this._fhevmEnv.getFHEVMExecutorAddress();
-    const expectedInputVerifierAddress = this._fhevmEnv.getInputVerifierAddress();
+    const expectedDecryptionOracleAddress = this._fhevmEnv.getDecryptionOracleAddress();
     const expectedKMSVerifierAddress = this._fhevmEnv.getKMSVerifierAddress();
 
     const errorMsgPrefix =
       contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
 
-    const addresses = await this.getFHEVMConfig(contractAddress);
+    const coprocessorConfig = await this.getCoprocessorConfig(contractAddress);
+    const configFile = `${constants.FHEVM_SOLIDITY_PACKAGE.name}/${constants.FHEVM_SOLIDITY_PACKAGE.configFile}`;
 
     if (
-      addresses.ACLAddress === EthersT.ZeroAddress ||
-      addresses.FHEVMExecutorAddress === EthersT.ZeroAddress ||
-      addresses.InputVerifierAddress === EthersT.ZeroAddress ||
-      addresses.KMSVerifierAddress === EthersT.ZeroAddress
+      coprocessorConfig.ACLAddress === EthersT.ZeroAddress ||
+      coprocessorConfig.CoprocessorAddress === EthersT.ZeroAddress ||
+      coprocessorConfig.DecryptionOracleAddress === EthersT.ZeroAddress ||
+      coprocessorConfig.KMSVerifierAddress === EthersT.ZeroAddress
     ) {
-      const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}:${constants.FHEVM_CONFIG_CONTRACT_NAME} or explicitly calls FHE.setCoprocessor() in its constructor.`;
+      const errorMsg = `${errorMsgPrefix} is not initialized for FHE operations. Make sure it either inherits from ${configFile}:${constants.FHEVM_SOLIDITY_PACKAGE.configContractName} or explicitly calls FHE.setCoprocessor() in its constructor.`;
       throw new HardhatFhevmError(errorMsg);
     }
 
-    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file @fhevm/solidity/config/${constants.FHEVM_CONFIG_SOLIDITY_FILE}`;
-    if (addresses.ACLAddress !== expectedACLAddress) {
-      const errorMsg = `Coprocessor ACL address mismatch. ${addrMismatchErrorMsg}. ACL address: ${addresses.ACLAddress}, expected ACL address: ${expectedACLAddress}`;
+    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with FHEVM contract addresses that do not match the currently deployed FHEVM contracts. This is likely due to incorrect addresses in the file ${configFile}`;
+    if (coprocessorConfig.ACLAddress !== expectedACLAddress) {
+      const errorMsg = `Coprocessor ACL address mismatch. ${addrMismatchErrorMsg}. ACL address: ${coprocessorConfig.ACLAddress}, expected ACL address: ${expectedACLAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
-    if (addresses.FHEVMExecutorAddress !== expectedFHEVMExecutorAddress) {
-      const errorMsg = `Coprocessor FHEVMExecutor address mismatch. ${addrMismatchErrorMsg}. FHEVMExecutor address: ${addresses.FHEVMExecutorAddress}, expected FHEVMExecutor address: ${expectedFHEVMExecutorAddress}`;
+    if (coprocessorConfig.CoprocessorAddress !== expectedFHEVMExecutorAddress) {
+      const errorMsg = `Coprocessor FHEVMExecutor address mismatch. ${addrMismatchErrorMsg}. FHEVMExecutor address: ${coprocessorConfig.CoprocessorAddress}, expected FHEVMExecutor address: ${expectedFHEVMExecutorAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
-    if (addresses.InputVerifierAddress !== expectedInputVerifierAddress) {
-      const errorMsg = `Coprocessor InputVerifier address mismatch. ${addrMismatchErrorMsg}. InputVerifier address: ${addresses.InputVerifierAddress}, expected InputVerifier address: ${expectedInputVerifierAddress}`;
+    if (coprocessorConfig.DecryptionOracleAddress !== expectedDecryptionOracleAddress) {
+      const errorMsg = `Coprocessor DecryptionOracle address mismatch. ${addrMismatchErrorMsg}. DecryptionOracle address: ${coprocessorConfig.DecryptionOracleAddress}, expected DecryptionOracle address: ${expectedDecryptionOracleAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
-    if (addresses.KMSVerifierAddress !== expectedKMSVerifierAddress) {
-      const errorMsg = `Coprocessor KMSVerifier address mismatch. ${addrMismatchErrorMsg}. KMSVerifier address: ${addresses.KMSVerifierAddress}, expected KMSVerifier address: ${expectedKMSVerifierAddress}`;
-      throw new HardhatFhevmError(errorMsg);
-    }
-  }
-
-  public async assertDecryptionOracleInitialized(contract: AddressLike, contractName?: string): Promise<void> {
-    const contractAddress = await this._fhevmEnv.hre.ethers.resolveAddress(contract);
-    const address = await this.getDecryptionOracleAddress(contractAddress);
-
-    const errorMsgPrefix =
-      contractName === undefined ? `Contract at ${contractAddress}` : `Contract ${contractName} at ${contractAddress}`;
-
-    if (address === EthersT.ZeroAddress) {
-      const errorMsg = `${errorMsgPrefix} is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle() in its constructor.`;
-      throw new HardhatFhevmError(errorMsg);
-    }
-
-    const expectedAddress = this._fhevmEnv.getDecryptionOracleAddress();
-
-    const addrMismatchErrorMsg = `${errorMsgPrefix} was initialized with a Decryption Oracle address that do not match the currently deployed Decryption Oracle contract`;
-    if (address !== expectedAddress) {
-      const errorMsg = `Coprocessor DecryptionOracle address mismatch. ${addrMismatchErrorMsg}. DecryptionOracle address: ${address}, expected DecryptionOracle address: ${expectedAddress}`;
+    if (coprocessorConfig.KMSVerifierAddress !== expectedKMSVerifierAddress) {
+      const errorMsg = `Coprocessor KMSVerifier address mismatch. ${addrMismatchErrorMsg}. KMSVerifier address: ${coprocessorConfig.KMSVerifierAddress}, expected KMSVerifier address: ${expectedKMSVerifierAddress}`;
       throw new HardhatFhevmError(errorMsg);
     }
   }
-}
-
-async function _userDecryptHandleBytes32(
-  instance: FhevmInstance,
-  handleContractPairs: { handleBytes32: string; contractAddress: string; fhevmType?: FhevmType }[],
-  user: EthersT.Signer,
-  options?: Omit<FhevmUserDecryptOptions, "instance">,
-): Promise<DecryptedResults> {
-  return mockUtilsUserDecryptHandleBytes32(instance, handleContractPairs, user, options);
 }

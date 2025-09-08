@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const FHEVMExecutorInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const FHEVMExecutorInterfaceVersion = "0.8.0-0";
 
 export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -99,8 +99,14 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
     type: "error",
   },
   {
-    inputs: [],
-    name: "IsScalar",
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "NotHostOwner",
     type: "error",
   },
   {
@@ -1232,19 +1238,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "HANDLE_VERSION",
-    outputs: [
-      {
-        internalType: "uint8",
-        name: "",
-        type: "uint8",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "UPGRADE_INTERFACE_VERSION",
     outputs: [
       {
@@ -2005,6 +1998,19 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
+    name: "getHandleVersion",
+    outputs: [
+      {
+        internalType: "uint8",
+        name: "",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "getInputVerifierAddress",
     outputs: [
       {
@@ -2077,7 +2083,7 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "reinitializeV2",
+    name: "reinitializeV3",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

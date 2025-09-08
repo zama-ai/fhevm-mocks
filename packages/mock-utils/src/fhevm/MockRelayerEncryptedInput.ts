@@ -192,17 +192,19 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     return this._addBytes(value, FhevmType.ebytes256);
   }
 
-  private _toMockFhevmRelayerV1InputProofPayload(): MockRelayerV1InputProofPayload {
+  private _toMockFhevmRelayerV1InputProofPayload(extraData: string): MockRelayerV1InputProofPayload {
     const numHandles = this.#clearTextValues.length;
     const clearTextValuesBigIntHex: string[] = [];
     const clearTextValuesBigInt: bigint[] = [];
     const rand32BufferList: Uint8Array[] = [];
     const metadatas: FhevmDBHandleMetadata[] = [];
+    //const randomBytes = EthersT.getBytes("0xd3f33f613ae8521e98fe2aa43bd0c6ad37d81c388c93460b78683e692602b981");
     for (let i = 0; i < numHandles; ++i) {
       const clearTextValueBigInt = BigInt(this.#clearTextValues[i]);
       clearTextValuesBigInt.push(clearTextValueBigInt);
       clearTextValuesBigIntHex.push(EthersT.toBeHex(clearTextValueBigInt));
       rand32BufferList.push(EthersT.randomBytes(32));
+      //rand32BufferList.push(randomBytes);
       metadatas.push({
         blockNumber: 0,
         index: 0,
@@ -230,6 +232,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
       userAddress: this.#userAddress,
       ciphertextWithInputVerification: EthersT.hexlify(mockCiphertextWithInputVerification),
       contractChainId: "0x" + this.#contractChainId.toString(16),
+      extraData,
       mockData,
     };
 
@@ -241,7 +244,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     fheTypes: FheType[],
     rand32BufferList: Uint8Array[],
   ): Uint8Array {
-    let encrypted = new Uint8Array(0);
+    let encrypted: Uint8Array = new Uint8Array(0);
 
     const numHandles = clearTextValuesBigInt.length;
 
@@ -268,6 +271,8 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
   }
 
   public async encrypt() {
+    const extraData: `0x${string}` = "0x00";
+
     /*
       Mock equivalent to https://github.com/zama-ai/fhevm-js/blob/main/src/relayer/sendEncryption.ts
 
@@ -284,7 +289,7 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
         };
 
     */
-    const payload = this._toMockFhevmRelayerV1InputProofPayload();
+    const payload = this._toMockFhevmRelayerV1InputProofPayload(extraData);
     const mockCiphertextWithZKProof = EthersT.getBytes(payload.ciphertextWithInputVerification);
 
     /*
@@ -328,10 +333,11 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
       this.#userAddress,
       this.#contractAddress,
       this.#contractChainId,
+      extraData,
       response.signatures,
     );
 
-    const inputProofHex = computeInputProofHex(response.handles, response.signatures);
+    const inputProofHex = computeInputProofHex(response.handles, response.signatures, extraData);
 
     return {
       handles: handlesBytes32List,

@@ -56,7 +56,6 @@ describe("ConfidentialGovernorAlpha", function () {
     TIMELOCK_DELAY = await timelock.delay();
 
     await hre.fhevm.assertCoprocessorInitialized(governorAddress);
-    await hre.fhevm.assertDecryptionOracleInitialized(governorAddress);
   });
 
   it("can propose a vote that becomes active if votes match the token threshold", async function () {
@@ -561,9 +560,11 @@ describe("ConfidentialGovernorAlpha", function () {
   });
 
   it("only gateway can call gateway functions", async function () {
-    const emptySigs: BytesLike[] = [];
-    await expect(governor.connect(signers.bob).callbackInitiateProposal(1, true, emptySigs)).to.be.reverted;
-    await expect(governor.connect(signers.bob).callbackVoteDecryption(1, 10, 10, emptySigs)).to.be.reverted;
+    const emptyDecryptionProof: BytesLike = "0xdeadbeef";
+    await expect(governor.connect(signers.bob).callbackInitiateProposal(1, "0xdeadbeef", emptyDecryptionProof)).to.be
+      .reverted;
+    await expect(governor.connect(signers.bob).callbackVoteDecryption(1, "0xdeadbeef", emptyDecryptionProof)).to.be
+      .reverted;
   });
 
   it("only owner can call owner functions", async function () {

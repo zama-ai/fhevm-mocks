@@ -19,7 +19,7 @@ async function deployFixture() {
   return { fheCounterContract, fheCounterContractAddress };
 }
 
-describe("FHECounter", function () {
+describe("FHECounter (publicDecrypt)", function () {
   let signers: Signers;
   let fheCounterContract: FHECounter;
   let fheCounterContractAddress: string;
@@ -65,6 +65,41 @@ describe("FHECounter", function () {
     const clearCountAfterInc = await fhevm.publicDecryptEuint(FhevmType.euint32, encryptedCountAfterInc);
 
     expect(clearCountAfterInc).to.eq(clearCountBeforeInc + clearOne);
+  });
+
+  it("increment the counter by 1 multiple times", async function () {
+    const encryptedCountBeforeInc = await fheCounterContract.getCount();
+    expect(encryptedCountBeforeInc).to.eq(ethers.ZeroHash);
+    const clearCountBeforeInc = 0;
+
+    // Encrypt constant 1 as a euint32
+    const clearOne = 1;
+    const encryptedOne = await fhevm
+      .createEncryptedInput(fheCounterContractAddress, signers.alice.address)
+      .add32(clearOne)
+      .encrypt();
+
+    // First Tx (increment by 1)
+    const tx1 = await fheCounterContract
+      .connect(signers.alice)
+      .increment(encryptedOne.handles[0], encryptedOne.inputProof);
+    await tx1.wait();
+    const encryptedCountAfterInc1 = await fheCounterContract.getCount();
+
+    // Second Tx (increment by one again)
+    const tx2 = await fheCounterContract
+      .connect(signers.alice)
+      .increment(encryptedOne.handles[0], encryptedOne.inputProof);
+    await tx2.wait();
+    const encryptedCountAfterInc2 = await fheCounterContract.getCount();
+
+    // Multiple public decrypt
+    const decryptedResults = await fhevm.publicDecrypt([encryptedCountAfterInc1, encryptedCountAfterInc2]);
+
+    // Result should contain 2 values
+    expect(Object.keys(decryptedResults).length).to.eq(2);
+    expect(decryptedResults[encryptedCountAfterInc1]).to.eq(clearCountBeforeInc + clearOne);
+    expect(decryptedResults[encryptedCountAfterInc2]).to.eq(clearCountBeforeInc + clearOne + clearOne);
   });
 
   it("decrement the counter by 1", async function () {

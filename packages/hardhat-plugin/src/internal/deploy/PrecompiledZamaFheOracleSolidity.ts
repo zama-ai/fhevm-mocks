@@ -2,7 +2,6 @@ import { FhevmDecryptionOracleContractName } from "@fhevm/mock-utils";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
 import * as fs from "fs";
-import * as path from "path";
 import * as picocolors from "picocolors";
 
 import { HardhatFhevmError } from "../../error";
@@ -27,7 +26,7 @@ pragma solidity ^0.8.24;
 
 address constant SepoliaZamaOracleAddress = 0x33347831500F1e73f0ccCBb95c9f86B94d7b1123;
   */
-  const p = path.join(paths.zamaFheOracleSolidityAddress, "ZamaOracleAddress.sol");
+  const p = paths.zamaFheOracleSolidityAddressSol;
   if (!fs.existsSync(p)) {
     throw new HardhatFhevmError(
       `Unable to locate ${p}, please make sure that the @zama-fhe package is properly installed.`,
@@ -38,7 +37,7 @@ address constant SepoliaZamaOracleAddress = 0x33347831500F1e73f0ccCBb95c9f86B94d
   const prefix = "address constant SepoliaZamaOracleAddress = ";
   const pos = content.indexOf(prefix);
   if (pos < 0) {
-    throw new HardhatFhevmError(`Unable to parse ZamaOracleAddress at ${p}`);
+    throw new HardhatFhevmError(`Unable to parse SepoliaZamaOracleAddress at ${p}`);
   }
   const addr = content.substring(pos + prefix.length, pos + prefix.length + 42);
 

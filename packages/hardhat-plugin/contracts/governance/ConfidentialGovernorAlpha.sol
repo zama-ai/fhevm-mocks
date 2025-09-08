@@ -507,12 +507,18 @@ abstract contract ConfidentialGovernorAlpha is Ownable2Step {
     }
 
     /**
-     * @dev                 Only callable by the gateway.
-     * @param requestId     Request id (from the Gateway)
-     * @param canInitiate   Whether the proposal can be initiated.
+     * @dev                   Only callable by the gateway.
+     * @param requestId       Request id (from the Gateway)
+     * @param cleartexts      The decrypted values ABI encoded in bytes
+     * @param decryptionProof The decryption proof containing KMS signatures and extra data
      */
-    function callbackInitiateProposal(uint256 requestId, bool canInitiate, bytes[] memory signatures) public virtual {
-        FHE.checkSignatures(requestId, signatures);
+    function callbackInitiateProposal(
+        uint256 requestId,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) public virtual {
+        FHE.checkSignatures(requestId, cleartexts, decryptionProof);
+        bool canInitiate = abi.decode(cleartexts, (bool));
         uint256 proposalId = _requestIdToProposalId[requestId];
 
         if (canInitiate) {
@@ -525,18 +531,19 @@ abstract contract ConfidentialGovernorAlpha is Ownable2Step {
     }
 
     /**
-     * @dev                         Only callable by the gateway.
-     *                              If `forVotesDecrypted` == `againstVotesDecrypted`, proposal is defeated.
-     * @param forVotesDecrypted     For votes.
-     * @param againstVotesDecrypted Against votes.
+     * @dev                   Only callable by the gateway.
+     * @param requestId       Request id (from the Gateway)
+     * @param cleartexts      The decrypted values ABI encoded in bytes
+     * @param decryptionProof The decryption proof containing KMS signatures and extra data
      */
     function callbackVoteDecryption(
         uint256 requestId,
-        uint256 forVotesDecrypted,
-        uint256 againstVotesDecrypted,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public virtual {
-        FHE.checkSignatures(requestId, signatures);
+        FHE.checkSignatures(requestId, cleartexts, decryptionProof);
+        (uint256 forVotesDecrypted, uint256 againstVotesDecrypted) = abi.decode(cleartexts, (uint256, uint256));
+
         uint256 proposalId = _requestIdToProposalId[requestId];
 
         /// @dev It is safe to downcast since the original values were euint64.

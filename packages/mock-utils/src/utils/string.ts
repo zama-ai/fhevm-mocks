@@ -8,8 +8,8 @@ export function removeSuffix(s: string, suffix: string): string {
   return s.endsWith(suffix) ? s.substring(0, s.length - suffix.length) : s;
 }
 
-export function ensure0x(s: string): string {
-  return !s.startsWith("0x") ? "0x" + s : s;
+export function ensure0x(s: string): `0x${string}` {
+  return !s.startsWith("0x") ? `0x${s}` : (s as `0x${string}`);
 }
 
 export function remove0x(s: string): string {

@@ -5,10 +5,10 @@ import { ethers as EthersT } from "ethers";
 import * as fs from "fs";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
 import { HardhatFhevmError } from "../../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../../task-names";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
+import constants from "../constants";
 import { PrecompiledCoreContractsAddresses } from "../types";
 import { computeDummyAddress } from "../utils/hh";
 
@@ -18,7 +18,7 @@ function __logPrecompiledAddresses(addresses: PrecompiledCoreContractsAddresses,
   const prefix = !useCache ? "Resolve" : `${picocolors.yellowBright("Cache")}`;
   debug(`${prefix} precompiled ${picocolors.cyanBright("ACL")} address                  : ${addresses.ACLAddress}`);
   debug(
-    `${prefix} precompiled ${picocolors.cyanBright("FHEVMExecutor")} address        : ${addresses.FHEVMExecutorAddress}`,
+    `${prefix} precompiled ${picocolors.cyanBright("FHEVMExecutor")} address        : ${addresses.CoprocessorAddress}`,
   );
   debug(
     `${prefix} precompiled ${picocolors.cyanBright("InputVerifierAddress")} address : ${addresses.InputVerifierAddress}`,
@@ -93,9 +93,9 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
     const precompiledHCULimitAddress = (await FHEVMExecutorReadOnly.getHCULimitAddress()) as string;
     const precompiledInputVerifierAddress = (await FHEVMExecutorReadOnly.getInputVerifierAddress()) as string;
 
-    const addresses = {
+    const addresses: PrecompiledCoreContractsAddresses = {
       ACLAddress: precompiledACLAddress,
-      FHEVMExecutorAddress: precompiledFHEVMExecutorAddress,
+      CoprocessorAddress: precompiledFHEVMExecutorAddress,
       HCULimitAddress: precompiledHCULimitAddress,
       InputVerifierAddress: precompiledInputVerifierAddress,
     };
@@ -180,7 +180,7 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
 
     return {
       ACLAddress: o.ACLAddress,
-      FHEVMExecutorAddress: o.FHEVMExecutorAddress,
+      CoprocessorAddress: o.CoprocessorAddress,
       HCULimitAddress: o.HCULimitAddress,
       InputVerifierAddress: o.InputVerifierAddress,
     };
@@ -188,8 +188,8 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
 
   const addresses = await getPrecompiledFhevmCoreContractsAddresses(mockProvider, fhevmPaths);
 
-  if (!fs.existsSync(fhevmPaths.cache)) {
-    fs.mkdirSync(fhevmPaths.cache);
+  if (!fs.existsSync(fhevmPaths.cacheDir)) {
+    fs.mkdirSync(fhevmPaths.cacheDir);
   }
 
   debug(`Save precompiled fhevm core contracts addresses cache file ${jsonPath}.`);

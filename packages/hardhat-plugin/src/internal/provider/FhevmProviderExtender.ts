@@ -1,13 +1,13 @@
-import { FhevmHandle, MockFhevmInstance, relayer, utils } from "@fhevm/mock-utils";
+import { FhevmHandle, MockFhevmInstance, relayer, utils, version } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 import { ProviderError } from "hardhat/internal/core/providers/errors";
 import { ProviderWrapper } from "hardhat/plugins";
 import type { EIP1193Provider, HardhatConfig, RequestArguments } from "hardhat/types";
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
 import { HardhatFhevmError } from "../../error";
 import { fhevmContext } from "../EnvironmentExtender";
+import constants from "../constants";
 import { assertHHFhevm } from "../error";
 import { mutateErrorInPlace, mutateProviderErrorInPlace } from "../errors/FhevmContractError";
 
@@ -82,10 +82,14 @@ export class FhevmProviderExtender extends ProviderWrapper {
     }
 
     const metadata: relayer.RelayerMetadata = {
+      version,
+      chainId: fhevmEnv.chainId,
+      gatewayChainId: fhevmEnv.getGatewayChainId(),
       ACLAddress: fhevmEnv.getACLAddress(),
-      FHEVMExecutorAddress: fhevmEnv.getFHEVMExecutorAddress(),
-      InputVerifierAddress: fhevmEnv.getInputVerifierAddress(),
+      CoprocessorAddress: fhevmEnv.getFHEVMExecutorAddress(),
+      DecryptionOracleAddress: fhevmEnv.getDecryptionOracleAddress(),
       KMSVerifierAddress: fhevmEnv.getKMSVerifierAddress(),
+      InputVerifierAddress: fhevmEnv.getInputVerifierAddress(),
       relayerSignerAddress: fhevmEnv.getRelayerSignerAddress(),
     };
 
@@ -170,6 +174,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
     const { decryptedResult, signatures } = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
       payload.ciphertextHandles,
       clearTextHexList,
+      payload.extraData,
     );
 
     const response: relayer.RelayerV1PublicDecryptResponse = {
@@ -192,11 +197,16 @@ export class FhevmProviderExtender extends ProviderWrapper {
       console.log(picocolors.greenBright(`${args.method}`));
     }
 
-    const payload = _getRequestSingleParam(args) as { handlesBytes32Hex: string[]; clearTextValuesHex: string[] };
+    const payload = _getRequestSingleParam(args) as {
+      handlesBytes32Hex: string[];
+      clearTextValuesHex: string[];
+      extraData: string;
+    };
 
     const res = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
       payload.handlesBytes32Hex,
       payload.clearTextValuesHex,
+      payload.extraData,
     );
 
     return res;
@@ -236,7 +246,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
     relayer.assertIsRelayerV1UserDecryptPayload(payload);
 
     // Verify signature
-    await MockFhevmInstance.verifySignature(
+    await MockFhevmInstance.verifyUserDecryptSignature(
       payload.publicKey,
       payload.signature,
       payload.contractAddresses,
@@ -263,7 +273,12 @@ export class FhevmProviderExtender extends ProviderWrapper {
       }
     }
 
-    return clearTextHexList;
+    const response: relayer.RelayerV1UserDecryptResponse = {
+      payload: { decrypted_values: clearTextHexList },
+      signature: EthersT.ZeroHash,
+    };
+
+    return response;
   }
 
   private async _handleFhevmGetClearText(args: RequestArguments) {
@@ -349,6 +364,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
       contractChainId,
       payload.contractAddress,
       payload.userAddress,
+      payload.extraData,
     );
 
     // Add values to Mock DB
