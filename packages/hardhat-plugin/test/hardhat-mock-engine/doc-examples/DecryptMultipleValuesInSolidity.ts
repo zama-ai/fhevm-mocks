@@ -3,8 +3,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";
 
-import { HardhatFhevmRuntimeEnvironment } from "../../types";
 import { DecryptMultipleValuesInSolidity, DecryptMultipleValuesInSolidity__factory } from "../../../typechain-types";
+import { HardhatFhevmRuntimeEnvironment } from "../../types";
 import { Signers } from "../signers";
 
 async function deployFixture() {

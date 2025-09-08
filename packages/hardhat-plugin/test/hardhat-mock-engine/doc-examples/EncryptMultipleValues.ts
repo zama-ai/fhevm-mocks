@@ -5,8 +5,8 @@ import { ethers } from "hardhat";
 import * as hre from "hardhat";
 
 import { HardhatFhevmRuntimeEnvironment } from "../../../src/types";
-import { Signers } from "../signers";
 import { EncryptMultipleValues, EncryptMultipleValues__factory } from "../../../typechain-types";
+import { Signers } from "../signers";
 
 async function deployFixture() {
   // Contracts are deployed using the first signer/account by default

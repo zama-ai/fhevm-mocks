@@ -48,7 +48,7 @@ export { isAnvilProvider } from "./ethers/anvil.js";
 export type { MinimalProvider } from "./ethers/provider.js";
 export { minimalProviderSend, connectedChainId } from "./ethers/provider.js";
 export { getCoprocessorConfig } from "./fhevm/CoprocessorConfig.js";
-export { getInitializableStorage, setInitializableStorage } from "./ethers/storage.js";
+export { getInitializableStorage, setInitializableStorage, setOwnableStorage } from "./ethers/storage.js";
 export type { CoprocessorConfig } from "./fhevm/CoprocessorConfig.js";
 
 export { version } from "./_version.js";

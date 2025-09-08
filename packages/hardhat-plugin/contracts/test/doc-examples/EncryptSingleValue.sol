@@ -8,21 +8,21 @@ import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
  * This trivial example demonstrates the FHE encryption mechanism.
  */
 contract EncryptSingleValue is SepoliaConfig {
-  euint32 private _encryptedEuint32;
+    euint32 private _encryptedEuint32;
 
-  // solhint-disable-next-line no-empty-blocks
-  constructor() {}
+    // solhint-disable-next-line no-empty-blocks
+    constructor() {}
 
-  function initialize(externalEuint32 inputEuint32, bytes calldata inputProof) external {
-    _encryptedEuint32 = FHE.fromExternal(inputEuint32, inputProof);
+    function initialize(externalEuint32 inputEuint32, bytes calldata inputProof) external {
+        _encryptedEuint32 = FHE.fromExternal(inputEuint32, inputProof);
 
-    // Grant FHE permission to both the contract itself (`address(this)`) and the caller (`msg.sender`),
-    // to allow future decryption by the caller (`msg.sender`).
-    FHE.allowThis(_encryptedEuint32);
-    FHE.allow(_encryptedEuint32, msg.sender);
-  }
+        // Grant FHE permission to both the contract itself (`address(this)`) and the caller (`msg.sender`),
+        // to allow future decryption by the caller (`msg.sender`).
+        FHE.allowThis(_encryptedEuint32);
+        FHE.allow(_encryptedEuint32, msg.sender);
+    }
 
-  function encryptedUint32() public view returns (euint32) {
-    return _encryptedEuint32;
-  }
+    function encryptedUint32() public view returns (euint32) {
+        return _encryptedEuint32;
+    }
 }
