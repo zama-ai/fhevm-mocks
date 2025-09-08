@@ -1,6 +1,6 @@
 import * as picocolors from "picocolors";
 
-import constants from "../../constants";
+import constants from "../constants";
 
 function _log(msg: string, options?: { nocolor?: boolean; out?: "stderr" | "stdout" | "console" }) {
   if (options?.out === "stderr") {

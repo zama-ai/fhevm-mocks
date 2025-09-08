@@ -138,9 +138,9 @@ export class MockFhevmInstance implements FhevmInstance {
     const eip712Func = fhevmSdkCreateEIP712ForDecryption(verifyingContractAddressDecryption, contractsChainId);
     const eip712 = eip712Func(publicKey, contractAddresses, startTimestamp, durationDays);
 
-    //Debug Make sure we are in sync with @fhevm/sdk
-    assertFhevm(eip712.domain.version === constants.DECRYPTION_EIP712_DOMAIN.version.toString());
-    assertFhevm(eip712.domain.name === constants.DECRYPTION_EIP712_DOMAIN.name);
+    //Debug Make sure we are in sync with KMSVerifier.sol
+    assertFhevm(eip712.domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version.toString());
+    assertFhevm(eip712.domain.name === constants.PUBLIC_DECRYPT_EIP712.domain.name);
 
     return eip712;
   }
@@ -161,23 +161,18 @@ export class MockFhevmInstance implements FhevmInstance {
       durationDays,
     );
 
-    //Debug Make sure we are in sync with @fhevm/sdk
-    assertFhevm(eip712.domain.version === constants.DECRYPTION_EIP712_DOMAIN.version.toString());
-    assertFhevm(eip712.domain.name === constants.DECRYPTION_EIP712_DOMAIN.name);
-
     //Debug Make sure we are in sync with KMSVerifier.sol
+    assertFhevm(BigInt(this.#gatewayChainId) === this.#kmsVerifier.eip712Domain.chainId);
     assertFhevm(eip712.domain.verifyingContract === this.#kmsVerifier.eip712Domain.verifyingContract);
     assertFhevm(eip712.domain.version === this.#kmsVerifier.eip712Domain.version);
     assertFhevm(eip712.domain.name === this.#kmsVerifier.eip712Domain.name);
     assertFhevm(BigInt(eip712.domain.chainId) === BigInt(this.#contractsChainId));
-    assertFhevm(this.#kmsVerifier.eip712Domain.chainId === BigInt(this.#gatewayChainId));
 
     return eip712;
   }
 
   public createEncryptedInput(contractAddress: string, userAddress: string): MockRelayerEncryptedInput {
-    assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.name === this.#inputVerifier.eip712Domain.name);
-    assertFhevm(constants.INPUT_VERIFICATION_EIP712_DOMAIN.version === this.#inputVerifier.eip712Domain.version);
+    //Debug Make sure we are in sync with InputVerifier.sol
     assertFhevm(this.#verifyingContractAddressInputVerification === this.#inputVerifier.eip712Domain.verifyingContract);
     assertFhevm(BigInt(this.#gatewayChainId) === this.#inputVerifier.eip712Domain.chainId);
 
@@ -210,6 +205,8 @@ export class MockFhevmInstance implements FhevmInstance {
   }
 
   public async publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults> {
+    const extraData: `0x${string}` = "0x00";
+
     // Intercept future type change...
     for (let i = 0; i < handles.length; ++i) {
       assertFhevm(
@@ -219,8 +216,8 @@ export class MockFhevmInstance implements FhevmInstance {
     }
 
     // Casting handles if string
-    const relayerHandles: string[] = handles.map((h) =>
-      typeof h === "string" ? toHexString(fromHexString(h), true) : toHexString(h, true),
+    const relayerHandles: `0x${string}`[] = handles.map((h) =>
+      typeof h === "string" ? toHexString(fromHexString(h)) : toHexString(h),
     );
 
     // relayer-sdk
@@ -235,32 +232,38 @@ export class MockFhevmInstance implements FhevmInstance {
     // relayer-sdk
     const payloadForRequest: RelayerV1PublicDecryptPayload = {
       ciphertextHandles: relayerHandles,
+      extraData,
     };
 
+    // Return a json object basically following the @zama-fhe/relayer-sdk format
     const json = await relayer.requestRelayerV1PublicDecrypt(this.#relayerProvider, payloadForRequest);
+    const result = json.response[0];
+
+    // Add "0x" prefix if needed
+    const decryptedResult = ensure0x(result.decrypted_value);
+    const signatures = result.signatures.map(ensure0x);
 
     // verify signatures on decryption:
     const domain = {
-      name: "Decryption",
-      version: "1",
+      name: constants.PUBLIC_DECRYPT_EIP712.domain.name,
+      version: constants.PUBLIC_DECRYPT_EIP712.domain.version,
       chainId: this.#gatewayChainId,
       verifyingContract: this.#verifyingContractAddressDecryption,
     };
-    const types = {
-      PublicDecryptVerification: [
-        { name: "ctHandles", type: "bytes32[]" },
-        { name: "decryptedResult", type: "bytes" },
-      ],
-    };
-    const result = json.response[0];
-    const decryptedResult = result.decrypted_value.startsWith("0x")
-      ? result.decrypted_value
-      : `0x${result.decrypted_value}`;
-    const signatures = result.signatures;
+    const types = constants.PUBLIC_DECRYPT_EIP712.types;
 
-    const recoveredAddresses = signatures.map((signature: string) => {
-      const sig = signature.startsWith("0x") ? signature : `0x${signature}`;
-      const recoveredAddress = EthersT.verifyTypedData(domain, types, { ctHandles: handles, decryptedResult }, sig);
+    // The `signedExtraData` variable is following the @zama-fhe/relayer-sdk implementation
+    // TODO: in relayer-sdk, signedExtraData === "0x". However, here, we use "0x00".
+    const signedExtraData = "0x00";
+
+    const recoveredAddresses = signatures.map((signature: `0x${string}`) => {
+      assertFhevm(signature.startsWith("0x"));
+      const recoveredAddress = EthersT.verifyTypedData(
+        domain,
+        types,
+        { ctHandles: handles, decryptedResult, extraData: signedExtraData },
+        signature,
+      );
       return recoveredAddress;
     });
 
@@ -290,6 +293,8 @@ export class MockFhevmInstance implements FhevmInstance {
     startTimestamp: string | number,
     durationDays: string | number,
   ): Promise<DecryptedResults> {
+    const extraData: `0x${string}` = "0x00";
+
     // Intercept future type change...
     for (let i = 0; i < handles.length; ++i) {
       assertFhevm(
@@ -300,7 +305,7 @@ export class MockFhevmInstance implements FhevmInstance {
 
     // Casting handles if string
     const relayerHandles: RelayerV1UserDecryptHandleContractPair[] = handles.map((h) => ({
-      handle: typeof h.handle === "string" ? toHexString(fromHexString(h.handle), true) : toHexString(h.handle, true),
+      handle: typeof h.handle === "string" ? toHexString(fromHexString(h.handle)) : toHexString(h.handle),
       contractAddress: h.contractAddress,
     }));
 
@@ -322,6 +327,18 @@ export class MockFhevmInstance implements FhevmInstance {
 
     MockFhevmInstance.verifyHandleContractAddresses(relayerHandles, contractAddresses);
 
+    // Redundant: the mock relayer already performs this check, so it could be removed
+    await MockFhevmInstance.verifyUserDecryptSignature(
+      publicKey,
+      signature,
+      contractAddresses,
+      userAddress,
+      startTimestamp,
+      durationDays,
+      this.#verifyingContractAddressDecryption,
+      this.#contractsChainId,
+    );
+
     // relayer-sdk
     const payloadForRequest: RelayerV1UserDecryptPayload = {
       handleContractPairs: relayerHandles,
@@ -334,16 +351,14 @@ export class MockFhevmInstance implements FhevmInstance {
       userAddress: EthersT.getAddress(userAddress),
       signature: remove0x(signature),
       publicKey: remove0x(publicKey),
+      extraData,
     };
 
-    // TODO
-    // Check json.response content: https://github.com/zama-ai/relayer-sdk/blob/main/src/relayer/userDecrypt.ts#L255
-    const clearTextHexList: string[] = await relayer.requestRelayerV1UserDecrypt(
-      this.#relayerProvider,
-      payloadForRequest,
-    );
-
-    await this._verifySignature(publicKey, signature, contractAddresses, userAddress, startTimestamp, durationDays);
+    // Return a json object basically following the @zama-fhe/relayer-sdk format
+    const json = await relayer.requestRelayerV1UserDecrypt(this.#relayerProvider, payloadForRequest);
+    const result = json.response[0];
+    // The `decrypted_values` field is specific to the mock relayer.
+    const clearTextHexList = result.payload.decrypted_values;
 
     const listBigIntDecryptions = clearTextHexList.map(EthersT.toBigInt);
 
@@ -355,7 +370,10 @@ export class MockFhevmInstance implements FhevmInstance {
     return results;
   }
 
-  public static async verifySignature(
+  // Static function called by:
+  // - MockFhevmInstance.userDecrypt()
+  // - packages/hardhat-plugin/src/internal/provider/FhevmProviderExtender._handleFhevmRelayerV1UserDecrypt()
+  public static async verifyUserDecryptSignature(
     publicKey: string,
     signature: string,
     contractAddresses: string[],
@@ -390,26 +408,6 @@ export class MockFhevmInstance implements FhevmInstance {
     }
   }
 
-  private async _verifySignature(
-    publicKey: string,
-    signature: string,
-    contractAddresses: string[],
-    userAddress: string,
-    startTimestamp: string | number,
-    durationDays: string | number,
-  ) {
-    await MockFhevmInstance.verifySignature(
-      publicKey,
-      signature,
-      contractAddresses,
-      userAddress,
-      startTimestamp,
-      durationDays,
-      this.#verifyingContractAddressDecryption,
-      this.#contractsChainId,
-    );
-  }
-
   public static async verifyPublicACLPermissions(
     readonlyEthersProvider: EthersT.Provider,
     aclContractAddress: string,
@@ -432,7 +430,7 @@ export class MockFhevmInstance implements FhevmInstance {
     });
   }
 
-  // (Duplicated code) Should be imported from @fhevm/sdk
+  // (Duplicated code) Should be imported from @zama-fhe/relayer-sdk
   public static async verifyUserACLPermissions(
     readonlyEthersProvider: EthersT.Provider,
     aclContractAddress: string,

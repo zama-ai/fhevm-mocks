@@ -25,11 +25,13 @@ export type {
   RelayerV1UserDecryptHandleContractPair,
   RelayerV1UserDecryptPayload,
   RelayerV1UserDecryptValidity,
+  RelayerV1UserDecryptResponse,
 } from "./payloads.js";
 export {
   assertIsRelayerV1PublicDecryptPayload,
   assertIsRelayerV1PublicDecryptResponse,
   assertIsRelayerV1UserDecryptPayload,
+  assertIsRelayerV1UserDecryptResponse,
   assertIsRelayerMetadata,
   assertIsRelayerV1InputProofResponse,
 } from "./payloads.js";

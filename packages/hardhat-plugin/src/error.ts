@@ -1,6 +1,6 @@
 import { HardhatPluginError } from "hardhat/plugins";
 
-import constants from "./constants";
+import constants from "./internal/constants";
 
 export class HardhatFhevmError extends HardhatPluginError {
   constructor(message: string, parent?: Error) {

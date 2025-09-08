@@ -1,9 +1,9 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const KMSVerifierInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const InputVerifierInterfaceVersion = "0.8.0-0";
 
-export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
+export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     stateMutability: "nonpayable",
@@ -18,6 +18,21 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     name: "AddressEmptyCode",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "AlreadySigner",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "AtLeastOneSignerIsRequired",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "DeserializingInputProofFail",
     type: "error",
   },
   {
@@ -65,7 +80,32 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
+    name: "EmptyInputProof",
+    type: "error",
+  },
+  {
+    inputs: [],
     name: "FailedCall",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InitialSignersSetIsEmpty",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InvalidChainId",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InvalidHandleVersion",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InvalidIndex",
     type: "error",
   },
   {
@@ -75,39 +115,34 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
-    name: "KMSAlreadySigner",
+    name: "InvalidInputHandle",
     type: "error",
   },
   {
     inputs: [
       {
         internalType: "address",
-        name: "invalidSigner",
+        name: "signerRecovered",
         type: "address",
       },
     ],
-    name: "KMSInvalidSigner",
+    name: "InvalidSigner",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "NotASigner",
     type: "error",
   },
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "numSignatures",
-        type: "uint256",
+        internalType: "address",
+        name: "sender",
+        type: "address",
       },
     ],
-    name: "KMSSignatureThresholdNotReached",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "KMSSignerNull",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "KMSZeroSignature",
+    name: "NotHostOwner",
     type: "error",
   },
   {
@@ -143,18 +178,24 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
     type: "error",
   },
   {
-    inputs: [],
-    name: "SignersSetIsEmpty",
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "numSignatures",
+        type: "uint256",
+      },
+    ],
+    name: "SignatureThresholdNotReached",
     type: "error",
   },
   {
     inputs: [],
-    name: "ThresholdIsAboveNumberOfSigners",
+    name: "SignaturesVerificationFailed",
     type: "error",
   },
   {
     inputs: [],
-    name: "ThresholdIsNull",
+    name: "SignerNull",
     type: "error",
   },
   {
@@ -174,6 +215,11 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
     type: "error",
   },
   {
+    inputs: [],
+    name: "ZeroSignature",
+    type: "error",
+  },
+  {
     anonymous: false,
     inputs: [],
     name: "EIP712DomainChanged",
@@ -190,25 +236,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     name: "Initialized",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: false,
-        internalType: "address[]",
-        name: "newKmsSignersSet",
-        type: "address[]",
-      },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "newThreshold",
-        type: "uint256",
-      },
-    ],
-    name: "NewContextSet",
     type: "event",
   },
   {
@@ -255,6 +282,32 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       {
         indexed: true,
         internalType: "address",
+        name: "signer",
+        type: "address",
+      },
+    ],
+    name: "SignerAdded",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "signer",
+        type: "address",
+      },
+    ],
+    name: "SignerRemoved",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
         name: "implementation",
         type: "address",
       },
@@ -264,12 +317,12 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
-    name: "DECRYPTION_RESULT_TYPEHASH",
+    name: "EIP712_INPUT_VERIFICATION_TYPE",
     outputs: [
       {
-        internalType: "bytes32",
+        internalType: "string",
         name: "",
-        type: "bytes32",
+        type: "string",
       },
     ],
     stateMutability: "view",
@@ -277,12 +330,12 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
-    name: "EIP712_PUBLIC_DECRYPT_TYPE",
+    name: "EIP712_INPUT_VERIFICATION_TYPEHASH",
     outputs: [
       {
-        internalType: "string",
+        internalType: "bytes32",
         name: "",
-        type: "string",
+        type: "bytes32",
       },
     ],
     stateMutability: "view",
@@ -311,17 +364,19 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   {
     inputs: [
       {
-        internalType: "address[]",
-        name: "newSignersSet",
-        type: "address[]",
-      },
-      {
-        internalType: "uint256",
-        name: "newThreshold",
-        type: "uint256",
+        internalType: "address",
+        name: "signer",
+        type: "address",
       },
     ],
-    name: "defineNewContext",
+    name: "addSigner",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "cleanTransientStorage",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -371,7 +426,7 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
-    name: "getKmsSigners",
+    name: "getCoprocessorSigners",
     outputs: [
       {
         internalType: "address[]",
@@ -380,6 +435,19 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getHandleVersion",
+    outputs: [
+      {
+        internalType: "uint8",
+        name: "",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "pure",
     type: "function",
   },
   {
@@ -424,11 +492,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
         internalType: "address[]",
         name: "initialSigners",
         type: "address[]",
-      },
-      {
-        internalType: "uint256",
-        name: "initialThreshold",
-        type: "uint256",
       },
     ],
     name: "initializeFromEmptyProxy",
@@ -496,7 +559,7 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
-    name: "renounceOwnership",
+    name: "reinitializeV3",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -504,12 +567,19 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   {
     inputs: [
       {
-        internalType: "uint256",
-        name: "threshold",
-        type: "uint256",
+        internalType: "address",
+        name: "signer",
+        type: "address",
       },
     ],
-    name: "setThreshold",
+    name: "removeSigner",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "renounceOwnership",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -548,27 +618,39 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   {
     inputs: [
       {
-        internalType: "bytes32[]",
-        name: "handlesList",
-        type: "bytes32[]",
+        components: [
+          {
+            internalType: "address",
+            name: "userAddress",
+            type: "address",
+          },
+          {
+            internalType: "address",
+            name: "contractAddress",
+            type: "address",
+          },
+        ],
+        internalType: "struct FHEVMExecutor.ContextUserInputs",
+        name: "context",
+        type: "tuple",
+      },
+      {
+        internalType: "bytes32",
+        name: "inputHandle",
+        type: "bytes32",
       },
       {
         internalType: "bytes",
-        name: "decryptedResult",
+        name: "inputProof",
         type: "bytes",
       },
-      {
-        internalType: "bytes[]",
-        name: "signatures",
-        type: "bytes[]",
-      },
     ],
-    name: "verifyDecryptionEIP712KMSSignatures",
+    name: "verifyCiphertext",
     outputs: [
       {
-        internalType: "bool",
+        internalType: "bytes32",
         name: "",
-        type: "bool",
+        type: "bytes32",
       },
     ],
     stateMutability: "nonpayable",

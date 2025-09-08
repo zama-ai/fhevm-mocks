@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.7.0-12"
-export const HCULimitInterfaceVersion = "0.7.0-12";
+// version "0.8.0-0"
+export const HCULimitInterfaceVersion = "0.8.0-0";
 
 export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -59,6 +59,17 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
   {
     inputs: [],
     name: "InvalidInitialization",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "NotHostOwner",
     type: "error",
   },
   {
@@ -1093,7 +1104,7 @@ export const HCULimitPartialInterface: EthersT.Interface = new EthersT.Interface
   },
   {
     inputs: [],
-    name: "reinitializeV2",
+    name: "reinitializeV4",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

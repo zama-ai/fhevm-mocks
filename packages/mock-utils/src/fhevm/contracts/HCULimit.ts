@@ -4,7 +4,7 @@ import { assertIsAddress } from "../../utils/address.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
-import { HCULimitPartialInterface } from "./HCULimit.itf.js";
+import { HCULimitPartialInterface } from "./interfaces/HCULimit.itf.js";
 
 export type HCULimitProperties = {
   fhemExecutorAddress?: string;

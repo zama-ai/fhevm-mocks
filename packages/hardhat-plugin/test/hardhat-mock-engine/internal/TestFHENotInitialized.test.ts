@@ -21,42 +21,6 @@ describe("TestFHENotInitialized", function () {
     testFHENotInitialized = contract;
   });
 
-  it("Assertion should fail if the DecryptionOracle contract address is uninitialized", async function () {
-    // Error message without contract name
-    await expect(hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(
-      new RegExp(
-        "^Contract at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
-      ),
-    );
-
-    // Error message including contract name
-    await expect(
-      hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitializedAddress, "TestFHENotInitialized"),
-    ).to.be.rejectedWith(
-      new RegExp(
-        "^Contract TestFHENotInitialized at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
-      ),
-    );
-  });
-
-  it("Assertion should fail if the DecryptionOracle contract address is uninitialized", async function () {
-    // Error message without contract name
-    await expect(hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitialized)).to.be.rejectedWith(
-      new RegExp(
-        "^Contract at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
-      ),
-    );
-
-    // Error message including contract name
-    await expect(
-      hre.fhevm.assertDecryptionOracleInitialized(testFHENotInitialized, "TestFHENotInitialized"),
-    ).to.be.rejectedWith(
-      new RegExp(
-        "^Contract TestFHENotInitialized at (.+) is not initialized for Decryption Oracle operations. Make sure it explicitly calls FHE.setDecryptionOracle\\(\\) in its constructor.",
-      ),
-    );
-  });
-
   it("Assertion should fail if the FHE contract address is uninitialized", async function () {
     // Error message without contract name
     await expect(hre.fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(

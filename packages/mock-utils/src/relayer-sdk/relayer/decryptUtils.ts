@@ -1,6 +1,8 @@
 /*
     Copy/Paste from https://github.com/zama-ai/relayer-sdk/blob/main/src/relayer/decryptUtils.ts#L18
 */
+
+// Duplicated code from relayer-sdk/src/relayer/userDecrypt.ts
 const NumEncryptedBits: Record<number, number> = {
   0: 2, // ebool
   2: 8, // euint8
@@ -10,11 +12,9 @@ const NumEncryptedBits: Record<number, number> = {
   6: 128, // euint128
   7: 160, // eaddress
   8: 256, // euint256
-  9: 512, // ebytes64
-  10: 1024, // ebytes128
-  11: 2048, // ebytes256
 } as const;
 
+// Duplicated code from relayer-sdk/src/relayer/userDecrypt.ts
 export function checkEncryptedBits(handles: string[]) {
   let total = 0;
 

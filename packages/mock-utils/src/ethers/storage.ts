@@ -179,3 +179,33 @@ export async function setInitializableStorage(
     paddedSlotValue,
   );
 }
+
+export async function setOwnableStorage(provider: MinimalProvider, contractAddress: string, ownerAddress: string) {
+  //
+  // abstract contract OwnableUpgradeable is Initializable, ContextUpgradeable {
+  //   /// @custom:storage-location erc7201:openzeppelin.storage.Ownable
+  //   struct OwnableStorage {
+  //       address _owner;
+  //   }
+  //   ...
+  // }
+  //
+  // // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Ownable")) - 1)) & ~bytes32(uint256(0xff))
+  // bytes32 private constant OwnableStorageLocation = 0x9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300;
+  //
+  const storageLocationBytes32 = computeStorageLocation("openzeppelin.storage.Ownable");
+  assertFhevm(
+    storageLocationBytes32 === "0x9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300",
+    "Wrong 'openzeppelin.storage.Ownable' storage location",
+  );
+
+  const paddedSlotValue = EthersT.zeroPadValue(ownerAddress, 32); // full 32-byte slot
+
+  await setStorageAt(
+    provider,
+    "hardhat_setStorageAt",
+    contractAddress,
+    BigInt(storageLocationBytes32) + BigInt(0),
+    paddedSlotValue,
+  );
+}

@@ -3,8 +3,8 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
-import { ACLPartialInterface } from "./ACL.itf.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+import { ACLPartialInterface } from "./interfaces/ACL.itf.js";
 
 export type ACLProperties = {
   fhevmExecutorAddress?: string;

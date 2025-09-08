@@ -1,5 +1,4 @@
 import { type MinimalProvider, minimalProviderSend } from "../../ethers/provider.js";
-import { assertIsStringArray } from "../../utils/string.js";
 import {
   FHEVM_AWAIT_DECRYPTION_ORACLE,
   FHEVM_CREATE_DECRYPTION_SIGNATURES,
@@ -16,6 +15,7 @@ import type {
   RelayerV1PublicDecryptPayload,
   RelayerV1PublicDecryptResponse,
   RelayerV1UserDecryptPayload,
+  RelayerV1UserDecryptResponse,
 } from "./payloads.js";
 import {
   assertIsRelayerMetadata,
@@ -23,6 +23,7 @@ import {
   assertIsRelayerV1PublicDecryptPayload,
   assertIsRelayerV1PublicDecryptResponse,
   assertIsRelayerV1UserDecryptPayload,
+  assertIsRelayerV1UserDecryptResponse,
 } from "./payloads.js";
 
 // To be changed into a FhevmMockRelayerProvider class
@@ -47,12 +48,12 @@ export async function requestRelayerV1InputProof(
 export async function requestRelayerV1UserDecrypt(
   relayerProvider: MinimalProvider,
   payload: RelayerV1UserDecryptPayload,
-): Promise<string[]> {
+): Promise<{ response: RelayerV1UserDecryptResponse[] }> {
   assertIsRelayerV1UserDecryptPayload(payload);
   const response = await minimalProviderSend(relayerProvider, RELAYER_V1_USER_DECRYPT, [payload]);
-  assertIsStringArray(response, "userDecryptResponse");
+  assertIsRelayerV1UserDecryptResponse(response);
 
-  return response;
+  return { response: [response] };
 }
 
 /**
@@ -87,7 +88,7 @@ export async function requestFhevmGetClearText(relayerProvider: MinimalProvider,
 
 export async function requestFhevmCreateDecryptionSignatures(
   relayerProvider: MinimalProvider,
-  payload: { handlesBytes32Hex: string[]; clearTextValuesHex: string[] },
+  payload: { handlesBytes32Hex: string[]; clearTextValuesHex: string[]; extraData: string },
 ): Promise<any> {
   return await minimalProviderSend(relayerProvider, FHEVM_CREATE_DECRYPTION_SIGNATURES, [payload]);
 }

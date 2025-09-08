@@ -1,8 +1,7 @@
 import {
   FhevmType,
   contracts,
-  getDecryptionOracleAddress,
-  getFHEVMConfig,
+  getCoprocessorConfig,
   isFhevmEaddress,
   isFhevmEbool,
   isFhevmEuint,
@@ -11,9 +10,9 @@ import {
 import { scope } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import constants from "../constants";
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
+import constants from "../internal/constants";
 import { jsonStringifyBigInt } from "../internal/utils/log";
 import {
   SCOPE_FHEVM,
@@ -28,6 +27,8 @@ import picocolors = require("picocolors");
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
+// This is an internal fhevm subtask.
+// It is exclusively used by `packages/hardhat-plugin/src/internal/deploy/PrecompiledFhevmCoreContracts.ts`
 fhevmScope
   .subtask(SCOPE_FHEVM_TASK_INSTALL_SOLIDITY)
   .setDescription("Install all the required fhevm solidity files associated with the selected network.")
@@ -68,30 +69,6 @@ fhevmScope
       }
     },
   );
-
-// async function initializeFhevmCLI(hre: HardhatRuntimeEnvironment) {
-//   const fhevmEnv = fhevmContext.get();
-//   if (fhevmEnv.isDeployed) {
-//     return;
-//   }
-
-//   if (hre.network.name !== "localhost") {
-//     throw new HardhatFhevmError(
-//       `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
-//     );
-//   }
-
-//   await fhevmEnv.minimalInit();
-
-//   // Only Hardhat Node or Sepolia (TODO)
-//   if (fhevmEnv.mockProvider.info.type !== FhevmMockProviderType.HardhatNode) {
-//     throw new HardhatFhevmError(
-//       `The FHEVM mock CLI environment only supports Hardhat Node. Use parameter '--network localhost' to select the Hardhat Node network. (selected network: '${hre.network.name}')`,
-//     );
-//   }
-
-//   await fhevmEnv.deploy();
-// }
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_USER_DECRYPT)
@@ -258,12 +235,12 @@ fhevmScope
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
 
-      const fhevmConfig = await getFHEVMConfig(hre.ethers.provider, address);
+      const coprocessorConfig = await getCoprocessorConfig(hre.ethers.provider, address);
       if (
-        fhevmConfig.ACLAddress === hre.ethers.ZeroAddress &&
-        fhevmConfig.FHEVMExecutorAddress === hre.ethers.ZeroAddress &&
-        fhevmConfig.InputVerifierAddress === hre.ethers.ZeroAddress &&
-        fhevmConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
+        coprocessorConfig.ACLAddress === hre.ethers.ZeroAddress &&
+        coprocessorConfig.CoprocessorAddress === hre.ethers.ZeroAddress &&
+        coprocessorConfig.DecryptionOracleAddress === hre.ethers.ZeroAddress &&
+        coprocessorConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
       ) {
         const deployedCode = await fhevmEnv.mockProvider.getCodeAt(address);
         if (deployedCode === undefined || deployedCode === "0x") {
@@ -271,21 +248,19 @@ fhevmScope
         }
       }
 
-      const decryptionOracleAddress = await getDecryptionOracleAddress(hre.ethers.provider, address);
-
       try {
         const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
-          aclContractAddress: fhevmConfig.ACLAddress,
-          kmsContractAddress: fhevmConfig.KMSVerifierAddress,
-          zamaFheDecryptionOracleAddress: decryptionOracleAddress,
+          aclContractAddress: coprocessorConfig.ACLAddress,
+          kmsContractAddress: coprocessorConfig.KMSVerifierAddress,
+          zamaFheDecryptionOracleAddress: coprocessorConfig.DecryptionOracleAddress,
         });
 
         const o = {
           address,
-          FHEVMConfigStruct: fhevmConfig,
+          coprocessorConfig,
           FhevmInstanceConfig: repo.getFhevmInstanceConfig({
             chainId: fhevmEnv.chainId,
-            relayerUrl: constants.RELAYER_URL,
+            relayerUrl: constants.SEPOLIA.relayerUrl,
           }),
         };
 
@@ -295,9 +270,11 @@ fhevmScope
 
         console.log(JSON.stringify(o, null, 2));
       } catch {
-        console.log(picocolors.red("Invalid FHEVM Configuration:"));
-        console.log(JSON.stringify({ ...fhevmConfig, decryptionOracleAddress }, null, 2));
-        throw new HardhatFhevmError(`The contract deployed at ${address} is not using a valid FHEVM configuration`);
+        console.log(picocolors.red("Invalid Coprocessor Configuration:"));
+        console.log(JSON.stringify(coprocessorConfig, null, 2));
+        throw new HardhatFhevmError(
+          `The contract deployed at ${address} is not using a valid Coprocessor configuration`,
+        );
       }
     },
   );
@@ -327,7 +304,7 @@ fhevmScope
         kmsContractAddress: kms,
       });
 
-      const cfg = repo.getFhevmInstanceConfig({ chainId: fhevmEnv.chainId, relayerUrl: constants.RELAYER_URL });
+      const cfg = repo.getFhevmInstanceConfig({ chainId: fhevmEnv.chainId, relayerUrl: constants.SEPOLIA.relayerUrl });
 
       const inputEIP712 = repo.inputVerifier.eip712Domain;
       const kmsEIP712 = repo.kmsVerifier.eip712Domain;

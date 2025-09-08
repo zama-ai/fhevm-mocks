@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
 import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
-import { SepoliaZamaOracleAddress } from "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol";
 
 contract TestErrors is SepoliaConfig {
     euint64 private _aCypherTextUint64;
@@ -13,7 +12,7 @@ contract TestErrors is SepoliaConfig {
     uint64 private _bClearTextUint64;
 
     constructor() {
-        FHE.setDecryptionOracle(SepoliaZamaOracleAddress);
+        //
     }
 
     function initCypherTextUint64NoAllow(uint64 value) public {

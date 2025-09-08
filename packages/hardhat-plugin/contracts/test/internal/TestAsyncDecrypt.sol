@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
 import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
-import { SepoliaZamaOracleAddress } from "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol";
 
 /// @notice Contract for testing asynchronous decryption using the Gateway
 contract TestAsyncDecrypt is SepoliaConfig {
@@ -13,10 +12,14 @@ contract TestAsyncDecrypt is SepoliaConfig {
     euint8 xUint8;
     euint16 xUint16;
     euint32 xUint32;
+    euint32 xUint32_2;
+    euint32 xUint32_3;
     euint64 xUint64;
     euint64 xUint64_2;
     euint64 xUint64_3;
     euint128 xUint128;
+    euint128 xUint128_2;
+    euint128 xUint128_3;
     eaddress xAddress;
     eaddress xAddress2;
     euint256 xUint256;
@@ -26,10 +29,14 @@ contract TestAsyncDecrypt is SepoliaConfig {
     uint8 public yUint8;
     uint16 public yUint16;
     uint32 public yUint32;
+    uint32 public yUint32_2;
+    uint32 public yUint32_3;
     uint64 public yUint64;
     uint64 public yUint64_2;
     uint64 public yUint64_3;
     uint128 public yUint128;
+    uint128 public yUint128_2;
+    uint128 public yUint128_3;
     address public yAddress;
     address public yAddress2;
     uint256 public yUint256;
@@ -45,16 +52,20 @@ contract TestAsyncDecrypt is SepoliaConfig {
 
     /// @notice Constructor to initialize the contract and set up encrypted values
     constructor() {
-        FHE.setDecryptionOracle(SepoliaZamaOracleAddress);
         /// @dev Initialize encrypted variables with sample values
         xBool = FHE.asEbool(true);
         FHE.allowThis(xBool);
+
         xUint8 = FHE.asEuint8(42);
         FHE.allowThis(xUint8);
         xUint16 = FHE.asEuint16(16);
         FHE.allowThis(xUint16);
         xUint32 = FHE.asEuint32(32);
         FHE.allowThis(xUint32);
+        xUint32_2 = FHE.asEuint32(1000);
+        FHE.allowThis(xUint32_2);
+        xUint32_3 = FHE.asEuint32(2000);
+        FHE.allowThis(xUint32_3);
         xUint64 = FHE.asEuint64(18446744073709551600);
         FHE.allowThis(xUint64);
         xUint64_2 = FHE.asEuint64(76575465786);
@@ -63,6 +74,10 @@ contract TestAsyncDecrypt is SepoliaConfig {
         FHE.allowThis(xUint64_3);
         xUint128 = FHE.asEuint128(1267650600228229401496703205443);
         FHE.allowThis(xUint128);
+        xUint128_2 = FHE.asEuint128(10000);
+        FHE.allowThis(xUint128_2);
+        xUint128_3 = FHE.asEuint128(20000);
+        FHE.allowThis(xUint128_3);
         xUint256 = FHE.asEuint256(27606985387162255149739023449108101809804435888681546220650096895197251);
         FHE.allowThis(xUint256);
         xAddress = FHE.asEaddress(0x8ba1f109551bD432803012645Ac136ddd64DBA72);
@@ -79,6 +94,30 @@ contract TestAsyncDecrypt is SepoliaConfig {
         inputEuint64Bytes32 = FHE.toBytes32(inputEuint64);
     }
 
+    function getXUint16() public view returns (euint16) {
+        // bytes memory bb = abi.encodePacked(
+        //     bytes1(0x00),
+        //     FHE.toBytes32(xUint16),
+        //     FHE.toBytes32(xUint16),
+        //     bytes1(0x01),
+        //     address(0x8ba1f109551bD432803012645Ac136ddd64DBA72),
+        //     block.chainid
+        // );
+
+        // bytes32 result = keccak256(
+        //     abi.encodePacked(
+        //         bytes1(0x00),
+        //         FHE.toBytes32(xUint16),
+        //         FHE.toBytes32(xUint16),
+        //         bytes1(0x01),
+        //         address(0x8ba1f109551bD432803012645Ac136ddd64DBA72),
+        //         block.chainid
+        //     )
+        // );
+
+        return xUint16;
+    }
+
     /// @notice Function to request decryption of a boolean value with an infinite loop in the callback
     function requestBoolInfinite() public {
         bytes32[] memory cts = new bytes32[](1);
@@ -89,14 +128,15 @@ contract TestAsyncDecrypt is SepoliaConfig {
     /// @notice Callback function for the infinite loop decryption request (WARNING: This function will never complete)
     function callbackBoolInfinite(
         uint256 requestID,
-        bool decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (bool) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
         uint256 i = 0;
         while (true) {
             i++;
         }
+        bool decryptedInput = abi.decode(cleartexts, (bool));
         yBool = decryptedInput;
         return yBool;
     }
@@ -117,8 +157,13 @@ contract TestAsyncDecrypt is SepoliaConfig {
     }
 
     /// @notice Callback function for boolean decryption
-    function callbackBool(uint256 requestID, bool decryptedInput, bytes[] memory signatures) public returns (bool) {
-        FHE.checkSignatures(requestID, signatures);
+    function callbackBool(
+        uint256 requestID,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) public returns (bool) {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        bool decryptedInput = abi.decode(cleartexts, (bool));
         yBool = decryptedInput;
         return yBool;
     }
@@ -139,43 +184,24 @@ contract TestAsyncDecrypt is SepoliaConfig {
     }
 
     /// @notice Callback function for 8-bit unsigned integer decryption
-    /// @param decryptedInput The decrypted 8-bit unsigned integer
+    /// @param cleartexts The decrypted 8-bit unsigned integer ABI encoded in bytes
     /// @return The decrypted value
-    function callbackUint8(uint256 requestID, uint8 decryptedInput, bytes[] memory signatures) public returns (uint8) {
-        FHE.checkSignatures(requestID, signatures);
+    function callbackUint8(
+        uint256 requestID,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) public returns (uint8) {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint8 decryptedInput = abi.decode(cleartexts, (uint8));
         yUint8 = decryptedInput;
         return decryptedInput;
-    }
-
-    function getXUint16() public view returns (euint16) {
-        bytes memory bb = abi.encodePacked(
-            bytes1(0x00),
-            FHE.toBytes32(xUint16),
-            FHE.toBytes32(xUint16),
-            bytes1(0x01),
-            address(0x8ba1f109551bD432803012645Ac136ddd64DBA72),
-            block.chainid
-        );
-
-        bytes32 result = keccak256(
-            abi.encodePacked(
-                bytes1(0x00),
-                FHE.toBytes32(xUint16),
-                FHE.toBytes32(xUint16),
-                bytes1(0x01),
-                address(0x8ba1f109551bD432803012645Ac136ddd64DBA72),
-                block.chainid
-            )
-        );
-
-        return xUint16;
     }
 
     /// @notice Request decryption of a 16-bit unsigned integer
     function requestUint16() public {
         bytes32[] memory cts = new bytes32[](1);
         cts[0] = FHE.toBytes32(xUint16);
-        uint256 requestID = FHE.requestDecryption(cts, this.callbackUint16.selector);
+        FHE.requestDecryption(cts, this.callbackUint16.selector);
     }
 
     /// @notice Attempt to request decryption of a fake 16-bit unsigned integer (should revert)
@@ -187,14 +213,17 @@ contract TestAsyncDecrypt is SepoliaConfig {
     }
 
     /// @notice Callback function for 16-bit unsigned integer decryption
-    /// @param decryptedInput The decrypted 16-bit unsigned integer
+    /// @param requestID The ID of the decryption request
+    /// @param cleartexts The decrypted 16-bit unsigned integer ABI encoded in bytes
+    /// @param decryptionProof The decryption proof containing KMS signatures and extra data
     /// @return The decrypted value
     function callbackUint16(
         uint256 requestID,
-        uint16 decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (uint16) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint16 decryptedInput = abi.decode(cleartexts, (uint16));
         yUint16 = decryptedInput;
         return decryptedInput;
     }
@@ -220,17 +249,19 @@ contract TestAsyncDecrypt is SepoliaConfig {
 
     /// @notice Callback function for 32-bit unsigned integer decryption
     /// @param requestID The ID of the decryption request
-    /// @param decryptedInput The decrypted 32-bit unsigned integer
+    /// @param cleartexts The decrypted 32-bit unsigned integer ABI encoded in bytes
+    /// @param decryptionProof The decryption proof containing KMS signatures and extra data
     /// @return The result of the computation
     function callbackUint32(
         uint256 requestID,
-        uint32 decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (uint32) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
         uint256[] memory params = getParamsUint256(requestID);
+        uint32 decryptedInput = abi.decode(cleartexts, (uint32));
         unchecked {
-            uint32 result = uint32(params[0]) + uint32(params[1]) + decryptedInput;
+            uint32 result = uint32(uint256(params[0])) + uint32(uint256(params[1])) + decryptedInput;
             yUint32 = result;
             return result;
         }
@@ -262,14 +293,17 @@ contract TestAsyncDecrypt is SepoliaConfig {
     }
 
     /// @notice Callback function for 64-bit unsigned integer decryption
-    /// @param decryptedInput The decrypted 64-bit unsigned integer
+    /// @param requestID The ID of the decryption request
+    /// @param cleartexts The decrypted 64-bit unsigned integer ABI encoded in bytes
+    /// @param decryptionProof The decryption proof containing KMS signatures and extra data
     /// @return The decrypted value
     function callbackUint64(
         uint256 requestID,
-        uint64 decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (uint64) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint64 decryptedInput = abi.decode(cleartexts, (uint64));
         yUint64 = decryptedInput;
         return decryptedInput;
     }
@@ -289,10 +323,11 @@ contract TestAsyncDecrypt is SepoliaConfig {
 
     function callbackUint128(
         uint256 requestID,
-        uint128 decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (uint128) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint128 decryptedInput = abi.decode(cleartexts, (uint128));
         yUint128 = decryptedInput;
         return decryptedInput;
     }
@@ -312,88 +347,14 @@ contract TestAsyncDecrypt is SepoliaConfig {
 
     function callbackUint256(
         uint256 requestID,
-        uint256 decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (uint256) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint256 decryptedInput = abi.decode(cleartexts, (uint256));
         yUint256 = decryptedInput;
         return decryptedInput;
     }
-
-    // function requestEbytes64NonTrivial(externalEbytes64 inputHandle, bytes calldata inputProof) public {
-    //     ebytes64 inputNonTrivial = FHE.fromExternal(inputHandle, inputProof);
-    //     bytes32[] memory cts = new bytes32[](1);
-    //     cts[0] = FHE.toBytes32(inputNonTrivial);
-    //     FHE.requestDecryption(cts, this.callbackBytes64.selector);
-    // }
-
-    // function requestEbytes64Trivial(bytes calldata value) public {
-    //     ebytes64 inputTrivial = FHE.asEbytes64(FHE.padToBytes64(value));
-    //     bytes32[] memory cts = new bytes32[](1);
-    //     cts[0] = FHE.toBytes32(inputTrivial);
-    //     FHE.requestDecryption(cts, this.callbackBytes64.selector);
-    // }
-
-    function callbackBytes64(
-        uint256 requestID,
-        bytes calldata decryptedInput,
-        bytes[] memory signatures
-    ) public returns (bytes memory) {
-        FHE.checkSignatures(requestID, signatures);
-        yBytes64 = decryptedInput;
-        return decryptedInput;
-    }
-
-    // function requestEbytes128NonTrivial(externalEbytes128 inputHandle, bytes calldata inputProof) public {
-    //     ebytes128 inputNonTrivial = FHE.fromExternal(inputHandle, inputProof);
-    //     bytes32[] memory cts = new bytes32[](1);
-    //     cts[0] = FHE.toBytes32(inputNonTrivial);
-    //     FHE.requestDecryption(cts, this.callbackBytes128.selector);
-    // }
-
-    // function requestEbytes128Trivial(bytes calldata value) public {
-    //     ebytes128 inputTrivial = FHE.asEbytes128(FHE.padToBytes128(value));
-    //     bytes32[] memory cts = new bytes32[](1);
-    //     cts[0] = FHE.toBytes32(inputTrivial);
-    //     FHE.requestDecryption(cts, this.callbackBytes128.selector);
-    // }
-
-    // function callbackBytes128(
-    //     uint256 requestID,
-    //     bytes calldata decryptedInput,
-    //     bytes[] memory signatures
-    // ) public returns (bytes memory) {
-    //     FHE.checkSignatures(requestID, signatures);
-    //     yBytes128 = decryptedInput;
-    //     return decryptedInput;
-    // }
-
-    // function requestEbytes256Trivial(bytes calldata value) public {
-    //     ebytes256 inputTrivial = FHE.asEbytes256(FHE.padToBytes256(value));
-    //     bytes32[] memory cts = new bytes32[](1);
-    //     cts[0] = FHE.toBytes32(inputTrivial);
-    //     FHE.requestDecryption(cts, this.callbackBytes256.selector);
-    // }
-
-    // function requestEbytes256NonTrivial(externalEbytes256 inputHandle, bytes calldata inputProof) public {
-    //     ebytes256 inputNonTrivial = FHE.fromExternal(inputHandle, inputProof);
-    //     bytes32[] memory cts = new bytes32[](1);
-    //     cts[0] = FHE.toBytes32(inputNonTrivial);
-    //     FHE.requestDecryption(cts, this.callbackBytes256.selector);
-    // }
-
-    // /// @notice Callback function for 256-bit encrypted bytes decryption
-    // /// @param decryptedInput The decrypted 256-bit bytes
-    // /// @return The decrypted value
-    // function callbackBytes256(
-    //     uint256 requestID,
-    //     bytes calldata decryptedInput,
-    //     bytes[] memory signatures
-    // ) public returns (bytes memory) {
-    //     FHE.checkSignatures(requestID, signatures);
-    //     yBytes256 = decryptedInput;
-    //     return decryptedInput;
-    // }
 
     /// @notice Request decryption of an encrypted address
     function requestAddress() public {
@@ -411,16 +372,17 @@ contract TestAsyncDecrypt is SepoliaConfig {
     }
 
     /// @notice Callback function for multiple address decryption
-    /// @param decryptedInput1 The first decrypted address
-    /// @param decryptedInput2 The second decrypted address
+    /// @param requestID The ID of the decryption request
+    /// @param cleartexts The 2 decrypted addresses ABI encoded in bytes
+    /// @param decryptionProof The decryption proof containing KMS signatures and extra data
     /// @return The first decrypted address
     function callbackAddresses(
         uint256 requestID,
-        address decryptedInput1,
-        address decryptedInput2,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (address) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        (address decryptedInput1, address decryptedInput2) = abi.decode(cleartexts, (address, address));
         yAddress = decryptedInput1;
         yAddress2 = decryptedInput2;
         return decryptedInput1;
@@ -435,52 +397,51 @@ contract TestAsyncDecrypt is SepoliaConfig {
     }
 
     /// @notice Callback function for address decryption
-    /// @param decryptedInput The decrypted address
+    /// @param requestID The ID of the decryption request
+    /// @param cleartexts The decrypted address ABI encoded in bytes
+    /// @param decryptionProof The decryption proof containing KMS signatures and extra data
     /// @return The decrypted address
     function callbackAddress(
         uint256 requestID,
-        address decryptedInput,
-        bytes[] memory signatures
+        bytes memory cleartexts,
+        bytes memory decryptionProof
     ) public returns (address) {
-        FHE.checkSignatures(requestID, signatures);
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        address decryptedInput = abi.decode(cleartexts, (address));
         yAddress = decryptedInput;
         return decryptedInput;
     }
 
-    /// @notice Request decryption of mixed data types including 256-bit encrypted bytes
-    /// @dev Demonstrates how to include encrypted bytes256 in a mixed decryption request
-    /// @param inputHandle The encrypted input handle for the bytes256
-    /// @param inputProof The proof for the encrypted bytes256
-    // function requestMixedBytes256(externalEbytes256 inputHandle, bytes calldata inputProof) public {
-    //     ebytes256 xBytes256 = FHE.fromExternal(inputHandle, inputProof);
-    //     bytes32[] memory cts = new bytes32[](4);
-    //     cts[0] = FHE.toBytes32(xBool);
-    //     cts[1] = FHE.toBytes32(xAddress);
-    //     cts[2] = FHE.toBytes32(xBytes256);
-    //     ebytes64 input64Bytes = FHE.asEbytes64(FHE.padToBytes64(hex"aaff42"));
-    //     cts[3] = FHE.toBytes32(input64Bytes);
-    //     FHE.requestDecryption(cts, this.callbackMixedBytes256.selector);
-    // }
+    /// @notice Request decryption of mixed data types
+    /// @dev Demonstrates how to do a mixed decryption request
+    /// @param inputHandle The encrypted input handle for euint256
+    /// @param inputProof The proof for the encrypted euint256
+    function requestMixed(externalEuint256 inputHandle, bytes calldata inputProof) public {
+        bytes32[] memory cts = new bytes32[](4);
+        cts[0] = FHE.toBytes32(xBool);
+        cts[1] = FHE.toBytes32(xAddress);
+        cts[2] = FHE.toBytes32(xUint32);
+        euint256 inputEuint256 = FHE.fromExternal(inputHandle, inputProof);
+        cts[3] = FHE.toBytes32(inputEuint256);
+        FHE.requestDecryption(cts, this.callbackMixed.selector);
+    }
 
     /// @notice Callback function for mixed data type decryption including 256-bit encrypted bytes
     /// @dev Processes and stores the decrypted values
-    /// @param decBool Decrypted boolean
-    /// @param decAddress Decrypted address
-    /// @param bytesRes Decrypted 256-bit bytes
-    // function callbackMixedBytes256(
-    //     uint256 requestID,
-    //     bool decBool,
-    //     address decAddress,
-    //     bytes memory bytesRes,
-    //     bytes memory bytesRes2,
-    //     bytes[] memory signatures
-    // ) public {
-    //     FHE.checkSignatures(requestID, signatures);
-    //     yBool = decBool;
-    //     yAddress = decAddress;
-    //     yBytes256 = bytesRes;
-    //     yBytes64 = bytesRes2;
-    // }
+    /// @param requestID The ID of the decryption request
+    /// @param cleartexts The decrypted values ABI encoded in bytes
+    /// @param decryptionProof The decryption proof containing KMS signatures and extra data
+    function callbackMixed(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) public {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        (bool decBool, address decAddress, uint32 decEuint32, uint256 decEuint256) = abi.decode(
+            cleartexts,
+            (bool, address, uint32, uint256)
+        );
+        yBool = decBool;
+        yAddress = decAddress;
+        yUint32 = decEuint32;
+        yUint256 = decEuint256;
+    }
 
     /// @dev internal setter to link a decryption requestID to a uint256 value
     /// @dev if used multiple times with same requestID, it will map the requestID to the list of all added inputs
@@ -491,5 +452,52 @@ contract TestAsyncDecrypt is SepoliaConfig {
     /// @dev internal getter to recover all uint256 values linked to a specific requestID
     function getParamsUint256(uint256 requestID) internal view returns (uint256[] memory) {
         return paramsUint256[requestID];
+    }
+
+    /// @notice Request decryption of a 32-bit unsigned integer
+    function requestUint32_2() public {
+        bytes32[] memory cts = new bytes32[](1);
+        cts[0] = FHE.toBytes32(xUint32_2);
+        FHE.requestDecryption(cts, this.callbackUint32_2.selector);
+    }
+
+    function callbackUint32_2(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) public {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint32 decryptedInput = abi.decode(cleartexts, (uint32));
+        yUint32_2 = decryptedInput;
+    }
+
+    /// @notice Request decryption of a 32-bit unsigned integer
+    function requestUint32_3() public {
+        bytes32[] memory cts = new bytes32[](1);
+        cts[0] = FHE.toBytes32(xUint32_3);
+        FHE.requestDecryption(cts, this.callbackUint32_3.selector);
+    }
+
+    function callbackUint32_3(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) public {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint32 decryptedInput = abi.decode(cleartexts, (uint32));
+        yUint32_3 = decryptedInput;
+    }
+
+    function requestUint128_Many() public {
+        bytes32[] memory cts = new bytes32[](1);
+        cts[0] = FHE.toBytes32(xUint128_2);
+        FHE.requestDecryption(cts, this.callbackUint128_2.selector);
+        bytes32[] memory cts_2 = new bytes32[](1);
+        cts_2[0] = FHE.toBytes32(xUint128_3);
+        FHE.requestDecryption(cts_2, this.callbackUint128_3.selector);
+    }
+
+    function callbackUint128_2(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) public {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint128 decryptedInput = abi.decode(cleartexts, (uint128));
+        yUint128_2 = decryptedInput;
+    }
+
+    function callbackUint128_3(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) public {
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+        uint128 decryptedInput = abi.decode(cleartexts, (uint128));
+        yUint128_3 = decryptedInput;
     }
 }

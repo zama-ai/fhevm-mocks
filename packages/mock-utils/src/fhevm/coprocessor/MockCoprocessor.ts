@@ -4,9 +4,10 @@ import { multiSignEIP712 } from "../../ethers/eip712.js";
 import { assertIsBytes32String } from "../../utils/bytes.js";
 import { assertFhevm } from "../../utils/error.js";
 import { removePrefix } from "../../utils/string.js";
-import { FHEVMExecutorPartialInterface } from "../contracts/FHEVMExecutor.itf.js";
 import { InputVerifier } from "../contracts/InputVerifier.js";
+import { FHEVMExecutorPartialInterface } from "../contracts/interfaces/FHEVMExecutor.itf.js";
 import type { FhevmDB, FhevmDBHandleMetadata } from "../db/FhevmDB.js";
+import type { RelayerV1InputProofResponse } from "../relayer/payloads.js";
 import type { Coprocessor } from "./Coprocessor.js";
 import type { CoprocessorEvent } from "./CoprocessorEvents.js";
 import { CoprocessorEventsHandler } from "./CoprocessorEventsHandler.js";
@@ -110,7 +111,8 @@ export class MockCoprocessor implements Coprocessor {
     contractChainId: number,
     contractAddress: string,
     userAddress: string,
-  ): Promise<{ handles: string[]; signatures: string[] }> {
+    extraData: string,
+  ): Promise<RelayerV1InputProofResponse> {
     assertFhevm(this.#inputVerifier !== undefined, `MockCoprocessor not initialized`);
     assertFhevm(this.#coprocessorSigners !== undefined, `MockCoprocessor not initialized`);
 
@@ -130,6 +132,7 @@ export class MockCoprocessor implements Coprocessor {
       contractChainId,
       contractAddress,
       userAddress,
+      extraData,
     );
 
     const signaturesHex: string[] = await multiSignEIP712(
