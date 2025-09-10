@@ -13,7 +13,7 @@ import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { InputVerifierPartialInterface } from "./interfaces/InputVerifier.itf.js";
 
 export type InputVerifierProperties = {
-  signersAddresses?: string[];
+  signersAddresses?: `0x${string}`[];
   threshold?: number;
   eip712Domain?: EIP712Domain;
 };
@@ -21,8 +21,8 @@ export type InputVerifierProperties = {
 // Shareable
 export class InputVerifier extends FhevmCoprocessorContractWrapper {
   #inputVerifierReadonlyContract: EthersT.Contract | undefined;
-  #inputVerifierContractAddress: string | undefined;
-  #signersAddresses: string[] | undefined;
+  #inputVerifierContractAddress: `0x${string}` | undefined;
+  #signersAddresses: `0x${string}`[] | undefined;
   #threshold: number | undefined;
   #eip712Domain: EIP712Domain | undefined;
 
@@ -32,7 +32,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
 
   public static async create(
     runner: EthersT.ContractRunner,
-    inputVerifierContractAddress: string,
+    inputVerifierContractAddress: `0x${string}`,
     abi?: EthersT.Interface | EthersT.InterfaceAbi,
     properties?: InputVerifierProperties,
   ): Promise<InputVerifier> {
@@ -110,7 +110,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     assertFhevm(this.#eip712Domain.version === constants.INPUT_VERIFICATION_EIP712.domain.version);
   }
 
-  public get address(): string {
+  public get address(): `0x${string}` {
     assertFhevm(this.#inputVerifierContractAddress !== undefined, `InputVerifier wrapper not initialized`);
     return this.#inputVerifierContractAddress;
   }
@@ -123,8 +123,9 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
 
   // The InputVerifier is always using the address of the "InputVerification.sol" contract deployed
   // on the gateway chainId in its eip712 domain
-  public get gatewayInputVerificationAddress(): string {
+  public get gatewayInputVerificationAddress(): `0x${string}` {
     assertFhevm(this.#eip712Domain !== undefined, `InputVerifier wrapper not initialized`);
+    assertIsAddress(this.#eip712Domain.verifyingContract, "InputVerifier.eip712Domain.verifyingContract");
     return this.#eip712Domain.verifyingContract;
   }
 
@@ -133,7 +134,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     return this.#eip712Domain;
   }
 
-  public getCoprocessorSigners(): string[] {
+  public getCoprocessorSigners(): `0x${string}`[] {
     assertFhevm(this.#signersAddresses !== undefined, `InputVerifier wrapper not initialized`);
     return this.#signersAddresses;
   }

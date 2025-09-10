@@ -2,13 +2,10 @@ import {
   FhevmHandle,
   FhevmHandleCoder,
   FhevmType,
-  type FhevmTypeEbytes,
   type FhevmTypeEuint,
-  isFhevmEbytes,
   isFhevmEuint,
   relayer,
 } from "@fhevm/mock-utils";
-import { getFhevmTypeInfo } from "@fhevm/mock-utils";
 import { ethers as EthersT } from "ethers";
 
 import { HardhatFhevmError } from "../error";
@@ -88,26 +85,7 @@ export class FhevmDebugger implements HardhatFhevmRuntimeDebugger {
     return clearTextBigIntList[0];
   }
 
-  public async decryptEbytes(fhevmType: FhevmTypeEbytes, handleBytes32: EthersT.BigNumberish): Promise<string> {
-    if (!isFhevmEbytes(fhevmType)) {
-      throw new HardhatFhevmError(`Invalid FhevmType argument. Expecting bytes type.`);
-    }
-    const handleBytes32Hex = EthersT.toBeHex(handleBytes32, 32);
-    FhevmHandle.verify(handleBytes32Hex, { fhevmType, chainId: this.#fhevmEnv.mockProvider.chainId });
-
-    const clearTextHexList: string[] = await relayer.requestFhevmGetClearText(this.#fhevmEnv.relayerProvider, [
-      handleBytes32Hex,
-    ]);
-    assertHHFhevm(clearTextHexList.length === 1);
-    const clearTextBigIntList: bigint[] = clearTextHexList.map(EthersT.toBigInt);
-
-    const ebytesBigInt: bigint = clearTextBigIntList[0];
-    const fhevmTypeInfo = getFhevmTypeInfo(fhevmType);
-    assertHHFhevm(fhevmTypeInfo.clearTextBitLength % 8 === 0);
-    return EthersT.toBeHex(ebytesBigInt, fhevmTypeInfo.clearTextBitLength / 8);
-  }
-
-  public async decryptEaddress(handleBytes32: EthersT.BigNumberish): Promise<string> {
+  public async decryptEaddress(handleBytes32: EthersT.BigNumberish): Promise<`0x${string}`> {
     const handleBytes32Hex = EthersT.toBeHex(handleBytes32, 32);
     FhevmHandle.verify(handleBytes32Hex, {
       fhevmType: FhevmType.eaddress,
@@ -121,6 +99,6 @@ export class FhevmDebugger implements HardhatFhevmRuntimeDebugger {
     const clearTextBigIntList: bigint[] = clearTextHexList.map(EthersT.toBigInt);
     const eaddressBigInt: bigint = clearTextBigIntList[0];
 
-    return EthersT.getAddress(EthersT.toBeHex(eaddressBigInt, 20));
+    return EthersT.getAddress(EthersT.toBeHex(eaddressBigInt, 20)) as `0x${string}`;
   }
 }

@@ -3,6 +3,7 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../utils/address.js";
 import { assertIsBytes32String } from "../utils/bytes.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
+import { ensure0x } from "../utils/string.js";
 import { type MinimalProvider, minimalProviderSend } from "./provider.js";
 
 /*
@@ -37,7 +38,7 @@ export function computeStorageLocation(storageName: string): string {
  *
  * @throws If the provided address is invalid or if the RPC call fails or if the return value is not a valid 32-byte hex string.
  */
-export async function getStorageAt(provider: MinimalProvider, address: string, index: bigint): Promise<string> {
+export async function getStorageAt(provider: MinimalProvider, address: string, index: bigint): Promise<`0x${string}`> {
   assertIsAddress(address);
   const indexParam = EthersT.toBeHex(index, 32);
 
@@ -83,8 +84,8 @@ export async function getAddressesFromStorage(
   contractAddress: string,
   storageLocationBytes32: string,
   numAddresses: number,
-): Promise<string[]> {
-  const addresses: string[] = [];
+): Promise<`0x${string}`[]> {
+  const addresses: `0x${string}`[] = [];
   for (let i = 0; i < numAddresses; ++i) {
     const addr = await getStorageAt(provider, contractAddress, BigInt(storageLocationBytes32) + BigInt(i));
     addresses.push(addr);
@@ -98,9 +99,9 @@ export async function getAddressesFromStorage(
       throw new FhevmError(errorMsg);
     }
 
-    const hex = EthersT.toBeHex(BigInt(addr), 20);
+    const hex = EthersT.toBeHex(BigInt(addr), 20) as `0x${string}`;
     try {
-      addresses[i] = EthersT.getAddress(hex);
+      addresses[i] = EthersT.getAddress(hex) as `0x${string}`;
     } catch {
       throw new FhevmError(errorMsg);
     }
@@ -122,11 +123,11 @@ export async function getInitializableStorage(
   // One single 32 bytes slot with data packed in reverse order
   // 0x0000000000000000000000000000000000000000000000_01_0000000000000005
   //                                                 bool      uint64
-  let data = await getStorageAt(provider, contractAddress, BigInt(storageLocationBytes32) + BigInt(0));
+  let data: string = await getStorageAt(provider, contractAddress, BigInt(storageLocationBytes32) + BigInt(0));
   data = data.replace(/^0x/, "").padStart(64, "0");
 
   // _initialized (uint64): first 8 bytes
-  const initializedHex = "0x" + data.slice(-16); // 8 bytes = 16 hex chars
+  const initializedHex = ensure0x(data.slice(-16)); // 8 bytes = 16 hex chars
   const initialized = BigInt(initializedHex);
 
   // _initializing (bool): next byte (9th byte)

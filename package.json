@@ -31,7 +31,7 @@
     "solhint-plugin-prettier": "^0.1.0",
     "solidity-coverage": "^0.8.15",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "vitest": "^3.2.4"
   },
   "scripts": {
     "prepare": "npm run build",
@@ -48,5 +48,8 @@
     "test:node": "cd ./packages/hardhat-plugin/test && ./test-hardhat-node.sh",
     "test:anvil": "cd ./packages/hardhat-plugin/test && ./test-anvil.sh",
     "test:anvilsimple": "cd ./packages/hardhat-plugin/test && ./test-anvil-simple.sh"
+  },
+  "overrides": {
+    "vite": ">=7.0.7"
   }
 }

@@ -9,6 +9,7 @@ import {
   FhevmTypeEuint,
   FhevmTypeName,
   FhevmUserDecryptOptions,
+  TransactionHCUInfo,
   getCoprocessorConfig,
   getFhevmTypeInfo,
 } from "@fhevm/mock-utils";
@@ -91,6 +92,11 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
 
   public parseCoprocessorEvents(logs: (EthersT.EventLog | EthersT.Log)[] | null | undefined): CoprocessorEvent[] {
     return parseCoprocessorEventsFromLogs(logs);
+  }
+
+  public computeTransactionHCU(transactionReceipt: EthersT.TransactionReceipt): TransactionHCUInfo {
+    const fhevmExecutor = this._fhevmEnv.getContractsRepository().fhevmExecutor;
+    return fhevmExecutor.computeTransactionHCU(transactionReceipt);
   }
 
   public async getRelayerMetadata(): Promise<relayer.RelayerMetadata> {

@@ -3,23 +3,24 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
+import { type TransactionHCUInfo, getTxHCUFromTxReceipt } from "../coprocessor/hcu.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { FHEVMExecutorPartialInterface } from "./interfaces/FHEVMExecutor.itf.js";
 
 export type FHEVMExecutorProperties = {
-  aclAddress?: string;
-  hcuLimitAddress?: string;
-  inputVerifierAddress?: string;
+  aclAddress?: `0x${string}`;
+  hcuLimitAddress?: `0x${string}`;
+  inputVerifierAddress?: `0x${string}`;
   version?: string;
 };
 
 // Shareable
 export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
   #fhevmExecutorReadonlyContract: EthersT.Contract | undefined;
-  #fhevmExecutorContractAddress: string | undefined;
-  #aclAddress: string | undefined;
-  #hcuLimitAddress: string | undefined;
-  #inputVerifierAddress: string | undefined;
+  #fhevmExecutorContractAddress: `0x${string}` | undefined;
+  #aclAddress: `0x${string}` | undefined;
+  #hcuLimitAddress: `0x${string}` | undefined;
+  #inputVerifierAddress: `0x${string}` | undefined;
   #version: string | undefined;
 
   constructor() {
@@ -28,7 +29,7 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
 
   public static async create(
     runner: EthersT.ContractRunner,
-    fhevmExecutorContractAddress: string,
+    fhevmExecutorContractAddress: `0x${string}`,
     abi?: EthersT.Interface | EthersT.InterfaceAbi,
     properties?: FHEVMExecutorProperties,
   ): Promise<FHEVMExecutor> {
@@ -58,7 +59,7 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
     return this.#fhevmExecutorReadonlyContract.interface;
   }
 
-  public get address(): string {
+  public get address(): `0x${string}` {
     assertFhevm(this.#fhevmExecutorContractAddress !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
     return this.#fhevmExecutorContractAddress;
   }
@@ -68,17 +69,17 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
     return this.#version;
   }
 
-  public get aclAddress(): string {
+  public get aclAddress(): `0x${string}` {
     assertFhevm(this.#aclAddress !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
     return this.#aclAddress;
   }
 
-  public get hcuLimitAddress(): string {
+  public get hcuLimitAddress(): `0x${string}` {
     assertFhevm(this.#hcuLimitAddress !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
     return this.#hcuLimitAddress;
   }
 
-  public get inputVerifierAddress(): string {
+  public get inputVerifierAddress(): `0x${string}` {
     assertFhevm(this.#inputVerifierAddress !== undefined, `FHEVMExecutor wrapper is not yet initialized`);
     return this.#inputVerifierAddress;
   }
@@ -114,5 +115,9 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
       this.#version = await this._callOrThrow(this.#fhevmExecutorReadonlyContract.getVersion(), "getVersion()");
     }
     assertIsString(this.#version, "version");
+  }
+
+  public computeTransactionHCU(transactionReceipt: EthersT.TransactionReceipt): TransactionHCUInfo {
+    return getTxHCUFromTxReceipt(this.address, this.readonlyContract.interface, transactionReceipt);
   }
 }

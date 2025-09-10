@@ -3,12 +3,15 @@ import { ethers as EthersT } from "ethers";
 import { FhevmError, assertFhevm, assertIsArray } from "./error.js";
 import { assertIsString, toLowerCaseSet } from "./string.js";
 
-export function assertIsAddress(value: unknown, valueName?: string): asserts value is string {
+export function assertIsAddress(value: unknown, valueName?: string): asserts value is `0x${string}` {
   assertIsString(value, valueName);
-  assertFhevm(EthersT.isAddress(value), `${valueName ?? "value"}: '${value}' is not a valid address`);
+  assertFhevm(
+    EthersT.isAddress(value) && value.startsWith("0x"),
+    `${valueName ?? "value"}: '${value}' is not a valid address`,
+  );
 }
 
-export function assertIsAddressArray(value: unknown, valueName?: string): asserts value is string[] {
+export function assertIsAddressArray(value: unknown, valueName?: string): asserts value is `0x${string}`[] {
   assertIsArray(value, valueName);
   for (let i = 0; i < value.length; ++i) {
     assertIsAddress(value[i], valueName ? `${valueName}[${i}]` : undefined);

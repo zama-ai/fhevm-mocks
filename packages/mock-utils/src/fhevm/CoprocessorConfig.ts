@@ -13,25 +13,25 @@ export type CoprocessorConfig = {
    * [`ACL.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/ACL.sol)
    * contract from `@fhevm/core-contracts`.
    */
-  ACLAddress: string;
+  ACLAddress: `0x${string}`;
   /**
    * Address of the deployed
    * [`FHEVMExecutor.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/FHEVMExecutor.sol)
    * contract from `@fhevm/core-contracts`.
    */
-  CoprocessorAddress: string;
+  CoprocessorAddress: `0x${string}`;
   /**
    * Address of the deployed
    * [`InputVerifier.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/InputVerifier.sol)
    * contract from `@fhevm/core-contracts`.
    */
-  DecryptionOracleAddress: string;
+  DecryptionOracleAddress: `0x${string}`;
   /**
    * Address of the deployed
    * [`KMSVerifier.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/KMSVerifier.sol)
    * contract from `@fhevm/core-contracts`.
    */
-  KMSVerifierAddress: string;
+  KMSVerifierAddress: `0x${string}`;
 };
 
 /**
@@ -67,7 +67,7 @@ export async function getCoprocessorConfig(
       address KMSVerifierAddress;
     }
   */
-  const addresses: string[] = await getAddressesFromStorage(
+  const addresses = await getAddressesFromStorage(
     provider,
     contractAddress,
     coprocessorConfigStorageLocation,

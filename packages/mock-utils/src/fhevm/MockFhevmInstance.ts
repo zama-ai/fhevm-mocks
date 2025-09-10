@@ -48,11 +48,11 @@ export type MockFhevmInstanceConfigExtra = {
 };
 
 export type MockFhevmInstanceConfig = {
-  verifyingContractAddressDecryption: string;
-  verifyingContractAddressInputVerification: string;
-  kmsContractAddress: string;
-  inputVerifierContractAddress: string;
-  aclContractAddress: string;
+  verifyingContractAddressDecryption: `0x${string}`;
+  verifyingContractAddressInputVerification: `0x${string}`;
+  kmsContractAddress: `0x${string}`;
+  inputVerifierContractAddress: `0x${string}`;
+  aclContractAddress: `0x${string}`;
   chainId: number;
   gatewayChainId: number;
 };

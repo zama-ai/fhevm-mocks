@@ -7,6 +7,7 @@ import {
   isFhevmEuint,
   tryParseFhevmType,
 } from "@fhevm/mock-utils";
+import { assertIsAddress } from "@fhevm/mock-utils/utils";
 import { scope } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
@@ -298,6 +299,9 @@ fhevmScope
     ) => {
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
+
+      assertIsAddress(acl, "acl");
+      assertIsAddress(kms, "kms");
 
       const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
         aclContractAddress: acl,

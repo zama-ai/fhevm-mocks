@@ -201,7 +201,7 @@ export class MockFhevmInstanceConfig implements FhevmInstanceConfig {
 function _checkConfigAddressProperty<K extends string>(
   config: unknown,
   propertyName: K,
-): asserts config is { [P in K]: string } {
+): asserts config is { [P in K]: `0x${string}` } {
   _checkConfigStringProperty(config, propertyName, "address");
 
   if (!EthersT.isAddress(config[propertyName])) {

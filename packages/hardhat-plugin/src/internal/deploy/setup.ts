@@ -76,7 +76,7 @@ async function __tryCallGetFHEVMExecutorAddress(
   contract: EthersT.Contract,
   contractName: FhevmContractName,
   contractAddress: string,
-): Promise<string> {
+): Promise<`0x${string}`> {
   try {
     return await contract.getFHEVMExecutorAddress();
   } catch {
@@ -89,7 +89,7 @@ async function __tryCallGetACLAddress(
   contract: EthersT.Contract,
   contractName: FhevmContractName,
   contractAddress: string,
-): Promise<string> {
+): Promise<`0x${string}`> {
   try {
     return await contract.getACLAddress();
   } catch {
@@ -102,7 +102,7 @@ async function __tryCallGetHCULimitAddress(
   contract: EthersT.Contract,
   contractName: FhevmContractName,
   contractAddress: string,
-): Promise<string> {
+): Promise<`0x${string}`> {
   try {
     return await contract.getHCULimitAddress();
   } catch {
@@ -115,7 +115,7 @@ async function __tryCallGetInputVerifierAddress(
   contract: EthersT.Contract,
   contractName: FhevmContractName,
   contractAddress: string,
-): Promise<string> {
+): Promise<`0x${string}`> {
   try {
     return await contract.getInputVerifierAddress();
   } catch {

@@ -8,7 +8,7 @@ import { KMSVerifierPartialInterface } from "./interfaces/KMSVerifier.itf.js";
 // Shareable
 export class ZamaFheDecryptionOracle extends FhevmDecryptionOracleContractWrapper {
   #zamaFheDecryptionOracleContract: EthersT.Contract | undefined;
-  #zamaFheDecryptionOracleContractAddress: string | undefined;
+  #zamaFheDecryptionOracleContractAddress: `0x${string}` | undefined;
 
   constructor() {
     super("DecryptionOracle");
@@ -16,7 +16,7 @@ export class ZamaFheDecryptionOracle extends FhevmDecryptionOracleContractWrappe
 
   public static async create(
     runner: EthersT.ContractRunner,
-    zamaFheDecryptionOracleContractAddress: string,
+    zamaFheDecryptionOracleContractAddress: `0x${string}`,
     abi?: EthersT.Interface | EthersT.InterfaceAbi,
   ): Promise<ZamaFheDecryptionOracle> {
     assertIsAddress(zamaFheDecryptionOracleContractAddress, "zamaFheDecryptionOracleContractAddress");
@@ -55,7 +55,7 @@ export class ZamaFheDecryptionOracle extends FhevmDecryptionOracleContractWrappe
     );
   }
 
-  public get address(): string {
+  public get address(): `0x${string}` {
     assertFhevm(
       this.#zamaFheDecryptionOracleContractAddress !== undefined,
       `ZamaFheDecryptionOracle wrapper not initialized`,
