@@ -18,7 +18,11 @@ export function assertIsBytes32String(value: unknown, valueName?: string): asser
   assertIsBytesString(value, 32, valueName);
 }
 
-export function assertIsBytesString(value: unknown, width?: number, valueName?: string): asserts value is `0x${string}` {
+export function assertIsBytesString(
+  value: unknown,
+  width?: number,
+  valueName?: string,
+): asserts value is `0x${string}` {
   assertIsString(value, valueName);
   if (width === undefined) {
     assertFhevm(EthersT.isBytesLike(value), `${valueName ?? "value"} : ${value} is not a valid bytes string`);

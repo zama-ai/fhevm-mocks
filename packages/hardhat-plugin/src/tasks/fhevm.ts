@@ -7,6 +7,7 @@ import {
   isFhevmEuint,
   tryParseFhevmType,
 } from "@fhevm/mock-utils";
+import { assertIsAddress } from "@fhevm/mock-utils/utils";
 import { scope } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
@@ -24,7 +25,6 @@ import {
 } from "../task-names";
 
 import picocolors = require("picocolors");
-import { assertIsAddress } from "@fhevm/mock-utils/utils";
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 

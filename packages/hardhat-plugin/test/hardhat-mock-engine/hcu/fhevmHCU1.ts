@@ -1,3 +1,4 @@
+import { getHCU } from "@fhevm/mock-utils";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";
@@ -10,7 +11,6 @@ import type { FHEVMTestSuite5 } from "../../../typechain-types/contracts/operato
 import type { FHEVMTestSuite6 } from "../../../typechain-types/contracts/operators/FHEVMTestSuite6";
 import type { FHEVMTestSuite7 } from "../../../typechain-types/contracts/operators/FHEVMTestSuite7";
 import { getSigners, initSigners } from "../signers";
-import { getHCU } from "@fhevm/mock-utils";
 
 async function deployFHEVMTestFixture1(): Promise<FHEVMTestSuite1> {
   const signers = await getSigners();
@@ -123,7 +123,7 @@ describe("FHEVM HCU 1", function () {
     this.contract7 = contract7;
   });
 
-  it('test HCU FheAdd(euint8, euint8)', async function () {
+  it("test HCU FheAdd(euint8, euint8)", async function () {
     const input = hre.fhevm.createEncryptedInput(this.contract1Address, this.signers.alice.address);
     input.add8(80n);
     input.add8(133n);
@@ -135,7 +135,7 @@ describe("FHEVM HCU 1", function () {
     );
     const receipt = await tx.wait();
 
-    const resEuint8 = await this.contract1.resEuint8(); 
+    const resEuint8 = await this.contract1.resEuint8();
 
     const hcu = hre.fhevm.computeTransactionHCU(receipt);
 
@@ -144,7 +144,7 @@ describe("FHEVM HCU 1", function () {
     expect(hcu.maxHCUDepth).to.eq(getHCU("FheAdd", "Uint8"));
   });
 
-  it('test HCU FheSub(euint8, euint8)', async function () {
+  it("test HCU FheSub(euint8, euint8)", async function () {
     const input = hre.fhevm.createEncryptedInput(this.contract1Address, this.signers.alice.address);
     input.add8(133n);
     input.add8(80n);
@@ -156,7 +156,7 @@ describe("FHEVM HCU 1", function () {
     );
     const receipt = await tx.wait();
 
-    const resEuint8 = await this.contract1.resEuint8(); 
+    const resEuint8 = await this.contract1.resEuint8();
 
     const hcu = hre.fhevm.computeTransactionHCU(receipt);
 

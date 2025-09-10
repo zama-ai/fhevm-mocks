@@ -30,7 +30,7 @@ type HCUTernaryOp = {
 type HCUOperator = HCUNoOp | HCUUnaryOp | HCUBinaryOp | HCUTernaryOp;
 
 export type HCUOperatorName = CoprocessorOperatorEventName;
-  
+
 export const HCUByOperator = {
   FheAdd: {
     supportScalar: true,
@@ -503,13 +503,9 @@ export const HCUByOperator = {
   },
 } as const satisfies Record<HCUOperatorName, HCUOperator>;
 
-export function getHCU(
-  opName: HCUOperatorName,
-  type: FheTypeName,
-  opts?: { scalar: boolean }
-): number {
+export function getHCU(opName: HCUOperatorName, type: FheTypeName, opts?: { scalar: boolean }): number {
   const hcuOperator: HCUOperator = HCUByOperator[opName];
-  
+
   if (!hcuOperator) {
     throw new FhevmError(`Unknown HCU operator '${opName}'`);
   }

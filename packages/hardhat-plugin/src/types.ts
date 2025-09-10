@@ -5,7 +5,7 @@ import type {
   FhevmPublicDecryptOptions,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
-  TransactionHCUInfo
+  TransactionHCUInfo,
 } from "@fhevm/mock-utils";
 import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
 import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";

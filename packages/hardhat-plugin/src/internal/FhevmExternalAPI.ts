@@ -9,9 +9,9 @@ import {
   FhevmTypeEuint,
   FhevmTypeName,
   FhevmUserDecryptOptions,
+  TransactionHCUInfo,
   getCoprocessorConfig,
   getFhevmTypeInfo,
-  TransactionHCUInfo,
 } from "@fhevm/mock-utils";
 import { parseCoprocessorEventsFromLogs, parseDecryptionRequestEventsFromLogs } from "@fhevm/mock-utils";
 import { relayer } from "@fhevm/mock-utils";
@@ -106,7 +106,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
   public async awaitDecryptionOracle() {
     await relayer.requestFhevmAwaitDecryptionOracle(this._fhevmEnv.relayerProvider);
   }
-  
+
   public async encryptUint(
     fhevmType: FhevmTypeEuint,
     value: number | bigint,

@@ -3,9 +3,9 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
+import { type TransactionHCUInfo, getTxHCUFromTxReceipt } from "../coprocessor/hcu.js";
 import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { FHEVMExecutorPartialInterface } from "./interfaces/FHEVMExecutor.itf.js";
-import { getTxHCUFromTxReceipt, type TransactionHCUInfo } from "../coprocessor/hcu.js";
 
 export type FHEVMExecutorProperties = {
   aclAddress?: `0x${string}`;
@@ -117,7 +117,7 @@ export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
     assertIsString(this.#version, "version");
   }
 
-  public computeTransactionHCU(transactionReceipt: EthersT.TransactionReceipt,): TransactionHCUInfo {
+  public computeTransactionHCU(transactionReceipt: EthersT.TransactionReceipt): TransactionHCUInfo {
     return getTxHCUFromTxReceipt(this.address, this.readonlyContract.interface, transactionReceipt);
   }
 }

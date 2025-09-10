@@ -3,8 +3,8 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../utils/address.js";
 import { assertIsBytes32String } from "../utils/bytes.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
-import { type MinimalProvider, minimalProviderSend } from "./provider.js";
 import { ensure0x } from "../utils/string.js";
+import { type MinimalProvider, minimalProviderSend } from "./provider.js";
 
 /*
   /// keccak256(abi.encode(uint256(keccak256("fhevm.storage.FHEVMConfig")) - 1)) & ~bytes32(uint256(0xff))

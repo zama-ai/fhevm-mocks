@@ -5,7 +5,10 @@ import { assertIsString, toLowerCaseSet } from "./string.js";
 
 export function assertIsAddress(value: unknown, valueName?: string): asserts value is `0x${string}` {
   assertIsString(value, valueName);
-  assertFhevm(EthersT.isAddress(value) && value.startsWith("0x"), `${valueName ?? "value"}: '${value}' is not a valid address`);
+  assertFhevm(
+    EthersT.isAddress(value) && value.startsWith("0x"),
+    `${valueName ?? "value"}: '${value}' is not a valid address`,
+  );
 }
 
 export function assertIsAddressArray(value: unknown, valueName?: string): asserts value is `0x${string}`[] {
