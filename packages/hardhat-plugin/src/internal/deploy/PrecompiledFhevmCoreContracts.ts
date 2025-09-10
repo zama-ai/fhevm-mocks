@@ -89,9 +89,9 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
       mockProvider.readonlyEthersProvider,
     );
 
-    const precompiledACLAddress = (await FHEVMExecutorReadOnly.getACLAddress()) as string;
-    const precompiledHCULimitAddress = (await FHEVMExecutorReadOnly.getHCULimitAddress()) as string;
-    const precompiledInputVerifierAddress = (await FHEVMExecutorReadOnly.getInputVerifierAddress()) as string;
+    const precompiledACLAddress = (await FHEVMExecutorReadOnly.getACLAddress()) as `0x${string}`;
+    const precompiledHCULimitAddress = (await FHEVMExecutorReadOnly.getHCULimitAddress()) as `0x${string}`;
+    const precompiledInputVerifierAddress = (await FHEVMExecutorReadOnly.getInputVerifierAddress()) as `0x${string}`;
 
     const addresses: PrecompiledCoreContractsAddresses = {
       ACLAddress: precompiledACLAddress,
@@ -111,7 +111,7 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
 export async function retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
   mockProvider: FhevmMockProvider,
   fhevmPaths: FhevmEnvironmentPaths,
-): Promise<string> {
+): Promise<`0x${string}`> {
   const DUMMY_ACL_ADDR = computeDummyAddress();
 
   if ((await mockProvider.getCodeAt(DUMMY_ACL_ADDR)) !== "0x") {

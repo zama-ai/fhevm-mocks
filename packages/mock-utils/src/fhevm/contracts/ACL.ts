@@ -7,15 +7,15 @@ import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { ACLPartialInterface } from "./interfaces/ACL.itf.js";
 
 export type ACLProperties = {
-  fhevmExecutorAddress?: string;
+  fhevmExecutorAddress?: `0x${string}`;
   version?: string;
 };
 
 // Shareable
 export class ACL extends FhevmCoprocessorContractWrapper {
   #aclReadOnlyContract: EthersT.Contract | undefined;
-  #aclContractAddress: string | undefined;
-  #fhevmExecutorAddress: string | undefined;
+  #aclContractAddress: `0x${string}` | undefined;
+  #fhevmExecutorAddress: `0x${string}` | undefined;
   #version: string | undefined;
 
   constructor() {
@@ -48,7 +48,7 @@ export class ACL extends FhevmCoprocessorContractWrapper {
     return this.#aclReadOnlyContract.interface;
   }
 
-  public get address(): string {
+  public get address(): `0x${string}` {
     assertFhevm(this.#aclContractAddress !== undefined, `ACL wrapper is not yet initialized`);
     return this.#aclContractAddress;
   }
@@ -58,7 +58,7 @@ export class ACL extends FhevmCoprocessorContractWrapper {
     return this.#version;
   }
 
-  public get fhevmExecutorAddress(): string {
+  public get fhevmExecutorAddress(): `0x${string}` {
     assertFhevm(this.#fhevmExecutorAddress !== undefined, `ACL wrapper is not yet initialized`);
     return this.#fhevmExecutorAddress;
   }

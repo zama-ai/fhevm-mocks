@@ -8,12 +8,12 @@ import { getCoprocessorEvents } from "./utils.js";
 export class CoprocessorEventsIterator {
   #cursor: BlockLogCursor;
   #coprocessorContractInterface: EthersT.Interface;
-  #coprocessorContractAddress: string;
+  #coprocessorContractAddress: `0x${string}`;
   #readonlyProvider: EthersT.Provider;
 
   constructor(
     coprocessorContractInterface: EthersT.Interface,
-    coprocessorContractAddress: string,
+    coprocessorContractAddress: `0x${string}`,
     readonlyProvider: EthersT.Provider,
     fromBlockNumber: number,
   ) {

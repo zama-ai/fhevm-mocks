@@ -19,7 +19,7 @@ export function assertEventArgIsBytes1String(
   value: unknown,
   eventName: string,
   argIndex: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   _assertEventArgIsBytesString(value, eventName, argIndex, 1);
 }
 
@@ -27,7 +27,7 @@ export function assertEventArgIsBytes4String(
   value: unknown,
   eventName: string,
   argIndex: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   _assertEventArgIsBytesString(value, eventName, argIndex, 4);
 }
 
@@ -35,7 +35,7 @@ export function assertEventArgIsBytes8String(
   value: unknown,
   eventName: string,
   argIndex: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   _assertEventArgIsBytesString(value, eventName, argIndex, 8);
 }
 
@@ -43,7 +43,7 @@ export function assertEventArgIsBytes16String(
   value: unknown,
   eventName: string,
   argIndex: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   _assertEventArgIsBytesString(value, eventName, argIndex, 16);
 }
 
@@ -51,7 +51,7 @@ export function assertEventArgIsBytes32String(
   value: unknown,
   eventName: string,
   argIndex: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   _assertEventArgIsBytesString(value, eventName, argIndex, 32);
 }
 
@@ -59,7 +59,7 @@ export function assertEventArgIsBytesString(
   value: unknown,
   eventName: string,
   argIndex: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   _assertEventArgIsBytesString(value, eventName, argIndex);
 }
 
@@ -68,7 +68,7 @@ function _assertEventArgIsBytesString(
   eventName: string,
   argIndex: number,
   width?: number,
-): asserts value is string {
+): asserts value is `0x${string}` {
   assertIsBytesString(value, width, `${eventName} event arg #${argIndex}`);
 }
 

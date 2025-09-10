@@ -5,6 +5,7 @@ import type {
   FhevmPublicDecryptOptions,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
+  TransactionHCUInfo
 } from "@fhevm/mock-utils";
 import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
 import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
@@ -28,6 +29,7 @@ export interface HardhatFhevmRuntimeEnvironment {
 
   parseCoprocessorEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): CoprocessorEvent[];
   parseDecryptionRequestEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): DecryptionRequestEvent[];
+  computeTransactionHCU(transactionReceipt: ethers.TransactionReceipt): TransactionHCUInfo;
 
   awaitDecryptionOracle(): Promise<void>;
 

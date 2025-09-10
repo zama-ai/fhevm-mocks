@@ -16,11 +16,16 @@ export {
   tryParseFhevmType,
 } from "./fhevm/FhevmType.js";
 export type { FhevmTypeEbytes, FhevmTypeEuint, FhevmTypeName } from "./fhevm/FhevmType.js";
+export type {
+  FheTypeName,
+} from "./fhevm/FheType.js";
 
 export { FhevmHandleCoder } from "./fhevm/FhevmHandleCoder.js";
 export { FhevmHandle } from "./fhevm/FhevmHandle.js";
 export type { DecryptionRequestEvent } from "./fhevm/decryptionOracle/DecryptionOracleEvents.js";
-export type { CoprocessorEvent } from "./fhevm/coprocessor/CoprocessorEvents.js";
+export type { CoprocessorEvent, CoprocessorEventName } from "./fhevm/coprocessor/CoprocessorEvents.js";
+export type { TransactionHCUInfo } from "./fhevm/coprocessor/hcu.js";
+export { getHCU, type HCUOperatorName } from "./fhevm/coprocessor/HCUByOperator.js";
 export type {
   FhevmContractName,
   FhevmDecryptionOracleContractName,

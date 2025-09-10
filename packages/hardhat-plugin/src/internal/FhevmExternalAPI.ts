@@ -11,6 +11,7 @@ import {
   FhevmUserDecryptOptions,
   getCoprocessorConfig,
   getFhevmTypeInfo,
+  TransactionHCUInfo,
 } from "@fhevm/mock-utils";
 import { parseCoprocessorEventsFromLogs, parseDecryptionRequestEventsFromLogs } from "@fhevm/mock-utils";
 import { relayer } from "@fhevm/mock-utils";
@@ -93,6 +94,11 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return parseCoprocessorEventsFromLogs(logs);
   }
 
+  public computeTransactionHCU(transactionReceipt: EthersT.TransactionReceipt): TransactionHCUInfo {
+    const fhevmExecutor = this._fhevmEnv.getContractsRepository().fhevmExecutor;
+    return fhevmExecutor.computeTransactionHCU(transactionReceipt);
+  }
+
   public async getRelayerMetadata(): Promise<relayer.RelayerMetadata> {
     return await relayer.requestRelayerMetadata(this._fhevmEnv.relayerProvider);
   }
@@ -100,7 +106,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
   public async awaitDecryptionOracle() {
     await relayer.requestFhevmAwaitDecryptionOracle(this._fhevmEnv.relayerProvider);
   }
-
+  
   public async encryptUint(
     fhevmType: FhevmTypeEuint,
     value: number | bigint,

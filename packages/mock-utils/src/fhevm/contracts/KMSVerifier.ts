@@ -14,7 +14,7 @@ import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { KMSVerifierPartialInterface } from "./interfaces/KMSVerifier.itf.js";
 
 export type KMSVerifierProperties = {
-  signersAddresses?: string[];
+  signersAddresses?: `0x${string}`[];
   threshold?: number;
   eip712Domain?: EIP712Domain;
 };
@@ -22,8 +22,8 @@ export type KMSVerifierProperties = {
 // Shareable
 export class KMSVerifier extends FhevmCoprocessorContractWrapper {
   #kmsVerifierContract: EthersT.Contract | undefined;
-  #kmsVerifierContractAddress: string | undefined;
-  #signersAddresses: string[] | undefined;
+  #kmsVerifierContractAddress: `0x${string}` | undefined;
+  #signersAddresses: `0x${string}`[] | undefined;
   #threshold: number | undefined;
   #eip712Domain: EIP712Domain | undefined;
 
@@ -33,7 +33,7 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
 
   public static async create(
     runner: EthersT.ContractRunner,
-    kmsVerifierContractAddress: string,
+    kmsVerifierContractAddress: `0x${string}`,
     abi?: EthersT.Interface | EthersT.InterfaceAbi,
     properties?: KMSVerifierProperties,
   ): Promise<KMSVerifier> {
@@ -106,7 +106,7 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
     assertFhevm(this.#eip712Domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version);
   }
 
-  public get address(): string {
+  public get address(): `0x${string}` {
     assertFhevm(this.#kmsVerifierContractAddress !== undefined, `KMSVerifier wrapper not initialized`);
     return this.#kmsVerifierContractAddress;
   }
@@ -119,8 +119,9 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
 
   // The KMSVerifier is always using the address of the "Decryption.sol" contract deployed
   // on the gateway chainId in its eip712 domain
-  public get gatewayDecryptionAddress(): string {
+  public get gatewayDecryptionAddress(): `0x${string}` {
     assertFhevm(this.#eip712Domain !== undefined, `KMSVerifier wrapper not initialized`);
+    assertIsAddress(this.#eip712Domain.verifyingContract, "KMSVerifier.eip712Domain.verifyingContract");
     return this.#eip712Domain.verifyingContract;
   }
 
@@ -129,7 +130,7 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
     return this.#eip712Domain;
   }
 
-  public getKmsSignersAddresses(): string[] {
+  public getKmsSignersAddresses(): `0x${string}`[] {
     assertFhevm(this.#signersAddresses !== undefined, `KMSVerifier wrapper not initialized`);
     return this.#signersAddresses;
   }

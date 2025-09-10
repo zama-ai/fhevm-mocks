@@ -2,8 +2,8 @@ import { FhevmError } from "../utils/error.js";
 import { isUInt } from "../utils/math.js";
 
 export interface FheTypeInfo {
-  type: string;
-  supportedOperators: string[];
+  type: FheTypeName;
+  supportedOperators: FheTypeOperatorName[];
   bitLength: number;
   clearMatchingType: string;
   value: number;
@@ -11,10 +11,75 @@ export interface FheTypeInfo {
 }
 
 export interface AliasFheType {
-  type: string;
-  supportedOperators: string[];
+  type: AliasFheTypeName;
+  supportedOperators: FheTypeOperatorName[];
   clearMatchingType: string;
 }
+
+export type FheTypeOperatorName =
+  | "add"
+  | "sub"
+  | "mul"
+  | "div"
+  | "rem"
+  | "and"
+  | "or"
+  | "xor"
+  | "shl"
+  | "shr"
+  | "rotl"
+  | "rotr"
+  | "eq"
+  | "ne"
+  | "ge"
+  | "gt"
+  | "le"
+  | "lt"
+  | "min"
+  | "max"
+  | "neg"
+  | "not"
+  | "select"
+  | "rand"
+  | "randBounded";
+
+export type AliasFheTypeName =
+  | "Bytes1"
+  | "Bytes2"
+  | "Bytes3"
+  | "Bytes4"
+  | "Bytes5"
+  | "Bytes6"
+  | "Bytes7"
+  | "Bytes8"
+  | "Bytes9"
+  | "Bytes10"
+  | "Bytes11"
+  | "Bytes12"
+  | "Bytes13"
+  | "Bytes14"
+  | "Bytes15"
+  | "Bytes16"
+  | "Bytes17"
+  | "Bytes18"
+  | "Bytes19"
+  | "Bytes20"
+  | "Bytes21"
+  | "Bytes22"
+  | "Bytes23"
+  | "Bytes24"
+  | "Bytes25"
+  | "Bytes26"
+  | "Bytes27"
+  | "Bytes28"
+  | "Bytes29"
+  | "Bytes30"
+  | "Bytes31"
+  | "Bytes32"
+  | "Bytes64"
+  | "Bytes128"
+  | "Bytes256"
+  | "Address";
 
 export enum FheType {
   Bool = 0,
@@ -102,6 +167,92 @@ export enum FheType {
   Int240 = 82,
   Int248 = 83,
 }
+
+export type FheTypeName =
+  | "Bool"
+  | "Uint4"
+  | "Uint8"
+  | "Uint16"
+  | "Uint32"
+  | "Uint64"
+  | "Uint128"
+  | "Uint160"
+  | "Uint256"
+  | "Uint512"
+  | "Uint1024"
+  | "Uint2048"
+  | "Uint2"
+  | "Uint6"
+  | "Uint10"
+  | "Uint12"
+  | "Uint14"
+  | "Int2"
+  | "Int4"
+  | "Int6"
+  | "Int8"
+  | "Int10"
+  | "Int12"
+  | "Int14"
+  | "Int16"
+  | "Int32"
+  | "Int64"
+  | "Int128"
+  | "Int160"
+  | "Int256"
+  | "AsciiString"
+  | "Int512"
+  | "Int1024"
+  | "Int2048"
+  | "Uint24"
+  | "Uint40"
+  | "Uint48"
+  | "Uint56"
+  | "Uint72"
+  | "Uint80"
+  | "Uint88"
+  | "Uint96"
+  | "Uint104"
+  | "Uint112"
+  | "Uint120"
+  | "Uint136"
+  | "Uint144"
+  | "Uint152"
+  | "Uint168"
+  | "Uint176"
+  | "Uint184"
+  | "Uint192"
+  | "Uint200"
+  | "Uint208"
+  | "Uint216"
+  | "Uint224"
+  | "Uint232"
+  | "Uint240"
+  | "Uint248"
+  | "Int24"
+  | "Int40"
+  | "Int48"
+  | "Int56"
+  | "Int72"
+  | "Int80"
+  | "Int88"
+  | "Int96"
+  | "Int104"
+  | "Int112"
+  | "Int120"
+  | "Int136"
+  | "Int144"
+  | "Int152"
+  | "Int168"
+  | "Int176"
+  | "Int184"
+  | "Int192"
+  | "Int200"
+  | "Int208"
+  | "Int216"
+  | "Int224"
+  | "Int232"
+  | "Int240"
+  | "Int248";
 
 /**
  * A constant array containing all Fully Homomorphic Encryption (FHE) types.
@@ -1121,6 +1272,11 @@ export function checkFheType(fheType: unknown): asserts fheType is FheType {
 
   const theFheType = fheType as bigint | number;
 
+  // Debug: defensive check, should never happen
+  if (ALL_FHE_TYPES.length - 1 !== ALL_FHE_TYPES[ALL_FHE_TYPES.length - 1].value) {
+    throw new FhevmError(`Internal error: Invalid ALL_FHE_TYPES array.`);
+  }
+
   if (theFheType >= ALL_FHE_TYPES.length) {
     throw new FhevmError(`Invalid FheType ${fheType}`);
   }
@@ -1136,5 +1292,15 @@ export function getFheTypeBitLength(fheType: FheType): number {
 }
 
 export function getFheTypeInfo(type: FheType): FheTypeInfo {
-  return ALL_FHE_TYPES[type];
+  const typeInfo = ALL_FHE_TYPES[type];
+  // Debug: defensive check, should never happen
+  if (typeInfo.value !== Number(type)) {
+    throw new FhevmError(`Internal error: Invalid FheType ${type}`);
+  }
+  return typeInfo;
+}
+
+export function getFheTypeName(fheType: unknown): FheTypeName {
+  checkFheType(fheType);
+  return getFheTypeInfo(fheType).type;
 }

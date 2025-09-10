@@ -88,6 +88,8 @@ export class CoprocessorEventsHandler {
         };
       }
 
+      /*
+      // deprecated
       case "TrivialEncryptBytes": {
         // event TrivialEncryptBytes(address indexed caller, bytes pt, FheType toType, bytes32 result);
         const ptBytes: string = event.args[1 as keyof typeof event.args];
@@ -101,6 +103,7 @@ export class CoprocessorEventsHandler {
           clearText: ptBytes,
         };
       }
+      */
 
       case "FheAdd": {
         // event FheAdd(address indexed caller, bytes32 lhs, bytes32 rhs, bytes1 scalarByte, bytes32 result);
@@ -315,6 +318,8 @@ export class CoprocessorEventsHandler {
         };
       }
 
+      /*
+      // Deprecated
       case "FheEqBytes": {
         // "event FheEqBytes(address indexed caller, bytes32 lhs, bytes rhs, bytes1 scalarByte, bytes32 result)",
         const binaryOp = await this.parseBinaryBytesOpEvent(event);
@@ -326,6 +331,7 @@ export class CoprocessorEventsHandler {
           clearText,
         };
       }
+      */
 
       case "FheNe": {
         // "event FheNe(address indexed caller, bytes32 lhs, bytes32 rhs, bytes1 scalarByte, bytes32 result)",
@@ -339,6 +345,8 @@ export class CoprocessorEventsHandler {
         };
       }
 
+      /*
+      // Deprecated
       case "FheNeBytes": {
         // "event FheNeBytes(address indexed caller, bytes32 lhs, bytes rhs, bytes1 scalarByte, bytes32 result)",
         const binaryOp = await this.parseBinaryBytesOpEvent(event);
@@ -350,6 +358,7 @@ export class CoprocessorEventsHandler {
           clearText,
         };
       }
+      */
 
       case "FheGe": {
         // "event FheGe(address indexed caller, bytes32 lhs, bytes32 rhs, bytes1 scalarByte, bytes32 result)",
@@ -650,34 +659,6 @@ export class CoprocessorEventsHandler {
     const clearTextRhsBigInt: bigint = scalar
       ? BigInt(rhsBytes32)
       : BigInt((await this.#db.queryHandleBytes32(rhsBytes32)).clearTextHex);
-
-    return {
-      resultBytes32,
-      clearTextLhsBigInt,
-      clearTextRhsBigInt,
-      scalar,
-      clearTextBitLength: BigInt(resultFhevmHandle.fhevmTypeInfo.clearTextBitLength),
-    };
-  }
-
-  private async parseBinaryBytesOpEvent(event: CoprocessorEvent) {
-    const lhsBytes32: string = event.args[1 as keyof typeof event.args];
-    const rhsBytes: string = event.args[2 as keyof typeof event.args];
-    const scalarBytes1: string = event.args[3 as keyof typeof event.args];
-    const resultBytes32: string = event.args[4 as keyof typeof event.args];
-
-    assertEventArgIsBytes32String(lhsBytes32, event.eventName, 1);
-    assertEventArgIsBytesString(rhsBytes, event.eventName, 2);
-    assertEventArgIsBytes1String(scalarBytes1, event.eventName, 3);
-    assertEventArgIsBytes32String(resultBytes32, event.eventName, 4);
-
-    const resultFhevmHandle: FhevmHandle = FhevmHandle.fromBytes32Hex(resultBytes32);
-
-    const scalar: boolean = scalarBytes1 === "0x01";
-    const clearTextLhsBigInt: bigint = BigInt((await this.#db.queryHandleBytes32(lhsBytes32)).clearTextHex);
-    const clearTextRhsBigInt: bigint = scalar
-      ? BigInt(rhsBytes)
-      : BigInt((await this.#db.queryHandleBytes32(rhsBytes)).clearTextHex);
 
     return {
       resultBytes32,

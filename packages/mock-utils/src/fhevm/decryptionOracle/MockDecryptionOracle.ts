@@ -102,11 +102,11 @@ export class MockDecryptionOracle implements DecryptionOracle {
   public static async create(
     readonlyProvider: EthersT.Provider,
     params: {
-      decryptionOracleContractAddress: string;
+      decryptionOracleContractAddress: `0x${string}`;
       decryptionOracleContractInterface?: EthersT.Interface;
       kmsSigners: EthersT.Signer[];
-      kmsVerifierContractAddress: string;
-      aclContractAddress: string;
+      kmsVerifierContractAddress: `0x${string}`;
+      aclContractAddress: `0x${string}`;
       coprocessor: Coprocessor;
       relayerSigner: EthersT.Signer;
     },

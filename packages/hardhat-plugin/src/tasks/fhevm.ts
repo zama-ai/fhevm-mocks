@@ -24,6 +24,7 @@ import {
 } from "../task-names";
 
 import picocolors = require("picocolors");
+import { assertIsAddress } from "@fhevm/mock-utils/utils";
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
@@ -298,6 +299,9 @@ fhevmScope
     ) => {
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
+
+      assertIsAddress(acl, "acl");
+      assertIsAddress(kms, "kms");
 
       const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
         aclContractAddress: acl,

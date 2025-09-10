@@ -1,7 +1,5 @@
-export type CoprocessorEventName =
-  | "VerifyCiphertext"
+export type CoprocessorOperatorEventName =
   | "TrivialEncrypt"
-  | "TrivialEncryptBytes"
   | "FheAdd"
   | "FheSub"
   | "FheMul"
@@ -15,9 +13,7 @@ export type CoprocessorEventName =
   | "FheRotl"
   | "FheRotr"
   | "FheEq"
-  | "FheEqBytes"
   | "FheNe"
-  | "FheNeBytes"
   | "FheGe"
   | "FheGt"
   | "FheLe"
@@ -30,6 +26,8 @@ export type CoprocessorEventName =
   | "FheNeg"
   | "Cast"
   | "FheIfThenElse";
+
+export type CoprocessorEventName = CoprocessorOperatorEventName | "VerifyCiphertext";
 
 /**
  * Coprocessor Solidity event emitted by a
@@ -49,7 +47,6 @@ export function isCoprocessorEventName(value: unknown): value is CoprocessorEven
   return (
     value === "VerifyCiphertext" ||
     value === "TrivialEncrypt" ||
-    value === "TrivialEncryptBytes" ||
     value === "FheAdd" ||
     value === "FheSub" ||
     value === "FheMul" ||
@@ -63,9 +60,7 @@ export function isCoprocessorEventName(value: unknown): value is CoprocessorEven
     value === "FheRotl" ||
     value === "FheRotr" ||
     value === "FheEq" ||
-    value === "FheEqBytes" ||
     value === "FheNe" ||
-    value === "FheNeBytes" ||
     value === "FheGe" ||
     value === "FheGt" ||
     value === "FheLe" ||
