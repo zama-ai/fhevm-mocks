@@ -7,8 +7,8 @@ export type PrecompiledCoreContractsAddresses = Omit<
   CoprocessorConfig,
   "KMSVerifierAddress" | "DecryptionOracleAddress"
 > & {
-  HCULimitAddress: string;
-  InputVerifierAddress: string;
+  HCULimitAddress: `0x${string}`;
+  InputVerifierAddress: `0x${string}`;
 };
 
 export type FhevmContext = {

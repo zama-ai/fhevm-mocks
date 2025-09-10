@@ -31,6 +31,7 @@ export function checkDeadlineValidity(startTimestamp: bigint, durationDays: bigi
 }
 
 // Duplicated code from relayer-sdk/src/relayer/userDecrypt.ts
+// Modified to remove ebytes
 function formatAccordingToType(decryptedBigInt: bigint, type: number): boolean | bigint | string {
   if (type === 0) {
     // ebool
@@ -38,15 +39,9 @@ function formatAccordingToType(decryptedBigInt: bigint, type: number): boolean |
   } else if (type === 7) {
     // eaddress
     return EthersT.getAddress("0x" + decryptedBigInt.toString(16).padStart(40, "0"));
-  } else if (type === 9) {
-    // ebytes64
-    return "0x" + decryptedBigInt.toString(16).padStart(128, "0");
-  } else if (type === 10) {
-    // ebytes128
-    return "0x" + decryptedBigInt.toString(16).padStart(256, "0");
-  } else if (type === 11) {
-    // ebytes256
-    return "0x" + decryptedBigInt.toString(16).padStart(512, "0");
+  } else if (type === 9 || type === 10 || type === 11) {
+    // deprecated ebytes64
+    throw new FhevmError(`Deprecated ebytes type ${type}`);
   } // euintXXX
   return decryptedBigInt;
 }

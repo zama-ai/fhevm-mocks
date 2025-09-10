@@ -33,9 +33,9 @@ export class FhevmContractsRepository {
   public static async create(
     ethersReadonlyProvider: EthersT.Provider,
     config: {
-      aclContractAddress: string;
-      kmsContractAddress: string;
-      zamaFheDecryptionOracleAddress?: string;
+      aclContractAddress: `0x${string}`;
+      kmsContractAddress: `0x${string}`;
+      zamaFheDecryptionOracleAddress?: `0x${string}`;
       aclAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       fhevmExecutorAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       hcuLimitAbi?: EthersT.Interface | EthersT.InterfaceAbi;

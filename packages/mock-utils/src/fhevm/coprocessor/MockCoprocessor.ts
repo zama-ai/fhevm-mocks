@@ -14,7 +14,7 @@ import { CoprocessorEventsHandler } from "./CoprocessorEventsHandler.js";
 import { CoprocessorEventsIterator } from "./CoprocessorEventsIterator.js";
 
 export class MockCoprocessor implements Coprocessor {
-  #iterator: CoprocessorEventsIterator | undefined;
+  #eventsIterator: CoprocessorEventsIterator | undefined;
   #handler: CoprocessorEventsHandler | undefined;
   #db: FhevmDB | undefined;
   #coprocessorSigners: EthersT.Signer[] | undefined;
@@ -25,16 +25,16 @@ export class MockCoprocessor implements Coprocessor {
   public static async create(
     readonlyProvider: EthersT.Provider,
     params: {
-      coprocessorContractAddress: string;
+      coprocessorContractAddress: `0x${string}`;
       coprocessorContractInterface?: EthersT.Interface;
       coprocessorSigners: EthersT.Signer[];
-      inputVerifierContractAddress: string;
+      inputVerifierContractAddress: `0x${string}`;
       db: FhevmDB;
     },
   ): Promise<MockCoprocessor> {
     const mc = new MockCoprocessor();
     const coprocessorItf = params.coprocessorContractInterface ?? FHEVMExecutorPartialInterface;
-    mc.#iterator = new CoprocessorEventsIterator(
+    mc.#eventsIterator = new CoprocessorEventsIterator(
       coprocessorItf,
       params.coprocessorContractAddress,
       readonlyProvider,
@@ -53,11 +53,11 @@ export class MockCoprocessor implements Coprocessor {
   }
 
   public async awaitCoprocessor() {
-    assertFhevm(this.#iterator !== undefined, `MockCoprocessor not initialized`);
+    assertFhevm(this.#eventsIterator !== undefined, `MockCoprocessor not initialized`);
     assertFhevm(this.#handler !== undefined, `MockCoprocessor not initialized`);
 
     // Warning test: solidityCoverageRunning
-    const events: CoprocessorEvent[] = await this.#iterator.next();
+    const events: CoprocessorEvent[] = await this.#eventsIterator.next();
     for (let i = 0; i < events.length; ++i) {
       await this.#handler.handleEvent(events[i]);
     }

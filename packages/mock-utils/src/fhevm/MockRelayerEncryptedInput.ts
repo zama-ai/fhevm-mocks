@@ -8,7 +8,7 @@ import { FhevmError, assertFhevm } from "../utils/error.js";
 import { MAX_UINT64, boolToBigInt, getMaxBigInt } from "../utils/math.js";
 import { FheType, getFheTypeBitLength, getFheTypeByteLength } from "./FheType.js";
 import { FhevmHandle } from "./FhevmHandle.js";
-import { FhevmType, FhevmTypeToFheType, getFhevmTypeInfo, isFhevmEbytes, isFhevmEuint } from "./FhevmType.js";
+import { FhevmType, FhevmTypeToFheType, getFhevmTypeInfo, isFhevmEuint } from "./FhevmType.js";
 import { InputVerifier, computeInputProofHex } from "./contracts/InputVerifier.js";
 import type { FhevmDBHandleMetadata } from "./db/FhevmDB.js";
 import * as relayer from "./relayer/index.js";
@@ -90,37 +90,6 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     assertFhevm(this.#clearTextValues.length === this.#fhevmTypes.length);
   }
 
-  private _addBytes(clearTextValue: Uint8Array, fhevmType: FhevmType): MockRelayerEncryptedInput {
-    assertFhevm(isFhevmEbytes(fhevmType));
-
-    const fhevmTypeInfo = getFhevmTypeInfo(fhevmType);
-    const fheBitLen = getFheTypeBitLength(fhevmTypeInfo.fheType);
-    const clearTextBitLen = fhevmTypeInfo.clearTextBitLength;
-
-    // For bytes, cleatText bit length and cypherText bit length are the same
-    assertFhevm(clearTextBitLen === fheBitLen);
-    assertFhevm(fheBitLen % 8 === 0);
-
-    const fheByteLen = fheBitLen / 8;
-
-    if (clearTextValue.length > fheByteLen) {
-      throw new FhevmError(
-        `Uncorrect length of input Uint8Array, should be ${fheByteLen} for an ${fhevmTypeInfo.name}`,
-      );
-    }
-
-    const clearTextValueBigInt: bigint = EthersT.toBigInt(clearTextValue);
-    const maxClearTextValueBigInt: bigint = getMaxBigInt(clearTextBitLen);
-    //const clearTextValueBigInt : bigint = bytesToBigInt(clearTextValue);
-
-    assertFhevm(clearTextValue.length * 8 === fheBitLen);
-    assertFhevm(clearTextValueBigInt <= maxClearTextValueBigInt);
-
-    this._addClearTextValueFheBitsPair(clearTextValueBigInt, fhevmType);
-
-    return this;
-  }
-
   private _addUint(clearTextValue: number | bigint, fhevmzType: FhevmType): MockRelayerEncryptedInput {
     assertFhevm(isFhevmEuint(fhevmzType));
 
@@ -182,16 +151,6 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
   public add256(value: number | bigint): RelayerEncryptedInput {
     return this._addUint(value, FhevmType.euint256);
   }
-  public addBytes64(value: Uint8Array): RelayerEncryptedInput {
-    return this._addBytes(value, FhevmType.ebytes64);
-  }
-  public addBytes128(value: Uint8Array): RelayerEncryptedInput {
-    return this._addBytes(value, FhevmType.ebytes128);
-  }
-  public addBytes256(value: Uint8Array): RelayerEncryptedInput {
-    return this._addBytes(value, FhevmType.ebytes256);
-  }
-
   private _toMockFhevmRelayerV1InputProofPayload(extraData: string): MockRelayerV1InputProofPayload {
     const numHandles = this.#clearTextValues.length;
     const clearTextValuesBigIntHex: string[] = [];

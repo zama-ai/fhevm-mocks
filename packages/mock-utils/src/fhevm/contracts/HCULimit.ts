@@ -7,14 +7,14 @@ import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
 import { HCULimitPartialInterface } from "./interfaces/HCULimit.itf.js";
 
 export type HCULimitProperties = {
-  fhemExecutorAddress?: string;
+  fhemExecutorAddress?: `0x${string}`;
   version?: string;
 };
 
 export class HCULimit extends FhevmCoprocessorContractWrapper {
   #hcuLimitContract: EthersT.Contract | undefined;
-  #hcuLimitContractAddress: string | undefined;
-  #fhemExecutorAddress: string | undefined;
+  #hcuLimitContractAddress: `0x${string}` | undefined;
+  #fhemExecutorAddress: `0x${string}` | undefined;
   #version: string | undefined;
 
   constructor() {
@@ -23,7 +23,7 @@ export class HCULimit extends FhevmCoprocessorContractWrapper {
 
   public static async create(
     runner: EthersT.ContractRunner,
-    hcuLimitContractAddress: string,
+    hcuLimitContractAddress: `0x${string}`,
     abi?: EthersT.Interface | EthersT.InterfaceAbi,
     properties?: HCULimitProperties,
   ): Promise<HCULimit> {

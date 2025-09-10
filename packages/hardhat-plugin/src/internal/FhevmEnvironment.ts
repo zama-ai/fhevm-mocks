@@ -60,11 +60,11 @@ export type FhevmEnvironmentAddresses = {
   /**
    * Indicates the address of the solidity contract `InputVerifier.sol` used in the project.
    */
-  InputVerifierAddress: string;
+  InputVerifierAddress: `0x${string}`;
   /**
    * Indicates the address of the solidity contract `HCULimit.sol` used in the project.
    */
-  HCULimitAddress: string;
+  HCULimitAddress: `0x${string}`;
   /**
    * Indicates the absolute path of the 'ZamaConfig.sol' solidity file used in the project.
    */
@@ -320,35 +320,35 @@ export class FhevmEnvironment {
     return this._instance;
   }
 
-  public getACLAddress(): string {
+  public getACLAddress(): `0x${string}` {
     if (!this._contractsRepository) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
     return this._contractsRepository.acl.address;
   }
 
-  public getFHEVMExecutorAddress(): string {
+  public getFHEVMExecutorAddress(): `0x${string}` {
     if (!this._contractsRepository) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
     return this._contractsRepository.fhevmExecutor.address;
   }
 
-  public getInputVerifierAddress(): string {
+  public getInputVerifierAddress(): `0x${string}` {
     if (!this._contractsRepository) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
     return this._contractsRepository?.inputVerifier.address;
   }
 
-  public getKMSVerifierAddress(): string {
+  public getKMSVerifierAddress(): `0x${string}` {
     if (!this._contractsRepository) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
     return this._contractsRepository.kmsVerifier.address;
   }
 
-  public getDecryptionOracleAddress(): string {
+  public getDecryptionOracleAddress(): `0x${string}` {
     if (!this._contractsRepository || !this._contractsRepository.zamaFheDecryptionOracle) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
@@ -363,7 +363,7 @@ export class FhevmEnvironment {
    * for input values
    * @returns InputVerification contract address
    */
-  public getGatewayInputVerificationAddress(): string {
+  public getGatewayInputVerificationAddress(): `0x${string}` {
     if (!this._contractsRepository) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
@@ -378,7 +378,7 @@ export class FhevmEnvironment {
    * for decryption operations
    * @returns Decryption contract address
    */
-  public getGatewayDecryptionAddress(): string {
+  public getGatewayDecryptionAddress(): `0x${string}` {
     if (!this._contractsRepository) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
@@ -828,10 +828,10 @@ export class FhevmEnvironment {
 
   private async _initializeAddressesCoreSepolia(): Promise<FhevmEnvironmentAddresses> {
     const sepoliaCoprocessorConfig: CoprocessorConfig = {
-      ACLAddress: constants.SEPOLIA.ACLAddress,
-      CoprocessorAddress: constants.SEPOLIA.CoprocessorAddress,
-      DecryptionOracleAddress: constants.SEPOLIA.DecryptionOracleAddress,
-      KMSVerifierAddress: constants.SEPOLIA.KMSVerifierAddress,
+      ACLAddress: constants.SEPOLIA.ACLAddress as `0x${string}`,
+      CoprocessorAddress: constants.SEPOLIA.CoprocessorAddress as `0x${string}`,
+      DecryptionOracleAddress: constants.SEPOLIA.DecryptionOracleAddress as `0x${string}`,
+      KMSVerifierAddress: constants.SEPOLIA.KMSVerifierAddress as `0x${string}`,
     };
 
     const coprocessorConfigDotSolPath = generateZamaConfigDotSol(this.paths, sepoliaCoprocessorConfig);
@@ -845,8 +845,8 @@ export class FhevmEnvironment {
 
     return {
       CoprocessorConfig: sepoliaCoprocessorConfig,
-      InputVerifierAddress: constants.SEPOLIA.InputVerifierAddress,
-      HCULimitAddress: constants.SEPOLIA.HCULimitAddress,
+      InputVerifierAddress: constants.SEPOLIA.InputVerifierAddress as `0x${string}`,
+      HCULimitAddress: constants.SEPOLIA.HCULimitAddress as `0x${string}`,
       CoprocessorConfigDotSolPath: coprocessorConfigDotSolPath,
       ZamaOracleAddressDotSolPath: zamaOracleAddressDotSolPath,
     };
@@ -867,8 +867,8 @@ export class FhevmEnvironment {
       ACLAddress: hardcodedAddresses.ACLAddress,
       CoprocessorAddress: hardcodedAddresses.CoprocessorAddress,
       // Use Sepolia addresses for all other missing addresses.
-      DecryptionOracleAddress: constants.SEPOLIA.DecryptionOracleAddress,
-      KMSVerifierAddress: constants.SEPOLIA.KMSVerifierAddress,
+      DecryptionOracleAddress: constants.SEPOLIA.DecryptionOracleAddress as `0x${string}`,
+      KMSVerifierAddress: constants.SEPOLIA.KMSVerifierAddress as `0x${string}`,
     };
 
     const coprocessorConfigDotSolPath = generateZamaConfigDotSol(this.paths, mockCoprocessorConfig);
