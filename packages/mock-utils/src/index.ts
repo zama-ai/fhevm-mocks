@@ -10,12 +10,11 @@ export {
   FhevmType,
   getFhevmTypeInfo,
   isFhevmEuint,
-  isFhevmEbytes,
   isFhevmEaddress,
   isFhevmEbool,
   tryParseFhevmType,
 } from "./fhevm/FhevmType.js";
-export type { FhevmTypeEbytes, FhevmTypeEuint, FhevmTypeName } from "./fhevm/FhevmType.js";
+export type { FhevmTypeEuint, FhevmTypeName } from "./fhevm/FhevmType.js";
 export type { FheTypeName } from "./fhevm/FheType.js";
 
 export { FhevmHandleCoder } from "./fhevm/FhevmHandleCoder.js";

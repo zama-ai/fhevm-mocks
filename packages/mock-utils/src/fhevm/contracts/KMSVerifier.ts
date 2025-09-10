@@ -231,21 +231,6 @@ export async function computeDecryptionSignatures(
         abiValues.push(clearTextValueBigInt);
         break;
       }
-      case FhevmType.ebytes64: {
-        // string
-        abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(128, "0")}`);
-        break;
-      }
-      case FhevmType.ebytes128: {
-        // string
-        abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(256, "0")}`);
-        break;
-      }
-      case FhevmType.ebytes256: {
-        // string
-        abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(512, "0")}`);
-        break;
-      }
       default: {
         throw new FhevmError(
           `Unsupported Fhevm primitive type id: ${fhevmTypeInfo.type}, name: ${fhevmTypeInfo.name}, solidity: ${fhevmTypeInfo.solidityTypeName}`,

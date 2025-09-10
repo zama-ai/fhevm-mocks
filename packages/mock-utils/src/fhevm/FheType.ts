@@ -1,19 +1,13 @@
 import { FhevmError } from "../utils/error.js";
 import { isUInt } from "../utils/math.js";
+import type { SolidityTypeName } from "./SolidityType.js";
 
 export interface FheTypeInfo {
   type: FheTypeName;
   supportedOperators: FheTypeOperatorName[];
   bitLength: number;
-  clearMatchingType: string;
+  clearMatchingType: SolidityTypeName | "bytes memory" | "string memory";
   value: number;
-  aliases?: AliasFheType[];
-}
-
-export interface AliasFheType {
-  type: AliasFheTypeName;
-  supportedOperators: FheTypeOperatorName[];
-  clearMatchingType: string;
 }
 
 export type FheTypeOperatorName =
@@ -42,44 +36,6 @@ export type FheTypeOperatorName =
   | "select"
   | "rand"
   | "randBounded";
-
-export type AliasFheTypeName =
-  | "Bytes1"
-  | "Bytes2"
-  | "Bytes3"
-  | "Bytes4"
-  | "Bytes5"
-  | "Bytes6"
-  | "Bytes7"
-  | "Bytes8"
-  | "Bytes9"
-  | "Bytes10"
-  | "Bytes11"
-  | "Bytes12"
-  | "Bytes13"
-  | "Bytes14"
-  | "Bytes15"
-  | "Bytes16"
-  | "Bytes17"
-  | "Bytes18"
-  | "Bytes19"
-  | "Bytes20"
-  | "Bytes21"
-  | "Bytes22"
-  | "Bytes23"
-  | "Bytes24"
-  | "Bytes25"
-  | "Bytes26"
-  | "Bytes27"
-  | "Bytes28"
-  | "Bytes29"
-  | "Bytes30"
-  | "Bytes31"
-  | "Bytes32"
-  | "Bytes64"
-  | "Bytes128"
-  | "Bytes256"
-  | "Address";
 
 export enum FheType {
   Bool = 0,
@@ -263,7 +219,6 @@ export type FheTypeName =
  * - `supportedOperators`: An array of strings representing the operators supported by the FHE type.
  * - `bitLength`: The bit length of the FHE type.
  * - `clearMatchingType`: The corresponding clear (non-encrypted) type in Solidity.
- * - `aliases`: An optional array of alias types that are associated with this FHE type.
  *
  * The FHE types included that are currently implemented in the Solidity code generator are:
  *
@@ -326,13 +281,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     ],
     bitLength: 8,
     clearMatchingType: "uint8",
-    aliases: [
-      {
-        type: "Bytes1",
-        supportedOperators: [],
-        clearMatchingType: "bytes1",
-      },
-    ],
   },
   {
     type: "Uint16",
@@ -366,13 +314,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     ],
     bitLength: 16,
     clearMatchingType: "uint16",
-    aliases: [
-      {
-        type: "Bytes2",
-        supportedOperators: [],
-        clearMatchingType: "bytes2",
-      },
-    ],
   },
   {
     type: "Uint32",
@@ -406,13 +347,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     ],
     bitLength: 32,
     clearMatchingType: "uint32",
-    aliases: [
-      {
-        type: "Bytes4",
-        supportedOperators: [],
-        clearMatchingType: "",
-      },
-    ],
   },
   {
     type: "Uint64",
@@ -446,13 +380,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     ],
     bitLength: 64,
     clearMatchingType: "uint64",
-    aliases: [
-      {
-        type: "Bytes8",
-        supportedOperators: [],
-        clearMatchingType: "bytes8",
-      },
-    ],
   },
   {
     type: "Uint128",
@@ -486,13 +413,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     ],
     bitLength: 128,
     clearMatchingType: "uint128",
-    aliases: [
-      {
-        type: "Bytes16",
-        supportedOperators: [],
-        clearMatchingType: "bytes16",
-      },
-    ],
   },
   {
     type: "Uint160",
@@ -500,18 +420,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 160,
     clearMatchingType: "uint160",
-    aliases: [
-      {
-        type: "Address",
-        supportedOperators: ["eq", "ne", "select"],
-        clearMatchingType: "address",
-      },
-      {
-        type: "Bytes20",
-        supportedOperators: [],
-        clearMatchingType: "bytes20",
-      },
-    ],
   },
   {
     type: "Uint256",
@@ -534,13 +442,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     ],
     bitLength: 256,
     clearMatchingType: "uint256",
-    aliases: [
-      {
-        type: "Bytes32",
-        supportedOperators: [],
-        clearMatchingType: "bytes32",
-      },
-    ],
   },
   {
     type: "Uint512",
@@ -548,13 +449,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 512,
     clearMatchingType: "bytes memory",
-    aliases: [
-      {
-        type: "Bytes64",
-        supportedOperators: ["eq", "ne", "select", "rand"],
-        clearMatchingType: "",
-      },
-    ],
   },
   {
     type: "Uint1024",
@@ -562,13 +456,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 1024,
     clearMatchingType: "bytes memory",
-    aliases: [
-      {
-        type: "Bytes128",
-        supportedOperators: ["eq", "ne", "select", "rand"],
-        clearMatchingType: "",
-      },
-    ],
   },
   {
     type: "Uint2048",
@@ -576,13 +463,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 2048,
     clearMatchingType: "bytes memory",
-    aliases: [
-      {
-        type: "Bytes256",
-        supportedOperators: ["eq", "ne", "select", "rand"],
-        clearMatchingType: "",
-      },
-    ],
   },
   {
     type: "Uint2",
@@ -744,13 +624,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 24,
     clearMatchingType: "uint24",
-    aliases: [
-      {
-        type: "Bytes3",
-        supportedOperators: [],
-        clearMatchingType: "bytes3",
-      },
-    ],
   },
   {
     type: "Uint40",
@@ -758,13 +631,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 40,
     clearMatchingType: "uint40",
-    aliases: [
-      {
-        type: "Bytes5",
-        supportedOperators: [],
-        clearMatchingType: "bytes5",
-      },
-    ],
   },
   {
     type: "Uint48",
@@ -772,13 +638,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 48,
     clearMatchingType: "uint48",
-    aliases: [
-      {
-        type: "Bytes6",
-        supportedOperators: [],
-        clearMatchingType: "bytes6",
-      },
-    ],
   },
   {
     type: "Uint56",
@@ -786,13 +645,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 56,
     clearMatchingType: "uint56",
-    aliases: [
-      {
-        type: "Bytes7",
-        supportedOperators: [],
-        clearMatchingType: "",
-      },
-    ],
   },
   {
     type: "Uint72",
@@ -800,13 +652,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 72,
     clearMatchingType: "uint72",
-    aliases: [
-      {
-        type: "Bytes9",
-        supportedOperators: [],
-        clearMatchingType: "bytes9",
-      },
-    ],
   },
   {
     type: "Uint80",
@@ -814,13 +659,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 80,
     clearMatchingType: "uint80",
-    aliases: [
-      {
-        type: "Bytes10",
-        supportedOperators: [],
-        clearMatchingType: "bytes10",
-      },
-    ],
   },
   {
     type: "Uint88",
@@ -828,13 +666,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 88,
     clearMatchingType: "uint88",
-    aliases: [
-      {
-        type: "Bytes11",
-        supportedOperators: [],
-        clearMatchingType: "bytes11",
-      },
-    ],
   },
   {
     type: "Uint96",
@@ -842,13 +673,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 96,
     clearMatchingType: "uint96",
-    aliases: [
-      {
-        type: "Bytes12",
-        supportedOperators: [],
-        clearMatchingType: "bytes12",
-      },
-    ],
   },
   {
     type: "Uint104",
@@ -856,13 +680,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 104,
     clearMatchingType: "uint104",
-    aliases: [
-      {
-        type: "Bytes13",
-        supportedOperators: [],
-        clearMatchingType: "bytes13",
-      },
-    ],
   },
   {
     type: "Uint112",
@@ -870,13 +687,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 112,
     clearMatchingType: "uint112",
-    aliases: [
-      {
-        type: "Bytes14",
-        supportedOperators: [],
-        clearMatchingType: "bytes14",
-      },
-    ],
   },
   {
     type: "Uint120",
@@ -884,13 +694,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 120,
     clearMatchingType: "uint120",
-    aliases: [
-      {
-        type: "Bytes15",
-        supportedOperators: [],
-        clearMatchingType: "bytes15",
-      },
-    ],
   },
   {
     type: "Uint136",
@@ -898,13 +701,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 136,
     clearMatchingType: "uint136",
-    aliases: [
-      {
-        type: "Bytes17",
-        supportedOperators: [],
-        clearMatchingType: "bytes17",
-      },
-    ],
   },
   {
     type: "Uint144",
@@ -912,13 +708,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 144,
     clearMatchingType: "uint144",
-    aliases: [
-      {
-        type: "Bytes18",
-        supportedOperators: [],
-        clearMatchingType: "bytes18",
-      },
-    ],
   },
   {
     type: "Uint152",
@@ -926,13 +715,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 152,
     clearMatchingType: "uint152",
-    aliases: [
-      {
-        type: "Bytes19",
-        supportedOperators: [],
-        clearMatchingType: "bytes19",
-      },
-    ],
   },
   {
     type: "Uint168",
@@ -940,13 +722,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 168,
     clearMatchingType: "uint168",
-    aliases: [
-      {
-        type: "Bytes21",
-        supportedOperators: [],
-        clearMatchingType: "bytes21",
-      },
-    ],
   },
   {
     type: "Uint176",
@@ -954,13 +729,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 176,
     clearMatchingType: "uint176",
-    aliases: [
-      {
-        type: "Bytes22",
-        supportedOperators: [],
-        clearMatchingType: "bytes22",
-      },
-    ],
   },
   {
     type: "Uint184",
@@ -968,13 +736,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 184,
     clearMatchingType: "uint184",
-    aliases: [
-      {
-        type: "Bytes23",
-        supportedOperators: [],
-        clearMatchingType: "bytes23",
-      },
-    ],
   },
   {
     type: "Uint192",
@@ -982,13 +743,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 192,
     clearMatchingType: "uint192",
-    aliases: [
-      {
-        type: "Bytes24",
-        supportedOperators: [],
-        clearMatchingType: "24",
-      },
-    ],
   },
   {
     type: "Uint200",
@@ -996,13 +750,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 200,
     clearMatchingType: "uint200",
-    aliases: [
-      {
-        type: "Bytes25",
-        supportedOperators: [],
-        clearMatchingType: "25",
-      },
-    ],
   },
   {
     type: "Uint208",
@@ -1010,13 +757,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 208,
     clearMatchingType: "uint208",
-    aliases: [
-      {
-        type: "Bytes26",
-        supportedOperators: [],
-        clearMatchingType: "26",
-      },
-    ],
   },
   {
     type: "Uint216",
@@ -1024,13 +764,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 216,
     clearMatchingType: "uint216",
-    aliases: [
-      {
-        type: "Bytes27",
-        supportedOperators: [],
-        clearMatchingType: "27",
-      },
-    ],
   },
   {
     type: "Uint224",
@@ -1038,13 +771,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 224,
     clearMatchingType: "uint224",
-    aliases: [
-      {
-        type: "Bytes28",
-        supportedOperators: [],
-        clearMatchingType: "28",
-      },
-    ],
   },
   {
     type: "Uint232",
@@ -1052,13 +778,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 232,
     clearMatchingType: "uint232",
-    aliases: [
-      {
-        type: "Bytes29",
-        supportedOperators: [],
-        clearMatchingType: "bytes29",
-      },
-    ],
   },
   {
     type: "Uint240",
@@ -1066,13 +785,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 240,
     clearMatchingType: "uint240",
-    aliases: [
-      {
-        type: "Bytes30",
-        supportedOperators: [],
-        clearMatchingType: "bytes30",
-      },
-    ],
   },
   {
     type: "Uint248",
@@ -1080,13 +792,6 @@ export const ALL_FHE_TYPES: FheTypeInfo[] = [
     supportedOperators: [],
     bitLength: 248,
     clearMatchingType: "uint248",
-    aliases: [
-      {
-        type: "Bytes31",
-        supportedOperators: [],
-        clearMatchingType: "bytes31",
-      },
-    ],
   },
   {
     type: "Int24",

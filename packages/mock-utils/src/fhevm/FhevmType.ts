@@ -1,6 +1,7 @@
 import { FhevmError } from "../utils/error.js";
 import { getMaxBigInt, isUInt } from "../utils/math.js";
 import { ALL_FHE_TYPES, FheType, checkFheType, getFheTypeBitLength } from "./FheType.js";
+import type { SolidityTypeName } from "./SolidityType.js";
 
 export type FhevmTypeName =
   | "ebool"
@@ -11,24 +12,7 @@ export type FhevmTypeName =
   | "euint64"
   | "euint128"
   | "eaddress"
-  | "euint256"
-  | "ebytes64"
-  | "ebytes128"
-  | "ebytes256";
-
-export type SolidityTypeName =
-  | "bool"
-  | "uint4"
-  | "uint8"
-  | "uint16"
-  | "uint32"
-  | "uint64"
-  | "uint128"
-  | "address"
-  | "uint256"
-  | "bytes"
-  | "bytes"
-  | "bytes";
+  | "euint256";
 
 export enum FhevmType {
   ebool = 0, // == FheTypes.Bool
@@ -40,9 +24,6 @@ export enum FhevmType {
   euint128 = 6,
   eaddress = 7,
   euint256 = 8,
-  ebytes64 = 9,
-  ebytes128 = 10,
-  ebytes256 = 11,
 }
 
 export const FhevmTypeMap: Readonly<Record<FhevmTypeName, FhevmType>> = {
@@ -55,9 +36,6 @@ export const FhevmTypeMap: Readonly<Record<FhevmTypeName, FhevmType>> = {
   euint128: FhevmType.euint128,
   eaddress: FhevmType.eaddress,
   euint256: FhevmType.euint256,
-  ebytes64: FhevmType.ebytes64,
-  ebytes128: FhevmType.ebytes128,
-  ebytes256: FhevmType.ebytes256,
 };
 Object.freeze(FhevmTypeMap);
 
@@ -71,9 +49,6 @@ export const FhevmTypeNameMap: Readonly<Record<FhevmType, FhevmTypeName>> = {
   [FhevmType.euint128]: "euint128",
   [FhevmType.euint256]: "euint256",
   [FhevmType.eaddress]: "eaddress",
-  [FhevmType.ebytes64]: "ebytes64",
-  [FhevmType.ebytes128]: "ebytes128",
-  [FhevmType.ebytes256]: "ebytes256",
 };
 Object.freeze(FhevmTypeNameMap);
 
@@ -87,9 +62,6 @@ export const allFhevmTypes: readonly Readonly<FhevmType>[] = [
   FhevmType.euint128,
   FhevmType.eaddress,
   FhevmType.euint256,
-  FhevmType.ebytes64,
-  FhevmType.ebytes128,
-  FhevmType.ebytes256,
 ];
 Object.freeze(allFhevmTypes);
 
@@ -103,9 +75,6 @@ export const allFhevmTypeNames: readonly Readonly<FhevmTypeName>[] = [
   "euint128",
   "eaddress",
   "euint256",
-  "ebytes64",
-  "ebytes128",
-  "ebytes256",
 ];
 Object.freeze(allFhevmTypeNames);
 
@@ -118,8 +87,6 @@ export type FhevmTypeEuint =
   | FhevmType.euint64
   | FhevmType.euint128
   | FhevmType.euint256;
-
-export type FhevmTypeEbytes = FhevmType.ebytes64 | FhevmType.ebytes128 | FhevmType.ebytes256;
 
 // FhevmTypeInfo
 export interface FhevmTypeInfo {
@@ -199,27 +166,6 @@ export const allFhevmTypeInfos: readonly Readonly<FhevmTypeInfo>[] = Object.free
     solidityTypeName: "uint256",
     clearTextBitLength: 256,
   }),
-  Object.freeze({
-    name: "ebytes64",
-    type: FhevmType.ebytes64,
-    fheType: FheType.Uint512, // 9
-    solidityTypeName: "bytes",
-    clearTextBitLength: 512,
-  }),
-  Object.freeze({
-    name: "ebytes128",
-    type: FhevmType.ebytes128,
-    fheType: FheType.Uint1024, // 10
-    solidityTypeName: "bytes",
-    clearTextBitLength: 1024,
-  }),
-  Object.freeze({
-    name: "ebytes256",
-    type: FhevmType.ebytes256,
-    fheType: FheType.Uint2048, // 11
-    solidityTypeName: "bytes",
-    clearTextBitLength: 2048,
-  }),
 ]);
 
 /**
@@ -237,14 +183,6 @@ export function isFhevmType(fhevmType: unknown) {
     return false;
   }
   return true;
-}
-
-/**
- * Returns `true` if `fhevmType` is a Fhevm bytes type, `false` otherwise
- * @param fhevmType
- */
-export function isFhevmEbytes(fhevmType: FhevmType) {
-  return fhevmType === FhevmType.ebytes64 || fhevmType === FhevmType.ebytes128 || fhevmType === FhevmType.ebytes256;
 }
 
 /**
