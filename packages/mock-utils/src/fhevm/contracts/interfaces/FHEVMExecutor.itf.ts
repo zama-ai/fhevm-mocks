@@ -3,2077 +3,2075 @@ import { ethers as EthersT } from "ethers";
 // version "0.9.0-1"
 export const FHEVMExecutorInterfaceVersion = "0.9.0-1";
 
-export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface(
-[
+export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    inputs: [],
+    stateMutability: "nonpayable",
+    type: "constructor",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "handle",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "handle",
+        type: "bytes32",
       },
       {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
     ],
-    "name": "ACLNotAllowed",
-    "type": "error"
+    name: "ACLNotAllowed",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "target",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "target",
+        type: "address",
+      },
     ],
-    "name": "AddressEmptyCode",
-    "type": "error"
+    name: "AddressEmptyCode",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "DivisionByZero",
-    "type": "error"
+    inputs: [],
+    name: "DivisionByZero",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "implementation",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "implementation",
+        type: "address",
+      },
     ],
-    "name": "ERC1967InvalidImplementation",
-    "type": "error"
+    name: "ERC1967InvalidImplementation",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "ERC1967NonPayable",
-    "type": "error"
+    inputs: [],
+    name: "ERC1967NonPayable",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "FailedCall",
-    "type": "error"
+    inputs: [],
+    name: "FailedCall",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "IncompatibleTypes",
-    "type": "error"
+    inputs: [],
+    name: "IncompatibleTypes",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "enum FheType",
-        "name": "typeOf",
-        "type": "uint8"
+        internalType: "enum FheType",
+        name: "typeOf",
+        type: "uint8",
       },
       {
-        "internalType": "uint256",
-        "name": "length",
-        "type": "uint256"
-      }
+        internalType: "uint256",
+        name: "length",
+        type: "uint256",
+      },
     ],
-    "name": "InvalidByteLength",
-    "type": "error"
+    name: "InvalidByteLength",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "InvalidInitialization",
-    "type": "error"
+    inputs: [],
+    name: "InvalidInitialization",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "InvalidType",
-    "type": "error"
+    inputs: [],
+    name: "InvalidType",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "IsNotScalar",
-    "type": "error"
+    inputs: [],
+    name: "IsNotScalar",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
     ],
-    "name": "NotHostOwner",
-    "type": "error"
+    name: "NotHostOwner",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "NotInitializing",
-    "type": "error"
+    inputs: [],
+    name: "NotInitializing",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "NotInitializingFromEmptyProxy",
-    "type": "error"
+    inputs: [],
+    name: "NotInitializingFromEmptyProxy",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "NotPowerOfTwo",
-    "type": "error"
+    inputs: [],
+    name: "NotPowerOfTwo",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "ScalarByteIsNotBoolean",
-    "type": "error"
+    inputs: [],
+    name: "ScalarByteIsNotBoolean",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "SecondOperandIsNotScalar",
-    "type": "error"
+    inputs: [],
+    name: "SecondOperandIsNotScalar",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "UUPSUnauthorizedCallContext",
-    "type": "error"
+    inputs: [],
+    name: "UUPSUnauthorizedCallContext",
+    type: "error",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "slot",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "slot",
+        type: "bytes32",
+      },
     ],
-    "name": "UUPSUnsupportedProxiableUUID",
-    "type": "error"
+    name: "UUPSUnsupportedProxiableUUID",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "UnsupportedType",
-    "type": "error"
+    inputs: [],
+    name: "UnsupportedType",
+    type: "error",
   },
   {
-    "inputs": [],
-    "name": "UpperBoundAboveMaxTypeValue",
-    "type": "error"
+    inputs: [],
+    name: "UpperBoundAboveMaxTypeValue",
+    type: "error",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "ct",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "ct",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "enum FheType",
-        "name": "toType",
-        "type": "uint8"
+        indexed: false,
+        internalType: "enum FheType",
+        name: "toType",
+        type: "uint8",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "Cast",
-    "type": "event"
+    name: "Cast",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheAdd",
-    "type": "event"
+    name: "FheAdd",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheBitAnd",
-    "type": "event"
+    name: "FheBitAnd",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheBitOr",
-    "type": "event"
+    name: "FheBitOr",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheBitXor",
-    "type": "event"
+    name: "FheBitXor",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheDiv",
-    "type": "event"
+    name: "FheDiv",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheEq",
-    "type": "event"
+    name: "FheEq",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheGe",
-    "type": "event"
+    name: "FheGe",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheGt",
-    "type": "event"
+    name: "FheGt",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "control",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "control",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "ifTrue",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "ifTrue",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "ifFalse",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "ifFalse",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheIfThenElse",
-    "type": "event"
+    name: "FheIfThenElse",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheLe",
-    "type": "event"
+    name: "FheLe",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheLt",
-    "type": "event"
+    name: "FheLt",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheMax",
-    "type": "event"
+    name: "FheMax",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheMin",
-    "type": "event"
+    name: "FheMin",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheMul",
-    "type": "event"
+    name: "FheMul",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheNe",
-    "type": "event"
+    name: "FheNe",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "ct",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "ct",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheNeg",
-    "type": "event"
+    name: "FheNeg",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "ct",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "ct",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheNot",
-    "type": "event"
+    name: "FheNot",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "enum FheType",
-        "name": "randType",
-        "type": "uint8"
+        indexed: false,
+        internalType: "enum FheType",
+        name: "randType",
+        type: "uint8",
       },
       {
-        "indexed": false,
-        "internalType": "bytes16",
-        "name": "seed",
-        "type": "bytes16"
+        indexed: false,
+        internalType: "bytes16",
+        name: "seed",
+        type: "bytes16",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheRand",
-    "type": "event"
+    name: "FheRand",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "upperBound",
-        "type": "uint256"
+        indexed: false,
+        internalType: "uint256",
+        name: "upperBound",
+        type: "uint256",
       },
       {
-        "indexed": false,
-        "internalType": "enum FheType",
-        "name": "randType",
-        "type": "uint8"
+        indexed: false,
+        internalType: "enum FheType",
+        name: "randType",
+        type: "uint8",
       },
       {
-        "indexed": false,
-        "internalType": "bytes16",
-        "name": "seed",
-        "type": "bytes16"
+        indexed: false,
+        internalType: "bytes16",
+        name: "seed",
+        type: "bytes16",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheRandBounded",
-    "type": "event"
+    name: "FheRandBounded",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheRem",
-    "type": "event"
+    name: "FheRem",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheRotl",
-    "type": "event"
+    name: "FheRotl",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheRotr",
-    "type": "event"
+    name: "FheRotr",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheShl",
-    "type": "event"
+    name: "FheShl",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheShr",
-    "type": "event"
+    name: "FheShr",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
+        indexed: false,
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "FheSub",
-    "type": "event"
+    name: "FheSub",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "version",
-        "type": "uint64"
-      }
+        indexed: false,
+        internalType: "uint64",
+        name: "version",
+        type: "uint64",
+      },
     ],
-    "name": "Initialized",
-    "type": "event"
+    name: "Initialized",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "pt",
-        "type": "uint256"
+        indexed: false,
+        internalType: "uint256",
+        name: "pt",
+        type: "uint256",
       },
       {
-        "indexed": false,
-        "internalType": "enum FheType",
-        "name": "toType",
-        "type": "uint8"
+        indexed: false,
+        internalType: "enum FheType",
+        name: "toType",
+        type: "uint8",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "TrivialEncrypt",
-    "type": "event"
+    name: "TrivialEncrypt",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "implementation",
-        "type": "address"
-      }
+        indexed: true,
+        internalType: "address",
+        name: "implementation",
+        type: "address",
+      },
     ],
-    "name": "Upgraded",
-    "type": "event"
+    name: "Upgraded",
+    type: "event",
   },
   {
-    "anonymous": false,
-    "inputs": [
+    anonymous: false,
+    inputs: [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "caller",
-        "type": "address"
+        indexed: true,
+        internalType: "address",
+        name: "caller",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "inputHandle",
-        "type": "bytes32"
+        indexed: false,
+        internalType: "bytes32",
+        name: "inputHandle",
+        type: "bytes32",
       },
       {
-        "indexed": false,
-        "internalType": "address",
-        "name": "userAddress",
-        "type": "address"
+        indexed: false,
+        internalType: "address",
+        name: "userAddress",
+        type: "address",
       },
       {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "inputProof",
-        "type": "bytes"
+        indexed: false,
+        internalType: "bytes",
+        name: "inputProof",
+        type: "bytes",
       },
       {
-        "indexed": false,
-        "internalType": "enum FheType",
-        "name": "inputType",
-        "type": "uint8"
+        indexed: false,
+        internalType: "enum FheType",
+        name: "inputType",
+        type: "uint8",
       },
       {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        indexed: false,
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "name": "VerifyInput",
-    "type": "event"
+    name: "VerifyInput",
+    type: "event",
   },
   {
-    "inputs": [],
-    "name": "UPGRADE_INTERFACE_VERSION",
-    "outputs": [
+    inputs: [],
+    name: "UPGRADE_INTERFACE_VERSION",
+    outputs: [
       {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "ct",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "ct",
+        type: "bytes32",
       },
       {
-        "internalType": "enum FheType",
-        "name": "toType",
-        "type": "uint8"
-      }
+        internalType: "enum FheType",
+        name: "toType",
+        type: "uint8",
+      },
     ],
-    "name": "cast",
-    "outputs": [
+    name: "cast",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheAdd",
-    "outputs": [
+    name: "fheAdd",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheBitAnd",
-    "outputs": [
+    name: "fheBitAnd",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheBitOr",
-    "outputs": [
+    name: "fheBitOr",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheBitXor",
-    "outputs": [
+    name: "fheBitXor",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheDiv",
-    "outputs": [
+    name: "fheDiv",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheEq",
-    "outputs": [
+    name: "fheEq",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheGe",
-    "outputs": [
+    name: "fheGe",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheGt",
-    "outputs": [
+    name: "fheGt",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "control",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "control",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "ifTrue",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "ifTrue",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "ifFalse",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "ifFalse",
+        type: "bytes32",
+      },
     ],
-    "name": "fheIfThenElse",
-    "outputs": [
+    name: "fheIfThenElse",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheLe",
-    "outputs": [
+    name: "fheLe",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheLt",
-    "outputs": [
+    name: "fheLt",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheMax",
-    "outputs": [
+    name: "fheMax",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheMin",
-    "outputs": [
+    name: "fheMin",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheMul",
-    "outputs": [
+    name: "fheMul",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheNe",
-    "outputs": [
+    name: "fheNe",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "ct",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "ct",
+        type: "bytes32",
+      },
     ],
-    "name": "fheNeg",
-    "outputs": [
+    name: "fheNeg",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "ct",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "ct",
+        type: "bytes32",
+      },
     ],
-    "name": "fheNot",
-    "outputs": [
+    name: "fheNot",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "enum FheType",
-        "name": "randType",
-        "type": "uint8"
-      }
+        internalType: "enum FheType",
+        name: "randType",
+        type: "uint8",
+      },
     ],
-    "name": "fheRand",
-    "outputs": [
+    name: "fheRand",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "upperBound",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "upperBound",
+        type: "uint256",
       },
       {
-        "internalType": "enum FheType",
-        "name": "randType",
-        "type": "uint8"
-      }
+        internalType: "enum FheType",
+        name: "randType",
+        type: "uint8",
+      },
     ],
-    "name": "fheRandBounded",
-    "outputs": [
+    name: "fheRandBounded",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheRem",
-    "outputs": [
+    name: "fheRem",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheRotl",
-    "outputs": [
+    name: "fheRotl",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheRotr",
-    "outputs": [
+    name: "fheRotr",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheShl",
-    "outputs": [
+    name: "fheShl",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheShr",
-    "outputs": [
+    name: "fheShr",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "lhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "lhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes32",
-        "name": "rhs",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "rhs",
+        type: "bytes32",
       },
       {
-        "internalType": "bytes1",
-        "name": "scalarByte",
-        "type": "bytes1"
-      }
+        internalType: "bytes1",
+        name: "scalarByte",
+        type: "bytes1",
+      },
     ],
-    "name": "fheSub",
-    "outputs": [
+    name: "fheSub",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "getACLAddress",
-    "outputs": [
+    inputs: [],
+    name: "getACLAddress",
+    outputs: [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "getHCULimitAddress",
-    "outputs": [
+    inputs: [],
+    name: "getHCULimitAddress",
+    outputs: [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "getHandleVersion",
-    "outputs": [
+    inputs: [],
+    name: "getHandleVersion",
+    outputs: [
       {
-        "internalType": "uint8",
-        "name": "",
-        "type": "uint8"
-      }
+        internalType: "uint8",
+        name: "",
+        type: "uint8",
+      },
     ],
-    "stateMutability": "pure",
-    "type": "function"
+    stateMutability: "pure",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "getInputVerifierAddress",
-    "outputs": [
+    inputs: [],
+    name: "getInputVerifierAddress",
+    outputs: [
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "getVersion",
-    "outputs": [
+    inputs: [],
+    name: "getVersion",
+    outputs: [
       {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
+        internalType: "string",
+        name: "",
+        type: "string",
+      },
     ],
-    "stateMutability": "pure",
-    "type": "function"
+    stateMutability: "pure",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "initializeFromEmptyProxy",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    inputs: [],
+    name: "initializeFromEmptyProxy",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "proxiableUUID",
-    "outputs": [
+    inputs: [],
+    name: "proxiableUUID",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "uint256",
-        "name": "pt",
-        "type": "uint256"
+        internalType: "uint256",
+        name: "pt",
+        type: "uint256",
       },
       {
-        "internalType": "enum FheType",
-        "name": "toType",
-        "type": "uint8"
-      }
+        internalType: "enum FheType",
+        name: "toType",
+        type: "uint8",
+      },
     ],
-    "name": "trivialEncrypt",
-    "outputs": [
+    name: "trivialEncrypt",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
+        internalType: "address",
+        name: "newImplementation",
+        type: "address",
       },
       {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      }
+        internalType: "bytes",
+        name: "data",
+        type: "bytes",
+      },
     ],
-    "name": "upgradeToAndCall",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
+    name: "upgradeToAndCall",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
   },
   {
-    "inputs": [
+    inputs: [
       {
-        "internalType": "bytes32",
-        "name": "inputHandle",
-        "type": "bytes32"
+        internalType: "bytes32",
+        name: "inputHandle",
+        type: "bytes32",
       },
       {
-        "internalType": "address",
-        "name": "userAddress",
-        "type": "address"
+        internalType: "address",
+        name: "userAddress",
+        type: "address",
       },
       {
-        "internalType": "bytes",
-        "name": "inputProof",
-        "type": "bytes"
+        internalType: "bytes",
+        name: "inputProof",
+        type: "bytes",
       },
       {
-        "internalType": "enum FheType",
-        "name": "inputType",
-        "type": "uint8"
-      }
+        internalType: "enum FheType",
+        name: "inputType",
+        type: "uint8",
+      },
     ],
-    "name": "verifyInput",
-    "outputs": [
+    name: "verifyInput",
+    outputs: [
       {
-        "internalType": "bytes32",
-        "name": "result",
-        "type": "bytes32"
-      }
+        internalType: "bytes32",
+        name: "result",
+        type: "bytes32",
+      },
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-]
-);
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+]);
