@@ -43,10 +43,10 @@ export class FhevmEnvironmentPaths {
   }
 
   /**
-   * Returns `/path/to/user-package/fhevmTemp/precompiled-fhevm-core-contracts-addresses.json`
+   * Returns `/path/to/user-package/fhevmTemp/precompiled-fhevm-host-contracts-addresses.json`
    */
-  public get cachePrecompiledFhevmCoreContractsAddressesJson(): string {
-    return path.join(this.cacheDir, "precompiled-fhevm-core-contracts-addresses.json");
+  public get cachePrecompiledFhevmHostContractsAddressesJson(): string {
+    return path.join(this.cacheDir, "precompiled-fhevm-host-contracts-addresses.json");
   }
 
   /**
@@ -228,13 +228,13 @@ export class FhevmEnvironmentPaths {
 
   /**
    * The returned path can be one of the following:
-   *   - `/path/to/user-package/artifacts/@fhevm/core-contracts`
-   *   - `@fhevm/core-contracts/artifacts`
+   *   - `/path/to/user-package/artifacts/@fhevm/host-contracts`
+   *   - `@fhevm/host-contracts/artifacts`
    */
-  public resolveFhevmCoreContractsArtifactRootDir() {
-    let modulePath = path.resolve(path.join("artifacts", constants.FHEVM_CORE_CONTRACTS_PACKAGE.name));
+  public resolveFhevmHostContractsArtifactRootDir() {
+    let modulePath = path.resolve(path.join("artifacts", constants.FHEVM_HOST_CONTRACTS_PACKAGE.name));
     if (!fs.existsSync(modulePath)) {
-      modulePath = path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "artifacts");
+      modulePath = path.join(constants.FHEVM_HOST_CONTRACTS_PACKAGE.name, "artifacts");
     }
     return modulePath;
   }
@@ -254,11 +254,11 @@ export class FhevmEnvironmentPaths {
 
   /**
    * The returned path can be one of the following:
-   *   - `/path/to/user-package/artifacts/@fhevm/core-contracts/<contractName>.sol/<contractName>.json`
-   *   - `@fhevm/core-contracts/artifacts/contracts/<contractName>.sol/<contractName>.json`
+   *   - `/path/to/user-package/artifacts/@fhevm/host-contracts/<contractName>.sol/<contractName>.json`
+   *   - `@fhevm/host-contracts/artifacts/contracts/<contractName>.sol/<contractName>.json`
    */
-  public resolveFhevmCoreContractsArtifactPath(contractName: FhevmCoprocessorContractName) {
-    const root = this.resolveFhevmCoreContractsArtifactRootDir();
+  public resolveFhevmHostContractsArtifactPath(contractName: FhevmCoprocessorContractName) {
+    const root = this.resolveFhevmHostContractsArtifactRootDir();
     return path.join(root, `contracts/${contractName}.sol/${contractName}.json`);
   }
 
@@ -272,8 +272,8 @@ export class FhevmEnvironmentPaths {
     return path.join(root, `contracts/${contractName}.sol/${contractName}.json`);
   }
 
-  public async getFhevmCoreContractsArtifact(contractName: FhevmCoprocessorContractName) {
-    const modulePath = this.resolveFhevmCoreContractsArtifactPath(contractName);
+  public async getFhevmHostContractsArtifact(contractName: FhevmCoprocessorContractName) {
+    const modulePath = this.resolveFhevmHostContractsArtifactPath(contractName);
     const artifact = await import(modulePath);
     return { artifact, path: modulePath };
   }

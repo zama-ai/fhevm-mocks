@@ -1,659 +1,541 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.8.0-0"
-export const InputVerifierInterfaceVersion = "0.8.0-0";
+// version "0.9.0-1"
+export const InputVerifierInterfaceVersion = "0.9.0-1";
 
-export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
+export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface(
+[
   {
-    inputs: [],
-    stateMutability: "nonpayable",
-    type: "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "target",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "target",
+        "type": "address"
+      }
     ],
-    name: "AddressEmptyCode",
-    type: "error",
+    "name": "AddressEmptyCode",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "AlreadySigner",
-    type: "error",
+    "inputs": [],
+    "name": "AlreadySigner",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "AtLeastOneSignerIsRequired",
-    type: "error",
+    "inputs": [],
+    "name": "AtLeastOneSignerIsRequired",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "DeserializingInputProofFail",
-    type: "error",
+    "inputs": [],
+    "name": "DeserializingInputProofFail",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ECDSAInvalidSignature",
-    type: "error",
+    "inputs": [],
+    "name": "ECDSAInvalidSignature",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "length",
-        type: "uint256",
-      },
+        "internalType": "uint256",
+        "name": "length",
+        "type": "uint256"
+      }
     ],
-    name: "ECDSAInvalidSignatureLength",
-    type: "error",
+    "name": "ECDSAInvalidSignatureLength",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "s",
-        type: "bytes32",
-      },
+        "internalType": "bytes32",
+        "name": "s",
+        "type": "bytes32"
+      }
     ],
-    name: "ECDSAInvalidSignatureS",
-    type: "error",
+    "name": "ECDSAInvalidSignatureS",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "implementation",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
     ],
-    name: "ERC1967InvalidImplementation",
-    type: "error",
+    "name": "ERC1967InvalidImplementation",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "ERC1967NonPayable",
-    type: "error",
+    "inputs": [],
+    "name": "ERC1967NonPayable",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "EmptyInputProof",
-    type: "error",
+    "inputs": [],
+    "name": "EmptyInputProof",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "FailedCall",
-    type: "error",
+    "inputs": [],
+    "name": "FailedCall",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InitialSignersSetIsEmpty",
-    type: "error",
+    "inputs": [],
+    "name": "InitialSignersSetIsEmpty",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidChainId",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidChainId",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidHandleVersion",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidHandleVersion",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidIndex",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidIndex",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidInitialization",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidInitialization",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "InvalidInputHandle",
-    type: "error",
+    "inputs": [],
+    "name": "InvalidInputHandle",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "signerRecovered",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "signerRecovered",
+        "type": "address"
+      }
     ],
-    name: "InvalidSigner",
-    type: "error",
+    "name": "InvalidSigner",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "NotASigner",
-    type: "error",
+    "inputs": [],
+    "name": "NotASigner",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "sender",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
     ],
-    name: "NotHostOwner",
-    type: "error",
+    "name": "NotHostOwner",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "NotInitializing",
-    type: "error",
+    "inputs": [],
+    "name": "NotInitializing",
+    "type": "error"
   },
   {
-    inputs: [],
-    name: "NotInitializingFromEmptyProxy",
-    type: "error",
+    "inputs": [],
+    "name": "NotInitializingFromEmptyProxy",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
+        "internalType": "uint256",
+        "name": "numSignatures",
+        "type": "uint256"
+      }
     ],
-    name: "OwnableInvalidOwner",
-    type: "error",
+    "name": "SignatureThresholdNotReached",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "SignaturesVerificationFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SignerNull",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UUPSUnauthorizedCallContext",
+    "type": "error"
+  },
+  {
+    "inputs": [
       {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
+        "internalType": "bytes32",
+        "name": "slot",
+        "type": "bytes32"
+      }
     ],
-    name: "OwnableUnauthorizedAccount",
-    type: "error",
+    "name": "UUPSUnsupportedProxiableUUID",
+    "type": "error"
   },
   {
-    inputs: [
+    "inputs": [],
+    "name": "ZeroSignature",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "EIP712DomainChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "uint256",
-        name: "numSignatures",
-        type: "uint256",
-      },
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "version",
+        "type": "uint64"
+      }
     ],
-    name: "SignatureThresholdNotReached",
-    type: "error",
+    "name": "Initialized",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "SignaturesVerificationFailed",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "SignerNull",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "UUPSUnauthorizedCallContext",
-    type: "error",
-  },
-  {
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        internalType: "bytes32",
-        name: "slot",
-        type: "bytes32",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
     ],
-    name: "UUPSUnsupportedProxiableUUID",
-    type: "error",
+    "name": "SignerAdded",
+    "type": "event"
   },
   {
-    inputs: [],
-    name: "ZeroSignature",
-    type: "error",
-  },
-  {
-    anonymous: false,
-    inputs: [],
-    name: "EIP712DomainChanged",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: false,
-        internalType: "uint64",
-        name: "version",
-        type: "uint64",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
     ],
-    name: "Initialized",
-    type: "event",
+    "name": "SignerRemoved",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "anonymous": false,
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
+        "indexed": true,
+        "internalType": "address",
+        "name": "implementation",
+        "type": "address"
+      }
     ],
-    name: "OwnershipTransferStarted",
-    type: "event",
+    "name": "Upgraded",
+    "type": "event"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [],
+    "name": "EIP712_INPUT_VERIFICATION_TYPE",
+    "outputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
     ],
-    name: "OwnershipTransferred",
-    type: "event",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [],
+    "name": "EIP712_INPUT_VERIFICATION_TYPEHASH",
+    "outputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "signer",
-        type: "address",
-      },
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
     ],
-    name: "SignerAdded",
-    type: "event",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [],
+    "name": "UPGRADE_INTERFACE_VERSION",
+    "outputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "signer",
-        type: "address",
-      },
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
     ],
-    name: "SignerRemoved",
-    type: "event",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    anonymous: false,
-    inputs: [
+    "inputs": [
       {
-        indexed: true,
-        internalType: "address",
-        name: "implementation",
-        type: "address",
-      },
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
     ],
-    name: "Upgraded",
-    type: "event",
+    "name": "addSigner",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "EIP712_INPUT_VERIFICATION_TYPE",
-    outputs: [
+    "inputs": [],
+    "name": "cleanTransientStorage",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "eip712Domain",
+    "outputs": [
       {
-        internalType: "string",
-        name: "",
-        type: "string",
+        "internalType": "bytes1",
+        "name": "fields",
+        "type": "bytes1"
       },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "verifyingContract",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "extensions",
+        "type": "uint256[]"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "EIP712_INPUT_VERIFICATION_TYPEHASH",
-    outputs: [
+    "inputs": [],
+    "name": "getCoprocessorSigners",
+    "outputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "UPGRADE_INTERFACE_VERSION",
-    outputs: [
+    "inputs": [],
+    "name": "getHandleVersion",
+    "outputs": [
       {
-        internalType: "string",
-        name: "",
-        type: "string",
-      },
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "pure",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "acceptOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
+    "inputs": [],
+    "name": "getThreshold",
+    "outputs": [
       {
-        internalType: "address",
-        name: "signer",
-        type: "address",
-      },
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
-    name: "addSigner",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "cleanTransientStorage",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "eip712Domain",
-    outputs: [
+    "inputs": [],
+    "name": "getVersion",
+    "outputs": [
       {
-        internalType: "bytes1",
-        name: "fields",
-        type: "bytes1",
-      },
-      {
-        internalType: "string",
-        name: "name",
-        type: "string",
-      },
-      {
-        internalType: "string",
-        name: "version",
-        type: "string",
-      },
-      {
-        internalType: "uint256",
-        name: "chainId",
-        type: "uint256",
-      },
-      {
-        internalType: "address",
-        name: "verifyingContract",
-        type: "address",
-      },
-      {
-        internalType: "bytes32",
-        name: "salt",
-        type: "bytes32",
-      },
-      {
-        internalType: "uint256[]",
-        name: "extensions",
-        type: "uint256[]",
-      },
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "pure",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "getCoprocessorSigners",
-    outputs: [
+    "inputs": [
       {
-        internalType: "address[]",
-        name: "",
-        type: "address[]",
+        "internalType": "address",
+        "name": "verifyingContractSource",
+        "type": "address"
       },
+      {
+        "internalType": "uint64",
+        "name": "chainIDSource",
+        "type": "uint64"
+      },
+      {
+        "internalType": "address[]",
+        "name": "initialSigners",
+        "type": "address[]"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "name": "initializeFromEmptyProxy",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "getHandleVersion",
-    outputs: [
+    "inputs": [
       {
-        internalType: "uint8",
-        name: "",
-        type: "uint8",
-      },
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
     ],
-    stateMutability: "pure",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getThreshold",
-    outputs: [
+    "name": "isSigner",
+    "outputs": [
       {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
     ],
-    stateMutability: "view",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "getVersion",
-    outputs: [
+    "inputs": [],
+    "name": "proxiableUUID",
+    "outputs": [
       {
-        internalType: "string",
-        name: "",
-        type: "string",
-      },
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
     ],
-    stateMutability: "pure",
-    type: "function",
+    "stateMutability": "view",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "verifyingContractSource",
-        type: "address",
-      },
-      {
-        internalType: "uint64",
-        name: "chainIDSource",
-        type: "uint64",
-      },
-      {
-        internalType: "address[]",
-        name: "initialSigners",
-        type: "address[]",
-      },
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
     ],
-    name: "initializeFromEmptyProxy",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    "name": "removeSigner",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
-    inputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "account",
-        type: "address",
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
       },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
     ],
-    name: "isSigner",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
+    "name": "upgradeToAndCall",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
   },
   {
-    inputs: [],
-    name: "owner",
-    outputs: [
+    "inputs": [
       {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "pendingOwner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "proxiableUUID",
-    outputs: [
-      {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "reinitializeV3",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "signer",
-        type: "address",
-      },
-    ],
-    name: "removeSigner",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newImplementation",
-        type: "address",
-      },
-      {
-        internalType: "bytes",
-        name: "data",
-        type: "bytes",
-      },
-    ],
-    name: "upgradeToAndCall",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        components: [
+        "components": [
           {
-            internalType: "address",
-            name: "userAddress",
-            type: "address",
+            "internalType": "address",
+            "name": "userAddress",
+            "type": "address"
           },
           {
-            internalType: "address",
-            name: "contractAddress",
-            type: "address",
-          },
+            "internalType": "address",
+            "name": "contractAddress",
+            "type": "address"
+          }
         ],
-        internalType: "struct FHEVMExecutor.ContextUserInputs",
-        name: "context",
-        type: "tuple",
+        "internalType": "struct FHEVMExecutor.ContextUserInputs",
+        "name": "context",
+        "type": "tuple"
       },
       {
-        internalType: "bytes32",
-        name: "inputHandle",
-        type: "bytes32",
+        "internalType": "bytes32",
+        "name": "inputHandle",
+        "type": "bytes32"
       },
       {
-        internalType: "bytes",
-        name: "inputProof",
-        type: "bytes",
-      },
+        "internalType": "bytes",
+        "name": "inputProof",
+        "type": "bytes"
+      }
     ],
-    name: "verifyCiphertext",
-    outputs: [
+    "name": "verifyInput",
+    "outputs": [
       {
-        internalType: "bytes32",
-        name: "",
-        type: "bytes32",
-      },
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
     ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-]);
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
+);

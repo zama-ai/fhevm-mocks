@@ -46,7 +46,7 @@ export abstract class FhevmCoprocessorContractWrapper extends FhevmContractWrapp
     super(name);
   }
   public override get package(): string {
-    return constants.FHEVM_CORE_CONTRACTS_PACKAGE_NAME;
+    return constants.FHEVM_HOST_CONTRACTS_PACKAGE_NAME;
   }
 }
 

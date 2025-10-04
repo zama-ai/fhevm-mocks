@@ -1,15 +1,15 @@
 <p align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-light.png">
-  <img src="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-light.png" width="600" alt="fhevm">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-header-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-header-light.png">
+  <img src="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-header-light.png" width="600" alt="FHEVM">
 </picture>
 </p>
 
 <hr/>
 
 <p align="center">
-  <a href="https://github.com/zama-ai/fhevm/blob/main/fhevm-whitepaper-v2.pdf"> 📃 Read white paper</a> | <a href="https://docs.zama.ai/fhevm"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
+  <a href="https://docs.zama.ai/protocol/zama-protocol-litepaper">📃 Read white paper</a> | <a href="https://docs.zama.ai/"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
 </p>
 
 <p align="center">
@@ -31,15 +31,26 @@
 
 Hardhat plugin for developing and testing FHEVM contracts.
 
+# Quickstart & Tutorial
+
+- [The FHEVM Hardhat Template](https://github.com/zama-ai/fhevm-hardhat-template)
+- [Quickstart Tutorial](https://docs.zama.ai/protocol/solidity-guides/getting-started/quick-start-tutorial)
+
+For additional documentation and resources:
+
+- [Setting up Hardhat](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup)
+- [FHEVM Hardhat Plugin Development Guide](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat)
+- [FHEVM Examples](https://docs.zama.ai/protocol/examples)
+
 ## List of peer dependencies
 
 This Hardhat plugin relies on the following peer dependencies to function correctly.
 
 - `@fhevm/mock-utils`
 - `@fhevm/solidity`
-- `@nomicfoundation/hardhat-ethers`
 - `@zama-fhe/oracle-solidity`
 - `@zama-fhe/relayer-sdk`
+- `@nomicfoundation/hardhat-ethers`
 - `ethers`
 - `hardhat`
 
@@ -285,4 +296,4 @@ npx hardhat test
 
 # 📘 FHEVM Documentation and Examples
 
-For more FHEVM examples and detailed documentation please go [here](https://docs.zama.ai/fhevm)
+For more FHEVM examples and detailed documentation please go [here](https://docs.zama.ai/)

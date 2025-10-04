@@ -1,15 +1,15 @@
 <p align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-light.png">
-  <img src="https://raw.githubusercontent.com/zama-ai/fhevm-mocks/main/assets/fhevm-light.png" width="600" alt="FHEVM">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-header-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-header-light.png">
+  <img src="https://raw.githubusercontent.com/zama-ai/fhevm/main/docs/.gitbook/assets/fhevm-header-light.png" width="600" alt="FHEVM">
 </picture>
 </p>
 
 <hr/>
 
 <p align="center">
-  <a href="https://github.com/zama-ai/fhevm-solidity/blob/main/fhevm-whitepaper-v2.pdf"> 📃 Read white paper</a> | <a href="https://docs.zama.ai/fhevm"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
+  <a href="https://docs.zama.ai/protocol/zama-protocol-litepaper">📃 Read white paper</a> | <a href="https://docs.zama.ai/"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
 </p>
 
 <p align="center">
@@ -45,7 +45,7 @@ incorporate them into your project.
 ### What is FHEVM?
 
 For more information about FHEVM, the technology that enables confidential smart contracts on the EVM using fully
-homomorphic encryption (FHE), please refer to the [FHEVM Official Documentation](https://docs.zama.ai/fhevm)
+homomorphic encryption (FHE), please refer to the [FHEVM Official Documentation](https://docs.zama.ai)
 
 ### License
 
@@ -57,7 +57,9 @@ This software is distributed under the **BSD-3-Clause-Clear** license. Read [thi
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/zama-ai/fhevm-solidity/assets/157474013/e249e1a8-d724-478c-afa8-e4fe01c1a0fd">
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/zama-ai/fhevm-solidity/assets/157474013/a72200cc-d93e-44c7-81a8-557901d8798d">
-  <img src="https://github.com/zama-ai/fhevm-solidity/assets/157474013/a72200cc-d93e-44c7-81a8-557901d8798d" width="600" alt="Support">
+  <a target="_blank" href="https://community.zama.ai">
+  <img src="https://github.com/zama-ai/fhevm-solidity/assets/157474013/a72200cc-d93e-44c7-81a8-557901d8798d" alt="Support">
+</a>
 </picture>
 </a>
 

@@ -207,7 +207,8 @@ export async function computeDecryptionSignatures(
     const clearTextValueBigInt = BigInt(clearTextValue);
     const fhevmTypeInfo: FhevmTypeInfo = fhevmHandles[i].fhevmTypeInfo;
 
-    abiTypes.push(fhevmTypeInfo.solidityTypeName);
+    //abiTypes.push(fhevmTypeInfo.solidityTypeName);
+    abiTypes.push("uint256");
 
     switch (fhevmTypeInfo.type) {
       case FhevmType.eaddress: {
@@ -239,18 +240,37 @@ export async function computeDecryptionSignatures(
     }
   }
 
-  // 1. 31 is just a dummy uint256 requestID to get correct abi encoding for the remaining arguments
-  //    (i.e everything except the requestID)
-  // 2. Adding also a dummy empty array of bytes for correct abi-encoding when used with signatures
-  const encodedData = abiCoder.encode(["uint256", ...abiTypes, "bytes[]"], [31, ...abiValues, []]);
+  // ABI encode the decryptedResult as done in the KMS, since all decrypted values are native static types, thay have same abi-encoding as uint256:
+  const decryptedResult = abiCoder.encode(abiTypes, abiValues);
+
+  // // 1. 0xdeadbeef is just a dummy uint256 requestID to get correct abi encoding for the remaining arguments
+  // //    (i.e everything except the requestID)
+  // // 2. Adding also a dummy empty array of bytes for correct abi-encoding when used with signatures
+  // const encodedData = abiCoder.encode(["uint256", ...abiTypes, "bytes[]"], [Number(0xdeadbeef), ...abiValues, []]);
+
+  /*
+      // ABI encode the decryptedResult as done in the KMS, following the format:
+      // - requestId (32 bytes)
+      // - all inputs
+      // - list of signatures (list of bytes)
+      // For this we use the following values for getting the correct abi encoding (in particular for
+      // getting the right signatures offset right after):
+      // - requestId: a dummy uint256
+      // - signatures: a dummy empty array of bytes
+      const encodedData = abiCoder.encode(
+        ['uint256', ...Array(values.length).fill('uint256'), 'bytes[]'],
+        [31, ...values, []],
+      );
+
+*/
 
   // 1. We pop the dummy requestID to get the correct value to pass for `decryptedCts`
   // 2. We also pop the last 32 bytes (empty bytes[])
-  const decryptedResult = "0x" + encodedData.slice(66).slice(0, -64);
-  assertFhevm(
-    decryptedResult === "0x" + encodedData.slice(66, -64),
-    "decryptedResult === '0x' + encodedData.slice(66, -64)",
-  );
+  // const decryptedResult = "0x" + encodedData.slice(66).slice(0, -64);
+  // assertFhevm(
+  //   decryptedResult === "0x" + encodedData.slice(66, -64),
+  //   "decryptedResult === '0x' + encodedData.slice(66, -64)",
+  // );
 
   const eip712 = kmsVerifier.createPublicDecryptVerificationEIP712(handlesBytes32Hex, decryptedResult, extraData);
 
@@ -260,6 +280,59 @@ export async function computeDecryptionSignatures(
     eip712.types,
     eip712.message,
   );
+
+  /*
+      const abiCoder = new ethers.AbiCoder();
+
+      // ABI encode the decryptedResult as done in the KMS, following the format:
+      // - requestId (32 bytes)
+      // - all inputs
+      // - list of signatures (list of bytes)
+      // For this we use the following values for getting the correct abi encoding (in particular for
+      // getting the right signatures offset right after):
+      // - requestId: a dummy uint256
+      // - signatures: a dummy empty array of bytes
+      const encodedData = abiCoder.encode(
+        ['uint256', ...Array(values.length).fill('uint256'), 'bytes[]'],
+        [31, ...values, []],
+      );
+
+      // To get the correct value, we pop:
+      // - the `0x` prefix (put back just after): first byte (2 hex characters)
+      // - the dummy requestID: next 32 bytes (64 hex characters)
+      // - the length of empty bytes[]: last 32 bytes (64 hex characters)
+      // We will most likely pop the last 64 bytes (which included the empty array's offset) instead
+      // of 32 bytes in the future, see https://github.com/zama-ai/fhevm-internal/issues/345
+      const decryptedResult = '0x' + encodedData.slice(66, -64);
+
+      const extraDataV0: string = ethers.solidityPacked(['uint8'], [0]);
+
+      const decryptResultsEIP712signatures: string[] = await computeDecryptSignatures(
+        handles,
+        decryptedResult,
+        extraDataV0,
+      );
+
+      // Build the decryptionProof as numSigners + KMS signatures + extraData
+      const packedNumSigners = ethers.solidityPacked(['uint8'], [decryptResultsEIP712signatures.length]);
+      const packedSignatures = ethers.solidityPacked(
+        Array(decryptResultsEIP712signatures.length).fill('bytes'),
+        decryptResultsEIP712signatures,
+      );
+      const decryptionProof = ethers.concat([packedNumSigners, packedSignatures, extraDataV0]);
+
+      // ABI encode the list of values in order to pass them in the callback
+      const encodedCleartexts = abiCoder.encode([...Array(values.length).fill('uint256')], [...values]);
+
+      const calldata =
+        callbackSelector +
+        abiCoder.encode(['uint256', 'bytes', 'bytes'], [requestID, encodedCleartexts, decryptionProof]).slice(2);
+
+      const txData = {
+        to: contractCaller,
+        data: calldata,
+      };
+*/
 
   return { signatures: decryptResultsEIP712signatures, types: abiTypes, values: abiValues, decryptedResult };
 }
@@ -291,6 +364,10 @@ export async function computeDecryptionCallbackSignaturesAndCalldata(
   const decryptionProof = EthersT.concat([packedNumSigners, packedSignatures, extraData]);
 
   // ABI encode the list of values in order to pass them in the callback
+  for (let i = 0; i < types.length; ++i) {
+    assertFhevm(types[i] === "uint256");
+  }
+
   const encodedCleartexts = abiCoder.encode([...types], [...values]);
 
   const calldata =
@@ -299,3 +376,20 @@ export async function computeDecryptionCallbackSignaturesAndCalldata(
 
   return { calldata };
 }
+/*
+// Build the decryptionProof as numSigners + KMS signatures + extraData
+      const packedNumSigners = ethers.solidityPacked(['uint8'], [decryptResultsEIP712signatures.length]);
+      const packedSignatures = ethers.solidityPacked(
+        Array(decryptResultsEIP712signatures.length).fill('bytes'),
+        decryptResultsEIP712signatures,
+      );
+      const decryptionProof = ethers.concat([packedNumSigners, packedSignatures, extraDataV0]);
+
+      // ABI encode the list of values in order to pass them in the callback
+      const encodedCleartexts = abiCoder.encode([...Array(values.length).fill('uint256')], [...values]);
+
+      const calldata =
+        callbackSelector +
+        abiCoder.encode(['uint256', 'bytes', 'bytes'], [requestID, encodedCleartexts, decryptionProof]).slice(2);
+
+*/

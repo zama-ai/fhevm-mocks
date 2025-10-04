@@ -40,8 +40,8 @@ export class CoprocessorEventsHandler {
     //   );
     //   return;
     // }
-    if (coprocessorEvent.eventName === "VerifyCiphertext") {
-      await this.verifyCipherText(coprocessorEvent.args);
+    if (coprocessorEvent.eventName === "VerifyInput") {
+      await this.verifyInput(coprocessorEvent.args);
     } else {
       const res = await this.executeCoprocessorEvent(coprocessorEvent);
       if (res) {
@@ -585,9 +585,9 @@ export class CoprocessorEventsHandler {
     throw new FhevmError(`Unknown fhevm coprocessor event: ${event.eventName}`);
   }
 
-  private async verifyCipherText(eventArgs: object) {
+  private async verifyInput(eventArgs: object) {
     /*
-      event VerifyCiphertext(
+      event VerifyInput(
           address indexed caller,
           bytes32 inputHandle,
           address userAddress,
@@ -603,17 +603,17 @@ export class CoprocessorEventsHandler {
     const fheType: bigint = eventArgs[4 as keyof typeof eventArgs];
     const resultBytes32: string = eventArgs[5 as keyof typeof eventArgs];
 
-    assertEventArgIsBytes32String(inputHandleBytes32, "VerifyCipherText", 1);
-    assertEventArgIsAddress(userAddress, "VerifyCipherText", 2);
-    assertEventArgIsBytesString(inputProofBytes, "VerifyCipherText", 3);
-    assertEventArgIsBigUint256(fheType, "VerifyCipherText", 4);
-    assertEventArgIsBytes32String(resultBytes32, "VerifyCipherText", 5);
+    assertEventArgIsBytes32String(inputHandleBytes32, "VerifyInput", 1);
+    assertEventArgIsAddress(userAddress, "VerifyInput", 2);
+    assertEventArgIsBytesString(inputProofBytes, "VerifyInput", 3);
+    assertEventArgIsBigUint256(fheType, "VerifyInput", 4);
+    assertEventArgIsBytes32String(resultBytes32, "v", 5);
 
     // At this point 'inputHandle' equals 'result'
     // See FHEVMExectuorNoEvents.sol + InputVerifier.sol
     assertFhevm(
       inputHandleBytes32 === resultBytes32,
-      `VerifyCipherText: inputHandleBytes32=${inputHandleBytes32} differs from resultBytes32=${resultBytes32}`,
+      `VerifyInput: inputHandleBytes32=${inputHandleBytes32} differs from resultBytes32=${resultBytes32}`,
     );
 
     try {

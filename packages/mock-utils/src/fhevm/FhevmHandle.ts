@@ -15,6 +15,9 @@ import { MAX_UINT64, assertIsNumber, toUIntNumber } from "../utils/math.js";
 import { FheType, type FheTypeInfo, checkFheType, getFheTypeInfo } from "./FheType.js";
 import { FhevmType, type FhevmTypeInfo, checkFhevmType, getFhevmTypeInfo } from "./FhevmType.js";
 
+const HANDLE_HASH_DOMAIN_SEPARATOR = "ZK-w_hdl";
+const RAW_CT_HASH_DOMAIN_SEPARATOR = "ZK-w_rct";
+
 export class FhevmHandle {
   #hash21: string;
   #chainId: number;
@@ -269,11 +272,15 @@ export class FhevmHandle {
    */
   private static _computeInputHash21(blobHashBytes32: Uint8Array, aclAddress: string, chainId: number, index: number) {
     /*
+        https://github.com/zama-ai/fhevm/blob/8ffbd5906ab3d57af178e049930e3fc065c9d4b3/coprocessor/fhevm-engine/zkproof-worker/src/verifier.rs#L431C7-L431C8
+    
+        handle_hash = Bytes("ZK-w_hdl") + blobHash 32 Bytes + index 1 Byte + aclAddress 20 Bytes + chainId 32 bytes
+        ===========================================================================================================
 
-        handle_hash = blobHash 32 Bytes + index 1 Byte + aclAddress 20 Bytes + chainId 32 bytes
-        =======================================================================================
-
+        const HANDLE_HASH_DOMAIN_SEPARATOR: [u8; 8] = *b"ZK-w_hdl";
+        
         let mut handle_hash = Keccak256::new();
+        handle_hash.update(HANDLE_HASH_DOMAIN_SEPARATOR);
         handle_hash.update(blob_hash);
         handle_hash.update([ct_idx as u8]);
         handle_hash.update(
@@ -283,6 +290,7 @@ export class FhevmHandle {
         );
         handle_hash.update(chain_id_bytes);
         let mut handle = handle_hash.finalize().to_vec();
+        assert_eq!(handle.len(), 32);
 
     */
     assertIsBytes32(blobHashBytes32, "blobHash");
@@ -298,8 +306,11 @@ export class FhevmHandle {
     assertIsBytes20(aclContractAddress20Bytes);
     assertIsBytes32(chainId32Bytes);
 
+    const encoder = new TextEncoder();
+    const domainSepBytes = encoder.encode(HANDLE_HASH_DOMAIN_SEPARATOR);
+
     return EthersT.keccak256(
-      concatBytes(blobHashBytes32, encryptionIndex1Byte, aclContractAddress20Bytes, chainId32Bytes),
+      concatBytes(domainSepBytes, blobHashBytes32, encryptionIndex1Byte, aclContractAddress20Bytes, chainId32Bytes),
     );
   }
 
@@ -331,9 +342,22 @@ export class FhevmHandle {
       throw new FhevmError("ChainId exceeds maximum allowed value (8 bytes)"); // fhevm assumes chainID is only taking up to 8 bytes
     }
 
-    // Should be identical to:
-    // https://github.com/zama-ai/fhevm-backend/blob/bae00d1b0feafb63286e94acdc58dc88d9c481bf/fhevm-engine/zkproof-worker/src/verifier.rs#L301
-    const blobHashBytes32Hex = EthersT.keccak256(ciphertextWithZKProof);
+    /*
+      Should be identical to:
+      =======================
+
+      https://github.com/zama-ai/fhevm/blob/8ffbd5906ab3d57af178e049930e3fc065c9d4b3/coprocessor/fhevm-engine/zkproof-worker/src/verifier.rs#L431C7-L431C8
+      https://github.com/zama-ai/fhevm/blob/8ffbd5906ab3d57af178e049930e3fc065c9d4b3/coprocessor/fhevm-engine/zkproof-worker/src/verifier.rs#L363    
+      https://github.com/zama-ai/relayer-sdk/blob/25a9efdbf7b7413372dac0f303be0a24fa105e28/src/relayer/handles.ts#L21
+
+      let mut h = Keccak256::new();
+      h.update(RAW_CT_HASH_DOMAIN_SEPARATOR);
+      h.update(raw_ct);
+      let blob_hash = h.finalize().to_vec();    
+    */
+    const encoder = new TextEncoder();
+    const domainSepBytes = encoder.encode(RAW_CT_HASH_DOMAIN_SEPARATOR);
+    const blobHashBytes32Hex = EthersT.keccak256(concatBytes(domainSepBytes, ciphertextWithZKProof));
 
     const blobHashBytes32: Uint8Array = EthersT.getBytes(blobHashBytes32Hex);
     assertFhevm(blobHashBytes32.length === 32);
@@ -370,166 +394,3 @@ export class FhevmHandle {
     return handles;
   }
 }
-
-/*
-private static computeMockCiphertextWithZKProof(
-    clearTextValuesBigInt: bigint[],
-    fheTypes: FheType[],
-    rand32BufferList: Buffer[],
-  ): Uint8Array {
-    let encrypted = Buffer.alloc(0);
-
-    const numHandles = clearTextValuesBigInt.length;
-
-    assertHHFhevm(rand32BufferList.length === numHandles);
-    assertHHFhevm(fheTypes.length === numHandles);
-
-    // 1. Build the typed values hash
-    for (let i = 0; i < numHandles; ++i) {
-      //type + value as bigint + random(32)
-      const clearTextValueBigInt = clearTextValuesBigInt[i];
-      const fheByteLen = getFheTypeByteLength(fheTypes[i]);
-
-      const fheTypeBuffer = Buffer.from([fheTypes[i]]);
-      const clearTextValueBuffer = toBufferBE(clearTextValueBigInt, fheByteLen);
-      const rand32Buffer = rand32BufferList[i];
-
-      // concatenate 32 random bytes at the end of buffer to simulate encryption noise
-      const encBuffer = Buffer.concat([fheTypeBuffer, clearTextValueBuffer, rand32Buffer]);
-
-      encrypted = Buffer.concat([encrypted, encBuffer]);
-    }
-
-    return new Uint8Array(new Keccak(256).update(Buffer.from(new Uint8Array(encrypted))).digest());
-  }
-
-*/
-
-/*
-const closestPP = getClosestPP();
-      const pp = publicParams[closestPP]!.publicParams;
-      const buffContract = fromHexString(contractAddress);
-      const buffUser = fromHexString(userAddress);
-      const buffAcl = fromHexString(aclContractAddress);
-      const buffChainId = fromHexString(chainId.toString(16).padStart(64, '0'));
-      const auxData = new Uint8Array(
-        buffContract.length + buffUser.length + buffAcl.length + 32, // buffChainId.length,
-      );
-      auxData.set(buffContract, 0);
-      auxData.set(buffUser, 20);
-      auxData.set(buffAcl, 40);
-      auxData.set(buffChainId, auxData.length - buffChainId.length);
-      const encrypted = builder.build_with_proof_packed(
-        pp,
-        auxData,
-        ZkComputeLoad.Verify,
-      );
-      ciphertextWithZKProof = encrypted.safe_serialize(
-        SERIALIZED_SIZE_LIMIT_CIPHERTEXT,
-      );
-      return ciphertextWithZKProof;
-*/
-
-/*
-
-// Compute input handle
-export function computeInputHandlesBytes32AsBytes(
-  ciphertextWithZKProof: Uint8Array | string,
-  encryptionTypes: FheType[],
-  chainId: number,
-  aclContractAddress: string,
-  ciphertextVersion: number,
-): Uint8Array[] {
-  const ciphertextWithZKProofUint8Array: Uint8Array =
-    typeof ciphertextWithZKProof === "string" ? EthersT.toBeArray(aclContractAddress) : ciphertextWithZKProof;
-
-  const blobHash = new Keccak(256).update(Buffer.from(ciphertextWithZKProofUint8Array)).digest();
-  const aclContractAddress20Bytes = Buffer.from(EthersT.toBeArray(aclContractAddress));
-
-  const chainId32Bytes = Buffer.from(new Uint8Array(toBufferBE(BigInt(chainId), 32)));
-  const chainId8Bytes = chainId32Bytes.subarray(24, 32);
-
-  const handlesBytes32AsBytes: Uint8Array[] = encryptionTypes.map(
-    (encryptionType: FheType, encryptionIndex: number) => {
-      const encryptionIndex1Byte = Buffer.from([encryptionIndex]);
-
-      const handleHashBuffer = Buffer.concat([
-        blobHash,
-        encryptionIndex1Byte,
-        aclContractAddress20Bytes,
-        chainId32Bytes,
-      ]);
-      const handleHash = new Keccak(256).update(handleHashBuffer).digest();
-
-      const handleBytes32AsBytes = new Uint8Array(32);
-      handleBytes32AsBytes.set(handleHash, 0);
-
-      handleBytes32AsBytes[21] = encryptionIndex;
-      chainId8Bytes.copy(handleBytes32AsBytes, 22);
-      handleBytes32AsBytes[30] = encryptionType;
-      handleBytes32AsBytes[31] = ciphertextVersion;
-
-      return handleBytes32AsBytes;
-    },
-  );
-
-  return handlesBytes32AsBytes;
-}
-
-
-*/
-
-/*
-  public static computeHandles(
-    ciphertextWithZKProof: Uint8Array,
-    fhevmTypes: FhevmType[],
-    aclContractAddress: string,
-    chainId: number,
-    ciphertextVersion: number,
-  ): Uint8Array[] {
-
-// Compute input handle (used by provider, must be moved to base)
-export function computeInputHandlesBytes32AsBytes(
-  ciphertextWithZKProof: Uint8Array | string,
-  encryptionTypes: FheType[],
-  chainId: number,
-  aclContractAddress: string,
-  ciphertextVersion: number,
-): Uint8Array[] {
-  const ciphertextWithZKProofUint8Array: Uint8Array =
-    typeof ciphertextWithZKProof === "string" ? EthersT.toBeArray(aclContractAddress) : ciphertextWithZKProof;
-
-  const blobHash = new Keccak(256).update(Buffer.from(ciphertextWithZKProofUint8Array)).digest();
-  const aclContractAddress20Bytes = Buffer.from(EthersT.toBeArray(aclContractAddress));
-
-  const chainId32Bytes = Buffer.from(new Uint8Array(toBufferBE(BigInt(chainId), 32)));
-  const chainId8Bytes = chainId32Bytes.subarray(24, 32);
-
-  const handlesBytes32AsBytes: Uint8Array[] = encryptionTypes.map(
-    (encryptionType: FheType, encryptionIndex: number) => {
-      const encryptionIndex1Byte = Buffer.from([encryptionIndex]);
-
-      const handleHashBuffer = Buffer.concat([
-        blobHash,
-        encryptionIndex1Byte,
-        aclContractAddress20Bytes,
-        chainId32Bytes,
-      ]);
-      const handleHash = new Keccak(256).update(handleHashBuffer).digest();
-
-      const handleBytes32AsBytes = new Uint8Array(32);
-      handleBytes32AsBytes.set(handleHash, 0);
-
-      handleBytes32AsBytes[21] = encryptionIndex;
-      chainId8Bytes.copy(handleBytes32AsBytes, 22);
-      handleBytes32AsBytes[30] = encryptionType;
-      handleBytes32AsBytes[31] = ciphertextVersion;
-
-      return handleBytes32AsBytes;
-    },
-  );
-
-  return handlesBytes32AsBytes;
-}
-
-*/

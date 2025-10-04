@@ -1,6 +1,7 @@
 const constants = {
   FHEVM_HANDLE_VERSION: 0,
   DEFAULT_DURATION_DAYS: 365,
+  // https://github.com/zama-ai/fhevm/blob/main/gateway-contracts/contracts/Decryption.sol
   PUBLIC_DECRYPT_EIP712: {
     domain: { version: "1", name: "Decryption" },
     types: {
@@ -20,6 +21,7 @@ const constants = {
       ],
     },
   },
+  // https://github.com/zama-ai/fhevm/blob/main/gateway-contracts/contracts/InputVerification.sol
   INPUT_VERIFICATION_EIP712: {
     domain: { version: "1", name: "InputVerification" },
     types: {
@@ -61,7 +63,7 @@ const constants = {
     path: "m/44'/60'/3'/0",
   },
   SEPOLIA_ETHEREUM_TESTNET_CHAINID: 11155111,
-  FHEVM_CORE_CONTRACTS_PACKAGE_NAME: "@fhevm/core-contracts",
+  FHEVM_HOST_CONTRACTS_PACKAGE_NAME: "@fhevm/host-contracts",
   ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME: "@zama-fhe/oracle-solidity",
 };
 Object.freeze(constants);

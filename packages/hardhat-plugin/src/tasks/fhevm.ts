@@ -29,7 +29,7 @@ import picocolors = require("picocolors");
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
 // This is an internal fhevm subtask.
-// It is exclusively used by `packages/hardhat-plugin/src/internal/deploy/PrecompiledFhevmCoreContracts.ts`
+// It is exclusively used by `packages/hardhat-plugin/src/internal/deploy/PrecompiledFhevmHostContracts.ts`
 fhevmScope
   .subtask(SCOPE_FHEVM_TASK_INSTALL_SOLIDITY)
   .setDescription("Install all the required fhevm solidity files associated with the selected network.")
@@ -261,7 +261,7 @@ fhevmScope
           coprocessorConfig,
           FhevmInstanceConfig: repo.getFhevmInstanceConfig({
             chainId: fhevmEnv.chainId,
-            relayerUrl: constants.SEPOLIA.relayerUrl,
+            relayerUrl: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl,
           }),
         };
 
@@ -308,7 +308,10 @@ fhevmScope
         kmsContractAddress: kms,
       });
 
-      const cfg = repo.getFhevmInstanceConfig({ chainId: fhevmEnv.chainId, relayerUrl: constants.SEPOLIA.relayerUrl });
+      const cfg = repo.getFhevmInstanceConfig({
+        chainId: fhevmEnv.chainId,
+        relayerUrl: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl,
+      });
 
       const inputEIP712 = repo.inputVerifier.eip712Domain;
       const kmsEIP712 = repo.kmsVerifier.eip712Domain;

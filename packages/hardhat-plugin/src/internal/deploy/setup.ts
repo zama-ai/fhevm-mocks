@@ -5,6 +5,7 @@ import {
   assertIsEIP712Domain,
   constants as constantsBase,
   contracts,
+  getContractsABIVersions,
   setInitializableStorage,
   setOwnableStorage,
 } from "@fhevm/mock-utils";
@@ -81,7 +82,7 @@ async function __tryCallGetFHEVMExecutorAddress(
     return await contract.getFHEVMExecutorAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getFHEVMExecutorAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
@@ -94,7 +95,7 @@ async function __tryCallGetACLAddress(
     return await contract.getACLAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getACLAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
@@ -107,7 +108,7 @@ async function __tryCallGetHCULimitAddress(
     return await contract.getHCULimitAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getHCULimitAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
@@ -120,30 +121,96 @@ async function __tryCallGetInputVerifierAddress(
     return await contract.getInputVerifierAddress();
   } catch {
     __logCallFuncFailed(contractName, contractAddress, "getInputVerifierAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
+    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
   }
 }
 
-function __requireResolveFhevmCoreContracts(): { version: string; packagePath: string } {
-  const pkgPath = require.resolve(path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "package.json"), {
-    paths: [__dirname],
-  });
+function __resovePkgPath(packageName: string, root: string): string {
+  try {
+    const pkgPath = require.resolve(path.join(packageName, "package.json"), {
+      paths: [root],
+    });
+    // console.log(`Resolve ${picocolors.greenBright(packageName)}: successfully resolved from ${root}`);
+    // console.log(`Resolve ${picocolors.greenBright(packageName)}: ${pkgPath}`);
+    return pkgPath;
+  } catch (e) {
+    console.error(`${picocolors.redBright(`Package resolution failed: package name: ${packageName}, root: ${root}`)}`);
+    console.error(e);
+    throw e;
+  }
+}
+
+function __requireResolve(packageName: string): { version: string; packagePath: string } {
+  const pkgPath = __resovePkgPath(packageName, __dirname);
   const pkgJson = require(pkgPath);
-  const pkg = require(path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "package.json"));
-  assertHHFhevm(pkgJson.version === pkg.version, "__requireResolveFhevmCoreContracts version mismatch");
+  const pkg = require(path.join(packageName, "package.json"));
+  assertHHFhevm(pkgJson.version === pkg.version, `__requireResolve(${packageName}) version mismatch`);
   return { version: pkg.version, packagePath: pkgPath };
 }
 
-function __requireConsumerFhevmCoreContracts(root: string): { version: string; packagePath: string } {
-  const pkgPath = require.resolve(path.join(constants.FHEVM_CORE_CONTRACTS_PACKAGE.name, "package.json"), {
-    paths: [root],
-  });
+function __requireConsumerResolve(packageName: string, root: string): { version: string; packagePath: string } {
+  const pkgPath = __resovePkgPath(packageName, root);
   const pkg = require(pkgPath);
   return { version: pkg.version, packagePath: pkgPath };
 }
 
+function __assertPkgVersion(
+  pkg: { version: string; packagePath: string },
+  expectedPkg: { name: string; version: string },
+) {
+  if (pkg.version !== expectedPkg.version) {
+    throw new HardhatFhevmError(
+      `Invalid ${expectedPkg.name} version. Expecting ${expectedPkg.version}. Got ${pkg.version} instead (at ${pkg.packagePath}).`,
+    );
+  }
+}
+
+function __checkPackages(fhevmPaths: FhevmEnvironmentPaths) {
+  const consumerFhevmSolidityPkg = __requireConsumerResolve(constants.FHEVM_SOLIDITY_PACKAGE.name, fhevmPaths.rootDir);
+  const consumerFhevmHostContractsPkg = __requireConsumerResolve(
+    constants.FHEVM_HOST_CONTRACTS_PACKAGE.name,
+    fhevmPaths.rootDir,
+  );
+  const consumerZamaOraclePkg = __requireConsumerResolve(
+    constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name,
+    fhevmPaths.rootDir,
+  );
+  const consumerZamaRelayerSdkPkg = __requireConsumerResolve(
+    constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.name,
+    fhevmPaths.rootDir,
+  );
+  const hhPluginFhevmHostContractsPkg = __requireResolve(constants.FHEVM_HOST_CONTRACTS_PACKAGE.name);
+  const hhPluginFhevmSolidityPkg = __requireResolve(constants.FHEVM_SOLIDITY_PACKAGE.name);
+  const hhPluginZamaOraclePkg = __requireResolve(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name);
+  const hhPluginZamaRelayerSdkPkg = __requireResolve(constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.name);
+
+  // Make sure the consumer of the HH Plugin uses the expected version of @fhevm/host-contracts
+  __assertPkgVersion(consumerFhevmHostContractsPkg, constants.FHEVM_HOST_CONTRACTS_PACKAGE);
+  // Make sure the HH Plugin uses the expected version of @fhevm/host-contracts
+  __assertPkgVersion(hhPluginFhevmHostContractsPkg, constants.FHEVM_HOST_CONTRACTS_PACKAGE);
+  // Make sure the consumer of the HH Plugin uses the expected version of @fhevm/solidity
+  __assertPkgVersion(consumerFhevmSolidityPkg, constants.FHEVM_SOLIDITY_PACKAGE);
+  // Make sure the HH Plugin uses the expected version of @fhevm/solidity
+  __assertPkgVersion(hhPluginFhevmSolidityPkg, constants.FHEVM_SOLIDITY_PACKAGE);
+  // Make sure the consumer of the HH Plugin uses the expected version of @zama-fhe/oracle-solidity
+  __assertPkgVersion(consumerZamaOraclePkg, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE);
+  // Make sure the HH Plugin uses the expected version of @zama-fhe/oracle-solidity
+  __assertPkgVersion(hhPluginZamaOraclePkg, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE);
+  // Make sure the consumer of the HH Plugin uses the expected version of @zama-fhe/relayer-sdk
+  __assertPkgVersion(consumerZamaRelayerSdkPkg, constants.ZAMA_FHE_RELAYER_SDK_PACKAGE);
+  // Make sure the HH Plugin uses the expected version of @zama-fhe/relayer-sdk
+  __assertPkgVersion(hhPluginZamaRelayerSdkPkg, constants.ZAMA_FHE_RELAYER_SDK_PACKAGE);
+
+  const mockUtilsABIVersion = getContractsABIVersions().ACL;
+  if (mockUtilsABIVersion !== constants.FHEVM_HOST_CONTRACTS_PACKAGE.version) {
+    throw new HardhatFhevmError(
+      `Internal Error. Expecting ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} version: ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.version}. But @fhevm/mock-utils was compiled using ABIs version ${mockUtilsABIVersion}.`,
+    );
+  }
+}
+
 // Called by FhevmEnvironment
-export async function setupMockUsingCoreContractsArtifacts(
+export async function setupMockUsingHostContractsArtifacts(
   mockProvider: FhevmMockProvider,
   fhevmAddresses: FhevmEnvironmentAddresses,
   fhevmSigners: FhevmSigners,
@@ -154,21 +221,38 @@ export async function setupMockUsingCoreContractsArtifacts(
   coprocessorSigners: EthersT.Signer[];
   kmsSigners: EthersT.Signer[];
 }> {
-  const consumerCoreContractsPkg = __requireConsumerFhevmCoreContracts(fhevmPaths.rootDir);
-  const hhPluginCoreContractsPkg = __requireResolveFhevmCoreContracts();
+  __checkPackages(fhevmPaths);
 
-  // Make sure the consumer of the HH Plugin uses the expected version of core-contracts
-  if (consumerCoreContractsPkg.version !== constants.FHEVM_CORE_CONTRACTS_PACKAGE.version) {
-    throw new HardhatFhevmError(
-      `Invalid ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.version}. Got ${consumerCoreContractsPkg.version} instead (at ${consumerCoreContractsPkg.packagePath}).`,
-    );
-  }
-  // Make sure the HH Plugin uses the expected version of core-contracts
-  if (hhPluginCoreContractsPkg.version !== constants.FHEVM_CORE_CONTRACTS_PACKAGE.version) {
-    throw new HardhatFhevmError(
-      `Invalid ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.version}. Got ${hhPluginCoreContractsPkg.version} instead (at ${hhPluginCoreContractsPkg.packagePath}).`,
-    );
-  }
+  // if (consumerFhevmHostContractsPkg.version !== constants.FHEVM_HOST_CONTRACTS_PACKAGE.version) {
+  //   throw new HardhatFhevmError(
+  //     `Invalid ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.version}. Got ${consumerFhevmHostContractsPkg.version} instead (at ${consumerFhevmHostContractsPkg.packagePath}).`,
+  //   );
+  // }
+  // if (hhPluginFhevmHostContractsPkg.version !== constants.FHEVM_HOST_CONTRACTS_PACKAGE.version) {
+  //   throw new HardhatFhevmError(
+  //     `Invalid ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.version}. Got ${hhPluginFhevmHostContractsPkg.version} instead (at ${hhPluginFhevmHostContractsPkg.packagePath}).`,
+  //   );
+  // }
+  // if (consumerFhevmSolidityPkg.version !== constants.FHEVM_SOLIDITY_PACKAGE.version) {
+  //   throw new HardhatFhevmError(
+  //     `Invalid ${constants.FHEVM_SOLIDITY_PACKAGE.name} version. Expecting ${constants.FHEVM_SOLIDITY_PACKAGE.version}. Got ${consumerFhevmSolidityPkg.version} instead (at ${consumerFhevmSolidityPkg.packagePath}).`,
+  //   );
+  // }
+  // if (hhPluginFhevmSolidityPkg.version !== constants.FHEVM_SOLIDITY_PACKAGE.version) {
+  //   throw new HardhatFhevmError(
+  //     `Invalid ${constants.FHEVM_SOLIDITY_PACKAGE.name} version. Expecting ${constants.FHEVM_SOLIDITY_PACKAGE.version}. Got ${hhPluginFhevmSolidityPkg.version} instead (at ${hhPluginFhevmSolidityPkg.packagePath}).`,
+  //   );
+  // }
+  // if (consumerZamaOraclePkg.version !== constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version) {
+  //   throw new HardhatFhevmError(
+  //     `Invalid ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name} version. Expecting ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version}. Got ${consumerZamaOraclePkg.version} instead (at ${consumerZamaOraclePkg.packagePath}).`,
+  //   );
+  // }
+  // if (hhPluginZamaOraclePkg.version !== constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version) {
+  //   throw new HardhatFhevmError(
+  //     `Invalid ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name} version. Expecting ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version}. Got ${hhPluginZamaOraclePkg.version} instead (at ${hhPluginZamaOraclePkg.packagePath}).`,
+  //   );
+  // }
 
   const FHEVMExecutorAddress = fhevmAddresses.CoprocessorConfig.CoprocessorAddress;
   const aclAddress = fhevmAddresses.CoprocessorConfig.ACLAddress;
@@ -178,8 +262,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   const decryptionOracleAddress = fhevmAddresses.CoprocessorConfig.DecryptionOracleAddress;
 
   // Setup FHEVMExecutor
-  const execArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
-  const execDeployment = await __tryDeploy(
+  const execArtifact = await fhevmPaths.getFhevmHostContractsArtifact("FHEVMExecutor");
+  /* const execDeployment = */ await __tryDeploy(
     mockProvider,
     "FHEVMExecutor",
     FHEVMExecutorAddress,
@@ -203,7 +287,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledInputVerifierAddress, inputVerifierAddress);
 
   // Setup ACL
-  const aclArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("ACL");
+  const aclArtifact = await fhevmPaths.getFhevmHostContractsArtifact("ACL");
   const aclDeployment = await __tryDeploy(
     mockProvider,
     "ACL",
@@ -213,8 +297,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   // Setup KMSVerifier
-  const kmsArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("KMSVerifier");
-  const kmsDeployment = await __tryDeploy(
+  const kmsArtifact = await fhevmPaths.getFhevmHostContractsArtifact("KMSVerifier");
+  /* const kmsDeployment = */ await __tryDeploy(
     mockProvider,
     "KMSVerifier",
     kmsVerifierAddress,
@@ -223,8 +307,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   // Setup InputVerifier
-  const inputArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("InputVerifier");
-  const inputVerifierDeployment = await __tryDeploy(
+  const inputArtifact = await fhevmPaths.getFhevmHostContractsArtifact("InputVerifier");
+  /* const inputVerifierDeployment = */ await __tryDeploy(
     mockProvider,
     "InputVerifier",
     inputVerifierAddress,
@@ -233,8 +317,8 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   // Setup HCULimit
-  const hcuLimitArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("HCULimit");
-  const hcuLimitDeployment = await __tryDeploy(
+  const hcuLimitArtifact = await fhevmPaths.getFhevmHostContractsArtifact("HCULimit");
+  /* const hcuLimitDeployment = */ await __tryDeploy(
     mockProvider,
     "HCULimit",
     hcuLimitAddress,
@@ -310,7 +394,7 @@ export async function setupMockUsingCoreContractsArtifacts(
   );
 
   const gatewayDecryptionAddress = getGatewayDecryptionAddress();
-  const gatewayChainId = constants.SEPOLIA.gatewayChainId;
+  const gatewayChainId = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.gatewayChainId;
   const kmsInitialThreshold = getKMSThreshold();
 
   const kmsSigners = fhevmSigners.kms;
@@ -324,75 +408,41 @@ export async function setupMockUsingCoreContractsArtifacts(
   }
 
   const zero = fhevmSigners.zero;
-  const one = fhevmSigners.one;
+  const ACLOwner = fhevmSigners.one;
 
-  const zeroAddress = fhevmSigners.zeroAddress;
-  const oneAddress = fhevmSigners.oneAddress;
-
-  // No need to call:
-  // - FHEVMExecutor.initializeFromEmptyProxy()
-  // - ACL.initializeFromEmptyProxy()
-  // - HCULimit.initializeFromEmptyProxy()
-  // since these initializers are currently pretty much empty right now
-
+  // Set ACL owner (see: ACLOwnable)
+  // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/shared/ACLOwnable.sol
   await __setContractOwner(
     mockProvider.minimalProvider,
-    fhevmExecutorReadOnly,
-    "FHEVMExecutor",
+    aclReadOnly,
+    "ACL",
     zero,
-    one,
-    execDeployment.alreadyDeployed,
-  );
-  await __setContractOwner(mockProvider.minimalProvider, aclReadOnly, "ACL", zero, one, aclDeployment.alreadyDeployed);
-  await __setContractOwner(
-    mockProvider.minimalProvider,
-    hcuLimitReadOnly,
-    "HCULimit",
-    zero,
-    one,
-    hcuLimitDeployment.alreadyDeployed,
+    ACLOwner,
+    aclDeployment.alreadyDeployed,
   );
 
-  const kmsOwner: `0x${string}` = await kmsVerifierReadOnly.owner();
+  // set KMSVerifier initializable struct using setInitializableStorage cheat code
+  await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
+    initialized: 1n,
+    initializing: false,
+  });
 
-  if (kmsDeployment.alreadyDeployed) {
-    if (kmsOwner !== oneAddress) {
-      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${oneAddress}`);
-    }
-  } else {
-    if (kmsOwner !== zeroAddress) {
-      throw new HardhatFhevmError(`Wrong KMSVerifier owner address. Got ${kmsOwner}, expected ${zeroAddress}`);
-    }
-  }
+  // one is ACL owner
+  const kmsACLOwner = kmsVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
 
-  if (kmsOwner !== oneAddress) {
-    // set KMSVerifier owner using setOwnableStorage cheat code
-    await setOwnableStorage(mockProvider.minimalProvider, kmsVerifierAddress, oneAddress);
-    if ((await kmsVerifierReadOnly.owner()) !== oneAddress) {
-      throw new HardhatFhevmError(`Set KMSVerifier OwnableStorage failed.`);
-    }
-
-    // set KMSVerifier initializable struct using setInitializableStorage cheat code
-    await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
-      initialized: 1n,
-      initializing: false,
-    });
-
-    const kmsOne = kmsVerifierReadOnly.connect(one) as EthersT.Contract;
-
-    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
-    let tx = await kmsOne.initializeFromEmptyProxy(
-      // address verifyingContractSource,
-      gatewayDecryptionAddress,
-      // uint64 chainIDSource,
-      gatewayChainId,
-      // address[] calldata initialSigners,
-      kmsSigners,
-      // uint256 initialThreshold
-      kmsInitialThreshold,
-    );
-    await tx.wait();
-  }
+  // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
+  let tx = await kmsACLOwner.initializeFromEmptyProxy(
+    // address verifyingContractSource,
+    gatewayDecryptionAddress,
+    // uint64 chainIDSource,
+    gatewayChainId,
+    // address[] calldata initialSigners,
+    kmsSigners,
+    // uint256 initialThreshold
+    kmsInitialThreshold,
+  );
+  await tx.wait();
+  // }
 
   // Make sure everything is properly setup
   assertHHFhevm((await kmsVerifierReadOnly.getThreshold()) === BigInt(getKMSThreshold()));
@@ -401,47 +451,24 @@ export async function setupMockUsingCoreContractsArtifacts(
   await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
 
   const inputVerifierVerifyingContractSource = getGatewayInputVerificationAddress();
-  const inputVerifierOwner: `0x${string}` = await inputVerifierReadOnly.owner();
 
-  if (inputVerifierDeployment.alreadyDeployed) {
-    if (inputVerifierOwner !== oneAddress) {
-      throw new HardhatFhevmError(
-        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${oneAddress}`,
-      );
-    }
-  } else {
-    if (inputVerifierOwner !== zeroAddress) {
-      throw new HardhatFhevmError(
-        `Wrong InputVerifier owner address. Got ${inputVerifierOwner}, expected ${zeroAddress}`,
-      );
-    }
-  }
+  // set InputVerifier initializable struct using setInitializableStorage cheat code
+  await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
+    initialized: 1n,
+    initializing: false,
+  });
 
-  if (inputVerifierOwner !== oneAddress) {
-    // set InputVerifier owner using setOwnableStorage cheat code
-    await setOwnableStorage(mockProvider.minimalProvider, inputVerifierAddress, oneAddress);
-    if ((await inputVerifierReadOnly.owner()) !== oneAddress) {
-      throw new HardhatFhevmError(`Set InputVerifier OwnableStorage failed.`);
-    }
-
-    // set InputVerifier initializable struct using setInitializableStorage cheat code
-    await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
-      initialized: 1n,
-      initializing: false,
-    });
-
-    const inputVerifierOne = inputVerifierReadOnly.connect(one) as EthersT.Contract;
-    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
-    let tx = await inputVerifierOne.initializeFromEmptyProxy(
-      // address verifyingContractSource,
-      inputVerifierVerifyingContractSource,
-      // uint64 chainIDSource,
-      gatewayChainId,
-      // address[] calldata initialSigners
-      coprocessorSigners,
-    );
-    await tx.wait();
-  }
+  const inputVerifierACLOwner = inputVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
+  // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
+  tx = await inputVerifierACLOwner.initializeFromEmptyProxy(
+    // address verifyingContractSource,
+    inputVerifierVerifyingContractSource,
+    // uint64 chainIDSource,
+    gatewayChainId,
+    // address[] calldata initialSigners
+    coprocessorSigners,
+  );
+  await tx.wait();
 
   // Verify signers
   const _inputSignersAddresses: string[] = await inputVerifierReadOnly.getCoprocessorSigners();
@@ -526,7 +553,9 @@ function __checkHardCodedAddress(
     debug(
       `${picocolors.bgRedBright(picocolors.bold("ERROR"))} deployed ${contractName} contact at ${contractAddress} does not use the expected ACL address. Got ${hardCodedAddress}, expecting ${expectedHardCodedAddress}`,
     );
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} contracts.`);
+    throw new HardhatFhevmError(
+      `Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts. (__checkHardCodedAddress(${contractName}, contractAddress: ${contractAddress}, hardCodedAddress: ${hardCodedAddress}, expectedHardCodedAddress: ${expectedHardCodedAddress}))`,
+    );
   }
 }
 

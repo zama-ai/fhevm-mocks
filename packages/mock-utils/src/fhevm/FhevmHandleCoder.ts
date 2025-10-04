@@ -28,7 +28,7 @@ export enum FhevmOperator {
   fheMax = 19,
   fheNeg = 20,
   fheNot = 21,
-  verifyCiphertext = 22,
+  verifyInput = 22,
   cast = 23,
   trivialEncrypt = 24,
   fheIfThenElse = 25,

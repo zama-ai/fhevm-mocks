@@ -114,6 +114,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     userAddress: string,
   ) {
     /*
+
     How to use:
     ===========
 
