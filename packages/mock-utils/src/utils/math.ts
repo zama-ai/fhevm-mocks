@@ -143,7 +143,7 @@ export function assertIsBigUint128(value: unknown, valueName?: string): asserts 
   _assertIsBigUint(value, 128, MAX_UINT128, valueName);
 }
 export function assertIsBigUint160(value: unknown, valueName?: string): asserts value is bigint {
-  _assertIsBigUint(value, 128, MAX_UINT160, valueName);
+  _assertIsBigUint(value, 160, MAX_UINT160, valueName);
 }
 export function assertIsBigUint256(value: unknown, valueName?: string): asserts value is bigint {
   _assertIsBigUint(value, 256, MAX_UINT256, valueName);
