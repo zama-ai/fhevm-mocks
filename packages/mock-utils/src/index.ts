@@ -22,7 +22,7 @@ export { FhevmHandleCoder } from "./fhevm/FhevmHandleCoder.js";
 export { FhevmHandle } from "./fhevm/FhevmHandle.js";
 export type { DecryptionRequestEvent } from "./fhevm/decryptionOracle/DecryptionOracleEvents.js";
 export type { CoprocessorEvent, CoprocessorEventName } from "./fhevm/coprocessor/CoprocessorEvents.js";
-export type { TransactionHCUInfo } from "./fhevm/coprocessor/hcu.js";
+export type { FhevmTransactionHCUInfo } from "./fhevm/coprocessor/hcu.js";
 export { getHCU, type HCUOperatorName } from "./fhevm/coprocessor/HCUByOperator.js";
 export type {
   FhevmContractName,

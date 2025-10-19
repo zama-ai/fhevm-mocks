@@ -223,37 +223,6 @@ export async function setupMockUsingHostContractsArtifacts(
 }> {
   __checkPackages(fhevmPaths);
 
-  // if (consumerFhevmHostContractsPkg.version !== constants.FHEVM_HOST_CONTRACTS_PACKAGE.version) {
-  //   throw new HardhatFhevmError(
-  //     `Invalid ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.version}. Got ${consumerFhevmHostContractsPkg.version} instead (at ${consumerFhevmHostContractsPkg.packagePath}).`,
-  //   );
-  // }
-  // if (hhPluginFhevmHostContractsPkg.version !== constants.FHEVM_HOST_CONTRACTS_PACKAGE.version) {
-  //   throw new HardhatFhevmError(
-  //     `Invalid ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} version. Expecting ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.version}. Got ${hhPluginFhevmHostContractsPkg.version} instead (at ${hhPluginFhevmHostContractsPkg.packagePath}).`,
-  //   );
-  // }
-  // if (consumerFhevmSolidityPkg.version !== constants.FHEVM_SOLIDITY_PACKAGE.version) {
-  //   throw new HardhatFhevmError(
-  //     `Invalid ${constants.FHEVM_SOLIDITY_PACKAGE.name} version. Expecting ${constants.FHEVM_SOLIDITY_PACKAGE.version}. Got ${consumerFhevmSolidityPkg.version} instead (at ${consumerFhevmSolidityPkg.packagePath}).`,
-  //   );
-  // }
-  // if (hhPluginFhevmSolidityPkg.version !== constants.FHEVM_SOLIDITY_PACKAGE.version) {
-  //   throw new HardhatFhevmError(
-  //     `Invalid ${constants.FHEVM_SOLIDITY_PACKAGE.name} version. Expecting ${constants.FHEVM_SOLIDITY_PACKAGE.version}. Got ${hhPluginFhevmSolidityPkg.version} instead (at ${hhPluginFhevmSolidityPkg.packagePath}).`,
-  //   );
-  // }
-  // if (consumerZamaOraclePkg.version !== constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version) {
-  //   throw new HardhatFhevmError(
-  //     `Invalid ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name} version. Expecting ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version}. Got ${consumerZamaOraclePkg.version} instead (at ${consumerZamaOraclePkg.packagePath}).`,
-  //   );
-  // }
-  // if (hhPluginZamaOraclePkg.version !== constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version) {
-  //   throw new HardhatFhevmError(
-  //     `Invalid ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name} version. Expecting ${constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.version}. Got ${hhPluginZamaOraclePkg.version} instead (at ${hhPluginZamaOraclePkg.packagePath}).`,
-  //   );
-  // }
-
   const FHEVMExecutorAddress = fhevmAddresses.CoprocessorConfig.CoprocessorAddress;
   const aclAddress = fhevmAddresses.CoprocessorConfig.ACLAddress;
   const kmsVerifierAddress = fhevmAddresses.CoprocessorConfig.KMSVerifierAddress;
@@ -298,7 +267,7 @@ export async function setupMockUsingHostContractsArtifacts(
 
   // Setup KMSVerifier
   const kmsArtifact = await fhevmPaths.getFhevmHostContractsArtifact("KMSVerifier");
-  /* const kmsDeployment = */ await __tryDeploy(
+  const kmsDeployment = await __tryDeploy(
     mockProvider,
     "KMSVerifier",
     kmsVerifierAddress,
@@ -308,7 +277,7 @@ export async function setupMockUsingHostContractsArtifacts(
 
   // Setup InputVerifier
   const inputArtifact = await fhevmPaths.getFhevmHostContractsArtifact("InputVerifier");
-  /* const inputVerifierDeployment = */ await __tryDeploy(
+  const inputVerifierDeployment = await __tryDeploy(
     mockProvider,
     "InputVerifier",
     inputVerifierAddress,
@@ -328,7 +297,7 @@ export async function setupMockUsingHostContractsArtifacts(
 
   // Setup DecryptionOracle
   const decryptionOracleArtifact = await fhevmPaths.getZamaFheOracleSolidityArtifact("DecryptionOracle");
-  await __tryDeploy(
+  /* const decryptionOracleDeployment = */ await __tryDeploy(
     mockProvider,
     "DecryptionOracle",
     decryptionOracleAddress,
@@ -352,7 +321,6 @@ export async function setupMockUsingHostContractsArtifacts(
     kmsArtifact.artifact.abi,
     mockProvider.readonlyEthersProvider,
   );
-
   const decryptionOracleReadOnly = new EthersT.Contract(
     decryptionOracleAddress,
     decryptionOracleArtifact.artifact.abi,
@@ -394,6 +362,7 @@ export async function setupMockUsingHostContractsArtifacts(
   );
 
   const gatewayDecryptionAddress = getGatewayDecryptionAddress();
+  const gatewayInputVerificationAddress = getGatewayInputVerificationAddress();
   const gatewayChainId = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.gatewayChainId;
   const kmsInitialThreshold = getKMSThreshold();
 
@@ -421,76 +390,113 @@ export async function setupMockUsingHostContractsArtifacts(
     aclDeployment.alreadyDeployed,
   );
 
-  // set KMSVerifier initializable struct using setInitializableStorage cheat code
-  await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
-    initialized: 1n,
-    initializing: false,
-  });
+  //////////////////////////////////////////////////////////////////////////////
+  // KMSVerifier
+  //////////////////////////////////////////////////////////////////////////////
 
-  // one is ACL owner
-  const kmsACLOwner = kmsVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
+  if (kmsDeployment.alreadyDeployed) {
+    const existingKmsVerifier = await contracts.KMSVerifier.create(
+      mockProvider.readonlyEthersProvider,
+      kmsVerifierAddress,
+      kmsArtifact.artifact.abi,
+    );
+    await existingKmsVerifier.assertMatchKmsSigners(kmsSigners);
+    if (existingKmsVerifier.gatewayChainId !== BigInt(gatewayChainId)) {
+      throw new HardhatFhevmError(
+        `Unexpected KMS Gateway ChainId. Expected ${gatewayChainId}, got ${existingKmsVerifier.gatewayChainId} instead.`,
+      );
+    }
+    if (existingKmsVerifier.getThreshold() !== kmsInitialThreshold) {
+      throw new HardhatFhevmError(
+        `Unexpected KMS Threshold. Expected ${kmsInitialThreshold}, got ${existingKmsVerifier.getThreshold()} instead.`,
+      );
+    }
+  } else {
+    // set KMSVerifier initializable struct using setInitializableStorage cheat code
+    await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
+      initialized: 1n,
+      initializing: false,
+    });
 
-  // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
-  let tx = await kmsACLOwner.initializeFromEmptyProxy(
-    // address verifyingContractSource,
-    gatewayDecryptionAddress,
-    // uint64 chainIDSource,
-    gatewayChainId,
-    // address[] calldata initialSigners,
-    kmsSigners,
-    // uint256 initialThreshold
-    kmsInitialThreshold,
-  );
-  await tx.wait();
-  // }
+    const kmsACLOwner = kmsVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
 
-  // Make sure everything is properly setup
-  assertHHFhevm((await kmsVerifierReadOnly.getThreshold()) === BigInt(getKMSThreshold()));
-  // Verify signers
-  const _kmsSignersAddresses: string[] = await kmsVerifierReadOnly.getKmsSigners();
-  await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
+    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
+    const tx = await kmsACLOwner.initializeFromEmptyProxy(
+      // address verifyingContractSource,
+      gatewayDecryptionAddress,
+      // uint64 chainIDSource,
+      gatewayChainId,
+      // address[] calldata initialSigners,
+      kmsSigners,
+      // uint256 initialThreshold
+      kmsInitialThreshold,
+    );
+    await tx.wait();
 
-  const inputVerifierVerifyingContractSource = getGatewayInputVerificationAddress();
+    // // Make sure everything is properly setup
+    assertHHFhevm((await kmsVerifierReadOnly.getThreshold()) === BigInt(kmsInitialThreshold));
+    // Verify signers
+    const _kmsSignersAddresses: string[] = await kmsVerifierReadOnly.getKmsSigners();
+    await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
 
-  // set InputVerifier initializable struct using setInitializableStorage cheat code
-  await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
-    initialized: 1n,
-    initializing: false,
-  });
+    // KMSVerifier eip712Domain
+    const _kms712Domain = await kmsVerifierReadOnly.eip712Domain();
+    assertIsEIP712Domain(_kms712Domain, "KMSVerifier", {
+      name: constantsBase.PUBLIC_DECRYPT_EIP712.domain.name,
+      version: constantsBase.PUBLIC_DECRYPT_EIP712.domain.version,
+      chainId: BigInt(gatewayChainId),
+      verifyingContract: gatewayDecryptionAddress,
+    });
+  }
 
-  const inputVerifierACLOwner = inputVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
-  // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
-  tx = await inputVerifierACLOwner.initializeFromEmptyProxy(
-    // address verifyingContractSource,
-    inputVerifierVerifyingContractSource,
-    // uint64 chainIDSource,
-    gatewayChainId,
-    // address[] calldata initialSigners
-    coprocessorSigners,
-  );
-  await tx.wait();
+  //////////////////////////////////////////////////////////////////////////////
+  // InputVerifier
+  //////////////////////////////////////////////////////////////////////////////
 
-  // Verify signers
-  const _inputSignersAddresses: string[] = await inputVerifierReadOnly.getCoprocessorSigners();
-  await assertSignersMatchAddresses(coprocessorSigners, _inputSignersAddresses);
+  if (inputVerifierDeployment.alreadyDeployed) {
+    const existingInputVerifier = await contracts.InputVerifier.create(
+      mockProvider.readonlyEthersProvider,
+      inputVerifierAddress,
+      inputArtifact.artifact.abi,
+    );
+    await existingInputVerifier.assertMatchCoprocessorSigners(coprocessorSigners);
+    if (existingInputVerifier.gatewayChainId !== BigInt(gatewayChainId)) {
+      throw new HardhatFhevmError(
+        `Unexpected InputVerifier Gateway ChainId. Expected ${gatewayChainId}, got ${existingInputVerifier.gatewayChainId} instead.`,
+      );
+    }
+  } else {
+    // set InputVerifier initializable struct using setInitializableStorage cheat code
+    await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
+      initialized: 1n,
+      initializing: false,
+    });
 
-  // InputVerifier eip712Domain
-  const _inputVerifier712Domain = await inputVerifierReadOnly.eip712Domain();
-  assertIsEIP712Domain(_inputVerifier712Domain, "InputVerifier", {
-    name: constantsBase.INPUT_VERIFICATION_EIP712.domain.name,
-    version: constantsBase.INPUT_VERIFICATION_EIP712.domain.version,
-    chainId: BigInt(gatewayChainId),
-    verifyingContract: inputVerifierVerifyingContractSource,
-  });
+    const inputVerifierACLOwner = inputVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
+    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
+    const tx = await inputVerifierACLOwner.initializeFromEmptyProxy(
+      // address verifyingContractSource,
+      gatewayInputVerificationAddress,
+      // uint64 chainIDSource,
+      gatewayChainId,
+      // address[] calldata initialSigners
+      coprocessorSigners,
+    );
+    await tx.wait();
 
-  // KMSVerifier eip712Domain
-  const _kms712Domain = await kmsVerifierReadOnly.eip712Domain();
-  assertIsEIP712Domain(_kms712Domain, "KMSVerifier", {
-    name: constantsBase.PUBLIC_DECRYPT_EIP712.domain.name,
-    version: constantsBase.PUBLIC_DECRYPT_EIP712.domain.version,
-    chainId: BigInt(gatewayChainId),
-    verifyingContract: gatewayDecryptionAddress,
-  });
+    // Verify signers
+    const _inputSignersAddresses: string[] = await inputVerifierReadOnly.getCoprocessorSigners();
+    await assertSignersMatchAddresses(coprocessorSigners, _inputSignersAddresses);
+
+    // InputVerifier eip712Domain
+    const _inputVerifier712Domain = await inputVerifierReadOnly.eip712Domain();
+    assertIsEIP712Domain(_inputVerifier712Domain, "InputVerifier", {
+      name: constantsBase.INPUT_VERIFICATION_EIP712.domain.name,
+      version: constantsBase.INPUT_VERIFICATION_EIP712.domain.version,
+      chainId: BigInt(gatewayChainId),
+      verifyingContract: gatewayInputVerificationAddress,
+    });
+  }
 
   debug(`${picocolors.cyanBright("ACL")} address              : ${aclAddress}`);
   debug(`${picocolors.cyanBright("FHEVMExecutor")} address    : ${FHEVMExecutorAddress}`);
@@ -498,7 +504,7 @@ export async function setupMockUsingHostContractsArtifacts(
   debug(`${picocolors.cyanBright("KMSVerifier")} address      : ${kmsVerifierAddress}`);
   debug(`${picocolors.cyanBright("DecryptionOracle")} address : ${decryptionOracleAddress}`);
   debug(`Gateway chainId                         : ${gatewayChainId}`);
-  debug(`InputVerifier verifying contract source : ${inputVerifierVerifyingContractSource}`);
+  debug(`InputVerifier verifying contract source : ${gatewayInputVerificationAddress}`);
   debug(`Gateway Decryption address              : ${gatewayDecryptionAddress}`);
 
   const repo = await contracts.FhevmContractsRepository.create(mockProvider.readonlyEthersProvider, {
@@ -534,7 +540,7 @@ export async function setupMockUsingHostContractsArtifacts(
       KMSVerifierReadOnly: kmsVerifierReadOnly,
       DecryptionOracleAddress: decryptionOracleAddress,
       DecryptionOracleReadOnly: decryptionOracleReadOnly,
-      gatewayInputVerificationAddress: inputVerifierVerifyingContractSource,
+      gatewayInputVerificationAddress: gatewayInputVerificationAddress,
       gatewayChainId,
       gatewayDecryptionAddress: gatewayDecryptionAddress,
     },

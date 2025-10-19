@@ -1,10 +1,10 @@
 // npmjs.com packages url:
 // =======================
 
-// https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-// https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions
-// https://www.npmjs.com/package/@zama-fhe/oracle-solidity?activeTab=versions
-// https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions
+// https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions (0.9.0-1)
+// https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions (0.9.0-1)
+// https://www.npmjs.com/package/@zama-fhe/oracle-solidity?activeTab=versions (0.3.0-2)
+// https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions (0.3.0-3)
 
 const constants = {
   PRIVATE_KEY_KMS_SIGNER: "388b7680e4e1afa06efbfd45cdd1fe39f3c6af381df6555a19661f283b97de91", //address=0x0971C80fF03B428fD2094dd5354600ab103201C5

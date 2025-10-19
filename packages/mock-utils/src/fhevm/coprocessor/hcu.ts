@@ -12,7 +12,7 @@ import { type FheTypeName, getFheTypeName } from "../FheType.js";
 import { FhevmHandle } from "../FhevmHandle.js";
 import { HCUByOperator } from "./HCUByOperator.js";
 
-export type TransactionHCUInfo = {
+export type FhevmTransactionHCUInfo = {
   transactionHash: `0x${string}`;
   globalHCU: number;
   maxHCUDepth: number;
@@ -103,7 +103,7 @@ export function getTxHCUFromTxReceipt(
   coprocessorAddress: `0x${string}`,
   coprocessorContractInterface: EthersT.Interface,
   receipt: EthersT.TransactionReceipt,
-): TransactionHCUInfo {
+): FhevmTransactionHCUInfo {
   if (receipt.status === 0) {
     throw new FhevmError("Transaction reverted");
   }

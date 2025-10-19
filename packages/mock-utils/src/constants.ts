@@ -1,7 +1,7 @@
 const constants = {
   FHEVM_HANDLE_VERSION: 0,
   DEFAULT_DURATION_DAYS: 365,
-  // https://github.com/zama-ai/fhevm/blob/main/gateway-contracts/contracts/Decryption.sol
+  // https://github.com/zama-ai/fhevm/blob/main/gateway-contracts/contracts/Decryption.sol#L138
   PUBLIC_DECRYPT_EIP712: {
     domain: { version: "1", name: "Decryption" },
     types: {
@@ -21,7 +21,7 @@ const constants = {
       ],
     },
   },
-  // https://github.com/zama-ai/fhevm/blob/main/gateway-contracts/contracts/InputVerification.sol
+  // https://github.com/zama-ai/fhevm/blob/main/gateway-contracts/contracts/InputVerification.sol#L66
   INPUT_VERIFICATION_EIP712: {
     domain: { version: "1", name: "InputVerification" },
     types: {

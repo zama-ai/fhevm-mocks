@@ -3,13 +3,13 @@ import type {
   DecryptionRequestEvent,
   FhevmContractName,
   FhevmPublicDecryptOptions,
+  FhevmTransactionHCUInfo,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
-  TransactionHCUInfo,
 } from "@fhevm/mock-utils";
 import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
 import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
-import { ethers } from "ethers";
+import type { ethers } from "ethers";
 
 import type { FhevmContractError } from "./internal/errors/FhevmContractError";
 
@@ -19,17 +19,18 @@ export {
   FhevmUserDecryptOptions,
   FhevmKeypair,
   FhevmUserDecryptValidity,
+  FhevmTransactionHCUInfo,
 } from "@fhevm/mock-utils";
 
 export interface HardhatFhevmRuntimeEnvironment {
-  isMock: boolean;
-  debugger: HardhatFhevmRuntimeDebugger;
+  readonly isMock: boolean;
+  readonly debugger: HardhatFhevmRuntimeDebugger;
 
   initializeCLIApi(): Promise<void>;
 
   parseCoprocessorEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): CoprocessorEvent[];
   parseDecryptionRequestEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): DecryptionRequestEvent[];
-  computeTransactionHCU(transactionReceipt: ethers.TransactionReceipt): TransactionHCUInfo;
+  computeTransactionHCU(transactionReceipt: ethers.TransactionReceipt): FhevmTransactionHCUInfo;
 
   awaitDecryptionOracle(): Promise<void>;
 
