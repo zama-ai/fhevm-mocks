@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.8.0-0"
-export const InputVerifierInterfaceVersion = "0.8.0-0";
+// version "0.9.0-1"
+export const InputVerifierInterfaceVersion = "0.9.0-1";
 
 export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -158,28 +158,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [
       {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-    ],
-    name: "OwnableInvalidOwner",
-    type: "error",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "OwnableUnauthorizedAccount",
-    type: "error",
-  },
-  {
-    inputs: [
-      {
         internalType: "uint256",
         name: "numSignatures",
         type: "uint256",
@@ -236,44 +214,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     name: "Initialized",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferStarted",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
     type: "event",
   },
   {
@@ -352,13 +292,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "acceptOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -520,32 +453,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "owner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "pendingOwner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "proxiableUUID",
     outputs: [
       {
@@ -558,13 +465,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
     type: "function",
   },
   {
-    inputs: [],
-    name: "reinitializeV3",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     inputs: [
       {
         internalType: "address",
@@ -573,26 +473,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     name: "removeSigner",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "transferOwnership",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -645,7 +525,7 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
         type: "bytes",
       },
     ],
-    name: "verifyCiphertext",
+    name: "verifyInput",
     outputs: [
       {
         internalType: "bytes32",

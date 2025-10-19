@@ -5,6 +5,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "generate-interfaces": "node ./scripts/generate-host-contracts-interfaces.cjs && prettier --config ../../.prettierrc.yml --write \"src/fhevm/contracts/interfaces/**/*.ts\"",
     "build": "npm run clean && npm run build:cjs && npm run build:esm && npm run build:types",
     "build:cjs": "tsc --project ./tsconfig.build.cjs.json && printf '{\"type\":\"commonjs\"}' > ./src/_cjs/package.json",
     "build:esm": "tsc --project ./tsconfig.build.esm.json && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./src/_esm/package.json",

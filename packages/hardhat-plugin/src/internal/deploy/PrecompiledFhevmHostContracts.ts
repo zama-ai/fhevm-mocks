@@ -9,12 +9,12 @@ import { HardhatFhevmError } from "../../error";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_INSTALL_SOLIDITY } from "../../task-names";
 import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import constants from "../constants";
-import { PrecompiledCoreContractsAddresses } from "../types";
+import { PrecompiledHostContractsAddresses } from "../types";
 import { computeDummyAddress } from "../utils/hh";
 
 const debug = setupDebug("@fhevm/hardhat:addresses");
 
-function __logPrecompiledAddresses(addresses: PrecompiledCoreContractsAddresses, useCache: boolean) {
+function __logPrecompiledAddresses(addresses: PrecompiledHostContractsAddresses, useCache: boolean) {
   const prefix = !useCache ? "Resolve" : `${picocolors.yellowBright("Cache")}`;
   debug(`${prefix} precompiled ${picocolors.cyanBright("ACL")} address                  : ${addresses.ACLAddress}`);
   debug(
@@ -57,17 +57,17 @@ async function childProcessExecNpxHardhatFhevmInstallSolidity(alreadyRunning: bo
   return output;
 }
 
-export async function getPrecompiledFhevmCoreContractsAddresses(
+export async function getPrecompiledFhevmHostContractsAddresses(
   mockProvider: FhevmMockProvider,
   fhevmPaths: FhevmEnvironmentPaths,
-): Promise<PrecompiledCoreContractsAddresses> {
+): Promise<PrecompiledHostContractsAddresses> {
   debug(
-    `Resolving precompiled @fhevm/core-contracts addresses using artifacts at ${fhevmPaths.resolveFhevmCoreContractsArtifactRootDir()} ...`,
+    `Resolving precompiled @fhevm/host-contracts addresses using artifacts at ${fhevmPaths.resolveFhevmHostContractsArtifactRootDir()} ...`,
   );
 
   if (mockProvider.info.networkName !== "hardhat") {
     throw new HardhatFhevmError(
-      `Can't retrieve ${constants.FHEVM_CORE_CONTRACTS_PACKAGE.name} precompiled addresses. This operation is only supported on 'hardhat' network. Current network: ${mockProvider.info.networkName}`,
+      `Can't retrieve ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} precompiled addresses. This operation is only supported on 'hardhat' network. Current network: ${mockProvider.info.networkName}`,
     );
   }
 
@@ -78,7 +78,7 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
 
   try {
     // Setup FHEVMExecutor
-    const FHEVMExecutorArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("FHEVMExecutor");
+    const FHEVMExecutorArtifact = await fhevmPaths.getFhevmHostContractsArtifact("FHEVMExecutor");
     const FHEVMExecutorBytecode = FHEVMExecutorArtifact.artifact.deployedBytecode;
     await mockProvider.setCodeAt(precompiledFHEVMExecutorAddress, FHEVMExecutorBytecode);
 
@@ -93,7 +93,7 @@ export async function getPrecompiledFhevmCoreContractsAddresses(
     const precompiledHCULimitAddress = (await FHEVMExecutorReadOnly.getHCULimitAddress()) as `0x${string}`;
     const precompiledInputVerifierAddress = (await FHEVMExecutorReadOnly.getInputVerifierAddress()) as `0x${string}`;
 
-    const addresses: PrecompiledCoreContractsAddresses = {
+    const addresses: PrecompiledHostContractsAddresses = {
       ACLAddress: precompiledACLAddress,
       CoprocessorAddress: precompiledFHEVMExecutorAddress,
       HCULimitAddress: precompiledHCULimitAddress,
@@ -119,7 +119,7 @@ export async function retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
   }
 
   try {
-    const aclArtifact = await fhevmPaths.getFhevmCoreContractsArtifact("ACL");
+    const aclArtifact = await fhevmPaths.getFhevmHostContractsArtifact("ACL");
     const aclBytecode = aclArtifact.artifact.deployedBytecode;
 
     await mockProvider.setCodeAt(DUMMY_ACL_ADDR, aclBytecode);
@@ -137,13 +137,13 @@ export async function retrievePreCompiledFHEVMExecutorAddressFromACLArtifact(
   }
 }
 
-export async function loadPrecompiledFhevmCoreContractsAddresses(
+export async function loadPrecompiledFhevmHostContractsAddresses(
   mockProvider: FhevmMockProvider,
   fhevmPaths: FhevmEnvironmentPaths,
   ignoreCache: boolean,
   isRunningInHHFHEVMInstallSolidity: boolean,
-): Promise<PrecompiledCoreContractsAddresses> {
-  const jsonPath = fhevmPaths.cachePrecompiledFhevmCoreContractsAddressesJson;
+): Promise<PrecompiledHostContractsAddresses> {
+  const jsonPath = fhevmPaths.cachePrecompiledFhevmHostContractsAddressesJson;
 
   if (fs.existsSync(jsonPath)) {
     if (ignoreCache) {
@@ -172,7 +172,7 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
   }
 
   if (fs.existsSync(jsonPath)) {
-    debug(`Skip precompiled @fhevm/core-contracts addresses resolution. Cache file ${jsonPath} already exists.`);
+    debug(`Skip precompiled @fhevm/host-contracts addresses resolution. Cache file ${jsonPath} already exists.`);
     const str = fs.readFileSync(jsonPath, "utf8");
     const o = JSON.parse(str);
 
@@ -186,13 +186,13 @@ export async function loadPrecompiledFhevmCoreContractsAddresses(
     };
   }
 
-  const addresses = await getPrecompiledFhevmCoreContractsAddresses(mockProvider, fhevmPaths);
+  const addresses = await getPrecompiledFhevmHostContractsAddresses(mockProvider, fhevmPaths);
 
   if (!fs.existsSync(fhevmPaths.cacheDir)) {
     fs.mkdirSync(fhevmPaths.cacheDir);
   }
 
-  debug(`Save precompiled fhevm core contracts addresses cache file ${jsonPath}.`);
+  debug(`Save precompiled fhevm host contracts addresses cache file ${jsonPath}.`);
 
   fs.writeFileSync(jsonPath, JSON.stringify(addresses, null, 2), "utf8");
 

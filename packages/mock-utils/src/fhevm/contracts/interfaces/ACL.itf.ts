@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.8.0-0"
-export const ACLInterfaceVersion = "0.8.0-0";
+// version "0.9.0-1"
+export const ACLInterfaceVersion = "0.9.0-1";
 
 export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -85,11 +85,6 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     name: "InvalidInitialization",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "InvalidNullPauser",
     type: "error",
   },
   {
@@ -553,11 +548,11 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   },
   {
     inputs: [],
-    name: "getPauser",
+    name: "getPauserSetAddress",
     outputs: [
       {
         internalType: "address",
-        name: "pauser",
+        name: "",
         type: "address",
       },
     ],
@@ -578,13 +573,7 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "initialPauser",
-        type: "address",
-      },
-    ],
+    inputs: [],
     name: "initializeFromEmptyProxy",
     outputs: [],
     stateMutability: "nonpayable",
@@ -623,6 +612,25 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     name: "isAllowedForDecryption",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "isPauser",
     outputs: [
       {
         internalType: "bool",
@@ -717,19 +725,6 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "initialPauser",
-        type: "address",
-      },
-    ],
-    name: "reinitializeV2",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     inputs: [],
     name: "renounceOwnership",
     outputs: [],
@@ -770,19 +765,6 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     name: "unpause",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newPauser",
-        type: "address",
-      },
-    ],
-    name: "updatePauser",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

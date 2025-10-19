@@ -27,12 +27,12 @@ export type CoprocessorOperatorEventName =
   | "Cast"
   | "FheIfThenElse";
 
-export type CoprocessorEventName = CoprocessorOperatorEventName | "VerifyCiphertext";
+export type CoprocessorEventName = CoprocessorOperatorEventName | "VerifyInput";
 
 /**
  * Coprocessor Solidity event emitted by a
  * [`FHEVMExecutor.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/FHEVMExecutor.sol)
- * contract from `@fhevm/core-contracts`.
+ * contract from `@fhevm/host-contracts`.
  */
 export type CoprocessorEvent = {
   eventName: CoprocessorEventName;
@@ -45,7 +45,7 @@ export type CoprocessorEvent = {
 
 export function isCoprocessorEventName(value: unknown): value is CoprocessorEventName {
   return (
-    value === "VerifyCiphertext" ||
+    value === "VerifyInput" ||
     value === "TrivialEncrypt" ||
     value === "FheAdd" ||
     value === "FheSub" ||

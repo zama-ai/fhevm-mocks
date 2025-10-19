@@ -11,25 +11,25 @@ export type CoprocessorConfig = {
   /**
    * Address of the deployed
    * [`ACL.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/ACL.sol)
-   * contract from `@fhevm/core-contracts`.
+   * contract from `@fhevm/host-contracts`.
    */
   ACLAddress: `0x${string}`;
   /**
    * Address of the deployed
    * [`FHEVMExecutor.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/FHEVMExecutor.sol)
-   * contract from `@fhevm/core-contracts`.
+   * contract from `@fhevm/host-contracts`.
    */
   CoprocessorAddress: `0x${string}`;
   /**
    * Address of the deployed
    * [`InputVerifier.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/InputVerifier.sol)
-   * contract from `@fhevm/core-contracts`.
+   * contract from `@fhevm/host-contracts`.
    */
   DecryptionOracleAddress: `0x${string}`;
   /**
    * Address of the deployed
    * [`KMSVerifier.sol`](https://github.com/zama-ai/fhevm-backend/blob/main/contracts/contracts/KMSVerifier.sol)
-   * contract from `@fhevm/core-contracts`.
+   * contract from `@fhevm/host-contracts`.
    */
   KMSVerifierAddress: `0x${string}`;
 };

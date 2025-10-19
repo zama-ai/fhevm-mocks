@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.8.0-0"
-export const FHEVMExecutorInterfaceVersion = "0.8.0-0";
+// version "0.9.0-1"
+export const FHEVMExecutorInterfaceVersion = "0.9.0-1";
 
 export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -125,25 +125,8 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
     type: "error",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-    ],
-    name: "OwnableInvalidOwner",
-    type: "error",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "OwnableUnauthorizedAccount",
+    inputs: [],
+    name: "ScalarByteIsNotBoolean",
     type: "error",
   },
   {
@@ -170,6 +153,11 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [],
     name: "UnsupportedType",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "UpperBoundAboveMaxTypeValue",
     type: "error",
   },
   {
@@ -1117,44 +1105,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       {
         indexed: true,
         internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferStarted",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
         name: "caller",
         type: "address",
       },
@@ -1233,7 +1183,7 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
         type: "bytes32",
       },
     ],
-    name: "VerifyCiphertext",
+    name: "VerifyInput",
     type: "event",
   },
   {
@@ -1247,13 +1197,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "acceptOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -2044,32 +1987,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "owner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "pendingOwner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "proxiableUUID",
     outputs: [
       {
@@ -2079,33 +1996,6 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "reinitializeV3",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -2173,7 +2063,7 @@ export const FHEVMExecutorPartialInterface: EthersT.Interface = new EthersT.Inte
         type: "uint8",
       },
     ],
-    name: "verifyCiphertext",
+    name: "verifyInput",
     outputs: [
       {
         internalType: "bytes32",

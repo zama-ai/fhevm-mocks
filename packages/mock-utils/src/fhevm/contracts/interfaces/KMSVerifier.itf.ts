@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.8.0-0"
-export const KMSVerifierInterfaceVersion = "0.8.0-0";
+// version "0.9.0-1"
+export const KMSVerifierInterfaceVersion = "0.9.0-1";
 
 export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -142,28 +142,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
     type: "error",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "owner",
-        type: "address",
-      },
-    ],
-    name: "OwnableInvalidOwner",
-    type: "error",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "account",
-        type: "address",
-      },
-    ],
-    name: "OwnableUnauthorizedAccount",
-    type: "error",
-  },
-  {
     inputs: [],
     name: "SignersSetIsEmpty",
     type: "error",
@@ -238,44 +216,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       {
         indexed: true,
         internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferStarted",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
-        name: "previousOwner",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: "address",
         name: "implementation",
         type: "address",
       },
@@ -320,13 +260,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "acceptOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -478,32 +411,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
   },
   {
     inputs: [],
-    name: "owner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "pendingOwner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
     name: "proxiableUUID",
     outputs: [
       {
@@ -516,20 +423,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
     type: "function",
   },
   {
-    inputs: [],
-    name: "reinitializeV3",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
     inputs: [
       {
         internalType: "uint256",
@@ -538,19 +431,6 @@ export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interf
       },
     ],
     name: "setThreshold",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "address",
-        name: "newOwner",
-        type: "address",
-      },
-    ],
-    name: "transferOwnership",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

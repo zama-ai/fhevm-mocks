@@ -103,7 +103,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
       };
     }
 
-    // Add extra checks (in case EIP712 are chanbging)
+    // Add extra checks (in case EIP712 are changing)
     assertFhevm(this.#eip712Domain.fields === Number(0x0f));
     assertFhevm(this.#eip712Domain.salt === EthersT.ZeroHash);
     assertFhevm(this.#eip712Domain.name === constants.INPUT_VERIFICATION_EIP712.domain.name);

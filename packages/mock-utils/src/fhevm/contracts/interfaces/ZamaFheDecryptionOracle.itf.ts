@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.0.4-0"
-export const ZamaFheDecryptionOracleInterfaceVersion = "0.0.4-0";
+// version "0.3.0-2"
+export const ZamaFheDecryptionOracleInterfaceVersion = "0.3.0-2";
 
 export const ZamaFheDecryptionOracleInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -38,12 +38,39 @@ export const ZamaFheDecryptionOracleInterface: EthersT.Interface = new EthersT.I
   },
   {
     inputs: [],
-    name: "FailedInnerCall",
+    name: "FailedCall",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint8",
+        name: "fheTypeUint8",
+        type: "uint8",
+      },
+    ],
+    name: "InvalidFHEType",
     type: "error",
   },
   {
     inputs: [],
     name: "InvalidInitialization",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "maxBitSize",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "totalBitSize",
+        type: "uint256",
+      },
+    ],
+    name: "MaxDecryptionRequestBitSizeExceeded",
     type: "error",
   },
   {
@@ -87,6 +114,17 @@ export const ZamaFheDecryptionOracleInterface: EthersT.Interface = new EthersT.I
       },
     ],
     name: "UUPSUnsupportedProxiableUUID",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "enum FheType",
+        name: "fheType",
+        type: "uint8",
+      },
+    ],
+    name: "UnsupportedFHEType",
     type: "error",
   },
   {
@@ -237,6 +275,19 @@ export const ZamaFheDecryptionOracleInterface: EthersT.Interface = new EthersT.I
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "initialOwner",
+        type: "address",
+      },
+    ],
+    name: "initialize",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "owner",
     outputs: [
@@ -273,13 +324,6 @@ export const ZamaFheDecryptionOracleInterface: EthersT.Interface = new EthersT.I
       },
     ],
     stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "reinitialize",
-    outputs: [],
-    stateMutability: "nonpayable",
     type: "function",
   },
   {
