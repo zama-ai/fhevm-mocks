@@ -9,7 +9,7 @@
 <hr/>
 
 <p align="center">
-  <a href="https://docs.zama.ai/protocol/zama-protocol-litepaper">📃 Read white paper</a> | <a href="https://docs.zama.ai/"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
+  <a href="https://github.com/zama-ai/fhevm/blob/main/fhevm-whitepaper.pdf">📃 Read white paper</a> | <a href="https://docs.zama.ai/"> 📒 Documentation</a> | <a href="https://zama.ai/community"> 💛 Community support</a> | <a href="https://github.com/zama-ai/awesome-zama"> 📚 FHE resources by Zama</a>
 </p>
 
 <p align="center">
@@ -45,7 +45,7 @@ incorporate them into your project.
 ### What is FHEVM?
 
 For more information about FHEVM, the technology that enables confidential smart contracts on the EVM using fully
-homomorphic encryption (FHE), please refer to the [FHEVM Official Documentation](https://docs.zama.ai)
+homomorphic encryption (FHE), please refer to the [FHEVM Official Documentation](https://docs.zama.ai/protocol)
 
 ### License
 
