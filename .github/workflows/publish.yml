@@ -4,8 +4,11 @@ on:
   release:
     types: [released]
 
+permissions: {}
+
 jobs:
   build-and-test-windows:
+    name: publish/build-and-test-windows
     permissions:
       contents: read # Required to checkout repository code
     runs-on: windows-latest
@@ -29,10 +32,12 @@ jobs:
       - name: Run tests
         run: npm test
   publish:
+    name: publish/publish
     needs: build-and-test-windows
     permissions:
       id-token: write # Required for OIDC authentication
       contents: read # Required to checkout repository code
+      security-events: write # Required to write security events for SAST results
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

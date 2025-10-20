@@ -3,8 +3,11 @@ name: Windows Manual Test
 on:
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   build-and-test:
+    name: manual-windows/build-and-test
     permissions:
       contents: read # Required to checkout repository code
     runs-on: windows-latest

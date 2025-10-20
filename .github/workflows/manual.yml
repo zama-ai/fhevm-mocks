@@ -3,10 +3,14 @@ name: Manual Test
 on:
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   build-and-test:
+    name: manual/build-and-test
     permissions:
       contents: read # Required to checkout repository code
+      security-events: write # Required to write security events for SAST results
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
