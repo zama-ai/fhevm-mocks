@@ -3,6 +3,8 @@ name: Manual Test
 on:
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   build-and-test:
     permissions:

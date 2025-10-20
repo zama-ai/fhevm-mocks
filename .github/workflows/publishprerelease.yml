@@ -4,6 +4,8 @@ on:
   release:
     types: [prereleased]
 
+permissions: {}
+
 jobs:
   build-and-test-windows:
     permissions:
