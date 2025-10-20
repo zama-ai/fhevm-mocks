@@ -15,7 +15,7 @@ import "./tasks/builtin-tasks";
  * Tasks
  */
 import "./tasks/fhevm";
-import "./type-extentions";
+import "./type-extensions";
 
 extendConfig(configExtender);
 
