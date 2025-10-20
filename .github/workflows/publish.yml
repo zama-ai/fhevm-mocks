@@ -37,6 +37,7 @@ jobs:
     permissions:
       id-token: write # Required for OIDC authentication
       contents: read # Required to checkout repository code
+      security-events: write # Required to write security events for SAST results
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
