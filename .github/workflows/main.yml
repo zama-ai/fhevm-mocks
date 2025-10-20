@@ -10,6 +10,7 @@ permissions: {}
 
 jobs:
   build-and-test-windows:
+    name: main/build-and-test-windows
     permissions:
       contents: read # Required to checkout repository code
     runs-on: windows-latest
@@ -33,6 +34,7 @@ jobs:
       - name: Run tests
         run: npm test
   build-and-test-unix:
+    name: main/build-and-test-unix
     permissions:
       contents: read # Required to checkout repository code
     runs-on: ubuntu-latest

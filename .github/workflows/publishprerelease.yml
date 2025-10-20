@@ -8,6 +8,7 @@ permissions: {}
 
 jobs:
   build-and-test-windows:
+    name: publishprerelease/build-and-test-windows
     permissions:
       contents: read # Required to checkout repository code
     runs-on: windows-latest
@@ -31,6 +32,7 @@ jobs:
       - name: Run tests
         run: npm test
   publish:
+    name: publishprerelease/publish
     needs: build-and-test-windows
     permissions:
       id-token: write # Required for OIDC authentication

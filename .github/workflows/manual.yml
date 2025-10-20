@@ -7,6 +7,7 @@ permissions: {}
 
 jobs:
   build-and-test:
+    name: manual/build-and-test
     permissions:
       contents: read # Required to checkout repository code
     runs-on: ubuntu-latest
