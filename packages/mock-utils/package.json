@@ -1,5 +1,5 @@
 {
-  "private": "true",
+  "private": true,
   "type": "module",
   "engines": {
     "node": ">=20"
