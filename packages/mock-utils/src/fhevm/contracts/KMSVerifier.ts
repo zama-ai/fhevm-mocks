@@ -121,7 +121,7 @@ export class KMSVerifier extends FhevmHostContractWrapper {
     assertFhevm(this.#eip712Domain.name === constants.PUBLIC_DECRYPT_EIP712.domain.name);
     assertFhevm(this.#eip712Domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version);
 
-    this._reorderKmsSigners();
+    await this._reorderKmsSigners();
   }
 
   private async _reorderKmsSigners() {

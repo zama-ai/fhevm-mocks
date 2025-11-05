@@ -124,7 +124,7 @@ export class InputVerifier extends FhevmHostContractWrapper {
     assertFhevm(this.#eip712Domain.name === constants.INPUT_VERIFICATION_EIP712.domain.name);
     assertFhevm(this.#eip712Domain.version === constants.INPUT_VERIFICATION_EIP712.domain.version);
 
-    this._reorderCoprocessorSigners();
+    await this._reorderCoprocessorSigners();
   }
 
   private async _reorderCoprocessorSigners() {
