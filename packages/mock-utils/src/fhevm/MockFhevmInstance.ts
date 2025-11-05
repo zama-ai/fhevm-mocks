@@ -7,9 +7,9 @@ import constants from "../constants.js";
 import { isThresholdReached } from "../ethers/eip712.js";
 import type { MinimalProvider } from "../ethers/provider.js";
 import { checkEncryptedBits } from "../relayer-sdk/relayer/decryptUtils.js";
-import { deserializeDecryptedResult } from "../relayer-sdk/relayer/publicDecrypt.js";
+import { deserializeClearValues } from "../relayer-sdk/relayer/publicDecrypt.js";
 import {
-  buildUserDecryptedResult,
+  buildUserDecryptResults,
   checkDeadlineValidity,
   checkMaxContractAddresses,
 } from "../relayer-sdk/relayer/userDecrypt.js";
@@ -18,12 +18,14 @@ import {
   generateKeypair as fhevmSdkGenerateKeypair,
 } from "../relayer-sdk/types.js";
 import type {
-  DecryptedResults,
+  ClearValues,
   EIP712,
   EIP712Type,
   FhevmInstance,
   HandleContractPair,
+  PublicDecryptResults,
   PublicParams,
+  UserDecryptResults,
 } from "../relayer-sdk/types.js";
 import { assertIsAddress, assertIsAddressArray } from "../utils/address.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
@@ -31,8 +33,8 @@ import { fromHexString, toHexString } from "../utils/hex.js";
 import { assertIsNumber } from "../utils/math.js";
 import { ensure0x, remove0x } from "../utils/string.js";
 import { MockRelayerEncryptedInput } from "./MockRelayerEncryptedInput.js";
-import { InputVerifier } from "./contracts/InputVerifier.js";
-import { KMSVerifier } from "./contracts/KMSVerifier.js";
+import { InputVerifier, type InputVerifierProperties } from "./contracts/InputVerifier.js";
+import { KMSVerifier, type KMSVerifierProperties } from "./contracts/KMSVerifier.js";
 import * as relayer from "./relayer/MockRelayer.js";
 import type {
   RelayerV1PublicDecryptPayload,
@@ -111,9 +113,23 @@ export class MockFhevmInstance implements FhevmInstance {
     relayerProvider: MinimalProvider,
     readonlyEthersProvider: EthersT.Provider,
     config: MockFhevmInstanceConfig,
+    properties: {
+      inputVerifierProperties: InputVerifierProperties;
+      kmsVerifierProperties: KMSVerifierProperties;
+    },
   ): Promise<MockFhevmInstance> {
-    const kmsVerifier = await KMSVerifier.create(readonlyEthersProvider, config.kmsContractAddress);
-    const inputVerifier = await InputVerifier.create(readonlyEthersProvider, config.inputVerifierContractAddress);
+    const kmsVerifier = await KMSVerifier.create(
+      readonlyEthersProvider,
+      config.kmsContractAddress,
+      undefined,
+      properties.kmsVerifierProperties,
+    );
+    const inputVerifier = await InputVerifier.create(
+      readonlyEthersProvider,
+      config.inputVerifierContractAddress,
+      undefined,
+      properties.inputVerifierProperties,
+    );
 
     const instance = new MockFhevmInstance(config, {
       relayerProvider,
@@ -204,7 +220,7 @@ export class MockFhevmInstance implements FhevmInstance {
     throw new FhevmError("Not supported in mock mode");
   }
 
-  public async publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults> {
+  public async publicDecrypt(handles: (string | Uint8Array)[]): Promise<PublicDecryptResults> {
     const extraData: `0x${string}` = "0x00";
 
     // Intercept future type change...
@@ -241,7 +257,7 @@ export class MockFhevmInstance implements FhevmInstance {
 
     // Add "0x" prefix if needed
     const decryptedResult = ensure0x(result.decrypted_value);
-    const signatures = result.signatures.map(ensure0x);
+    const kmsSignatures = result.signatures.map(ensure0x);
 
     // verify signatures on decryption:
     const domain = {
@@ -256,7 +272,7 @@ export class MockFhevmInstance implements FhevmInstance {
     // TODO: in relayer-sdk, signedExtraData === "0x". However, here, we use "0x00".
     const signedExtraData = "0x00";
 
-    const recoveredAddresses = signatures.map((signature: `0x${string}`) => {
+    const recoveredAddresses = kmsSignatures.map((signature: `0x${string}`) => {
       assertFhevm(signature.startsWith("0x"));
       const recoveredAddress = EthersT.verifyTypedData(
         domain,
@@ -278,9 +294,12 @@ export class MockFhevmInstance implements FhevmInstance {
       throw Error("KMS signers threshold is not reached");
     }
 
-    const results = deserializeDecryptedResult(relayerHandles, decryptedResult);
+    const clearValues: ClearValues = deserializeClearValues(relayerHandles, decryptedResult);
 
-    return results;
+    const abiEnc = KMSVerifier.abiEncodeClearValues(clearValues);
+    const decryptionProof = KMSVerifier.buildDecryptionProof(kmsSignatures, signedExtraData);
+
+    return { clearValues, abiEncodedClearValues: abiEnc.abiEncodedClearValues, decryptionProof };
   }
 
   public async userDecrypt(
@@ -292,7 +311,7 @@ export class MockFhevmInstance implements FhevmInstance {
     userAddress: string,
     startTimestamp: string | number,
     durationDays: string | number,
-  ): Promise<DecryptedResults> {
+  ): Promise<UserDecryptResults> {
     const extraData: `0x${string}` = "0x00";
 
     // Intercept future type change...
@@ -362,8 +381,8 @@ export class MockFhevmInstance implements FhevmInstance {
 
     const listBigIntDecryptions = clearTextHexList.map(EthersT.toBigInt);
 
-    const results = buildUserDecryptedResult(
-      relayerHandles.map((h) => h.handle),
+    const results: UserDecryptResults = buildUserDecryptResults(
+      relayerHandles.map((h: RelayerV1UserDecryptHandleContractPair) => h.handle as `0x${string}`),
       listBigIntDecryptions,
     );
 

@@ -138,6 +138,10 @@ export function getKMSThreshold(): number {
   return __getUintConstant("KMS_THRESHOLD", constants["KMS_THRESHOLD"]);
 }
 
+export function getInputVerifierThreshold(): number {
+  return __getUintConstant("INPUT_VERIFIER_THRESHOLD", constants["INPUT_VERIFIER_THRESHOLD"]);
+}
+
 /**
  * Fhevm Gateway contracts
  * @returns Address of the deployed 'Decryption.sol' contract.

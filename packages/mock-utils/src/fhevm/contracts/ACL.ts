@@ -3,7 +3,7 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+import { FhevmHostContractWrapper } from "./FhevmContractWrapper.js";
 import { ACLPartialInterface } from "./interfaces/ACL.itf.js";
 
 export type ACLProperties = {
@@ -12,7 +12,7 @@ export type ACLProperties = {
 };
 
 // Shareable
-export class ACL extends FhevmCoprocessorContractWrapper {
+export class ACL extends FhevmHostContractWrapper {
   #aclReadOnlyContract: EthersT.Contract | undefined;
   #aclContractAddress: `0x${string}` | undefined;
   #fhevmExecutorAddress: `0x${string}` | undefined;

@@ -35,6 +35,7 @@
   },
   "scripts": {
     "prepare": "npm run build",
+    "rebuild": "npm run clean && npm run build:utils && npm run build:hh && npm run lint",
     "version": "cd ./scripts && ./bump-version.sh",
     "genversion:utils": "cd packages/mock-utils/scripts && node ./generate-version.cjs",
     "build": "npm run build:utils && npm run build:hh",

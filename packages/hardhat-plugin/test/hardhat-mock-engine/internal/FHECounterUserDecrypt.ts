@@ -97,7 +97,7 @@ describe("FHECounterUserDecrypt", function () {
 
     expect(clearCountAfterInc1).to.eq(1);
     expect(clearCountAfterInc2).to.eq(2);
-    expect(decryptedResults[encryptedCountAfterInc1]).to.eq(1);
-    expect(decryptedResults[encryptedCountAfterInc2]).to.eq(2);
+    expect(decryptedResults[encryptedCountAfterInc1 as `0x${string}`]).to.eq(1);
+    expect(decryptedResults[encryptedCountAfterInc2 as `0x${string}`]).to.eq(2);
   });
 });

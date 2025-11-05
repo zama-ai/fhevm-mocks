@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.9.0-1"
-export const InputVerifierInterfaceVersion = "0.9.0-1";
+// version "0.9.0"
+export const InputVerifierInterfaceVersion = "0.9.0";
 
 export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -22,12 +22,12 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "AlreadySigner",
+    name: "CoprocessorAlreadySigner",
     type: "error",
   },
   {
     inputs: [],
-    name: "AtLeastOneSignerIsRequired",
+    name: "CoprocessorSignerNull",
     type: "error",
   },
   {
@@ -86,11 +86,6 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [],
     name: "FailedCall",
-    type: "error",
-  },
-  {
-    inputs: [],
-    name: "InitialSignersSetIsEmpty",
     type: "error",
   },
   {
@@ -173,7 +168,17 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   },
   {
     inputs: [],
-    name: "SignerNull",
+    name: "SignersSetIsEmpty",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "ThresholdIsAboveNumberOfSigners",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "ThresholdIsNull",
     type: "error",
   },
   {
@@ -220,26 +225,19 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
     anonymous: false,
     inputs: [
       {
-        indexed: true,
-        internalType: "address",
-        name: "signer",
-        type: "address",
+        indexed: false,
+        internalType: "address[]",
+        name: "newSignersSet",
+        type: "address[]",
       },
-    ],
-    name: "SignerAdded",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
       {
-        indexed: true,
-        internalType: "address",
-        name: "signer",
-        type: "address",
+        indexed: false,
+        internalType: "uint256",
+        name: "newThreshold",
+        type: "uint256",
       },
     ],
-    name: "SignerRemoved",
+    name: "NewContextSet",
     type: "event",
   },
   {
@@ -295,21 +293,26 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "signer",
-        type: "address",
-      },
-    ],
-    name: "addSigner",
+    inputs: [],
+    name: "cleanTransientStorage",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
-    inputs: [],
-    name: "cleanTransientStorage",
+    inputs: [
+      {
+        internalType: "address[]",
+        name: "newSignersSet",
+        type: "address[]",
+      },
+      {
+        internalType: "uint256",
+        name: "newThreshold",
+        type: "uint256",
+      },
+    ],
+    name: "defineNewContext",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -426,6 +429,11 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
         name: "initialSigners",
         type: "address[]",
       },
+      {
+        internalType: "uint256",
+        name: "initialThreshold",
+        type: "uint256",
+      },
     ],
     name: "initializeFromEmptyProxy",
     outputs: [],
@@ -467,12 +475,30 @@ export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Inte
   {
     inputs: [
       {
-        internalType: "address",
-        name: "signer",
-        type: "address",
+        internalType: "address[]",
+        name: "newSignersSet",
+        type: "address[]",
+      },
+      {
+        internalType: "uint256",
+        name: "threshold",
+        type: "uint256",
       },
     ],
-    name: "removeSigner",
+    name: "reinitializeV2",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "threshold",
+        type: "uint256",
+      },
+    ],
+    name: "setThreshold",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

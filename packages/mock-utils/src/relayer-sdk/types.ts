@@ -3,7 +3,7 @@ import type { ethers as EthersT } from "ethers";
 import { createEIP712, generateKeypair } from "./sdk/keypair.js";
 
 const ENCRYPTION_TYPES = {
-  1: 0, // ebool takes 2 encrypted bits
+  2: 0, // ebool takes 2 encrypted bits
   8: 2,
   16: 3,
   32: 4,
@@ -11,9 +11,6 @@ const ENCRYPTION_TYPES = {
   128: 6,
   160: 7,
   256: 8,
-  512: 9,
-  1024: 10,
-  2048: 11,
 };
 
 type EIP712Type = {
@@ -68,10 +65,19 @@ type FhevmInstanceConfig = {
   auth?: Auth;
 };
 
-type DecryptedResults = Record<string, bigint | boolean | string>;
-type EncryptionTypes = keyof typeof ENCRYPTION_TYPES;
+// Copy/paste from relayer-sdk
+type ClearValueType = bigint | boolean | `0x${string}`;
+type ClearValues = Record<`0x${string}`, ClearValueType>;
+type UserDecryptResults = ClearValues;
+type PublicDecryptResults = {
+  clearValues: ClearValues;
+  abiEncodedClearValues: `0x${string}`;
+  decryptionProof: `0x${string}`;
+};
+
+type EncryptionBits = keyof typeof ENCRYPTION_TYPES;
 type PublicParams<T = any> = {
-  [key in EncryptionTypes]?: {
+  2048: {
     publicParams: T;
     publicParamsId: string;
   };
@@ -85,7 +91,7 @@ type RelayerEncryptedInput = {
   add128: (value: number | bigint) => RelayerEncryptedInput;
   add256: (value: number | bigint) => RelayerEncryptedInput;
   addAddress: (value: string) => RelayerEncryptedInput;
-  getBits: () => EncryptionTypes[];
+  getBits: () => EncryptionBits[];
   encrypt: () => Promise<{
     handles: Uint8Array[];
     inputProof: Uint8Array;
@@ -100,7 +106,7 @@ type EncryptedInput = {
   add128: (value: number | bigint) => EncryptedInput;
   add256: (value: number | bigint) => EncryptedInput;
   addAddress: (value: string) => EncryptedInput;
-  getBits: () => EncryptionTypes[];
+  getBits: () => EncryptionBits[];
   encrypt: () => Uint8Array;
 };
 
@@ -116,7 +122,7 @@ type FhevmInstance = {
     startTimestamp: string | number,
     durationDays: string | number,
   ) => EIP712;
-  publicDecrypt: (handles: (string | Uint8Array)[]) => Promise<DecryptedResults>;
+  publicDecrypt: (handles: (string | Uint8Array)[]) => Promise<PublicDecryptResults>;
   userDecrypt: (
     handles: HandleContractPair[],
     privateKey: string,
@@ -126,7 +132,7 @@ type FhevmInstance = {
     userAddress: string,
     startTimestamp: string | number,
     durationDays: string | number,
-  ) => Promise<DecryptedResults>;
+  ) => Promise<UserDecryptResults>;
   getPublicKey: () => {
     publicKeyId: string;
     publicKey: Uint8Array;
@@ -165,8 +171,11 @@ export interface FhevmSdkModule {
 }
 
 export type {
-  DecryptedResults,
-  EncryptionTypes,
+  UserDecryptResults,
+  PublicDecryptResults,
+  ClearValueType,
+  ClearValues,
+  EncryptionBits,
   PublicParams,
   RelayerEncryptedInput,
   EncryptedInput,

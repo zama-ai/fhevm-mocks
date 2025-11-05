@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
 import constants from "../constants.js";
-import type { DecryptedResults, FhevmInstance, HandleContractPair } from "../relayer-sdk/types.js";
+import type { FhevmInstance, HandleContractPair, UserDecryptResults } from "../relayer-sdk/types.js";
 import { assertIsAddress } from "../utils/address.js";
 import { FhevmError } from "../utils/error.js";
 import { verifyKeypair } from "../utils/keypair.js";
@@ -56,7 +56,7 @@ export async function userDecryptHandleBytes32(
   handleContractPairs: { handleBytes32: string; contractAddress: string; fhevmType?: FhevmType }[],
   user: EthersT.Signer,
   options?: Omit<FhevmUserDecryptOptions, "instance">,
-): Promise<DecryptedResults> {
+): Promise<UserDecryptResults> {
   // Verify that contract addresses are well formed.
   _assertIsContractAddressesArray(handleContractPairs);
 
@@ -88,7 +88,7 @@ export async function userDecryptHandleBytes32(
   });
 
   // Call FhevmInstance userDecrypt
-  const decryptedHandles: DecryptedResults = await instance.userDecrypt(
+  const decryptedHandles: UserDecryptResults = await instance.userDecrypt(
     handles,
     userDecryptArgs.keypair.privateKey,
     userDecryptArgs.keypair.publicKey,

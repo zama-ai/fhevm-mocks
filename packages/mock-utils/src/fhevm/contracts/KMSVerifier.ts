@@ -3,27 +3,31 @@ import { ethers as EthersT } from "ethers";
 import constants from "../../constants.js";
 import type { EIP712Domain, EthersEIP712 } from "../../ethers/eip712.js";
 import { multiSignEIP712 } from "../../ethers/eip712.js";
+import type { ClearValues } from "../../relayer-sdk/types.js";
 import { assertIsAddress, assertIsAddressArray } from "../../utils/address.js";
 import { assertIsBytes32String } from "../../utils/bytes.js";
 import { FhevmError, assertFhevm, assertIsArray } from "../../utils/error.js";
 import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
-import { assertIsString } from "../../utils/string.js";
+import { assertIs0xString, assertIsString } from "../../utils/string.js";
 import { FhevmHandle } from "../FhevmHandle.js";
 import { FhevmType, type FhevmTypeInfo } from "../FhevmType.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+import { FhevmHostContractWrapper } from "./FhevmContractWrapper.js";
 import { KMSVerifierPartialInterface } from "./interfaces/KMSVerifier.itf.js";
 
 export type KMSVerifierProperties = {
   signersAddresses?: `0x${string}`[];
+  signers?: EthersT.Signer[];
   threshold?: number;
   eip712Domain?: EIP712Domain;
 };
 
 // Shareable
-export class KMSVerifier extends FhevmCoprocessorContractWrapper {
-  #kmsVerifierContract: EthersT.Contract | undefined;
+export class KMSVerifier extends FhevmHostContractWrapper {
+  #kmsVerifierReadonlyContract: EthersT.Contract | undefined;
   #kmsVerifierContractAddress: `0x${string}` | undefined;
-  #signersAddresses: `0x${string}`[] | undefined;
+  // Warning! kms signers are ordered! kms server partyId = index + 1
+  #orderedSignersAddresses: `0x${string}`[] | undefined;
+  #orderedSigners: EthersT.Signer[] | undefined;
   #threshold: number | undefined;
   #eip712Domain: EIP712Domain | undefined;
 
@@ -39,47 +43,59 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
   ): Promise<KMSVerifier> {
     assertIsAddress(kmsVerifierContractAddress, "kmsVerifierContractAddress");
 
-    if (properties !== undefined) {
-      throw new FhevmError("Not yet implemented");
-    }
-
     const kmsVerifier = new KMSVerifier();
     kmsVerifier.#kmsVerifierContractAddress = kmsVerifierContractAddress;
-    kmsVerifier.#kmsVerifierContract = new EthersT.Contract(
+    kmsVerifier.#kmsVerifierReadonlyContract = new EthersT.Contract(
       kmsVerifierContractAddress,
       abi ?? KMSVerifierPartialInterface,
       runner,
     );
+    kmsVerifier.#eip712Domain = properties?.eip712Domain;
+    kmsVerifier.#orderedSignersAddresses = properties?.signersAddresses ? [...properties.signersAddresses] : undefined;
+    kmsVerifier.#orderedSigners = properties?.signers ? [...properties.signers] : undefined;
+    kmsVerifier.#threshold = properties?.threshold;
+
     await kmsVerifier._initialize();
     return kmsVerifier;
   }
 
+  public get kmsVerifierProperties(): KMSVerifierProperties {
+    return {
+      ...(this.#eip712Domain ? { eip712Domain: { ...this.#eip712Domain } } : {}),
+      ...(this.#orderedSignersAddresses ? { signersAddresses: [...this.#orderedSignersAddresses] } : {}),
+      ...(this.#orderedSigners ? { signers: [...this.#orderedSigners] } : {}),
+      ...(this.#threshold !== undefined ? { threshold: this.#threshold } : {}),
+    };
+  }
+
   public override get readonlyContract(): EthersT.Contract {
-    assertFhevm(this.#kmsVerifierContract !== undefined, `KMSVerifier wrapper is not initialized`);
-    return this.#kmsVerifierContract;
+    assertFhevm(this.#kmsVerifierReadonlyContract !== undefined, `KMSVerifier wrapper is not initialized`);
+    return this.#kmsVerifierReadonlyContract;
   }
 
   public override get interface(): EthersT.Interface {
-    assertFhevm(this.#kmsVerifierContract !== undefined, `KMSVerifier wrapper is not yet initialized`);
-    return this.#kmsVerifierContract.interface;
+    assertFhevm(this.#kmsVerifierReadonlyContract !== undefined, `KMSVerifier wrapper is not yet initialized`);
+    return this.#kmsVerifierReadonlyContract.interface;
   }
 
   private async _initialize() {
-    assertFhevm(this.#kmsVerifierContract !== undefined, `KMSVerifier wrapper is not initialized`);
-    assertFhevm(this.#signersAddresses === undefined, `KMSVerifier wrapper already initialized`);
-    assertFhevm(this.#threshold === undefined, `KMSVerifier wrapper already initialized`);
+    assertFhevm(this.#kmsVerifierReadonlyContract !== undefined, `KMSVerifier wrapper is not initialized`);
 
-    const signers = await this.#kmsVerifierContract.getKmsSigners();
-    assertIsAddressArray(signers);
-    this.#signersAddresses = signers;
+    if (!this.#orderedSignersAddresses) {
+      const signers = await this.#kmsVerifierReadonlyContract.getKmsSigners();
+      this.#orderedSignersAddresses = signers;
+    }
+    assertIsAddressArray(this.#orderedSignersAddresses);
 
-    const threshold = await this.#kmsVerifierContract.getThreshold();
-    assertIsBigUint8(threshold);
-    this.#threshold = Number(threshold);
+    if (this.#threshold === undefined) {
+      const threshold = await this.#kmsVerifierReadonlyContract.getThreshold();
+      assertIsBigUint8(threshold);
+      this.#threshold = Number(threshold);
+    }
 
     if (this.#eip712Domain === undefined) {
       // ignore extensions
-      const eip712Domain = await this.#kmsVerifierContract.eip712Domain();
+      const eip712Domain = await this.#kmsVerifierReadonlyContract.eip712Domain();
       assertFhevm(eip712Domain.length === 7);
       assertIsString(eip712Domain[0], "eip712Domain[0]");
       assertIsString(eip712Domain[1], "eip712Domain[1]");
@@ -104,6 +120,57 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
     assertFhevm(this.#eip712Domain.salt === EthersT.ZeroHash);
     assertFhevm(this.#eip712Domain.name === constants.PUBLIC_DECRYPT_EIP712.domain.name);
     assertFhevm(this.#eip712Domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version);
+
+    await this._reorderKmsSigners();
+  }
+
+  private async _reorderKmsSigners() {
+    assertFhevm(this.#orderedSignersAddresses);
+
+    // check for duplicates in #orderedSignersAddresses
+    const orderedAddresses: Set<string> = new Set();
+    for (let i = 0; i < this.#orderedSignersAddresses.length; ++i) {
+      const addr = this.#orderedSignersAddresses[i];
+      if (orderedAddresses.has(addr)) {
+        throw new FhevmError(`Duplicated kms signer address ${addr}`);
+      }
+      orderedAddresses.add(addr);
+    }
+
+    // reorder signers and verify addresses
+    if (!this.#orderedSigners) {
+      return;
+    }
+
+    const addressSignerPairs = await Promise.all(
+      this.#orderedSigners.map(async (signer: EthersT.Signer) => {
+        const addr = await signer.getAddress();
+        return { addr, signer };
+      }),
+    );
+
+    const signersMap: Map<string, EthersT.Signer> = new Map();
+    for (const { addr, signer } of addressSignerPairs) {
+      if (signersMap.has(addr)) {
+        throw new FhevmError(`Duplicated kms signer address ${addr}`);
+      }
+      signersMap.set(addr, signer);
+    }
+
+    const newOrderedSigners: EthersT.Signer[] = [];
+    for (let i = 0; i < this.#orderedSignersAddresses.length; ++i) {
+      const addr = this.#orderedSignersAddresses[i];
+      if (!signersMap.has(addr)) {
+        throw new FhevmError(`Missing kms signer ${addr}`);
+      }
+      const s = signersMap.get(addr);
+      if (!s) {
+        throw new FhevmError(`Missing kms signer ${addr}`);
+      }
+      newOrderedSigners.push(s);
+    }
+
+    this.#orderedSigners = newOrderedSigners;
   }
 
   public get address(): `0x${string}` {
@@ -131,8 +198,14 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
   }
 
   public getKmsSignersAddresses(): `0x${string}`[] {
-    assertFhevm(this.#signersAddresses !== undefined, `KMSVerifier wrapper not initialized`);
-    return this.#signersAddresses;
+    assertFhevm(this.#orderedSignersAddresses !== undefined, `KMSVerifier wrapper not initialized`);
+    return this.#orderedSignersAddresses;
+  }
+
+  public getKmsSigners(): EthersT.Signer[] | undefined {
+    // Check for init using #orderedSignersAddresses since #orderedSigners can be undefined
+    assertFhevm(this.#orderedSignersAddresses !== undefined, `KMSVerifier wrapper not initialized`);
+    return this.#orderedSigners;
   }
 
   public async assertMatchKmsSigners(signers: EthersT.Signer[]) {
@@ -175,221 +248,310 @@ export class KMSVerifier extends FhevmCoprocessorContractWrapper {
 
     return eip712;
   }
-}
 
-export async function computeDecryptionSignatures(
-  handlesBytes32Hex: string[],
-  clearTextValues: (string | bigint | boolean)[],
-  extraData: string,
-  abiCoder: EthersT.AbiCoder,
-  kmsVerifier: KMSVerifier,
-  kmsSigners: EthersT.Signer[],
-): Promise<{
-  signatures: string[];
-  types: ReadonlyArray<string | EthersT.ParamType>;
-  values: ReadonlyArray<any>;
-  decryptedResult: string;
-}> {
-  const fhevmHandles: FhevmHandle[] = handlesBytes32Hex.map((handleBytes32Hex) =>
-    FhevmHandle.fromBytes32Hex(handleBytes32Hex),
-  );
+  static abiEncodeClearValues(clearValues: ClearValues) {
+    const handlesBytes32Hex = Object.keys(clearValues);
+    const fhevmHandles: FhevmHandle[] = handlesBytes32Hex.map((handleBytes32Hex) =>
+      FhevmHandle.fromBytes32Hex(handleBytes32Hex),
+    );
 
-  assertFhevm(handlesBytes32Hex.length === clearTextValues.length);
+    const abiTypes: string[] = [];
+    const abiValues: (string | bigint)[] = [];
 
-  const abiTypes: string[] = [];
-  const abiValues: (string | bigint)[] = [];
+    for (let i = 0; i < handlesBytes32Hex.length; ++i) {
+      const handle = handlesBytes32Hex[i];
 
-  for (let i = 0; i < handlesBytes32Hex.length; ++i) {
-    let clearTextValue: string | bigint | boolean = clearTextValues[i];
-    if (typeof clearTextValue === "boolean") {
-      clearTextValue = clearTextValue ? "0x01" : "0x00";
-    }
-    const clearTextValueBigInt = BigInt(clearTextValue);
-    const fhevmTypeInfo: FhevmTypeInfo = fhevmHandles[i].fhevmTypeInfo;
-
-    //abiTypes.push(fhevmTypeInfo.solidityTypeName);
-    abiTypes.push("uint256");
-
-    switch (fhevmTypeInfo.type) {
-      case FhevmType.eaddress: {
-        // string
-        abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(40, "0")}`);
-        break;
+      let clearTextValue: string | bigint | boolean = clearValues[handle as keyof typeof clearValues];
+      if (typeof clearTextValue === "boolean") {
+        clearTextValue = clearTextValue ? "0x01" : "0x00";
       }
-      case FhevmType.ebool: {
-        // bigint (0 or 1)
-        abiValues.push(clearTextValueBigInt);
-        break;
-      }
-      case FhevmType.euint4:
-      case FhevmType.euint8:
-      case FhevmType.euint16:
-      case FhevmType.euint32:
-      case FhevmType.euint64:
-      case FhevmType.euint128:
-      case FhevmType.euint256: {
-        // bigint
-        abiValues.push(clearTextValueBigInt);
-        break;
-      }
-      default: {
-        throw new FhevmError(
-          `Unsupported Fhevm primitive type id: ${fhevmTypeInfo.type}, name: ${fhevmTypeInfo.name}, solidity: ${fhevmTypeInfo.solidityTypeName}`,
-        );
+
+      const clearTextValueBigInt = BigInt(clearTextValue);
+      const fhevmTypeInfo: FhevmTypeInfo = fhevmHandles[i].fhevmTypeInfo;
+
+      //abiTypes.push(fhevmTypeInfo.solidityTypeName);
+      abiTypes.push("uint256");
+
+      switch (fhevmTypeInfo.type) {
+        case FhevmType.eaddress: {
+          // string
+          abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(40, "0")}`);
+          break;
+        }
+        case FhevmType.ebool: {
+          // bigint (0 or 1)
+          assertFhevm(clearTextValueBigInt === 0n || clearTextValueBigInt === 1n);
+          abiValues.push(clearTextValueBigInt);
+          break;
+        }
+        case FhevmType.euint4:
+        case FhevmType.euint8:
+        case FhevmType.euint16:
+        case FhevmType.euint32:
+        case FhevmType.euint64:
+        case FhevmType.euint128:
+        case FhevmType.euint256: {
+          // bigint
+          abiValues.push(clearTextValueBigInt);
+          break;
+        }
+        default: {
+          throw new FhevmError(
+            `Unsupported Fhevm primitive type id: ${fhevmTypeInfo.type}, name: ${fhevmTypeInfo.name}, solidity: ${fhevmTypeInfo.solidityTypeName}`,
+          );
+        }
       }
     }
+
+    const abiCoder = EthersT.AbiCoder.defaultAbiCoder();
+
+    // ABI encode the decryptedResult as done in the KMS, since all decrypted values
+    // are native static types, thay have same abi-encoding as uint256:
+    const abiEncodedClearValues: `0x${string}` = abiCoder.encode(abiTypes, abiValues) as `0x${string}`;
+
+    return {
+      abiTypes,
+      abiValues,
+      abiEncodedClearValues,
+    };
   }
 
-  // ABI encode the decryptedResult as done in the KMS, since all decrypted values are native static types, thay have same abi-encoding as uint256:
-  const decryptedResult = abiCoder.encode(abiTypes, abiValues);
-
-  // // 1. 0xdeadbeef is just a dummy uint256 requestID to get correct abi encoding for the remaining arguments
-  // //    (i.e everything except the requestID)
-  // // 2. Adding also a dummy empty array of bytes for correct abi-encoding when used with signatures
-  // const encodedData = abiCoder.encode(["uint256", ...abiTypes, "bytes[]"], [Number(0xdeadbeef), ...abiValues, []]);
-
-  /*
-      // ABI encode the decryptedResult as done in the KMS, following the format:
-      // - requestId (32 bytes)
-      // - all inputs
-      // - list of signatures (list of bytes)
-      // For this we use the following values for getting the correct abi encoding (in particular for
-      // getting the right signatures offset right after):
-      // - requestId: a dummy uint256
-      // - signatures: a dummy empty array of bytes
-      const encodedData = abiCoder.encode(
-        ['uint256', ...Array(values.length).fill('uint256'), 'bytes[]'],
-        [31, ...values, []],
-      );
-
-*/
-
-  // 1. We pop the dummy requestID to get the correct value to pass for `decryptedCts`
-  // 2. We also pop the last 32 bytes (empty bytes[])
-  // const decryptedResult = "0x" + encodedData.slice(66).slice(0, -64);
-  // assertFhevm(
-  //   decryptedResult === "0x" + encodedData.slice(66, -64),
-  //   "decryptedResult === '0x' + encodedData.slice(66, -64)",
-  // );
-
-  const eip712 = kmsVerifier.createPublicDecryptVerificationEIP712(handlesBytes32Hex, decryptedResult, extraData);
-
-  const decryptResultsEIP712signatures: string[] = await multiSignEIP712(
-    kmsSigners,
-    eip712.domain,
-    eip712.types,
-    eip712.message,
-  );
-
-  /*
-      const abiCoder = new ethers.AbiCoder();
-
-      // ABI encode the decryptedResult as done in the KMS, following the format:
-      // - requestId (32 bytes)
-      // - all inputs
-      // - list of signatures (list of bytes)
-      // For this we use the following values for getting the correct abi encoding (in particular for
-      // getting the right signatures offset right after):
-      // - requestId: a dummy uint256
-      // - signatures: a dummy empty array of bytes
-      const encodedData = abiCoder.encode(
-        ['uint256', ...Array(values.length).fill('uint256'), 'bytes[]'],
-        [31, ...values, []],
-      );
-
-      // To get the correct value, we pop:
-      // - the `0x` prefix (put back just after): first byte (2 hex characters)
-      // - the dummy requestID: next 32 bytes (64 hex characters)
-      // - the length of empty bytes[]: last 32 bytes (64 hex characters)
-      // We will most likely pop the last 64 bytes (which included the empty array's offset) instead
-      // of 32 bytes in the future, see https://github.com/zama-ai/fhevm-internal/issues/345
-      const decryptedResult = '0x' + encodedData.slice(66, -64);
-
-      const extraDataV0: string = ethers.solidityPacked(['uint8'], [0]);
-
-      const decryptResultsEIP712signatures: string[] = await computeDecryptSignatures(
-        handles,
-        decryptedResult,
-        extraDataV0,
-      );
-
-      // Build the decryptionProof as numSigners + KMS signatures + extraData
-      const packedNumSigners = ethers.solidityPacked(['uint8'], [decryptResultsEIP712signatures.length]);
-      const packedSignatures = ethers.solidityPacked(
-        Array(decryptResultsEIP712signatures.length).fill('bytes'),
-        decryptResultsEIP712signatures,
-      );
-      const decryptionProof = ethers.concat([packedNumSigners, packedSignatures, extraDataV0]);
-
-      // ABI encode the list of values in order to pass them in the callback
-      const encodedCleartexts = abiCoder.encode([...Array(values.length).fill('uint256')], [...values]);
-
-      const calldata =
-        callbackSelector +
-        abiCoder.encode(['uint256', 'bytes', 'bytes'], [requestID, encodedCleartexts, decryptionProof]).slice(2);
-
-      const txData = {
-        to: contractCaller,
-        data: calldata,
-      };
-*/
-
-  return { signatures: decryptResultsEIP712signatures, types: abiTypes, values: abiValues, decryptedResult };
-}
-
-export async function computeDecryptionCallbackSignaturesAndCalldata(
-  handlesBytes32Hex: string[],
-  clearTextValuesString: string[],
-  extraData: string,
-  requestID: bigint,
-  callbackSelectorBytes4Hex: string,
-  abiCoder: EthersT.AbiCoder,
-  kmsVerifier: KMSVerifier,
-  kmsSigners: EthersT.Signer[],
-): Promise<{ calldata: string }> {
-  assertFhevm(extraData === EthersT.solidityPacked(["uint8"], [0]), "extraData must be 0x00");
-
-  const { signatures, types, values } = await computeDecryptionSignatures(
-    handlesBytes32Hex,
-    clearTextValuesString,
-    extraData,
-    abiCoder,
-    kmsVerifier,
-    kmsSigners,
-  );
-
-  // Build the decryptionProof as numSigners + KMS signatures + extraData
-  const packedNumSigners = EthersT.solidityPacked(["uint8"], [signatures.length]);
-  const packedSignatures = EthersT.solidityPacked(Array(signatures.length).fill("bytes"), signatures);
-  const decryptionProof = EthersT.concat([packedNumSigners, packedSignatures, extraData]);
-
-  // ABI encode the list of values in order to pass them in the callback
-  for (let i = 0; i < types.length; ++i) {
-    assertFhevm(types[i] === "uint256");
+  static buildDecryptionProof(kmsSignatures: `0x${string}`[], extraData: `0x${string}`) {
+    // Build the decryptionProof as numSigners + KMS signatures + extraData
+    const packedNumSigners = EthersT.solidityPacked(["uint8"], [kmsSignatures.length]);
+    const packedSignatures = EthersT.solidityPacked(Array(kmsSignatures.length).fill("bytes"), kmsSignatures);
+    const decryptionProof: `0x${string}` = EthersT.concat([
+      packedNumSigners,
+      packedSignatures,
+      extraData,
+    ]) as `0x${string}`;
+    return decryptionProof;
   }
 
-  const encodedCleartexts = abiCoder.encode([...types], [...values]);
+  async computeDecryptionSignatures(
+    handlesBytes32Hex: string[],
+    clearTextValues: (string | bigint | boolean)[],
+    extraData: string,
+  ): Promise<{
+    signatures: string[];
+    types: ReadonlyArray<string | EthersT.ParamType>;
+    values: ReadonlyArray<any>;
+    decryptionProof: `0x${string}`;
+    abiEncodedClearResult: `0x${string}`;
+  }> {
+    if (!this.#orderedSigners) {
+      throw new FhevmError(`Missing Kms signers. Unable to compute decryption signature`);
+    }
+    const fhevmHandles: FhevmHandle[] = handlesBytes32Hex.map((handleBytes32Hex) =>
+      FhevmHandle.fromBytes32Hex(handleBytes32Hex),
+    );
 
-  const calldata =
-    callbackSelectorBytes4Hex +
-    abiCoder.encode(["uint256", "bytes", "bytes"], [requestID, encodedCleartexts, decryptionProof]).slice(2);
+    assertFhevm(handlesBytes32Hex.length === clearTextValues.length);
 
-  return { calldata };
+    const abiTypes: string[] = [];
+    const abiValues: (string | bigint)[] = [];
+
+    for (let i = 0; i < handlesBytes32Hex.length; ++i) {
+      let clearTextValue: string | bigint | boolean = clearTextValues[i];
+      if (typeof clearTextValue === "boolean") {
+        clearTextValue = clearTextValue ? "0x01" : "0x00";
+      }
+      const clearTextValueBigInt = BigInt(clearTextValue);
+      const fhevmTypeInfo: FhevmTypeInfo = fhevmHandles[i].fhevmTypeInfo;
+
+      //abiTypes.push(fhevmTypeInfo.solidityTypeName);
+      abiTypes.push("uint256");
+
+      switch (fhevmTypeInfo.type) {
+        case FhevmType.eaddress: {
+          // string
+          abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(40, "0")}`);
+          break;
+        }
+        case FhevmType.ebool: {
+          // bigint (0 or 1)
+          abiValues.push(clearTextValueBigInt);
+          break;
+        }
+        case FhevmType.euint4:
+        case FhevmType.euint8:
+        case FhevmType.euint16:
+        case FhevmType.euint32:
+        case FhevmType.euint64:
+        case FhevmType.euint128:
+        case FhevmType.euint256: {
+          // bigint
+          abiValues.push(clearTextValueBigInt);
+          break;
+        }
+        default: {
+          throw new FhevmError(
+            `Unsupported Fhevm primitive type id: ${fhevmTypeInfo.type}, name: ${fhevmTypeInfo.name}, solidity: ${fhevmTypeInfo.solidityTypeName}`,
+          );
+        }
+      }
+    }
+
+    const abiCoder = EthersT.AbiCoder.defaultAbiCoder();
+
+    // ABI encode the decryptedResult as done in the KMS, since all decrypted values
+    // are native static types, thay have same abi-encoding as uint256:
+    const abiEncodedClearResult: `0x${string}` = abiCoder.encode(abiTypes, abiValues) as `0x${string}`;
+
+    const eip712 = this.createPublicDecryptVerificationEIP712(handlesBytes32Hex, abiEncodedClearResult, extraData);
+
+    const clearResultsEIP712signatures: `0x${string}`[] = await multiSignEIP712(
+      this.#orderedSigners,
+      eip712.domain,
+      eip712.types,
+      eip712.message,
+    );
+
+    // Build the decryptionProof as numSigners + KMS signatures + extraData
+    const packedNumSigners = EthersT.solidityPacked(["uint8"], [clearResultsEIP712signatures.length]);
+    const packedSignatures = EthersT.solidityPacked(
+      Array(clearResultsEIP712signatures.length).fill("bytes"),
+      clearResultsEIP712signatures,
+    );
+    const decryptionProof: `0x${string}` = EthersT.concat([
+      packedNumSigners,
+      packedSignatures,
+      extraData,
+    ]) as `0x${string}`;
+
+    // ABI encode the list of values in order to pass them in the callback
+    for (let i = 0; i < abiTypes.length; ++i) {
+      assertFhevm(abiTypes[i] === "uint256");
+    }
+
+    assertIs0xString(decryptionProof, "decryptionProof");
+    assertIs0xString(abiEncodedClearResult, "abiEncodedClearResult");
+
+    return {
+      signatures: clearResultsEIP712signatures,
+      types: abiTypes,
+      values: abiValues,
+      abiEncodedClearResult,
+      decryptionProof,
+    };
+  }
 }
-/*
-// Build the decryptionProof as numSigners + KMS signatures + extraData
-      const packedNumSigners = ethers.solidityPacked(['uint8'], [decryptResultsEIP712signatures.length]);
-      const packedSignatures = ethers.solidityPacked(
-        Array(decryptResultsEIP712signatures.length).fill('bytes'),
-        decryptResultsEIP712signatures,
-      );
-      const decryptionProof = ethers.concat([packedNumSigners, packedSignatures, extraDataV0]);
 
-      // ABI encode the list of values in order to pass them in the callback
-      const encodedCleartexts = abiCoder.encode([...Array(values.length).fill('uint256')], [...values]);
+// async function __computeDecryptionSignatures(
+//   handlesBytes32Hex: string[],
+//   clearTextValues: (string | bigint | boolean)[],
+//   extraData: string,
+//   abiCoder: EthersT.AbiCoder,
+//   kmsVerifier: KMSVerifier,
+//   kmsSigners: EthersT.Signer[],
+// ): Promise<{
+//   signatures: string[];
+//   types: ReadonlyArray<string | EthersT.ParamType>;
+//   values: ReadonlyArray<any>;
+//   decryptedResult: string;
+// }> {
+//   const fhevmHandles: FhevmHandle[] = handlesBytes32Hex.map((handleBytes32Hex) =>
+//     FhevmHandle.fromBytes32Hex(handleBytes32Hex),
+//   );
 
-      const calldata =
-        callbackSelector +
-        abiCoder.encode(['uint256', 'bytes', 'bytes'], [requestID, encodedCleartexts, decryptionProof]).slice(2);
+//   assertFhevm(handlesBytes32Hex.length === clearTextValues.length);
 
-*/
+//   const abiTypes: string[] = [];
+//   const abiValues: (string | bigint)[] = [];
+
+//   for (let i = 0; i < handlesBytes32Hex.length; ++i) {
+//     let clearTextValue: string | bigint | boolean = clearTextValues[i];
+//     if (typeof clearTextValue === "boolean") {
+//       clearTextValue = clearTextValue ? "0x01" : "0x00";
+//     }
+//     const clearTextValueBigInt = BigInt(clearTextValue);
+//     const fhevmTypeInfo: FhevmTypeInfo = fhevmHandles[i].fhevmTypeInfo;
+
+//     //abiTypes.push(fhevmTypeInfo.solidityTypeName);
+//     abiTypes.push("uint256");
+
+//     switch (fhevmTypeInfo.type) {
+//       case FhevmType.eaddress: {
+//         // string
+//         abiValues.push(`0x${clearTextValueBigInt.toString(16).padStart(40, "0")}`);
+//         break;
+//       }
+//       case FhevmType.ebool: {
+//         // bigint (0 or 1)
+//         abiValues.push(clearTextValueBigInt);
+//         break;
+//       }
+//       case FhevmType.euint4:
+//       case FhevmType.euint8:
+//       case FhevmType.euint16:
+//       case FhevmType.euint32:
+//       case FhevmType.euint64:
+//       case FhevmType.euint128:
+//       case FhevmType.euint256: {
+//         // bigint
+//         abiValues.push(clearTextValueBigInt);
+//         break;
+//       }
+//       default: {
+//         throw new FhevmError(
+//           `Unsupported Fhevm primitive type id: ${fhevmTypeInfo.type}, name: ${fhevmTypeInfo.name}, solidity: ${fhevmTypeInfo.solidityTypeName}`,
+//         );
+//       }
+//     }
+//   }
+
+//   // ABI encode the decryptedResult as done in the KMS, since all decrypted values
+//   // are native static types, thay have same abi-encoding as uint256:
+//   const decryptedResult = abiCoder.encode(abiTypes, abiValues);
+
+//   const eip712 = kmsVerifier.createPublicDecryptVerificationEIP712(handlesBytes32Hex, decryptedResult, extraData);
+
+//   const decryptResultsEIP712signatures: string[] = await multiSignEIP712(
+//     kmsSigners,
+//     eip712.domain,
+//     eip712.types,
+//     eip712.message,
+//   );
+
+//   return { signatures: decryptResultsEIP712signatures, types: abiTypes, values: abiValues, decryptedResult };
+// }
+
+// async function __computeDecryptionCallbackSignaturesAndCalldata(
+//   handlesBytes32Hex: string[],
+//   clearTextValuesString: string[],
+//   extraData: string,
+//   requestID: bigint,
+//   callbackSelectorBytes4Hex: string,
+//   abiCoder: EthersT.AbiCoder,
+//   kmsVerifier: KMSVerifier,
+//   kmsSigners: EthersT.Signer[],
+// ): Promise<{ calldata: string }> {
+//   assertFhevm(extraData === EthersT.solidityPacked(["uint8"], [0]), "extraData must be 0x00");
+
+//   const { signatures, types, values } = await __computeDecryptionSignatures(
+//     handlesBytes32Hex,
+//     clearTextValuesString,
+//     extraData,
+//     abiCoder,
+//     kmsVerifier,
+//     kmsSigners,
+//   );
+
+//   // Build the decryptionProof as numSigners + KMS signatures + extraData
+//   const packedNumSigners = EthersT.solidityPacked(["uint8"], [signatures.length]);
+//   const packedSignatures = EthersT.solidityPacked(Array(signatures.length).fill("bytes"), signatures);
+//   const decryptionProof = EthersT.concat([packedNumSigners, packedSignatures, extraData]);
+
+//   // ABI encode the list of values in order to pass them in the callback
+//   for (let i = 0; i < types.length; ++i) {
+//     assertFhevm(types[i] === "uint256");
+//   }
+
+//   const encodedCleartexts = abiCoder.encode([...types], [...values]);
+
+//   const calldata =
+//     callbackSelectorBytes4Hex +
+//     abiCoder.encode(["uint256", "bytes", "bytes"], [requestID, encodedCleartexts, decryptionProof]).slice(2);
+
+//   return { calldata };
+// }

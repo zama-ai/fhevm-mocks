@@ -3,7 +3,7 @@ import { ethers as EthersT } from "ethers";
 import { assertIsAddress } from "../../utils/address.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+import { FhevmHostContractWrapper } from "./FhevmContractWrapper.js";
 import { HCULimitPartialInterface } from "./interfaces/HCULimit.itf.js";
 
 export type HCULimitProperties = {
@@ -11,7 +11,7 @@ export type HCULimitProperties = {
   version?: string;
 };
 
-export class HCULimit extends FhevmCoprocessorContractWrapper {
+export class HCULimit extends FhevmHostContractWrapper {
   #hcuLimitContract: EthersT.Contract | undefined;
   #hcuLimitContractAddress: `0x${string}` | undefined;
   #fhemExecutorAddress: `0x${string}` | undefined;

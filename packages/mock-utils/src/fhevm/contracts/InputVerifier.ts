@@ -9,20 +9,22 @@ import { FhevmError, assertFhevm, assertIsArray } from "../../utils/error.js";
 import { numberToHexNoPrefix } from "../../utils/hex.js";
 import { assertIsBigUint8, assertIsBigUint256 } from "../../utils/math.js";
 import { assertIsString, ensure0x, removePrefix } from "../../utils/string.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+import { FhevmHostContractWrapper } from "./FhevmContractWrapper.js";
 import { InputVerifierPartialInterface } from "./interfaces/InputVerifier.itf.js";
 
 export type InputVerifierProperties = {
   signersAddresses?: `0x${string}`[];
+  signers?: EthersT.Signer[];
   threshold?: number;
   eip712Domain?: EIP712Domain;
 };
 
 // Shareable
-export class InputVerifier extends FhevmCoprocessorContractWrapper {
+export class InputVerifier extends FhevmHostContractWrapper {
   #inputVerifierReadonlyContract: EthersT.Contract | undefined;
   #inputVerifierContractAddress: `0x${string}` | undefined;
-  #signersAddresses: `0x${string}`[] | undefined;
+  #orderedSignersAddresses: `0x${string}`[] | undefined;
+  #orderedSigners: EthersT.Signer[] | undefined;
   #threshold: number | undefined;
   #eip712Domain: EIP712Domain | undefined;
 
@@ -36,6 +38,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     abi?: EthersT.Interface | EthersT.InterfaceAbi,
     properties?: InputVerifierProperties,
   ): Promise<InputVerifier> {
+    //Debug only
     assertIsAddress(inputVerifierContractAddress, "inputVerifierContractAddress");
 
     const inputVerifier = new InputVerifier();
@@ -46,11 +49,23 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
       runner,
     );
     inputVerifier.#eip712Domain = properties?.eip712Domain;
-    inputVerifier.#signersAddresses = properties?.signersAddresses;
+    inputVerifier.#orderedSignersAddresses = properties?.signersAddresses
+      ? [...properties.signersAddresses]
+      : undefined;
+    inputVerifier.#orderedSigners = properties?.signers ? [...properties.signers] : undefined;
     inputVerifier.#threshold = properties?.threshold;
 
     await inputVerifier._initialize();
     return inputVerifier;
+  }
+
+  public get inputVerifierProperties(): InputVerifierProperties {
+    return {
+      ...(this.#eip712Domain ? { eip712Domain: { ...this.#eip712Domain } } : {}),
+      ...(this.#orderedSignersAddresses ? { signersAddresses: [...this.#orderedSignersAddresses] } : {}),
+      ...(this.#orderedSigners ? { signers: [...this.#orderedSigners] } : {}),
+      ...(this.#threshold !== undefined ? { threshold: this.#threshold } : {}),
+    };
   }
 
   public override get readonlyContract(): EthersT.Contract {
@@ -66,11 +81,11 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
   private async _initialize() {
     assertFhevm(this.#inputVerifierReadonlyContract !== undefined, `InputVerifier wrapper is not initialized`);
 
-    if (!this.#signersAddresses) {
+    if (!this.#orderedSignersAddresses) {
       const signers = await this.#inputVerifierReadonlyContract.getCoprocessorSigners();
-      this.#signersAddresses = signers;
+      this.#orderedSignersAddresses = signers;
     }
-    assertIsAddressArray(this.#signersAddresses);
+    assertIsAddressArray(this.#orderedSignersAddresses);
 
     if (this.#threshold === undefined) {
       const threshold = await this.#inputVerifierReadonlyContract.getThreshold();
@@ -108,6 +123,57 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     assertFhevm(this.#eip712Domain.salt === EthersT.ZeroHash);
     assertFhevm(this.#eip712Domain.name === constants.INPUT_VERIFICATION_EIP712.domain.name);
     assertFhevm(this.#eip712Domain.version === constants.INPUT_VERIFICATION_EIP712.domain.version);
+
+    await this._reorderCoprocessorSigners();
+  }
+
+  private async _reorderCoprocessorSigners() {
+    assertFhevm(this.#orderedSignersAddresses);
+
+    // check for duplicates in #orderedSignersAddresses
+    const orderedAddresses: Set<string> = new Set();
+    for (let i = 0; i < this.#orderedSignersAddresses.length; ++i) {
+      const addr = this.#orderedSignersAddresses[i];
+      if (orderedAddresses.has(addr)) {
+        throw new FhevmError(`Duplicated kms signer address ${addr}`);
+      }
+      orderedAddresses.add(addr);
+    }
+
+    // reorder signers and verify addresses
+    if (!this.#orderedSigners) {
+      return;
+    }
+
+    const addressSignerPairs = await Promise.all(
+      this.#orderedSigners.map(async (signer: EthersT.Signer) => {
+        const addr = await signer.getAddress();
+        return { addr, signer };
+      }),
+    );
+
+    const signersMap: Map<string, EthersT.Signer> = new Map();
+    for (const { addr, signer } of addressSignerPairs) {
+      if (signersMap.has(addr)) {
+        throw new FhevmError(`Duplicated kms signer address ${addr}`);
+      }
+      signersMap.set(addr, signer);
+    }
+
+    const newOrderedSigners: EthersT.Signer[] = [];
+    for (let i = 0; i < this.#orderedSignersAddresses.length; ++i) {
+      const addr = this.#orderedSignersAddresses[i];
+      if (!signersMap.has(addr)) {
+        throw new FhevmError(`Missing kms signer ${addr}`);
+      }
+      const s = signersMap.get(addr);
+      if (!s) {
+        throw new FhevmError(`Missing kms signer ${addr}`);
+      }
+      newOrderedSigners.push(s);
+    }
+
+    this.#orderedSigners = newOrderedSigners;
   }
 
   public get address(): `0x${string}` {
@@ -134,9 +200,15 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
     return this.#eip712Domain;
   }
 
-  public getCoprocessorSigners(): `0x${string}`[] {
-    assertFhevm(this.#signersAddresses !== undefined, `InputVerifier wrapper not initialized`);
-    return this.#signersAddresses;
+  public getCoprocessorSignersAddresses(): `0x${string}`[] {
+    assertFhevm(this.#orderedSignersAddresses !== undefined, `InputVerifier wrapper not initialized`);
+    return this.#orderedSignersAddresses;
+  }
+
+  public getCoprocessorSigners(): EthersT.Signer[] | undefined {
+    // Check for init using #orderedSignersAddresses since #orderedSigners can be undefined
+    assertFhevm(this.#orderedSignersAddresses !== undefined, `InputVerifier wrapper not initialized`);
+    return this.#orderedSigners;
   }
 
   public getThreshold(): number {
@@ -145,7 +217,7 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
   }
 
   public async assertMatchCoprocessorSigners(signers: EthersT.Signer[]) {
-    const addresses = this.getCoprocessorSigners();
+    const addresses = this.getCoprocessorSignersAddresses();
 
     assertIsArray(signers, "signers");
     assertFhevm(signers.length === addresses.length, "signers.length === addresses.length");
@@ -190,7 +262,9 @@ export class InputVerifier extends FhevmCoprocessorContractWrapper {
       return recoveredAddress;
     });
 
-    if (!isThresholdReached(this.getCoprocessorSigners(), recoveredAddresses, this.getThreshold(), "coprocessor")) {
+    if (
+      !isThresholdReached(this.getCoprocessorSignersAddresses(), recoveredAddresses, this.getThreshold(), "coprocessor")
+    ) {
       throw new FhevmError("Coprocessor signers threshold is not reached");
     }
   }

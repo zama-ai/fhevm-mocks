@@ -1,6 +1,5 @@
 import type {
   CoprocessorEvent,
-  DecryptionRequestEvent,
   FhevmContractName,
   FhevmPublicDecryptOptions,
   FhevmTransactionHCUInfo,
@@ -8,7 +7,13 @@ import type {
   FhevmUserDecryptOptions,
 } from "@fhevm/mock-utils";
 import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
-import type { DecryptedResults, EIP712, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
+import type {
+  EIP712,
+  HandleContractPair,
+  PublicDecryptResults,
+  RelayerEncryptedInput,
+  UserDecryptResults,
+} from "@zama-fhe/relayer-sdk/node";
 import type { ethers } from "ethers";
 
 import type { FhevmContractError } from "./internal/errors/FhevmContractError";
@@ -29,10 +34,7 @@ export interface HardhatFhevmRuntimeEnvironment {
   initializeCLIApi(): Promise<void>;
 
   parseCoprocessorEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): CoprocessorEvent[];
-  parseDecryptionRequestEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): DecryptionRequestEvent[];
   computeTransactionHCU(transactionReceipt: ethers.TransactionReceipt): FhevmTransactionHCUInfo;
-
-  awaitDecryptionOracle(): Promise<void>;
 
   assertCoprocessorInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
 
@@ -72,9 +74,9 @@ export interface HardhatFhevmRuntimeEnvironment {
     userAddress: string,
     startTimestamp: string | number,
     durationDays: string | number,
-  ): Promise<DecryptedResults>;
+  ): Promise<UserDecryptResults>;
 
-  publicDecrypt(handles: (string | Uint8Array)[]): Promise<DecryptedResults>;
+  publicDecrypt(handles: (string | Uint8Array)[]): Promise<PublicDecryptResults>;
 
   userDecryptEbool(
     handleBytes32: string,

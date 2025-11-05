@@ -1,6 +1,5 @@
 import { type MinimalProvider, minimalProviderSend } from "../../ethers/provider.js";
 import {
-  FHEVM_AWAIT_DECRYPTION_ORACLE,
   FHEVM_CREATE_DECRYPTION_SIGNATURES,
   FHEVM_GET_CLEAR_TEXT,
   RELAYER_METADATA,
@@ -76,10 +75,6 @@ export async function requestRelayerMetadata(relayerProvider: MinimalProvider): 
   const response = await minimalProviderSend(relayerProvider, RELAYER_METADATA, []);
   assertIsRelayerMetadata(response);
   return response;
-}
-
-export async function requestFhevmAwaitDecryptionOracle(relayerProvider: MinimalProvider): Promise<any> {
-  return await minimalProviderSend(relayerProvider, FHEVM_AWAIT_DECRYPTION_ORACLE, []);
 }
 
 export async function requestFhevmGetClearText(relayerProvider: MinimalProvider, payload: string[]): Promise<any> {

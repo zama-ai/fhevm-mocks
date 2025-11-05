@@ -51,12 +51,61 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
     );
   }
 
+  const expectedEthereumConfig = `contract EthereumConfig {
+    constructor() {
+        if (block.chainid == 1) {
+            FHE.setCoprocessor(ZamaConfig.getEthereumConfig());
+        } else if (block.chainid == 11155111) {
+            FHE.setCoprocessor(ZamaConfig.getSepoliaConfig());
+        }
+    }
+
+    function protocolId() public view returns (uint256) {
+        if (block.chainid == 1) {
+            return ZamaConfig.getEthereumProtocolId();
+        } else if (block.chainid == 11155111) {
+            return ZamaConfig.getSepoliaProtocolId();
+        }
+        return 0;
+    }
+}`;
+
+  const newEthereumConfig = `contract EthereumConfig {
+    constructor() {
+        if (block.chainid == 1) {
+            FHE.setCoprocessor(ZamaConfig.getEthereumConfig());
+        } else if (block.chainid == 11155111) {
+            FHE.setCoprocessor(ZamaConfig.getSepoliaConfig());
+        } else if (block.chainid == ${constants.DEVELOPMENT_NETWORK_CHAINID}) {
+            FHE.setCoprocessor(ZamaConfig.getSepoliaConfig());
+        }
+    }
+
+    function protocolId() public view returns (uint256) {
+        if (block.chainid == 1) {
+            return ZamaConfig.getEthereumProtocolId();
+        } else if (block.chainid == 11155111) {
+            return ZamaConfig.getSepoliaProtocolId();
+        } else if (block.chainid == ${constants.DEVELOPMENT_NETWORK_CHAINID}) {
+            return ZamaConfig.getSepoliaProtocolId();
+        }
+        return 0;
+    }
+}`;
+
+  if (origContent.indexOf(expectedEthereumConfig) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported.`,
+    );
+  }
+
   const dstContent = origContent
     .replaceAll("../lib/FHE.sol", "@fhevm/solidity/lib/FHE.sol")
     .replaceAll("../lib/Impl.sol", "@fhevm/solidity/lib/Impl.sol")
     .replaceAll(expectedACLAddress, addresses.ACLAddress)
     .replaceAll(expectedFHEVMExecutorAddress, addresses.CoprocessorAddress)
-    .replaceAll(expectedKMSVerifierAddress, addresses.KMSVerifierAddress);
+    .replaceAll(expectedKMSVerifierAddress, addresses.KMSVerifierAddress)
+    .replaceAll(expectedEthereumConfig, newEthereumConfig);
 
   const dstPath = paths.cacheCoprocessorConfigSol;
   if (fs.existsSync(dstPath)) {

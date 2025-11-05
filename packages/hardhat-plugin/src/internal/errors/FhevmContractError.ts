@@ -495,10 +495,6 @@ async function __formatFhevmErrorMessages(
       msgs = _formatHCULimitErrorMessages({ ...info, tx: resolvedTx });
       break;
     }
-    case "DecryptionOracle": {
-      msgs = _formatDecryptionOracleErrorMessages({ ...info, tx: resolvedTx });
-      break;
-    }
     default: {
       break;
     }
@@ -625,10 +621,6 @@ function _formatKMSVerifierErrorMessages(infos: FhevmErrorInfos): FhevmErrorMess
 }
 
 function _formatHCULimitErrorMessages(infos: FhevmErrorInfos): FhevmErrorMessages {
-  return _applyErrorTemplates(infos);
-}
-
-function _formatDecryptionOracleErrorMessages(infos: FhevmErrorInfos): FhevmErrorMessages {
   return _applyErrorTemplates(infos);
 }
 

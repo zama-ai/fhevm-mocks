@@ -19,23 +19,15 @@ export type { FheTypeName } from "./fhevm/FheType.js";
 export { getContractsABIVersions } from "./fhevm/contracts/index.js";
 
 export { FhevmHandleCoder } from "./fhevm/FhevmHandleCoder.js";
-export { FhevmHandle } from "./fhevm/FhevmHandle.js";
-export type { DecryptionRequestEvent } from "./fhevm/decryptionOracle/DecryptionOracleEvents.js";
+export { FhevmHandle, assertIsFhevmHandleBytes32Hex } from "./fhevm/FhevmHandle.js";
 export type { CoprocessorEvent, CoprocessorEventName } from "./fhevm/coprocessor/CoprocessorEvents.js";
 export type { FhevmTransactionHCUInfo } from "./fhevm/coprocessor/hcu.js";
 export { getHCU, type HCUOperatorName } from "./fhevm/coprocessor/HCUByOperator.js";
-export type {
-  FhevmContractName,
-  FhevmDecryptionOracleContractName,
-  FhevmCoprocessorContractName,
-} from "./fhevm/contracts/index.js";
+export type { FhevmContractName, FhevmHostContractName } from "./fhevm/contracts/index.js";
 export { parseCoprocessorEventsFromLogs } from "./fhevm/coprocessor/utils.js";
 export { FhevmMockProvider, FhevmMockProviderType } from "./ethers/FhevmMockProvider.js";
 export type { FhevmMockProviderInfo, FhevmMockProviderMethods } from "./ethers/FhevmMockProvider.js";
 export { MockCoprocessor } from "./fhevm/coprocessor/MockCoprocessor.js";
-export { parseDecryptionRequestEventsFromLogs } from "./fhevm/decryptionOracle/utils.js";
-export type { DecryptionOracle } from "./fhevm/decryptionOracle/DecryptionOracle.js";
-export { MockDecryptionOracle } from "./fhevm/decryptionOracle/MockDecryptionOracle.js";
 export { MockRelayerEncryptedInput } from "./fhevm/MockRelayerEncryptedInput.js";
 export { MockFhevmInstance } from "./fhevm/MockFhevmInstance.js";
 export type {

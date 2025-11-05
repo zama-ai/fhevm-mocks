@@ -3,7 +3,6 @@ export {
   RELAYER_V1_INPUT_PROOF,
   RELAYER_V1_PUBLIC_DECRYPT,
   RELAYER_V1_USER_DECRYPT,
-  FHEVM_AWAIT_DECRYPTION_ORACLE,
   FHEVM_GET_CLEAR_TEXT,
   FHEVM_CREATE_DECRYPTION_SIGNATURES,
 } from "./methods.js";
@@ -12,7 +11,6 @@ export {
   requestRelayerV1InputProof,
   requestRelayerV1PublicDecrypt,
   requestRelayerV1UserDecrypt,
-  requestFhevmAwaitDecryptionOracle,
   requestFhevmGetClearText,
   requestFhevmCreateDecryptionSignatures,
 } from "./MockRelayer.js";

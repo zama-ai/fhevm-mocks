@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { FHE, euint32, externalEuint32, FheType } from "@fhevm/solidity/lib/FHE.sol";
 import { Impl, CoprocessorConfig, IFHEVMExecutor, IACL } from "@fhevm/solidity/lib/Impl.sol";
-import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestACL is SepoliaConfig {
+contract TestACL is EthereumConfig {
     euint32 private _count;
 
     /// keccak256(abi.encode(uint256(keccak256("confidential.storage.config")) - 1)) & ~bytes32(uint256(0xff))
