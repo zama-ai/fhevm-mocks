@@ -36,7 +36,7 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       accounts: {
-        ...(vars.get("MNEMONIC") ? { mnemonic: vars.get("MNEMONIC") } : {}),
+        ...(vars.has("MNEMONIC") ? { mnemonic: vars.get("MNEMONIC") } : {}),
       },
     },
     anvil: {
