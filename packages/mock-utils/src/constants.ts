@@ -64,7 +64,6 @@ const constants = {
   },
   SEPOLIA_ETHEREUM_TESTNET_CHAINID: 11155111,
   FHEVM_HOST_CONTRACTS_PACKAGE_NAME: "@fhevm/host-contracts",
-  ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME: "@zama-fhe/oracle-solidity",
 };
 Object.freeze(constants);
 

@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
 import constants from "../../constants.js";
-import type { FhevmContractName, FhevmCoprocessorContractName, FhevmDecryptionOracleContractName } from "./index.js";
+import type { FhevmContractName, FhevmHostContractName } from "./index.js";
 
 export abstract class FhevmContractWrapper {
   readonly #name: FhevmContractName;
@@ -41,20 +41,11 @@ export abstract class FhevmContractWrapper {
   }
 }
 
-export abstract class FhevmCoprocessorContractWrapper extends FhevmContractWrapper {
-  constructor(name: FhevmCoprocessorContractName) {
+export abstract class FhevmHostContractWrapper extends FhevmContractWrapper {
+  constructor(name: FhevmHostContractName) {
     super(name);
   }
   public override get package(): string {
     return constants.FHEVM_HOST_CONTRACTS_PACKAGE_NAME;
-  }
-}
-
-export abstract class FhevmDecryptionOracleContractWrapper extends FhevmContractWrapper {
-  constructor(name: FhevmDecryptionOracleContractName) {
-    super(name);
-  }
-  public override get package(): string {
-    return constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE_NAME;
   }
 }

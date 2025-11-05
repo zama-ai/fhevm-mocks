@@ -8,7 +8,6 @@ export type RelayerMetadata = {
   gatewayChainId: number;
   ACLAddress: string;
   CoprocessorAddress: string;
-  DecryptionOracleAddress: string;
   KMSVerifierAddress: string;
   InputVerifierAddress: string;
   relayerSignerAddress: string;

@@ -15,6 +15,7 @@ import { mutateErrorInPlace, mutateProviderErrorInPlace } from "../errors/FhevmC
 export class FhevmProviderExtender extends ProviderWrapper {
   protected readonly _config: HardhatConfig;
   protected readonly _networkName: string;
+  protected readonly _provider: EthersT.BrowserProvider;
 
   // override estimated gasLimit by 120%, to avoid some edge case with ethermint gas estimation
   private static readonly ESTIMATEGAS_PERCENTAGE: bigint = 120n;
@@ -26,12 +27,12 @@ export class FhevmProviderExtender extends ProviderWrapper {
     - trace: isRunningInHHNode 
     - useEmbeddedMockEngine
     - coprocessor
-    - decryptionOracle
   */
   constructor(_wrappedProvider: EIP1193Provider, _config: HardhatConfig, _network: string, _blockNumber: bigint) {
     super(_wrappedProvider);
     this._config = _config;
     this._networkName = _network;
+    this._provider = new EthersT.BrowserProvider(this._wrappedProvider);
   }
 
   public async request(args: RequestArguments) {
@@ -56,10 +57,6 @@ export class FhevmProviderExtender extends ProviderWrapper {
         return this._handleFhevmRelayerV1PublicDecrypt(args);
       case relayer.RELAYER_V1_INPUT_PROOF:
         return this._handleFhevmRelayerV1InputProof(args);
-      case relayer.FHEVM_AWAIT_DECRYPTION_ORACLE:
-        return this._handleFhevmAwaitDecryptionOracle(args);
-      case relayer.FHEVM_CREATE_DECRYPTION_SIGNATURES:
-        return this._handleFhevmCreateDecryptionSignatures(args);
       case relayer.FHEVM_GET_CLEAR_TEXT:
         return this._handleFhevmGetClearText(args);
       default:
@@ -87,7 +84,6 @@ export class FhevmProviderExtender extends ProviderWrapper {
       gatewayChainId: fhevmEnv.getGatewayChainId(),
       ACLAddress: fhevmEnv.getACLAddress(),
       CoprocessorAddress: fhevmEnv.getFHEVMExecutorAddress(),
-      DecryptionOracleAddress: fhevmEnv.getDecryptionOracleAddress(),
       KMSVerifierAddress: fhevmEnv.getKMSVerifierAddress(),
       InputVerifierAddress: fhevmEnv.getInputVerifierAddress(),
       relayerSignerAddress: fhevmEnv.getRelayerSignerAddress(),
@@ -169,65 +165,66 @@ export class FhevmProviderExtender extends ProviderWrapper {
 
     relayer.assertIsRelayerV1PublicDecryptPayload(payload);
 
-    const clearTextHexList: string[] = await fhevmEnv.coprocessor.queryHandlesBytes32AsHex(payload.ciphertextHandles);
-
-    const { decryptedResult, signatures } = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
+    // Gateway/KMS checks for ACL permissions
+    await MockFhevmInstance.verifyPublicACLPermissions(
+      this._provider,
+      fhevmEnv.getACLAddress(),
       payload.ciphertextHandles,
-      clearTextHexList,
-      payload.extraData,
     );
 
+    // Gateway/KMS performs decryption
+    const clearTextHexList: string[] = await fhevmEnv.coprocessor.queryHandlesBytes32AsHex(payload.ciphertextHandles);
+
+    // Gateway/KMS compute KMS signatures
+    const decryptionSignatures = await fhevmEnv
+      .getContractsRepository()
+      .kmsVerifier.computeDecryptionSignatures(payload.ciphertextHandles, clearTextHexList, payload.extraData);
+
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+      for (let i = 0; i < clearTextHexList.length; ++i) {
+        const msg = clearTextHexList[i] === "0x" ? "<EmptyValue>" : clearTextHexList[i];
+
+        console.log(`  Query handle: ${payload.ciphertextHandles[i]}`);
+        console.log(`  Clear text  : ${msg}`);
+      }
+    }
+
+    // Build relayer response
     const response: relayer.RelayerV1PublicDecryptResponse = {
-      decrypted_value: decryptedResult,
-      signatures: signatures,
+      decrypted_value: decryptionSignatures.abiEncodedClearResult,
+      signatures: decryptionSignatures.signatures,
     };
 
     return response;
   }
 
-  private async _handleFhevmCreateDecryptionSignatures(args: RequestArguments) {
-    const fhevmEnv = fhevmContext.get();
+  // private async _handleFhevmCreateDecryptionSignatures(args: RequestArguments) {
+  //   const fhevmEnv = fhevmContext.get();
 
-    // forward if we are not running the mock engine
-    if (!fhevmEnv.useEmbeddedMockEngine) {
-      return this._wrappedProvider.request(args);
-    }
+  //   // forward if we are not running the mock engine
+  //   if (!fhevmEnv.useEmbeddedMockEngine) {
+  //     return this._wrappedProvider.request(args);
+  //   }
 
-    if (fhevmEnv.isRunningInHHNode) {
-      console.log(picocolors.greenBright(`${args.method}`));
-    }
+  //   if (fhevmEnv.isRunningInHHNode) {
+  //     console.log(picocolors.greenBright(`${args.method}`));
+  //   }
 
-    const payload = _getRequestSingleParam(args) as {
-      handlesBytes32Hex: string[];
-      clearTextValuesHex: string[];
-      extraData: string;
-    };
+  //   const payload = _getRequestSingleParam(args) as {
+  //     handlesBytes32Hex: string[];
+  //     clearTextValuesHex: string[];
+  //     extraData: string;
+  //   };
 
-    const res = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
-      payload.handlesBytes32Hex,
-      payload.clearTextValuesHex,
-      payload.extraData,
-    );
+  //   const res = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
+  //     payload.handlesBytes32Hex,
+  //     payload.clearTextValuesHex,
+  //     payload.extraData,
+  //   );
 
-    return res;
-  }
-
-  private async _handleFhevmAwaitDecryptionOracle(args: RequestArguments) {
-    const fhevmEnv = fhevmContext.get();
-
-    // forward if we are not running the mock engine
-    if (!fhevmEnv.useEmbeddedMockEngine) {
-      return this._wrappedProvider.request(args);
-    }
-
-    if (fhevmEnv.isRunningInHHNode) {
-      console.log(picocolors.greenBright(`${args.method}`));
-    }
-
-    await fhevmEnv.decryptionOracle.awaitDecryptionOracle();
-
-    return 0;
-  }
+  //   return res;
+  // }
 
   private async _handleFhevmRelayerV1UserDecrypt(args: RequestArguments) {
     const fhevmEnv = fhevmContext.get();
@@ -245,7 +242,15 @@ export class FhevmProviderExtender extends ProviderWrapper {
     const payload = args.params[0];
     relayer.assertIsRelayerV1UserDecryptPayload(payload);
 
-    // Verify signature
+    // Gateway/KMS checks for ACL permissions
+    await MockFhevmInstance.verifyUserACLPermissions(
+      this._provider,
+      fhevmEnv.getACLAddress(),
+      payload.handleContractPairs,
+      payload.userAddress,
+    );
+
+    // Gateway/KMS Verify signature
     await MockFhevmInstance.verifyUserDecryptSignature(
       payload.publicKey,
       payload.signature,
@@ -257,10 +262,10 @@ export class FhevmProviderExtender extends ProviderWrapper {
       Number(payload.contractsChainId),
     );
 
+    // Gateway/KMS Decrypt
     const handleBytes32HexList: string[] = payload.handleContractPairs.map((h) => {
       return EthersT.toBeHex(EthersT.toBigInt(h.handle), 32);
     });
-
     const clearTextHexList: string[] = await fhevmEnv.coprocessor.queryHandlesBytes32AsHex(handleBytes32HexList);
 
     if (fhevmEnv.isRunningInHHNode) {
@@ -273,6 +278,7 @@ export class FhevmProviderExtender extends ProviderWrapper {
       }
     }
 
+    // Build relayer response
     const response: relayer.RelayerV1UserDecryptResponse = {
       payload: { decrypted_values: clearTextHexList },
       signature: EthersT.ZeroHash,

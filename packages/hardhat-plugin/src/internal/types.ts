@@ -3,10 +3,7 @@ import { ethers as EthersT } from "ethers";
 
 import type { FhevmEnvironment } from "./FhevmEnvironment";
 
-export type PrecompiledHostContractsAddresses = Omit<
-  CoprocessorConfig,
-  "KMSVerifierAddress" | "DecryptionOracleAddress"
-> & {
+export type PrecompiledHostContractsAddresses = Omit<CoprocessorConfig, "KMSVerifierAddress"> & {
   HCULimitAddress: `0x${string}`;
   InputVerifierAddress: `0x${string}`;
 };

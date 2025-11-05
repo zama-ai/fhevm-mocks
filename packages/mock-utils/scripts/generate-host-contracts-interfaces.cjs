@@ -4,11 +4,7 @@ const path = require("path");
 const hostContractsPkgPath = require.resolve("@fhevm/host-contracts/package.json");
 const hostContractsVersion = JSON.parse(fs.readFileSync(hostContractsPkgPath, "utf8")).version;
 
-const oraclePkgPath = require.resolve("@zama-fhe/oracle-solidity/package.json");
-const oracleVersion = JSON.parse(fs.readFileSync(oraclePkgPath, "utf8")).version;
-
 const hostContractsDir = path.join(path.dirname(hostContractsPkgPath), "artifacts", "contracts");
-const oracleContractsDir = path.join(path.dirname(oraclePkgPath), "artifacts", "contracts");
 
 function listArtifacts(dir) {
   const entries = fs.readdirSync(dir, { recursive: false });
@@ -51,25 +47,6 @@ ${JSON.stringify(c.abi, null, 2)}
 );
 `;
   fs.writeFileSync(path.join(outDir, `${name}.itf.ts`), code, "utf8");
-  console.log(`✅ Generated ${outFile}`);
-}
-
-artifacts = listArtifacts(oracleContractsDir);
-for (let i = 0; i < artifacts.length; ++i) {
-  const name = path.parse(artifacts[i]).name;
-  const outFile = path.join(outDir, `${name}.itf.ts`);
-  const json = fs.readFileSync(artifacts[i], "utf8");
-  const c = JSON.parse(json);
-  const code = `import { ethers as EthersT } from "ethers";
-
-// version "${oracleVersion}"
-export const ZamaFhe${name}InterfaceVersion = "${oracleVersion}";
-
-export const ZamaFhe${name}Interface: EthersT.Interface = new EthersT.Interface(
-${JSON.stringify(c.abi, null, 2)}
-);
-`;
-  fs.writeFileSync(path.join(outDir, `ZamaFhe${name}.itf.ts`), code, "utf8");
   console.log(`✅ Generated ${outFile}`);
 }
 

@@ -25,7 +25,7 @@ describe("TestFHENotInitialized", function () {
     // Error message without contract name
     await expect(hre.fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress)).to.be.rejectedWith(
       new RegExp(
-        "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:SepoliaConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+        "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:EthereumConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),
     );
 
@@ -34,7 +34,7 @@ describe("TestFHENotInitialized", function () {
       hre.fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress, "TestFHENotInitialized"),
     ).to.be.rejectedWith(
       new RegExp(
-        "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:SepoliaConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+        "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:EthereumConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),
     );
   });
@@ -43,7 +43,7 @@ describe("TestFHENotInitialized", function () {
     // Error message without contract name
     await expect(hre.fhevm.assertCoprocessorInitialized(testFHENotInitialized)).to.be.rejectedWith(
       new RegExp(
-        "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:SepoliaConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+        "^Contract at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:EthereumConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),
     );
 
@@ -52,7 +52,7 @@ describe("TestFHENotInitialized", function () {
       hre.fhevm.assertCoprocessorInitialized(testFHENotInitialized, "TestFHENotInitialized"),
     ).to.be.rejectedWith(
       new RegExp(
-        "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:SepoliaConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
+        "^Contract TestFHENotInitialized at (.+) is not initialized for FHE operations. Make sure it either inherits from @fhevm\\/solidity\\/config\\/ZamaConfig.sol:EthereumConfig or explicitly calls FHE.setCoprocessor\\(\\) in its constructor.",
       ),
     );
   });

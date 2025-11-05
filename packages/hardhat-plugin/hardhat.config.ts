@@ -34,6 +34,11 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      accounts: {
+        ...(vars.get("MNEMONIC") ? { mnemonic: vars.get("MNEMONIC") } : {}),
+      },
+    },
     anvil: {
       url: "http://127.0.0.1:8545",
       accounts: {

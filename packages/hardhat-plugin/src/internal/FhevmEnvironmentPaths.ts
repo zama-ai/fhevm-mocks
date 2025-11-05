@@ -1,8 +1,4 @@
-import {
-  FhevmCoprocessorContractName,
-  FhevmDecryptionOracleContractName,
-  version as bundledMockUtilsVersion,
-} from "@fhevm/mock-utils";
+import { FhevmHostContractName, version as bundledMockUtilsVersion } from "@fhevm/mock-utils";
 import * as fs from "fs";
 import * as path from "path";
 import * as resolve from "resolve";
@@ -141,89 +137,15 @@ export class FhevmEnvironmentPaths {
 
   /**
    * If using npm:
-   * - Returns `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity`
+   * - Returns `/path/to/user-package/node_modules/@zama-fhe/relayer-sdk`
    * If using pnpm (strict no hoist):
-   * - Returns `/path/to/user-package/node_modules/.pnpm/@zama-fhe+oracle-solidity@...@...@.../node_modules/@zama-fhe/oracle-solidity`
+   * - Returns `/path/to/user-package/node_modules/.pnpm/@zama-fhe+relayer-sdk@...@...@.../node_modules/@zama-fhe/relayer-sdk`
    * If using any other package manager: path to the installed module
    */
-  public get zamaFheOracleSolidityDir(): string {
+  public get zamaFheRelayerSdkDir(): string {
     return path.dirname(
-      this._resolveFromConsumer(path.join(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name, "package.json")),
+      this._resolveFromConsumer(path.join(constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.name, "package.json")),
     );
-  }
-
-  /**
-   * If using npm:
-   * - Returns `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address`
-   * If using pnpm (strict no hoist):
-   * - Returns `/path/to/user-package/node_modules/.pnpm/@zama-fhe+oracle-solidity@...@...@.../node_modules/@zama-fhe/oracle-solidity/address`
-   * If using any other package manager: path to the installed module
-   */
-  public get zamaFheOracleSolidityAddressDir(): string {
-    return path.join(
-      this.zamaFheOracleSolidityDir,
-      path.dirname(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile),
-    );
-  }
-
-  /**
-   * If using npm:
-   * - Returns `/path/to/user-package/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`
-   * If using pnpm (strict no hoist):
-   * - Returns `/path/to/user-package/node_modules/.pnpm/@zama-fhe+oracle-solidity@...@...@.../node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`
-   * If using any other package manager: path to `ZamaOracleAddress.sol` in the installed module
-   */
-  public get zamaFheOracleSolidityAddressSol(): string {
-    return path.join(this.zamaFheOracleSolidityAddressDir, this.zamaOracleAddressSolFilename);
-  }
-
-  /**
-   * Returns `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity`
-   */
-  public get cacheZamaFheOracleSolidityDir(): string {
-    return path.join(this.cacheDir, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name);
-  }
-
-  /**
-   * Returns `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity/address`
-   */
-  public get cacheZamaFheOracleSolidityAddressDir(): string {
-    return path.join(
-      this.cacheZamaFheOracleSolidityDir,
-      path.dirname(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile),
-    );
-  }
-
-  /**
-   * Returns `/path/to/user-package/fhevmTemp/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol`
-   */
-  public get cacheZamaOracleAddressSol(): string {
-    return path.join(this.cacheZamaFheOracleSolidityDir, constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile);
-  }
-
-  /**
-   * Returns `ZamaOracleAddress.sol`
-   */
-  public get zamaOracleAddressSolFilename(): string {
-    return path.basename(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.addressFile);
-  }
-
-  /**
-   * Returns:
-   * - Unix: `fhevmTemp/@zama-fhe/oracle-solidity/address`
-   * - Windows: `fhevmTemp\@zama-fhe\oracle-solidity\address`
-   */
-  public get relCacheZamaFheOracleSolidityAddressDir(): string {
-    const abs = this.cacheZamaFheOracleSolidityAddressDir;
-    return path.relative(this.rootDir, abs);
-  }
-
-  /**
-   * Returns `fhevmTemp/@zama-fhe/oracle-solidity/address` (in Unix format)
-   */
-  public get relCacheZamaFheOracleSolidityAddressDirUnix(): string {
-    const abs = this.cacheZamaFheOracleSolidityAddressDir;
-    return toUnixRelPath(path.relative(this.rootDir, abs));
   }
 
   /**
@@ -241,45 +163,16 @@ export class FhevmEnvironmentPaths {
 
   /**
    * The returned path can be one of the following:
-   *   - `/path/to/user-package/artifacts/@zama-fhe/oracle-solidity`
-   *   - `@zama-fhe/oracle-solidity/artifacts`
-   */
-  public resolveZamaFheOracleSolidityArtifactRootDir() {
-    let modulePath = path.resolve(path.join("artifacts", constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name));
-    if (!fs.existsSync(modulePath)) {
-      modulePath = path.join(constants.ZAMA_FHE_ORACLE_SOLIDITY_PACKAGE.name, "artifacts");
-    }
-    return modulePath;
-  }
-
-  /**
-   * The returned path can be one of the following:
    *   - `/path/to/user-package/artifacts/@fhevm/host-contracts/<contractName>.sol/<contractName>.json`
    *   - `@fhevm/host-contracts/artifacts/contracts/<contractName>.sol/<contractName>.json`
    */
-  public resolveFhevmHostContractsArtifactPath(contractName: FhevmCoprocessorContractName) {
+  public resolveFhevmHostContractsArtifactPath(contractName: FhevmHostContractName) {
     const root = this.resolveFhevmHostContractsArtifactRootDir();
     return path.join(root, `contracts/${contractName}.sol/${contractName}.json`);
   }
 
-  /**
-   * The returned path can be one of the following:
-   *   - `/path/to/user-package/artifacts/@zama-fhe/oracle-solidity/<contractName>.sol/<contractName>.json`
-   *   - `@zama-fhe/oracle-solidity/artifacts/contracts/<contractName>.sol/<contractName>.json`
-   */
-  public resolveZamaFheOracleSolidityArtifactPath(contractName: FhevmDecryptionOracleContractName) {
-    const root = this.resolveZamaFheOracleSolidityArtifactRootDir();
-    return path.join(root, `contracts/${contractName}.sol/${contractName}.json`);
-  }
-
-  public async getFhevmHostContractsArtifact(contractName: FhevmCoprocessorContractName) {
+  public async getFhevmHostContractsArtifact(contractName: FhevmHostContractName) {
     const modulePath = this.resolveFhevmHostContractsArtifactPath(contractName);
-    const artifact = await import(modulePath);
-    return { artifact, path: modulePath };
-  }
-
-  public async getZamaFheOracleSolidityArtifact(contractName: FhevmDecryptionOracleContractName) {
-    const modulePath = this.resolveZamaFheOracleSolidityArtifactPath(contractName);
     const artifact = await import(modulePath);
     return { artifact, path: modulePath };
   }

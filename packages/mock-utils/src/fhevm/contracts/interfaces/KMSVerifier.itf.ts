@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.9.0-1"
-export const KMSVerifierInterfaceVersion = "0.9.0-1";
+// version "0.9.0"
+export const KMSVerifierInterfaceVersion = "0.9.0";
 
 export const KMSVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {

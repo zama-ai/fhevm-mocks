@@ -3,7 +3,7 @@
 */
 import { ethers as EthersT } from "ethers";
 
-import type { DecryptedResults } from "../types.js";
+import type { ClearValues } from "../types.js";
 
 // Duplicated code from relayer-sdk/src/relayer/publicDecrypt.ts
 const CiphertextType: Record<number, "bool" | "uint256" | "address" | "bytes"> = {
@@ -18,7 +18,7 @@ const CiphertextType: Record<number, "bool" | "uint256" | "address" | "bytes"> =
 };
 
 // Duplicated code from relayer-sdk/src/relayer/publicDecrypt.ts
-export function deserializeDecryptedResult(handles: string[], decryptedResult: string): DecryptedResults {
+export function deserializeClearValues(handles: `0x${string}`[], decryptedResult: `0x${string}`): ClearValues {
   let typesList: number[] = [];
   for (const handle of handles) {
     const hexPair = handle.slice(-4, -2).toLowerCase();
@@ -43,7 +43,7 @@ export function deserializeDecryptedResult(handles: string[], decryptedResult: s
   // strip dummy first/last element
   const rawValues = decoded.slice(1, 1 + typesList.length);
 
-  let results: DecryptedResults = {};
+  const results: ClearValues = {};
   handles.forEach((handle, idx) => (results[handle] = rawValues[idx]));
 
   return results;

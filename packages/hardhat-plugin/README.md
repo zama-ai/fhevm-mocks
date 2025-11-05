@@ -48,7 +48,6 @@ This Hardhat plugin relies on the following peer dependencies to function correc
 
 - `@fhevm/mock-utils`
 - `@fhevm/solidity`
-- `@zama-fhe/oracle-solidity`
 - `@zama-fhe/relayer-sdk`
 - `@nomicfoundation/hardhat-ethers`
 - `ethers`
@@ -138,9 +137,9 @@ Then, inside the `contracts` directory, create a new Solidity file named `APlusB
 pragma solidity ^0.8.24;
 
 import { FHE, euint8, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract APlusB is SepoliaConfig {
+contract APlusB is EthereumConfig {
   euint8 private _a;
   euint8 private _b;
   euint8 private _aplusb;

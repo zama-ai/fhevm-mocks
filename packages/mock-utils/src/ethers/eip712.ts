@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
 import { FhevmError, assertFhevm } from "../utils/error.js";
-import { removePrefix } from "../utils/string.js";
+import { assertIs0xString, removePrefix } from "../utils/string.js";
 
 export type EthersEIP712 = {
   domain: EthersT.TypedDataDomain;
@@ -23,7 +23,7 @@ export async function signEIP712(
   domain: EthersT.TypedDataDomain,
   types: Record<string, Array<EthersT.TypedDataField>>,
   message: Record<string, unknown>,
-): Promise<string> {
+): Promise<`0x${string}`> {
   const signature = await signer.signTypedData(domain, types, message);
   const sigRSV = EthersT.Signature.from(signature);
   const v = 27 + sigRSV.yParity;
@@ -31,6 +31,9 @@ export async function signEIP712(
   const s = sigRSV.s;
 
   const result = r + removePrefix(s, "0x") + v.toString(16);
+
+  assertIs0xString(result);
+
   return result;
 }
 
@@ -39,8 +42,8 @@ export async function multiSignEIP712(
   domain: EthersT.TypedDataDomain,
   types: Record<string, Array<EthersT.TypedDataField>>,
   message: Record<string, unknown>,
-): Promise<string[]> {
-  const signatures: string[] = [];
+): Promise<`0x${string}`[]> {
+  const signatures: `0x${string}`[] = [];
   for (let idx = 0; idx < signers.length; idx++) {
     const signer = signers[idx];
     const signature = await signEIP712(signer!, domain, types, message);

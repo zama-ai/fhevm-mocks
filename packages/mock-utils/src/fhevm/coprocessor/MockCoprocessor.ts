@@ -42,7 +42,9 @@ export class MockCoprocessor implements Coprocessor {
     );
     mc.#handler = new CoprocessorEventsHandler(params.db);
     mc.#db = params.db;
-    mc.#inputVerifier = await InputVerifier.create(readonlyProvider, params.inputVerifierContractAddress);
+    mc.#inputVerifier = await InputVerifier.create(readonlyProvider, params.inputVerifierContractAddress, undefined, {
+      signers: params.coprocessorSigners,
+    });
     mc.#coprocessorSigners = params.coprocessorSigners;
     return mc;
   }

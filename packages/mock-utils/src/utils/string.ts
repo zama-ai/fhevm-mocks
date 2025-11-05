@@ -28,6 +28,13 @@ export function assertIsString(value: unknown, valueName?: string): asserts valu
   assertFhevm(typeof value === "string", `${valueName ?? "value"} is not of type string, got ${typeof value} instead`);
 }
 
+export function assertIs0xString(value: unknown, valueName?: string): asserts value is `0x${string}` {
+  assertFhevm(
+    typeof value === "string" && value.startsWith("0x"),
+    `${valueName ?? "value"} is not of type \`0x\${string}\`, got ${typeof value} instead`,
+  );
+}
+
 export function assertIsStringArray(value: unknown, valueName?: string): asserts value is string[] {
   if (!Array.isArray(value)) {
     throw new FhevmError(`${valueName ?? "value"} is not an array of string`);

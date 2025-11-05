@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { ConfidentialERC20Mintable } from "../../../token/ERC20/extensions/ConfidentialERC20Mintable.sol";
-import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestConfidentialERC20Mintable is SepoliaConfig, ConfidentialERC20Mintable {
+contract TestConfidentialERC20Mintable is EthereumConfig, ConfidentialERC20Mintable {
     constructor(
         string memory name_,
         string memory symbol_,

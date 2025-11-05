@@ -4,7 +4,7 @@ import { assertIsAddress } from "../../utils/address.js";
 import { assertFhevm } from "../../utils/error.js";
 import { assertIsString } from "../../utils/string.js";
 import { type FhevmTransactionHCUInfo, getTxHCUFromTxReceipt } from "../coprocessor/hcu.js";
-import { FhevmCoprocessorContractWrapper } from "./FhevmContractWrapper.js";
+import { FhevmHostContractWrapper } from "./FhevmContractWrapper.js";
 import { FHEVMExecutorPartialInterface } from "./interfaces/FHEVMExecutor.itf.js";
 
 export type FHEVMExecutorProperties = {
@@ -15,7 +15,7 @@ export type FHEVMExecutorProperties = {
 };
 
 // Shareable
-export class FHEVMExecutor extends FhevmCoprocessorContractWrapper {
+export class FHEVMExecutor extends FhevmHostContractWrapper {
   #fhevmExecutorReadonlyContract: EthersT.Contract | undefined;
   #fhevmExecutorContractAddress: `0x${string}` | undefined;
   #aclAddress: `0x${string}` | undefined;

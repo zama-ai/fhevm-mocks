@@ -240,7 +240,6 @@ fhevmScope
       if (
         coprocessorConfig.ACLAddress === hre.ethers.ZeroAddress &&
         coprocessorConfig.CoprocessorAddress === hre.ethers.ZeroAddress &&
-        coprocessorConfig.DecryptionOracleAddress === hre.ethers.ZeroAddress &&
         coprocessorConfig.KMSVerifierAddress === hre.ethers.ZeroAddress
       ) {
         const deployedCode = await fhevmEnv.mockProvider.getCodeAt(address);
@@ -253,7 +252,6 @@ fhevmScope
         const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
           aclContractAddress: coprocessorConfig.ACLAddress,
           kmsContractAddress: coprocessorConfig.KMSVerifierAddress,
-          zamaFheDecryptionOracleAddress: coprocessorConfig.DecryptionOracleAddress,
         });
 
         const o = {
@@ -264,10 +262,6 @@ fhevmScope
             relayerUrl: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl,
           }),
         };
-
-        if (o.FhevmInstanceConfig.decryptionOracleAddress === undefined) {
-          o.FhevmInstanceConfig.decryptionOracleAddress = hre.ethers.ZeroAddress;
-        }
 
         console.log(JSON.stringify(o, null, 2));
       } catch {

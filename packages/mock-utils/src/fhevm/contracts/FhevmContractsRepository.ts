@@ -4,20 +4,11 @@ import type { FhevmInstanceConfig } from "../../relayer-sdk/types.js";
 import { FhevmError, assertFhevm } from "../../utils/error.js";
 import { ACL, type ACLProperties } from "./ACL.js";
 import { FHEVMExecutor, type FHEVMExecutorProperties } from "./FHEVMExecutor.js";
-import type {
-  FhevmContractWrapper,
-  FhevmCoprocessorContractWrapper,
-  FhevmDecryptionOracleContractWrapper,
-} from "./FhevmContractWrapper.js";
+import type { FhevmContractWrapper, FhevmHostContractWrapper } from "./FhevmContractWrapper.js";
 import { HCULimit, type HCULimitProperties } from "./HCULimit.js";
 import { InputVerifier, type InputVerifierProperties } from "./InputVerifier.js";
 import { KMSVerifier, type KMSVerifierProperties } from "./KMSVerifier.js";
-import { ZamaFheDecryptionOracle } from "./ZamaFheDecryptionOracle.js";
-import {
-  type FhevmContractName,
-  type FhevmCoprocessorContractName,
-  type FhevmDecryptionOracleContractName,
-} from "./index.js";
+import { type FhevmContractName, type FhevmHostContractName } from "./index.js";
 
 export class FhevmContractsRepository {
   #acl: ACL | undefined;
@@ -25,7 +16,6 @@ export class FhevmContractsRepository {
   #inputVerifier: InputVerifier | undefined;
   #kmsVerifier: KMSVerifier | undefined;
   #hcuLimit: HCULimit | undefined;
-  #zamaFheDecryptionOracle: ZamaFheDecryptionOracle | undefined;
   #addressToContract: Record<string, FhevmContractWrapper> | undefined;
 
   constructor() {}
@@ -35,13 +25,11 @@ export class FhevmContractsRepository {
     config: {
       aclContractAddress: `0x${string}`;
       kmsContractAddress: `0x${string}`;
-      zamaFheDecryptionOracleAddress?: `0x${string}`;
       aclAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       fhevmExecutorAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       hcuLimitAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       kmsVerifierAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       inputVerifierAbi?: EthersT.Interface | EthersT.InterfaceAbi;
-      zamaFheDecryptionOracleAbi?: EthersT.Interface | EthersT.InterfaceAbi;
       aclProperties?: ACLProperties;
       fhevmExecutorProperties?: FHEVMExecutorProperties;
       inputVerifierProperties?: InputVerifierProperties;
@@ -54,11 +42,6 @@ export class FhevmContractsRepository {
     }
     if (!EthersT.isAddress(config.kmsContractAddress)) {
       throw new FhevmError(`Invalid KMSVerifier contract address ${config.kmsContractAddress}`);
-    }
-    if (config.zamaFheDecryptionOracleAddress !== undefined) {
-      if (!EthersT.isAddress(config.zamaFheDecryptionOracleAddress)) {
-        throw new FhevmError(`Invalid DecryptionOracle contract address ${config.zamaFheDecryptionOracleAddress}`);
-      }
     }
 
     const repo = new FhevmContractsRepository();
@@ -79,24 +62,20 @@ export class FhevmContractsRepository {
       ethersReadonlyProvider,
       repo.#fhevmExecutor.inputVerifierAddress,
       config.inputVerifierAbi,
+      config.inputVerifierProperties,
     );
     repo.#kmsVerifier = await KMSVerifier.create(
       ethersReadonlyProvider,
       config.kmsContractAddress,
       config.kmsVerifierAbi,
+      config.kmsVerifierProperties,
     );
     repo.#hcuLimit = await HCULimit.create(
       ethersReadonlyProvider,
       repo.#fhevmExecutor.hcuLimitAddress,
       config.hcuLimitAbi,
+      config.hcuLimitProperties,
     );
-    if (config.zamaFheDecryptionOracleAddress !== undefined) {
-      repo.#zamaFheDecryptionOracle = await ZamaFheDecryptionOracle.create(
-        ethersReadonlyProvider,
-        config.zamaFheDecryptionOracleAddress,
-        config.zamaFheDecryptionOracleAbi,
-      );
-    }
 
     if (repo.#inputVerifier.gatewayChainId !== repo.#kmsVerifier.gatewayChainId) {
       throw new FhevmError(
@@ -108,9 +87,6 @@ export class FhevmContractsRepository {
 
     repo.#addressToContract[repo.#acl.address.toLowerCase()] = repo.#acl;
     repo.#addressToContract[repo.#fhevmExecutor.address.toLowerCase()] = repo.#fhevmExecutor;
-    if (repo.#zamaFheDecryptionOracle) {
-      repo.#addressToContract[repo.#zamaFheDecryptionOracle.address.toLowerCase()] = repo.#zamaFheDecryptionOracle;
-    }
     repo.#addressToContract[repo.#inputVerifier.address.toLowerCase()] = repo.#inputVerifier;
     repo.#addressToContract[repo.#kmsVerifier.address.toLowerCase()] = repo.#kmsVerifier;
     repo.#addressToContract[repo.#hcuLimit.address.toLowerCase()] = repo.#hcuLimit;
@@ -142,11 +118,6 @@ export class FhevmContractsRepository {
     if (a === this.hcuLimit.address.toLowerCase()) {
       return this.hcuLimit;
     }
-    if (this.zamaFheDecryptionOracle) {
-      if (a === this.zamaFheDecryptionOracle.address.toLowerCase()) {
-        return this.zamaFheDecryptionOracle;
-      }
-    }
     return undefined;
   }
 
@@ -162,15 +133,13 @@ export class FhevmContractsRepository {
         return this.kmsVerifier;
       case "HCULimit":
         return this.hcuLimit;
-      case "DecryptionOracle":
-        return this.zamaFheDecryptionOracle;
       default: {
         throw new FhevmError(`Unsupported contract ${name}`);
       }
     }
   }
 
-  public getCoprocessorContractFromName(name: FhevmCoprocessorContractName): FhevmCoprocessorContractWrapper {
+  public getCoprocessorContractFromName(name: FhevmHostContractName): FhevmHostContractWrapper {
     switch (name) {
       case "ACL":
         return this.acl;
@@ -188,32 +157,8 @@ export class FhevmContractsRepository {
     }
   }
 
-  public getDecryptionOracleContractFromName(
-    name: FhevmDecryptionOracleContractName,
-  ): FhevmDecryptionOracleContractWrapper | undefined {
-    switch (name) {
-      case "DecryptionOracle":
-        return this.zamaFheDecryptionOracle;
-      default: {
-        throw new FhevmError(`Unsupported decryption oracle contract ${name}`);
-      }
-    }
-  }
-
-  public getCoprocessorInterfaceFromName(name: FhevmCoprocessorContractName): EthersT.Interface {
+  public getCoprocessorInterfaceFromName(name: FhevmHostContractName): EthersT.Interface {
     return this.getCoprocessorContractFromName(name).interface;
-  }
-
-  public getDecryptionOracleInterfaceFromName(name: FhevmDecryptionOracleContractName): EthersT.Interface | undefined {
-    const c = this.getDecryptionOracleContractFromName(name);
-    if (c === undefined) {
-      return undefined;
-    }
-    return c.interface;
-  }
-
-  public get zamaFheDecryptionOracle(): ZamaFheDecryptionOracle | undefined {
-    return this.#zamaFheDecryptionOracle;
   }
 
   public get acl(): ACL {
@@ -244,13 +189,11 @@ export class FhevmContractsRepository {
   public getFhevmInstanceConfig(params: {
     chainId: number;
     relayerUrl: string;
-  }): FhevmInstanceConfig & { fhevmExecutorContractAddress: string; decryptionOracleAddress?: string } {
+  }): FhevmInstanceConfig & { fhevmExecutorContractAddress: string } {
     assertFhevm(this.#acl !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#fhevmExecutor !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#kmsVerifier !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#inputVerifier !== undefined, "FhevmContractsRepository is not initialized");
-
-    const decryptionOracleAddress = this.#zamaFheDecryptionOracle?.address;
 
     return {
       aclContractAddress: this.#acl.address,
@@ -262,7 +205,6 @@ export class FhevmContractsRepository {
       verifyingContractAddressDecryption: this.#kmsVerifier.gatewayDecryptionAddress,
       verifyingContractAddressInputVerification: this.#inputVerifier.gatewayInputVerificationAddress,
       relayerUrl: params.relayerUrl,
-      ...(decryptionOracleAddress && { decryptionOracleAddress }),
     };
   }
 }

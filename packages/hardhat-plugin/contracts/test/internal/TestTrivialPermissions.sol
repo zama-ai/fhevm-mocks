@@ -3,9 +3,9 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestTrivialPermissions is SepoliaConfig {
+contract TestTrivialPermissions is EthereumConfig {
     euint32 private _xEuint32;
 
     constructor() {

@@ -3,9 +3,9 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestErrors is SepoliaConfig {
+contract TestErrors is EthereumConfig {
     euint64 private _aCypherTextUint64;
     uint64 private _aClearTextUint64;
     euint64 private _bCypherTextUint64;
