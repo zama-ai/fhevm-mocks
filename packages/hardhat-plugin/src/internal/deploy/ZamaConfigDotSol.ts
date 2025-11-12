@@ -27,20 +27,13 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
     );
   }
 
-  // FORCE_REPLACE_ALL_ADDRESSES = true
-  // Enables Developer Mode for contract addresses. This flag forces all configured Ethereum/Sepolia
-  // addresses returned by `ZamaConfig` functions to be replaced with local development addresses.
-  // Purpose: Allows dApps to test smart contract logic that uses `ZamaConfig.getSepoliaConfig` or
-  // `ZamaConfig.getEthereumConfig` functions within a local FHEVM setup.
-  const FORCE_REPLACE_ALL_ADDRESSES = true;
-
   // Mandatory ZamaConfig Addresses:
   // These addresses must all be present in the target `ZamaConfig.sol` file.
   // An error is thrown if any of these expected addresses are missing,
   // indicating an invalid or unexpected `ZamaConfig.sol` file content
-  const expectedACLAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.ACLAddress;
-  const expectedFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.CoprocessorAddress;
-  const expectedKMSVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.KMSVerifierAddress;
+  const expectedLocalACLAddress = constants.FHEVM_SOLIDITY_PACKAGE.LocalConfig.ACLAddress;
+  const expectedLocalFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.LocalConfig.CoprocessorAddress;
+  const expectedLocalKMSVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.LocalConfig.KMSVerifierAddress;
 
   const origContent: string = fs.readFileSync(origPath, "utf8");
   try {
@@ -53,99 +46,41 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
     );
   }
 
-  if (origContent.indexOf(`ACLAddress: ${expectedACLAddress}`) < 0) {
+  if (origContent.indexOf(`ACLAddress: ${expectedLocalACLAddress}`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected ACLAddress=${expectedACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected local ACLAddress=${expectedLocalACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
-  if (origContent.indexOf(`CoprocessorAddress: ${expectedFHEVMExecutorAddress}`) < 0) {
+  if (origContent.indexOf(`CoprocessorAddress: ${expectedLocalFHEVMExecutorAddress}`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected FHEVMExecutorAddress=${expectedFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected local FHEVMExecutorAddress=${expectedLocalFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
-  if (origContent.indexOf(`KMSVerifierAddress: ${expectedKMSVerifierAddress}`) < 0) {
+  if (origContent.indexOf(`KMSVerifierAddress: ${expectedLocalKMSVerifierAddress}`) < 0) {
     throw new HardhatFhevmError(
-      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected KMSVerifierAddress=${expectedKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected local KMSVerifierAddress=${expectedLocalKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
     );
   }
 
-  const expectedEthereumConfig = `contract EthereumConfig {
-    constructor() {
-        if (block.chainid == 1) {
-            FHE.setCoprocessor(ZamaConfig.getEthereumConfig());
-        } else if (block.chainid == 11155111) {
-            FHE.setCoprocessor(ZamaConfig.getSepoliaConfig());
-        }
-    }
-
-    function protocolId() public view returns (uint256) {
-        if (block.chainid == 1) {
-            return ZamaConfig.getEthereumProtocolId();
-        } else if (block.chainid == 11155111) {
-            return ZamaConfig.getSepoliaProtocolId();
-        }
-        return 0;
-    }
-}`;
-
-  const newEthereumConfig = `contract EthereumConfig {
-    constructor() {
-        FHE.setCoprocessor(ZamaConfig.getChainConfig());
-    }
-
-    function protocolId() public view returns (uint256) {
-        return ZamaConfig.getChainProtocolId();
-    }
-}`;
-
-  const newChainConfigCode = `
-    function getChainConfig() internal view returns (CoprocessorConfig memory config) {
-        if (block.chainid == 1) {
-            config = ZamaConfig.getEthereumConfig();
-        } else if (block.chainid == 11155111) {
-            config = ZamaConfig.getSepoliaConfig();
-        } else if (block.chainid == 31337) {
-            config = ZamaConfig.getDevConfig();
-        } else {
-            config = CoprocessorConfig({ACLAddress: address(0), CoprocessorAddress: address(0), KMSVerifierAddress: address(0)});
-        }
-    }
-
-    function getChainProtocolId() internal view returns (uint256) {
-        if (block.chainid == 1) {
-            return ZamaConfig.getEthereumProtocolId();
-        } else if (block.chainid == 11155111) {
-            return ZamaConfig.getSepoliaProtocolId();
-        } else if (block.chainid == 31337) {
-            return ZamaConfig.getDevProtocolId();
-        }
-        return 0;
+  const expectedLocalConfig = `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
+        return
+            CoprocessorConfig({
+                ACLAddress: ${expectedLocalACLAddress},
+                CoprocessorAddress: ${expectedLocalFHEVMExecutorAddress},
+                KMSVerifierAddress: ${expectedLocalKMSVerifierAddress}
+            });
     }`;
 
-  const newDevConfig = `library ZamaConfig {
-    /**
-     * @dev This protocolId is auto-generated by the FHEVM Hardhat Plugin
-     */
-    function getDevProtocolId() internal pure returns (uint256) {
-        /// @note Development protocol id is '100000 + Zama Ethereum protocol id'
-        return 100001;
-    }
-
-    /**
-     * @dev This \`CoprocessorConfig\` is auto-generated by the FHEVM Hardhat Plugin
-     */
-    function getDevConfig() internal pure returns (CoprocessorConfig memory) {
+  const newLocalConfig = `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
         return
             CoprocessorConfig({
                 ACLAddress: ${addresses.ACLAddress},
                 CoprocessorAddress: ${addresses.CoprocessorAddress},
                 KMSVerifierAddress: ${addresses.KMSVerifierAddress}
             });
-    }
-    ${newChainConfigCode}
-`;
+    }`;
 
-  if (origContent.indexOf(expectedEthereumConfig) < 0) {
+  if (origContent.indexOf(expectedLocalConfig) < 0) {
     throw new HardhatFhevmError(
       `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported.`,
     );
@@ -154,15 +89,12 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
   let dstContent = origContent
     .replaceAll("../lib/FHE.sol", "@fhevm/solidity/lib/FHE.sol")
     .replaceAll("../lib/Impl.sol", "@fhevm/solidity/lib/Impl.sol")
-    .replaceAll(expectedEthereumConfig, newEthereumConfig)
-    .replaceAll("library ZamaConfig {", newDevConfig);
+    .replaceAll(expectedLocalConfig, newLocalConfig);
 
-  if (FORCE_REPLACE_ALL_ADDRESSES) {
-    dstContent = dstContent
-      .replaceAll(expectedACLAddress, addresses.ACLAddress)
-      .replaceAll(expectedFHEVMExecutorAddress, addresses.CoprocessorAddress)
-      .replaceAll(expectedKMSVerifierAddress, addresses.KMSVerifierAddress);
-  }
+  // dstContent = dstContent
+  //   .replaceAll(expectedLocalACLAddress, addresses.ACLAddress)
+  //   .replaceAll(expectedLocalFHEVMExecutorAddress, addresses.CoprocessorAddress)
+  //   .replaceAll(expectedLocalKMSVerifierAddress, addresses.KMSVerifierAddress);
 
   const dstPath = paths.cacheCoprocessorConfigSol;
   if (fs.existsSync(dstPath)) {
