@@ -13,7 +13,7 @@ contract FHECounterPublicDecrypt is ZamaEthereumConfig {
         return _count;
     }
 
-    function verfiy(bytes32[] calldata handlesList, bytes memory cleartexts, bytes memory decryptionProof) external {
+    function verify(bytes32[] calldata handlesList, bytes memory cleartexts, bytes memory decryptionProof) external {
         FHE.checkSignatures(handlesList, cleartexts, decryptionProof);
     }
 

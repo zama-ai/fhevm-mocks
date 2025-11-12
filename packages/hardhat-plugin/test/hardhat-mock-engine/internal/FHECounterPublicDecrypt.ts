@@ -69,7 +69,7 @@ describe("FHECounterPublicDecrypt", function () {
     console.log(publicDecryptResults.abiEncodedClearValues);
     console.log(publicDecryptResults.decryptionProof);
 
-    await fheCounterContract.verfiy(
+    await fheCounterContract.verify(
       [encryptedCountAfterInc],
       publicDecryptResults.abiEncodedClearValues,
       publicDecryptResults.decryptionProof,
