@@ -78,7 +78,7 @@ contract HeadsOrTails is ZamaEthereumConfig {
             winner: address(0)
         });
 
-        // Instead of calling the function FHE.requestDecryption, we make the result publicly decryptable directly.
+        // We make the result publicly decryptable.
         FHE.makePubliclyDecryptable(headsOrTailsResult);
 
         // You can catch the event to get the gameId and the encryptedHasHeadsWon handle
@@ -109,6 +109,7 @@ contract HeadsOrTails is ZamaEthereumConfig {
      * @return The winner's address (address(0) if not yet revealed).
      */
     function getWinner(uint256 gameId) public view returns (address) {
+        require(games[gameId].winner != address(0), "Game winner not yet revealed");
         return games[gameId].winner;
     }
 
@@ -126,16 +127,7 @@ contract HeadsOrTails is ZamaEthereumConfig {
     ) public {
         require(games[gameId].winner == address(0), "Game winner already revealed");
 
-        // 1. Decode the clear result and determine the winner's address.
-        //    In this very specific case, the function argument `abiEncodedClearGameResult` could have been a simple
-        //    `bool` instead of an abi-encoded bool. In this case, we should have compute abi.encode on-chain
-        bool decodedClearGameResult = abi.decode(abiEncodedClearGameResult, (bool));
-        address winner = decodedClearGameResult ? games[gameId].headsPlayer : games[gameId].tailsPlayer;
-
-        // 2. Store the winner immediately to prevent re-entrancy issues
-        games[gameId].winner = winner;
-
-        // 3. FHE Verification: Build the list of ciphertexts (handles) and verify the proof.
+        // 1. FHE Verification: Build the list of ciphertexts (handles) and verify the proof.
         //    The verification checks that 'abiEncodedClearGameResult' is the true decryption
         //    of the 'encryptedHasHeadsWon' handle using the provided 'decryptionProof'.
 
@@ -146,5 +138,14 @@ contract HeadsOrTails is ZamaEthereumConfig {
 
         // This FHE call reverts the transaction if the decryption proof is invalid.
         FHE.checkSignatures(cts, abiEncodedClearGameResult, decryptionProof);
+
+        // 2. Decode the clear result and determine the winner's address.
+        //    In this very specific case, the function argument `abiEncodedClearGameResult` could have been a simple
+        //    `bool` instead of an abi-encoded bool. In this case, we should have compute abi.encode on-chain
+        bool decodedClearGameResult = abi.decode(abiEncodedClearGameResult, (bool));
+        address winner = decodedClearGameResult ? games[gameId].headsPlayer : games[gameId].tailsPlayer;
+
+        // 3. Store the winner
+        games[gameId].winner = winner;
     }
 }

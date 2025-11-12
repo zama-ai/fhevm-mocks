@@ -44,6 +44,11 @@ describe("HighestDieRoll", function () {
     contract = deployment.highestDiceRoll;
   });
 
+  /**
+   * Parses the GameCreated event from a transaction receipt.
+   * * WARNING: This function is for illustrative purposes only and is not production-ready.
+   * It demonstrates the underlying event parsing mechanism.
+   */
   function parseGameCreatedEvent(txReceipt: EthersT.ContractTransactionReceipt | null):
     | {
         gameId: number;
