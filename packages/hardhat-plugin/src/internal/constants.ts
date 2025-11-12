@@ -1,7 +1,7 @@
 // npmjs.com packages url:
 // =======================
 
-// https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions (0.9.0)
+// https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions (0.9.1)
 // https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions (0.9.0)
 // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions (0.3.0-4)
 
@@ -20,9 +20,9 @@ const constants = {
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   // https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-  // @fhevm/solidity@0.9.0
+  // @fhevm/solidity@0.9.1
   FHEVM_SOLIDITY_PACKAGE: {
-    version: "0.9.0",
+    version: "0.9.1",
     name: "@fhevm/solidity",
     configFile: "config/ZamaConfig.sol",
     configContractName: "EthereumConfig",
