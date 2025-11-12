@@ -2,15 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { FHE, euint8 } from "@fhevm/solidity/lib/FHE.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /**
  * @title HighestDieRoll
  * @notice Implements a simple 8-sided Die Roll game demonstrating public, permissionless decryption
  *         using the FHE.makePubliclyDecryptable feature.
- * @dev Inherits from EthereumConfig to access FHE functions like FHE.randEbool() and FHE.verifySignatures().
+ * @dev Inherits from ZamaEthereumConfig to access FHE functions like FHE.randEbool() and FHE.verifySignatures().
  */
-contract HighestDieRoll is EthereumConfig {
+contract HighestDieRoll is ZamaEthereumConfig {
     constructor() {}
 
     /**
@@ -183,7 +183,6 @@ contract HighestDieRoll is EthereumConfig {
         cts[1] = FHE.toBytes32(games[gameId].playerBEncryptedDieRoll);
 
         // This FHE call reverts the transaction if the decryption proof is invalid.
-        bool ok = FHE.verifySignatures(cts, abiEncodedClearGameResult, decryptionProof);
-        require(ok, "Signatures verification failed");
+        FHE.checkSignatures(cts, abiEncodedClearGameResult, decryptionProof);
     }
 }

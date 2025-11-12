@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import { FHE, euint32, externalEuint32 } from "@fhevm/solidity/lib/FHE.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /// @title A simple FHE counter contract
-contract FHECounterPublicDecrypt is EthereumConfig {
+contract FHECounterPublicDecrypt is ZamaEthereumConfig {
     euint32 private _count;
 
     /// @notice Returns the current count
@@ -14,8 +14,7 @@ contract FHECounterPublicDecrypt is EthereumConfig {
     }
 
     function verfiy(bytes32[] calldata handlesList, bytes memory cleartexts, bytes memory decryptionProof) external {
-        bool ok = FHE.verifySignatures(handlesList, cleartexts, decryptionProof);
-        require(ok, "FHE.verifySignatures failed");
+        FHE.checkSignatures(handlesList, cleartexts, decryptionProof);
     }
 
     /// @notice Increments the counter by a specified encrypted value.
