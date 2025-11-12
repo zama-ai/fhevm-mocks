@@ -3,9 +3,9 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestTrivialPermissions is EthereumConfig {
+contract TestTrivialPermissions is ZamaEthereumConfig {
     euint32 private _xEuint32;
 
     constructor() {

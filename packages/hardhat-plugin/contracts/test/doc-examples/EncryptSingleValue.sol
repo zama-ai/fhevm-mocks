@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import { FHE, externalEuint32, euint32 } from "@fhevm/solidity/lib/FHE.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /**
  * This trivial example demonstrates the FHE encryption mechanism.
  */
-contract EncryptSingleValue is EthereumConfig {
+contract EncryptSingleValue is ZamaEthereumConfig {
     euint32 private _encryptedEuint32;
 
     // solhint-disable-next-line no-empty-blocks

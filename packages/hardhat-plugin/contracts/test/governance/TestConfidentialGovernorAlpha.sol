@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 // import { ConfidentialGovernorAlpha } from "../../governance/ConfidentialGovernorAlpha.sol";
 // import { FHE } from "@fhevm/solidity/lib/FHE.sol";
-// import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+// import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-// contract TestConfidentialGovernorAlpha is EthereumConfig, ConfidentialGovernorAlpha {
+// contract TestConfidentialGovernorAlpha is ZamaEthereumConfig, ConfidentialGovernorAlpha {
 //     constructor(
 //         address owner_,
 //         address timelock_,

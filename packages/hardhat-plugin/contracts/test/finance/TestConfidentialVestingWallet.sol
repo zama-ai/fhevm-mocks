@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { ConfidentialVestingWallet } from "../../finance/ConfidentialVestingWallet.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract TestConfidentialVestingWallet is EthereumConfig, ConfidentialVestingWallet {
+contract TestConfidentialVestingWallet is ZamaEthereumConfig, ConfidentialVestingWallet {
     constructor(
         address beneficiary_,
         uint64 startTimestamp_,

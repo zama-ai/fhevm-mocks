@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract FHEVMTestSuite5 is EthereumConfig {
+contract FHEVMTestSuite5 is ZamaEthereumConfig {
     ebool public resEbool;
     euint8 public resEuint8;
     euint16 public resEuint16;
