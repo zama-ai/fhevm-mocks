@@ -91,11 +91,6 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
     .replaceAll("../lib/Impl.sol", "@fhevm/solidity/lib/Impl.sol")
     .replaceAll(expectedLocalConfig, newLocalConfig);
 
-  // dstContent = dstContent
-  //   .replaceAll(expectedLocalACLAddress, addresses.ACLAddress)
-  //   .replaceAll(expectedLocalFHEVMExecutorAddress, addresses.CoprocessorAddress)
-  //   .replaceAll(expectedLocalKMSVerifierAddress, addresses.KMSVerifierAddress);
-
   const dstPath = paths.cacheCoprocessorConfigSol;
   if (fs.existsSync(dstPath)) {
     const existingContent: string = fs.readFileSync(dstPath, "utf8");
