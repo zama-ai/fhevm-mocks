@@ -1,7 +1,7 @@
 // npmjs.com packages url:
 // =======================
 
-// https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions (0.9.0)
+// https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions (0.9.1)
 // https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions (0.9.0)
 // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions (0.3.0-4)
 
@@ -20,9 +20,9 @@ const constants = {
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   // https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-  // @fhevm/solidity@0.9.0
+  // @fhevm/solidity@0.9.1
   FHEVM_SOLIDITY_PACKAGE: {
-    version: "0.9.0",
+    version: "0.9.1",
     name: "@fhevm/solidity",
     configFile: "config/ZamaConfig.sol",
     configContractName: "EthereumConfig",
@@ -32,6 +32,11 @@ const constants = {
       ACLAddress: "0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D",
       CoprocessorAddress: "0x92C920834Ec8941d2C77D188936E1f7A6f49c127",
       KMSVerifierAddress: "0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A",
+    },
+    LocalConfig: {
+      ACLAddress: "0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D",
+      CoprocessorAddress: "0xe3a9105a3a932253A70F126eb1E3b589C643dD24",
+      KMSVerifierAddress: "0x901F8942346f7AB3a01F6D7613119Bca447Bb030",
     },
   },
   // https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions

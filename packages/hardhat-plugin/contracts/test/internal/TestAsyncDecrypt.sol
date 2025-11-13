@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 // import "@fhevm/solidity/lib/FHE.sol";
-// import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+// import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
 // /// @notice Contract for testing asynchronous decryption using the Gateway
-// contract TestAsyncDecrypt is EthereumConfig {
+// contract TestAsyncDecrypt is ZamaEthereumConfig {
 //     /// @dev Encrypted state variables
 //     ebool xBool;
 //     euint8 xUint8;

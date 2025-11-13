@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { EthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 import { EncryptedErrors } from "../../utils/EncryptedErrors.sol";
 
-contract TestEncryptedErrors is EthereumConfig, EncryptedErrors {
+contract TestEncryptedErrors is ZamaEthereumConfig, EncryptedErrors {
     constructor(uint8 totalNumberErrorCodes_) EncryptedErrors(totalNumberErrorCodes_) {
         for (uint8 i; i <= totalNumberErrorCodes_; i++) {
             /// @dev It is not possible to access the _errorCodeDefinitions since it is private.

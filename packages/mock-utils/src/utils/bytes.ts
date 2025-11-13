@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
 import { assertFhevm } from "./error.js";
-import { assertIsString } from "./string.js";
+import { assertIs0xString } from "./string.js";
 
 export function assertIsUint8Array(value: unknown, valueName?: string): asserts value is Uint8Array {
   assertFhevm(value instanceof Uint8Array, `${valueName ?? "value"} is not of type Uint8Array`);
@@ -23,7 +23,7 @@ export function assertIsBytesString(
   width?: number,
   valueName?: string,
 ): asserts value is `0x${string}` {
-  assertIsString(value, valueName);
+  assertIs0xString(value, valueName);
   if (width === undefined) {
     assertFhevm(EthersT.isBytesLike(value), `${valueName ?? "value"} : ${value} is not a valid bytes string`);
   } else {
