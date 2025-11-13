@@ -16,6 +16,13 @@ async function deployFixture() {
   return { headsOrTails, headsOrTails_address };
 }
 
+/**
+ * The `HeadsOrTails` example showcases the public decryption mechanism and
+ * its corresponding on-chain verification in the case of a single value.
+ * The core assertion is to guarantee that a single given cleartext is the
+ * cryptographically verifiable result of the decryption of a single original
+ * on-chain ciphertext.
+ */
 describe("HeadsOrTails", function () {
   let contract: HeadsOrTails;
   let contractAddress: string;
@@ -44,44 +51,47 @@ describe("HeadsOrTails", function () {
   });
 
   /**
-   * Parses the GameCreated event from a transaction receipt.
-   * * WARNING: This function is for illustrative purposes only and is not production-ready.
-   * It demonstrates the underlying event parsing mechanism.
+   * Helper: Parses the GameCreated event from a transaction receipt.
+   * WARNING: This function is for illustrative purposes only and is not production-ready
+   * (it does not handle several events in same tx).
    */
-  function parseGameCreatedEvent(txReceipt: EthersT.ContractTransactionReceipt | null):
-    | {
-        gameId: number;
-        headsPlayer: string;
-        tailsPlayer: string;
-        encryptedHasHeadWon: string;
-      }
-    | undefined {
-    let gameCreatedEvent:
-      | { gameId: number; headsPlayer: string; tailsPlayer: string; encryptedHasHeadWon: string }
-      | undefined = undefined;
+  function parseGameCreatedEvent(txReceipt: EthersT.ContractTransactionReceipt | null): {
+    txHash: `0x${string}`;
+    gameId: number;
+    headsPlayer: `0x${string}`;
+    tailsPlayer: `0x${string}`;
+    encryptedHasHeadsWon: `0x${string}`;
+  } {
+    const gameCreatedEvents: Array<{
+      txHash: `0x${string}`;
+      gameId: number;
+      headsPlayer: `0x${string}`;
+      tailsPlayer: `0x${string}`;
+      encryptedHasHeadsWon: `0x${string}`;
+    }> = [];
 
     if (txReceipt) {
-      console.log(`✅ New game created tx:${txReceipt.hash}`);
       const logs = Array.isArray(txReceipt.logs) ? txReceipt.logs : [txReceipt.logs];
       for (let i = 0; i < logs.length; ++i) {
         const parsedLog = contract.interface.parseLog(logs[i]);
-        if (!parsedLog) {
+        if (!parsedLog || parsedLog.name !== "GameCreated") {
           continue;
         }
-        if (parsedLog.name !== "GameCreated") {
-          continue;
-        }
-
-        gameCreatedEvent = {
+        const ge = {
+          txHash: txReceipt.hash as `0x${string}`,
           gameId: Number(parsedLog.args[0]),
           headsPlayer: parsedLog.args[1],
           tailsPlayer: parsedLog.args[2],
-          encryptedHasHeadWon: parsedLog.args[3],
+          encryptedHasHeadsWon: parsedLog.args[3],
         };
+        gameCreatedEvents.push(ge);
       }
     }
 
-    return gameCreatedEvent;
+    // In this example, we expect on one single GameCreated event
+    expect(gameCreatedEvents.length).to.eq(1);
+
+    return gameCreatedEvents[0];
   }
 
   // ✅ Test should succeed
@@ -96,19 +106,19 @@ describe("HeadsOrTails", function () {
     const tx = await contract.connect(signers.owner).headsOrTails(playerA, playerB);
 
     // Parse the `GameCreated` event
-    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait())!;
+    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait());
 
     // GameId is 1 since we are playing the first game
-    expect(gameCreatedEvent !== undefined).to.eq(true);
     expect(gameCreatedEvent.gameId).to.eq(1);
     expect(gameCreatedEvent.headsPlayer).to.eq(playerA.address);
     expect(gameCreatedEvent.tailsPlayer).to.eq(playerB.address);
     expect(await contract.getGamesCount()).to.eq(1);
 
+    console.log(`✅ New game #${gameCreatedEvent.gameId} created!`);
     console.log(JSON.stringify(gameCreatedEvent, null, 2));
 
     const gameId = gameCreatedEvent.gameId;
-    const encryptedBool: string = gameCreatedEvent.encryptedHasHeadWon;
+    const encryptedBool: string = gameCreatedEvent.encryptedHasHeadsWon;
 
     // Call the Zama Relayer to compute the decryption
     const publicDecryptResults = await fhevm.publicDecrypt([encryptedBool]);
@@ -136,17 +146,75 @@ describe("HeadsOrTails", function () {
     }
   });
 
-  // ❌ Test should fail if proof is invalid
-  it("decryption should fail", async function () {
+  // ❌ The test must fail if the decryption proof is invalid
+  it("should fail when the decryption proof is invalid", async function () {
     const tx = await contract.connect(signers.owner).headsOrTails(playerA, playerB);
-    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait())!;
-    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadWon]);
-    // ❌ Call `contract.recordAndVerifyWinner` using order (B, A)
+    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait());
+
+    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent.gameId,
         publicDecryptResults.abiEncodedClearValues,
         publicDecryptResults.decryptionProof + "dead",
+      ),
+    ).to.be.revertedWithCustomError(
+      { interface: new EthersT.Interface(["error KMSInvalidSigner(address invalidSigner)"]) },
+      "KMSInvalidSigner",
+    );
+  });
+
+  // ❌ The test must fail if a malicious operator attempts to use a decryption proof
+  // with a forged game result.
+  it("should fail when using a decryption proof with a forged game result", async function () {
+    const tx = await contract.connect(signers.owner).headsOrTails(playerA, playerB);
+    const gameCreatedEvent = parseGameCreatedEvent(await tx.wait());
+
+    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
+    const clearHeadsHasWon = publicDecryptResults.clearValues[gameCreatedEvent.encryptedHasHeadsWon];
+
+    // The clear value is also ABI-encoded
+    const decodedHeadsHasWon = EthersT.AbiCoder.defaultAbiCoder().decode(
+      ["bool"],
+      publicDecryptResults.abiEncodedClearValues,
+    )[0];
+    expect(decodedHeadsHasWon).to.eq(clearHeadsHasWon);
+
+    // Let's try to forge the game result
+    const forgedABIEncodedClearValues = EthersT.AbiCoder.defaultAbiCoder().encode(["bool"], [!clearHeadsHasWon]);
+
+    await expect(
+      contract.recordAndVerifyWinner(
+        gameCreatedEvent.gameId,
+        forgedABIEncodedClearValues,
+        publicDecryptResults.decryptionProof,
+      ),
+    ).to.be.revertedWithCustomError(
+      { interface: new EthersT.Interface(["error KMSInvalidSigner(address invalidSigner)"]) },
+      "KMSInvalidSigner",
+    );
+  });
+
+  // ❌ Two games (Game1 and Game2) are played between playerA and playerB.
+  // The test must fail if a malicious operator attempts to forge the result of Game1
+  // with the result of Game2
+  it("should fail when using the result of a different game", async function () {
+    // Game 1
+    const tx1 = await contract.connect(signers.owner).headsOrTails(playerA, playerB);
+    const gameCreatedEvent1 = parseGameCreatedEvent(await tx1.wait());
+
+    // Game 2
+    const tx2 = await contract.connect(signers.owner).headsOrTails(playerA, playerB);
+    const gameCreatedEvent2 = parseGameCreatedEvent(await tx2.wait());
+
+    // Let's try to forge the Game1's winner using the result of Game2
+    const publicDecryptResults2 = await fhevm.publicDecrypt([gameCreatedEvent2.encryptedHasHeadsWon]);
+
+    await expect(
+      contract.recordAndVerifyWinner(
+        gameCreatedEvent1.gameId,
+        publicDecryptResults2.abiEncodedClearValues,
+        publicDecryptResults2.decryptionProof,
       ),
     ).to.be.revertedWithCustomError(
       { interface: new EthersT.Interface(["error KMSInvalidSigner(address invalidSigner)"]) },

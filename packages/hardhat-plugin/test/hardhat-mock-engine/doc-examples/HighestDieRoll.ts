@@ -17,6 +17,13 @@ async function deployFixture() {
   return { highestDiceRoll, highestDiceRoll_address };
 }
 
+/**
+ * The `HighestDieRoll` example showcases the public decryption mechanism and
+ * its corresponding on-chain verification in the case of multiple values.
+ * The core assertion is to guarantee that multiple given cleartexts are the
+ * cryptographically verifiable results of the decryption of multiple original
+ * on-chain ciphertexts.
+ */
 describe("HighestDieRoll", function () {
   let contract: HighestDieRoll;
   let contractAddress: string;
@@ -45,52 +52,50 @@ describe("HighestDieRoll", function () {
   });
 
   /**
-   * Parses the GameCreated event from a transaction receipt.
-   * * WARNING: This function is for illustrative purposes only and is not production-ready.
-   * It demonstrates the underlying event parsing mechanism.
+   * Helper: Parses the GameCreated event from a transaction receipt.
+   * WARNING: This function is for illustrative purposes only and is not production-ready
+   * (it does not handle several events in same tx).
    */
-  function parseGameCreatedEvent(txReceipt: EthersT.ContractTransactionReceipt | null):
-    | {
-        gameId: number;
-        playerA: string;
-        playerB: string;
-        playerAEncryptedDiceRoll: `0x${string}`;
-        playerBEncryptedDiceRoll: `0x${string}`;
-      }
-    | undefined {
-    let gameCreatedEvent:
-      | {
-          gameId: number;
-          playerA: string;
-          playerB: string;
-          playerAEncryptedDiceRoll: `0x${string}`;
-          playerBEncryptedDiceRoll: `0x${string}`;
-        }
-      | undefined = undefined;
+  function parseGameCreatedEvent(txReceipt: EthersT.ContractTransactionReceipt | null): {
+    txHash: `0x${string}`;
+    gameId: number;
+    playerA: `0x${string}`;
+    playerB: `0x${string}`;
+    playerAEncryptedDiceRoll: `0x${string}`;
+    playerBEncryptedDiceRoll: `0x${string}`;
+  } {
+    const gameCreatedEvents: Array<{
+      txHash: `0x${string}`;
+      gameId: number;
+      playerA: `0x${string}`;
+      playerB: `0x${string}`;
+      playerAEncryptedDiceRoll: `0x${string}`;
+      playerBEncryptedDiceRoll: `0x${string}`;
+    }> = [];
 
     if (txReceipt) {
-      console.log(`✅ New game created tx:${txReceipt.hash}`);
       const logs = Array.isArray(txReceipt.logs) ? txReceipt.logs : [txReceipt.logs];
       for (let i = 0; i < logs.length; ++i) {
         const parsedLog = contract.interface.parseLog(logs[i]);
-        if (!parsedLog) {
+        if (!parsedLog || parsedLog.name !== "GameCreated") {
           continue;
         }
-        if (parsedLog.name !== "GameCreated") {
-          continue;
-        }
-
-        gameCreatedEvent = {
+        const ge = {
+          txHash: txReceipt.hash as `0x${string}`,
           gameId: Number(parsedLog.args[0]),
           playerA: parsedLog.args[1],
           playerB: parsedLog.args[2],
           playerAEncryptedDiceRoll: parsedLog.args[3],
           playerBEncryptedDiceRoll: parsedLog.args[4],
         };
+        gameCreatedEvents.push(ge);
       }
     }
 
-    return gameCreatedEvent;
+    // In this example, we expect on one single GameCreated event
+    expect(gameCreatedEvents.length).to.eq(1);
+
+    return gameCreatedEvents[0];
   }
 
   // ✅ Test should succeed
@@ -108,12 +113,12 @@ describe("HighestDieRoll", function () {
     const gameCreatedEvent = parseGameCreatedEvent(await tx.wait())!;
 
     // GameId is 1 since we are playing the first game
-    expect(gameCreatedEvent !== undefined).to.eq(true);
     expect(gameCreatedEvent.gameId).to.eq(1);
     expect(gameCreatedEvent.playerA).to.eq(playerA.address);
     expect(gameCreatedEvent.playerB).to.eq(playerB.address);
     expect(await contract.getGamesCount()).to.eq(1);
 
+    console.log(`✅ New game #${gameCreatedEvent.gameId} created!`);
     console.log(JSON.stringify(gameCreatedEvent, null, 2));
 
     const gameId = gameCreatedEvent.gameId;
@@ -136,15 +141,18 @@ describe("HighestDieRoll", function () {
     expect(typeof clearValueA).to.eq("bigint");
     expect(typeof clearValueB).to.eq("bigint");
 
+    // playerA's 8-sided die roll result (between 1 and 8)
     const a = (Number(clearValueA) % 8) + 1;
+    // playerB's 8-sided die roll result (between 1 and 8)
     const b = (Number(clearValueB) % 8) + 1;
 
     const isDraw = a === b;
     const playerAWon = a > b;
     const playerBWon = a < b;
 
-    console.log("🎲 playerA die roll is " + a);
-    console.log("🎲 playerB die roll is " + b);
+    console.log(``);
+    console.log(`🎲 playerA's 8-sided die roll is ${a}`);
+    console.log(`🎲 playerB's 8-sided die roll is ${b}`);
 
     // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
     // will simply be to verify the proof and store the final winner of the game
@@ -171,7 +179,7 @@ describe("HighestDieRoll", function () {
   });
 
   // ❌ Test should fail because clear values are ABI-encoded in the wrong order.
-  it("decryption should fail", async function () {
+  it("decryption should fail when ABI-encoding is wrongly ordered", async function () {
     // Test Case: Verify strict ordering is enforced for cryptographic proof generation.
     // The `decryptionProof` is generated based on the expected order (A, B). By ABI-encoding
     // the clear values in the **reverse order** (B, A), we create a mismatch when the contract
