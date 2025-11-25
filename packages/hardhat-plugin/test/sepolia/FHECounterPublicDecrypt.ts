@@ -73,6 +73,33 @@ describe("Sepolia:FHECounterPublicDecrypt", function () {
       return;
     }
 
+    //1368 + 456
+
+    this.timeout(4 * 40000);
+
+    console.log(`Encrypting 456...`);
+    const enc = await fhevm.createEncryptedInput(fheCounterContractAddress, signers.alice.address).add32(456).encrypt();
+
+    const handle = enc.handles[0];
+    const proof = enc.inputProof;
+
+    console.log(`handle: ${ethers.toBeHex(ethers.toBigInt(handle))}`);
+    console.log(`proof : ${ethers.toBeHex(ethers.toBigInt(proof))}`);
+    console.log(`increment...`);
+
+    const tx = await fheCounterContract.connect(signers.alice).increment(handle, proof);
+    const receipt = await tx.wait();
+
+    // Tx: 0x0096ed6eeb9f5a39b4ee4f953c83782da44839cb3e2fe246bf8db70053a47de8
+    console.log(`Tx: ${receipt?.hash}`);
+  });
+
+  it("Sepolia:FHECounterPublicDecrypt:NoCreateInputIncrement:456", async function () {
+    // Only Sepolia
+    if (fhevm.isMock) {
+      return;
+    }
+
     this.timeout(4 * 40000);
 
     const handle = "0x5f14cb9cd9a0e19f9df1cdd87660c48854d68994b8000000000000aa36a70400";
