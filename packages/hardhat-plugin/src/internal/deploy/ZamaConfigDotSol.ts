@@ -17,7 +17,11 @@ const debug = setupDebug("@fhevm/hardhat:addresses");
  * and replaces the addresses listed by the addresses used in the current mock FHEVM environment.
  * @returns The absolute path to the generated `ZamaConfig.sol`
  */
-export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses: CoprocessorConfig): string {
+export function generateZamaConfigDotSol(
+  paths: FhevmEnvironmentPaths,
+  localAddresses: CoprocessorConfig,
+  sepoliaAddresses?: CoprocessorConfig,
+): string {
   const origPath = paths.fhevmSolidityConfigFile;
   const filename = path.basename(origPath);
 
@@ -34,6 +38,10 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
   const expectedLocalACLAddress = constants.FHEVM_SOLIDITY_PACKAGE.LocalConfig.ACLAddress;
   const expectedLocalFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.LocalConfig.CoprocessorAddress;
   const expectedLocalKMSVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.LocalConfig.KMSVerifierAddress;
+
+  const expectedSepoliaACLAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.ACLAddress;
+  const expectedSepoliaFHEVMExecutorAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.CoprocessorAddress;
+  const expectedSepoliaKMSVerifierAddress = constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig.KMSVerifierAddress;
 
   const origContent: string = fs.readFileSync(origPath, "utf8");
   try {
@@ -62,6 +70,22 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
     );
   }
 
+  if (origContent.indexOf(`ACLAddress: ${expectedSepoliaACLAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected local ACLAddress=${expectedSepoliaACLAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
+  if (origContent.indexOf(`CoprocessorAddress: ${expectedSepoliaFHEVMExecutorAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected local FHEVMExecutorAddress=${expectedSepoliaFHEVMExecutorAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
+  if (origContent.indexOf(`KMSVerifierAddress: ${expectedSepoliaKMSVerifierAddress}`) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported. Expected local KMSVerifierAddress=${expectedSepoliaKMSVerifierAddress} (version=${constants.FHEVM_SOLIDITY_PACKAGE.version}).`,
+    );
+  }
+
   const expectedLocalConfig = `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
         return
             CoprocessorConfig({
@@ -71,16 +95,42 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
             });
     }`;
 
-  const newLocalConfig = `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
+  const expectedSepoliaConfig = `function _getSepoliaConfig() private pure returns (CoprocessorConfig memory) {
         return
             CoprocessorConfig({
-                ACLAddress: ${addresses.ACLAddress},
-                CoprocessorAddress: ${addresses.CoprocessorAddress},
-                KMSVerifierAddress: ${addresses.KMSVerifierAddress}
+                ACLAddress: ${expectedSepoliaACLAddress},
+                CoprocessorAddress: ${expectedSepoliaFHEVMExecutorAddress},
+                KMSVerifierAddress: ${expectedSepoliaKMSVerifierAddress}
             });
     }`;
 
+  const newLocalConfig = `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
+        return
+            CoprocessorConfig({
+                ACLAddress: ${localAddresses.ACLAddress},
+                CoprocessorAddress: ${localAddresses.CoprocessorAddress},
+                KMSVerifierAddress: ${localAddresses.KMSVerifierAddress}
+            });
+    }`;
+
+  const newSepoliaConfig = sepoliaAddresses
+    ? `function _getSepoliaConfig() private pure returns (CoprocessorConfig memory) {
+        return
+            CoprocessorConfig({
+                ACLAddress: ${sepoliaAddresses.ACLAddress},
+                CoprocessorAddress: ${sepoliaAddresses.CoprocessorAddress},
+                KMSVerifierAddress: ${sepoliaAddresses.KMSVerifierAddress}
+            });
+    }`
+    : expectedSepoliaConfig;
+
   if (origContent.indexOf(expectedLocalConfig) < 0) {
+    throw new HardhatFhevmError(
+      `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported.`,
+    );
+  }
+
+  if (origContent.indexOf(expectedSepoliaConfig) < 0) {
     throw new HardhatFhevmError(
       `Unexpected ${filename} file. File located at '${origPath}' has changed and is not supported.`,
     );
@@ -89,7 +139,8 @@ export function generateZamaConfigDotSol(paths: FhevmEnvironmentPaths, addresses
   let dstContent = origContent
     .replaceAll("../lib/FHE.sol", "@fhevm/solidity/lib/FHE.sol")
     .replaceAll("../lib/Impl.sol", "@fhevm/solidity/lib/Impl.sol")
-    .replaceAll(expectedLocalConfig, newLocalConfig);
+    .replaceAll(expectedLocalConfig, newLocalConfig)
+    .replaceAll(expectedSepoliaConfig, newSepoliaConfig);
 
   const dstPath = paths.cacheCoprocessorConfigSol;
   if (fs.existsSync(dstPath)) {

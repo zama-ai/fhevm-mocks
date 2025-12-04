@@ -1,114 +1,25 @@
 import { utils } from "@fhevm/mock-utils";
 import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import setupDebug from "debug";
-import * as dotenv from "dotenv";
 import { ethers as EthersT } from "ethers";
-import * as fs from "fs";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import * as path from "path";
-import * as picocolors from "picocolors";
 
 import { HardhatFhevmError } from "../../error";
 import constants from "../constants";
 import { assertHHFhevm } from "../error";
-
-const debug = setupDebug("@fhevm/hardhat:addresses");
+import { getEnvString, getEnvUint, getOptionalEnvString, getOptionalEnvUint } from "../utils/env";
 
 function __isHardhatSignerAddress(hhSigners: HardhatEthersSigner[], address: string) {
   return hhSigners.findIndex((s) => s.address === address) !== -1;
 }
 
-function logDefaultValue(name: string, defaultValue: unknown) {
-  debug(`Resolve ${picocolors.magentaBright(name)}=${defaultValue}, using default value.`);
-}
-function logEnvValue(name: string, value: string) {
-  debug(`Resolve ${picocolors.yellowBright(name)}=${value}, using env variable ${name}.`);
-}
-function logDotEnvValue(name: string, value: string, dotenvRelPath: string) {
-  debug(
-    `Resolve ${picocolors.greenBright(name)}=${value}, using .env variable stored at ${path.resolve(dotenvRelPath)}`,
-  );
-}
-
-function __getOptionalStringEnvVar(name: string): string | undefined {
-  return process.env[name];
-}
-
-function __getOptionalUintEnvVar(name: string): number | undefined {
-  let int: number = Number.NaN;
-
-  try {
-    const str = __getOptionalStringEnvVar(name)!;
-    int = parseInt(str);
-  } catch {
-    int = Number.NaN;
-  }
-
-  if (!Number.isNaN(int)) {
-    return int;
-  }
-
-  return undefined;
-}
-
-function __getUintConstant(name: keyof typeof constants, defaultValue?: number): number {
-  let int: number = Number.NaN;
-
-  try {
-    const str = __getStringConstant(name);
-    int = parseInt(str);
-  } catch {
-    int = Number.NaN;
-  }
-
-  if (!Number.isNaN(int)) {
-    return int;
-  }
-
-  if (defaultValue !== undefined) {
-    logDefaultValue(name, defaultValue);
-    return defaultValue;
-  }
-
-  throw new HardhatFhevmError(`Unable to determine integer constant ${name}`);
-}
-
-function __getStringConstant(name: keyof typeof constants, defaultValue?: string, dotenvRelPath?: string): string {
-  if (defaultValue) {
-    assertHHFhevm(constants[name] === defaultValue, `Missing constant ${name} in constants module`);
-  }
-
-  if (dotenvRelPath !== undefined && fs.existsSync(dotenvRelPath)) {
-    const parsedEnv = dotenv.parse(fs.readFileSync(dotenvRelPath));
-    const addr = parsedEnv[name];
-    if (addr) {
-      logDotEnvValue(name, addr, dotenvRelPath);
-      return addr;
-    }
-  }
-
-  if (name in process.env && process.env[name] !== undefined) {
-    const addr = process.env[name];
-    logEnvValue(name, addr);
-    return addr;
-  }
-
-  if (defaultValue) {
-    logDefaultValue(name, defaultValue);
-    return defaultValue;
-  }
-
-  throw new HardhatFhevmError(`Unable to determine string constant ${name}`);
-}
-
-export async function getRelayerSignerAddress(hre: HardhatRuntimeEnvironment): Promise<string> {
-  const s = await getRelayerSigner(hre);
+export async function loadRelayerSignerAddress(hre: HardhatRuntimeEnvironment, dotEnvFile?: string): Promise<string> {
+  const s = await loadRelayerSigner(hre, dotEnvFile);
   const relayerAddress = await s.getAddress();
   return relayerAddress;
 }
 
-export async function getRelayerSigner(hre: HardhatRuntimeEnvironment): Promise<EthersT.Signer> {
-  const index = __getRelayerSignerIndex();
+export async function loadRelayerSigner(hre: HardhatRuntimeEnvironment, dotEnvFile?: string): Promise<EthersT.Signer> {
+  const index = __getRelayerSignerIndex(dotEnvFile);
   const signers: HardhatEthersSigner[] = await hre.ethers.getSigners();
 
   if (index >= signers.length) {
@@ -120,9 +31,9 @@ export async function getRelayerSigner(hre: HardhatRuntimeEnvironment): Promise<
   return signers[index];
 }
 
-function __getRelayerSignerIndex(): number {
+function __getRelayerSignerIndex(dotEnvFile?: string): number {
   try {
-    const tStr = __getStringConstant("HARDHAT_RELAYER_SIGNER_INDEX");
+    const tStr = getEnvString({ name: "HARDHAT_RELAYER_SIGNER_INDEX", dotEnvFile });
     const t = parseInt(tStr);
     if (Number.isNaN(t)) {
       throw new HardhatFhevmError(`Invalid hardhat relayer signer index: ${tStr}`);
@@ -134,21 +45,25 @@ function __getRelayerSignerIndex(): number {
   }
 }
 
-export function getKMSThreshold(): number {
-  return __getUintConstant("KMS_THRESHOLD", constants["KMS_THRESHOLD"]);
+export function getKMSThreshold(dotEnvFile?: string): number {
+  return getEnvUint({ name: "KMS_THRESHOLD", defaultValue: constants["KMS_THRESHOLD"], dotEnvFile });
 }
 
-export function getInputVerifierThreshold(): number {
-  return __getUintConstant("INPUT_VERIFIER_THRESHOLD", constants["INPUT_VERIFIER_THRESHOLD"]);
+export function getInputVerifierThreshold(dotEnvFile?: string): number {
+  return getEnvUint({
+    name: "INPUT_VERIFIER_THRESHOLD",
+    defaultValue: constants["INPUT_VERIFIER_THRESHOLD"],
+    dotEnvFile,
+  });
 }
 
 /**
  * Fhevm Gateway contracts
  * @returns Address of the deployed 'Decryption.sol' contract.
  */
-export function getGatewayDecryptionAddress(): string {
+export function getGatewayDecryptionAddress(dotEnvFile?: string): string {
   try {
-    const addr = __getStringConstant("DECRYPTION_ADDRESS");
+    const addr = getEnvString({ name: "DECRYPTION_ADDRESS", dotEnvFile });
     if (!EthersT.isAddress(addr)) {
       throw new HardhatFhevmError(
         `Invalid Decryption contract address: ${addr} (KMS Verifying contract source address)`,
@@ -165,9 +80,9 @@ export function getGatewayDecryptionAddress(): string {
  * Fhevm Gateway contracts
  * @returns Address of the deployed 'InputVerification.sol' contract.
  */
-export function getGatewayInputVerificationAddress(): string {
+export function getGatewayInputVerificationAddress(dotEnvFile?: string): string {
   try {
-    const addr = __getStringConstant("INPUT_VERIFICATION_ADDRESS");
+    const addr = getEnvString({ name: "INPUT_VERIFICATION_ADDRESS", dotEnvFile: dotEnvFile });
     if (!EthersT.isAddress(addr)) {
       throw new HardhatFhevmError(`Invalid InputVerifier verifyingContractSource address: ${addr}`);
     }
@@ -178,10 +93,15 @@ export function getGatewayInputVerificationAddress(): string {
   }
 }
 
-export async function loadCoprocessorSigners(
-  hre: HardhatRuntimeEnvironment,
-  provider?: EthersT.Provider,
-): Promise<EthersT.Signer[]> {
+export async function loadCoprocessorSigners({
+  hre,
+  provider,
+  dotEnvFile,
+}: {
+  hre: HardhatRuntimeEnvironment;
+  provider?: EthersT.Provider;
+  dotEnvFile?: string;
+}): Promise<EthersT.Signer[]> {
   /*
     1. Try to build a list using:
       - env.NUM_COPROCESSORS
@@ -193,11 +113,12 @@ export async function loadCoprocessorSigners(
   */
   try {
     const hhSigners = await hre.ethers.getSigners();
-    const coprocessorSignersAddresses = __envGetHardhatSignersAddresses(
-      "NUM_COPROCESSORS",
-      "COPROCESSOR_SIGNER_ADDRESS_",
+    const coprocessorSignersAddresses = __envGetHardhatSignersAddresses({
+      numEnvVarName: "NUM_COPROCESSORS",
+      listEnvVarNamePrefix: "COPROCESSOR_SIGNER_ADDRESS_",
       hhSigners,
-    );
+      dotEnvFile,
+    });
 
     const coprocessorSigners = [];
     for (let idx = 0; idx < coprocessorSignersAddresses.length; idx++) {
@@ -210,10 +131,10 @@ export async function loadCoprocessorSigners(
     //
   }
 
-  const coprocessorSignerKey = __getStringConstant(
-    "PRIVATE_KEY_COPROCESSOR_SIGNER",
-    constants["PRIVATE_KEY_COPROCESSOR_SIGNER"],
-  );
+  const coprocessorSignerKey = getEnvString({
+    name: "PRIVATE_KEY_COPROCESSOR_SIGNER",
+    defaultValue: constants["PRIVATE_KEY_COPROCESSOR_SIGNER"],
+  });
 
   const signer = new EthersT.Wallet(coprocessorSignerKey).connect(provider ?? null);
   return [signer];
@@ -228,13 +149,23 @@ export async function loadCoprocessorSigners(
   3. Try to build a list with one element using:
       - address of constant.PRIVATE_KEY_KMS_SIGNER
 */
-export async function loadKMSSigners(
-  hre: HardhatRuntimeEnvironment,
-  provider?: EthersT.Provider,
-): Promise<EthersT.Signer[]> {
+export async function loadKMSSigners({
+  hre,
+  provider,
+  dotEnvFile,
+}: {
+  hre: HardhatRuntimeEnvironment;
+  provider?: EthersT.Provider;
+  dotEnvFile?: string;
+}): Promise<EthersT.Signer[]> {
   try {
     const hhSigners = await hre.ethers.getSigners();
-    const kmsSignersAddresses = __envGetHardhatSignersAddresses("NUM_KMS_NODES", "KMS_SIGNER_ADDRESS_", hhSigners);
+    const kmsSignersAddresses = __envGetHardhatSignersAddresses({
+      numEnvVarName: "NUM_KMS_NODES",
+      listEnvVarNamePrefix: "KMS_SIGNER_ADDRESS_",
+      hhSigners,
+      dotEnvFile,
+    });
 
     const kmsSigners = [];
     for (let idx = 0; idx < kmsSignersAddresses.length; idx++) {
@@ -244,19 +175,22 @@ export async function loadKMSSigners(
 
     return kmsSigners;
   } catch {
-    const kmsSignerKey = __getStringConstant("PRIVATE_KEY_KMS_SIGNER", constants["PRIVATE_KEY_KMS_SIGNER"]);
+    const kmsSignerKey = getEnvString({
+      name: "PRIVATE_KEY_KMS_SIGNER",
+      defaultValue: constants["PRIVATE_KEY_KMS_SIGNER"],
+    });
 
     const signer = new EthersT.Wallet(kmsSignerKey).connect(provider ?? null);
     return [signer];
   }
 }
 
-function envGetList(envVarNamePrefix: string): string[] {
+function envGetList(envVarNamePrefix: string, dotEnvFile?: string): string[] {
   envVarNamePrefix = utils.ensureSuffix(envVarNamePrefix, "_");
 
   const list: string[] = [];
   for (let idx = 0; idx < 100; idx++) {
-    const value = __getOptionalStringEnvVar(`${envVarNamePrefix}${idx}`);
+    const value = getOptionalEnvString({ name: `${envVarNamePrefix}${idx}`, dotEnvFile });
     if (!value) {
       break;
     }
@@ -292,12 +226,18 @@ function removeNonHardhatSignerAddresses(
     COPROCESSOR_SIGNER_ADDRESS_1="0x..."
     COPROCESSOR_SIGNER_ADDRESS_2="0x..."
 */
-function __envGetHardhatSignersAddresses(
-  numEnvVarName: string,
-  listEnvVarNamePrefix: string,
-  hhSigners: HardhatEthersSigner[],
-): string[] {
-  const num = __getOptionalUintEnvVar(numEnvVarName);
+function __envGetHardhatSignersAddresses({
+  numEnvVarName,
+  listEnvVarNamePrefix,
+  hhSigners,
+  dotEnvFile,
+}: {
+  numEnvVarName: string;
+  listEnvVarNamePrefix: string;
+  hhSigners: HardhatEthersSigner[];
+  dotEnvFile?: string | undefined;
+}): string[] {
+  const num = getOptionalEnvUint({ name: numEnvVarName, dotEnvFile });
   if (num === undefined) {
     throw new HardhatFhevmError(`Undefined env var name '${numEnvVarName}'`);
   }

@@ -1,4 +1,5 @@
 import type {
+  CoprocessorConfig,
   CoprocessorEvent,
   FhevmContractName,
   FhevmPublicDecryptOptions,
@@ -25,6 +26,7 @@ export {
   FhevmKeypair,
   FhevmUserDecryptValidity,
   FhevmTransactionHCUInfo,
+  CoprocessorConfig,
 } from "@fhevm/mock-utils";
 
 export interface HardhatFhevmRuntimeEnvironment {
@@ -37,6 +39,7 @@ export interface HardhatFhevmRuntimeEnvironment {
   computeTransactionHCU(transactionReceipt: ethers.TransactionReceipt): FhevmTransactionHCUInfo;
 
   assertCoprocessorInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
+  getCoprocessorConfig(contractAddress: string): Promise<CoprocessorConfig>;
 
   getRelayerMetadata(): Promise<relayer.RelayerMetadata>;
 

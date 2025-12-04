@@ -1,21 +1,54 @@
 import { FhevmType } from "@fhevm/mock-utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { ethers, fhevm } from "hardhat";
+import { ethers, fhevm, network } from "hardhat";
 
 import { FHECounterUserDecrypt } from "../../typechain-types";
+import {
+  DevnetFHECounterUserDecryptAddress,
+  TestnetACLAddress,
+  TestnetFHECounterUserDecryptAddress,
+} from "./addresses";
+
+// Sepolia
+// =======
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:Check:" --network sepolia
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:Encrypt:" --network sepolia
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:Increment:" --network sepolia
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:GetCount:" --network sepolia
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:UserDecrypt:" --network sepolia
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:IncrementAndUserDecrypt:" --network sepolia
+
+// Devnet
+// ======
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:Check:" --network devnet
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:Encrypt:" --network devnet
+// npx hardhat test --grep "Sepolia:FHECounterUserDecrypt:IncrementAndUserDecrypt:" --network devnet
 
 type Signers = {
   alice: HardhatEthersSigner;
 };
 
 async function deployFixture() {
-  const fheCounterContractAddress = "0xe5952b5244d360a4C04292cDCAe5fa2229ebBdF2";
+  let fheCounterContractAddress;
+  if (network.name === "devnet") {
+    fheCounterContractAddress = DevnetFHECounterUserDecryptAddress;
+  } else {
+    fheCounterContractAddress = TestnetFHECounterUserDecryptAddress;
+  }
   const fheCounterContract = await ethers.getContractAt("FHECounterUserDecrypt", fheCounterContractAddress);
+
+  const coprocessorConfig = await fhevm.getCoprocessorConfig(fheCounterContractAddress);
+  if (network.name !== "devnet") {
+    expect(coprocessorConfig.ACLAddress).to.eq(TestnetACLAddress);
+  } else {
+    expect(coprocessorConfig.ACLAddress).to.not.eq(TestnetACLAddress);
+  }
+
   return { fheCounterContract, fheCounterContractAddress };
 }
 
-describe("Sepolia:FHECounterUserDecrypt", function () {
+describe("Sepolia:FHECounterUserDecrypt:", function () {
   let signers: Signers;
   let fheCounterContract: FHECounterUserDecrypt;
   let fheCounterContractAddress: string;
@@ -28,18 +61,17 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
 
     const ethSigners: HardhatEthersSigner[] = await ethers.getSigners();
     signers = { alice: ethSigners[0] };
+
+    const d = await deployFixture();
+    fheCounterContract = d.fheCounterContract;
+    fheCounterContractAddress = d.fheCounterContractAddress;
   });
 
-  beforeEach(async () => {
-    // Only Sepolia
-    if (fhevm.isMock) {
-      return;
-    }
+  //////////////////////////////////////////////////////////////////////////////
+  // Check config
+  //////////////////////////////////////////////////////////////////////////////
 
-    ({ fheCounterContract, fheCounterContractAddress } = await deployFixture());
-  });
-
-  it("Sepolia:Encrypt 123", async function () {
+  it("Sepolia:FHECounterUserDecrypt:Check:", async function () {
     // Only Sepolia
     if (fhevm.isMock) {
       return;
@@ -47,49 +79,80 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
 
     this.timeout(4 * 40000);
 
-    console.log(`Encrypting 123...`);
-    const encryptedOneTwoThree = await fhevm
-      .createEncryptedInput(fheCounterContractAddress, signers.alice.address)
-      .add32(123)
-      .encrypt();
+    console.log(`Checking ${network.name}...`);
+    console.log(`FHECounterUserDecrypt=${fheCounterContractAddress}`);
 
-    /*
-      FHECounterUserDecrypt=0xe5952b5244d360a4C04292cDCAe5fa2229ebBdF2
-      User=0x37AC010c1c566696326813b840319B58Bb5840E4
-      Handle (euint32)=0x8c2ce702e2015a9cbc36100abe5f872650cb47e04e000000000000aa36a70400
-      InputProof=0x01018c2ce702e2015a9cbc36100abe5f872650cb47e04e000000000000aa36a70400a0112f1f7db117202bf6f428e063ad71b6101cf2c934ae0ca85f944d7c46d06156bbfb183f3a3343d2cf365a5a9dfa0ddf4b5a127aeef66c8a1f644a815e4b741b00
-    */
+    const coprocessorConfig = await fhevm.getCoprocessorConfig(fheCounterContractAddress);
+    if (network.name !== "devnet") {
+      expect(coprocessorConfig.ACLAddress).to.eq(TestnetACLAddress);
+    } else {
+      expect(coprocessorConfig.ACLAddress).to.not.eq(TestnetACLAddress);
+    }
+  });
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Encrypt only
+  //////////////////////////////////////////////////////////////////////////////
+
+  it("Sepolia:FHECounterUserDecrypt:EncryptOnly:", async function () {
+    // Only Sepolia
+    if (fhevm.isMock) {
+      return;
+    }
+
+    this.timeout(4 * 40000);
+
+    const inc = 123;
+
+    console.log(`Encrypting ${inc}...`);
+    const enc = await fhevm.createEncryptedInput(fheCounterContractAddress, signers.alice.address).add32(inc).encrypt();
 
     console.log(`FHECounterUserDecrypt=${fheCounterContractAddress}`);
     console.log(`User=${signers.alice.address}`);
-    console.log(`Handle=${ethers.hexlify(encryptedOneTwoThree.handles[0])}`);
-    console.log(`InputProof=${ethers.hexlify(encryptedOneTwoThree.inputProof)}`);
+    console.log(`Handle=${ethers.hexlify(enc.handles[0])}`);
+    console.log(`InputProof=${ethers.hexlify(enc.inputProof)}`);
   });
 
-  it("Sepolia:Increment 123", async function () {
+  //////////////////////////////////////////////////////////////////////////////
+  // Increment
+  //////////////////////////////////////////////////////////////////////////////
+
+  it("Sepolia:FHECounterUserDecrypt:Increment:", async function () {
     // Only Sepolia
     if (fhevm.isMock) {
       return;
     }
 
+    const inc = 456;
+
     this.timeout(4 * 40000);
 
-    //FHECounterUserDecrypt=0xe5952b5244d360a4C04292cDCAe5fa2229ebBdF2
-    //User=0x37AC010c1c566696326813b840319B58Bb5840E4
-    const handle = "0x8c2ce702e2015a9cbc36100abe5f872650cb47e04e000000000000aa36a70400";
-    const proof =
-      "0x01018c2ce702e2015a9cbc36100abe5f872650cb47e04e000000000000aa36a70400a0112f1f7db117202bf6f428e063ad71b6101cf2c934ae0ca85f944d7c46d06156bbfb183f3a3343d2cf365a5a9dfa0ddf4b5a127aeef66c8a1f644a815e4b741b00";
+    console.log(`Encrypting ${inc}...`);
+    const enc = await fhevm.createEncryptedInput(fheCounterContractAddress, signers.alice.address).add32(inc).encrypt();
 
-    console.log(`increment ${handle}...`);
+    const handle = enc.handles[0];
+    const proof = enc.inputProof;
+    const handleHex = ethers.toBeHex(ethers.toBigInt(handle));
+
+    console.log(`handle: ${handleHex}`);
+    console.log(`proof : ${ethers.toBeHex(ethers.toBigInt(proof))}`);
+    console.log(`increment...`);
 
     const tx = await fheCounterContract.connect(signers.alice).increment(handle, proof);
     const receipt = await tx.wait();
 
-    // Tx: 0xc7f3f225ae5fa5ed2899a836055926379a24caed26912bd4f5c96aa1635b83b9
     console.log(`Tx: ${receipt?.hash}`);
+
+    const theHandle = await fheCounterContract.connect(signers.alice).getCount();
+
+    console.log(`new handle: ${theHandle}`);
   });
 
-  it("Sepolia:GetCount", async function () {
+  //////////////////////////////////////////////////////////////////////////////
+  // GetCount no decryption
+  //////////////////////////////////////////////////////////////////////////////
+
+  it("Sepolia:FHECounterUserDecrypt:GetCount:", async function () {
     // Only Sepolia
     if (fhevm.isMock) {
       return;
@@ -101,11 +164,14 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
 
     const enc = await fheCounterContract.connect(signers.alice).getCount();
 
-    // Count=0x6f2a0e691faf5829e2de5e794a34049352be1abf1bff0000000000aa36a70400
     console.log(`Handle: ${enc}`);
   });
 
-  it("Sepolia:UserDecrypt", async function () {
+  //////////////////////////////////////////////////////////////////////////////
+  // userDecrypt
+  //////////////////////////////////////////////////////////////////////////////
+
+  it("Sepolia:FHECounterUserDecrypt:UserDecrypt:", async function () {
     // Only Sepolia
     if (fhevm.isMock) {
       return;
@@ -117,7 +183,6 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
 
     const enc = await fheCounterContract.connect(signers.alice).getCount();
 
-    // Count=0x6f2a0e691faf5829e2de5e794a34049352be1abf1bff0000000000aa36a70400
     console.log(`Handle: ${enc}`);
 
     try {
@@ -131,13 +196,19 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
     }
   });
 
-  it("Sepolia:Increment the counter by 1", async function () {
+  //////////////////////////////////////////////////////////////////////////////
+  // Increment and userDecrypt
+  //////////////////////////////////////////////////////////////////////////////
+
+  it("Sepolia:FHECounterUserDecrypt:IncrementAndUserDecrypt:", async function () {
     // Only Sepolia
     if (fhevm.isMock) {
       return;
     }
 
     this.timeout(4 * 40000);
+
+    const inc = 1;
 
     let step = 1;
     let steps = 10;
@@ -169,10 +240,10 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
     );
     console.log(`${step++}/${steps} Clear FHECounter.getCount()=${clearCountBeforeInc}`);
 
-    console.log(`${step++}/${steps} Encrypting '1'...`);
+    console.log(`${step++}/${steps} Encrypting '${inc}'...`);
     const encryptedOne = await fhevm
       .createEncryptedInput(fheCounterContractAddress, signers.alice.address)
-      .add32(1)
+      .add32(inc)
       .encrypt();
 
     console.log(
@@ -193,6 +264,6 @@ describe("Sepolia:FHECounterUserDecrypt", function () {
     );
     console.log(`${step++}/${steps} Clear FHECounter.getCount()=${clearCountAfterInc}`);
 
-    expect(clearCountAfterInc - clearCountBeforeInc).to.eq(1);
+    expect(clearCountAfterInc - clearCountBeforeInc).to.eq(inc);
   });
 });

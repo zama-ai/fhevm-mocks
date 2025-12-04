@@ -59,8 +59,8 @@ fhevmScope
       fhevmEnv.setRunningInHHFHEVMInstallSolidity();
 
       try {
-        await fhevmEnv.minimalInit();
-        await fhevmEnv.initializeAddresses(ignoreCache);
+        await fhevmEnv.minimalInitWithAddresses(ignoreCache);
+        //await fhevmEnv.initializeAddresses(ignoreCache);
       } finally {
         try {
           fhevmEnv.unsetRunningInHHFHEVMInstallSolidity();
@@ -274,12 +274,13 @@ fhevmScope
     },
   );
 
-// npx hardhat --network sepolia fhevm resolve-fhevm-config --acl 0x687820221192C5B662b25367F70076A37bc79b6c --kms 0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC
+// npx hardhat --network sepolia fhevm resolve-fhevm-config --acl 0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D --kms 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A
+// npx hardhat --network sepolia fhevm resolve-fhevm-config --acl 0xBCA6F8De823a399Dc431930FD5EE550Bf1C0013e --kms 0x3F3819BeBE4bD0EFEf8078Df6f9B574ADa80CCA4
 fhevmScope
   .task(SCOPE_FHEVM_TASK_RESOLVE_FHEVM_CONFIG)
   .setDescription("Resolve full FHEVM configuration")
-  .addParam("acl", "Specify the acl contract address")
-  .addParam("kms", "Specify the kms contract address")
+  .addOptionalParam("acl", "Specify the acl contract address")
+  .addOptionalParam("kms", "Specify the kms contract address")
   .setAction(
     async (
       {
@@ -293,6 +294,13 @@ fhevmScope
     ) => {
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
+
+      if (!acl) {
+        acl = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.ACLAddress;
+      }
+      if (!kms) {
+        kms = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress;
+      }
 
       assertIsAddress(acl, "acl");
       assertIsAddress(kms, "kms");
@@ -314,8 +322,17 @@ fhevmScope
         config: cfg,
         inputVerifierEIP712: inputEIP712,
         kmsVerifierEIP712: kmsEIP712,
+        HCULimit: repo.hcuLimit.address,
       };
 
       console.log(jsonStringifyBigInt(res, 2));
     },
   );
+
+fhevmScope.task("pipo").setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+  console.log(taskArgs ? "hello" : "byte");
+  console.log(hre ? "hello" : "byte");
+
+  const fhevmEnv = fhevmContext.get();
+  await fhevmEnv.initializeCLIApi();
+});

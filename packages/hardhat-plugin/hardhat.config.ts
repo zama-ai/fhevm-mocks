@@ -55,6 +55,15 @@ const config: HardhatUserConfig = {
       url: "https://sepolia.infura.io/v3/" + INFURA_API_KEY,
       chainId: 11155111,
     },
+    devnet: {
+      accounts: {
+        count: 10,
+        mnemonic: MNEMONIC,
+        path: "m/44'/60'/0'/0",
+      },
+      url: "https://sepolia.infura.io/v3/" + INFURA_API_KEY,
+      chainId: 11155111,
+    },
   },
   typechain: {
     target: "ethers-v6",
