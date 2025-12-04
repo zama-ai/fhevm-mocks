@@ -377,11 +377,11 @@ export async function setupMockUsingHostContractsArtifacts(
     inputVerifierAddress,
   );
 
-  const gatewayDecryptionAddress = getGatewayDecryptionAddress();
-  const gatewayInputVerificationAddress = getGatewayInputVerificationAddress();
+  const gatewayDecryptionAddress = getGatewayDecryptionAddress(fhevmPaths.dotEnvFile);
+  const gatewayInputVerificationAddress = getGatewayInputVerificationAddress(fhevmPaths.dotEnvFile);
   const gatewayChainId = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.gatewayChainId;
-  const kmsInitialThreshold = getKMSThreshold();
-  const inputVerifierInitialThreshold = getInputVerifierThreshold();
+  const kmsInitialThreshold = getKMSThreshold(fhevmPaths.dotEnvFile);
+  const inputVerifierInitialThreshold = getInputVerifierThreshold(fhevmPaths.dotEnvFile);
 
   const kmsSigners = fhevmSigners.kms;
   if (kmsSigners.length !== 1) {

@@ -25,6 +25,13 @@ export class FhevmEnvironmentPaths {
   }
 
   /**
+   * Returns `/path/to/user-package/.env`
+   */
+  public get dotEnvFile(): string {
+    return path.join(this._root, ".env");
+  }
+
+  /**
    * Returns `/path/to/user-package/node_modules`
    */
   public get nodeModulesDir(): string {

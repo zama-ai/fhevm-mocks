@@ -87,8 +87,8 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
     debug(`execute TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS`);
 
     const fhevmEnv = fhevmContext.get();
-    await fhevmEnv.minimalInit();
-    await fhevmEnv.initializeAddresses(false /* ignoreCache */);
+    await fhevmEnv.minimalInitWithAddresses(false /* ignoreCache */);
+    //await fhevmEnv.initializeAddresses(false /* ignoreCache */);
 
     // run super first.
     const filePaths: string[] = await runSuper();

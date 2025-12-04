@@ -6,7 +6,7 @@ import { Rand } from "../../../typechain-types";
 import { initSigners } from "../signers";
 import { deployRandFixture } from "./Rand.fixture";
 
-describe("BBB Rand", function () {
+describe("Rand", function () {
   let randContract: Rand;
   let instance: FhevmInstance;
 

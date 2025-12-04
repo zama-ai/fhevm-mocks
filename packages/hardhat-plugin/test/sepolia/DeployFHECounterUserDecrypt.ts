@@ -2,34 +2,50 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ethers, fhevm } from "hardhat";
 import * as hre from "hardhat";
 
+import { DevnetFHECounterUserDecryptAddress, TestnetFHECounterUserDecryptAddress } from "./addresses";
+
+// npx hardhat test --grep "Sepolia:DeployFHECounterUserDecrypt" --network sepolia
+// npx hardhat test --grep "Sepolia:DeployFHECounterUserDecrypt" --network devnet
+
 type Signers = {
   alice: HardhatEthersSigner;
 };
 
-const SEPOLIA_CONTRACT_ADDRESS = "0xe5952b5244d360a4C04292cDCAe5fa2229ebBdF2";
-
-describe("DeployFHECounterUserDecrypt-Sepolia", function () {
+describe("Sepolia:DeployFHECounterUserDecrypt", function () {
   let signers: Signers;
+  let fheCounterContractAddress: string;
 
   before(async function () {
-    const ethSigners: HardhatEthersSigner[] = await ethers.getSigners();
-    signers = { alice: ethSigners[0] };
-
     // Only Sepolia
     if (fhevm.isMock) {
       return;
     }
+
+    if (hre.network.name === "devnet") {
+      fheCounterContractAddress = DevnetFHECounterUserDecryptAddress;
+    } else {
+      fheCounterContractAddress = TestnetFHECounterUserDecryptAddress;
+    }
+
+    const ethSigners: HardhatEthersSigner[] = await ethers.getSigners();
+    signers = { alice: ethSigners[0] };
   });
 
-  it("Deploy", async function () {
+  it("Sepolia:DeployFHECounterUserDecrypt", async function () {
+    if (fhevm.isMock) {
+      console.log(`Ignore. This test is not running in mock mode.`);
+      return;
+    }
+
+    console.log(`Network: ${hre.network.name}`);
+
     // Set test timeout. Must be long enough since we are deploying a contract on Sepolia
     this.timeout(4 * 40000);
 
-    // Only Sepolia
-    if (!fhevm.isMock) {
-      const code = await hre.ethers.provider.getCode(SEPOLIA_CONTRACT_ADDRESS);
+    if (fheCounterContractAddress && fheCounterContractAddress !== ethers.ZeroAddress) {
+      const code = await hre.ethers.provider.getCode(fheCounterContractAddress);
       if (code.length > 3) {
-        console.log(`FHECounterUserDecrypt: ${SEPOLIA_CONTRACT_ADDRESS}`);
+        console.log(`FHECounterUserDecrypt: ${fheCounterContractAddress} (already deployed)`);
         return;
       }
     }
@@ -46,5 +62,8 @@ describe("DeployFHECounterUserDecrypt-Sepolia", function () {
 
     console.log(`Deployer: ${signers.alice.address}`);
     console.log(`FHECounterUserDecrypt: ${await contract.getAddress()}`);
+
+    const coprocessorConfig = await fhevm.getCoprocessorConfig(await contract.getAddress());
+    console.log(JSON.stringify(coprocessorConfig, null, 2));
   });
 });

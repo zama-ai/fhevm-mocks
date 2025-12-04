@@ -71,8 +71,9 @@
     "test": "cross-env HARDHAT_NETWORK=hardhat npx hardhat test",
     "test:node": "cross-env HARDHAT_NETWORK=localhost npx hardhat test",
     "test:anvil": "cross-env HARDHAT_NETWORK=anvil npx hardhat test",
-    "test:anvilsimple": "cross-env HARDHAT_NETWORK=anvil npx hardhat test --grep 'test async decrypt uint64'",
-    "test:sepoliasimple": "cross-env HARDHAT_NETWORK=sepolia npx hardhat test --grep 'FHECounterUserDecrypt-Sepolia'",
+    "test:anvil:simple": "cross-env HARDHAT_NETWORK=anvil npx hardhat test --grep 'test async decrypt uint64'",
+    "test:sepolia:testnet": "cross-env HARDHAT_NETWORK=sepolia npx hardhat test --grep 'Sepolia:FHECounterPublicDecrypt:IncrementAndPublicDecrypt:'",
+    "test:sepolia:devnet": "cross-env HARDHAT_NETWORK=devnet npx hardhat test --grep 'Sepolia:FHECounterPublicDecrypt:IncrementAndPublicDecrypt:'",
     "coverage:mock": "cross-env SOLIDITY_COVERAGE=true hardhat coverage"
   },
   "peerDependencies": {

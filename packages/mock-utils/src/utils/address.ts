@@ -11,6 +11,10 @@ export function assertIsAddress(value: unknown, valueName?: string): asserts val
   );
 }
 
+export function assertIsUrl(value: unknown, valueName?: string): asserts value is string {
+  assertIsString(value, valueName);
+}
+
 export function assertIsAddressArray(value: unknown, valueName?: string): asserts value is `0x${string}`[] {
   assertIsArray(value, valueName);
   for (let i = 0; i < value.length; ++i) {
