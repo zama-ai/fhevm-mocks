@@ -305,6 +305,23 @@ export class FhevmEnvironment {
     return relayerUrl;
   }
 
+  public resolveRelayerUrl(ACLAddress: string): string {
+    if (this.mockProvider.isMock) {
+      throw new HardhatFhevmError(`relayerUrl is not defined in mock mode.`);
+    }
+
+    if (ACLAddress === constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.ACLAddress) {
+      return constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl;
+    }
+
+    const dotEnvFile = this._paths.dotEnvFile;
+    if (ACLAddress === getEnvString({ name: "ACL_CONTRACT_ADDRESS", dotEnvFile })) {
+      return getEnvString({ name: "RELAYER_URL", dotEnvFile });
+    }
+
+    throw new HardhatFhevmError(`There is no relayerUrl defined for ACL address '${ACLAddress}'.`);
+  }
+
   private __getAddresses(): FhevmEnvironmentAddresses {
     if (!this._addresses) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
@@ -313,24 +330,31 @@ export class FhevmEnvironment {
   }
 
   public getACLAddress(): `0x${string}` {
-    if (!this._contractsRepository) {
+    if (!this._addresses) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
-    return this._contractsRepository.acl.address;
+    return this._addresses.CoprocessorConfig.ACLAddress;
   }
 
   public getFHEVMExecutorAddress(): `0x${string}` {
-    if (!this._contractsRepository) {
+    if (!this._addresses) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
-    return this._contractsRepository.fhevmExecutor.address;
+    return this._addresses.CoprocessorConfig.CoprocessorAddress;
   }
 
   public getInputVerifierAddress(): `0x${string}` {
-    if (!this._contractsRepository) {
+    if (!this._addresses) {
       throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
     }
-    return this._contractsRepository?.inputVerifier.address;
+    return this._addresses.InputVerifierAddress;
+  }
+
+  public getKMSVerifierAddress(): `0x${string}` {
+    if (!this._addresses) {
+      throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
+    }
+    return this._addresses.CoprocessorConfig.KMSVerifierAddress;
   }
 
   public getCoprocessorSigners(): EthersT.Signer[] | undefined {
@@ -349,13 +373,6 @@ export class FhevmEnvironment {
       throw new HardhatFhevmError(`Undefined coprocessor signers wallets.`);
     }
     return cs;
-  }
-
-  public getKMSVerifierAddress(): `0x${string}` {
-    if (!this._contractsRepository) {
-      throw new HardhatFhevmError(`The Hardhat Fhevm plugin is not initialized.`);
-    }
-    return this._contractsRepository.kmsVerifier.address;
   }
 
   public getKMSSigners(): EthersT.Signer[] | undefined {
@@ -865,6 +882,13 @@ export class FhevmEnvironment {
           name: "FHEVM_HARDHAT_NETWORK",
           dotEnvFile: this.paths.dotEnvFile,
         });
+        // Could be removed in the future.
+        // This is a security check to prevent invalid contract configuration
+        if (this.mockProvider.info.networkName === "devnet" && envNetworkName !== "devnet") {
+          throw new HardhatFhevmError(
+            `Network 'devnet' requires an .env file. File '${this._paths.dotEnvFile}' does not exist or is invalid.`,
+          );
+        }
         if (envNetworkName === this.mockProvider.info.networkName) {
           addresses = this._initializeAddressesEnv();
         } else {
