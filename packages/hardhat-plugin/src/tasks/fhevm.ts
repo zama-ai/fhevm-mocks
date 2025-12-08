@@ -314,6 +314,7 @@ fhevmScope
 
       let relayerUrl: string = "N/A";
       try {
+        // Mock has no relayer url
         relayerUrl = fhevmEnv.resolveRelayerUrl(acl);
       } catch {
         //
