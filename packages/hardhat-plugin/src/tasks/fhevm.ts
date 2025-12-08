@@ -266,7 +266,7 @@ fhevmScope
             `The contract deployed at ${address} is configured with an invalid FHEVM Coprocessor Configuration.`,
           ),
         );
-        console.log(picocolors.red("The contract is using:"));
+        console.log(picocolors.red("The contract's configuration is':"));
         console.log(picocolors.red(JSON.stringify(coprocessorConfig, null, 2)));
         console.log(picocolors.red("The expected configuration is:"));
         console.log(picocolors.red(JSON.stringify(expected, null, 2)));
