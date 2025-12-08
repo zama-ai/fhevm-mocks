@@ -910,7 +910,6 @@ export class FhevmEnvironment {
   }
 
   private _initializeAddressesEnv(): FhevmEnvironmentAddresses {
-    // Test it should NEVER work without .env file!!!
     const dotEnvFile = this._paths.dotEnvFile;
 
     debugAddresses(`Resolving addresses using ${dotEnvFile}`);

@@ -266,7 +266,7 @@ fhevmScope
             `The contract deployed at ${address} is configured with an invalid FHEVM Coprocessor Configuration.`,
           ),
         );
-        console.log(picocolors.red("The contract's configuration is':"));
+        console.log(picocolors.red("The contract's configuration is:"));
         console.log(picocolors.red(JSON.stringify(coprocessorConfig, null, 2)));
         console.log(picocolors.red("The expected configuration is:"));
         console.log(picocolors.red(JSON.stringify(expected, null, 2)));
@@ -317,7 +317,7 @@ fhevmScope
         // Mock has no relayer url
         relayerUrl = fhevmEnv.resolveRelayerUrl(acl);
       } catch {
-        //
+        // ignore error and keep "N/A"
       }
 
       const cfg = repo.getFhevmInstanceConfig({
