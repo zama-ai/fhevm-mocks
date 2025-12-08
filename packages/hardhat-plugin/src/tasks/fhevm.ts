@@ -1,4 +1,5 @@
 import {
+  CoprocessorConfig,
   FhevmType,
   contracts,
   getCoprocessorConfig,
@@ -13,7 +14,6 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
-import constants from "../internal/constants";
 import { jsonStringifyBigInt } from "../internal/utils/log";
 import {
   SCOPE_FHEVM,
@@ -216,7 +216,9 @@ fhevmScope
     },
   );
 
-// npx hardhat --network sepolia fhevm check-contract --address 0x8D94d6f1593A50DDF52D317016e3dD1af1EE1292
+// The command below will check if `0x8D94d6f1593A50DDF52D317016e3dD1af1EE1292` is correctly
+// configured for FHEVM Sepolia:
+// npx hardhat --network sepolia fhevm check-fhevm-compatibility --address 0x8D94d6f1593A50DDF52D317016e3dD1af1EE1292
 fhevmScope
   .task(SCOPE_FHEVM_TASK_CHECK_FHEVM_COMPATIBILITY)
   .setDescription("Checks if a FHEVM contract is well configured to perform FHEVM operations")
@@ -234,7 +236,7 @@ fhevmScope
         throw new HardhatFhevmError(`Invalid --address parameter value. '${address}' is not a valid address.`);
       }
       const fhevmEnv = fhevmContext.get();
-      await fhevmEnv.minimalInit();
+      await fhevmEnv.minimalInitWithAddresses(false);
 
       const coprocessorConfig = await getCoprocessorConfig(hre.ethers.provider, address);
       if (
@@ -248,39 +250,46 @@ fhevmScope
         }
       }
 
-      try {
-        const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
-          aclContractAddress: coprocessorConfig.ACLAddress,
-          kmsContractAddress: coprocessorConfig.KMSVerifierAddress,
-        });
+      const expected: CoprocessorConfig = {
+        ACLAddress: fhevmEnv.getACLAddress(),
+        CoprocessorAddress: fhevmEnv.getFHEVMExecutorAddress(),
+        KMSVerifierAddress: fhevmEnv.getKMSVerifierAddress(),
+      };
 
-        const o = {
-          address,
-          coprocessorConfig,
-          FhevmInstanceConfig: repo.getFhevmInstanceConfig({
-            chainId: fhevmEnv.chainId,
-            relayerUrl: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl,
-          }),
-        };
-
-        console.log(JSON.stringify(o, null, 2));
-      } catch {
-        console.log(picocolors.red("Invalid Coprocessor Configuration:"));
-        console.log(JSON.stringify(coprocessorConfig, null, 2));
+      if (
+        coprocessorConfig.ACLAddress !== expected.ACLAddress ||
+        coprocessorConfig.CoprocessorAddress !== expected.CoprocessorAddress ||
+        coprocessorConfig.KMSVerifierAddress !== expected.KMSVerifierAddress
+      ) {
+        console.log(
+          picocolors.red(
+            `The contract deployed at ${address} is configured with an invalid FHEVM Coprocessor Configuration.`,
+          ),
+        );
+        console.log(picocolors.red("The contract is using:"));
+        console.log(picocolors.red(JSON.stringify(coprocessorConfig, null, 2)));
+        console.log(picocolors.red("The expected configuration is:"));
+        console.log(picocolors.red(JSON.stringify(expected, null, 2)));
         throw new HardhatFhevmError(
           `The contract deployed at ${address} is not using a valid Coprocessor configuration`,
         );
       }
+
+      console.log(
+        picocolors.green(
+          `The contract deployed at ${address} is configured with the valid FHEVM Coprocessor Configuration:`,
+        ),
+      );
+      console.log(JSON.stringify(coprocessorConfig, null, 2));
     },
   );
 
 // npx hardhat --network sepolia fhevm resolve-fhevm-config --acl 0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D --kms 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A
-// npx hardhat --network sepolia fhevm resolve-fhevm-config --acl 0xBCA6F8De823a399Dc431930FD5EE550Bf1C0013e --kms 0x3F3819BeBE4bD0EFEf8078Df6f9B574ADa80CCA4
 fhevmScope
   .task(SCOPE_FHEVM_TASK_RESOLVE_FHEVM_CONFIG)
   .setDescription("Resolve full FHEVM configuration")
-  .addOptionalParam("acl", "Specify the acl contract address")
-  .addOptionalParam("kms", "Specify the kms contract address")
+  .addParam("acl", "Specify the acl contract address")
+  .addParam("kms", "Specify the kms contract address")
   .setAction(
     async (
       {
@@ -295,13 +304,6 @@ fhevmScope
       const fhevmEnv = fhevmContext.get();
       await fhevmEnv.minimalInit();
 
-      if (!acl) {
-        acl = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.ACLAddress;
-      }
-      if (!kms) {
-        kms = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress;
-      }
-
       assertIsAddress(acl, "acl");
       assertIsAddress(kms, "kms");
 
@@ -310,9 +312,16 @@ fhevmScope
         kmsContractAddress: kms,
       });
 
+      let relayerUrl: string = "N/A";
+      try {
+        relayerUrl = fhevmEnv.resolveRelayerUrl(acl);
+      } catch {
+        //
+      }
+
       const cfg = repo.getFhevmInstanceConfig({
         chainId: fhevmEnv.chainId,
-        relayerUrl: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl,
+        relayerUrl,
       });
 
       const inputEIP712 = repo.inputVerifier.eip712Domain;
@@ -328,11 +337,3 @@ fhevmScope
       console.log(jsonStringifyBigInt(res, 2));
     },
   );
-
-fhevmScope.task("pipo").setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-  console.log(taskArgs ? "hello" : "byte");
-  console.log(hre ? "hello" : "byte");
-
-  const fhevmEnv = fhevmContext.get();
-  await fhevmEnv.initializeCLIApi();
-});
