@@ -36,6 +36,18 @@ It is organized as a monorepo with two standalone packages:
 - [packages/hardhat-plugin](./packages/hardhat-plugin): A [Hardhat](https://hardhat.org) plugin that allows you to
   compile, deploy, and test FHEVM contracts seamlessly using the mock runtime.
 
+  ## When to use fhevm-mocks
+
+Use this toolkit when you want to:
+
+- run your FHEVM tests in mocked mode to get faster feedback loops,
+- collect code coverage for your contracts without talking to a real FHEVM backend,
+- prototype new contracts or tutorials before wiring them to a production‑grade environment.
+
+In a typical workflow, you install `@fhevm/mock-utils` and the Hardhat plugin as dev dependencies
+in your Hardhat project, then plug them into your existing test suite.
+For integration tests against a real backend, you can later switch to a non-mocked setup.
+
 These tools are designed to make it easy to build and verify FHE-based smart contracts without requiring access to a
 real FHEVM network.
 
