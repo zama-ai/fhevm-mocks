@@ -14,7 +14,8 @@ export enum FhevmMockProviderType {
   Hardhat = 1,
   HardhatNode = 2,
   Anvil = 3,
-  SepoliaEthereum = 4,
+  SepoliaEthereumTestnet = 4,
+  EthereumMainnet = 5,
 }
 
 function fhevmMockProviderTypeToString(value: FhevmMockProviderType) {
@@ -27,8 +28,10 @@ function fhevmMockProviderTypeToString(value: FhevmMockProviderType) {
       return "Hardhat Node";
     case FhevmMockProviderType.Anvil:
       return "Anvil";
-    case FhevmMockProviderType.SepoliaEthereum:
-      return "SepoliaEthereum";
+    case FhevmMockProviderType.SepoliaEthereumTestnet:
+      return "SepoliaEthereumTestnet";
+    case FhevmMockProviderType.EthereumMainnet:
+      return "EthereumMainnet";
   }
 }
 
@@ -141,11 +144,22 @@ export class FhevmMockProvider {
     );
   }
 
-  public get isSepoliaEthereum(): boolean {
+  public get isEthereum(): boolean {
+    return this.isEthereumMainnet || this.isSepoliaEthereumTestnet;
+  }
+
+  public get isSepoliaEthereumTestnet(): boolean {
     if (!this.#info) {
       throw new FhevmError(`the FhevmMockProvider instance is not initialized.`);
     }
-    return this.#info.type === FhevmMockProviderType.SepoliaEthereum;
+    return this.#info.type === FhevmMockProviderType.SepoliaEthereumTestnet;
+  }
+
+  public get isEthereumMainnet(): boolean {
+    if (!this.#info) {
+      throw new FhevmError(`the FhevmMockProvider instance is not initialized.`);
+    }
+    return this.#info.type === FhevmMockProviderType.EthereumMainnet;
   }
 
   public get isHardhatWeb3Client(): boolean {
@@ -309,12 +323,16 @@ async function _resolveProviderInfo(
   if (
     networkName !== "hardhat" &&
     networkName !== "localhost" &&
-    defaultChainId === constants.SEPOLIA_ETHEREUM_TESTNET_CHAINID
+    (defaultChainId === constants.SEPOLIA_ETHEREUM_TESTNET_CHAINID ||
+      defaultChainId === constants.ETHEREUM_MAINNET_CHAINID)
   ) {
     assertFhevm(url !== undefined, "Missing sepolia url");
     return {
-      type: FhevmMockProviderType.SepoliaEthereum,
-      chainId: constants.SEPOLIA_ETHEREUM_TESTNET_CHAINID,
+      type:
+        defaultChainId === constants.ETHEREUM_MAINNET_CHAINID
+          ? FhevmMockProviderType.EthereumMainnet
+          : FhevmMockProviderType.SepoliaEthereumTestnet,
+      chainId: defaultChainId,
       methods: {},
       url,
       networkName,

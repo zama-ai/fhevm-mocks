@@ -20,14 +20,19 @@ const constants = {
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   // https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-  // @fhevm/solidity@0.9.1
+  // @fhevm/solidity@0.10.0
   FHEVM_SOLIDITY_PACKAGE: {
-    version: "0.9.1",
+    version: "0.10.0",
     name: "@fhevm/solidity",
     configFile: "config/ZamaConfig.sol",
     configContractName: "EthereumConfig",
     // `SepoliaConfig` must match the exact configuration defined in `config/ZamaConfig.sol`
     // It is essentially used to detect any mismatch with `config/ZamaConfig.sol`
+    EthereumConfig: {
+      ACLAddress: "0xcA2E8f1F656CD25C01F05d0b243Ab1ecd4a8ffb6",
+      CoprocessorAddress: "0xD82385dADa1ae3E969447f20A3164F6213100e75",
+      KMSVerifierAddress: "0x77627828a55156b04Ac0DC0eb30467f1a552BB03",
+    },
     SepoliaConfig: {
       ACLAddress: "0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D",
       CoprocessorAddress: "0x92C920834Ec8941d2C77D188936E1f7A6f49c127",
@@ -40,15 +45,15 @@ const constants = {
     },
   },
   // https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions
-  // @fhevm/host-contracts@0.9.0
+  // @fhevm/host-contracts@0.10.0
   FHEVM_HOST_CONTRACTS_PACKAGE: {
-    version: "0.9.0",
+    version: "0.10.0",
     name: "@fhevm/host-contracts",
   },
   // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions
   // @zama-fhe/relayer-sdk@0.3.0-6
   ZAMA_FHE_RELAYER_SDK_PACKAGE: {
-    version: "0.3.0-6",
+    version: "0.3.0-8",
     name: "@zama-fhe/relayer-sdk",
     // `sepolia` must match the exact configuration defined in `relayer-sdk`
     // It is essentially used to detect any mismatch with `relayer-sdk`'s constant `SepoliaConfig`
@@ -62,6 +67,16 @@ const constants = {
       KMSVerifierAddress: "0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A",
       InputVerifierAddress: "0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0",
       HCULimitAddress: "0x594BB474275918AF9609814E68C61B1587c5F838",
+    },
+    mainnet: {
+      relayerUrl: "https://relayer.mainnet.zama.org",
+      gatewayChainId: 261131,
+      chainId: 1,
+      ACLAddress: "0xcA2E8f1F656CD25C01F05d0b243Ab1ecd4a8ffb6",
+      CoprocessorAddress: "0xD82385dADa1ae3E969447f20A3164F6213100e75",
+      KMSVerifierAddress: "0x77627828a55156b04Ac0DC0eb30467f1a552BB03",
+      InputVerifierAddress: "0xCe0FC2e05CFff1B719EFF7169f7D80Af770c8EA2",
+      HCULimitAddress: "0x00000074275918AF9609814E68C61B1587c5F838",
     },
   },
 };

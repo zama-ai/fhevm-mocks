@@ -55,6 +55,15 @@ const config: HardhatUserConfig = {
       url: "https://sepolia.infura.io/v3/" + INFURA_API_KEY,
       chainId: 11155111,
     },
+    mainnet: {
+      accounts: {
+        count: 10,
+        mnemonic: MNEMONIC,
+        path: "m/44'/60'/0'/0",
+      },
+      url: "https://sepolia.infura.io/v3/" + INFURA_API_KEY,
+      chainId: 1,
+    },
     devnet: {
       accounts: {
         count: 10,

@@ -545,10 +545,11 @@ export class FhevmEnvironment {
 
       if (
         this.mockProvider.info.type !== FhevmMockProviderType.HardhatNode &&
-        this.mockProvider.info.type !== FhevmMockProviderType.SepoliaEthereum
+        this.mockProvider.info.type !== FhevmMockProviderType.SepoliaEthereumTestnet &&
+        this.mockProvider.info.type !== FhevmMockProviderType.EthereumMainnet
       ) {
         throw new HardhatFhevmError(
-          `The Fhevm CLI only supports the Hardhat Node (--network localhost) or Sepolia (--network sepolia) networks.`,
+          `The Fhevm CLI only supports the Hardhat Node (--network localhost), Sepolia (--network sepolia) or Mainnet (--network mainnet) networks.`,
         );
       }
 
@@ -700,9 +701,9 @@ export class FhevmEnvironment {
       );
     }
 
-    if (!this.mockProvider.isMock && !this.mockProvider.isSepoliaEthereum) {
+    if (!this.mockProvider.isMock && !this.mockProvider.isEthereum) {
       throw new HardhatFhevmError(
-        "The current version of the fhevm hardhat plugin only supports the 'hardhat' network, 'localhost' hardhat node, anvil or sepolia.",
+        "The current version of the fhevm hardhat plugin only supports the 'hardhat' network, 'localhost' hardhat node, anvil, sepolia or mainnet.",
       );
     }
 
@@ -756,7 +757,7 @@ export class FhevmEnvironment {
 
     const fhevmAddresses = this.__getAddresses();
 
-    if (!this.mockProvider.isSepoliaEthereum) {
+    if (!this.mockProvider.isEthereum) {
       const fhevmSigners = await this._createSigners();
 
       await this.mockProvider.setTemporaryMinimumBlockGasLimit(0x1fffffffffffffn);
@@ -838,7 +839,7 @@ export class FhevmEnvironment {
           kmsVerifierProperties: this._contractsRepository?.kmsVerifier.kmsVerifierProperties!,
         },
       );
-    } else if (this.mockProvider.isSepoliaEthereum) {
+    } else if (this.mockProvider.isEthereum) {
       debugInstance("Creating @zama-fhe/relayer-sdk instance (might take some time)...");
 
       const instance = await zamaFheRelayerSdkCreateInstance({
@@ -877,7 +878,7 @@ export class FhevmEnvironment {
 
     {
       let addresses: FhevmEnvironmentAddresses;
-      if (this.mockProvider.isSepoliaEthereum) {
+      if (this.mockProvider.isSepoliaEthereumTestnet) {
         const envNetworkName = getOptionalEnvString({
           name: "FHEVM_HARDHAT_NETWORK",
           dotEnvFile: this.paths.dotEnvFile,
@@ -894,6 +895,8 @@ export class FhevmEnvironment {
         } else {
           addresses = await this._initializeAddressesSepolia();
         }
+      } else if (this.mockProvider.isEthereumMainnet) {
+        addresses = await this._initializeAddressesMainnet();
       } else {
         addresses = await this._initializeAddressesMock(ignoreCache);
       }
@@ -935,11 +938,12 @@ export class FhevmEnvironment {
       KMSVerifierAddress,
     };
 
-    const coprocessorConfigDotSolPath = generateZamaConfigDotSol(
-      this.paths,
-      envCoprocessorConfig,
-      envCoprocessorConfig,
-    );
+    const coprocessorConfigDotSolPath = generateZamaConfigDotSol({
+      paths: this.paths,
+      localAddresses: envCoprocessorConfig,
+      sepoliaAddresses: envCoprocessorConfig,
+      mainnetAddresses: envCoprocessorConfig,
+    });
     assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
 
     return {
@@ -961,6 +965,12 @@ export class FhevmEnvironment {
       KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress as `0x${string}`,
     };
 
+    // const mainnetCoprocessorConfig: CoprocessorConfig = {
+    //   ACLAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.ACLAddress as `0x${string}`,
+    //   CoprocessorAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.CoprocessorAddress as `0x${string}`,
+    //   KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.KMSVerifierAddress as `0x${string}`,
+    // };
+
     const InputVerifierAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.InputVerifierAddress as `0x${string}`;
     const HCULimitAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.HCULimitAddress as `0x${string}`;
 
@@ -968,15 +978,56 @@ export class FhevmEnvironment {
 
     debugAddresses(`Using relayerUrl: ${relayerUrl}`);
 
-    const coprocessorConfigDotSolPath = generateZamaConfigDotSol(
-      this.paths,
-      sepoliaCoprocessorConfig,
-      sepoliaCoprocessorConfig,
-    );
+    const coprocessorConfigDotSolPath = generateZamaConfigDotSol({
+      paths: this.paths,
+      localAddresses: sepoliaCoprocessorConfig,
+      // sepoliaAddresses: sepoliaCoprocessorConfig,
+      // mainnetAddresses: mainnetCoprocessorConfig,
+    });
     assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
 
     return {
       CoprocessorConfig: sepoliaCoprocessorConfig,
+      CoprocessorConfigDotSolPath: coprocessorConfigDotSolPath,
+      InputVerifierAddress,
+      HCULimitAddress,
+      relayerUrl,
+      resolvedUsingEnv: false,
+    };
+  }
+
+  private async _initializeAddressesMainnet(): Promise<FhevmEnvironmentAddresses> {
+    debugAddresses(`Resolving addresses using Mainnet config`);
+
+    // const sepoliaCoprocessorConfig: CoprocessorConfig = {
+    //   ACLAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.ACLAddress as `0x${string}`,
+    //   CoprocessorAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.CoprocessorAddress as `0x${string}`,
+    //   KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress as `0x${string}`,
+    // };
+
+    const mainnetCoprocessorConfig: CoprocessorConfig = {
+      ACLAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.ACLAddress as `0x${string}`,
+      CoprocessorAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.CoprocessorAddress as `0x${string}`,
+      KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.KMSVerifierAddress as `0x${string}`,
+    };
+
+    const InputVerifierAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.InputVerifierAddress as `0x${string}`;
+    const HCULimitAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.HCULimitAddress as `0x${string}`;
+
+    const relayerUrl = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.relayerUrl;
+
+    debugAddresses(`Using relayerUrl: ${relayerUrl}`);
+
+    const coprocessorConfigDotSolPath = generateZamaConfigDotSol({
+      paths: this.paths,
+      localAddresses: mainnetCoprocessorConfig,
+      // sepoliaAddresses: sepoliaCoprocessorConfig,
+      // mainnetAddresses: mainnetCoprocessorConfig,
+    });
+    assertHHFhevm(path.isAbsolute(coprocessorConfigDotSolPath));
+
+    return {
+      CoprocessorConfig: mainnetCoprocessorConfig,
       CoprocessorConfigDotSolPath: coprocessorConfigDotSolPath,
       InputVerifierAddress,
       HCULimitAddress,
@@ -1005,7 +1056,10 @@ export class FhevmEnvironment {
       KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress as `0x${string}`,
     };
 
-    const coprocessorConfigDotSolPath = generateZamaConfigDotSol(this.paths, mockCoprocessorConfig);
+    const coprocessorConfigDotSolPath = generateZamaConfigDotSol({
+      paths: this.paths,
+      localAddresses: mockCoprocessorConfig,
+    });
 
     debugAddresses(`No relayerUrl in Mock config`);
 
@@ -1022,7 +1076,7 @@ export class FhevmEnvironment {
   }
 
   public getRemappings(): Record<string, string> {
-    if (!this.mockProvider.isMock && !this.mockProvider.isSepoliaEthereum) {
+    if (!this.mockProvider.isMock && !this.mockProvider.isEthereum) {
       throw new HardhatFhevmError(`This network configuration is not yet supported by the FHEVM hardhat plugin`);
     }
 

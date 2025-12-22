@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.9.0"
-export const InputVerifierInterfaceVersion = "0.9.0";
+// version "0.10.0"
+export const InputVerifierInterfaceVersion = "0.10.0";
 
 export const InputVerifierPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
