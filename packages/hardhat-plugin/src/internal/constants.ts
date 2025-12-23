@@ -51,7 +51,7 @@ const constants = {
     name: "@fhevm/host-contracts",
   },
   // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions
-  // @zama-fhe/relayer-sdk@0.3.0-6
+  // @zama-fhe/relayer-sdk@0.3.0-8
   ZAMA_FHE_RELAYER_SDK_PACKAGE: {
     version: "0.3.0-8",
     name: "@zama-fhe/relayer-sdk",
