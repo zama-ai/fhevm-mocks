@@ -1,7 +1,7 @@
 import { ethers as EthersT } from "ethers";
 
-// version "0.9.0"
-export const ACLInterfaceVersion = "0.9.0";
+// version "0.10.0"
+export const ACLInterfaceVersion = "0.10.0";
 
 export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
@@ -13,11 +13,70 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     inputs: [
       {
         internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "AccountAlreadyBlocked",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "AccountNotBlocked",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
         name: "target",
         type: "address",
       },
     ],
     name: "AddressEmptyCode",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "blockNumber",
+        type: "uint256",
+      },
+    ],
+    name: "AlreadyDelegatedOrRevokedInSameBlock",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+    ],
+    name: "DelegateCannotBeContractAddress",
     type: "error",
   },
   {
@@ -47,6 +106,37 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     type: "error",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "expirationDate",
+        type: "uint256",
+      },
+    ],
+    name: "ExpirationDateAlreadySetToSameValue",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "ExpirationDateBeforeOneHour",
+    type: "error",
+  },
+  {
     inputs: [],
     name: "FailedCall",
     type: "error",
@@ -59,6 +149,27 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   {
     inputs: [],
     name: "InvalidInitialization",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+    ],
+    name: "NotDelegatedYet",
     type: "error",
   },
   {
@@ -102,6 +213,39 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     name: "OwnableUnauthorizedAccount",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+    ],
+    name: "SenderCannotBeContractAddress",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+    ],
+    name: "SenderCannotBeDelegate",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+    ],
+    name: "SenderDenied",
     type: "error",
   },
   {
@@ -179,6 +323,62 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     anonymous: false,
     inputs: [
       {
+        indexed: true,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "BlockedAccount",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "delegationCounter",
+        type: "uint64",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "oldExpirationDate",
+        type: "uint64",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "newExpirationDate",
+        type: "uint64",
+      },
+    ],
+    name: "DelegatedForUserDecryption",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
         indexed: false,
         internalType: "uint64",
         name: "version",
@@ -237,6 +437,56 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     name: "Paused",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "delegationCounter",
+        type: "uint64",
+      },
+      {
+        indexed: false,
+        internalType: "uint64",
+        name: "oldExpirationDate",
+        type: "uint64",
+      },
+    ],
+    name: "RevokedDelegationForUserDecryption",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "UnblockedAccount",
     type: "event",
   },
   {
@@ -359,8 +609,44 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "blockAccount",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "cleanTransientStorage",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+      {
+        internalType: "uint64",
+        name: "expirationDate",
+        type: "uint64",
+      },
+    ],
+    name: "delegateForUserDecryption",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -392,6 +678,35 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+    ],
+    name: "getUserDecryptionDelegationExpirationDate",
+    outputs: [
+      {
+        internalType: "uint64",
+        name: "",
+        type: "uint64",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "getVersion",
     outputs: [
@@ -409,6 +724,25 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     name: "initializeFromEmptyProxy",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "isAccountDenied",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -458,6 +792,40 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
     inputs: [
       {
         internalType: "address",
+        name: "delegator",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+      {
+        internalType: "bytes32",
+        name: "handle",
+        type: "bytes32",
+      },
+    ],
+    name: "isHandleDelegatedForUserDecryption",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
         name: "account",
         type: "address",
       },
@@ -471,6 +839,25 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "bytes[]",
+        name: "data",
+        type: "bytes[]",
+      },
+    ],
+    name: "multicall",
+    outputs: [
+      {
+        internalType: "bytes[]",
+        name: "results",
+        type: "bytes[]",
+      },
+    ],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -558,7 +945,32 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
   },
   {
     inputs: [],
+    name: "reinitializeV2",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "renounceOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "delegate",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "contractAddress",
+        type: "address",
+      },
+    ],
+    name: "revokeDelegationForUserDecryption",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
@@ -572,6 +984,19 @@ export const ACLPartialInterface: EthersT.Interface = new EthersT.Interface([
       },
     ],
     name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+    ],
+    name: "unblockAccount",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

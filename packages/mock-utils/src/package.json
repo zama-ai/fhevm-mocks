@@ -51,7 +51,7 @@
     }
   },
   "peerDependencies": {
-    "@zama-fhe/relayer-sdk": "^0.3.0-6",
+    "@zama-fhe/relayer-sdk": "^0.3.0-8",
     "ethers": "^6.1.0",
     "typescript": ">=5.0.4"
   },
@@ -76,5 +76,5 @@
     "web3",
     "typescript"
   ],
-  "version": "0.3.0-3"
+  "version": "0.3.0-4"
 }

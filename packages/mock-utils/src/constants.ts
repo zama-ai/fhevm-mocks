@@ -63,6 +63,7 @@ const constants = {
     path: "m/44'/60'/3'/0",
   },
   SEPOLIA_ETHEREUM_TESTNET_CHAINID: 11155111,
+  ETHEREUM_MAINNET_CHAINID: 1,
   FHEVM_HOST_CONTRACTS_PACKAGE_NAME: "@fhevm/host-contracts",
 };
 Object.freeze(constants);
