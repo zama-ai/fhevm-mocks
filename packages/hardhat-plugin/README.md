@@ -76,6 +76,21 @@ And register the plugin in your [`hardhat.config.js`](https://hardhat.org/config
 import "@fhevm/hardhat-plugin";
 ```
 
+## Zama API Key (Mainnet)
+
+To run FHE contracts on Ethereum mainnet, you need a Zama API key. To configure the Zama API key in the FHEVM Hardhat
+Plugin, run:
+
+```sh
+npx hardhat vars set ZAMA_FHEVM_API_KEY <your-api-key>
+```
+
+To verify the Zama API key is properly set up:
+
+```sh
+npx hardhat vars get ZAMA_FHEVM_API_KEY
+```
+
 # 🚀 Quick Start: Hello World with FHEVM
 
 In this guide, we'll walk through a simple Hello World example using FHEVM (Fully Homomorphic Encryption). The objective
