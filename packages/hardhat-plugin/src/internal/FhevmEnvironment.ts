@@ -13,6 +13,7 @@ import { assertIsAddress } from "@fhevm/mock-utils/utils";
 import { type FhevmInstance, createInstance as zamaFheRelayerSdkCreateInstance } from "@zama-fhe/relayer-sdk/node";
 import debug from "debug";
 import { ethers as EthersT } from "ethers";
+import { vars } from "hardhat/config";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
 import * as path from "path";
 
@@ -686,6 +687,9 @@ export class FhevmEnvironment {
     if (this._fhevmMockProvider === undefined) {
       const defaults = this.__guessDefaultProvider();
 
+      debugProvider(`Default provider network: ${defaults.networkName}, type: ${defaults.type}, url: ${defaults.url}`);
+      debugProvider(`Default provider type   : ${defaults.type}, url: ${defaults.url}`);
+      debugProvider(`Default provider url    : ${defaults.url}`);
       debugProvider("Resolving provider...");
 
       this._fhevmMockProvider = await FhevmMockProvider.fromReadonlyProvider(
@@ -842,12 +846,23 @@ export class FhevmEnvironment {
     } else if (this.mockProvider.isEthereum) {
       debugInstance("Creating @zama-fhe/relayer-sdk instance (might take some time)...");
 
+      const ZAMA_FHEVM_API_KEY = vars.get("ZAMA_FHEVM_API_KEY");
+
       const instance = await zamaFheRelayerSdkCreateInstance({
         ...this.getContractsRepository().getFhevmInstanceConfig({
           chainId: this.mockProvider.chainId,
           relayerUrl: this.getRelayerUrl(),
         }),
         network: this.hre.network.provider,
+        ...(ZAMA_FHEVM_API_KEY
+          ? {
+              auth: {
+                __type: "ApiKeyHeader",
+                header: "x-api-key",
+                value: ZAMA_FHEVM_API_KEY,
+              },
+            }
+          : {}),
       });
 
       debugInstance("@zama-fhe/relayer-sdk instance created.");
@@ -965,12 +980,6 @@ export class FhevmEnvironment {
       KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress as `0x${string}`,
     };
 
-    // const mainnetCoprocessorConfig: CoprocessorConfig = {
-    //   ACLAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.ACLAddress as `0x${string}`,
-    //   CoprocessorAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.CoprocessorAddress as `0x${string}`,
-    //   KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.KMSVerifierAddress as `0x${string}`,
-    // };
-
     const InputVerifierAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.InputVerifierAddress as `0x${string}`;
     const HCULimitAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.HCULimitAddress as `0x${string}`;
 
@@ -980,7 +989,7 @@ export class FhevmEnvironment {
 
     const coprocessorConfigDotSolPath = generateZamaConfigDotSol({
       paths: this.paths,
-      localAddresses: sepoliaCoprocessorConfig,
+      // localAddresses: sepoliaCoprocessorConfig,
       // sepoliaAddresses: sepoliaCoprocessorConfig,
       // mainnetAddresses: mainnetCoprocessorConfig,
     });
@@ -999,12 +1008,6 @@ export class FhevmEnvironment {
   private async _initializeAddressesMainnet(): Promise<FhevmEnvironmentAddresses> {
     debugAddresses(`Resolving addresses using Mainnet config`);
 
-    // const sepoliaCoprocessorConfig: CoprocessorConfig = {
-    //   ACLAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.ACLAddress as `0x${string}`,
-    //   CoprocessorAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.CoprocessorAddress as `0x${string}`,
-    //   KMSVerifierAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress as `0x${string}`,
-    // };
-
     const mainnetCoprocessorConfig: CoprocessorConfig = {
       ACLAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.ACLAddress as `0x${string}`,
       CoprocessorAddress: constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.mainnet.CoprocessorAddress as `0x${string}`,
@@ -1020,7 +1023,7 @@ export class FhevmEnvironment {
 
     const coprocessorConfigDotSolPath = generateZamaConfigDotSol({
       paths: this.paths,
-      localAddresses: mainnetCoprocessorConfig,
+      // localAddresses: mainnetCoprocessorConfig,
       // sepoliaAddresses: sepoliaCoprocessorConfig,
       // mainnetAddresses: mainnetCoprocessorConfig,
     });

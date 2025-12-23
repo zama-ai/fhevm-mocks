@@ -326,7 +326,7 @@ async function _resolveProviderInfo(
     (defaultChainId === constants.SEPOLIA_ETHEREUM_TESTNET_CHAINID ||
       defaultChainId === constants.ETHEREUM_MAINNET_CHAINID)
   ) {
-    assertFhevm(url !== undefined, "Missing sepolia url");
+    assertFhevm(url !== undefined, "Missing sepolia/mainnet url");
     return {
       type:
         defaultChainId === constants.ETHEREUM_MAINNET_CHAINID

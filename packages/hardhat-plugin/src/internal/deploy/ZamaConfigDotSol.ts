@@ -24,7 +24,7 @@ export function generateZamaConfigDotSol({
   mainnetAddresses,
 }: {
   paths: FhevmEnvironmentPaths;
-  localAddresses: CoprocessorConfig;
+  localAddresses?: CoprocessorConfig;
   sepoliaAddresses?: CoprocessorConfig;
   mainnetAddresses?: CoprocessorConfig;
 }): string {
@@ -113,14 +113,16 @@ export function generateZamaConfigDotSol({
             });
     }`;
 
-  const newLocalConfig = `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
+  const newLocalConfig = localAddresses
+    ? `function _getLocalConfig() private pure returns (CoprocessorConfig memory) {
         return
             CoprocessorConfig({
                 ACLAddress: ${localAddresses.ACLAddress},
                 CoprocessorAddress: ${localAddresses.CoprocessorAddress},
                 KMSVerifierAddress: ${localAddresses.KMSVerifierAddress}
             });
-    }`;
+    }`
+    : expectedLocalConfig;
 
   const newSepoliaConfig = sepoliaAddresses
     ? `function _getSepoliaConfig() private pure returns (CoprocessorConfig memory) {
