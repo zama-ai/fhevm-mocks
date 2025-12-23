@@ -78,8 +78,8 @@ import "@fhevm/hardhat-plugin";
 
 ## Zama API Key (Mainnet)
 
-To run FHE contracts on Ethereum mainnet, you need a Zama API key. To configure the Zama API key in the FHEVM Hardhat
-Plugin, run:
+To generate encrypted inputs or decrypt FHE data on Ethereum mainnet, you need a Zama API key. To configure it in the
+FHEVM Hardhat Plugin, run:
 
 ```sh
 npx hardhat vars set ZAMA_FHEVM_API_KEY <your-api-key>
