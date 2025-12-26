@@ -174,6 +174,7 @@ contract APlusB is ZamaEthereumConfig {
   function computeAPlusB() external {
     _aplusb = FHE.add(_a, _b);
     FHE.allowThis(_aplusb);
+    FHE.allow(msg.sender, _aplusb);
   }
 
   function aplusb() public view returns (euint8) {
@@ -229,13 +230,13 @@ import { FhevmType } from "@fhevm/hardhat-plugin";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "ethers";
-import hre from "hardhat";
+import * as hre from "hardhat";
 
-async function deployHelloWorldFixture(account: HardhatEthersSigner) {
+async function deployAPlusBFixture(account: HardhatEthersSigner) {
   const contractFactory = await hre.ethers.getContractFactory("APlusB");
   const contract = await contractFactory.connect(account).deploy();
   await contract.waitForDeployment();
-  return contract;
+  return contract as any as ethers.Contract;
 }
 
 describe("APlusB", function () {
@@ -245,7 +246,7 @@ describe("APlusB", function () {
   before(async function () {
     const [alice] = await hre.ethers.getSigners();
 
-    aplusbContract = await deployHelloWorldFixture(alice);
+    aplusbContract = await deployAPlusBFixture(alice);
     aplusbContractAddress = await aplusbContract.getAddress();
 
     await hre.fhevm.assertCoprocessorInitialized(aplusbContract, "APlusB");
