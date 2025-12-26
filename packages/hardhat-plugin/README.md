@@ -174,7 +174,7 @@ contract APlusB is ZamaEthereumConfig {
   function computeAPlusB() external {
     _aplusb = FHE.add(_a, _b);
     FHE.allowThis(_aplusb);
-    FHE.allow(msg.sender, _aplusb);
+    FHE.allow(_aplusb, msg.sender);
   }
 
   function aplusb() public view returns (euint8) {
