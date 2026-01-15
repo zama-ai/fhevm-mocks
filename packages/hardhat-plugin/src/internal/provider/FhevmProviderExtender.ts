@@ -199,33 +199,6 @@ export class FhevmProviderExtender extends ProviderWrapper {
     return response;
   }
 
-  // private async _handleFhevmCreateDecryptionSignatures(args: RequestArguments) {
-  //   const fhevmEnv = fhevmContext.get();
-
-  //   // forward if we are not running the mock engine
-  //   if (!fhevmEnv.useEmbeddedMockEngine) {
-  //     return this._wrappedProvider.request(args);
-  //   }
-
-  //   if (fhevmEnv.isRunningInHHNode) {
-  //     console.log(picocolors.greenBright(`${args.method}`));
-  //   }
-
-  //   const payload = _getRequestSingleParam(args) as {
-  //     handlesBytes32Hex: string[];
-  //     clearTextValuesHex: string[];
-  //     extraData: string;
-  //   };
-
-  //   const res = await fhevmEnv.decryptionOracle.createDecryptionSignatures(
-  //     payload.handlesBytes32Hex,
-  //     payload.clearTextValuesHex,
-  //     payload.extraData,
-  //   );
-
-  //   return res;
-  // }
-
   private async _handleFhevmRelayerV1UserDecrypt(args: RequestArguments) {
     const fhevmEnv = fhevmContext.get();
 
@@ -256,8 +229,8 @@ export class FhevmProviderExtender extends ProviderWrapper {
       payload.signature,
       payload.contractAddresses,
       payload.userAddress,
-      payload.requestValidity.startTimestamp,
-      payload.requestValidity.durationDays,
+      Number(payload.requestValidity.startTimestamp),
+      Number(payload.requestValidity.durationDays),
       fhevmEnv.getGatewayDecryptionAddress(),
       Number(payload.contractsChainId),
     );

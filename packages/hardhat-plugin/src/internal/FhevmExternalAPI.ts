@@ -16,8 +16,8 @@ import {
 import { parseCoprocessorEventsFromLogs } from "@fhevm/mock-utils";
 import { relayer } from "@fhevm/mock-utils";
 import { userDecryptHandleBytes32 as mockUtilsUserDecryptHandleBytes32 } from "@fhevm/mock-utils";
-import type { PublicDecryptResults, UserDecryptResults } from "@zama-fhe/relayer-sdk/node";
-import type { EIP712, FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
+import type { KmsUserDecryptEIP712Type, PublicDecryptResults, UserDecryptResults } from "@zama-fhe/relayer-sdk/node";
+import type { FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
 import { HardhatFhevmError } from "../error";
@@ -180,9 +180,9 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
   public createEIP712(
     publicKey: string,
     contractAddresses: string[],
-    startTimestamp: string | number,
-    durationDays: string | number,
-  ): EIP712 {
+    startTimestamp: number,
+    durationDays: number,
+  ): KmsUserDecryptEIP712Type {
     return this._fhevmEnv.instance.createEIP712(publicKey, contractAddresses, startTimestamp, durationDays);
   }
 
@@ -197,8 +197,8 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     signature: string,
     contractAddresses: string[],
     userAddress: string,
-    startTimestamp: string | number,
-    durationDays: string | number,
+    startTimestamp: number,
+    durationDays: number,
   ): Promise<UserDecryptResults> {
     if (this._fhevmEnv.isRunningInHHNode) {
       // Cannot be called from the server process

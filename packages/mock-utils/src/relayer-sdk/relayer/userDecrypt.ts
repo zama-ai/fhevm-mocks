@@ -56,7 +56,11 @@ export function buildUserDecryptResults(handles: `0x${string}`[], listBigIntDecr
 
   const results: UserDecryptResults = {};
   handles.forEach(
-    (handle, idx) => (results[handle] = formatAccordingToType(listBigIntDecryptions[idx], typesList[idx])),
+    (handle, idx) =>
+      ((results as Record<`0x${string}`, ClearValueType>)[handle] = formatAccordingToType(
+        listBigIntDecryptions[idx],
+        typesList[idx],
+      )),
   );
 
   return results;

@@ -2,7 +2,8 @@ import { ethers as EthersT } from "ethers";
 
 import constants from "../constants.js";
 import type { MinimalProvider } from "../ethers/provider.js";
-import { ENCRYPTION_TYPES, type RelayerEncryptedInput } from "../relayer-sdk/types.js";
+import type { EncryptionBits, RelayerEncryptedInput } from "../relayer-sdk/types.js";
+import { ENCRYPTION_TYPES } from "../relayer-sdk/types.js";
 import { concatBytes, uintToBytes } from "../utils/bytes.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
 import { MAX_UINT64, boolToBigInt, getMaxBigInt } from "../utils/math.js";
@@ -112,6 +113,17 @@ export class MockRelayerEncryptedInput implements RelayerEncryptedInput {
     this._addClearTextValueFheBitsPair(clearTextValueBigInt, fhevmzType);
 
     return this;
+  }
+
+  public generateZKProof(): {
+    readonly chainId: bigint;
+    readonly aclContractAddress: `0x${string}`;
+    readonly contractAddress: `0x${string}`;
+    readonly userAddress: `0x${string}`;
+    readonly ciphertextWithZKProof: Uint8Array | string;
+    readonly encryptionBits: readonly EncryptionBits[];
+  } {
+    throw new FhevmError("Not Implemented in Mock mode");
   }
 
   // Accepts : 0, 1, true, false

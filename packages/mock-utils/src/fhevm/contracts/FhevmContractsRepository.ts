@@ -189,7 +189,7 @@ export class FhevmContractsRepository {
   public getFhevmInstanceConfig(params: {
     chainId: number;
     relayerUrl: string;
-  }): FhevmInstanceConfig & { fhevmExecutorContractAddress: string } {
+  }): Omit<FhevmInstanceConfig, "network"> & { fhevmExecutorContractAddress: string } {
     assertFhevm(this.#acl !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#fhevmExecutor !== undefined, "FhevmContractsRepository is not initialized");
     assertFhevm(this.#kmsVerifier !== undefined, "FhevmContractsRepository is not initialized");

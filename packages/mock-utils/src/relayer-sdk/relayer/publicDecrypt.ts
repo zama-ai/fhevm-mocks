@@ -3,7 +3,9 @@
 */
 import { ethers as EthersT } from "ethers";
 
-import type { ClearValues } from "../types.js";
+import type { FhevmHandle } from "../../fhevm/FhevmHandle.js";
+import type { FhevmType } from "../../fhevm/FhevmType.js";
+import type { ClearValueType, ClearValues } from "../types.js";
 
 // Duplicated code from relayer-sdk/src/relayer/publicDecrypt.ts
 const CiphertextType: Record<number, "bool" | "uint256" | "address" | "bytes"> = {
@@ -18,12 +20,13 @@ const CiphertextType: Record<number, "bool" | "uint256" | "address" | "bytes"> =
 };
 
 // Duplicated code from relayer-sdk/src/relayer/publicDecrypt.ts
-export function deserializeClearValues(handles: `0x${string}`[], decryptedResult: `0x${string}`): ClearValues {
-  let typesList: number[] = [];
-  for (const handle of handles) {
-    const hexPair = handle.slice(-4, -2).toLowerCase();
-    const typeDiscriminant = parseInt(hexPair, 16);
-    typesList.push(typeDiscriminant);
+export function deserializeClearValues(
+  orderedFhevmHandles: FhevmHandle[],
+  decryptedResult: `0x${string}`,
+): ClearValues {
+  let fheTypeIdList: FhevmType[] = [];
+  for (const fhevmHandle of orderedFhevmHandles) {
+    fheTypeIdList.push(fhevmHandle.fhevmType);
   }
 
   const restoredEncoded =
@@ -32,7 +35,7 @@ export function deserializeClearValues(handles: `0x${string}`[], decryptedResult
     decryptedResult.slice(2) +
     "00".repeat(32); // dummy empty bytes[] length (ignored)
 
-  const abiTypes = typesList.map((t) => {
+  const abiTypes = fheTypeIdList.map((t: FhevmType) => {
     const abiType = CiphertextType[t]; // all types are valid because this was supposedly checked already inside the `checkEncryptedBits` function
     return abiType;
   });
@@ -41,10 +44,11 @@ export function deserializeClearValues(handles: `0x${string}`[], decryptedResult
   const decoded = coder.decode(["uint256", ...abiTypes, "bytes[]"], restoredEncoded);
 
   // strip dummy first/last element
-  const rawValues = decoded.slice(1, 1 + typesList.length);
+  const rawValues = decoded.slice(1, 1 + fheTypeIdList.length);
 
-  const results: ClearValues = {};
-  handles.forEach((handle, idx) => (results[handle] = rawValues[idx]));
+  const results: Record<string, ClearValueType> = {};
+
+  orderedFhevmHandles.forEach((fhevmHandle, idx) => (results[fhevmHandle.toHandleBytes32Hex()] = rawValues[idx]));
 
   return results;
 }
