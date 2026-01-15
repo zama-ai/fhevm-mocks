@@ -180,7 +180,7 @@ export class FhevmHandle {
     expected?: {
       fhevmType?: FhevmType;
       fheType?: FheType;
-      chainId?: number;
+      chainId?: number | bigint;
     },
   ): FhevmHandle {
     assertIsBytes32String(handleBytes32, "handleBytes32");
@@ -192,7 +192,7 @@ export class FhevmHandle {
     const fhevmHandle = FhevmHandle.fromBytes32Hex(handleBytes32);
 
     if (expected?.chainId !== undefined) {
-      if (fhevmHandle.chainId !== expected.chainId) {
+      if (BigInt(fhevmHandle.chainId) !== BigInt(expected.chainId)) {
         throw new FhevmError(
           `Chain ID mismatch for handle ${handleBytes32}, expected ${expected.chainId}, but got ${fhevmHandle.chainId} instead.`,
         );

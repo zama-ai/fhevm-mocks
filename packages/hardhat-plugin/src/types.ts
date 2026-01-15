@@ -9,8 +9,8 @@ import type {
 } from "@fhevm/mock-utils";
 import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
 import type {
-  EIP712,
   HandleContractPair,
+  KmsUserDecryptEIP712Type,
   PublicDecryptResults,
   RelayerEncryptedInput,
   UserDecryptResults,
@@ -62,7 +62,7 @@ export interface HardhatFhevmRuntimeEnvironment {
     contractAddresses: string[],
     startTimestamp: string | number,
     durationDays: string | number,
-  ): EIP712;
+  ): KmsUserDecryptEIP712Type;
   generateKeypair(): {
     publicKey: string;
     privateKey: string;

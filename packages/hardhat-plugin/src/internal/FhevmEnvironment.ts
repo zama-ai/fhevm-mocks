@@ -10,7 +10,8 @@ import {
   contracts,
 } from "@fhevm/mock-utils";
 import { assertIsAddress } from "@fhevm/mock-utils/utils";
-import { type FhevmInstance, createInstance as zamaFheRelayerSdkCreateInstance } from "@zama-fhe/relayer-sdk/node";
+import type { FhevmInstance } from "@zama-fhe/relayer-sdk/node";
+import { createInstance as zamaFheRelayerSdkCreateInstance } from "@zama-fhe/relayer-sdk/node";
 import debug from "debug";
 import { ethers as EthersT } from "ethers";
 import { vars } from "hardhat/config";

@@ -64,7 +64,7 @@ export async function userDecryptHandleBytes32(
   const userDecryptArgs = await _resolveUserDecryptOptions(instance, options);
 
   // extract chainId from instance (FhevmInstance is missing getChainId function)
-  const chainId = _getFhevmInstanceChainId(instance);
+  const chainId = instance.config.chainId;
 
   // Verify Fhevm handles
   _verifyFhevmHandleContractPairs(handleContractPairs, chainId);
@@ -165,19 +165,18 @@ async function _computeUserSignatureAndContractAddresses(
 
   const signature = await user.signTypedData(
     eip712.domain,
-    { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification },
-    eip712.message,
+    // should be readonly in ethers.js
+    { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification } as unknown as Record<
+      string,
+      Array<EthersT.TypedDataField>
+    >,
+    eip712.message as Record<string, any>,
   );
 
   return {
     signature,
     contractAddresses: contractAddressesSortUnique,
   };
-}
-
-function _getFhevmInstanceChainId(instance: FhevmInstance): number {
-  const dummyEIP712 = instance.createEIP712("", [EthersT.ZeroAddress], 0, 0);
-  return dummyEIP712.message.contractsChainId;
 }
 
 function _buildDeterministicContractAddressesList(
@@ -234,7 +233,7 @@ function _assertIsContractAddressesArray(contractAddresses: ({ contractAddress: 
 
 function _verifyFhevmHandleContractPairs(
   handleContractPairs: { handleBytes32: string; contractAddress: string; fhevmType?: FhevmType }[],
-  chainId?: number,
+  chainId?: number | bigint,
 ) {
   if (handleContractPairs.length === 0) {
     throw new FhevmError("Empty list of handle/contract pairs.");

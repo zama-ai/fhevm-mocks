@@ -1,6 +1,15 @@
 /*
     WARNING : Never import the "hardhat" package!
 */
+import type {
+  BytesHex,
+  BytesHexNo0x,
+  ChecksummedAddress,
+  FhevmConfigType,
+  KeypairType,
+  KmsUserDecryptEIP712Type,
+} from "@zama-fhe/relayer-sdk/node";
+import { KmsEIP712, TKMSPkeKeypair } from "@zama-fhe/relayer-sdk/node";
 import { ethers as EthersT } from "ethers";
 
 import constants from "../constants.js";
@@ -13,25 +22,22 @@ import {
   checkDeadlineValidity,
   checkMaxContractAddresses,
 } from "../relayer-sdk/relayer/userDecrypt.js";
-import {
-  createEIP712 as fhevmSdkCreateEIP712ForDecryption,
-  generateKeypair as fhevmSdkGenerateKeypair,
-} from "../relayer-sdk/types.js";
 import type {
   ClearValues,
-  EIP712,
-  EIP712Type,
   FhevmInstance,
   HandleContractPair,
   PublicDecryptResults,
   PublicParams,
+  RelayerInputProofOptionsType,
   UserDecryptResults,
+  ZKProofLike,
 } from "../relayer-sdk/types.js";
 import { assertIsAddress, assertIsAddressArray } from "../utils/address.js";
 import { FhevmError, assertFhevm } from "../utils/error.js";
 import { fromHexString, toHexString } from "../utils/hex.js";
 import { assertIsNumber } from "../utils/math.js";
 import { ensure0x, remove0x } from "../utils/string.js";
+import { FhevmHandle } from "./FhevmHandle.js";
 import { MockRelayerEncryptedInput } from "./MockRelayerEncryptedInput.js";
 import { InputVerifier, type InputVerifierProperties } from "./contracts/InputVerifier.js";
 import { KMSVerifier, type KMSVerifierProperties } from "./contracts/KMSVerifier.js";
@@ -67,19 +73,12 @@ export class MockFhevmInstance implements FhevmInstance {
   #readonlyEthersProvider: EthersT.Provider;
   #chainId: number; //provider's chainId
   #gatewayChainId: number;
-  #verifyingContractAddressInputVerification: string;
-  #verifyingContractAddressDecryption: string;
+  #verifyingContractAddressInputVerification: ChecksummedAddress;
+  #verifyingContractAddressDecryption: ChecksummedAddress;
   #contractsChainId: number;
-  #aclContractAddress: string;
+  #aclContractAddress: ChecksummedAddress;
   #kmsVerifier: KMSVerifier;
   #inputVerifier: InputVerifier;
-
-  #fhevmSdkCreateEIP712ForDecryptionFunc: (
-    publicKey: string,
-    contractAddresses: string[],
-    startTimestamp: string | number,
-    durationDays: string | number,
-  ) => EIP712;
 
   private constructor(config: MockFhevmInstanceConfig, extra: MockFhevmInstanceConfigExtra) {
     assertIsAddress(
@@ -99,10 +98,22 @@ export class MockFhevmInstance implements FhevmInstance {
     this.#aclContractAddress = config.aclContractAddress;
     this.#kmsVerifier = extra.kmsVerifier;
     this.#inputVerifier = extra.inputVerifier;
-    this.#fhevmSdkCreateEIP712ForDecryptionFunc = fhevmSdkCreateEIP712ForDecryption(
-      this.#verifyingContractAddressDecryption,
-      this.#contractsChainId,
-    );
+  }
+
+  public get config(): FhevmConfigType {
+    return {
+      chainId: BigInt(this.#chainId),
+      aclContractAddress: this.#aclContractAddress,
+      coprocessorSignerThreshold: this.#inputVerifier.getThreshold(),
+      kmsContractAddress: this.#kmsVerifier.address,
+      verifyingContractAddressDecryption: this.#kmsVerifier.gatewayDecryptionAddress,
+      verifyingContractAddressInputVerification: this.#inputVerifier.gatewayInputVerificationAddress,
+      inputVerifierContractAddress: this.#inputVerifier.address,
+      gatewayChainId: BigInt(this.#gatewayChainId),
+      coprocessorSigners: this.#inputVerifier.getCoprocessorSignersAddresses(),
+      kmsSigners: this.#kmsVerifier.getKmsSignersAddresses(),
+      kmsSignerThreshold: this.#kmsVerifier.getThreshold(),
+    };
   }
 
   public get chainId(): number {
@@ -141,18 +152,34 @@ export class MockFhevmInstance implements FhevmInstance {
     return instance;
   }
 
-  public static createEIP712(
-    publicKey: string,
-    contractAddresses: string[],
-    startTimestamp: string | number,
-    durationDays: string | number,
-    verifyingContractAddressDecryption: string,
-    contractsChainId: number,
-  ): EIP712 {
+  public static createEIP712({
+    publicKey,
+    contractAddresses,
+    startTimestamp,
+    durationDays,
+    verifyingContractAddressDecryption,
+    contractsChainId,
+    extraData,
+  }: {
+    publicKey: string;
+    contractAddresses: string[];
+    startTimestamp: number;
+    durationDays: number;
+    verifyingContractAddressDecryption: string;
+    contractsChainId: number;
+    extraData: BytesHex;
+  }): KmsUserDecryptEIP712Type {
     assertIsAddressArray(contractAddresses, "contractAddresses");
 
-    const eip712Func = fhevmSdkCreateEIP712ForDecryption(verifyingContractAddressDecryption, contractsChainId);
-    const eip712 = eip712Func(publicKey, contractAddresses, startTimestamp, durationDays);
+    const k = new KmsEIP712({ chainId: BigInt(contractsChainId), verifyingContractAddressDecryption });
+
+    const eip712 = k.createUserDecryptEIP712({
+      publicKey,
+      contractAddresses,
+      startTimestamp,
+      durationDays,
+      extraData,
+    });
 
     //Debug Make sure we are in sync with KMSVerifier.sol
     assertFhevm(eip712.domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version.toString());
@@ -165,17 +192,20 @@ export class MockFhevmInstance implements FhevmInstance {
   public createEIP712(
     publicKey: string,
     contractAddresses: string[],
-    startTimestamp: string | number,
-    durationDays: string | number,
-  ): EIP712 {
+    startTimestamp: number,
+    durationDays: number,
+  ): KmsUserDecryptEIP712Type {
     assertIsAddressArray(contractAddresses, "contractAddresses");
 
-    const eip712 = this.#fhevmSdkCreateEIP712ForDecryptionFunc(
+    const eip712 = MockFhevmInstance.createEIP712({
       publicKey,
       contractAddresses,
       startTimestamp,
       durationDays,
-    );
+      contractsChainId: this.#contractsChainId,
+      verifyingContractAddressDecryption: this.#verifyingContractAddressDecryption,
+      extraData: "0x00",
+    });
 
     //Debug Make sure we are in sync with KMSVerifier.sol
     assertFhevm(BigInt(this.#gatewayChainId) === this.#kmsVerifier.eip712Domain.chainId);
@@ -185,6 +215,16 @@ export class MockFhevmInstance implements FhevmInstance {
     assertFhevm(BigInt(eip712.domain.chainId) === BigInt(this.#contractsChainId));
 
     return eip712;
+  }
+
+  public async requestZKProofVerification(
+    _zkProof: ZKProofLike,
+    _options?: RelayerInputProofOptionsType,
+  ): Promise<{
+    handles: Uint8Array[];
+    inputProof: Uint8Array;
+  }> {
+    throw new FhevmError("Not Implemented in Mock mode");
   }
 
   public createEncryptedInput(contractAddress: string, userAddress: string): MockRelayerEncryptedInput {
@@ -202,8 +242,8 @@ export class MockFhevmInstance implements FhevmInstance {
     );
   }
 
-  public generateKeypair(): { publicKey: string; privateKey: string } {
-    return fhevmSdkGenerateKeypair();
+  public generateKeypair(): KeypairType<BytesHexNo0x> {
+    return TKMSPkeKeypair.generate().toBytesHexNo0x();
   }
 
   public getPublicKey(): {
@@ -213,7 +253,7 @@ export class MockFhevmInstance implements FhevmInstance {
     throw new FhevmError("Not supported in mock mode");
   }
 
-  public getPublicParams(_bits: keyof PublicParams): {
+  public getPublicParams(_bits: keyof PublicParams<Uint8Array>): {
     publicParams: Uint8Array;
     publicParamsId: string;
   } | null {
@@ -232,22 +272,23 @@ export class MockFhevmInstance implements FhevmInstance {
     }
 
     // Casting handles if string
-    const relayerHandles: `0x${string}`[] = handles.map((h) =>
+    const handlesBytes32Hex: `0x${string}`[] = handles.map((h) =>
       typeof h === "string" ? toHexString(fromHexString(h)) : toHexString(h),
     );
+    const fhevmHandles = handlesBytes32Hex.map((h) => FhevmHandle.fromBytes32Hex(h));
 
     // relayer-sdk
-    checkEncryptedBits(relayerHandles);
+    checkEncryptedBits(handlesBytes32Hex);
 
     await MockFhevmInstance.verifyPublicACLPermissions(
       this.#readonlyEthersProvider,
       this.#aclContractAddress,
-      relayerHandles,
+      handlesBytes32Hex,
     );
 
     // relayer-sdk
     const payloadForRequest: RelayerV1PublicDecryptPayload = {
-      ciphertextHandles: relayerHandles,
+      ciphertextHandles: handlesBytes32Hex,
       extraData,
     };
 
@@ -294,13 +335,15 @@ export class MockFhevmInstance implements FhevmInstance {
       throw Error("KMS signers threshold is not reached");
     }
 
-    const clearValues: ClearValues = deserializeClearValues(relayerHandles, decryptedResult);
+    const clearValues: ClearValues = deserializeClearValues(fhevmHandles, decryptedResult);
 
     const abiEnc = KMSVerifier.abiEncodeClearValues(clearValues);
     const decryptionProof = KMSVerifier.buildDecryptionProof(kmsSignatures, signedExtraData);
 
     return { clearValues, abiEncodedClearValues: abiEnc.abiEncodedClearValues, decryptionProof };
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   public async userDecrypt(
     handles: HandleContractPair[],
@@ -309,8 +352,8 @@ export class MockFhevmInstance implements FhevmInstance {
     signature: string,
     contractAddresses: string[],
     userAddress: string,
-    startTimestamp: string | number,
-    durationDays: string | number,
+    startTimestamp: number,
+    durationDays: number,
   ): Promise<UserDecryptResults> {
     const extraData: `0x${string}` = "0x00";
 
@@ -389,6 +432,8 @@ export class MockFhevmInstance implements FhevmInstance {
     return results;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   // Static function called by:
   // - MockFhevmInstance.userDecrypt()
   // - packages/hardhat-plugin/src/internal/provider/FhevmProviderExtender._handleFhevmRelayerV1UserDecrypt()
@@ -397,27 +442,34 @@ export class MockFhevmInstance implements FhevmInstance {
     signature: string,
     contractAddresses: string[],
     userAddress: string,
-    startTimestamp: string | number,
-    durationDays: string | number,
+    startTimestamp: number,
+    durationDays: number,
     verifyingContractAddressDecryption: string,
     contractsChainId: number,
   ) {
     publicKey = ensure0x(publicKey);
     signature = ensure0x(signature);
 
-    const eip712: EIP712 = MockFhevmInstance.createEIP712(
+    const eip712: KmsUserDecryptEIP712Type = MockFhevmInstance.createEIP712({
       publicKey,
       contractAddresses,
       startTimestamp,
       durationDays,
       verifyingContractAddressDecryption,
       contractsChainId,
+      extraData: "0x00",
+    });
+
+    const types: Record<string, Array<EthersT.TypedDataField>> = {
+      [eip712.primaryType]: eip712.types[eip712.primaryType] as unknown as Array<EthersT.TypedDataField>,
+    };
+
+    const signerAddress = EthersT.verifyTypedData(
+      eip712.domain,
+      types,
+      eip712.message as Record<string, any>,
+      signature,
     );
-
-    const types: Record<string, EIP712Type[]> = {};
-    types[eip712.primaryType] = eip712.types[eip712.primaryType];
-
-    const signerAddress = EthersT.verifyTypedData(eip712.domain, types, eip712.message, signature);
 
     const normalizedSignerAddress = EthersT.getAddress(signerAddress);
     const normalizedUserAddress = EthersT.getAddress(userAddress);
@@ -426,6 +478,8 @@ export class MockFhevmInstance implements FhevmInstance {
       throw new FhevmError("Invalid EIP-712 signature!");
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   public static async verifyPublicACLPermissions(
     readonlyEthersProvider: EthersT.Provider,
@@ -448,6 +502,8 @@ export class MockFhevmInstance implements FhevmInstance {
       throw e;
     });
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   // (Duplicated code) Should be imported from @zama-fhe/relayer-sdk
   public static async verifyUserACLPermissions(
@@ -481,6 +537,8 @@ export class MockFhevmInstance implements FhevmInstance {
       throw e;
     });
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   public static verifyHandleContractAddresses(handles: HandleContractPair[], contractAddresses: string[]) {
     const set = new Set<string>();
