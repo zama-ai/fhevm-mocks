@@ -241,7 +241,7 @@ export class CoprocessorEventsHandler {
         const binaryOp = await this.parseBinaryOpEvent(event);
 
         let clearText: bigint =
-          binaryOp.clearTextLhsBigInt << binaryOp.clearTextRhsBigInt % binaryOp.clearTextBitLength;
+          binaryOp.clearTextLhsBigInt << (binaryOp.clearTextRhsBigInt % binaryOp.clearTextBitLength);
 
         // Clamp
         clearText = clearText % 2n ** binaryOp.clearTextBitLength;
@@ -257,7 +257,7 @@ export class CoprocessorEventsHandler {
         const binaryOp = await this.parseBinaryOpEvent(event);
 
         let clearText: bigint =
-          binaryOp.clearTextLhsBigInt >> binaryOp.clearTextRhsBigInt % binaryOp.clearTextBitLength;
+          binaryOp.clearTextLhsBigInt >> (binaryOp.clearTextRhsBigInt % binaryOp.clearTextBitLength);
 
         // Clamp
         clearText = clearText % 2n ** binaryOp.clearTextBitLength;
@@ -318,21 +318,6 @@ export class CoprocessorEventsHandler {
         };
       }
 
-      /*
-      // Deprecated
-      case "FheEqBytes": {
-        // "event FheEqBytes(address indexed caller, bytes32 lhs, bytes rhs, bytes1 scalarByte, bytes32 result)",
-        const binaryOp = await this.parseBinaryBytesOpEvent(event);
-
-        const clearText = binaryOp.clearTextLhsBigInt === binaryOp.clearTextRhsBigInt ? 1n : 0n;
-
-        return {
-          resultBytes32: binaryOp.resultBytes32,
-          clearText,
-        };
-      }
-      */
-
       case "FheNe": {
         // "event FheNe(address indexed caller, bytes32 lhs, bytes32 rhs, bytes1 scalarByte, bytes32 result)",
         const binaryOp = await this.parseBinaryOpEvent(event);
@@ -344,21 +329,6 @@ export class CoprocessorEventsHandler {
           clearText,
         };
       }
-
-      /*
-      // Deprecated
-      case "FheNeBytes": {
-        // "event FheNeBytes(address indexed caller, bytes32 lhs, bytes rhs, bytes1 scalarByte, bytes32 result)",
-        const binaryOp = await this.parseBinaryBytesOpEvent(event);
-
-        const clearText = binaryOp.clearTextLhsBigInt !== binaryOp.clearTextRhsBigInt ? 1n : 0n;
-
-        return {
-          resultBytes32: binaryOp.resultBytes32,
-          clearText,
-        };
-      }
-      */
 
       case "FheGe": {
         // "event FheGe(address indexed caller, bytes32 lhs, bytes32 rhs, bytes1 scalarByte, bytes32 result)",
