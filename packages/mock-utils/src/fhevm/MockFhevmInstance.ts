@@ -7,7 +7,9 @@ import type {
   ChecksummedAddress,
   FhevmConfigType,
   KeypairType,
+  KmsDelegatedUserDecryptEIP712Type,
   KmsUserDecryptEIP712Type,
+  RelayerUserDecryptOptionsType,
 } from "@zama-fhe/relayer-sdk/node";
 import { KmsEIP712, TKMSPkeKeypair } from "@zama-fhe/relayer-sdk/node";
 import { ethers as EthersT } from "ethers";
@@ -205,6 +207,39 @@ export class MockFhevmInstance implements FhevmInstance {
       contractsChainId: this.#contractsChainId,
       verifyingContractAddressDecryption: this.#verifyingContractAddressDecryption,
       extraData: "0x00",
+    });
+
+    //Debug Make sure we are in sync with KMSVerifier.sol
+    assertFhevm(BigInt(this.#gatewayChainId) === this.#kmsVerifier.eip712Domain.chainId);
+    assertFhevm(eip712.domain.verifyingContract === this.#kmsVerifier.eip712Domain.verifyingContract);
+    assertFhevm(eip712.domain.version === this.#kmsVerifier.eip712Domain.version);
+    assertFhevm(eip712.domain.name === this.#kmsVerifier.eip712Domain.name);
+    assertFhevm(BigInt(eip712.domain.chainId) === BigInt(this.#contractsChainId));
+
+    return eip712;
+  }
+
+  public createDelegatedUserDecryptEIP712(
+    publicKey: string,
+    contractAddresses: string[],
+    delegatorAddress: string,
+    startTimestamp: number,
+    durationDays: number,
+  ): KmsDelegatedUserDecryptEIP712Type {
+    assertIsAddressArray(contractAddresses, "contractAddresses");
+
+    const k = new KmsEIP712({
+      chainId: BigInt(this.#contractsChainId),
+      verifyingContractAddressDecryption: this.#verifyingContractAddressDecryption,
+    });
+
+    const eip712 = k.createDelegatedUserDecryptEIP712({
+      publicKey,
+      contractAddresses,
+      startTimestamp,
+      durationDays,
+      extraData: "0x00",
+      delegatorAddress,
     });
 
     //Debug Make sure we are in sync with KMSVerifier.sol
@@ -430,6 +465,21 @@ export class MockFhevmInstance implements FhevmInstance {
     );
 
     return results;
+  }
+
+  public async delegatedUserDecrypt(
+    _handleContractPairs: HandleContractPair[],
+    _privateKey: string,
+    _publicKey: string,
+    _signature: string,
+    _contractAddresses: string[],
+    _delegatorAddress: string,
+    _delegateAddress: string,
+    _startTimestamp: number,
+    _durationDays: number,
+    _options?: RelayerUserDecryptOptionsType,
+  ): Promise<UserDecryptResults> {
+    throw new Error("Not yet implemented");
   }
 
   //////////////////////////////////////////////////////////////////////////////

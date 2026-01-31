@@ -51,9 +51,9 @@ const constants = {
     name: "@fhevm/host-contracts",
   },
   // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions
-  // @zama-fhe/relayer-sdk@0.4.0-4
+  // @zama-fhe/relayer-sdk@0.4.0
   ZAMA_FHE_RELAYER_SDK_PACKAGE: {
-    version: "0.4.0-4",
+    version: "0.4.0",
     name: "@zama-fhe/relayer-sdk",
     // `sepolia` must match the exact configuration defined in `relayer-sdk`
     // It is essentially used to detect any mismatch with `relayer-sdk`'s constant `SepoliaConfig`

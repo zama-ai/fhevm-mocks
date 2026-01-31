@@ -51,8 +51,8 @@
     }
   },
   "peerDependencies": {
-    "@zama-fhe/relayer-sdk": "0.4.0-4",
-    "ethers": "^6.1.0",
+    "@zama-fhe/relayer-sdk": "0.4.0",
+    "ethers": "^6.16.0",
     "typescript": ">=5.0.4"
   },
   "peerDependenciesMeta": {
