@@ -30,11 +30,10 @@ This repository contains all the necessary tools to develop and test FHEVM contr
 
 It is organized as a monorepo with two standalone packages:
 
-- [packages/mock-utils](./packages/mock-utils): A set of utilities for mocking the FHEVM environment during local
-  development and testing.
+- [`packages/mock-utils`](./packages/mock-utils): utilities for mocking the FHEVM environment during local development and testing.
+- [`packages/hardhat-plugin`](./packages/hardhat-plugin): a [Hardhat](https://hardhat.org) plugin to compile, deploy and test FHEVM contracts using the mock runtime.
 
-- [packages/hardhat-plugin](./packages/hardhat-plugin): A [Hardhat](https://hardhat.org) plugin that allows you to
-  compile, deploy, and test FHEVM contracts seamlessly using the mock runtime.
+These packages are the entry points for working with the FHEVM mock runtime in local environments.
 
 These tools are designed to make it easy to build and verify FHE-based smart contracts without requiring access to a
 real FHEVM network.
