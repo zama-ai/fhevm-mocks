@@ -3,6 +3,7 @@ export {
   RELAYER_V1_INPUT_PROOF,
   RELAYER_V1_PUBLIC_DECRYPT,
   RELAYER_V1_USER_DECRYPT,
+  RELAYER_V1_DELEGATED_USER_DECRYPT,
   FHEVM_GET_CLEAR_TEXT,
   FHEVM_CREATE_DECRYPTION_SIGNATURES,
 } from "./methods.js";
@@ -29,6 +30,7 @@ export {
   assertIsRelayerV1PublicDecryptPayload,
   assertIsRelayerV1PublicDecryptResponse,
   assertIsRelayerV1UserDecryptPayload,
+  assertIsRelayerV1DelegatedUserDecryptPayload,
   assertIsRelayerV1UserDecryptResponse,
   assertIsRelayerMetadata,
   assertIsRelayerV1InputProofResponse,

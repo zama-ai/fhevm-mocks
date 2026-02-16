@@ -1,7 +1,8 @@
 import { utils as fhevm_utils } from "@fhevm/mock-utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { DecryptedResults } from "@zama-fhe/relayer-sdk";
+import type { UserDecryptResults } from "@zama-fhe/relayer-sdk/node";
 import { expect } from "chai";
+import type { ethers as EthersT } from "ethers";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";
 
@@ -49,9 +50,9 @@ describe("DecryptMultipleValues", function () {
     const tx = await contract.connect(signers.alice).initialize(true, 123456, 78901234567);
     await tx.wait();
 
-    const encryptedBool = await contract.encryptedBool();
-    const encryptedUint32 = await contract.encryptedUint32();
-    const encryptedUint64 = await contract.encryptedUint64();
+    const encryptedBool = (await contract.encryptedBool()) as `0x${string}`;
+    const encryptedUint32 = (await contract.encryptedUint32()) as `0x${string}`;
+    const encryptedUint64 = (await contract.encryptedUint64()) as `0x${string}`;
 
     // The FHEVM Hardhat plugin provides a set of convenient helper functions
     // that make it easy to perform FHEVM operations within your Hardhat environment.
@@ -65,11 +66,14 @@ describe("DecryptMultipleValues", function () {
     const aliceEip712 = fhevm.createEIP712(aliceKeypair.publicKey, [contractAddress], startTimestamp, durationDays);
     const aliceSignature = await signers.alice.signTypedData(
       aliceEip712.domain,
-      { UserDecryptRequestVerification: aliceEip712.types.UserDecryptRequestVerification },
+      { UserDecryptRequestVerification: aliceEip712.types.UserDecryptRequestVerification } as unknown as Record<
+        string,
+        Array<EthersT.TypedDataField>
+      >,
       aliceEip712.message,
     );
 
-    const decrytepResults: DecryptedResults = await fhevm.userDecrypt(
+    const decrytepResults: UserDecryptResults = await fhevm.userDecrypt(
       [
         { handle: encryptedBool, contractAddress: contractAddress },
         { handle: encryptedUint32, contractAddress: contractAddress },

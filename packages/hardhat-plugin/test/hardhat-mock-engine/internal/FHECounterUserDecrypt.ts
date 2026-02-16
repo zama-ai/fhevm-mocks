@@ -2,6 +2,7 @@ import { utils } from "@fhevm/mock-utils";
 import { FhevmType } from "@fhevm/mock-utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
+import type { ethers as EthersT } from "ethers";
 import { ethers, fhevm } from "hardhat";
 
 import { FHECounterUserDecrypt, FHECounterUserDecrypt__factory } from "../../../typechain-types";
@@ -76,7 +77,10 @@ describe("FHECounterUserDecrypt", function () {
     const eip712Alice = fhevm.createEIP712(publicKeyAlice, [fheCounterContractAddress], startTimestamp, durationDays);
     const signatureAlice = await signers.alice.signTypedData(
       eip712Alice.domain,
-      { UserDecryptRequestVerification: eip712Alice.types.UserDecryptRequestVerification },
+      { UserDecryptRequestVerification: eip712Alice.types.UserDecryptRequestVerification } as unknown as Record<
+        string,
+        Array<EthersT.TypedDataField>
+      >,
       eip712Alice.message,
     );
 

@@ -847,7 +847,9 @@ export class FhevmEnvironment {
     } else if (this.mockProvider.isEthereum) {
       debugInstance("Creating @zama-fhe/relayer-sdk instance (might take some time)...");
 
-      const ZAMA_FHEVM_API_KEY = vars.get("ZAMA_FHEVM_API_KEY");
+      const ZAMA_FHEVM_API_KEY: string | undefined = vars.has("ZAMA_FHEVM_API_KEY")
+        ? vars.get("ZAMA_FHEVM_API_KEY")
+        : undefined;
 
       const instance = await zamaFheRelayerSdkCreateInstance({
         ...this.getContractsRepository().getFhevmInstanceConfig({

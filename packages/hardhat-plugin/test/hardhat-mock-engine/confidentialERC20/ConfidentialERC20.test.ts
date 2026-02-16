@@ -1,5 +1,6 @@
 import { utils } from "@fhevm/mock-utils";
 import { expect } from "chai";
+import type { ethers as EthersT } from "ethers";
 import * as hre from "hardhat";
 // test using 'fhevm' environment extension via `import { fhevm } from "hardhat";`
 import { fhevm } from "hardhat";
@@ -237,7 +238,9 @@ When you encouter this kind of error:
     );
     const signatureCarol = await signers.carol.signTypedData(
       eip712Carol.domain,
-      { UserDecryptRequestVerification: eip712Carol.types.UserDecryptRequestVerification },
+      {
+        UserDecryptRequestVerification: eip712Carol.types.UserDecryptRequestVerification,
+      } as unknown as Record<string, Array<EthersT.TypedDataField>>,
       eip712Carol.message,
     );
 
@@ -273,7 +276,10 @@ When you encouter this kind of error:
     const eip712Bob = hre.fhevm.createEIP712(publicKeyBob, [confidentialERC20Address], startTimestamp, durationDays);
     const signatureBob = await signers.bob.signTypedData(
       eip712Bob.domain,
-      { UserDecryptRequestVerification: eip712Bob.types.UserDecryptRequestVerification },
+      { UserDecryptRequestVerification: eip712Bob.types.UserDecryptRequestVerification } as unknown as Record<
+        string,
+        Array<EthersT.TypedDataField>
+      >,
       eip712Bob.message,
     );
 

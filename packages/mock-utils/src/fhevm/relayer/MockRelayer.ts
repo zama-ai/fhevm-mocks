@@ -3,6 +3,7 @@ import {
   FHEVM_CREATE_DECRYPTION_SIGNATURES,
   FHEVM_GET_CLEAR_TEXT,
   RELAYER_METADATA,
+  RELAYER_V1_DELEGATED_USER_DECRYPT,
   RELAYER_V1_INPUT_PROOF,
   RELAYER_V1_PUBLIC_DECRYPT,
   RELAYER_V1_USER_DECRYPT,
@@ -10,6 +11,7 @@ import {
 import { type MockRelayerV1InputProofPayload, assertIsMockRelayerV1InputProofPayload } from "./mock_payloads.js";
 import type {
   RelayerMetadata,
+  RelayerV1DelegatedUserDecryptPayload,
   RelayerV1InputProofResponse,
   RelayerV1PublicDecryptPayload,
   RelayerV1PublicDecryptResponse,
@@ -18,6 +20,7 @@ import type {
 } from "./payloads.js";
 import {
   assertIsRelayerMetadata,
+  assertIsRelayerV1DelegatedUserDecryptPayload,
   assertIsRelayerV1InputProofResponse,
   assertIsRelayerV1PublicDecryptPayload,
   assertIsRelayerV1PublicDecryptResponse,
@@ -50,6 +53,20 @@ export async function requestRelayerV1UserDecrypt(
 ): Promise<{ response: RelayerV1UserDecryptResponse[] }> {
   assertIsRelayerV1UserDecryptPayload(payload);
   const response = await minimalProviderSend(relayerProvider, RELAYER_V1_USER_DECRYPT, [payload]);
+  assertIsRelayerV1UserDecryptResponse(response);
+
+  return { response: [response] };
+}
+
+/**
+ * Equivalent to const response = await fetch(`${relayerUrl}/v1/delegated-user-decrypt`, options);
+ */
+export async function requestRelayerV1DelegatedUserDecrypt(
+  relayerProvider: MinimalProvider,
+  payload: RelayerV1DelegatedUserDecryptPayload,
+): Promise<{ response: RelayerV1UserDecryptResponse[] }> {
+  assertIsRelayerV1DelegatedUserDecryptPayload(payload);
+  const response = await minimalProviderSend(relayerProvider, RELAYER_V1_DELEGATED_USER_DECRYPT, [payload]);
   assertIsRelayerV1UserDecryptResponse(response);
 
   return { response: [response] };

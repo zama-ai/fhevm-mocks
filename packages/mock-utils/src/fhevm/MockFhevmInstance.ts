@@ -9,7 +9,6 @@ import type {
   KeypairType,
   KmsDelegatedUserDecryptEIP712Type,
   KmsUserDecryptEIP712Type,
-  RelayerUserDecryptOptionsType,
 } from "@zama-fhe/relayer-sdk/node";
 import { KmsEIP712, TKMSPkeKeypair } from "@zama-fhe/relayer-sdk/node";
 import { ethers as EthersT } from "ethers";
@@ -45,6 +44,7 @@ import { InputVerifier, type InputVerifierProperties } from "./contracts/InputVe
 import { KMSVerifier, type KMSVerifierProperties } from "./contracts/KMSVerifier.js";
 import * as relayer from "./relayer/MockRelayer.js";
 import type {
+  RelayerV1DelegatedUserDecryptPayload,
   RelayerV1PublicDecryptPayload,
   RelayerV1UserDecryptHandleContractPair,
   RelayerV1UserDecryptPayload,
@@ -190,6 +190,45 @@ export class MockFhevmInstance implements FhevmInstance {
     return eip712;
   }
 
+  public static createDelegatedUserDecryptEIP712({
+    publicKey,
+    contractAddresses,
+    delegatorAddress,
+    startTimestamp,
+    durationDays,
+    verifyingContractAddressDecryption,
+    contractsChainId,
+    extraData,
+  }: {
+    publicKey: string;
+    contractAddresses: string[];
+    delegatorAddress: string;
+    startTimestamp: number;
+    durationDays: number;
+    verifyingContractAddressDecryption: string;
+    contractsChainId: number;
+    extraData: BytesHex;
+  }): KmsDelegatedUserDecryptEIP712Type {
+    assertIsAddressArray(contractAddresses, "contractAddresses");
+
+    const k = new KmsEIP712({ chainId: BigInt(contractsChainId), verifyingContractAddressDecryption });
+
+    const eip712 = k.createDelegatedUserDecryptEIP712({
+      publicKey,
+      contractAddresses,
+      startTimestamp,
+      durationDays,
+      extraData,
+      delegatorAddress,
+    });
+
+    //Debug Make sure we are in sync with KMSVerifier.sol
+    assertFhevm(eip712.domain.version === constants.PUBLIC_DECRYPT_EIP712.domain.version.toString());
+    assertFhevm(eip712.domain.name === constants.PUBLIC_DECRYPT_EIP712.domain.name);
+
+    return eip712;
+  }
+
   // Create EIP712 for decryption
   public createEIP712(
     publicKey: string,
@@ -228,18 +267,15 @@ export class MockFhevmInstance implements FhevmInstance {
   ): KmsDelegatedUserDecryptEIP712Type {
     assertIsAddressArray(contractAddresses, "contractAddresses");
 
-    const k = new KmsEIP712({
-      chainId: BigInt(this.#contractsChainId),
-      verifyingContractAddressDecryption: this.#verifyingContractAddressDecryption,
-    });
-
-    const eip712 = k.createDelegatedUserDecryptEIP712({
+    const eip712 = MockFhevmInstance.createDelegatedUserDecryptEIP712({
       publicKey,
       contractAddresses,
+      delegatorAddress,
       startTimestamp,
       durationDays,
+      contractsChainId: this.#contractsChainId,
+      verifyingContractAddressDecryption: this.#verifyingContractAddressDecryption,
       extraData: "0x00",
-      delegatorAddress,
     });
 
     //Debug Make sure we are in sync with KMSVerifier.sol
@@ -468,18 +504,78 @@ export class MockFhevmInstance implements FhevmInstance {
   }
 
   public async delegatedUserDecrypt(
-    _handleContractPairs: HandleContractPair[],
+    handleContractPairs: HandleContractPair[],
     _privateKey: string,
-    _publicKey: string,
-    _signature: string,
-    _contractAddresses: string[],
-    _delegatorAddress: string,
-    _delegateAddress: string,
-    _startTimestamp: number,
-    _durationDays: number,
-    _options?: RelayerUserDecryptOptionsType,
+    publicKey: string,
+    signature: string,
+    contractAddresses: string[],
+    delegatorAddress: string,
+    delegateAddress: string,
+    startTimestamp: number,
+    durationDays: number,
   ): Promise<UserDecryptResults> {
-    throw new Error("Not yet implemented");
+    const extraData: `0x${string}` = "0x00";
+
+    // Intercept future type change...
+    for (let i = 0; i < handleContractPairs.length; ++i) {
+      assertFhevm(
+        typeof handleContractPairs[i].handle === "string" || handleContractPairs[i].handle instanceof Uint8Array,
+        "handle is not a string or a Uint8Array",
+      );
+    }
+
+    // Casting handles if string
+    const relayerHandles: RelayerV1UserDecryptHandleContractPair[] = handleContractPairs.map((h) => ({
+      handle: typeof h.handle === "string" ? toHexString(fromHexString(h.handle)) : toHexString(h.handle),
+      contractAddress: h.contractAddress,
+    }));
+
+    // relayer-sdk
+    checkEncryptedBits(relayerHandles.map((h) => h.handle));
+
+    // relayer-sdk
+    checkDeadlineValidity(BigInt(startTimestamp), BigInt(durationDays));
+
+    await MockFhevmInstance.verifyUserACLPermissions(
+      this.#readonlyEthersProvider,
+      this.#aclContractAddress,
+      relayerHandles,
+      delegatorAddress,
+    );
+
+    // relayer-sdk
+    checkMaxContractAddresses(contractAddresses);
+
+    // relayer-sdk
+    const payloadForRequest: RelayerV1DelegatedUserDecryptPayload = {
+      handleContractPairs: relayerHandles,
+      contractsChainId: this.#chainId.toString(), // Convert to string
+      contractAddresses: contractAddresses.map((c) => EthersT.getAddress(c)),
+      delegatorAddress: EthersT.getAddress(delegatorAddress),
+      delegateAddress: EthersT.getAddress(delegateAddress),
+      requestValidity: {
+        startTimestamp: startTimestamp.toString(),
+        durationDays: durationDays.toString(),
+      },
+      signature: remove0x(signature),
+      publicKey: remove0x(publicKey),
+      extraData,
+    };
+
+    // Return a json object basically following the @zama-fhe/relayer-sdk format
+    const json = await relayer.requestRelayerV1DelegatedUserDecrypt(this.#relayerProvider, payloadForRequest);
+    const result = json.response[0];
+    // The `decrypted_values` field is specific to the mock relayer.
+    const clearTextHexList = result.payload.decrypted_values;
+
+    const listBigIntDecryptions = clearTextHexList.map(EthersT.toBigInt);
+
+    const results: UserDecryptResults = buildUserDecryptResults(
+      relayerHandles.map((h: RelayerV1UserDecryptHandleContractPair) => h.handle as `0x${string}`),
+      listBigIntDecryptions,
+    );
+
+    return results;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -529,6 +625,60 @@ export class MockFhevmInstance implements FhevmInstance {
     }
   }
 
+  public static async verifyDelegatedUserDecryptSignature({
+    publicKey,
+    signature,
+    contractAddresses,
+    delegatorAddress,
+    delegateAddress,
+    startTimestamp,
+    durationDays,
+    verifyingContractAddressDecryption,
+    contractsChainId,
+  }: {
+    publicKey: string;
+    signature: string;
+    contractAddresses: string[];
+    delegatorAddress: string;
+    delegateAddress: string;
+    startTimestamp: number;
+    durationDays: number;
+    verifyingContractAddressDecryption: string;
+    contractsChainId: number;
+  }) {
+    publicKey = ensure0x(publicKey);
+    signature = ensure0x(signature);
+
+    const eip712: KmsDelegatedUserDecryptEIP712Type = MockFhevmInstance.createDelegatedUserDecryptEIP712({
+      publicKey,
+      contractAddresses,
+      delegatorAddress,
+      startTimestamp,
+      durationDays,
+      verifyingContractAddressDecryption,
+      contractsChainId,
+      extraData: "0x00",
+    });
+
+    const types: Record<string, Array<EthersT.TypedDataField>> = {
+      [eip712.primaryType]: eip712.types[eip712.primaryType] as unknown as Array<EthersT.TypedDataField>,
+    };
+
+    const signerAddress = EthersT.verifyTypedData(
+      eip712.domain,
+      types,
+      eip712.message as Record<string, any>,
+      signature,
+    );
+
+    const normalizedSignerAddress = EthersT.getAddress(signerAddress);
+    const normalizedDelegateAddress = EthersT.getAddress(delegateAddress);
+
+    if (normalizedSignerAddress !== normalizedDelegateAddress) {
+      throw new FhevmError("Invalid EIP-712 signature!");
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   public static async verifyPublicACLPermissions(
@@ -561,7 +711,7 @@ export class MockFhevmInstance implements FhevmInstance {
     aclContractAddress: string,
     handles: HandleContractPair[],
     userAddress: string,
-  ) {
+  ): Promise<void[]> {
     const aclABI = ["function persistAllowed(bytes32 handle, address account) view returns (bool)"];
     const acl = new EthersT.Contract(aclContractAddress, aclABI, readonlyEthersProvider);
 
@@ -579,6 +729,40 @@ export class MockFhevmInstance implements FhevmInstance {
       if (userAddress === contractAddress) {
         throw new FhevmError(
           `userAddress ${userAddress} should not be equal to contractAddress when requesting decryption!`,
+        );
+      }
+    });
+
+    return Promise.all(verifications).catch((e) => {
+      throw e;
+    });
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  public static async verifyUserDecryptionDelegation(
+    readonlyEthersProvider: EthersT.Provider,
+    aclContractAddress: string,
+    delegatorAddress: string,
+    delegateAddress: string,
+    handles: HandleContractPair[],
+  ): Promise<void[]> {
+    const aclABI = [
+      "function isHandleDelegatedForUserDecryption(address delegator, address delegate, address contractAddress, bytes32 handle) view returns (bool)",
+    ];
+    const acl = new EthersT.Contract(aclContractAddress, aclABI, readonlyEthersProvider);
+    const verifications = handles.map(async ({ handle, contractAddress }) => {
+      const ctHandleHex = EthersT.toBeHex(EthersT.toBigInt(handle), 32);
+
+      const isDelegated = await acl.isHandleDelegatedForUserDecryption(
+        delegatorAddress,
+        delegateAddress,
+        contractAddress,
+        ctHandleHex,
+      );
+      if (!isDelegated) {
+        throw new FhevmError(
+          `Delegate ${delegateAddress} is not authorized to user decrypt handle ${handle} on behalf of ${delegatorAddress}!`,
         );
       }
     });
