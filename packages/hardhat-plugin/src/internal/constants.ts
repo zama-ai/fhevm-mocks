@@ -20,9 +20,9 @@ const constants = {
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   // https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-  // @fhevm/solidity@0.10.0
+  // @fhevm/solidity@0.11.0
   FHEVM_SOLIDITY_PACKAGE: {
-    version: "0.10.0",
+    version: "0.11.0",
     name: "@fhevm/solidity",
     configFile: "config/ZamaConfig.sol",
     configContractName: "EthereumConfig",
@@ -51,9 +51,9 @@ const constants = {
     name: "@fhevm/host-contracts",
   },
   // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions
-  // @zama-fhe/relayer-sdk@0.4.0
+  // @zama-fhe/relayer-sdk@0.4.1
   ZAMA_FHE_RELAYER_SDK_PACKAGE: {
-    version: "0.4.0",
+    version: "0.4.1",
     name: "@zama-fhe/relayer-sdk",
     // `sepolia` must match the exact configuration defined in `relayer-sdk`
     // It is essentially used to detect any mismatch with `relayer-sdk`'s constant `SepoliaConfig`

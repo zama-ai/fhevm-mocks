@@ -16,7 +16,12 @@ import {
 import { parseCoprocessorEventsFromLogs } from "@fhevm/mock-utils";
 import { relayer } from "@fhevm/mock-utils";
 import { userDecryptHandleBytes32 as mockUtilsUserDecryptHandleBytes32 } from "@fhevm/mock-utils";
-import type { KmsUserDecryptEIP712Type, PublicDecryptResults, UserDecryptResults } from "@zama-fhe/relayer-sdk/node";
+import type {
+  KmsDelegatedUserDecryptEIP712Type,
+  KmsUserDecryptEIP712Type,
+  PublicDecryptResults,
+  UserDecryptResults,
+} from "@zama-fhe/relayer-sdk/node";
 import type { FhevmInstance, HandleContractPair, RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { AddressLike, ethers as EthersT } from "ethers";
 
@@ -186,6 +191,22 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
     return this._fhevmEnv.instance.createEIP712(publicKey, contractAddresses, startTimestamp, durationDays);
   }
 
+  public createDelegatedUserDecryptEIP712(
+    publicKey: string,
+    contractAddresses: string[],
+    delegatorAddress: string,
+    startTimestamp: number,
+    durationDays: number,
+  ): KmsDelegatedUserDecryptEIP712Type {
+    return this._fhevmEnv.instance.createDelegatedUserDecryptEIP712(
+      publicKey,
+      contractAddresses,
+      delegatorAddress,
+      startTimestamp,
+      durationDays,
+    );
+  }
+
   generateKeypair(): { publicKey: string; privateKey: string } {
     return this._fhevmEnv.instance.generateKeypair();
   }
@@ -211,6 +232,34 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
       signature,
       contractAddresses,
       userAddress,
+      startTimestamp,
+      durationDays,
+    );
+  }
+
+  async delegatedUserDecrypt(
+    handleContractPairs: HandleContractPair[],
+    privateKey: string,
+    publicKey: string,
+    signature: string,
+    contractAddresses: string[],
+    delegatorAddress: string,
+    delegateAddress: string,
+    startTimestamp: number,
+    durationDays: number,
+  ): Promise<UserDecryptResults> {
+    if (this._fhevmEnv.isRunningInHHNode) {
+      // Cannot be called from the server process
+      throw new HardhatFhevmError(`Cannot call delegatedUserDecrypt from a 'hardhat node' server.`);
+    }
+    return await this._fhevmEnv.instance.delegatedUserDecrypt(
+      handleContractPairs,
+      privateKey,
+      publicKey,
+      signature,
+      contractAddresses,
+      delegatorAddress,
+      delegateAddress,
       startTimestamp,
       durationDays,
     );

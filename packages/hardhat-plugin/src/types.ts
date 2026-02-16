@@ -10,6 +10,7 @@ import type {
 import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
 import type {
   HandleContractPair,
+  KmsDelegatedUserDecryptEIP712Type,
   KmsUserDecryptEIP712Type,
   PublicDecryptResults,
   RelayerEncryptedInput,
@@ -63,6 +64,14 @@ export interface HardhatFhevmRuntimeEnvironment {
     startTimestamp: string | number,
     durationDays: string | number,
   ): KmsUserDecryptEIP712Type;
+  createDelegatedUserDecryptEIP712(
+    publicKey: string,
+    contractAddresses: string[],
+    delegatorAddress: string,
+    startTimestamp: number,
+    durationDays: number,
+  ): KmsDelegatedUserDecryptEIP712Type;
+
   generateKeypair(): {
     publicKey: string;
     privateKey: string;
@@ -77,6 +86,18 @@ export interface HardhatFhevmRuntimeEnvironment {
     userAddress: string,
     startTimestamp: string | number,
     durationDays: string | number,
+  ): Promise<UserDecryptResults>;
+
+  delegatedUserDecrypt(
+    handleContractPairs: HandleContractPair[],
+    privateKey: string,
+    publicKey: string,
+    signature: string,
+    contractAddresses: string[],
+    delegatorAddress: string,
+    delegateAddress: string,
+    startTimestamp: number,
+    durationDays: number,
   ): Promise<UserDecryptResults>;
 
   publicDecrypt(handles: (string | Uint8Array)[]): Promise<PublicDecryptResults>;

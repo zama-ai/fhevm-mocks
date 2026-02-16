@@ -53,6 +53,8 @@ export class FhevmProviderExtender extends ProviderWrapper {
         return this._handleFhevmRelayerMetadata(args);
       case relayer.RELAYER_V1_USER_DECRYPT:
         return this._handleFhevmRelayerV1UserDecrypt(args);
+      case relayer.RELAYER_V1_DELEGATED_USER_DECRYPT:
+        return this._handleFhevmRelayerV1DelegatedUserDecrypt(args);
       case relayer.RELAYER_V1_PUBLIC_DECRYPT:
         return this._handleFhevmRelayerV1PublicDecrypt(args);
       case relayer.RELAYER_V1_INPUT_PROOF:
@@ -233,6 +235,77 @@ export class FhevmProviderExtender extends ProviderWrapper {
       Number(payload.requestValidity.durationDays),
       fhevmEnv.getGatewayDecryptionAddress(),
       Number(payload.contractsChainId),
+    );
+
+    // Gateway/KMS Decrypt
+    const handleBytes32HexList: string[] = payload.handleContractPairs.map((h) => {
+      return EthersT.toBeHex(EthersT.toBigInt(h.handle), 32);
+    });
+    const clearTextHexList: string[] = await fhevmEnv.coprocessor.queryHandlesBytes32AsHex(handleBytes32HexList);
+
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+      for (let i = 0; i < clearTextHexList.length; ++i) {
+        const msg = clearTextHexList[i] === "0x" ? "<EmptyValue>" : clearTextHexList[i];
+
+        console.log(`  Query handle: ${handleBytes32HexList[i]}`);
+        console.log(`  Clear text  : ${msg}`);
+      }
+    }
+
+    // Build relayer response
+    const response: relayer.RelayerV1UserDecryptResponse = {
+      payload: { decrypted_values: clearTextHexList },
+      signature: EthersT.ZeroHash,
+    };
+
+    return response;
+  }
+
+  private async _handleFhevmRelayerV1DelegatedUserDecrypt(args: RequestArguments) {
+    const fhevmEnv = fhevmContext.get();
+
+    if (!fhevmEnv.useEmbeddedMockEngine) {
+      return this._wrappedProvider.request(args);
+    }
+
+    if (fhevmEnv.isRunningInHHNode) {
+      console.log(picocolors.greenBright(`${args.method}`));
+    }
+
+    _assertSingleParamArray(args);
+
+    const payload = args.params[0];
+    relayer.assertIsRelayerV1DelegatedUserDecryptPayload(payload);
+
+    // Gateway/KMS checks for ACL permissions
+    // Check ACL for each handle against delegatorAddress and contractAddress
+    await MockFhevmInstance.verifyUserACLPermissions(
+      this._provider,
+      fhevmEnv.getACLAddress(),
+      payload.handleContractPairs,
+      payload.delegatorAddress,
+    );
+
+    // Gateway/KMS Verify signature with delegateAddress (not delegatorAddress!)
+    await MockFhevmInstance.verifyDelegatedUserDecryptSignature({
+      publicKey: payload.publicKey,
+      signature: payload.signature,
+      contractAddresses: payload.contractAddresses,
+      delegatorAddress: payload.delegatorAddress,
+      delegateAddress: payload.delegateAddress,
+      startTimestamp: Number(payload.requestValidity.startTimestamp),
+      durationDays: Number(payload.requestValidity.durationDays),
+      verifyingContractAddressDecryption: fhevmEnv.getGatewayDecryptionAddress(),
+      contractsChainId: Number(payload.contractsChainId),
+    });
+
+    await MockFhevmInstance.verifyUserDecryptionDelegation(
+      this._provider,
+      fhevmEnv.getACLAddress(),
+      payload.delegatorAddress,
+      payload.delegateAddress,
+      payload.handleContractPairs,
     );
 
     // Gateway/KMS Decrypt

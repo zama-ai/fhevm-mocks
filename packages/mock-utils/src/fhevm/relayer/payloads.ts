@@ -45,6 +45,18 @@ export type RelayerV1UserDecryptPayload = {
   extraData: string;
 };
 
+export type RelayerV1DelegatedUserDecryptPayload = {
+  handleContractPairs: RelayerV1UserDecryptHandleContractPair[];
+  requestValidity: RelayerV1UserDecryptValidity;
+  contractsChainId: string;
+  contractAddresses: string[];
+  delegatorAddress: string;
+  delegateAddress: string;
+  signature: string;
+  publicKey: string;
+  extraData: string;
+};
+
 export type RelayerV1UserDecryptValidity = {
   startTimestamp: string;
   durationDays: string;
@@ -118,6 +130,27 @@ export function assertIsRelayerV1UserDecryptPayload(value: unknown): asserts val
   assertIsStringProperty(value, stringKeys, "RelayerV1UserDecryptPayload");
   assertIsArrayProperty(value, arrayKeys, "RelayerV1UserDecryptPayload");
   assertIsObjectProperty(value, objectKeys, "RelayerV1UserDecryptPayload");
+
+  _assertIsRelayerV1UserDecryptValidity(value.requestValidity);
+}
+
+export function assertIsRelayerV1DelegatedUserDecryptPayload(
+  value: unknown,
+): asserts value is RelayerV1DelegatedUserDecryptPayload {
+  const arrayKeys: (keyof RelayerV1DelegatedUserDecryptPayload)[] = ["handleContractPairs", "contractAddresses"];
+  const stringKeys: (keyof RelayerV1DelegatedUserDecryptPayload)[] = [
+    "contractsChainId",
+    "publicKey",
+    "signature",
+    "delegateAddress",
+    "delegatorAddress",
+    "extraData",
+  ];
+  const objectKeys: (keyof RelayerV1DelegatedUserDecryptPayload)[] = ["requestValidity"];
+
+  assertIsStringProperty(value, stringKeys, "RelayerV1DelegatedUserDecryptPayload");
+  assertIsArrayProperty(value, arrayKeys, "RelayerV1DelegatedUserDecryptPayload");
+  assertIsObjectProperty(value, objectKeys, "RelayerV1DelegatedUserDecryptPayload");
 
   _assertIsRelayerV1UserDecryptValidity(value.requestValidity);
 }
