@@ -2,7 +2,7 @@
   "name": "@fhevm/hardhat-plugin",
   "description": "FHEVM Hardhat Plugin v2",
   "type": "commonjs",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "engines": {
     "node": ">=20",
     "npm": ">=7.0.0"
@@ -78,8 +78,8 @@
   },
   "peerDependencies": {
     "encrypted-types": "^0.0.4",
-    "@fhevm/mock-utils": "0.4.1",
-    "@fhevm/solidity": "^0.11.0",
+    "@fhevm/mock-utils": "0.4.2",
+    "@fhevm/solidity": "^0.11.1",
     "@nomicfoundation/hardhat-ethers": "^3.1.3",
     "@zama-fhe/relayer-sdk": "0.4.1",
     "ethers": "^6.16.0",
