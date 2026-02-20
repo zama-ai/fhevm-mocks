@@ -50,4 +50,17 @@ export class CoprocessorEventsIterator {
 
     return events;
   }
+
+  /**
+   * Resets the cursor to handle blockchain reverts (e.g., from snapshot/revert in tests).
+   * The cursor is set so that the next block to process is `newBlockNumber + 1`.
+   * @param newBlockNumber The block number to revert to
+   */
+  public revertToBlock(newBlockNumber: number): void {
+    // Set cursor so that nextBlockNumber will be newBlockNumber + 1
+    // BlockLogCursor constructor sets blockNumber = fromBlockNumber - 1 so that
+    // nextBlockNumber = blockNumber + 1 = fromBlockNumber
+    // We want nextBlockNumber = newBlockNumber + 1, so blockNumber = newBlockNumber
+    this.#cursor.update(newBlockNumber, 0);
+  }
 }
