@@ -9,9 +9,11 @@ import type {
   KeypairType,
   KmsDelegatedUserDecryptEIP712Type,
   KmsUserDecryptEIP712Type,
-} from "@zama-fhe/relayer-sdk/node";
-import { KmsEIP712, TKMSPkeKeypair } from "@zama-fhe/relayer-sdk/node";
+} from "@zama-fhe/relayer-sdk/core";
+import { KmsEIP712 } from "@zama-fhe/relayer-sdk/core";
 import { ethers as EthersT } from "ethers";
+
+import { generateKeypair } from "../relayer-sdk/sdk/keypair.js";
 
 import constants from "../constants.js";
 import { isThresholdReached } from "../ethers/eip712.js";
@@ -314,7 +316,11 @@ export class MockFhevmInstance implements FhevmInstance {
   }
 
   public generateKeypair(): KeypairType<BytesHexNo0x> {
-    return TKMSPkeKeypair.generate().toBytesHexNo0x();
+    const kp = generateKeypair();
+    return {
+      publicKey: remove0x(kp.publicKey) as BytesHexNo0x,
+      privateKey: remove0x(kp.privateKey) as BytesHexNo0x,
+    };
   }
 
   public getPublicKey(): {
