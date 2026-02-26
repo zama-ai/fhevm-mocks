@@ -77,7 +77,12 @@ export class MockCoprocessor implements Coprocessor {
   }
 
   public async handleEvmRevert(newBlockNumber: number) {
-    console.log("HANDLE REVERT HERE!! " + newBlockNumber);
+    assertFhevm(this.#eventsIterator !== undefined, `MockCoprocessor not initialized`);
+
+    // Reset the cursor to the new (lower) block number so that when tests
+    // use snapshot/revert, the iterator doesn't try to read events from
+    // block numbers that no longer exist.
+    this.#eventsIterator.revertToBlock(newBlockNumber);
   }
 
   public async insertHandleBytes32(handleBytes32Hex: string, clearTextHex: string, metadata: FhevmDBHandleMetadata) {
