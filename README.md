@@ -42,6 +42,13 @@ real FHEVM network.
 Please refer to each of these packages for detailed API documentation, user guides, and examples on how to use them and
 incorporate them into your project.
 
+### When to use fhEVM mocks
+
+- Use the mocks when you need fast feedback loops, local testing and code coverage without waiting for a full encrypted backend.
+- Switch to a real fhEVM runtime once the contract logic is stable and you want to validate encryption behaviour and integration with your target chain.
+- For more details about the different runtime modes and how to move from mocked to non-mocked testing, refer to the official fhEVM Hardhat documentation.
+
+
 ### What is FHEVM?
 
 For more information about FHEVM, the technology that enables confidential smart contracts on the EVM using fully
