@@ -47,6 +47,11 @@ incorporate them into your project.
 For more information about FHEVM, the technology that enables confidential smart contracts on the EVM using fully
 homomorphic encryption (FHE), please refer to the [FHEVM Official Documentation](https://docs.zama.ai/protocol)
 
+### When should you use fhevm-mocks?
+
+- When you want to run fast local tests in mocked mode without connecting to a real fhEVM network.
+- When you need code coverage for confidential contracts before switching to a full end-to-end stack.
+
 ### License
 
 This software is distributed under the **BSD-3-Clause-Clear** license. Read [this](LICENSE) for more details.
