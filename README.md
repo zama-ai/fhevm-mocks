@@ -42,6 +42,11 @@ real FHEVM network.
 Please refer to each of these packages for detailed API documentation, user guides, and examples on how to use them and
 incorporate them into your project.
 
+### Installation overview
+
+For most projects, `@fhevm/mock-utils` and the Hardhat plugin are meant to be installed as development dependencies (for example with `npm install --save-dev`), since they are only used in local test and coverage workflows. Check each package README for the exact installation commands and peer dependency list.
+
+
 ### What is FHEVM?
 
 For more information about FHEVM, the technology that enables confidential smart contracts on the EVM using fully
