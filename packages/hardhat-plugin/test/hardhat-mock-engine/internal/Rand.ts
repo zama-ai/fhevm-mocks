@@ -1,4 +1,3 @@
-import type { FhevmInstance } from "@zama-fhe/relayer-sdk/node";
 import { expect } from "chai";
 import { ethers, fhevm, network } from "hardhat";
 
@@ -8,7 +7,6 @@ import { deployRandFixture } from "./Rand.fixture";
 
 describe("Rand", function () {
   let randContract: Rand;
-  let instance: FhevmInstance;
 
   before(async function () {
     await initSigners();
@@ -17,7 +15,6 @@ describe("Rand", function () {
   beforeEach(async function () {
     const contract: Rand = await deployRandFixture();
     randContract = contract;
-    instance = await (fhevm as any).createInstance();
   });
 
   it("ebool generate and decrypt", async function () {
@@ -26,7 +23,7 @@ describe("Rand", function () {
       const txn = await randContract.generateBool();
       await txn.wait();
       const valueHandle = (await randContract.valueb()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("boolean");
       values.push(value as boolean);
@@ -42,7 +39,7 @@ describe("Rand", function () {
       const txn = await randContract.generate8();
       await txn.wait();
       const valueHandle = (await randContract.value8()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("bigint");
       expect(value).to.be.lessThanOrEqual(0xff);
@@ -59,7 +56,7 @@ describe("Rand", function () {
       const txn = await randContract.generate8UpperBound(128);
       await txn.wait();
       const valueHandle = (await randContract.value8()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("bigint");
       expect(value).to.be.lessThanOrEqual(127);
@@ -77,7 +74,7 @@ describe("Rand", function () {
       const txn = await randContract.generate16();
       await txn.wait();
       const valueHandle = (await randContract.value16()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("bigint");
       const valueNum = Number(value as bigint);
@@ -100,7 +97,7 @@ describe("Rand", function () {
       const txn = await randContract.generate16UpperBound(8192);
       await txn.wait();
       const valueHandle = (await randContract.value16()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("bigint");
       const valueNum = Number(value as bigint);
@@ -119,7 +116,7 @@ describe("Rand", function () {
       const txn = await randContract.generate32();
       await txn.wait();
       const valueHandle = (await randContract.value32()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("bigint");
       const valueNum = Number(value as bigint);
@@ -142,7 +139,7 @@ describe("Rand", function () {
       const txn = await randContract.generate32UpperBound(262144);
       await txn.wait();
       const valueHandle = (await randContract.value32()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle];
       expect(typeof value).to.eq("bigint");
       const valueNum = Number(value as bigint);
@@ -161,7 +158,7 @@ describe("Rand", function () {
       const txn = await randContract.generate64();
       await txn.wait();
       const valueHandle = (await randContract.value64()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle] as bigint;
       expect(value).to.be.lessThanOrEqual(BigInt("0xffffffffffffffff"));
       if (value > BigInt("0xffffffff")) {
@@ -183,7 +180,7 @@ describe("Rand", function () {
       const txn = await randContract.generate64UpperBound(262144);
       await txn.wait();
       const valueHandle = (await randContract.value64()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle] as bigint;
       expect(value).to.be.lessThanOrEqual(262141);
       values.push(value);
@@ -200,7 +197,7 @@ describe("Rand", function () {
       const txn = await randContract.generate128();
       await txn.wait();
       const valueHandle = (await randContract.value128()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle] as bigint;
       expect(value).to.be.lessThanOrEqual(BigInt("0xffffffffffffffffffffffffffffffff"));
       if (value > BigInt("0xffffffffffffffff")) {
@@ -221,7 +218,7 @@ describe("Rand", function () {
       const txn = await randContract.generate128UpperBound(2n ** 100n);
       await txn.wait();
       const valueHandle = (await randContract.value128()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle] as bigint;
       expect(value).to.be.lessThanOrEqual(2n ** 100n);
       values.push(value);
@@ -238,7 +235,7 @@ describe("Rand", function () {
       const txn = await randContract.generate256();
       await txn.wait();
       const valueHandle = (await randContract.value256()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle] as bigint;
       expect(value).to.be.lessThanOrEqual(BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
       if (value > BigInt("0xffffffffffffffffffffffffffffffff")) {
@@ -259,7 +256,7 @@ describe("Rand", function () {
       const txn = await randContract.generate256UpperBound(2n ** 200n);
       await txn.wait();
       const valueHandle = (await randContract.value256()) as `0x${string}`;
-      const res = await instance.publicDecrypt([valueHandle]);
+      const res = await fhevm.publicDecrypt([valueHandle]);
       const value = res.clearValues[valueHandle] as bigint;
       expect(value).to.be.lessThanOrEqual(2n ** 200n);
       values.push(value);
@@ -284,7 +281,7 @@ describe("Rand", function () {
         const txn = await randContract.generate8();
         await txn.wait();
         const valueHandle = (await randContract.value8()) as `0x${string}`;
-        const res = await instance.publicDecrypt([valueHandle]);
+        const res = await fhevm.publicDecrypt([valueHandle]);
         const value = res.clearValues[valueHandle] as bigint;
         const valueNum = Number(value as bigint);
         expect(valueNum).to.be.lessThanOrEqual(0xff);
@@ -302,7 +299,7 @@ describe("Rand", function () {
         const txn = await randContract.generate8();
         await txn.wait();
         const valueHandle = (await randContract.value8()) as `0x${string}`;
-        const res = await instance.publicDecrypt([valueHandle]);
+        const res = await fhevm.publicDecrypt([valueHandle]);
         const value = res.clearValues[valueHandle] as bigint;
         const valueNum = Number(value as bigint);
         expect(valueNum).to.be.lessThanOrEqual(0xff);
@@ -319,7 +316,7 @@ describe("Rand", function () {
         const txn = await randContract.generate16();
         await txn.wait();
         const valueHandle = (await randContract.value16()) as `0x${string}`;
-        const res = await instance.publicDecrypt([valueHandle]);
+        const res = await fhevm.publicDecrypt([valueHandle]);
         const value = res.clearValues[valueHandle] as bigint;
         const valueNum = Number(value as bigint);
         expect(valueNum).to.be.lessThanOrEqual(0xffff);
@@ -340,7 +337,7 @@ describe("Rand", function () {
     const txn = await randContract.generate64Reverting();
     await txn.wait();
     const valueHandle = (await randContract.value64Bounded()) as `0x${string}`;
-    const res = await instance.publicDecrypt([valueHandle]);
+    const res = await fhevm.publicDecrypt([valueHandle]);
     const value = res.clearValues[valueHandle] as bigint;
     expect(value).to.be.lessThan(1024);
   });

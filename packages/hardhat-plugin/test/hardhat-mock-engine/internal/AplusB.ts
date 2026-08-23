@@ -1,4 +1,4 @@
-import { FhevmType } from "@fhevm/mock-utils";
+import { FhevmType } from "../../../src/types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "ethers";

@@ -1,8 +1,6 @@
-import { utils as fhevm_utils } from "@fhevm/mock-utils";
+import { timestampNow } from "../../../src/types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import type { UserDecryptResults } from "@zama-fhe/relayer-sdk/node";
 import { expect } from "chai";
-import type { ethers as EthersT } from "ethers";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";
 
@@ -58,38 +56,37 @@ describe("DecryptMultipleValues", function () {
     // that make it easy to perform FHEVM operations within your Hardhat environment.
     const fhevm: HardhatFhevmRuntimeEnvironment = hre.fhevm;
 
-    const aliceKeypair = fhevm.generateKeypair();
+    // A transport key pair plus a signed decryption permit replace the old
+    // generateKeypair + createEIP712 + signTypedData handshake.
+    const aliceTransportKeyPair = await fhevm.client.generateTransportKeyPair();
 
-    const startTimestamp = fhevm_utils.timestampNow();
+    const startTimestamp = timestampNow();
     const durationDays = 365;
 
-    const aliceEip712 = fhevm.createEIP712(aliceKeypair.publicKey, [contractAddress], startTimestamp, durationDays);
-    const aliceSignature = await signers.alice.signTypedData(
-      aliceEip712.domain,
-      { UserDecryptRequestVerification: aliceEip712.types.UserDecryptRequestVerification } as unknown as Record<
-        string,
-        Array<EthersT.TypedDataField>
-      >,
-      aliceEip712.message,
-    );
-
-    const decrytepResults: UserDecryptResults = await fhevm.userDecrypt(
-      [
-        { handle: encryptedBool, contractAddress: contractAddress },
-        { handle: encryptedUint32, contractAddress: contractAddress },
-        { handle: encryptedUint64, contractAddress: contractAddress },
-      ],
-      aliceKeypair.privateKey,
-      aliceKeypair.publicKey,
-      aliceSignature,
-      [contractAddress],
-      signers.alice.address,
+    const aliceSignedPermit = await fhevm.client.signLegacyDecryptionPermit({
+      contractAddresses: [contractAddress],
       startTimestamp,
-      durationDays,
-    );
+      // The legacy API measured validity in days; `@fhevm/sdk` takes seconds.
+      durationSeconds: durationDays * 24 * 60 * 60,
+      signerAddress: signers.alice.address,
+      signer: signers.alice,
+      transportKeyPair: aliceTransportKeyPair,
+    });
 
-    expect(decrytepResults[encryptedBool]).to.equal(true);
-    expect(decrytepResults[encryptedUint32]).to.equal(123456 + 1);
-    expect(decrytepResults[encryptedUint64]).to.equal(78901234567 + 1);
+    // Results come back positionally, in the order the pairs were given — the old API keyed them
+    // by handle.
+    const [clearBool, clearUint32, clearUint64] = await fhevm.client.decryptValuesFromPairs({
+      pairs: [
+        { encryptedValue: encryptedBool, contractAddress },
+        { encryptedValue: encryptedUint32, contractAddress },
+        { encryptedValue: encryptedUint64, contractAddress },
+      ],
+      transportKeyPair: aliceTransportKeyPair,
+      signedPermit: aliceSignedPermit,
+    });
+
+    expect(clearBool.value).to.equal(true);
+    expect(clearUint32.value).to.equal(123456 + 1);
+    expect(clearUint64.value).to.equal(78901234567 + 1);
   });
 });

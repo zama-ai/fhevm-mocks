@@ -17,6 +17,15 @@ fhevmTemp
 node_modules
 types
 
+# vendored verbatim from @fhevm/host-contracts-cleartext's reference adapter — kept byte-identical to
+# upstream so re-syncing is a plain copy. Reformatting it here would create a permanent diff.
+packages/hardhat-plugin/src/internal/deploy/ethersEthereumLib.ts
+
+# @fhevm/mock-utils is no longer part of the build: it was dropped from the workspaces when the
+# hardhat plugin moved to @fhevm/sdk + @fhevm/host-contracts-cleartext. The sources are kept for
+# reference, but nothing installs, builds, lints or formats them.
+packages/mock-utils
+
 # files
 *.env
 *.log

@@ -6,16 +6,10 @@
 // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions (0.3.0-4)
 
 const constants = {
-  PRIVATE_KEY_KMS_SIGNER: "388b7680e4e1afa06efbfd45cdd1fe39f3c6af381df6555a19661f283b97de91", //address=0x0971C80fF03B428fD2094dd5354600ab103201C5
-  PRIVATE_KEY_COPROCESSOR_SIGNER: "7ec8ada6642fc4ccfb7729bc29c17cf8d21b61abd5642d1db992c0b8672ab901", //address=0xc9990FEfE0c27D31D0C2aa36196b085c0c4d456c
-  HARDHAT_RELAYER_SIGNER_INDEX: 6, // wallet index in hre.ethers.getSigners() used to compute mock relayer signatures.
   DECRYPTION_ADDRESS: "0x5ffdaAB0373E62E2ea2944776209aEf29E631A64",
   INPUT_VERIFICATION_ADDRESS: "0x812b06e1CDCE800494b79fFE4f925A504a9A9810",
-  KMS_THRESHOLD: 1,
-  INPUT_VERIFIER_THRESHOLD: 1,
   FHEVM_HANDLE_VERSION: 0,
   HARDHAT_PLUGIN_NAME: "@fhevm/hardhat-plugin",
-  FHEVM_MOCK_UTILS_PACKAGE_NAME: "@fhevm/mock-utils",
   SOLIDITY_COVERAGE_PACKAGE_NAME: "solidity-coverage",
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
@@ -44,11 +38,50 @@ const constants = {
       KMSVerifierAddress: "0x901F8942346f7AB3a01F6D7613119Bca447Bb030",
     },
   },
-  // https://www.npmjs.com/package/@fhevm/host-contracts?activeTab=versions
-  // @fhevm/host-contracts@0.10.0
-  FHEVM_HOST_CONTRACTS_PACKAGE: {
-    version: "0.10.0",
-    name: "@fhevm/host-contracts",
+  // @fhevm/host-contracts-cleartext@0.13.0
+  //
+  // The canonical localhost cleartext stack, mirroring the package's generated
+  // `pkg/forge/src/_internal/LocalHostAddresses.sol`. Every address below is
+  // `CREATE(deployerAddress, nonce)` — deploying from any other account, or from a non-zero start
+  // nonce, moves the whole stack while the implementations' baked-in addresses stay put.
+  //
+  // `ACLAddress`, `CoprocessorAddress` and `KMSVerifierAddress` are exactly the three values
+  // `@fhevm/solidity/config/ZamaConfig.sol` compiles into every dApp inheriting its local config
+  // (see FHEVM_SOLIDITY_PACKAGE.LocalConfig below) — which is why none of this may drift.
+  FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE: {
+    version: "0.13.0",
+    name: "@fhevm/host-contracts-cleartext",
+    // BIP-39 mnemonic the local stack is *deployed* from. This is NOT the signer mnemonic: the KMS
+    // and coprocessor signing keys are derived and owned by `@fhevm/sdk`. Two mnemonics, two jobs.
+    mnemonic: "adapt mosquito move limb mobile illegal tree voyage juice mosquito burger raise father hope layer",
+    deployerAddressIndex: 5,
+    deployerPath: "m/44'/60'/0'/0/5",
+    deployerAddress: "0x8B8f5091f8b9817EF69cFC1E8B2f721BafF60DF4",
+    deployerStartNonce: 0,
+    // nonces 1, 3, 4, 5, 6, 7, 8
+    fhevmAddresses: {
+      aclAddress: "0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D",
+      fhevmExecutorAddress: "0xe3a9105a3a932253A70F126eb1E3b589C643dD24",
+      kmsVerifierAddress: "0x901F8942346f7AB3a01F6D7613119Bca447Bb030",
+      inputVerifierAddress: "0x36772142b74871f255CbD7A3e89B401d3e45825f",
+      hcuLimitAddress: "0x233ff88A48c172d29F675403e6A8e302b0F032D9",
+      protocolConfigAddress: "0x44aA028fd264C76BF4A8f8B4d8A5272f6AE25CAc",
+      kmsGenerationAddress: "0x216be43148dB537BeddBC268163deb1a802b5553",
+    },
+    // nonces 9, 10
+    cleartextAddresses: {
+      cleartextArithmeticAddress: "0xded0D2a71268DC12622BdD1b55d68a1CB5662327",
+      cleartextDbAddress: "0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E",
+    },
+    // nonce 11
+    pauserSetAddress: "0x590e3330386Fa042843773541aaBb3a45EC3164D",
+    // The gateway the stack is bootstrapped against, from the package's
+    // `DEFAUT_BOOTSTRAP_CONFIG_V13`. Used by the plugin to build its `FhevmChain` definition.
+    gateway: {
+      chainId: 654321,
+      decryptionAddress: "0xEaaA2FC6BC259dF015Aa7Dc8e59e0B67df622721",
+      inputVerificationAddress: "0x6189F6c0c3E40B4a3c72ec86262295D78d845297",
+    },
   },
   // https://www.npmjs.com/package/@zama-fhe/relayer-sdk?activeTab=versions
   // @zama-fhe/relayer-sdk@0.4.1
@@ -81,9 +114,12 @@ const constants = {
   },
 };
 Object.freeze(constants);
+Object.freeze(constants.FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE);
+Object.freeze(constants.FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE.fhevmAddresses);
+Object.freeze(constants.FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE.cleartextAddresses);
+Object.freeze(constants.FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE.gateway);
 Object.freeze(constants.ZAMA_FHE_RELAYER_SDK_PACKAGE);
 Object.freeze(constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia);
-Object.freeze(constants.FHEVM_HOST_CONTRACTS_PACKAGE);
 Object.freeze(constants.FHEVM_SOLIDITY_PACKAGE);
 Object.freeze(constants.FHEVM_SOLIDITY_PACKAGE.SepoliaConfig);
 

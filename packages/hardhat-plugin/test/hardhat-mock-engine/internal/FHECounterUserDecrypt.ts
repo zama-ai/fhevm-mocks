@@ -1,8 +1,7 @@
-import { utils } from "@fhevm/mock-utils";
-import { FhevmType } from "@fhevm/mock-utils";
+import { timestampNow } from "../../../src/types";
+import { FhevmType } from "../../../src/types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import type { ethers as EthersT } from "ethers";
 import { ethers, fhevm } from "hardhat";
 
 import { FHECounterUserDecrypt, FHECounterUserDecrypt__factory } from "../../../typechain-types";
@@ -69,39 +68,34 @@ describe("FHECounterUserDecrypt", function () {
       signers.alice,
     );
 
-    const { publicKey: publicKeyAlice, privateKey: privateKeyAlice } = fhevm.generateKeypair();
+    const transportKeyPairAlice = await fhevm.client.generateTransportKeyPair();
 
-    const startTimestamp = utils.timestampNow();
+    const startTimestamp = timestampNow();
     const durationDays = 365;
 
-    const eip712Alice = fhevm.createEIP712(publicKeyAlice, [fheCounterContractAddress], startTimestamp, durationDays);
-    const signatureAlice = await signers.alice.signTypedData(
-      eip712Alice.domain,
-      { UserDecryptRequestVerification: eip712Alice.types.UserDecryptRequestVerification } as unknown as Record<
-        string,
-        Array<EthersT.TypedDataField>
-      >,
-      eip712Alice.message,
-    );
-
-    // Test multiple decryptions
-    const decryptedResults = await fhevm.userDecrypt(
-      [
-        { handle: encryptedCountAfterInc1, contractAddress: fheCounterContractAddress },
-        { handle: encryptedCountAfterInc2, contractAddress: fheCounterContractAddress },
-      ],
-      privateKeyAlice,
-      publicKeyAlice,
-      signatureAlice,
-      [fheCounterContractAddress],
-      signers.alice.address,
+    const signedPermitAlice = await fhevm.client.signLegacyDecryptionPermit({
+      contractAddresses: [fheCounterContractAddress],
       startTimestamp,
-      durationDays,
-    );
+      // The legacy API measured validity in days; `@fhevm/sdk` takes seconds.
+      durationSeconds: durationDays * 24 * 60 * 60,
+      signerAddress: signers.alice.address,
+      signer: signers.alice,
+      transportKeyPair: transportKeyPairAlice,
+    });
+
+    // Test multiple decryptions — results come back positionally, in pair order.
+    const [decrypted1, decrypted2] = await fhevm.client.decryptValuesFromPairs({
+      pairs: [
+        { encryptedValue: encryptedCountAfterInc1, contractAddress: fheCounterContractAddress },
+        { encryptedValue: encryptedCountAfterInc2, contractAddress: fheCounterContractAddress },
+      ],
+      transportKeyPair: transportKeyPairAlice,
+      signedPermit: signedPermitAlice,
+    });
 
     expect(clearCountAfterInc1).to.eq(1);
     expect(clearCountAfterInc2).to.eq(2);
-    expect(decryptedResults[encryptedCountAfterInc1 as `0x${string}`]).to.eq(1);
-    expect(decryptedResults[encryptedCountAfterInc2 as `0x${string}`]).to.eq(2);
+    expect(decrypted1.value).to.eq(1);
+    expect(decrypted2.value).to.eq(2);
   });
 });

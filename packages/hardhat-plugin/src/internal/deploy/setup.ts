@@ -1,628 +1,187 @@
-import {
-  FhevmContractName,
-  FhevmMockProvider,
-  MinimalProvider,
-  assertIsEIP712Domain,
-  constants as constantsBase,
-  contracts,
-  getContractsABIVersions,
-  setInitializableStorage,
-  setOwnableStorage,
-} from "@fhevm/mock-utils";
-import { SepoliaConfig } from "@zama-fhe/relayer-sdk/node";
+import { deploy } from "@fhevm/host-contracts-cleartext/ts";
+import type { DeployedV13 } from "@fhevm/host-contracts-cleartext/ts";
 import setupDebug from "debug";
 import { ethers as EthersT } from "ethers";
-import * as path from "path";
 import * as picocolors from "picocolors";
 
 import { HardhatFhevmError } from "../../error";
-import type { FhevmEnvironmentAddresses, FhevmSigners } from "../FhevmEnvironment";
-import { FhevmEnvironmentPaths } from "../FhevmEnvironmentPaths";
 import constants from "../constants";
-import { assertHHFhevm } from "../error";
-import { assertSignersMatchAddresses } from "../utils/ethers";
 import {
-  getGatewayDecryptionAddress,
-  getGatewayInputVerificationAddress,
-  getInputVerifierThreshold,
-  getKMSThreshold,
-} from "./addresses";
+  createEthersEthereumProvider,
+  createEthersEthereumSigner,
+  createEthersEthereumUtils,
+} from "./ethersEthereumLib";
 
 const debug = setupDebug("@fhevm/hardhat:setup");
 
-function __logDeploy(contractName: string, contractAddress: string, artifactPath: string) {
-  debug(`Deploy ${picocolors.cyanBright(contractName)} at ${contractAddress} using artifact ${artifactPath}`);
-}
+const CLEARTEXT = constants.FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE;
 
-function __logAlreadyDeployed(contractName: string, contractAddress: string, artifactPath: string) {
-  debug(
-    `${picocolors.cyanBright(contractName)} is already deployed at ${contractAddress} using artifact ${artifactPath}`,
-  );
-}
+/*
+  Balances must be very high in case of solidity coverage: code instrumentation considerably
+  increases gas cost, so the deployer needs plenty of headroom at startup.
+*/
+const DEPLOYER_BALANCE = EthersT.parseEther("10000");
 
-async function __tryDeploy(
-  mockProvider: FhevmMockProvider,
-  contractName: FhevmContractName,
-  contractAddress: string,
-  artifactPath: string,
-  bytecode: string,
-): Promise<{ deployed: boolean; alreadyDeployed: boolean }> {
-  try {
-    const deployedBytecode = await mockProvider.getCodeAt(contractAddress);
-    if (deployedBytecode === bytecode) {
-      __logAlreadyDeployed(contractName, contractAddress, artifactPath);
-      return {
-        deployed: true,
-        alreadyDeployed: true,
-      };
-    } else {
-      assertHHFhevm(
-        deployedBytecode === "0x",
-        `${contractName} contract's bytecode at ${contractAddress} is not empty.`,
-      );
-      __logDeploy(contractName, contractAddress, artifactPath);
-      await mockProvider.setCodeAt(contractAddress, bytecode);
-      return {
-        deployed: true,
-        alreadyDeployed: false,
-      };
-    }
-  } catch (e) {
-    debug(`Deploy ${contractName} at address ${contractAddress} using artifact at ${artifactPath} failed.`);
-    throw e;
-  }
-}
+/**
+ * An `ethers.Provider` that can also issue raw RPC calls. Both `HardhatEthersProvider` and
+ * `EthersT.JsonRpcProvider` qualify; only used here for the `*_setBalance` dev-node cheat.
+ */
+export type FhevmSetupProvider = EthersT.Provider & {
+  send(method: string, params: unknown[]): Promise<unknown>;
+};
 
-function __logCallFuncFailed(contractName: FhevmContractName, contractAddress: string, funcName: string) {
-  debug(
-    `${picocolors.bgRedBright(picocolors.bold("ERROR"))} invalid deployed ${contractName} contact at ${contractAddress}. Function ${funcName} does not exist.`,
-  );
-}
+////////////////////////////////////////////////////////////////////////////////
 
-async function __tryCallGetFHEVMExecutorAddress(
-  contract: EthersT.Contract,
-  contractName: FhevmContractName,
-  contractAddress: string,
-): Promise<`0x${string}`> {
-  try {
-    return await contract.getFHEVMExecutorAddress();
-  } catch {
-    __logCallFuncFailed(contractName, contractAddress, "getFHEVMExecutorAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
-  }
-}
+/**
+ * Stands up the canonical localhost cleartext FHEVM stack.
+ *
+ * The whole deployment is one call to `@fhevm/host-contracts-cleartext/ts`'s `deploy()`. That
+ * function is the source of truth — the package's `FhevmDeploy.sol` and `scripts/anvil-local-v3.sh`
+ * are transcriptions of it, not alternatives to it — so the only job left here is to satisfy its
+ * three preconditions:
+ *
+ *   1. `deployer` is account index 5 of the package mnemonic, and it is funded
+ *   2. `deployer` is at nonce 0, because every address is `CREATE(deployer, nonce)`
+ *   3. `admin` is the same account (`FhevmDeploy._fhevmAdmin()` returns `DEPLOYER_ADDRESS`)
+ *
+ * `config` is deliberately not passed: the default `DEFAUT_BOOTSTRAP_CONFIG_V13` is what seeds the
+ * KMS/coprocessor signer sets that `@fhevm/sdk`'s cleartext relayer holds the keys for. A configured
+ * stack is a stack the SDK cannot sign for.
+ *
+ * `precomputed` *is* passed, although `deploy()` would otherwise derive the same values from the
+ * live nonce. Passing the canonical constants turns a wrong start nonce into a loud failure on the
+ * very first address instead of a stack that deploys cleanly at the wrong addresses.
+ *
+ * Idempotent: re-running against an already-deployed node (`hardhat test --network localhost`, where
+ * `hardhat node` deployed the stack at startup) is a no-op.
+ */
+export async function deployFhevmCleartextHostContracts(provider: FhevmSetupProvider): Promise<DeployedV13> {
+  const deployed: DeployedV13 = {
+    fhevmAddresses: CLEARTEXT.fhevmAddresses,
+    cleartextAddresses: CLEARTEXT.cleartextAddresses,
+    pauserSetAddress: CLEARTEXT.pauserSetAddress,
+    aclOwnerAddress: EthersT.ZeroAddress,
+  };
 
-async function __tryCallGetACLAddress(
-  contract: EthersT.Contract,
-  contractName: FhevmContractName,
-  contractAddress: string,
-): Promise<`0x${string}`> {
-  try {
-    return await contract.getACLAddress();
-  } catch {
-    __logCallFuncFailed(contractName, contractAddress, "getACLAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
-  }
-}
-
-async function __tryCallGetHCULimitAddress(
-  contract: EthersT.Contract,
-  contractName: FhevmContractName,
-  contractAddress: string,
-): Promise<`0x${string}`> {
-  try {
-    return await contract.getHCULimitAddress();
-  } catch {
-    __logCallFuncFailed(contractName, contractAddress, "getHCULimitAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
-  }
-}
-
-async function __tryCallGetInputVerifierAddress(
-  contract: EthersT.Contract,
-  contractName: FhevmContractName,
-  contractAddress: string,
-): Promise<`0x${string}`> {
-  try {
-    return await contract.getInputVerifierAddress();
-  } catch {
-    __logCallFuncFailed(contractName, contractAddress, "getInputVerifierAddress()");
-    throw new HardhatFhevmError(`Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts.`);
-  }
-}
-
-function __resovePkgPath(packageName: string, root: string): string {
-  try {
-    const pkgPath = require.resolve(path.join(packageName, "package.json"), {
-      paths: [root],
-    });
-    // console.log(`Resolve ${picocolors.greenBright(packageName)}: successfully resolved from ${root}`);
-    // console.log(`Resolve ${picocolors.greenBright(packageName)}: ${pkgPath}`);
-    return pkgPath;
-  } catch (e) {
-    console.error(`${picocolors.redBright(`Package resolution failed: package name: ${packageName}, root: ${root}`)}`);
-    console.error(e);
-    throw e;
-  }
-}
-
-function __requireResolve(packageName: string): { version: string; packagePath: string } {
-  const pkgPath = __resovePkgPath(packageName, __dirname);
-  const pkgJson = require(pkgPath);
-  const pkg = require(path.join(packageName, "package.json"));
-  assertHHFhevm(pkgJson.version === pkg.version, `__requireResolve(${packageName}) version mismatch`);
-  return { version: pkg.version, packagePath: pkgPath };
-}
-
-function __requireConsumerResolve(packageName: string, root: string): { version: string; packagePath: string } {
-  const pkgPath = __resovePkgPath(packageName, root);
-  const pkg = require(pkgPath);
-  return { version: pkg.version, packagePath: pkgPath };
-}
-
-function __assertPkgVersion(
-  pkg: { version: string; packagePath: string },
-  expectedPkg: { name: string; version: string },
-) {
-  if (pkg.version !== expectedPkg.version) {
-    throw new HardhatFhevmError(
-      `Invalid ${expectedPkg.name} version. Expecting ${expectedPkg.version}. Got ${pkg.version} instead (at ${pkg.packagePath}).`,
-    );
-  }
-}
-
-function __checkPackages(fhevmPaths: FhevmEnvironmentPaths) {
-  const consumerFhevmSolidityPkg = __requireConsumerResolve(constants.FHEVM_SOLIDITY_PACKAGE.name, fhevmPaths.rootDir);
-  const consumerFhevmHostContractsPkg = __requireConsumerResolve(
-    constants.FHEVM_HOST_CONTRACTS_PACKAGE.name,
-    fhevmPaths.rootDir,
-  );
-  const consumerZamaRelayerSdkPkg = __requireConsumerResolve(
-    constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.name,
-    fhevmPaths.rootDir,
-  );
-  const hhPluginFhevmHostContractsPkg = __requireResolve(constants.FHEVM_HOST_CONTRACTS_PACKAGE.name);
-  const hhPluginFhevmSolidityPkg = __requireResolve(constants.FHEVM_SOLIDITY_PACKAGE.name);
-  const hhPluginZamaRelayerSdkPkg = __requireResolve(constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.name);
-
-  // Make sure the consumer of the HH Plugin uses the expected version of @fhevm/host-contracts
-  __assertPkgVersion(consumerFhevmHostContractsPkg, constants.FHEVM_HOST_CONTRACTS_PACKAGE);
-  // Make sure the HH Plugin uses the expected version of @fhevm/host-contracts
-  __assertPkgVersion(hhPluginFhevmHostContractsPkg, constants.FHEVM_HOST_CONTRACTS_PACKAGE);
-  // Make sure the consumer of the HH Plugin uses the expected version of @fhevm/solidity
-  __assertPkgVersion(consumerFhevmSolidityPkg, constants.FHEVM_SOLIDITY_PACKAGE);
-  // Make sure the HH Plugin uses the expected version of @fhevm/solidity
-  __assertPkgVersion(hhPluginFhevmSolidityPkg, constants.FHEVM_SOLIDITY_PACKAGE);
-  // Make sure the consumer of the HH Plugin uses the expected version of @zama-fhe/relayer-sdk
-  __assertPkgVersion(consumerZamaRelayerSdkPkg, constants.ZAMA_FHE_RELAYER_SDK_PACKAGE);
-  // Make sure the HH Plugin uses the expected version of @zama-fhe/relayer-sdk
-  __assertPkgVersion(hhPluginZamaRelayerSdkPkg, constants.ZAMA_FHE_RELAYER_SDK_PACKAGE);
-
-  const mockUtilsABIVersion = getContractsABIVersions().ACL;
-  if (mockUtilsABIVersion !== constants.FHEVM_HOST_CONTRACTS_PACKAGE.version) {
-    throw new HardhatFhevmError(
-      `Internal Error. Expecting ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} version: ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.version}. But @fhevm/mock-utils was compiled using ABIs version ${mockUtilsABIVersion}.`,
-    );
-  }
-}
-
-function __checkRelayerSdkAddresses() {
-  const expectedACLAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.ACLAddress;
-  const expectedKMSVerifierAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.KMSVerifierAddress;
-  const expectedInputVerifierAddress = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.InputVerifierAddress;
-  const expectedGatewayChainId = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.gatewayChainId;
-  const expectedRelayerUrl = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.relayerUrl;
-
-  if (expectedACLAddress !== SepoliaConfig.aclContractAddress) {
-    throw new HardhatFhevmError(
-      `ACL address missmatch. Unexpected SepoliaConfig.aclContractAddress=${SepoliaConfig.aclContractAddress} defined in @zama-fhe/relayer-sdk/node. Expected ${expectedACLAddress}.`,
-    );
-  }
-  if (expectedKMSVerifierAddress !== SepoliaConfig.kmsContractAddress) {
-    throw new HardhatFhevmError(
-      `KMSVerifier address missmatch. Unexpected SepoliaConfig.kmsContractAddress=${SepoliaConfig.kmsContractAddress} defined in @zama-fhe/relayer-sdk/node. Expected ${expectedKMSVerifierAddress}.`,
-    );
-  }
-  if (expectedInputVerifierAddress !== SepoliaConfig.inputVerifierContractAddress) {
-    throw new HardhatFhevmError(
-      `InputVerifier address missmatch. Unexpected SepoliaConfig.inputVerifierContractAddress=${SepoliaConfig.inputVerifierContractAddress} defined in @zama-fhe/relayer-sdk/node. Expected ${expectedInputVerifierAddress}.`,
-    );
-  }
-  if (expectedGatewayChainId !== SepoliaConfig.gatewayChainId) {
-    throw new HardhatFhevmError(
-      `GatewayChainId missmatch. Unexpected SepoliaConfig.gatewayChainId=${SepoliaConfig.gatewayChainId} defined in @zama-fhe/relayer-sdk/node. Expected ${expectedGatewayChainId}.`,
-    );
-  }
-  if (!SepoliaConfig.relayerUrl || new URL(expectedRelayerUrl).href !== new URL(SepoliaConfig.relayerUrl).href) {
-    throw new HardhatFhevmError(
-      `Relayer Url missmatch. Unexpected SepoliaConfig.relayerUrl=${SepoliaConfig.relayerUrl} defined in @zama-fhe/relayer-sdk/node. Expected ${expectedRelayerUrl}.`,
-    );
-  }
-}
-
-// Called by FhevmEnvironment
-export async function setupMockUsingHostContractsArtifacts(
-  mockProvider: FhevmMockProvider,
-  fhevmAddresses: FhevmEnvironmentAddresses,
-  fhevmSigners: FhevmSigners,
-  fhevmPaths: FhevmEnvironmentPaths,
-): Promise<{
-  contracts: contracts.FhevmContractsRepository;
-  gatewayChainId: number;
-  gatewayInputVerificationAddress: string;
-  gatewayDecryptionAddress: string;
-}> {
-  __checkPackages(fhevmPaths);
-  __checkRelayerSdkAddresses();
-
-  const FHEVMExecutorAddress = fhevmAddresses.CoprocessorConfig.CoprocessorAddress;
-  const aclAddress = fhevmAddresses.CoprocessorConfig.ACLAddress;
-  const kmsVerifierAddress = fhevmAddresses.CoprocessorConfig.KMSVerifierAddress;
-  const inputVerifierAddress = fhevmAddresses.InputVerifierAddress;
-  const hcuLimitAddress = fhevmAddresses.HCULimitAddress;
-
-  // Setup FHEVMExecutor
-  const execArtifact = await fhevmPaths.getFhevmHostContractsArtifact("FHEVMExecutor");
-  /* const execDeployment = */ await __tryDeploy(
-    mockProvider,
-    "FHEVMExecutor",
-    FHEVMExecutorAddress,
-    execArtifact.path,
-    execArtifact.artifact.deployedBytecode,
-  );
-
-  // Retrieve precompiled FHE addresses using FHEVMExecutor.
-  const fhevmExecutorReadOnly = new EthersT.Contract(
-    FHEVMExecutorAddress,
-    execArtifact.artifact.abi,
-    mockProvider.readonlyEthersProvider,
-  );
-
-  const precompiledACLAddress = (await fhevmExecutorReadOnly.getACLAddress()) as string;
-  const precompiledHCULimitAddress = (await fhevmExecutorReadOnly.getHCULimitAddress()) as string;
-  const precompiledInputVerifierAddress = (await fhevmExecutorReadOnly.getInputVerifierAddress()) as string;
-
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledACLAddress, aclAddress);
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledHCULimitAddress, hcuLimitAddress);
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, precompiledInputVerifierAddress, inputVerifierAddress);
-
-  // Setup ACL
-  const aclArtifact = await fhevmPaths.getFhevmHostContractsArtifact("ACL");
-  const aclDeployment = await __tryDeploy(
-    mockProvider,
-    "ACL",
-    aclAddress,
-    aclArtifact.path,
-    aclArtifact.artifact.deployedBytecode,
-  );
-
-  // Setup KMSVerifier
-  const kmsArtifact = await fhevmPaths.getFhevmHostContractsArtifact("KMSVerifier");
-  const kmsDeployment = await __tryDeploy(
-    mockProvider,
-    "KMSVerifier",
-    kmsVerifierAddress,
-    kmsArtifact.path,
-    kmsArtifact.artifact.deployedBytecode,
-  );
-
-  // Setup InputVerifier
-  const inputArtifact = await fhevmPaths.getFhevmHostContractsArtifact("InputVerifier");
-  const inputVerifierDeployment = await __tryDeploy(
-    mockProvider,
-    "InputVerifier",
-    inputVerifierAddress,
-    inputArtifact.path,
-    inputArtifact.artifact.deployedBytecode,
-  );
-
-  // Setup HCULimit
-  const hcuLimitArtifact = await fhevmPaths.getFhevmHostContractsArtifact("HCULimit");
-  /* const hcuLimitDeployment = */ await __tryDeploy(
-    mockProvider,
-    "HCULimit",
-    hcuLimitAddress,
-    hcuLimitArtifact.path,
-    hcuLimitArtifact.artifact.deployedBytecode,
-  );
-
-  const aclReadOnly = new EthersT.Contract(aclAddress, aclArtifact.artifact.abi, mockProvider.readonlyEthersProvider);
-  const hcuLimitReadOnly = new EthersT.Contract(
-    hcuLimitAddress,
-    hcuLimitArtifact.artifact.abi,
-    mockProvider.readonlyEthersProvider,
-  );
-  const inputVerifierReadOnly = new EthersT.Contract(
-    inputVerifierAddress,
-    inputArtifact.artifact.abi,
-    mockProvider.readonlyEthersProvider,
-  );
-  const kmsVerifierReadOnly = new EthersT.Contract(
-    kmsVerifierAddress,
-    kmsArtifact.artifact.abi,
-    mockProvider.readonlyEthersProvider,
-  );
-
-  const aclFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(aclReadOnly, "ACL", aclAddress);
-  const hcuLimitFHEVMExecutorAddress = await __tryCallGetFHEVMExecutorAddress(
-    hcuLimitReadOnly,
-    "HCULimit",
-    hcuLimitAddress,
-  );
-  const fhevmExecutorACLAddress = await __tryCallGetACLAddress(
-    fhevmExecutorReadOnly,
-    "FHEVMExecutor",
-    FHEVMExecutorAddress,
-  );
-  const fhevmExecutorHCULimitAddress = await __tryCallGetHCULimitAddress(
-    fhevmExecutorReadOnly,
-    "FHEVMExecutor",
-    FHEVMExecutorAddress,
-  );
-  const fhevmExecutorInputVerifierAddress = await __tryCallGetInputVerifierAddress(
-    fhevmExecutorReadOnly,
-    "FHEVMExecutor",
-    FHEVMExecutorAddress,
-  );
-
-  // Verify addresses
-  __checkHardCodedAddress("ACL", aclAddress, aclFHEVMExecutorAddress, FHEVMExecutorAddress);
-  __checkHardCodedAddress("HCULimit", hcuLimitAddress, hcuLimitFHEVMExecutorAddress, FHEVMExecutorAddress);
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, fhevmExecutorACLAddress, aclAddress);
-  __checkHardCodedAddress("FHEVMExecutor", FHEVMExecutorAddress, fhevmExecutorHCULimitAddress, hcuLimitAddress);
-  __checkHardCodedAddress(
-    "FHEVMExecutor",
-    FHEVMExecutorAddress,
-    fhevmExecutorInputVerifierAddress,
-    inputVerifierAddress,
-  );
-
-  const gatewayDecryptionAddress = getGatewayDecryptionAddress(fhevmPaths.dotEnvFile);
-  const gatewayInputVerificationAddress = getGatewayInputVerificationAddress(fhevmPaths.dotEnvFile);
-  const gatewayChainId = constants.ZAMA_FHE_RELAYER_SDK_PACKAGE.sepolia.gatewayChainId;
-  const kmsInitialThreshold = getKMSThreshold(fhevmPaths.dotEnvFile);
-  const inputVerifierInitialThreshold = getInputVerifierThreshold(fhevmPaths.dotEnvFile);
-
-  const kmsSigners = fhevmSigners.kms;
-  if (kmsSigners.length !== 1) {
-    throw new HardhatFhevmError(`Expecting 1 KMS Signer. Got ${kmsSigners.length} instead.`);
+  if (await __isAlreadyDeployed(provider)) {
+    debug(`${picocolors.cyanBright("ACL")} already deployed at ${CLEARTEXT.fhevmAddresses.aclAddress}. Skip deploy.`);
+    return {
+      ...deployed,
+      aclOwnerAddress: await __readACLOwner(provider),
+    };
   }
 
-  const coprocessorSigners = fhevmSigners.coprocessor;
-  if (coprocessorSigners.length !== 1) {
-    throw new HardhatFhevmError(`Expecting 1 Coprocessor Signer. Got ${coprocessorSigners.length} instead.`);
-  }
+  const deployerWallet = await __resolveDeployer(provider);
 
-  const zero = fhevmSigners.zero;
-  const ACLOwner = fhevmSigners.one;
+  const ethProvider = createEthersEthereumProvider(provider);
+  const ethUtils = createEthersEthereumUtils();
+  const deployer = createEthersEthereumSigner(deployerWallet);
 
-  // Set ACL owner (see: ACLOwnable)
-  // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/shared/ACLOwnable.sol
-  await __setContractOwner(
-    mockProvider.minimalProvider,
-    aclReadOnly,
-    "ACL",
-    zero,
-    ACLOwner,
-    aclDeployment.alreadyDeployed,
-  );
+  debug(`Deploying ${picocolors.cyanBright(CLEARTEXT.name)}@${CLEARTEXT.version} from ${CLEARTEXT.deployerAddress}...`);
 
-  //////////////////////////////////////////////////////////////////////////////
-  // KMSVerifier
-  //////////////////////////////////////////////////////////////////////////////
-
-  if (kmsDeployment.alreadyDeployed) {
-    const existingKmsVerifier = await contracts.KMSVerifier.create(
-      mockProvider.readonlyEthersProvider,
-      kmsVerifierAddress,
-      kmsArtifact.artifact.abi,
-      {
-        signers: kmsSigners,
-      },
-    );
-    // Probably unecessary
-    await existingKmsVerifier.assertMatchKmsSigners(kmsSigners);
-    if (existingKmsVerifier.gatewayChainId !== BigInt(gatewayChainId)) {
-      throw new HardhatFhevmError(
-        `Unexpected KMS Gateway ChainId. Expected ${gatewayChainId}, got ${existingKmsVerifier.gatewayChainId} instead.`,
-      );
-    }
-    if (existingKmsVerifier.getThreshold() !== kmsInitialThreshold) {
-      throw new HardhatFhevmError(
-        `Unexpected KMS Threshold. Expected ${kmsInitialThreshold}, got ${existingKmsVerifier.getThreshold()} instead.`,
-      );
-    }
-  } else {
-    // set KMSVerifier initializable struct using setInitializableStorage cheat code
-    await setInitializableStorage(mockProvider.minimalProvider, kmsVerifierAddress, {
-      initialized: 1n,
-      initializing: false,
-    });
-
-    const kmsACLOwner = kmsVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
-
-    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/KMSVerifier.sol#L117
-    const tx = await kmsACLOwner.initializeFromEmptyProxy(
-      // address verifyingContractSource,
-      gatewayDecryptionAddress,
-      // uint64 chainIDSource,
-      gatewayChainId,
-      // address[] calldata initialSigners,
-      kmsSigners,
-      // uint256 initialThreshold
-      kmsInitialThreshold,
-    );
-    await tx.wait();
-
-    // // Make sure everything is properly setup
-    assertHHFhevm((await kmsVerifierReadOnly.getThreshold()) === BigInt(kmsInitialThreshold));
-    // Verify signers
-    const _kmsSignersAddresses: string[] = await kmsVerifierReadOnly.getKmsSigners();
-    await assertSignersMatchAddresses(kmsSigners, _kmsSignersAddresses);
-
-    // KMSVerifier eip712Domain
-    const _kms712Domain = await kmsVerifierReadOnly.eip712Domain();
-    assertIsEIP712Domain(_kms712Domain, "KMSVerifier", {
-      name: constantsBase.PUBLIC_DECRYPT_EIP712.domain.name,
-      version: constantsBase.PUBLIC_DECRYPT_EIP712.domain.version,
-      chainId: BigInt(gatewayChainId),
-      verifyingContract: gatewayDecryptionAddress,
-    });
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // InputVerifier
-  //////////////////////////////////////////////////////////////////////////////
-
-  if (inputVerifierDeployment.alreadyDeployed) {
-    const existingInputVerifier = await contracts.InputVerifier.create(
-      mockProvider.readonlyEthersProvider,
-      inputVerifierAddress,
-      inputArtifact.artifact.abi,
-      {
-        signers: coprocessorSigners,
-      },
-    );
-    // Probably unecessary
-    await existingInputVerifier.assertMatchCoprocessorSigners(coprocessorSigners);
-    if (existingInputVerifier.gatewayChainId !== BigInt(gatewayChainId)) {
-      throw new HardhatFhevmError(
-        `Unexpected InputVerifier Gateway ChainId. Expected ${gatewayChainId}, got ${existingInputVerifier.gatewayChainId} instead.`,
-      );
-    }
-    if (existingInputVerifier.getThreshold() !== inputVerifierInitialThreshold) {
-      throw new HardhatFhevmError(
-        `Unexpected InputVerifier Threshold. Expected ${inputVerifierInitialThreshold}, got ${existingInputVerifier.getThreshold()} instead.`,
-      );
-    }
-  } else {
-    // set InputVerifier initializable struct using setInitializableStorage cheat code
-    await setInitializableStorage(mockProvider.minimalProvider, inputVerifierAddress, {
-      initialized: 1n,
-      initializing: false,
-    });
-
-    const inputVerifierACLOwner = inputVerifierReadOnly.connect(ACLOwner) as EthersT.Contract;
-    // https://github.com/zama-ai/fhevm/blob/main/host-contracts/contracts/InputVerifier.sol#L141
-    const tx = await inputVerifierACLOwner.initializeFromEmptyProxy(
-      // address verifyingContractSource,
-      gatewayInputVerificationAddress,
-      // uint64 chainIDSource,
-      gatewayChainId,
-      // address[] calldata initialSigners
-      coprocessorSigners,
-      // uint256 initialThreshold
-      inputVerifierInitialThreshold,
-    );
-    await tx.wait();
-
-    // Verify signers
-    const _inputSignersAddresses: string[] = await inputVerifierReadOnly.getCoprocessorSigners();
-    await assertSignersMatchAddresses(coprocessorSigners, _inputSignersAddresses);
-
-    // InputVerifier eip712Domain
-    const _inputVerifier712Domain = await inputVerifierReadOnly.eip712Domain();
-    assertIsEIP712Domain(_inputVerifier712Domain, "InputVerifier", {
-      name: constantsBase.INPUT_VERIFICATION_EIP712.domain.name,
-      version: constantsBase.INPUT_VERIFICATION_EIP712.domain.version,
-      chainId: BigInt(gatewayChainId),
-      verifyingContract: gatewayInputVerificationAddress,
-    });
-  }
-
-  debug(`${picocolors.cyanBright("ACL")} address              : ${aclAddress}`);
-  debug(`${picocolors.cyanBright("FHEVMExecutor")} address    : ${FHEVMExecutorAddress}`);
-  debug(`${picocolors.cyanBright("InputVerifier")} address    : ${inputVerifierAddress}`);
-  debug(`${picocolors.cyanBright("KMSVerifier")} address      : ${kmsVerifierAddress}`);
-  debug(`Gateway chainId                    : ${gatewayChainId}`);
-  debug(`Gateway Input verification address : ${gatewayInputVerificationAddress}`);
-  debug(`Gateway Decryption address         : ${gatewayDecryptionAddress}`);
-
-  const repo = await contracts.FhevmContractsRepository.create(mockProvider.readonlyEthersProvider, {
-    aclContractAddress: aclAddress,
-    aclAbi: aclArtifact.artifact.abi,
-    aclProperties: {
-      fhevmExecutorAddress: aclFHEVMExecutorAddress,
-    },
-    fhevmExecutorAbi: execArtifact.artifact.abi,
-    fhevmExecutorProperties: {
-      aclAddress: fhevmExecutorACLAddress,
-      hcuLimitAddress: fhevmExecutorHCULimitAddress,
-      inputVerifierAddress: fhevmExecutorInputVerifierAddress,
-    },
-    hcuLimitAbi: hcuLimitArtifact.artifact.abi,
-    inputVerifierAbi: inputArtifact.artifact.abi,
-    inputVerifierProperties: {
-      signers: coprocessorSigners,
-    },
-    kmsContractAddress: kmsVerifierAddress,
-    kmsVerifierAbi: kmsArtifact.artifact.abi,
-    kmsVerifierProperties: {
-      signers: kmsSigners,
+  const result = await deploy({
+    ethProvider,
+    ethUtils,
+    deployer,
+    // `FhevmDeploy._fhevmAdmin()` returns DEPLOYER_ADDRESS: deployer and admin are one account.
+    // Pass the *same adapter object*, not a second one over the same wallet — each adapter keeps its
+    // own nonce counter, so two would hand out the same nonce twice.
+    admin: deployer,
+    precomputed: {
+      fhevmAddresses: CLEARTEXT.fhevmAddresses,
+      cleartextAddresses: CLEARTEXT.cleartextAddresses,
+      pauserSetAddress: CLEARTEXT.pauserSetAddress,
     },
   });
 
-  return {
-    contracts: repo,
-    gatewayInputVerificationAddress: gatewayInputVerificationAddress,
-    gatewayChainId,
-    gatewayDecryptionAddress: gatewayDecryptionAddress,
-  };
+  debug(`${picocolors.cyanBright("ACL")} address                 : ${result.fhevmAddresses.aclAddress}`);
+  debug(`${picocolors.cyanBright("FHEVMExecutor")} address       : ${result.fhevmAddresses.fhevmExecutorAddress}`);
+  debug(`${picocolors.cyanBright("KMSVerifier")} address         : ${result.fhevmAddresses.kmsVerifierAddress}`);
+  debug(`${picocolors.cyanBright("InputVerifier")} address       : ${result.fhevmAddresses.inputVerifierAddress}`);
+  debug(`${picocolors.cyanBright("HCULimit")} address            : ${result.fhevmAddresses.hcuLimitAddress}`);
+  debug(`${picocolors.cyanBright("ProtocolConfig")} address      : ${result.fhevmAddresses.protocolConfigAddress}`);
+  debug(`${picocolors.cyanBright("KMSGeneration")} address       : ${result.fhevmAddresses.kmsGenerationAddress}`);
+  debug(`${picocolors.cyanBright("CleartextArithmetic")} address : ${result.cleartextAddresses.cleartextArithmeticAddress}`);
+  debug(`${picocolors.cyanBright("CleartextDB")} address         : ${result.cleartextAddresses.cleartextDbAddress}`);
+  debug(`${picocolors.cyanBright("PauserSet")} address           : ${result.pauserSetAddress}`);
+  debug(`${picocolors.cyanBright("ACLOwner")} address            : ${result.aclOwnerAddress}`);
+
+  return result;
 }
 
-function __checkHardCodedAddress(
-  contractName: FhevmContractName,
-  contractAddress: string,
-  hardCodedAddress: string,
-  expectedHardCodedAddress: string,
-) {
-  if (hardCodedAddress !== expectedHardCodedAddress) {
-    debug(
-      `${picocolors.bgRedBright(picocolors.bold("ERROR"))} deployed ${contractName} contact at ${contractAddress} does not use the expected ACL address. Got ${hardCodedAddress}, expecting ${expectedHardCodedAddress}`,
-    );
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * The stack is considered present as soon as the ACL proxy carries code. The ACL address is the
+ * first one `deploy()` writes to, so a half-deployed node fails later in `assertNoCodeAtTargets`
+ * rather than being mistaken for a complete one here.
+ */
+async function __isAlreadyDeployed(provider: FhevmSetupProvider): Promise<boolean> {
+  const code = await provider.getCode(CLEARTEXT.fhevmAddresses.aclAddress);
+  return code !== "0x";
+}
+
+const ACL_OWNER_ABI = [
+  {
+    type: "function",
+    name: "owner",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+] as const;
+
+async function __readACLOwner(provider: FhevmSetupProvider): Promise<string> {
+  const acl = new EthersT.Contract(CLEARTEXT.fhevmAddresses.aclAddress, ACL_OWNER_ABI, provider);
+  return (await acl.owner()) as string;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * The deploying account, derived from the package mnemonic rather than impersonated: the mnemonic is
+ * public, so the private key is simply available — the same way `scripts/deploy.sh` gets it with
+ * `cast wallet private-key --mnemonic ... --mnemonic-index 5`.
+ */
+async function __resolveDeployer(provider: FhevmSetupProvider): Promise<EthersT.Signer> {
+  const wallet = EthersT.HDNodeWallet.fromPhrase(CLEARTEXT.mnemonic, undefined, CLEARTEXT.deployerPath);
+
+  if (wallet.address !== CLEARTEXT.deployerAddress) {
     throw new HardhatFhevmError(
-      `Unable to deploy ${constants.FHEVM_HOST_CONTRACTS_PACKAGE.name} contracts. (__checkHardCodedAddress(${contractName}, contractAddress: ${contractAddress}, hardCodedAddress: ${hardCodedAddress}, expectedHardCodedAddress: ${expectedHardCodedAddress}))`,
+      `Unexpected ${CLEARTEXT.name} deployer address. Derived ${wallet.address} from the package mnemonic at ${CLEARTEXT.deployerPath}, expected ${CLEARTEXT.deployerAddress}.`,
     );
   }
+
+  await __setBalance(provider, wallet.address, DEPLOYER_BALANCE);
+
+  const nonce = await provider.getTransactionCount(wallet.address, "latest");
+  if (nonce !== CLEARTEXT.deployerStartNonce) {
+    throw new HardhatFhevmError(
+      `The ${CLEARTEXT.name} deployer ${wallet.address} is at nonce ${nonce}, expected ${CLEARTEXT.deployerStartNonce}. ` +
+        `Every host contract address is CREATE(deployer, nonce), so the stack can only land on the addresses ` +
+        `'@fhevm/solidity/config/ZamaConfig.sol' compiles into your contracts if this account has sent no ` +
+        `transaction yet. Restart the node, or make sure nothing else sends from this account.`,
+    );
+  }
+
+  return wallet.connect(provider);
 }
 
-async function __setContractOwner(
-  provider: MinimalProvider,
-  contract: EthersT.Contract,
-  contractName: string,
-  currentOwnerSigner: EthersT.Signer,
-  newOwnerSigner: EthersT.Signer,
-  alreadyDeployed: boolean,
-) {
-  const ownerAddress = await contract.owner();
-  const contractAddress = await contract.getAddress();
-
-  const currentOwnerAddress = await currentOwnerSigner.getAddress();
-  const newOwnerAddress = await newOwnerSigner.getAddress();
-
-  if (alreadyDeployed) {
-    if (ownerAddress !== newOwnerAddress) {
+/**
+ * Dev-node cheat. anvil aliases the `hardhat_*` namespace, but not every node does, so fall back to
+ * the `anvil_*` spelling before giving up.
+ */
+async function __setBalance(provider: FhevmSetupProvider, address: string, balance: bigint): Promise<void> {
+  const params = [address, EthersT.toQuantity(balance)];
+  try {
+    await provider.send("hardhat_setBalance", params);
+  } catch {
+    try {
+      await provider.send("anvil_setBalance", params);
+    } catch {
       throw new HardhatFhevmError(
-        `Wrong ${contractName} owner address. Got ${ownerAddress}, expected ${newOwnerAddress}`,
-      );
-    }
-  } else {
-    if (ownerAddress !== currentOwnerAddress) {
-      throw new HardhatFhevmError(
-        `Wrong ${contractName} owner address. Got ${ownerAddress}, expected ${currentOwnerAddress}`,
+        `Unable to fund the ${CLEARTEXT.name} deployer ${address}: the network supports neither 'hardhat_setBalance' nor 'anvil_setBalance'.`,
       );
     }
   }
-
-  if (ownerAddress === newOwnerAddress) {
-    return;
-  }
-
-  // set contract owner using setOwnableStorage cheatcode
-  await setOwnableStorage(provider, contractAddress, newOwnerAddress);
-
-  assertHHFhevm(
-    (await contract.owner()) === (await newOwnerSigner.getAddress()),
-    `Set ${contractName} owner failed. Unexpected contract owner.`,
-  );
 }

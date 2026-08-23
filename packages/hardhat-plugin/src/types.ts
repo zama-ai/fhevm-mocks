@@ -1,24 +1,29 @@
+import type { ethers } from "ethers";
+
+import type { FhevmContractError } from "./internal/errors/FhevmContractError";
+import type { FhevmEncryptedInput } from "./internal/encryptedInput";
 import type {
   CoprocessorConfig,
   CoprocessorEvent,
   FhevmContractName,
+  FhevmHandleCoder,
   FhevmPublicDecryptOptions,
   FhevmTransactionHCUInfo,
   FhevmTypeEuint,
   FhevmUserDecryptOptions,
-} from "@fhevm/mock-utils";
-import { FhevmHandleCoder, relayer } from "@fhevm/mock-utils";
-import type {
   HandleContractPair,
   KmsDelegatedUserDecryptEIP712Type,
   KmsUserDecryptEIP712Type,
   PublicDecryptResults,
   RelayerEncryptedInput,
+  RelayerMetadata,
   UserDecryptResults,
-} from "@zama-fhe/relayer-sdk/node";
-import type { ethers } from "ethers";
+} from "./internal/migration/placeholders";
+import { FhevmClient } from "./internal/sdkTypes";
 
-import type { FhevmContractError } from "./internal/errors/FhevmContractError";
+export { getHCU } from "./internal/hcu/HCUByOperator";
+export { timestampNow } from "./internal/utils/time";
+export type { FheTypeName } from "./internal/hcu/fheTypeName";
 
 export {
   FhevmType,
@@ -28,7 +33,7 @@ export {
   FhevmUserDecryptValidity,
   FhevmTransactionHCUInfo,
   CoprocessorConfig,
-} from "@fhevm/mock-utils";
+} from "./internal/migration/placeholders";
 
 export interface HardhatFhevmRuntimeEnvironment {
   readonly isMock: boolean;
@@ -36,13 +41,17 @@ export interface HardhatFhevmRuntimeEnvironment {
 
   initializeCLIApi(): Promise<void>;
 
+  /* new API entry */ 
+  get client(): FhevmClient;
+
   parseCoprocessorEvents(logs: (ethers.EventLog | ethers.Log)[] | null | undefined): CoprocessorEvent[];
   computeTransactionHCU(transactionReceipt: ethers.TransactionReceipt): FhevmTransactionHCUInfo;
 
   assertCoprocessorInitialized(contract: ethers.AddressLike, contractName?: string): Promise<void>;
   getCoprocessorConfig(contractAddress: string): Promise<CoprocessorConfig>;
 
-  getRelayerMetadata(): Promise<relayer.RelayerMetadata>;
+  /** @deprecated Served by the JS mock engine, which no longer exists. Will be removed. */
+  getRelayerMetadata(): Promise<RelayerMetadata>;
 
   revertedWithCustomErrorArgs(
     contractName: FhevmContractName,
@@ -57,13 +66,16 @@ export interface HardhatFhevmRuntimeEnvironment {
     },
   ): Promise<FhevmContractError | undefined>;
 
-  createEncryptedInput(contractAddress: string, userAddress: string): RelayerEncryptedInput;
+  /** A batched encrypted input: several values sharing one input proof. */
+  createEncryptedInput(contractAddress: string, userAddress: string): FhevmEncryptedInput;
+  /** @deprecated The raw EIP-712 handshake is replaced by `@fhevm/sdk` decryption permits. */
   createEIP712(
     publicKey: string,
     contractAddresses: string[],
     startTimestamp: string | number,
     durationDays: string | number,
   ): KmsUserDecryptEIP712Type;
+  /** @deprecated Replaced by delegated decryption permits. */
   createDelegatedUserDecryptEIP712(
     publicKey: string,
     contractAddresses: string[],
@@ -72,11 +84,13 @@ export interface HardhatFhevmRuntimeEnvironment {
     durationDays: number,
   ): KmsDelegatedUserDecryptEIP712Type;
 
+  /** @deprecated Replaced by `generateTransportKeyPair()`. */
   generateKeypair(): {
     publicKey: string;
     privateKey: string;
   };
 
+  /** @deprecated Positional privateKey/publicKey/signature form. Use `userDecryptE*`. */
   userDecrypt(
     handles: HandleContractPair[],
     privateKey: string,
@@ -88,6 +102,7 @@ export interface HardhatFhevmRuntimeEnvironment {
     durationDays: string | number,
   ): Promise<UserDecryptResults>;
 
+  /** @deprecated Positional privateKey/publicKey/signature form. Use `userDecryptE*`. */
   delegatedUserDecrypt(
     handleContractPairs: HandleContractPair[],
     privateKey: string,

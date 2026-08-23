@@ -4,8 +4,6 @@
   "license": "BSD-3-Clause-Clear",
   "version": "0.4.2",
   "workspaces": [
-    "packages/mock-utils",
-    "packages/mock-utils/src",
     "packages/hardhat-plugin/"
   ],
   "devDependencies": {
@@ -18,8 +16,8 @@
     "@types/eslint__js": "^8.42.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.30.1",
-    "@typescript-eslint/parser": "^8.30.1",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
     "eslint": "^9.25.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-import": "^2.31.0",
@@ -30,17 +28,14 @@
     "solhint": "^5.0.5",
     "solhint-plugin-prettier": "^0.1.0",
     "solidity-coverage": "^0.8.15",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "typescript": "^6.0.2"
   },
   "scripts": {
     "prepare": "npm run build",
-    "rebuild": "npm run clean && npm run build:utils && npm run build:hh && npm run lint",
+    "rebuild": "npm run clean && npm run build:hh && npm run lint",
     "version": "cd ./scripts && ./bump-version.sh",
-    "genversion:utils": "cd packages/mock-utils/scripts && node ./generate-version.cjs",
-    "build": "npm run build:utils && npm run build:hh",
+    "build": "npm run build:hh",
     "build:hh": "cd packages/hardhat-plugin && npm run build",
-    "build:utils": "cd packages/mock-utils && npm run build",
     "clean": "npm run clean --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "prettier:check": "prettier --config ./prettier.config.js --check \"**/*.{js,json,md,sol,ts,yml}\"",

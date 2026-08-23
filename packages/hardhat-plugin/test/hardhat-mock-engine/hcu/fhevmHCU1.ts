@@ -1,4 +1,4 @@
-import { getHCU } from "@fhevm/mock-utils";
+import { getHCU } from "../../../src/types";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";

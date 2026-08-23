@@ -72,12 +72,8 @@ subtask(TASK_COMPILE_GET_REMAPPINGS).setAction(async (_taskArgs, _hre, runSuper)
   // run super first.
   const res = (await runSuper()) as Record<string, string>;
 
-  // apply our remapping
-  const remappings = fhevmEnv.getRemappings();
-  Object.entries(remappings).forEach(([k, v]) => {
-    debug(`${picocolors.greenBright("remapping:")} ${k} => ${v}`);
-    res[k] = v;
-  });
+  // No remapping any more: @fhevm/solidity's own `_getLocalConfig` already carries the cleartext
+  // stack's addresses, so the rewritten copy it used to point at is redundant.
 
   return res;
 });
@@ -87,8 +83,7 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
     debug(`execute TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS`);
 
     const fhevmEnv = fhevmContext.get();
-    await fhevmEnv.minimalInitWithAddresses(false /* ignoreCache */);
-    //await fhevmEnv.initializeAddresses(false /* ignoreCache */);
+    await fhevmEnv.minimalInitWithAddresses();
 
     // run super first.
     const filePaths: string[] = await runSuper();

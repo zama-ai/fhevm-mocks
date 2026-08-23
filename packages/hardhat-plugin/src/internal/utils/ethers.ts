@@ -1,7 +1,20 @@
 import { BytesLike, ethers as EthersT } from "ethers";
 import { ProviderError } from "hardhat/internal/core/providers/errors";
 
+import { HardhatFhevmError } from "../../error";
 import { assertHHFhevm } from "../error";
+
+/**
+ * Local replacement for `assertIsAddress` from `@fhevm/mock-utils/utils`.
+ *
+ * Narrows to the `0x${string}` template type, which is what makes values read out of `.env` usable as
+ * `CoprocessorConfig` fields without a cast.
+ */
+export function assertIsAddress(value: unknown, valueName?: string): asserts value is `0x${string}` {
+  if (typeof value !== "string" || !EthersT.isAddress(value)) {
+    throw new HardhatFhevmError(`${valueName ?? "value"} is not a valid Ethereum address. Got '${String(value)}'.`);
+  }
+}
 
 export async function assertSignersMatchAddresses(signers: EthersT.Signer[], addresses: string[]) {
   assertHHFhevm(Array.isArray(addresses));

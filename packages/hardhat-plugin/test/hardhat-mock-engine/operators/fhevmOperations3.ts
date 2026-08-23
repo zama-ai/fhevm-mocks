@@ -1,4 +1,4 @@
-import { FhevmType } from "@fhevm/mock-utils";
+import { FhevmType } from "../../../src/types";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";

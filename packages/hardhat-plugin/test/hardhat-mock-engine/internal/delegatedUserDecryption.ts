@@ -29,50 +29,33 @@ export const delegatedUserDecryptSingleHandle = async (
   delegatorAddress: `0x${string}`,
   delegateAddress: `0x${string}`,
   signer: EthersT.Signer,
-  delegatePrivateKey: string,
-  delegatePublicKey: string,
-): Promise<bigint | boolean | string> => {
-  const handleContractPairs = [
-    {
-      handle,
-      contractAddress,
-    },
-  ];
+): Promise<unknown> => {
   const startTimeStamp = Math.floor(Date.now() / 1000);
   const durationDays = 10;
   const contractAddresses = [contractAddress];
 
-  // The `delegate` creates a EIP712 with the `delegator` address
-  const eip712 = fhevm.createDelegatedUserDecryptEIP712(
-    delegatePublicKey,
+  // The delegate signs a permit naming the delegator it is acting for. This replaces the old
+  // generateKeypair + createDelegatedUserDecryptEIP712 + signTypedData handshake; the transport key
+  // pair is per-request, so it is created here rather than passed in.
+  const transportKeyPair = await fhevm.client.generateTransportKeyPair();
+
+  const signedPermit = await fhevm.client.signLegacyDecryptionPermit({
     contractAddresses,
+    startTimestamp: startTimeStamp,
+    durationSeconds: durationDays * 24 * 60 * 60,
+    signerAddress: delegateAddress,
+    signer,
     delegatorAddress,
-    startTimeStamp,
-    durationDays,
-  );
+    transportKeyPair,
+  });
 
-  // Update the signing to match the new primaryType
-  const delegateSignature = await signer.signTypedData(
-    eip712.domain,
-    {
-      DelegatedUserDecryptRequestVerification: eip712.types.DelegatedUserDecryptRequestVerification,
-    } as unknown as Record<string, Array<EthersT.TypedDataField>>,
-    eip712.message,
-  );
+  const [decrypted] = await fhevm.client.decryptValuesFromPairs({
+    pairs: [{ encryptedValue: handle, contractAddress }],
+    transportKeyPair,
+    signedPermit,
+  });
 
-  const result = await fhevm.delegatedUserDecrypt(
-    handleContractPairs,
-    delegatePrivateKey,
-    delegatePublicKey,
-    delegateSignature,
-    contractAddresses,
-    delegatorAddress,
-    delegateAddress,
-    startTimeStamp,
-    durationDays,
-  );
-
-  return result[handle];
+  return decrypted.value;
 };
 
 describe("xxx Delegated user decryption", function () {
@@ -135,7 +118,6 @@ describe("xxx Delegated user decryption", function () {
     const balanceHandle = (await token.balanceOf(smartWalletAddress)) as `0x${string}`;
 
     // Bob's EOA can now decrypt the smartWallet's confidential balance.
-    const { publicKey, privateKey } = fhevm.generateKeypair();
 
     const decryptedBalance = await delegatedUserDecryptSingleHandle(
       balanceHandle,
@@ -143,8 +125,6 @@ describe("xxx Delegated user decryption", function () {
       smartWalletAddress, // delegatorAddress
       signers.bob.address as `0x${string}`, //delegateAddress
       signers.bob,
-      privateKey,
-      publicKey,
     );
 
     // Verify the decrypted balance matches what was transferred.
@@ -163,7 +143,6 @@ describe("xxx Delegated user decryption", function () {
     const balanceHandle = (await token.balanceOf(smartWalletAddress)) as `0x${string}`;
 
     // Carol's EOA can now decrypt the smartWallet's confidential balance.
-    const { publicKey, privateKey } = fhevm.generateKeypair();
 
     const decryptedBalance = await delegatedUserDecryptSingleHandle(
       balanceHandle,
@@ -171,8 +150,6 @@ describe("xxx Delegated user decryption", function () {
       smartWalletAddress, //delegatorAddress
       signers.carol.address as `0x${string}`, //delegateAddress
       signers.carol,
-      privateKey,
-      publicKey,
     );
 
     // Verify the decrypted balance matches what was transferred.
@@ -190,15 +167,12 @@ describe("xxx Delegated user decryption", function () {
     // Get the current smartWallet balance before transfer
     const smartWalletBalanceBefore = (await token.balanceOf(smartWalletAddress)) as `0x${string}`;
 
-    const { publicKey: pkBefore, privateKey: skBefore } = fhevm.generateKeypair();
     const decryptedBalanceBefore = await delegatedUserDecryptSingleHandle(
       smartWalletBalanceBefore,
       tokenAddress,
       smartWalletAddress,
       signers.bob.address as `0x${string}`,
       signers.bob,
-      skBefore,
-      pkBefore,
     );
 
     // Bob proposes a transaction from the smartWallet to transfer tokens to Carol.
@@ -228,15 +202,12 @@ describe("xxx Delegated user decryption", function () {
 
     // Verify the smartWallet balance decreased.
     const smartWalletBalanceAfter = (await token.balanceOf(smartWalletAddress)) as `0x${string}`;
-    const { publicKey: pkAfter, privateKey: skAfter } = fhevm.generateKeypair();
     const decryptedBalanceAfter = await delegatedUserDecryptSingleHandle(
       smartWalletBalanceAfter,
       tokenAddress,
       smartWalletAddress,
       signers.bob.address as `0x${string}`,
       signers.bob,
-      skAfter,
-      pkAfter,
     );
 
     // The smartWallet balance should have decreased by the transfer amount.
@@ -262,7 +233,6 @@ describe("xxx Delegated user decryption", function () {
 
     // Try to decrypt the smartWallet balance with Bob's EOA, which should now fail.
     const balanceHandle = (await token.balanceOf(smartWalletAddress)) as `0x${string}`;
-    const { publicKey, privateKey } = fhevm.generateKeypair();
 
     await expect(
       delegatedUserDecryptSingleHandle(
@@ -271,9 +241,7 @@ describe("xxx Delegated user decryption", function () {
         smartWalletAddress,
         signers.bob.address as `0x${string}`,
         signers.bob,
-        privateKey,
-        publicKey,
       ),
-    ).to.be.rejectedWith(new RegExp("^Delegate (.+) is not authorized to user decrypt handle (.+) on behalf of (.+)!"));
+    ).to.be.rejectedWith(new RegExp("^Delegate (.+) is not delegated by (.+) to user decrypt handle (.+) on contract (.+)!"));
   });
 });

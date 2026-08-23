@@ -1,5 +1,3 @@
-import { MockRelayerEncryptedInput, contracts } from "@fhevm/mock-utils";
-import { RelayerEncryptedInput } from "@zama-fhe/relayer-sdk/node";
 import { BytesLike, ethers as EthersT } from "ethers";
 import { ProviderError } from "hardhat/internal/core/providers/errors";
 import { RequestArguments } from "hardhat/types";
@@ -7,13 +5,14 @@ import { RequestArguments } from "hardhat/types";
 import { FhevmContractRecordEntry, FhevmEnvironment } from "../FhevmEnvironment";
 import { assertHHFhevm } from "../error";
 import { extractEVMErrorData } from "../utils/ethers";
+import type { FhevmContractWrapper, RelayerEncryptedInput } from "../migration/placeholders";
 import { logBox } from "../utils/log";
 import { ERRORS, applyErrorTemplate } from "./FhevmContractErrorList";
 
 type FhevmErrorInfos = {
   tx: { from?: string; to?: string };
   errorDesc: EthersT.ErrorDescription;
-  contractWrapper: contracts.FhevmContractWrapper;
+  contractWrapper: FhevmContractWrapper;
 };
 
 export type FhevmInputVerifierError = {
@@ -104,7 +103,7 @@ For example:
 export async function parseFhevmError(
   fhevmEnv: FhevmEnvironment,
   e: unknown,
-  options?: { encryptedInput?: RelayerEncryptedInput },
+  _options?: { encryptedInput?: RelayerEncryptedInput },
 ): Promise<FhevmContractError | undefined> {
   const errData = extractEVMErrorData(e);
   if (!errData) {
@@ -140,10 +139,12 @@ export async function parseFhevmError(
         longMessage: "",
       };
 
-      if (options?.encryptedInput instanceof MockRelayerEncryptedInput) {
-        err.inputContractAddress = options.encryptedInput.contractAddress;
-        err.inputUserAddress = options.encryptedInput.userAddress;
-      }
+      /*
+        The relayer-sdk `encryptedInput` used to carry the contract/user pair, which let the message
+        name them. `@fhevm/sdk` has no equivalent object — `encryptValue` takes them as plain
+        arguments — so migration step 4 should thread them through `tryParseFhevmError`'s options
+        instead of recovering them from a builder.
+      */
 
       return formatInputVerifierErrorMessages(err);
     }
@@ -420,7 +421,7 @@ async function __formatFhevmErrorMessages(
   const map = fhevmEnv.getContractsRepository().addressToContractMap();
   const res: {
     errorDesc: EthersT.ErrorDescription;
-    contractWrapper: contracts.FhevmContractWrapper;
+    contractWrapper: FhevmContractWrapper;
   }[] = [];
 
   Object.keys(map).forEach((contractAddress) => {

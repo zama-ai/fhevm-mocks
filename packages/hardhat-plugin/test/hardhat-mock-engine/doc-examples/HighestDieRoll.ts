@@ -1,5 +1,4 @@
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import type { ClearValueType } from "@zama-fhe/relayer-sdk/node";
 import { expect } from "chai";
 import { ethers as EthersT } from "ethers";
 import { ethers, fhevm } from "hardhat";
@@ -135,8 +134,8 @@ describe("HighestDieRoll", function () {
     const abiEncodedClearGameResult = publicDecryptResults.abiEncodedClearValues;
     const decryptionProof = publicDecryptResults.decryptionProof;
 
-    const clearValueA: ClearValueType = publicDecryptResults.clearValues[playerADiceRoll];
-    const clearValueB: ClearValueType = publicDecryptResults.clearValues[playerBDiceRoll];
+    const clearValueA = publicDecryptResults.clearValues[playerADiceRoll];
+    const clearValueB = publicDecryptResults.clearValues[playerBDiceRoll];
 
     expect(typeof clearValueA).to.eq("bigint");
     expect(typeof clearValueB).to.eq("bigint");
@@ -193,8 +192,8 @@ describe("HighestDieRoll", function () {
     const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
     // Call `fhevm.publicDecrypt` using order (A, B)
     const publicDecryptResults = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
-    const clearValueA: ClearValueType = publicDecryptResults.clearValues[playerADiceRoll];
-    const clearValueB: ClearValueType = publicDecryptResults.clearValues[playerBDiceRoll];
+    const clearValueA = publicDecryptResults.clearValues[playerADiceRoll];
+    const clearValueB = publicDecryptResults.clearValues[playerBDiceRoll];
     const decryptionProof = publicDecryptResults.decryptionProof;
     expect(typeof clearValueA).to.eq("bigint");
     expect(typeof clearValueB).to.eq("bigint");

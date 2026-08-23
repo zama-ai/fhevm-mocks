@@ -4,7 +4,6 @@
     // Interop Constraints
     // ===================
     "esModuleInterop": true, // require to import hh plugins and access hre.ethers
-    "allowSyntheticDefaultImports": false,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": false, // not practical in a CommonJS module
 
@@ -28,8 +27,60 @@
     // Modules
     // =======
     // Hardhat is built using CommonJS and expects plugins to be require()-able.
+    //
+    // Keep `node10` here. Under `node16`, importing `@fhevm/host-contracts-cleartext/ts` fails with
+    // TS1479: the package ships exactly one set of declarations, `ts/_types/*.d.ts`, and its nearest
+    // package.json (`ts/package.json`) says `"type": "module"` — so TypeScript reads them as ESM, and
+    // a CommonJS module may not `require()` an ES module. There is no CJS-flavoured declaration file
+    // in the package for any `exports` condition to select, so this is about the declarations, not
+    // about how the `exports` map is written. Runtime is unaffected: Node ignores `types`, skips
+    // `import` under `require()`, and lands on `default` -> `ts/_cjs/index.js`, which
+    // `ts/_cjs/package.json` correctly marks commonjs.
+    //
+    // `node10` does not model ESM/CJS at all, so it simply follows `ts/package.json`'s `types` field
+    // to the same declarations and resolves cleanly.
+    // See plans/HOST_CONTRACTS_CLEARTEXT_UPSTREAM_FIXES.md.
     "module": "CommonJS",
     "moduleResolution": "node10",
+
+    // TypeScript 6 deprecates `node10` and removes it in 7. It is still required here, and the check
+    // is not just historical — re-verified under TS 6.0.3: switching to `node16` fails with TS1479 on
+    // both `@fhevm/sdk` and `@fhevm/host-contracts-cleartext`, whose `types` conditions resolve to
+    // ESM-flavoured declarations that a CommonJS module may not `require()`. Node itself loads their
+    // CJS builds correctly, so this is a packaging problem upstream, not a code one.
+    //
+    // Lift this — and the `paths` block below — once both packages ship CJS-flavoured declarations.
+    // See plans/HOST_CONTRACTS_CLEARTEXT_UPSTREAM_FIXES.md (problems 1b and 3).
+    "ignoreDeprecations": "6.0",
+
+    // Every `@fhevm/sdk` subpath backed by `core/` is unresolvable under `node10`: `./base`,
+    // `./chains`, `./types` and all five `./actions/*`. The `ethers`/`viem` subpaths ship a node10
+    // fallback marker at the directory they are imported from and resolve fine; the `core/`-backed
+    // ones have their marker at `core/<name>/package.json`, whose `types`/`main`/`module` fields all
+    // omit the `core/` path segment (`../../_types/chains/index.d.ts` when the file is really at
+    // `_types/core/chains/index.d.ts`), so every target is missing.
+    //
+    // Node is unaffected — it uses the `exports` map and resolves these correctly — so this maps
+    // types only. Remove the affected entries once upstream fixes those fields.
+    // See plans/HOST_CONTRACTS_CLEARTEXT_UPSTREAM_FIXES.md.
+    "paths": {
+      "@fhevm/sdk/chains": [
+        "./node_modules/@fhevm/sdk/_types/core/chains/index.d.ts",
+        "../../node_modules/@fhevm/sdk/_types/core/chains/index.d.ts"
+      ],
+      "@fhevm/sdk/types": [
+        "./node_modules/@fhevm/sdk/_types/core/types/index.d.ts",
+        "../../node_modules/@fhevm/sdk/_types/core/types/index.d.ts"
+      ],
+      "@fhevm/sdk/base": [
+        "./node_modules/@fhevm/sdk/_types/core/base/index.d.ts",
+        "../../node_modules/@fhevm/sdk/_types/core/base/index.d.ts"
+      ],
+      "@fhevm/sdk/actions/*": [
+        "./node_modules/@fhevm/sdk/_types/core/actions/*/index.d.ts",
+        "../../node_modules/@fhevm/sdk/_types/core/actions/*/index.d.ts"
+      ]
+    },
     "resolveJsonModule": true, // we need to resolve JSON files
     "rootDirs": ["./src", "./test"],
 

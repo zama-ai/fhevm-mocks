@@ -1,9 +1,9 @@
-import { FhevmType } from "@fhevm/mock-utils";
+import { FhevmType } from "../../../src/types";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import * as hre from "hardhat";
 
-import type { FHEVMManualTestSuite, FHEVMManualTestSuiteWithAllowSender } from "../../../typechain-types";
+import type { FHEVMManualTestSuiteWithAllowSender } from "../../../typechain-types";
 import { Signers, getSigners, initSigners } from "../signers";
 
 async function deployFHEVMManualTestFixture(): Promise<FHEVMManualTestSuiteWithAllowSender> {
@@ -20,7 +20,7 @@ async function deployFHEVMManualTestFixture(): Promise<FHEVMManualTestSuiteWithA
 describe("FHEVM manual operations using userDecrypt", function () {
   let signers: Signers;
   let contractAddress: string;
-  let contract: FHEVMManualTestSuite;
+  let contract: FHEVMManualTestSuiteWithAllowSender;
 
   beforeEach(async function () {
     await initSigners();

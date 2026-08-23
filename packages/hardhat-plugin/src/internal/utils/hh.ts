@@ -1,10 +1,59 @@
-import { connectedChainId, isHardhatProvider } from "@fhevm/mock-utils";
-import { ethers as EthersT } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 import { HardhatFhevmError } from "../../error";
 import constants from "../constants";
 import { FhevmProvider } from "../types";
+
+/**
+ * Local replacements for the two `@fhevm/mock-utils` provider helpers this file used.
+ * Migration step 6 decides whether they stay here or move somewhere shared.
+ */
+
+/** The connected chain id, or `undefined` when the provider cannot be reached. */
+async function connectedChainId(provider: {
+  send(method: string, params: unknown[]): Promise<unknown>;
+}): Promise<number | undefined> {
+  try {
+    const chainIdHex = (await provider.send("eth_chainId", [])) as string;
+    return Number(BigInt(chainIdHex));
+  } catch {
+    // No network connection, or the method is unsupported. The caller decides what that means.
+    return undefined;
+  }
+}
+
+/**
+ * Probes `hardhat_metadata`, which only a Hardhat node answers. `couldNotConnect` is kept distinct
+ * from `isHardhat: false` because the caller treats "unreachable" and "reachable but not Hardhat"
+ * differently.
+ */
+async function isHardhatProvider(provider: {
+  send(method: string, params: unknown[]): Promise<unknown>;
+}): Promise<
+  | { couldNotConnect: true; isHardhat?: undefined; chainId?: undefined }
+  | { couldNotConnect: false; isHardhat: true; chainId: number }
+  | { couldNotConnect: false; isHardhat: false }
+> {
+  let metadata: unknown;
+  try {
+    metadata = await provider.send("hardhat_metadata", []);
+  } catch {
+    return { couldNotConnect: true };
+  }
+
+  if (typeof metadata !== "object" || metadata === null) {
+    return { couldNotConnect: false, isHardhat: false };
+  }
+  const m = metadata as Record<string, unknown>;
+  if (m.chainId !== constants.DEVELOPMENT_NETWORK_CHAINID) {
+    return { couldNotConnect: false, isHardhat: false };
+  }
+  if (typeof m.instanceId !== "string" || m.instanceId.length !== 66) {
+    return { couldNotConnect: false, isHardhat: false };
+  }
+
+  return { couldNotConnect: false, isHardhat: true, chainId: m.chainId };
+}
 
 /**
  * Validates the current `HardhatRuntimeEnvironment` hre object to ensure that
@@ -43,16 +92,6 @@ export function checkHardhatRuntimeEnvironment(hre: HardhatRuntimeEnvironment) {
   if (_hardhatProvider !== hre.network.provider) {
     throw new HardhatFhevmError(`hre.ethers.provider._hardhatProvider !== hre.network.provider`);
   }
-}
-
-export function computeDummyAddress(): string {
-  return EthersT.getAddress(
-    EthersT.toBeHex(
-      (BigInt(EthersT.keccak256(EthersT.toUtf8Bytes("fhevm-hardhat-plugin.dummy"))) - 1n) &
-        0xffffffffffffffffffffffffffffffffffffffffn,
-      20,
-    ),
-  );
 }
 
 export async function resolveNetworkConfigChainId(

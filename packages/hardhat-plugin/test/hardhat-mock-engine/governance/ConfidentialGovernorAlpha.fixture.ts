@@ -1,4 +1,4 @@
-// import { FhevmType } from "@fhevm/mock-utils";
+// import { FhevmType } from "../../../src/types";
 // import { Signer } from "ethers";
 // import * as hre from "hardhat";
 

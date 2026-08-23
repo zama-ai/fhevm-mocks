@@ -1,24 +1,13 @@
-import {
-  CoprocessorConfig,
-  FhevmType,
-  contracts,
-  getCoprocessorConfig,
-  isFhevmEaddress,
-  isFhevmEbool,
-  isFhevmEuint,
-  tryParseFhevmType,
-} from "@fhevm/mock-utils";
-import { assertIsAddress } from "@fhevm/mock-utils/utils";
 import { scope } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 import { HardhatFhevmError } from "../error";
 import { fhevmContext } from "../internal/EnvironmentExtender";
-import { jsonStringifyBigInt } from "../internal/utils/log";
+import { type CoprocessorConfig, getCoprocessorConfig } from "../internal/coprocessorConfig";
+import { FhevmType, isFhevmEaddress, isFhevmEbool, isFhevmEuint, tryParseFhevmType } from "../internal/fheType";
 import {
   SCOPE_FHEVM,
   SCOPE_FHEVM_TASK_CHECK_FHEVM_COMPATIBILITY,
-  SCOPE_FHEVM_TASK_INSTALL_SOLIDITY,
   SCOPE_FHEVM_TASK_PUBLIC_DECRYPT,
   SCOPE_FHEVM_TASK_RESOLVE_FHEVM_CONFIG,
   SCOPE_FHEVM_TASK_USER_DECRYPT,
@@ -27,49 +16,6 @@ import {
 import picocolors = require("picocolors");
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
-
-// This is an internal fhevm subtask.
-// It is exclusively used by `packages/hardhat-plugin/src/internal/deploy/PrecompiledFhevmHostContracts.ts`
-fhevmScope
-  .subtask(SCOPE_FHEVM_TASK_INSTALL_SOLIDITY)
-  .setDescription("Install all the required fhevm solidity files associated with the selected network.")
-  .addFlag("ignoreCache", "Force recompute addresses.")
-  .setAction(
-    async (
-      {
-        ignoreCache,
-      }: {
-        ignoreCache: boolean;
-      },
-      hre: HardhatRuntimeEnvironment,
-    ) => {
-      if (hre.network.name !== "hardhat") {
-        throw new HardhatFhevmError(
-          `Please run 'npx hardhat ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_INSTALL_SOLIDITY}' using the '--network hardhat' option. The current network is '${hre.network.name}'`,
-        );
-      }
-
-      const fhevmEnv = fhevmContext.get();
-      if (fhevmEnv.isRunningInHHFHEVMInstallSolidity) {
-        throw new HardhatFhevmError(
-          `Command hardhat ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_INSTALL_SOLIDITY} is already running`,
-        );
-      }
-
-      fhevmEnv.setRunningInHHFHEVMInstallSolidity();
-
-      try {
-        await fhevmEnv.minimalInitWithAddresses(ignoreCache);
-        //await fhevmEnv.initializeAddresses(ignoreCache);
-      } finally {
-        try {
-          fhevmEnv.unsetRunningInHHFHEVMInstallSolidity();
-        } catch {
-          // Intentionally ignore errors
-        }
-      }
-    },
-  );
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_USER_DECRYPT)
@@ -236,7 +182,7 @@ fhevmScope
         throw new HardhatFhevmError(`Invalid --address parameter value. '${address}' is not a valid address.`);
       }
       const fhevmEnv = fhevmContext.get();
-      await fhevmEnv.minimalInitWithAddresses(false);
+      await fhevmEnv.minimalInitWithAddresses();
 
       const coprocessorConfig = await getCoprocessorConfig(hre.ethers.provider, address);
       if (
@@ -301,40 +247,17 @@ fhevmScope
       },
       hre: HardhatRuntimeEnvironment,
     ) => {
-      const fhevmEnv = fhevmContext.get();
-      await fhevmEnv.minimalInit();
-
-      assertIsAddress(acl, "acl");
-      assertIsAddress(kms, "kms");
-
-      const repo = await contracts.FhevmContractsRepository.create(hre.ethers.provider, {
-        aclContractAddress: acl,
-        kmsContractAddress: kms,
-      });
-
-      let relayerUrl: string = "N/A";
-      try {
-        // Mock has no relayer url
-        relayerUrl = fhevmEnv.resolveRelayerUrl(acl);
-      } catch {
-        // ignore error and keep "N/A"
-      }
-
-      const cfg = repo.getFhevmInstanceConfig({
-        chainId: fhevmEnv.chainId,
-        relayerUrl,
-      });
-
-      const inputEIP712 = repo.inputVerifier.eip712Domain;
-      const kmsEIP712 = repo.kmsVerifier.eip712Domain;
-
-      const res = {
-        config: cfg,
-        inputVerifierEIP712: inputEIP712,
-        kmsVerifierEIP712: kmsEIP712,
-        HCULimit: repo.hcuLimit.address,
-      };
-
-      console.log(jsonStringifyBigInt(res, 2));
+      /*
+        TODO(migration step 4): rebuild on `@fhevm/sdk`'s `resolveFhevmConfig`, which does exactly
+        this. It takes a `Fhevm` client, and `createFhevmBaseClient` needs a complete `FhevmChain` —
+        whereas this command is given only an ACL and a KMSVerifier address and is meant to discover
+        the rest. Resolving that shape is what makes it more than an import swap.
+      */
+      void acl;
+      void kms;
+      void hre;
+      throw new HardhatFhevmError(
+        `'hardhat ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_RESOLVE_FHEVM_CONFIG}' is not implemented yet: the FHEVM hardhat plugin is being migrated to @fhevm/sdk. See plans/MIGRATION_TO_FHEVM_SDK_CLEARTEXT.md.`,
+      );
     },
   );

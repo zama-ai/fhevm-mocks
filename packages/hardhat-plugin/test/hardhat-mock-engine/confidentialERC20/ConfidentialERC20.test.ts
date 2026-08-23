@@ -1,6 +1,5 @@
-import { utils } from "@fhevm/mock-utils";
+import { timestampNow } from "../../../src/types";
 import { expect } from "chai";
-import type { ethers as EthersT } from "ethers";
 import * as hre from "hardhat";
 // test using 'fhevm' environment extension via `import { fhevm } from "hardhat";`
 import { fhevm } from "hardhat";
@@ -225,38 +224,29 @@ When you encouter this kind of error:
 
     const allowanceHandleAlice: string = await confidentialERC20.allowance(signers.alice, signers.bob);
 
-    const { publicKey: publicKeyCarol, privateKey: privateKeyCarol } = hre.fhevm.generateKeypair();
+    const transportKeyPairCarol = await hre.fhevm.client.generateTransportKeyPair();
 
-    const startTimestamp = utils.timestampNow();
+    const startTimestamp = timestampNow();
     const durationDays = 365;
 
-    const eip712Carol = hre.fhevm.createEIP712(
-      publicKeyCarol,
-      [confidentialERC20Address],
+    const signedPermitCarol = await hre.fhevm.client.signLegacyDecryptionPermit({
+      contractAddresses: [confidentialERC20Address],
       startTimestamp,
-      durationDays,
-    );
-    const signatureCarol = await signers.carol.signTypedData(
-      eip712Carol.domain,
-      {
-        UserDecryptRequestVerification: eip712Carol.types.UserDecryptRequestVerification,
-      } as unknown as Record<string, Array<EthersT.TypedDataField>>,
-      eip712Carol.message,
-    );
+      // The legacy API measured validity in days; `@fhevm/sdk` takes seconds.
+      durationSeconds: durationDays * 24 * 60 * 60,
+      signerAddress: signers.carol.address,
+      signer: signers.carol,
+      transportKeyPair: transportKeyPairCarol,
+    });
 
     await expect(
-      hre.fhevm.userDecrypt(
-        [{ handle: allowanceHandleAlice, contractAddress: confidentialERC20Address }],
-        privateKeyCarol,
-        publicKeyCarol,
-        signatureCarol,
-        [confidentialERC20Address],
-        signers.carol.address,
-        startTimestamp,
-        durationDays,
-      ),
+      hre.fhevm.client.decryptValuesFromPairs({
+        pairs: [{ encryptedValue: allowanceHandleAlice, contractAddress: confidentialERC20Address }],
+        transportKeyPair: transportKeyPairCarol,
+        signedPermit: signedPermitCarol,
+      }),
     ).to.be.rejectedWith(
-      `User ${signers.carol.address} is not authorized to user decrypt handle ${allowanceHandleAlice}!`,
+      `User ${signers.carol.address} is not authorized to decrypt handle ${allowanceHandleAlice}!`,
     );
   });
 
@@ -268,33 +258,28 @@ When you encouter this kind of error:
 
     const balanceHandleAlice: string = await confidentialERC20.balanceOf(signers.alice);
 
-    const { publicKey: publicKeyBob, privateKey: privateKeyBob } = hre.fhevm.generateKeypair();
+    const transportKeyPairBob = await hre.fhevm.client.generateTransportKeyPair();
 
-    const startTimestamp = utils.timestampNow();
+    const startTimestamp = timestampNow();
     const durationDays = 365;
 
-    const eip712Bob = hre.fhevm.createEIP712(publicKeyBob, [confidentialERC20Address], startTimestamp, durationDays);
-    const signatureBob = await signers.bob.signTypedData(
-      eip712Bob.domain,
-      { UserDecryptRequestVerification: eip712Bob.types.UserDecryptRequestVerification } as unknown as Record<
-        string,
-        Array<EthersT.TypedDataField>
-      >,
-      eip712Bob.message,
-    );
+    const signedPermitBob = await hre.fhevm.client.signLegacyDecryptionPermit({
+      contractAddresses: [confidentialERC20Address],
+      startTimestamp,
+      // The legacy API measured validity in days; `@fhevm/sdk` takes seconds.
+      durationSeconds: durationDays * 24 * 60 * 60,
+      signerAddress: signers.bob.address,
+      signer: signers.bob,
+      transportKeyPair: transportKeyPairBob,
+    });
 
     await expect(
-      hre.fhevm.userDecrypt(
-        [{ handle: balanceHandleAlice, contractAddress: confidentialERC20Address }],
-        privateKeyBob,
-        publicKeyBob,
-        signatureBob,
-        [confidentialERC20Address],
-        signers.bob.address,
-        startTimestamp,
-        durationDays,
-      ),
-    ).to.be.rejectedWith(`User ${signers.bob.address} is not authorized to user decrypt handle ${balanceHandleAlice}!`);
+      hre.fhevm.client.decryptValuesFromPairs({
+        pairs: [{ encryptedValue: balanceHandleAlice, contractAddress: confidentialERC20Address }],
+        transportKeyPair: transportKeyPairBob,
+        signedPermit: signedPermitBob,
+      }),
+    ).to.be.rejectedWith(`User ${signers.bob.address} is not authorized to decrypt handle ${balanceHandleAlice}!`);
   });
 
   it("receiver cannot be null address", async function () {

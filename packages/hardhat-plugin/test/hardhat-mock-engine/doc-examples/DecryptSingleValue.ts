@@ -1,4 +1,4 @@
-import { FhevmType } from "@fhevm/mock-utils";
+import { FhevmType } from "../../../src/types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
@@ -73,6 +73,6 @@ describe("DecryptSingleValue", function () {
 
     await expect(
       hre.fhevm.userDecryptEuint(FhevmType.euint32, encryptedUint32, contractAddress, signers.alice),
-    ).to.be.rejectedWith(new RegExp("^dapp contract (.+) is not authorized to user decrypt handle (.+)."));
+    ).to.be.rejectedWith(new RegExp("is not authorized to user decrypt handle", "i"));
   });
 });
