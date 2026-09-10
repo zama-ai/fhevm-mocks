@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {console} from "forge-std/Script.sol";
-import {FhevmVerifyBase} from "./FhevmVerifyBase.s.sol";
+import {FhevmVerifyBase} from "../FhevmVerifyBase.s.sol";
 import {FhevmUpgradeBase} from "./FhevmUpgradeBase.s.sol";
 import {UpgradeInitData} from "./UpgradeInitData.sol";
-import {IProtocolConfig} from "../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
-import {KmsNodeParams, PcrValues} from "../../pkg/src/contracts/shared/Structs.sol";
+import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
+import {KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
 import {
     IVersioned,
     IOwnable2Step,
@@ -16,7 +16,7 @@ import {
     IWiredFHEVMExecutor,
     IWiredHCULimit,
     IWiredCleartextArithmetic
-} from "./Interfaces.sol";
+} from "../Interfaces.sol";
 
 /**
  * @title  FhevmUpgradeChecks

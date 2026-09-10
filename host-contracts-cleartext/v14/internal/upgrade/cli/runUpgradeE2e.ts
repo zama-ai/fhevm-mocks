@@ -1,4 +1,4 @@
-// Run: npm run test:upgrade-e2e
+// Run: npm run test:upgrade
 //
 // Exits 0 when the sibling v13 package is unavailable, so this is safe to wire into a test chain.
 

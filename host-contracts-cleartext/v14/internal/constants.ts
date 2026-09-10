@@ -25,7 +25,7 @@ export const PKG_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg');
 
 /**
  * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
- * processes, and cleaning its build output. `test/e2e/create2-upgrade.test.ts` is the only caller.
+ * processes, and cleaning its build output. `test/e2e/upgrade/create2.test.ts` is the only caller.
  *
  * TypeScript that merely wants v13's code must NOT come through here. v13 is a workspace member, so
  * it is imported like any dependency — `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts`,

@@ -39,7 +39,7 @@ created, for the developer who wires v14 in. Delete it when the list is empty.
 
 Seven commits from `c7e4667be` (B1) to B8 on 2026-09-06: 1075 hand-written lines added and 917 removed
 against the end of Part A, generated output excluded. Both upgrade suites run and pass: the nonce path
-(`test:upgrade-e2e`, 2 tests) and the CREATE2 path (`test:create2-upgrade-e2e`, 12 tests).
+(the TypeScript path, 2 tests) and the CREATE2 path (12 tests), both under `test:upgrade`.
 
 ## Record: Part C as delivered
 

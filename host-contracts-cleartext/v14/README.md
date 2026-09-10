@@ -193,17 +193,17 @@ grep -rln --exclude-dir=node_modules --exclude-dir=_types --exclude-dir=_cjs --e
 #   about thirty files at v14, most of them prose; the ones that matter are the three groups below:
 #   internal/constants.ts                     pkg/ts/upgrade.ts
 #   package.json                              pkg/ts/types/public.ts
-#   test/ts/upgrade-e2e/upgrade-e2e.test.ts   pkg/src/cleartext/{CleartextArithmetic,ICleartextArithmetic}.sol
-#   test/e2e/create2-upgrade.test.ts          create2-deploy/{upgrade-testnet.ts,upgrade-anvil-config.json}
+#   test/ts/upgrade/library.test.ts           pkg/src/cleartext/{CleartextArithmetic,ICleartextArithmetic}.sol
+#   test/e2e/upgrade/create2.test.ts          create2-deploy/upgrade/{testnet.ts,anvil-config.json}
 ```
 
 Three groups, in increasing order of effort:
 
 1. **The previous-generation edge** — `internal/constants.ts` (`PREVIOUS_GENERATION_DIR_ABS_PATH`),
    the devDependency pin in `package.json`, and the import specifier
-   `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts` in `test/ts/upgrade-e2e/upgrade-e2e.test.ts`,
-   plus the CREATE2 side: `create2-deploy/upgrade-anvil-config.json`'s `previousAbiDir` and the default in
-   `create2-deploy/upgrade-testnet.ts`.
+   `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`,
+   plus the CREATE2 side: `create2-deploy/upgrade/anvil-config.json`'s `previousAbiDir` and the default in
+   `create2-deploy/upgrade/testnet.ts`.
 
    Much smaller than it used to be. The e2e once built v(N-1), packed it, and extracted it under an
    alias in `test/ts/node_modules` just to obtain an importable copy — a whole `prepareTestV13Consumer`
@@ -219,7 +219,7 @@ Three groups, in increasing order of effort:
 3. **The Solidity** — `pkg/src/cleartext/CleartextArithmetic.sol` and `ICleartextArithmetic.sol` carry
    generation references too.
 
-Also update `test/ts/upgrade-e2e/upgrade-e2e.test.ts`, which imports the previous generation by its published name
+Also update `test/ts/upgrade/library.test.ts`, which imports the previous generation by its published name
 (`@fhevm/host-contracts-cleartext-v13/ts`), and the v14-named tests (`deploy-v14.test.ts`, and the `v14`
 strings in the other `test/ts` specs).
 

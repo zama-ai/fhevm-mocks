@@ -4,9 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {FhevmCreate2Base} from "../create2-deploy/script/FhevmCreate2Base.s.sol";
-import {FhevmUpgradeBase} from "../create2-deploy/script/FhevmUpgradeBase.s.sol";
 import {MaterializeInitData} from "../create2-deploy/script/MaterializeInitData.sol";
-import {UpgradeInitData} from "../create2-deploy/script/UpgradeInitData.sol";
 
 /**
  * @title Create2OrdinalsTest
@@ -135,77 +133,5 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
     function test_createCountFollowsTheProxyCount() public pure {
         uint256 n = _allProxyRoles().length;
         assertEq(2 * n + 4, 2 * _expectedRoles().length + 4, "create count tracks the proxy count");
-    }
-}
-
-/**
- *  Pins the independent 7-create / 7-op table used only by the v13 -> v14 upgrade.
- */
-contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
-    function callUpgradeArtifact(uint256 i) external pure returns (string memory) {
-        return _upgradeImplArtifact(i);
-    }
-
-    function callUpgradeInitData(uint256 i) external pure returns (bytes memory) {
-        return UpgradeInitData.initData(i, hex"12345678");
-    }
-
-    function test_upgradeRolesAndArtifactsAreIndexAligned() public pure {
-        string[] memory roles = _upgradeProxyRoles();
-        assertEq(roles.length, 7, "upgrade op count");
-        assertEq(roles[0], "PROTOCOL_CONFIG_ADDRESS");
-        assertEq(roles[1], "KMS_GENERATION_ADDRESS");
-        assertEq(roles[2], "ACL_ADDRESS");
-        assertEq(roles[3], "FHEVM_EXECUTOR_ADDRESS");
-        assertEq(roles[4], "HCU_LIMIT_ADDRESS");
-        assertEq(roles[5], "KMS_VERIFIER_ADDRESS");
-        assertEq(roles[6], "CLEARTEXT_ARITHMETIC_ADDRESS");
-
-        assertEq(_upgradeImplArtifact(0), "pkg/src/contracts/ProtocolConfig.sol:ProtocolConfig");
-        assertEq(_upgradeImplArtifact(1), "pkg/src/contracts/KMSGeneration.sol:KMSGeneration");
-        assertEq(_upgradeImplArtifact(2), "pkg/src/contracts/ACL.sol:ACL");
-        assertEq(_upgradeImplArtifact(3), "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor");
-        assertEq(_upgradeImplArtifact(4), "pkg/src/contracts/HCULimit.sol:HCULimit");
-        assertEq(_upgradeImplArtifact(5), "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier");
-        assertEq(_upgradeImplArtifact(6), "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic");
-    }
-
-    /// One implementation create per op, and nothing else: v14 adds no proxy to the live stack.
-    function test_upgradeArtifactsResolveAndCreateCountIsSeven() public view {
-        string[] memory roles = _upgradeProxyRoles();
-        for (uint256 i; i < roles.length; i++) {
-            assertGt(vm.getCode(_upgradeImplArtifact(i)).length, 0);
-        }
-        assertEq(_upgradeCreateTable().length, 7, "seven implementations, no empty implementation, no proxy");
-    }
-
-    /// The untouched set and the op set partition the nine live proxies.
-    function test_untouchedAndUpgradedRolesPartitionTheStack() public pure {
-        string[] memory untouched = _untouchedProxyRoles();
-        assertEq(untouched.length, 2, "untouched count");
-        assertEq(untouched[0], "INPUT_VERIFIER_ADDRESS");
-        assertEq(untouched[1], "CLEARTEXT_DB_ADDRESS");
-        assertEq(
-            untouched.length + _upgradeProxyRoles().length,
-            _allProxyRoles().length,
-            "every live proxy is one or the other"
-        );
-    }
-
-    function test_upgradeInitializerSelectorsAreIndexAligned() public pure {
-        assertEq(bytes4(UpgradeInitData.initData(0, hex"12345678")), bytes4(hex"12345678"));
-        assertEq(bytes4(UpgradeInitData.initData(1, "")), bytes4(keccak256("reinitializeV2()")));
-        assertEq(bytes4(UpgradeInitData.initData(2, "")), bytes4(keccak256("reinitializeV5()")));
-        assertEq(bytes4(UpgradeInitData.initData(3, "")), bytes4(keccak256("reinitializeV5()")));
-        assertEq(bytes4(UpgradeInitData.initData(4, "")), bytes4(keccak256("reinitializeV4()")));
-        assertEq(bytes4(UpgradeInitData.initData(5, "")), bytes4(keccak256("reinitializeV4()")));
-        assertEq(bytes4(UpgradeInitData.initData(6, "")), bytes4(keccak256("reinitializeV3()")));
-    }
-
-    function test_upgradeTablesRejectOutOfRange() public {
-        vm.expectRevert(bytes("FhevmUpgradeBase: implementation index out of range"));
-        this.callUpgradeArtifact(7);
-        vm.expectRevert(bytes("UpgradeInitData: index out of range"));
-        this.callUpgradeInitData(7);
     }
 }

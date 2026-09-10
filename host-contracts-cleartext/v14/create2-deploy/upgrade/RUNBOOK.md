@@ -7,8 +7,7 @@ For the reasoning behind each step see [GUIDE.md](GUIDE.md) and [README.md](READ
 
 ```sh
 npm run test:create2-deploy-e2e     # fresh v14 deploy through the CREATE2 coordinator, on a throwaway anvil
-npm run test:create2-upgrade-e2e    # v13 deploy, then this upgrade, on a throwaway anvil
-npm run test:create2-e2e            # both
+npm run test:upgrade                # v13 deploy, then this upgrade, on a throwaway anvil
 ```
 
 ## 0. Prerequisites
@@ -72,7 +71,7 @@ the four v14 members, the software version (`0.0.0-cleartext`) and an empty PCR 
 the package defaults, which match a stack deployed from the same mnemonic and nothing else.
 
 ```sh
-U="node create2-deploy/upgrade-testnet.ts --config create2-deploy/upgrade.config.json"
+U="node create2-deploy/upgrade/testnet.ts --config create2-deploy/upgrade.config.json"
 $U --stage params
 ```
 

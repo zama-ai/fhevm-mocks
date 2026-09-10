@@ -2,7 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { PACKAGE_ROOT_ABS_PATH } from './constants.ts';
+import { PACKAGE_ROOT_ABS_PATH } from '../constants.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -39,7 +39,7 @@ export function runUpgradeE2e(): void {
   // `compile`, not `build`, which is the fmt+lint sweep.
   run('npm', ['run', 'compile']);
 
-  const UPGRADE_E2E = join(PACKAGE_ROOT_ABS_PATH, 'test', 'ts', 'upgrade-e2e');
-  run('tsc', ['--project', join(UPGRADE_E2E, 'tsconfig.json'), '--noEmit']);
-  run('vitest', ['run', '--config', join(UPGRADE_E2E, 'vitest.config.ts')]);
+  const SUITE = join(PACKAGE_ROOT_ABS_PATH, 'test', 'ts', 'upgrade');
+  run('tsc', ['--project', join(SUITE, 'tsconfig.json'), '--noEmit']);
+  run('vitest', ['run', '--config', join(SUITE, 'vitest.config.ts')]);
 }

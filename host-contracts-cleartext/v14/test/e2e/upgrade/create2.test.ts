@@ -1,9 +1,9 @@
 // The CREATE2 path, end to end, across a generation boundary: a fresh anvil, a v13 stack deployed by
 // v13's own `create2-deploy` coordinator, then v14's coordinator upgrading it in place.
 //
-// Run: npm run test:create2-e2e
+// Run: npm run test:upgrade
 //
-// ## Why this exists separately from test/ts/upgrade-e2e.test.ts
+// ## Why this exists separately from test/ts/upgrade/library.test.ts
 //
 // That test drives the same migration through the TypeScript library — `deploy()` then `updateV14ToV14()`
 // — from inside one Node process. This drives it through the OPERATOR-FACING path: two CLI coordinators,
@@ -23,7 +23,7 @@
 //
 // ## Skips rather than fails when a prerequisite is missing
 //
-// Same policy as `internal/runUpgradeE2e.ts`, for the same reason: `anvil`/`forge` may be absent, the
+// Same policy as `internal/upgrade/runUpgradeE2e.ts`, for the same reason: `anvil`/`forge` may be absent, the
 // sibling v13 package may not be checked out, and neither is a defect in this package. Every skip names
 // what is missing and how to get it. The one thing a skip must never do is look like a pass — each is
 // reported by the test runner as a skip, with its reason.
@@ -34,7 +34,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
-import { PACKAGE_ROOT_ABS_PATH, PREVIOUS_GENERATION_DIR_ABS_PATH } from '../../internal/constants.ts';
+import { PACKAGE_ROOT_ABS_PATH, PREVIOUS_GENERATION_DIR_ABS_PATH } from '../../../internal/constants.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
@@ -483,7 +483,7 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       const wrong = { ...v13, ACL_ADDRESS: ZERO };
       rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
       const { ok, output } = await runCoordinator(v14Root, [
-        'create2-deploy/upgrade-testnet.ts',
+        'create2-deploy/upgrade/testnet.ts',
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
@@ -529,7 +529,7 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       );
       rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
       const { ok, output } = await runCoordinator(v14Root, [
-        'create2-deploy/upgrade-testnet.ts',
+        'create2-deploy/upgrade/testnet.ts',
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
@@ -558,11 +558,11 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         announce(
           8,
           STEPS,
-          'upgrade with upgrade-testnet.ts --stage all (compute, creates, rehearse on a fork, materialize, verify)',
+          'upgrade with upgrade/testnet.ts --stage all (compute, creates, rehearse on a fork, materialize, verify)',
         );
         rmSync(outDirAbs(v14Root), { recursive: true, force: true });
         const { ok, output } = await runCoordinator(v14Root, [
-          'create2-deploy/upgrade-testnet.ts',
+          'create2-deploy/upgrade/testnet.ts',
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
@@ -688,7 +688,7 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       async (st) => {
         if (needsV14(st)) return;
         const common = [
-          'create2-deploy/upgrade-testnet.ts',
+          'create2-deploy/upgrade/testnet.ts',
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',

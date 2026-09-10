@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {console} from "forge-std/Script.sol";
 import {FhevmUpgradeChecks} from "./FhevmUpgradeChecks.s.sol";
-import {IACLOwner} from "./Interfaces.sol";
+import {IACLOwner} from "../Interfaces.sol";
 
 /**
  * @title  FhevmPreMaterializeCheck

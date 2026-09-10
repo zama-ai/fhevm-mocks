@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {FhevmCreate2Base} from "./FhevmCreate2Base.s.sol";
+import {FhevmCreate2Base} from "../FhevmCreate2Base.s.sol";
 import {UpgradeInitData} from "./UpgradeInitData.sol";
-import {IACLOwner, IWiredProtocolConfig} from "./Interfaces.sol";
-import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions.sol";
-import {ProtocolConfig} from "../../pkg/src/contracts/ProtocolConfig.sol";
-import {IProtocolConfig} from "../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
-import {KmsNodeParams, PcrValues} from "../../pkg/src/contracts/shared/Structs.sol";
+import {IACLOwner, IWiredProtocolConfig} from "../Interfaces.sol";
+import {LocalHostVersions} from "../../../pkg/forge/src/_internal/LocalHostVersions.sol";
+import {ProtocolConfig} from "../../../pkg/src/contracts/ProtocolConfig.sol";
+import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
+import {KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
 
 /**
  *  Shared role, artifact, create, version and migration tables for the v13 -> v14 CREATE2 upgrade.

@@ -301,18 +301,18 @@ Restart anvil (step 3) to discard the chain too, then go to step 4.
 
 ## v13 → v14 upgrade rehearsal
 
-For the operator's checklist — commands only, in order — see [UPGRADE_RUNBOOK.md](UPGRADE_RUNBOOK.md).
+For the operator's checklist — commands only, in order — see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md).
 
 The automated cross-generation rehearsal is the shortest authoritative example:
 
 ```sh
 cd sdk/host-contracts-cleartext/v14
-npm run test:create2-e2e
+npm run test:upgrade
 ```
 
 It starts a dedicated anvil, deploys v13 with `../v13/create2-deploy/deploy-testnet.ts`, creates a
 `trivialEncrypt` handle, passes the eleven v13 manifest addresses as CLI inputs to
-`upgrade-testnet.ts`, and verifies the v14 versions, that no proxy was created, the preserved handle,
+`upgrade/testnet.ts`, and verifies the v14 versions, that no proxy was created, the preserved handle,
 every zero-argument v13 getter reading, the sealed context anchor, ownership, pausers, and forbidden-event
 absence.
 
@@ -379,7 +379,7 @@ Then run from v14, reusing the v13 deployment id:
 
 ```sh
 cd ../v14
-node create2-deploy/upgrade-testnet.ts \
+node create2-deploy/upgrade/testnet.ts \
   --config create2-deploy/upgrade.config.json \
   --stage all \
   --handle 0xHANDLE
@@ -395,7 +395,7 @@ This is the run-book for a stack that matters. Every stage is separately runnabl
 two read-only checks are where a human reads before deciding:
 
 ```sh
-U="node create2-deploy/upgrade-testnet.ts --config create2-deploy/upgrade.config.json"
+U="node create2-deploy/upgrade/testnet.ts --config create2-deploy/upgrade.config.json"
 $U --stage compute                 # validates the eleven addresses, snapshots, seals
 git add -f create2-deploy/.out-*/manifest.json create2-deploy/.out-*/addresses.sol && git commit -m seal && git push
 $U --stage creates                 # seven CREATE2s, each gated on getCode

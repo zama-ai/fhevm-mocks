@@ -9,7 +9,7 @@ export default defineConfig({
   root: TEST_ROOT,
   test: {
     environment: 'node',
-    include: ['upgrade-e2e.test.ts'],
+    include: ['library.test.ts'],
     testTimeout: 180_000,
   },
 });

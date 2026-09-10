@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {ACL} from "../../pkg/src/contracts/ACL.sol";
-import {FHEVMExecutor} from "../../pkg/src/contracts/FHEVMExecutor.sol";
-import {HCULimit} from "../../pkg/src/contracts/HCULimit.sol";
-import {KMSVerifier} from "../../pkg/src/contracts/KMSVerifier.sol";
-import {KMSGeneration} from "../../pkg/src/contracts/KMSGeneration.sol";
-import {CleartextArithmetic} from "../../pkg/src/cleartext/CleartextArithmetic.sol";
+import {ACL} from "../../../pkg/src/contracts/ACL.sol";
+import {FHEVMExecutor} from "../../../pkg/src/contracts/FHEVMExecutor.sol";
+import {HCULimit} from "../../../pkg/src/contracts/HCULimit.sol";
+import {KMSVerifier} from "../../../pkg/src/contracts/KMSVerifier.sol";
+import {KMSGeneration} from "../../../pkg/src/contracts/KMSGeneration.sol";
+import {CleartextArithmetic} from "../../../pkg/src/cleartext/CleartextArithmetic.sol";
 
 /**
  *  Index-aligned initializer payloads for FhevmUpgradeBase._upgradeProxyRoles().

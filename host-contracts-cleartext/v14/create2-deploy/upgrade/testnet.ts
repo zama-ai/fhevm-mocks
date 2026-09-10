@@ -44,7 +44,7 @@ import {
   startTranscript,
   waitUntil,
   warn,
-} from './utils.ts';
+} from '../utils.ts';
 import {
   broadcast,
   buildContext,
@@ -76,7 +76,7 @@ import {
   stageReport,
   traceArgs,
   waitForBlock,
-} from './common.ts';
+} from '../common.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Stages
@@ -165,7 +165,7 @@ function needsDeployerKey(stage: string): boolean {
 const HELP = `
 Upgrade a live v13 cleartext stack to v14, via the canonical CREATE2 factory.
 
-Usage: node create2-deploy/upgrade-testnet.ts --rpc-url URL [--account NAME] --admin 0x...
+Usage: node create2-deploy/upgrade/testnet.ts --rpc-url URL [--account NAME] --admin 0x...
                              --deployment-id ID --previous-manifest PATH [--handle 0x...]
 
   --rpc-url URL        node to upgrade on (required)
@@ -784,8 +784,15 @@ function validateExisting(ctx: Ctx): void {
 /**
  * Give a missing source a coordinator-level error rather than Forge's less useful "script not found".
  */
+/**
+ * The upgrade scripts' own subdirectory. Declared here rather than in `common.ts` because it names a
+ * directory that exists only while a V(N-1) does — when the pair rotates, this file and that directory
+ * go together, and the shared module is left saying nothing about a lane that no longer exists.
+ */
+const UPGRADE_SCRIPT_DIR = `${SCRIPT_DIR}/upgrade`;
+
 function requireScript(name: string): string {
-  const path = join(SCRIPT_DIR, name);
+  const path = join(UPGRADE_SCRIPT_DIR, name);
   if (!existsSync(join(PACKAGE_ROOT, path))) {
     fail(`Error: ${path} does not exist yet.`, '       Restore the upgrade script before running this stage.');
   }
@@ -1366,7 +1373,7 @@ async function stageCreates(ctx: Ctx): Promise<void> {
   say('🥩 creates (one CREATE2 per create, each gated on getCode)');
   ctx.stageLabel = 'creates';
   requireScript('FhevmUpgradeCreates.s.sol');
-  await broadcast(ctx, 'FhevmUpgradeCreates.s.sol:FhevmUpgradeCreates', undefined, undefined, existingEnv(ctx));
+  await broadcast(ctx, 'upgrade/FhevmUpgradeCreates.s.sol:FhevmUpgradeCreates', undefined, undefined, existingEnv(ctx));
 }
 
 /**
@@ -1406,7 +1413,7 @@ async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; r
     'forge',
     [
       'script',
-      `${SCRIPT_DIR}/FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade`,
+      `${UPGRADE_SCRIPT_DIR}/FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade`,
       '--rpc-url',
       ctx.opt.rpcUrl,
       '--out',
@@ -1550,7 +1557,7 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
   }
   const adminSigner = ctx.opt.adminSigner;
   await step(ctx, 'D', 'broadcast ACLOwner.upgrade as the admin', () =>
-    broadcast(ctx, 'FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade', adminSigner, ctx.opt.admin, {
+    broadcast(ctx, 'upgrade/FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade', adminSigner, ctx.opt.admin, {
       ...existingEnv(ctx),
       ...sealedMigrationEnv(ctx),
     }),

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {console} from "forge-std/Script.sol";
 import {FhevmUpgradeBase} from "./FhevmUpgradeBase.s.sol";
-import {IACLOwner, IOwnable2Step, IVersioned} from "./Interfaces.sol";
+import {IACLOwner, IOwnable2Step, IVersioned} from "../Interfaces.sol";
 
 /**
  *  Applies the seven reinitializations in one admin-owned ACLOwner call.
