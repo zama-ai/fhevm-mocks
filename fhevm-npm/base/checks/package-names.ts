@@ -54,8 +54,25 @@ function failure(pkg: LoadedPackage, message: string, rule = '5.1.1'): Violation
   return { rule, packageKey: packageJsonKey(pkg), message };
 }
 
+/**
+ * A file inside a package, keyed the way a violation should name it: the file a reader would open to
+ * fix it, not the directory it lives in — an editor turns a path with a filename into a link, and a
+ * bare package key into nothing.
+ */
+export function fileInPackage(key: string, file: string): string {
+  return key === '.' ? `./${file}` : `${key}/${file}`;
+}
+
+export function packageJsonPath(key: string): string {
+  return fileInPackage(key, 'package.json');
+}
+
+export function lockfilePath(key: string): string {
+  return fileInPackage(key, 'package-lock.json');
+}
+
 export function packageJsonKey(pkg: LoadedPackage): string {
-  return pkg.key === '.' ? './package.json' : `${pkg.key}/package.json`;
+  return packageJsonPath(pkg.key);
 }
 
 function quote(value: string | undefined): string {

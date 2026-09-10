@@ -8,6 +8,7 @@ import { flattenDiagnosticMessageText, parseConfigFileTextToJson } from 'typescr
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import { loadPackages } from '../npm.ts';
 
 const RULE = '2.1.13';
@@ -41,7 +42,7 @@ export function inspectTscMode(workspaceRoot: string, manifest: NpmManifest): Ts
     for (const [script, command] of Object.entries(pkg.packageJson.scripts ?? {})) {
       for (const invocation of tscInvocations(script, command)) {
         checkedInvocationKeys.push(`${pkg.key} [${script}] ${invocation.text}`);
-        const violation = validateInvocation(pkg.key, pkg.directory, invocation);
+        const violation = validateInvocation(packageJsonPath(pkg.key), pkg.directory, invocation);
         if (violation === undefined) {
           successfulInvocations.push(`${pkg.key} [${script}] ${invocation.text} (${invocation.mode} mode)`);
         } else {

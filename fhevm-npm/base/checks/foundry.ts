@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { fileInPackage, packageJsonPath } from './package-names.ts';
 import { type ForgeConfigReader, forgeFmtSettings, memoizedForgeConfigReader } from '../forge-config.ts';
 import { packageDirectory } from '../paths.ts';
 
@@ -34,7 +35,7 @@ export function inspectFoundry(
       if (!declaresScript(packageJsonFile, script) || manifest.packages[key]?.kind !== 'published') continue;
       violations.push({
         rule: '2.1.2',
-        packageKey: key,
+        packageKey: packageJsonPath(key),
         message: `published package must not declare '${script}'; the script and foundry.toml belong on its dev owner`,
       });
     }
@@ -46,7 +47,7 @@ export function inspectFoundry(
     if (existsSync(join(directory, 'foundry.toml'))) continue;
     violations.push({
       rule: '4.1.3',
-      packageKey: key,
+      packageKey: packageJsonPath(key),
       message: "package declares 'forge:fmt' but has no 'foundry.toml' in the same directory",
     });
   }
@@ -54,8 +55,8 @@ export function inspectFoundry(
   if (expectedVersion === undefined) {
     violations.push({
       rule: '4.1.2',
-      packageKey: '.',
-      message: "npm-manifest.json must declare the repository Foundry version in 'foundry.version'",
+      packageKey: './npm-manifest.json',
+      message: "must declare the repository Foundry version in 'foundry.version'",
     });
   }
 
@@ -64,8 +65,8 @@ export function inspectFoundry(
     if (!existsSync(pinFile)) continue;
     violations.push({
       rule: '4.1.2',
-      packageKey: key,
-      message: "remove '.foundry-version'; the central pin is npm-manifest.json#foundry.version",
+      packageKey: fileInPackage(key, '.foundry-version'),
+      message: 'remove this file; the central pin is npm-manifest.json#foundry.version',
     });
   }
 
@@ -84,7 +85,7 @@ export function inspectFoundry(
   if (expectedVersion !== undefined && actualVersion !== expectedVersion) {
     violations.push({
       rule: '4.1.2',
-      packageKey: '.',
+      packageKey: './npm-manifest.json',
       message: `installed forge is '${actualVersion}'; npm-manifest.json requires '${expectedVersion}' (run 'foundryup --install ${expectedVersion}')`,
     });
   }
@@ -106,8 +107,8 @@ function validateForgeFmtConfig(
   if (!existsSync(sharedFile)) {
     violations.push({
       rule: '4.1.3',
-      packageKey: '.',
-      message: "Foundry projects require the shared 'foundry.base.toml' configuration",
+      packageKey: './foundry.base.toml',
+      message: 'Foundry projects require this shared configuration',
     });
     return;
   }
@@ -120,8 +121,8 @@ function validateForgeFmtConfig(
   } catch (error) {
     violations.push({
       rule: '4.1.3',
-      packageKey: '.',
-      message: `unable to resolve 'foundry.base.toml' through forge: ${errorMessage(error)}`,
+      packageKey: './foundry.base.toml',
+      message: `unable to resolve through forge: ${errorMessage(error)}`,
     });
     return;
   }
@@ -133,8 +134,8 @@ function validateForgeFmtConfig(
     if (!extendsSharedFoundryConfig(configFile, sharedFile)) {
       violations.push({
         rule: '4.1.3',
-        packageKey: key,
-        message: "foundry.toml must set '[profile.default].extends' to the workspace 'foundry.base.toml'",
+        packageKey: fileInPackage(key, 'foundry.toml'),
+        message: "must set '[profile.default].extends' to the workspace 'foundry.base.toml'",
       });
     }
 
@@ -144,7 +145,7 @@ function validateForgeFmtConfig(
     } catch (error) {
       violations.push({
         rule: '4.1.3',
-        packageKey: key,
+        packageKey: fileInPackage(key, 'foundry.toml'),
         message: `unable to read effective Forge configuration: ${errorMessage(error)}`,
       });
       continue;
@@ -158,13 +159,13 @@ function validateForgeFmtConfig(
       if (actualValue === undefined) {
         violations.push({
           rule: '4.1.3',
-          packageKey: key,
+          packageKey: fileInPackage(key, 'foundry.toml'),
           message: `effective '[fmt].${setting}' is missing; foundry.base.toml requires ${expectedValue}`,
         });
       } else if (actualValue !== expectedValue) {
         violations.push({
           rule: '4.1.3',
-          packageKey: key,
+          packageKey: fileInPackage(key, 'foundry.toml'),
           message: `effective '[fmt].${setting}' is ${actualValue}; foundry.base.toml requires ${expectedValue}`,
         });
       }

@@ -49,23 +49,29 @@ export function validateVersionGraph(manifest: NpmManifest, versions: VersionsFi
   const expected = publishedPayloadKeys(manifest);
   const actual = Object.keys(versions.packages);
   return [
-    ...expected.filter((key) => !actual.includes(key)).map((key) => coverage(key, 'published payload is missing from')),
+    ...expected
+      .filter((key) => !actual.includes(key))
+      .map((key) => coverage(key, 'is a published payload with no entry here')),
     ...actual
       .filter((key) => !expected.includes(key))
-      .map((key) => coverage(key, 'is not a published payload, remove it from')),
+      .map((key) => coverage(key, 'is not a published payload; remove this entry')),
     ...actual.flatMap((key) => canonical(key, versions.packages[key] ?? '')),
     ...orderViolations(expected, actual),
   ];
 }
 
 function coverage(key: string, message: string): Violation {
-  return { rule: 'version-coverage', packageKey: key, message: `${message} ${VERSIONS_FILE}` };
+  return { rule: 'version-coverage', packageKey: `./${VERSIONS_FILE}`, message: `'${key}' ${message}` };
 }
 
 function canonical(key: string, value: string): readonly Violation[] {
   if (isCanonicalVersion(value)) return [];
   return [
-    { rule: 'version-semver', packageKey: key, message: `"${value}" is not canonical SemVer (x.y.z or x.y.z-pre)` },
+    {
+      rule: 'version-semver',
+      packageKey: `./${VERSIONS_FILE}`,
+      message: `'${key}' is "${value}", not canonical SemVer (x.y.z or x.y.z-pre)`,
+    },
   ];
 }
 

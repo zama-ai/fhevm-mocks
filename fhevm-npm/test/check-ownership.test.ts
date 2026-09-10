@@ -21,7 +21,7 @@ test('reports invalid targets, missing owners, and multiple owners', () => {
   assert.equal(violations.filter((violation) => violation.rule === '2.1.2').length, 3);
   assert.equal(violations.filter((violation) => violation.rule === '5.3.2').length, 3);
   assert.ok(violations.some((violation) => violation.message.includes('2 dev owners')));
-  assert.ok(violations.some((violation) => violation.packageKey === './orphan/pkg'));
+  assert.ok(violations.some((violation) => violation.packageKey === './orphan/pkg/package.json'));
 });
 
 function devOwner(key: string, publishedRelPath: string) {

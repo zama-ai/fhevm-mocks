@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import { lockfilePath, packageJsonPath } from './checks/package-names.ts';
 import type { Violation } from './diagnostics.ts';
 import { type LoadedPackage, loadPackages } from './npm.ts';
 import { installationRootOf } from './checks/workspaces.ts';
@@ -51,7 +52,7 @@ export function validatePackageVersions(
     return [
       {
         rule: 'version-package',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `package.json has ${derived ?? 'no version'}; central version is ${central} — run \`version apply\``,
       },
     ];
@@ -70,9 +71,9 @@ export function validateLockfileMemberVersions(
         .filter(([, entry]) => entry.version !== central)
         .map(([path, entry]) => ({
           rule: 'version-lockfile',
-          packageKey: pkg.key,
+          packageKey: lockfilePath(lock.rootKey),
           message:
-            `${lock.rootKey}/package-lock.json records ${entry.version ?? 'no version'} for '${path}'; ` +
+            `records ${entry.version ?? 'no version'} for '${path}'; ` +
             `central version is ${central} — run \`version apply\``,
         })),
     ),

@@ -2,6 +2,7 @@ import { relative, resolve } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import { collectPackageImports } from '../imports.ts';
 import {
   type DependencyField,
@@ -72,7 +73,7 @@ export function validateScriptDependencyDeclarations(
       if (declarations.length === 0) {
         violations.push({
           rule: '3.3.1',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `npm scripts invoke ${binaries} from root dependency '${packageName}' but do not declare it; add "${packageName}": "${rootDeclaration.spec}" to 'devDependencies'`,
         });
         continue;
@@ -81,7 +82,7 @@ export function validateScriptDependencyDeclarations(
         if (declaration.field === 'devDependencies') continue;
         violations.push({
           rule: '3.3.1',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `npm scripts invoke ${binaries} from package '${packageName}'; move it from '${declaration.field}' to 'devDependencies'`,
         });
       }
@@ -105,7 +106,7 @@ export function validateForbiddenDependencies(
       if (!forbidden.has(declaration.name) || exceptions.has(declaration.name)) continue;
       violations.push({
         rule: '3.3.3',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `package '${declaration.name}' in '${declaration.field}' is forbidden by npm-manifest.json#dependencies.forbidden`,
       });
     }
@@ -113,7 +114,7 @@ export function validateForbiddenDependencies(
       if (declarations.some((declaration) => declaration.name === exception)) continue;
       violations.push({
         rule: '3.3.3',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `dependency exception '${exception}' is unused; remove it from this package's manifest entry`,
       });
     }
@@ -131,7 +132,7 @@ export function validateDevDependencyPlacement(packages: readonly LoadedPackage[
       for (const name of Object.keys(pkg.packageJson[field] ?? {})) {
         violations.push({
           rule: '4.2.4',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `kind 'dev' must declare '${name}' in 'devDependencies', not '${field}'`,
         });
       }
@@ -151,7 +152,7 @@ export function validateDependencyOrder(packages: readonly LoadedPackage[]): rea
       if (actual.some((name, index) => name !== expected[index])) {
         violations.push({
           rule: 'dependencies-order',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'${field}' entries must be alphabetically ordered`,
         });
       }
@@ -182,7 +183,7 @@ export function validateWorkspaceMemberSpecs(packages: readonly LoadedPackage[])
       } else if (members.has(declaration.name)) {
         violations.push({
           rule: '3.1.1',
-          packageKey: source.key,
+          packageKey: packageJsonPath(source.key),
           message:
             `package '${declaration.name}' in '${declaration.field}' is "${declaration.spec}" but names a workspace ` +
             `member; a member depends on a member through a relative file: link to its directory`,
@@ -203,7 +204,7 @@ function validateFileSpec(
   if (declaration.spec.endsWith('.tgz')) {
     violations.push({
       rule: '3.1.2',
-      packageKey: source.key,
+      packageKey: packageJsonPath(source.key),
       message: `package '${declaration.name}' in '${declaration.field}' uses forbidden tarball spec "${declaration.spec}"`,
     });
     return;
@@ -215,7 +216,7 @@ function validateFileSpec(
   if (linkedTarget === undefined || linkedTarget.packageJson.name !== declaration.name) {
     violations.push({
       rule: '3.1.1',
-      packageKey: source.key,
+      packageKey: packageJsonPath(source.key),
       message: `file link '${declaration.name}' in '${declaration.field}' does not resolve to the manifest package having that name`,
     });
     return;
@@ -225,7 +226,7 @@ function validateFileSpec(
   if (source.inventory.kind === 'published' && isNpmDistributed(source) && !targetIsPublishable) {
     violations.push({
       rule: '3.1.1',
-      packageKey: source.key,
+      packageKey: packageJsonPath(source.key),
       message:
         `npm-distributed package must not link private '${declaration.name}' in '${declaration.field}'; ` +
         `a published tarball cannot resolve "${declaration.spec}"`,
@@ -262,7 +263,7 @@ export function validatePrivateRootPins(
       if (checksUsage && isExactVersion(pin) && imported.has(name) && declarations.length === 0) {
         violations.push({
           rule: '4.2.1',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `imports root-pinned package '${name}' but does not declare it; add "${name}": "${pin}" to '${requiredField}' as required for kind '${pkg.inventory.kind}'`,
         });
       }
@@ -271,7 +272,7 @@ export function validatePrivateRootPins(
         if (declaration.spec !== pin) {
           violations.push({
             rule: '4.2.1',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: `package '${name}' in '${declaration.field}' is "${declaration.spec}"; the root dependency spec is "${pin}"`,
           });
         }
@@ -280,14 +281,14 @@ export function validatePrivateRootPins(
         if (!imported.has(name)) {
           violations.push({
             rule: '4.2.1',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: `package '${name}' in '${declaration.field}' is root-pinned but no owned source file imports it`,
           });
         } else {
           if (declaration.field !== requiredField) {
             violations.push({
               rule: '4.2.1',
-              packageKey: pkg.key,
+              packageKey: packageJsonPath(pkg.key),
               message: `package '${name}' must move from '${declaration.field}' to '${requiredField}' for kind '${pkg.inventory.kind}'`,
             });
           }
@@ -321,7 +322,7 @@ export function validatePublishedRootPinFloors(packages: readonly LoadedPackage[
 
         violations.push({
           rule: '4.3.1',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message:
             floor === undefined
               ? `'${name}' in '${field}' has unsupported range "${spec}"; use an exact, caret, or tilde range whose floor equals root pin "${rootPin}"`
@@ -383,7 +384,7 @@ export function validateDependencyGroupPlacement(packages: readonly LoadedPackag
         .join(', ');
       violations.push({
         rule: '4.2.2',
-        packageKey: '.',
+        packageKey: packageJsonPath('.'),
         message: `'${name}' has master declaration ${rootSummary}, but member packages across dependency groups use different ranges (${packageSummary}); remove it from sdk/package.json, or align the member ranges if the difference is unintended`,
       });
     }

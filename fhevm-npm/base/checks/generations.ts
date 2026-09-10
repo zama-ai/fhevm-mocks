@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import { CLEARTEXT_CONFIG_FILE } from '../generate-cleartext-config.ts';
 import {
   type DependencyDeclaration,
@@ -93,7 +94,7 @@ export function validateGenerationMirrorPatch(
     return [
       {
         rule: '3.4.1',
-        packageKey: templateKey,
+        packageKey: packageJsonPath(templateKey),
         message: `${patchLabel} targets '${templateKey}', which is not a manifest package`,
       },
     ];
@@ -150,7 +151,7 @@ export function validateGenerationVendoredDestinations(
         if (target.generation !== 'other') continue;
         violations.push({
           rule: '3.4.2',
-          packageKey: `./${target.to}`,
+          packageKey: './common-vendored/manifest.json',
           message:
             `common-vendored/manifest.json destination '${target.to}' is under ${family.family} ` +
             `but not under ${liveDescription(family)}; retarget it to a live generation`,
@@ -166,7 +167,7 @@ export function validateGenerationVendoredDestinations(
       if (faces.length > 1) {
         violations.push({
           rule: '3.4.2',
-          packageKey: `./${targets[0]?.to ?? ''}`,
+          packageKey: './common-vendored/manifest.json',
           message:
             `common-vendored/manifest.json writes one set of files into ${String(faces.length)} different faces of ` +
             `${family.family} (${faces.join(', ')}); split the entry so each one names a single face`,
@@ -180,7 +181,7 @@ export function validateGenerationVendoredDestinations(
         if (targets.some((target) => target.generationKey === generationKey)) continue;
         violations.push({
           rule: '3.4.2',
-          packageKey: `${generationKey}/${face}`,
+          packageKey: './common-vendored/manifest.json',
           message:
             `common-vendored/manifest.json has no destination '${generationKey.slice(2)}/${face}'; ` +
             `${roleOf(family, generationKey)} receives no copy of that face and no byte comparison, ` +
@@ -290,7 +291,7 @@ function validatePayloadMembership(
   if (payload === undefined) {
     violations.push({
       rule: '3.4.4',
-      packageKey: generationKey,
+      packageKey: packageJsonPath(generationKey),
       message: `declares payload '${payloadKey}', which is not a manifest package`,
     });
     return;
@@ -303,7 +304,7 @@ function validatePayloadMembership(
     : `it shares its published name with V(N)'s payload, and listing both would make that name ambiguous`;
   violations.push({
     rule: '3.4.4',
-    packageKey: payloadKey,
+    packageKey: packageJsonPath(payloadKey),
     message:
       `the published payload of ${role} of ${family.family} must set 'member': ${String(expected)}, not ` +
       `${String(payload.member)}: ${because}`,
@@ -337,7 +338,7 @@ export function validateGenerationUpgradeSuite(
     if (current !== undefined && !hasUpgradeSuite(current)) {
       violations.push({
         rule: '3.4.5',
-        packageKey: current.key,
+        packageKey: packageJsonPath(current.key),
         message:
           `V(N) of ${family.family} must define a non-empty 'test:upgrade' script: it is the suite that ` +
           `upgrades a live V(N-1) '${family.previous}' stack, and only V(N) has a V(N-1) to run it against`,
@@ -346,7 +347,7 @@ export function validateGenerationUpgradeSuite(
     if (previous !== undefined && hasUpgradeSuite(previous)) {
       violations.push({
         rule: '3.4.5',
-        packageKey: previous.key,
+        packageKey: packageJsonPath(previous.key),
         message:
           `V(N-1) of ${family.family} must not define 'test:upgrade': the generation it upgraded from is ` +
           `retired, so nothing invokes the verb and nothing fails — remove it with the suite it ran`,
@@ -397,7 +398,7 @@ function checkEdge(
   if (reason === undefined) return;
   violations.push({
     rule: '3.4.1',
-    packageKey: source.key,
+    packageKey: packageJsonPath(source.key),
     message: `${prefix}package '${declaration.name}' in '${declaration.field}' ${reason}`,
   });
 }
@@ -463,7 +464,7 @@ function resolveTarget(
   // A range over a shared name cannot say which generation is meant; report rather than guess.
   violations.push({
     rule: '3.4.1',
-    packageKey: source.key,
+    packageKey: packageJsonPath(source.key),
     message:
       `${prefix}package '${declaration.name}' in '${declaration.field}' is "${declaration.spec}", a name shared by ` +
       `${candidates.length} generations of ${family.family} (${candidates.map((pkg) => pkg.key).join(', ')}); ` +

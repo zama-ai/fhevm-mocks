@@ -3,6 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { type ConsumerModuleKind, registeredConsumerKeys } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import { forgeArtifactDirectories, memoizedForgeConfigReader } from '../forge-config.ts';
 import { collectModuleSpecifiers, packageNameFromSpecifier } from '../imports.ts';
 import { consumerModuleKinds } from '../module-kind.ts';
@@ -34,7 +35,7 @@ export function validateScripts(
     if (command === undefined || command.trim() === '') {
       violations.push({
         rule,
-        packageKey: owner.key,
+        packageKey: packageJsonPath(owner.key),
         message: `package must define a non-empty '${script}' script for ${reason}`,
       });
     }
@@ -45,7 +46,7 @@ export function validateScripts(
     if (Object.keys(pkg.packageJson.scripts ?? {}).length === 0) continue;
     violations.push({
       rule: '2.1.2',
-      packageKey: pkg.key,
+      packageKey: packageJsonPath(pkg.key),
       message: "npm-distributed published package must not contain 'scripts'; scripts belong on its dev owner",
     });
   }
@@ -104,7 +105,7 @@ export function validateScripts(
       if (pkg.packageJson.scripts?.[script] === undefined) continue;
       violations.push({
         rule: 'package-scripts',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `'${script}' exists but the package defines no 'generate:*' script; an aggregate over nothing is dead wiring`,
       });
     }
@@ -125,7 +126,7 @@ export function validateScripts(
         if (reachable.has(script)) continue;
         violations.push({
           rule: '5.1.4b',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'${script}' is not reachable from 'generate'; the regeneration gate would never run it`,
         });
       }
@@ -142,7 +143,7 @@ export function validateScripts(
         if (reachable.has(script)) continue;
         violations.push({
           rule: '5.2.1',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'${script}' is not reachable from 'check'`,
         });
       }
@@ -157,7 +158,7 @@ export function validateScripts(
         if (reachable.has(member)) continue;
         violations.push({
           rule: 'package-scripts',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'build' is the fmt:check → lint → compile sweep; it does not reach '${member}'`,
         });
       }
@@ -173,7 +174,7 @@ export function validateScripts(
         if (cleanRemoves(expanded, output.replace(/^\.\//, ''))) continue;
         violations.push({
           rule: '5.1.4b',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'clean:generated' does not delete export-manifest output '${output}'`,
         });
       }
@@ -201,7 +202,7 @@ export function validateScripts(
     if (runsTypeScriptCompiler(pkg) && !clean.includes('.tsbuildinfo')) {
       violations.push({
         rule: 'package-scripts',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message:
           "'clean' must delete '*.tsbuildinfo'; the package runs tsc, and a surviving build-info file " +
           'lets the next typecheck resume from stale state',
@@ -212,7 +213,7 @@ export function validateScripts(
       if (cleanRemoves(clean, directory)) continue;
       violations.push({
         rule: 'package-scripts',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `'clean' must delete the Forge directory '${directory}' reported by 'forge config --json'`,
       });
     }
@@ -225,7 +226,7 @@ export function validateScripts(
       if (command === undefined || !prettierTargetsSolidity(command)) continue;
       violations.push({
         rule: '5.1.5',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `'${script}' must not target Solidity; use 'forge:fmt${script === 'prettier:check' ? ':check' : ''}'`,
       });
     }
@@ -265,7 +266,7 @@ export function validateScripts(
       if (registeredKeys.length === 0) {
         violations.push({
           rule: '5.3.1',
-          packageKey: published.key,
+          packageKey: packageJsonPath(published.key),
           message: `published package exposes ${moduleKind.toUpperCase()} but registers no ${moduleKind.toUpperCase()} consumer in npm-manifest.json#consumerTests`,
         });
         continue;
@@ -275,7 +276,7 @@ export function validateScripts(
         if (registeredConsumer === undefined) {
           violations.push({
             rule: '5.3.1',
-            packageKey: published.key,
+            packageKey: packageJsonPath(published.key),
             message: `registered ${moduleKind.toUpperCase()} consumer '${registeredKey}' is not a package in npm-manifest.json`,
           });
           continue;
@@ -299,7 +300,7 @@ export function validateScripts(
         if (owners.length !== 1) {
           violations.push({
             rule: '5.1.3',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: `cannot require '${script}': published package has ${owners.length} dev owners instead of one`,
           });
           continue;
@@ -318,7 +319,7 @@ export function validateScripts(
       if (pkg.packageJson.scripts?.[script] !== undefined) {
         violations.push({
           rule: '5.3.2',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'${script}' belongs on a dev owner, not kind '${pkg.inventory.kind}'`,
         });
       }
@@ -351,7 +352,7 @@ function validateConsumer(
   if (!isolatedFixture && !memberConsumer) {
     violations.push({
       rule: '5.3.1',
-      packageKey: consumer.key,
+      packageKey: packageJsonPath(consumer.key),
       message: `consumer must be a non-member 'standalone' fixture, or a member 'internal-consumer' or mirror-only 'published' template; found kind '${kind}' with member=${String(member)}`,
     });
   }
@@ -359,7 +360,7 @@ function validateConsumer(
   if (kind !== 'published' && consumer.packageJson.private !== true) {
     violations.push({
       rule: '5.3.1',
-      packageKey: consumer.key,
+      packageKey: packageJsonPath(consumer.key),
       message: `consumer fixture must set private=true`,
     });
   }
@@ -367,7 +368,7 @@ function validateConsumer(
   if (!consumerModuleKinds(consumer.packageJson).includes(moduleKind)) {
     violations.push({
       rule: '5.3.1',
-      packageKey: consumer.key,
+      packageKey: packageJsonPath(consumer.key),
       message: `consumer of '${published.key}' does not execute as ${moduleKind.toUpperCase()}`,
     });
   }
@@ -387,7 +388,7 @@ function validateConsumer(
   if (!linksCandidate) {
     violations.push({
       rule: '5.3.1',
-      packageKey: consumer.key,
+      packageKey: packageJsonPath(consumer.key),
       message: `consumer must directly link '${packageName ?? published.key}' to '${published.key}' with a directory 'file:' dependency`,
     });
   }
@@ -397,7 +398,7 @@ function validateConsumer(
   if (!member && !isFile(join(consumer.directory, 'package-lock.json'))) {
     violations.push({
       rule: '5.3.1',
-      packageKey: consumer.key,
+      packageKey: packageJsonPath(consumer.key),
       message: `isolated consumer must contain a committed package-lock.json for --ci`,
     });
   }
@@ -552,7 +553,7 @@ export function validatePrettierConfigs(
       for (const configFile of configFiles) {
         violations.push({
           rule: '5.1.6',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `source-empty dev owner must not contain Prettier configuration file '${configFile}'`,
         });
       }
@@ -563,7 +564,7 @@ export function validatePrettierConfigs(
       if (acceptedConfigNames.includes(configFile)) continue;
       violations.push({
         rule: '5.1.6',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `Prettier configuration file '${configFile}' is forbidden; use only ${acceptedList}`,
       });
     }
@@ -575,7 +576,7 @@ export function validatePrettierConfigs(
         if (!configFiles.includes('prettier.base.mjs')) {
           violations.push({
             rule: '5.1.6',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: "workspace root must contain 'prettier.base.mjs'",
           });
         }
@@ -585,7 +586,7 @@ export function validatePrettierConfigs(
         for (const configFile of configFiles) {
           violations.push({
             rule: '5.1.6',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: `an installation root must not carry Prettier configuration '${configFile}'`,
           });
         }
@@ -601,7 +602,7 @@ export function validatePrettierConfigs(
       if (contents === undefined) {
         violations.push({
           rule: '5.1.6',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: "workspace-native pkg template must contain a self-contained 'prettier.config.js'",
         });
       }
@@ -616,7 +617,7 @@ export function validatePrettierConfigs(
     if (contents === undefined) {
       violations.push({
         rule: '5.1.6',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `package with Prettier scripts must contain 'prettier.config.js' referencing '${normalizedImport}'`,
       });
       continue;
@@ -629,7 +630,7 @@ export function validatePrettierConfigs(
           : `export { default } from '${normalizedImport}';`;
       violations.push({
         rule: '5.1.6',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `'prettier.config.js' must contain: ${expectedStatement}`,
       });
     }
@@ -669,7 +670,7 @@ export function validateConfigContainment(
         if (workspacePackageName !== undefined && workspacePackageNames.has(workspacePackageName)) {
           violations.push({
             rule: 'package-config-containment',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: `'${configFile}' imports workspace-only package '${workspacePackageName}'`,
           });
           continue;
@@ -681,7 +682,7 @@ export function validateConfigContainment(
         if (relativeTarget !== '..' && !relativeTarget.startsWith(`..${sep}`) && !isAbsolute(relativeTarget)) continue;
         violations.push({
           rule: 'package-config-containment',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'${configFile}' imports '${specifier}', which resolves outside the portable package`,
         });
       }
@@ -707,7 +708,7 @@ export function validateEslintConfigs(
       for (const configFile of configFiles) {
         violations.push({
           rule: '5.1.7',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `source-empty dev owner must not contain ESLint configuration file '${configFile}'`,
         });
       }
@@ -718,7 +719,7 @@ export function validateEslintConfigs(
       if (configFile === expectedConfigName) continue;
       violations.push({
         rule: '5.1.7',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: `ESLint configuration file '${configFile}' is forbidden; use only '${expectedConfigName}'`,
       });
     }
@@ -728,7 +729,7 @@ export function validateEslintConfigs(
       if (pkg.key === '.' && !configFiles.includes('eslint.base.mjs')) {
         violations.push({
           rule: '5.1.7',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: "workspace root must contain 'eslint.base.mjs'",
         });
       }
@@ -736,7 +737,7 @@ export function validateEslintConfigs(
         for (const configFile of configFiles) {
           violations.push({
             rule: '5.1.7',
-            packageKey: pkg.key,
+            packageKey: packageJsonPath(pkg.key),
             message: `an installation root must not carry ESLint configuration '${configFile}'`,
           });
         }
@@ -752,7 +753,7 @@ export function validateEslintConfigs(
     ) {
       violations.push({
         rule: '5.1.7',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: "package with a 'lint' script must contain the exact file 'eslint.config.js'",
       });
     }
@@ -766,13 +767,13 @@ function validateRunnableConsumer(fixture: LoadedPackage, violations: Violation[
   if (testScript === undefined || testScript.trim() === '') {
     violations.push({
       rule: '5.3.1',
-      packageKey: fixture.key,
+      packageKey: packageJsonPath(fixture.key),
       message: `consumer fixture must define a non-empty 'test' script`,
     });
   } else if (invokesNodeTest(testScript) && !/(?:^|\s)--test-concurrency(?:=|\s+)1(?:\s|$)/.test(testScript)) {
     violations.push({
       rule: '5.3.9',
-      packageKey: fixture.key,
+      packageKey: packageJsonPath(fixture.key),
       message: "test-consumer parallelism is forbidden; 'node --test' must set '--test-concurrency=1'",
     });
   }
@@ -848,7 +849,7 @@ function rootPrettierConfigViolations(
     return [
       {
         rule: '5.1.6',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: "workspace root must contain 'prettier.config.js' referencing './prettier.base.mjs'",
       },
     ];
@@ -861,7 +862,7 @@ function rootPrettierConfigViolations(
   return [
     {
       rule: '5.1.6',
-      packageKey: pkg.key,
+      packageKey: packageJsonPath(pkg.key),
       message: `'prettier.config.js' must contain: ${expectedStatement}`,
     },
   ];

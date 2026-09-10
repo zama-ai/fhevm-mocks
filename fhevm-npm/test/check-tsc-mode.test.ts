@@ -31,7 +31,7 @@ test('flags project-mode and bare tsc invocations that target a solution-style t
     assert.deepEqual(inspection.violations, [
       {
         rule: '2.1.13',
-        packageKey: './app',
+        packageKey: './app/package.json',
         message:
           "'lint' runs 'tsc -p ./tsconfig.json --noEmit', which is in project mode; that tsconfig is " +
           "solution-style (empty 'files' plus 'references'), so project mode checks zero files and " +
@@ -39,7 +39,7 @@ test('flags project-mode and bare tsc invocations that target a solution-style t
       },
       {
         rule: '2.1.13',
-        packageKey: './app',
+        packageKey: './app/package.json',
         message:
           "'lint:bare' runs 'tsc --noEmit', which resolves to './tsconfig.json'; that tsconfig is " +
           "solution-style (empty 'files' plus 'references'), so project mode checks zero files and " +
@@ -75,7 +75,7 @@ test('skips invocations whose tsconfig cannot silently pass', () => {
     assert.deepEqual(inspection.violations, [
       {
         rule: '2.1.13',
-        packageKey: './app',
+        packageKey: './app/package.json',
         message:
           "'lint:directory' runs 'tsc -p ./project --noEmit', which is in project mode; that tsconfig " +
           "is solution-style (empty 'files' plus 'references'), so project mode checks zero files and " +

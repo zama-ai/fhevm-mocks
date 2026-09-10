@@ -3,6 +3,7 @@ import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import { packageDirectory, toolRoot } from '../paths.ts';
 import { gitRepositoryRoot, gitVisibleFiles } from '../repository.ts';
 
@@ -63,7 +64,7 @@ export function validateInventorySets(
     if (!declared.has(key)) {
       violations.push({
         rule: '7.1.3',
-        packageKey: key,
+        packageKey: packageJsonPath(key),
         message: `source package.json is missing from npm-manifest.json`,
       });
     }
@@ -72,8 +73,8 @@ export function validateInventorySets(
     if (!discovered.has(key)) {
       violations.push({
         rule: '7.1.3',
-        packageKey: key,
-        message: `manifest entry has no discoverable source package.json`,
+        packageKey: './npm-manifest.json',
+        message: `entry '${key}' has no discoverable source package.json`,
       });
     }
   }

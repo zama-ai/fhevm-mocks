@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import type { LoadedPackage, PackageJson } from '../npm.ts';
 
 const DIRECT_PATH_FIELDS = ['main', 'module', 'types', 'typings'] as const;
@@ -29,7 +30,7 @@ export function inspectPackageJsonPaths(packages: readonly LoadedPackage[]): Pac
       } else {
         violations.push({
           rule: '2.1.6',
-          packageKey: pkg.key,
+          packageKey: packageJsonPath(pkg.key),
           message: `'${claim.field}' target '${claim.target}' ${missing}`,
         });
       }

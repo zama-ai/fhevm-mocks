@@ -13,6 +13,7 @@ import { matchesGlob } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import { type LoadedPackage, loadPackages } from '../npm.ts';
 import { gitVisibleFiles } from '../repository.ts';
 
@@ -116,9 +117,9 @@ export function npmPackedFiles(directory: string): readonly string[] {
 }
 
 function violation(pkg: LoadedPackage, message: string): Violation {
-  return { rule: RULE, packageKey: pkg.key, message };
+  return { rule: RULE, packageKey: packageJsonPath(pkg.key), message };
 }
 
 function requiredFileViolation(pkg: LoadedPackage, message: string): Violation {
-  return { rule: REQUIRED_FILES_RULE, packageKey: pkg.key, message };
+  return { rule: REQUIRED_FILES_RULE, packageKey: packageJsonPath(pkg.key), message };
 }

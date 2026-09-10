@@ -91,7 +91,7 @@ export function inspectGenerationParity(
     if (branch === undefined) {
       violations.push({
         rule: RULE,
-        packageKey: key,
+        packageKey: './npm-manifest.json',
         message:
           `generation directory '${name}' is not named 'v<number>', so the release branch that owns it ` +
           `cannot be derived; rename it or drop it from npm-manifest.json#generations`,
