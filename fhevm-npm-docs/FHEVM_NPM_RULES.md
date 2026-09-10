@@ -498,8 +498,14 @@ is authored on its own release branch and then keeps living here as V(N-1), the 
 FROM. That copy is not a fork: edit it in place and the upgrade is rehearsed against a stack nobody ships, while the
 branch that does ship it says something else. The branch is derived from the generation's own number — `v13` is owned
 by `release/0.13.x` — so nothing hardcodes a version and a rotation needs no edit here. Resolution prefers the local
-branch and falls back to `origin/`; when neither resolves the check fails rather than passing quietly, because a
-comparison that did not happen is not a comparison that succeeded.
+branch and falls back to `origin/`.
+
+A generation whose branch resolves neither way is SKIPPED, and the skip is printed at every verbosity and left out of
+the "checked" count — a check that quietly did nothing must not read as one that passed. Skipping rather than failing
+is what lets one file serve every branch: the release-branch practice began partway through, so v12 has no
+`release/0.12.x` and never will, and `fhevm-npm` has to be identical on `release/0.13.x`, where v12 is V(N-1), and on
+`release/0.14.x`, where v13 is. The cost is that a branch which exists but was never fetched also skips, so CI must
+fetch it to get real coverage.
 
 The rule is DELIBERATELY one-directional. Files may exist on the release branch and not here: a rotation deletes
 V(N-1)'s own upgrade lane (§ 3.4.5, and the generation's `ROTATION.md`), and those deletions are the point. What may

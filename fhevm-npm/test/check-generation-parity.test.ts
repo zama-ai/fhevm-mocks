@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { type GitRunner, inspectGenerationParity, releaseBranchOf } from '../base/checks/generation-parity.ts';
+import { printReport } from '../base/diagnostics.ts';
 import { parseTestNpmManifest } from './helpers.ts';
 
 const FAMILY = 'host-contracts-cleartext';
@@ -152,13 +153,18 @@ test('the remote-tracking copy is used when the local branch is absent', () => {
   assert.match(violation?.message ?? '', /differs from origin\/release\/0\.13\.x/);
 });
 
-test('a release branch that resolves neither way fails, naming the fetch that fixes it', () => {
+test('a release branch that resolves neither way is skipped out loud, not failed', () => {
+  // v12 has no release/0.12.x and never will — the practice began later. Failing would make this
+  // file impossible to keep identical across branches, which is the one thing fhevm-npm must be.
   const git = fakeGit({ refs: [] });
-  const [violation, ...rest] = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git).violations;
+  const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git);
 
-  assert.deepEqual(rest, []);
-  assert.equal(violation?.packageKey, PREVIOUS);
-  assert.match(violation?.message ?? '', /git fetch origin release\/0\.13\.x/);
+  assert.deepEqual(inspection.violations, []);
+  // Not counted as checked: nothing about it was verified, and the summary must not imply otherwise.
+  assert.deepEqual(inspection.checkedKeys, []);
+  assert.equal(inspection.skipped.length, 1);
+  assert.match(inspection.skipped[0] ?? '', /^\.\/host-contracts-cleartext\/v13: skipped/);
+  assert.match(inspection.skipped[0] ?? '', /git fetch origin release\/0\.13\.x/);
   // It stopped there rather than diffing against a ref it does not have.
   assert.equal(
     git.calls.some((call) => call[0] === 'diff'),
@@ -186,4 +192,27 @@ test('a generation directory that names no version is a violation, not a silent 
 
 test('no generations block at all checks nothing', () => {
   assert.deepEqual(inspectGenerationParity(WORKSPACE_ROOT, manifest(null), fakeGit({})).checkedKeys, []);
+});
+
+test('a skip is never silent: notes print even at the quietest verbosity, and do not fail the run', () => {
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (message: string) => warnings.push(message);
+  try {
+    printReport(
+      {
+        command: 'check generation-parity',
+        checkedPackageKeys: [],
+        checkedItemLabel: 'previous generation(s)',
+        notes: [`${PREVIOUS}: skipped — neither 'release/0.13.x' nor 'origin/release/0.13.x' resolves`],
+        violations: [],
+      },
+      0,
+    );
+  } finally {
+    console.warn = original;
+  }
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0] ?? '', /^⚠️ {2}\.\/host-contracts-cleartext\/v13: skipped/);
 });

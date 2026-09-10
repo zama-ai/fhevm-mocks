@@ -13,6 +13,11 @@
 //
 // Nothing here names a version. The generation directories come from `npm-manifest.json#generations`,
 // and the branch is derived from the generation's own number, so a rotation needs no edit.
+//
+// A generation whose release branch does not resolve is SKIPPED rather than failed, and the skip is
+// reported. Not every generation has one: the practice began partway through, so v12 has no
+// `release/0.12.x` and never will. Failing there would make this file impossible to keep identical
+// across branches — the one thing fhevm-npm must be — for a branch that is not coming back.
 
 import { execFileSync } from 'node:child_process';
 import { relative, resolve, sep } from 'node:path';
@@ -27,8 +32,11 @@ export const RULE = '3.4.6';
 export type GitRunner = (args: readonly string[], cwd: string) => string;
 
 export type GenerationParityInspection = {
+  /** Generations actually compared. A skipped one is not among them: nothing about it was verified. */
   readonly checkedKeys: readonly string[];
   readonly successes: readonly string[];
+  /** Generations whose release branch does not resolve, said out loud so a skip is never silent. */
+  readonly skipped: readonly string[];
   readonly violations: readonly Violation[];
 };
 
@@ -69,6 +77,7 @@ export function inspectGenerationParity(
 
   const checkedKeys: string[] = [];
   const successes: string[] = [];
+  const skipped: string[] = [];
   const violations: Violation[] = [];
 
   for (const family of generationFamilies(manifest)) {
@@ -77,7 +86,6 @@ export function inspectGenerationParity(
 
     const key = family.previous;
     const name = key.slice(key.lastIndexOf('/') + 1);
-    checkedKeys.push(key);
 
     const branch = releaseBranchOf(name);
     if (branch === undefined) {
@@ -93,15 +101,13 @@ export function inspectGenerationParity(
 
     const ref = resolveRef(git, repoRoot, branch);
     if (ref === undefined) {
-      violations.push({
-        rule: RULE,
-        packageKey: key,
-        message:
-          `neither '${branch}' nor 'origin/${branch}' resolves, so V(N-1) cannot be compared with the ` +
-          `branch that owns it — fetch it with 'git fetch origin ${branch}'`,
-      });
+      skipped.push(
+        `${key}: skipped — neither '${branch}' nor 'origin/${branch}' resolves, so nothing about this ` +
+          `generation was verified; 'git fetch origin ${branch}' if the branch exists`,
+      );
       continue;
     }
+    checkedKeys.push(key);
 
     const pathspec = relative(repoRoot, resolve(workspaceRoot, key)).split(sep).join('/');
     const tracked = lines(git(['ls-tree', '-r', '--name-only', 'HEAD', '--', pathspec], repoRoot));
@@ -138,5 +144,5 @@ export function inspectGenerationParity(
     successes.push(`${key}: ${String(tracked.length)} tracked file(s) compared with ${ref}`);
   }
 
-  return { checkedKeys, successes, violations };
+  return { checkedKeys, successes, skipped, violations };
 }

@@ -12,6 +12,12 @@ export type CommandReport = {
   readonly checkedPackageKeys: readonly string[];
   readonly checkedItemLabel?: string;
   readonly verboseSuccesses?: readonly string[];
+  /**
+   * Things the check could not do, as opposed to things it found wrong. Printed at every verbosity —
+   * a check that quietly did nothing is indistinguishable from one that passed, which is the whole
+   * failure mode a note exists to prevent — and never affects the exit code.
+   */
+  readonly notes?: readonly string[];
   readonly violations: readonly Violation[];
   readonly timings?: readonly Timing[];
 };
@@ -27,6 +33,8 @@ export function printReport(report: CommandReport, verbosity: Verbosity): void {
   for (const violation of violations) {
     console.error(`❌ [${violation.rule}] ${violation.packageKey}: ${violation.message}`);
   }
+
+  for (const note of report.notes ?? []) console.warn(`⚠️  ${note}`);
 
   if (hasDetailedOutput(verbosity) && report.timings !== undefined) {
     for (const timing of report.timings) {

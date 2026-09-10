@@ -8,6 +8,7 @@ export const checkGenerationParity: CheckCommand = (context) => {
     checkedPackageKeys: inspection.checkedKeys,
     checkedItemLabel: 'previous generation(s)',
     verboseSuccesses: inspection.successes,
+    notes: inspection.skipped,
     violations: inspection.violations,
   };
 };
