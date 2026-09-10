@@ -1,0 +1,1 @@
+{"version":3,"file":"pauserSet.d.ts","sourceRoot":"","sources":["../pauserSet.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,sBAAsB,EAAE,gBAAgB,EAAE,MAAM,mBAAmB,CAAC;AAIlF;;;;;;;;GAQG;AACH,wBAAsB,eAAe,CAAC,UAAU,EAAE;IAChD,QAAQ,CAAC,QAAQ,EAAE,sBAAsB,CAAC;IAC1C,QAAQ,CAAC,UAAU,EAAE,MAAM,CAAC;CAC7B,GAAG,OAAO,CAAC,gBAAgB,CAAC,CAU5B"}

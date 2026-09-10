@@ -21,7 +21,7 @@ import {
   type CommonDestination,
   type PinnedVendoredTarget,
   expectedVendoredContent,
-  loadCommonVendoredManifest,
+  localVendoredManifest,
   pinnedVendoredTargets,
 } from './checks/vendored.ts';
 import type { Violation } from './diagnostics.ts';
@@ -33,12 +33,13 @@ export type ProgressLogger = (message: string) => void;
 
 export type SyncVendoredOptions = {
   readonly workspaceRoot: string;
+  readonly manifest: NpmManifest;
   readonly check: boolean;
   /** Download the pinned tree and print the digest it implies, writing nothing. */
   readonly digest?: boolean;
   readonly onProgress?: ProgressLogger;
 };
-export type SyncPinnedOptions = SyncVendoredOptions & { readonly manifest: NpmManifest };
+export type SyncPinnedOptions = SyncVendoredOptions;
 
 export type SyncVendoredResult = {
   readonly inspected: number;
@@ -50,10 +51,10 @@ export type SyncVendoredResult = {
 const RULE = 'vendored-sync';
 
 export function syncVendored(options: SyncVendoredOptions): SyncVendoredResult {
-  const manifest = loadCommonVendoredManifest(options.workspaceRoot);
+  const manifest = localVendoredManifest(options.manifest);
   const sourceDirectory = join(options.workspaceRoot, manifest.source);
   if (!existsSync(sourceDirectory)) {
-    throw new Error(`common-vendored/manifest.json source '${manifest.source}' does not exist`);
+    throw new Error(`npm-manifest.json vendored source '${manifest.source}' does not exist`);
   }
 
   const written: string[] = [];
@@ -82,7 +83,7 @@ export function syncVendored(options: SyncVendoredOptions): SyncVendoredResult {
 
   // An empty mapping would report no differences, which reads as success. It is a manifest bug.
   if (inspected === 0) {
-    throw new Error('common-vendored/manifest.json listed no files — the run would have passed vacuously');
+    throw new Error('npm-manifest.json listed no local vendored files — the run would have passed vacuously');
   }
 
   return {

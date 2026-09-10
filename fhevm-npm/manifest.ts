@@ -157,10 +157,21 @@ const vendoredElementSchema = z
   .object({
     relPath: z.string().regex(PREFIXED_PATH, 'must be a safe path with a leading ./'),
     files: z.array(z.string().regex(FILE_NAME, 'must be one safe filename')).min(1).optional(),
-    source: z.union([
-      z.string().regex(PREFIXED_PATH, 'must be a safe repository-root-relative path'),
-      pinnedSourceSchema,
-    ]),
+    source: z.union([z.string().regex(PREFIXED_PATH, 'must be a safe workspace-relative path'), pinnedSourceSchema]),
+    // A rewrite belongs to the DESTINATION: it exists because this package resolves an import
+    // differently from the package the bytes came from.
+    rewrites: z
+      .array(
+        z
+          .object({
+            file: z.string().regex(FILE_NAME, 'must be one safe filename'),
+            from: z.string().min(1),
+            to: z.string().min(1),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
     reason: z.string().min(1),
   })
   .strict()
