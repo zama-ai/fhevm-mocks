@@ -99,7 +99,7 @@
       "type": "dual",
       "browser": false,
       "name": "@fhevm/host-contracts-cleartext",
-      "member": true,
+      "member": false,
       "dependencyGroup": "host-contracts-cleartext/v13",
       "consumerTests": {
         "cjs": ["./host-contracts-cleartext/v13/test-consumer/cjs"],

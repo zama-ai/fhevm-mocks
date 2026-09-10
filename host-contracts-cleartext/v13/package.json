@@ -65,13 +65,11 @@
     "test:create2-deploy-e2e": "node --test test/e2e/create2-deploy.test.ts",
     "test:forge": "forge test",
     "test:harness:run": "vitest run --config test/ts/vitest.config.ts",
-    "test:templates:run": "node --test --test-concurrency=1 test/*.test.ts",
-    "test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts"
+    "test:templates:run": "node --test --test-concurrency=1 test/*.test.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
-    "@fhevm/host-contracts-cleartext-v12-dev": "file:../v12",
     "@fhevm/sdk-common-dev": "file:../../common",
     "@fhevm/sdk-vendored-dev": "file:../../common-vendored",
     "@openzeppelin/contracts": "5.1.0",
