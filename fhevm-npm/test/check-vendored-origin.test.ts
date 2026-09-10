@@ -32,7 +32,7 @@ test('checks a manifest-selected local vendored copy with its declared rewrite',
           source: 'common-vendored/src',
           destinations: [
             {
-              to: 'library/pkg/vendored',
+              to: ['library/pkg/vendored'],
               files: ['adapter.ts'],
               rewrites: [{ file: 'adapter.ts', from: "'./types.ts'", to: "'types-package'" }],
             },
@@ -163,7 +163,7 @@ test('with no selector, enumerates every package that declares vendored content'
 
 test('expectedVendoredContent applies declared rewrites and fails loudly when one does not', () => {
   const mapping = {
-    to: 'destination',
+    to: ['destination'],
     files: ['adapter.ts'],
     rewrites: [{ file: 'adapter.ts', from: "'./types.ts'", to: "'types-package'" }],
   };

@@ -73,7 +73,6 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
-    "@fhevm/host-contracts-cleartext-v12-dev": "file:../v12",
     "@fhevm/sdk-common-dev": "file:../../common",
     "@fhevm/sdk-vendored-dev": "file:../../common-vendored",
     "@openzeppelin/contracts": "5.1.0",

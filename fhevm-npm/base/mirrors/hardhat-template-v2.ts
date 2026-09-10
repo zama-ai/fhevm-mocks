@@ -1,4 +1,12 @@
+import { posix } from 'node:path';
+
+import type { NpmManifest } from '../../manifest.ts';
+import { generationFamilies } from '../checks/generations.ts';
+
 export const hardhatTemplateV2PackageKey = './hardhat/v2/fhevm-hardhat-template/pkg';
+
+/** The published payload this template links against. Its generation is never spelled out here. */
+const CLEARTEXT_PAYLOAD_NAME = '@fhevm/host-contracts-cleartext';
 
 const identity: Readonly<Record<string, string>> = {
   name: 'fhevm-hardhat-template-v2',
@@ -8,20 +16,56 @@ const identity: Readonly<Record<string, string>> = {
 
 const removedDependencies = ['@fhevm/mock-utils', '@zama-fhe/relayer-sdk'] as const;
 
-const addedDependencies: Readonly<Record<string, string>> = {
-  '@fhevm/solidity': '^0.13.3',
-};
+// The specs are NOT written here: every one of them already has a home in npm-manifest.json, and a copy
+// in the tool is a pin no workspace edit can reach. `@fhevm/sdk` proves it — this file said ^0.13.3 while
+// the manifest had moved to ^0.13.4, and the rendered mirror was quietly a patch level behind.
+const addedPinnedDependencies = ['@fhevm/solidity'] as const;
+const addedPinnedDevDependencies = ['@fhevm/sdk'] as const;
 
 const addedDevDependencies: Readonly<Record<string, string>> = {
   '@fhevm/hardhat-plugin': 'file:../../plugin/pkg',
-  '@fhevm/host-contracts-cleartext': 'file:../../../../host-contracts-cleartext/v13/pkg',
-  '@fhevm/sdk': '^0.13.3',
 };
+
+/** A spec from npm-manifest.json#dependencies.pinned, the one place a shared external pin is declared. */
+function pinnedSpec(npmManifest: NpmManifest, name: string): string {
+  const spec = npmManifest.dependencies?.pinned?.[name];
+  if (spec === undefined) {
+    throw new Error(`npm-manifest.json#dependencies.pinned does not pin ${name}, which the mirror injects`);
+  }
+  return spec;
+}
+
+function pinnedAdditions(npmManifest: NpmManifest, names: readonly string[]): Record<string, string> {
+  return Object.fromEntries(names.map((name) => [name, pinnedSpec(npmManifest, name)]));
+}
+
+/**
+ * The `file:` spec for the cleartext payload, resolved from npm-manifest.json#generations rather than
+ * written down: a spec spelled out here would be a generation pin inside the tool, which a rotation
+ * cannot fix by editing the workspace — rule 3.4.1 would report the rendered mirror as pinned to V(N-1)
+ * and the only remedy would be editing fhevm-npm itself.
+ *
+ * The family is found by the name the template depends on, so neither the family directory nor the
+ * generation appears in this file.
+ */
+export function cleartextPayloadSpec(npmManifest: NpmManifest): string {
+  for (const family of generationFamilies(npmManifest)) {
+    const payloadKey = npmManifest.packages[family.current]?.publishedRelPath;
+    if (payloadKey === undefined) continue;
+    if (npmManifest.packages[payloadKey]?.name !== CLEARTEXT_PAYLOAD_NAME) continue;
+    // Relative to the package DIRECTORY, the way its sibling 'file:../../plugin/pkg' link is.
+    return `file:${posix.relative(hardhatTemplateV2PackageKey, payloadKey)}`;
+  }
+  throw new Error(
+    `npm-manifest.json#generations names no current generation whose payload publishes ${CLEARTEXT_PAYLOAD_NAME}`,
+  );
+}
 
 export type JsonObject = Record<string, unknown>;
 
 export function patchHardhatTemplateV2Manifest(
   source: JsonObject,
+  npmManifest: NpmManifest,
   log: (message: string) => void = () => undefined,
 ): JsonObject {
   const manifest = structuredClone(source);
@@ -38,8 +82,15 @@ export function patchHardhatTemplateV2Manifest(
     log(`${maps.length === 0 ? '·' : '−'} ${name}${maps.length === 0 ? ' (not declared)' : ''}`);
   }
   for (const [target, additions] of [
-    [dependencies, addedDependencies],
-    [devDependencies, addedDevDependencies],
+    [dependencies, pinnedAdditions(npmManifest, addedPinnedDependencies)],
+    [
+      devDependencies,
+      {
+        ...addedDevDependencies,
+        ...pinnedAdditions(npmManifest, addedPinnedDevDependencies),
+        [CLEARTEXT_PAYLOAD_NAME]: cleartextPayloadSpec(npmManifest),
+      },
+    ],
   ] as const) {
     for (const [name, spec] of Object.entries(additions)) {
       log(`${name in target ? '~' : '+'} ${name.padEnd(33)} ${spec}`);

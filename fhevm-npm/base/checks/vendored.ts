@@ -21,7 +21,10 @@ const rewriteSchema = z
   .strict();
 const destinationSchema = z
   .object({
-    to: z.string().min(1),
+    // Always an array, never a bare string: one entry names every directory that receives the SAME files
+    // under the SAME rewrites, so "these generations get an identical copy" is structural rather than a
+    // fact restated once per directory and enforced by nothing.
+    to: z.array(z.string().min(1)).min(1),
     files: z.array(z.string().min(1)).min(1),
     rewrites: z.array(rewriteSchema).optional(),
     note: z.string().optional(),
@@ -381,8 +384,8 @@ function validateLocalEntry(
     return;
   }
 
-  const commonDestination = manifest.destinations.find(
-    (candidate) => safeResolve(workspaceRoot, candidate.to, 'common-vendored destination') === destination,
+  const commonDestination = manifest.destinations.find((candidate) =>
+    candidate.to.some((to) => safeResolve(workspaceRoot, to, 'common-vendored destination') === destination),
   );
   if (commonDestination === undefined) {
     violation(output, published.key, `${entry.relPath}: destination is not declared in common-vendored/manifest.json`);

@@ -27,7 +27,7 @@ export function validateMirror(workspaceRoot: string, manifest: NpmManifest, sel
   const upstreamDirectory = join(temporaryRoot, 'upstream');
   try {
     execFileSync('git', ['clone', '--depth', '1', '--quiet', repository, upstreamDirectory], { stdio: 'inherit' });
-    return compareHardhatTemplate(workspaceRoot, pkg.directory, upstreamDirectory, pkg.key, repository);
+    return compareHardhatTemplate(workspaceRoot, manifest, pkg.directory, upstreamDirectory, pkg.key, repository);
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
@@ -35,6 +35,7 @@ export function validateMirror(workspaceRoot: string, manifest: NpmManifest, sel
 
 function compareHardhatTemplate(
   workspaceRoot: string,
+  manifest: NpmManifest,
   localDirectory: string,
   upstreamDirectory: string,
   packageKey: string,
@@ -69,7 +70,7 @@ function compareHardhatTemplate(
         string,
         unknown
       >;
-      const expected = `${JSON.stringify(patchHardhatTemplateV2Manifest(upstreamManifest), null, 2)}\n`;
+      const expected = `${JSON.stringify(patchHardhatTemplateV2Manifest(upstreamManifest, manifest), null, 2)}\n`;
       if (readFileSync(join(localDirectory, path), 'utf8') !== expected) {
         violations.push({
           rule: '5.1.3',

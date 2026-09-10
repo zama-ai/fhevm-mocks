@@ -1,48 +1,32 @@
 {
   "_readme": [
-    "Reference code meant to be COPIED, not only imported. Every file here is stored byte-identical to",
-    "what a consumer would paste into their own project, and `fhevm-npm sync vendored` writes each destination.",
+    "Files that get COPIED into other packages, not imported. This file says which files go where.",
+    "`fhevm-npm sync vendored` writes the copies; `--check` fails if a copy drifted.",
     "",
-    "ethereumLibTypes.ts is the SOURCE OF TRUTH for the adapter interfaces. Each generation receives a copy",
-    "in pkg/ts/types/ and its public.ts re-exports from that copy instead of declaring the types, so there",
-    "is one definition in the workspace and the byte check below is what proves every copy matches.",
+    "Why copy at all: a published package cannot depend on a private workspace member. Packages that are",
+    "never published skip the copy and import @fhevm/sdk-vendored-dev/<file>.ts instead.",
     "",
-    "cleartext-config.ts is itself GENERATED — `fhevm-npm generate cleartext-config` renders it from",
-    "sdk/cleartext-config.json, the source of truth for the cleartext stack's shared values — and each",
-    "generation receives a copy in pkg/ts/. Regenerate before syncing; `make generate` runs both in order.",
+    "Two of these files are generated, so regenerate before syncing (`make generate` does both, in order):",
+    "  cleartext-config.ts  <- fhevm-npm generate cleartext-config, from sdk/cleartext-config.json",
+    "  fhevm-chains.ts      <- fhevm-npm generate chain-constants, from sdk/fhevm-chains.config.json",
     "",
-    "fhevm-chains.ts is GENERATED too — `fhevm-npm generate chain-constants` renders it from",
-    "sdk/fhevm-chains.config.json (every deployed host-contract and gateway address, by network group);",
-    "the packages that carry a copy are listed below as they adopt it.",
-    "",
-    "A published payload cannot depend on a private workspace member, so it gets copies too. Members that",
-    "are never published just import @fhevm/sdk-vendored-dev/<file>.ts instead."
+    "One entry, one set of files: `to` lists every directory that gets that exact copy."
   ],
   "source": "common-vendored/src",
   "destinations": [
     {
-      "to": "host-contracts-cleartext/v13/pkg/ts/types",
-      "note": "public.ts re-exports these interfaces rather than declaring them.",
+      "to": ["host-contracts-cleartext/v14/pkg/ts/types", "host-contracts-cleartext/v13/pkg/ts/types"],
+      "note": "The adapter interfaces. Both live generations get the same copy, and public.ts re-exports it instead of declaring the types.",
       "files": ["ethereumLibTypes.ts"]
     },
     {
-      "to": "host-contracts-cleartext/v12/pkg/ts/types",
-      "note": "Same as v13. The interfaces are identical across generations; this gate is what keeps them so.",
-      "files": ["ethereumLibTypes.ts"]
-    },
-    {
-      "to": "host-contracts-cleartext/v13/pkg/ts",
-      "note": "The generated TypeScript face of sdk/cleartext-config.json, compiled into the published package.",
+      "to": ["host-contracts-cleartext/v14/pkg/ts", "host-contracts-cleartext/v13/pkg/ts"],
+      "note": "The TypeScript form of sdk/cleartext-config.json, compiled into the published package. Both live generations get the same copy.",
       "files": ["cleartext-config.ts"]
     },
     {
-      "to": "host-contracts-cleartext/v12/pkg/ts",
-      "note": "Same as v13. The generations share the config identically; this gate is what keeps them so.",
-      "files": ["cleartext-config.ts"]
-    },
-    {
-      "to": "hardhat/v2/plugin/pkg/src/internal/vendored",
-      "note": "Published payload. It already depends on @fhevm/host-contracts-cleartext, so the sibling type import is rewritten to the package rather than copying ethereumLibTypes.ts here.",
+      "to": ["hardhat/v2/plugin/pkg/src/internal/vendored"],
+      "note": "Takes the ethers adapter. No copy of ethereumLibTypes.ts: this package already depends on @fhevm/host-contracts-cleartext, so the type import is rewritten to point there.",
       "files": ["ethersEthereumLib.ts", "fhevm-chains.ts", "operatorsPrices.ts", "priceTypes.ts"],
       "rewrites": [
         {
@@ -53,8 +37,8 @@
       ]
     },
     {
-      "to": "hardhat/v3/plugin/pkg/src/internal/vendored",
-      "note": "The hardhat 3 payload takes the viem adapter (hardhat 3 recommends viem; its clients wrap the in-process provider), with the same type-import rewrite as the v2 sibling.",
+      "to": ["hardhat/v3/plugin/pkg/src/internal/vendored"],
+      "note": "Takes the viem adapter instead (hardhat 3 recommends viem), with the same type-import rewrite as the v2 one.",
       "files": ["fhevm-chains.ts", "operatorsPrices.ts", "priceTypes.ts", "viemEthereumLib.ts"],
       "rewrites": [
         {

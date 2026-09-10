@@ -61,21 +61,23 @@ export function syncVendored(options: SyncVendoredOptions): SyncVendoredResult {
   let inspected = 0;
 
   for (const destination of manifest.destinations) {
-    const startedAt = performance.now();
-    options.onProgress?.(`→ ${destination.to} (${String(destination.files.length)} file(s), from ${manifest.source})`);
-    for (const file of destination.files) {
-      inspected += 1;
-      const relativePath = `${destination.to}/${file}`;
-      const before = written.length;
-      const problem = syncOne(options, manifest.source, destination, file, written);
-      if (problem !== undefined) {
-        violations.push({ rule: RULE, packageKey: destination.to, message: `${relativePath}: ${problem}` });
-        options.onProgress?.(`   ❌ ${relativePath}`);
-      } else {
-        options.onProgress?.(`   ${written.length > before ? '↻' : '✅'} ${relativePath}`);
+    for (const to of destination.to) {
+      const startedAt = performance.now();
+      options.onProgress?.(`→ ${to} (${String(destination.files.length)} file(s), from ${manifest.source})`);
+      for (const file of destination.files) {
+        inspected += 1;
+        const relativePath = `${to}/${file}`;
+        const before = written.length;
+        const problem = syncOne(options, manifest.source, destination, to, file, written);
+        if (problem !== undefined) {
+          violations.push({ rule: RULE, packageKey: to, message: `${relativePath}: ${problem}` });
+          options.onProgress?.(`   ❌ ${relativePath}`);
+        } else {
+          options.onProgress?.(`   ${written.length > before ? '↻' : '✅'} ${relativePath}`);
+        }
       }
+      options.onProgress?.(`   ${elapsed(startedAt)}`);
     }
-    options.onProgress?.(`   ${elapsed(startedAt)}`);
   }
 
   // An empty mapping would report no differences, which reads as success. It is a manifest bug.
@@ -85,7 +87,7 @@ export function syncVendored(options: SyncVendoredOptions): SyncVendoredResult {
 
   return {
     inspected,
-    destinations: manifest.destinations.map((destination) => destination.to),
+    destinations: manifest.destinations.flatMap((destination) => destination.to),
     written,
     violations,
   };
@@ -96,11 +98,12 @@ function syncOne(
   options: SyncVendoredOptions,
   source: string,
   destination: CommonDestination,
+  to: string,
   file: string,
   written: string[],
 ): string | undefined {
   const sourceFile = join(options.workspaceRoot, source, file);
-  const destinationDirectory = join(options.workspaceRoot, destination.to);
+  const destinationDirectory = join(options.workspaceRoot, to);
   const destinationFile = join(destinationDirectory, file);
 
   if (!existsSync(sourceFile)) {
@@ -125,7 +128,7 @@ function syncOne(
   }
 
   writeFileSync(destinationFile, expectation.content);
-  written.push(`${destination.to}/${file}`);
+  written.push(`${to}/${file}`);
   return undefined;
 }
 

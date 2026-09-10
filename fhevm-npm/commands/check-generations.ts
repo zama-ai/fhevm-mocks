@@ -2,6 +2,7 @@ import {
   generationFamilies,
   validateGenerationCleartextConfig,
   validateGenerationDependencies,
+  validateGenerationMemberFlags,
   validateGenerationMirrorPatch,
   validateGenerationVendoredDestinations,
 } from '../base/checks/generations.ts';
@@ -14,18 +15,20 @@ import { type DependencyMap, loadPackages } from '../base/npm.ts';
 const MIRROR_PATCH_LABEL = 'hardhat-template-v2 mirror patch (fhevm-npm/base/mirrors/hardhat-template-v2.ts)';
 
 /**
- * Rules 3.4.x, the generation pair declared in npm-manifest.json#generations: every dependency on a
- * package of the family targets V(N) and only V(N) itself may also depend on V(N-1) — in committed
- * package.json files and in what the template mirror patch injects; every vendored destination under
- * the family sits in a live generation; cleartext-config.json fans out to exactly the live generations.
+ * Rules 3.4.x, the generation pair declared in npm-manifest.json#generations: V(N)'s published payload is
+ * the workspace member and V(N-1)'s is not; every dependency on a package of the family targets V(N) and
+ * only V(N) itself may also depend on V(N-1) — in committed package.json files and in what the template
+ * mirror patch injects; every vendored destination under the family sits in a live generation;
+ * cleartext-config.json fans out to exactly the live generations.
  * Read-only, like every check.
  */
 export const checkGenerations: CheckCommand = (context) => {
   const packages = loadPackages(context.workspaceRoot, context.manifest);
   const families = generationFamilies(context.manifest);
   // The patch applied to an empty manifest yields exactly what it injects, and nothing upstream.
-  const injected = patchHardhatTemplateV2Manifest({});
+  const injected = patchHardhatTemplateV2Manifest({}, context.manifest);
   const violations = [
+    ...validateGenerationMemberFlags(context.manifest),
     ...validateGenerationDependencies(context.manifest, packages),
     ...validateGenerationMirrorPatch(
       context.manifest,

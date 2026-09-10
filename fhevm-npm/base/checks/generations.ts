@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { CLEARTEXT_CONFIG_FILE } from '../generate-cleartext-config.ts';
 import {
   type DependencyDeclaration,
   type DependencyMap,
@@ -119,28 +120,103 @@ export function validateGenerationMirrorPatch(
 }
 
 /**
- * Rule 3.4.2: a `sync-vendored` destination under a generation family's directory belongs to V(N) or
- * V(N-1). A destination under a retired generation is the entry a rotation forgets; the check names it.
+ * Rule 3.4.2, both directions: every `sync-vendored` destination under a generation family's directory
+ * sits in a live generation, and every live generation is among the directories that receive each face.
+ *
+ * A path left under a retired generation is the entry a rotation forgets, and it makes `sync-vendored`
+ * write into a generation nothing depends on. The converse is the more dangerous half: a generation
+ * missing from an entry's `to` gets no copy written and no byte comparison run, so its committed copy
+ * drifts from `common-vendored/src` silently — the very failure that file exists to prevent.
+ *
+ * One entry writes one face, so its family targets must all name the same path below their generation
+ * directory; that is what lets a missing generation be reported as the exact destination to add.
+ *
  * The vendored manifest keeps plain paths — this only reads them.
  */
 export function validateGenerationVendoredDestinations(
   manifest: NpmManifest,
-  destinations: readonly { readonly to: string }[],
+  destinations: readonly { readonly to: readonly string[] }[],
 ): readonly Violation[] {
   const violations: Violation[] = [];
   for (const family of generationFamilies(manifest)) {
     for (const destination of destinations) {
-      if (generationOf(family, `./${destination.to}`) !== 'other') continue;
-      violations.push({
-        rule: '3.4.2',
-        packageKey: `./${destination.to}`,
-        message:
-          `common-vendored/manifest.json destination '${destination.to}' is under ${family.family} ` +
-          `but not under ${liveDescription(family)}; retarget it to a live generation`,
+      const targets = destination.to.flatMap((to) => {
+        const parsed = parseFamilyDestination(family, to);
+        return parsed === undefined ? [] : [parsed];
       });
+      if (targets.length === 0) continue;
+
+      for (const target of targets) {
+        if (target.generation !== 'other') continue;
+        violations.push({
+          rule: '3.4.2',
+          packageKey: `./${target.to}`,
+          message:
+            `common-vendored/manifest.json destination '${target.to}' is under ${family.family} ` +
+            `but not under ${liveDescription(family)}; retarget it to a live generation`,
+        });
+      }
+
+      // An entry whose family targets are ALL retired is already fully reported above: 'retarget it to a
+      // live generation' says everything, and demanding each live generation of it too would triple the
+      // noise for one stale line.
+      if (!targets.some((target) => target.generation !== 'other')) continue;
+
+      const faces = [...new Set(targets.map((target) => target.face))].sort();
+      if (faces.length > 1) {
+        violations.push({
+          rule: '3.4.2',
+          packageKey: `./${targets[0]?.to ?? ''}`,
+          message:
+            `common-vendored/manifest.json writes one set of files into ${String(faces.length)} different faces of ` +
+            `${family.family} (${faces.join(', ')}); split the entry so each one names a single face`,
+        });
+        continue;
+      }
+
+      const face = faces[0];
+      if (face === undefined) continue;
+      for (const generationKey of liveGenerationKeys(family)) {
+        if (targets.some((target) => target.generationKey === generationKey)) continue;
+        violations.push({
+          rule: '3.4.2',
+          packageKey: `${generationKey}/${face}`,
+          message:
+            `common-vendored/manifest.json has no destination '${generationKey.slice(2)}/${face}'; ` +
+            `${roleOf(family, generationKey)} receives no copy of that face and no byte comparison, ` +
+            `so its committed copy would drift unnoticed`,
+        });
+      }
     }
   }
   return violations;
+}
+
+/** A destination inside a family: which generation it lands in, and the face it writes below it. */
+type FamilyDestination = {
+  readonly to: string;
+  readonly generation: Generation;
+  readonly generationKey: string;
+  readonly face: string;
+};
+
+function parseFamilyDestination(family: GenerationFamily, to: string): FamilyDestination | undefined {
+  const key = `./${to}`;
+  const generation = generationOf(family, key);
+  if (generation === undefined) return undefined;
+  const prefix = `./${family.family}/`;
+  const [directory, ...rest] = key.slice(prefix.length).split('/');
+  if (directory === undefined || rest.length === 0) return undefined;
+  return { to, generation, generationKey: `${prefix}${directory}`, face: rest.join('/') };
+}
+
+/** The live generations' keys, V(N) first. */
+function liveGenerationKeys(family: GenerationFamily): readonly string[] {
+  return family.previous === undefined ? [family.current] : [family.current, family.previous];
+}
+
+function roleOf(family: GenerationFamily, generationKey: string): string {
+  return generationKey === family.current ? `V(N) '${family.current}'` : `V(N-1) '${generationKey}'`;
 }
 
 /**
@@ -148,6 +224,10 @@ export function validateGenerationVendoredDestinations(
  * family its faces are written into — V(N) and V(N-1), by directory basename. A retired generation left
  * in the list makes the generator write into a directory that no longer exists; a live one missing from
  * it gets no face at all, and `check-cleartext-config` cannot notice a face it was never told to expect.
+ *
+ * Both directions are keyed on the central file rather than on the generation, because that file is the
+ * one to edit: a key naming the generation directory reads as a complete path but is not the path of
+ * anything a fix would touch.
  */
 export function validateGenerationCleartextConfig(
   manifest: NpmManifest,
@@ -162,19 +242,72 @@ export function validateGenerationCleartextConfig(
     if (live.includes(gen)) continue;
     violations.push({
       rule: '3.4.3',
-      packageKey: `./${family}/${gen}`,
-      message: `cleartext-config.json#appliesTo.generations lists '${gen}', which is not a live generation of ${family} (${live.join(', ')})`,
+      packageKey: `./${CLEARTEXT_CONFIG_FILE}`,
+      message: `appliesTo.generations lists '${gen}', which is not a live generation of ${family} (${live.join(', ')})`,
     });
   }
   for (const gen of live) {
     if (generations.includes(gen)) continue;
     violations.push({
       rule: '3.4.3',
-      packageKey: `./${family}/${gen}`,
-      message: `cleartext-config.json#appliesTo.generations omits live generation '${gen}' of ${family}; it would receive no generated face`,
+      packageKey: `./${CLEARTEXT_CONFIG_FILE}`,
+      message: `appliesTo.generations omits live generation '${gen}' of ${family}; ./${family}/${gen} would receive no generated face`,
     });
   }
   return violations;
+}
+
+/**
+ * Rule 3.4.4: of a family's two live generations, V(N)'s published payload is a workspace member and
+ * V(N-1)'s is not. Both generations publish one npm name, so at most one of them may be listed in an
+ * installation root, and it must be the one every consumer resolves. This is the flag a rotation forgets:
+ * leave it behind and the retired payload keeps claiming the shared name, which `check workspaces` reports
+ * as a name assigned to two members plus a member missing from `workspaces` — two consequences, neither
+ * naming the field that is actually wrong. Each generation's payload is the one its dev package declares
+ * through `publishedRelPath`; that the declaration exists at all is the manifest schema's business.
+ */
+export function validateGenerationMemberFlags(manifest: NpmManifest): readonly Violation[] {
+  const violations: Violation[] = [];
+  for (const family of generationFamilies(manifest)) {
+    validatePayloadMembership(manifest, family, family.current, true, violations);
+    if (family.previous !== undefined) {
+      validatePayloadMembership(manifest, family, family.previous, false, violations);
+    }
+  }
+  return violations;
+}
+
+function validatePayloadMembership(
+  manifest: NpmManifest,
+  family: GenerationFamily,
+  generationKey: string,
+  expected: boolean,
+  violations: Violation[],
+): void {
+  const payloadKey = manifest.packages[generationKey]?.publishedRelPath;
+  if (payloadKey === undefined) return;
+  const payload = manifest.packages[payloadKey];
+  if (payload === undefined) {
+    violations.push({
+      rule: '3.4.4',
+      packageKey: generationKey,
+      message: `declares payload '${payloadKey}', which is not a manifest package`,
+    });
+    return;
+  }
+  if (payload.member === expected) return;
+
+  const role = expected ? `V(N) '${family.current}'` : `V(N-1) '${family.previous ?? ''}'`;
+  const because = expected
+    ? `it is the directory the shared published name resolves to, so it must be listed in an installation root`
+    : `it shares its published name with V(N)'s payload, and listing both would make that name ambiguous`;
+  violations.push({
+    rule: '3.4.4',
+    packageKey: payloadKey,
+    message:
+      `the published payload of ${role} of ${family.family} must set 'member': ${String(expected)}, not ` +
+      `${String(payload.member)}: ${because}`,
+  });
 }
 
 function validateSourceEdges(

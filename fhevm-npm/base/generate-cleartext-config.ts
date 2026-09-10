@@ -50,7 +50,9 @@ type CleartextConfig = {
   readonly generations: readonly string[];
 };
 
-const CONFIG_FILE = 'cleartext-config.json';
+/** The central file, workspace-relative — also how violations that point at it are keyed. */
+export const CLEARTEXT_CONFIG_FILE = 'cleartext-config.json';
+const CONFIG_FILE = CLEARTEXT_CONFIG_FILE;
 
 /** The generation family the per-generation faces are written into: `host-contracts-cleartext/<gen>/…`. */
 export const CLEARTEXT_CONFIG_FAMILY = 'host-contracts-cleartext';

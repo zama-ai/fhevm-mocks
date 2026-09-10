@@ -6,6 +6,7 @@ import {
   liveGenerationNames,
   validateGenerationCleartextConfig,
   validateGenerationDependencies,
+  validateGenerationMemberFlags,
   validateGenerationMirrorPatch,
   validateGenerationVendoredDestinations,
 } from '../base/checks/generations.ts';
@@ -234,6 +235,34 @@ test('resolves a shared published name by exact version, and reports a range it 
   assert.match(violations[0]?.message ?? '', /use a file: path to V\(N\)/);
 });
 
+test("requires V(N)'s payload to be the member and V(N-1)'s not to be", () => {
+  // The fixture manifest is already the intended state: v13/pkg member, v12/pkg not.
+  assert.deepEqual(validateGenerationMemberFlags(manifest()), []);
+
+  // The flag a rotation forgets: the pair moves on, and the retired payload keeps claiming the shared
+  // published name while the new V(N)'s payload is left out of every installation root.
+  const stale = manifest({ [FAMILY]: { current: `./${FAMILY}/v11`, previous: CURRENT } });
+  const violations = validateGenerationMemberFlags(stale);
+  assert.equal(violations.length, 2);
+  assert.deepEqual(
+    violations.map((violation) => [violation.packageKey, violation.rule]),
+    [
+      [`./${FAMILY}/v11/pkg`, '3.4.4'],
+      [`${CURRENT}/pkg`, '3.4.4'],
+    ],
+  );
+  assert.match(violations[0]?.message ?? '', /must set 'member': true, not false/);
+  assert.match(violations[0]?.message ?? '', /the directory the shared published name resolves to/);
+  assert.match(violations[1]?.message ?? '', /must set 'member': false, not true/);
+
+  // A single-generation family constrains only V(N).
+  assert.deepEqual(validateGenerationMemberFlags(manifest({ [FAMILY]: { current: CURRENT } })), []);
+  assert.equal(validateGenerationMemberFlags(manifest({ [FAMILY]: { current: PREVIOUS } })).length, 1);
+
+  // Without a generations block there is no pair to constrain.
+  assert.deepEqual(validateGenerationMemberFlags(manifest(null)), []);
+});
+
 test('is a no-op without a generations block', () => {
   const packages = [
     root,
@@ -245,13 +274,15 @@ test('is a no-op without a generations block', () => {
 
 test('accepts vendored destinations under V(N) and V(N-1), rejects one under a retired generation', () => {
   const live = [
-    { to: `${FAMILY}/v13/pkg/ts/types` },
-    { to: `${FAMILY}/v12/pkg/ts` },
-    { to: 'hardhat/v3/plugin/pkg/src/internal/vendored' },
+    { to: [`${FAMILY}/v13/pkg/ts/types`, `${FAMILY}/v12/pkg/ts/types`] },
+    { to: [`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts`] },
+    { to: ['hardhat/v3/plugin/pkg/src/internal/vendored'] },
   ];
   assert.deepEqual(validateGenerationVendoredDestinations(manifest(), live), []);
 
-  const stale = [...live, { to: `${FAMILY}/v11/pkg/ts` }];
+  // A wholly retired entry is reported once, as something to retarget — not also as missing each live
+  // generation, which would triple the noise for one stale line.
+  const stale = [...live, { to: [`${FAMILY}/v11/pkg/ts`] }];
   const violations = validateGenerationVendoredDestinations(manifest(), stale);
   assert.equal(violations.length, 1);
   assert.equal(violations[0]?.rule, '3.4.2');
@@ -259,6 +290,52 @@ test('accepts vendored destinations under V(N) and V(N-1), rejects one under a r
   assert.match(violations[0]?.message ?? '', /not under V\(N\) '\.\/host-contracts-cleartext\/v13' or V\(N-1\)/);
 
   assert.deepEqual(validateGenerationVendoredDestinations(manifest(null), stale), []);
+});
+
+test('requires every live generation to be among the directories that receive a face', () => {
+  // The half-rotated entry: one generation retargeted, the other left behind.
+  const halfRotated = validateGenerationVendoredDestinations(manifest(), [
+    { to: [`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v11/pkg/ts`] },
+  ]);
+  assert.deepEqual(
+    halfRotated.map((violation) => [violation.rule, violation.packageKey]),
+    [
+      ['3.4.2', `./${FAMILY}/v11/pkg/ts`],
+      ['3.4.2', `${PREVIOUS}/pkg/ts`],
+    ],
+  );
+  assert.match(halfRotated[1]?.message ?? '', /has no destination 'host-contracts-cleartext\/v12\/pkg\/ts'/);
+  assert.match(halfRotated[1]?.message ?? '', /V\(N-1\) '\.\/host-contracts-cleartext\/v12' receives no copy/);
+
+  // The rotation that adds nothing: the new V(N) is missing from an entry that still lists V(N-1).
+  const notRotated = validateGenerationVendoredDestinations(
+    manifest({ [FAMILY]: { current: `./${FAMILY}/v11`, previous: CURRENT } }),
+    [{ to: [`${FAMILY}/v13/pkg/ts`] }],
+  );
+  assert.deepEqual(
+    notRotated.map((violation) => violation.packageKey),
+    [`./${FAMILY}/v11/pkg/ts`],
+  );
+  assert.match(notRotated[0]?.message ?? '', /V\(N\) '\.\/host-contracts-cleartext\/v11' receives no copy/);
+
+  // One entry writes one face: mixing them cannot say which face a missing generation is owed.
+  const mixed = validateGenerationVendoredDestinations(manifest(), [
+    { to: [`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts/types`] },
+  ]);
+  assert.equal(mixed.length, 1);
+  assert.match(mixed[0]?.message ?? '', /writes one set of files into 2 different faces/);
+
+  // A family the entry does not touch is unconstrained, and a single-generation family needs only V(N).
+  assert.deepEqual(
+    validateGenerationVendoredDestinations(manifest(), [{ to: ['hardhat/v3/plugin/pkg/src/internal/vendored'] }]),
+    [],
+  );
+  assert.deepEqual(
+    validateGenerationVendoredDestinations(manifest({ [FAMILY]: { current: CURRENT } }), [
+      { to: [`${FAMILY}/v13/pkg/ts`] },
+    ]),
+    [],
+  );
 });
 
 test('names the live generations by directory basename', () => {
@@ -311,16 +388,18 @@ test('requires cleartext-config.json#appliesTo.generations to be exactly the liv
   const stale = validateGenerationCleartextConfig(manifest(), FAMILY, ['v11', 'v12', 'v13']);
   assert.deepEqual(
     stale.map((violation) => [violation.rule, violation.packageKey]),
-    [['3.4.3', `./${FAMILY}/v11`]],
+    [['3.4.3', './cleartext-config.json']],
   );
   assert.match(stale[0]?.message ?? '', /lists 'v11', which is not a live generation/);
 
   const omitted = validateGenerationCleartextConfig(manifest(), FAMILY, ['v13']);
   assert.deepEqual(
     omitted.map((violation) => [violation.rule, violation.packageKey]),
-    [['3.4.3', `./${FAMILY}/v12`]],
+    [['3.4.3', './cleartext-config.json']],
   );
   assert.match(omitted[0]?.message ?? '', /omits live generation 'v12'/);
+  // The generation that goes without a face is named in the message, since the key names the file to edit.
+  assert.match(omitted[0]?.message ?? '', /\.\/host-contracts-cleartext\/v12 would receive no generated face/);
 
   assert.deepEqual(validateGenerationCleartextConfig(manifest(), 'other-family', ['v1']), []);
   assert.deepEqual(validateGenerationCleartextConfig(manifest(null), FAMILY, ['v11']), []);

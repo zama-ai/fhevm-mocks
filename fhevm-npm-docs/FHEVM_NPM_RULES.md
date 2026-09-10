@@ -377,20 +377,33 @@ at any time. `npm-manifest.json#generations` names them per family: `current` is
 depends on; `previous` is V(N-1), kept only so V(N)'s upgrade path from it can be built and tested. The developer
 sets up the generation directories and edits every pin; the validator only reads and reports.
 
-**3.4.1 A dependency on a generation family targets V(N); only V(N) may also depend on V(N-1).** Any package of the
-family (the dev package, its payload, its consumers) counts as that generation. A `file:` spec is resolved by
-directory; a version spec by name, and when the name is shared by several generations the spec must be the exact
-version of one of them, otherwise the validator cannot tell which generation is meant. A generation may always depend
-on itself. Every other edge into the family — a consumer on V(N-1), anyone on a generation that is neither — fails.
-The rule also covers a dependency no committed `package.json` declares: the spec the Hardhat template mirror patch
-injects into the rendered template is resolved as if the template package had declared it.
+**3.4.1 A dependency on a generation family targets V(N); the only edge into V(N-1) is V(N)'s upgrade-test
+devDependency on the V(N-1) dev package.** Any package of the family (the dev package, its payload, its consumers)
+counts as that generation. A `file:` spec is resolved by directory; a version spec by name, and when the name is
+shared by several generations the spec must be the exact version of one of them, otherwise the validator cannot tell
+which generation is meant. A generation may always depend on itself. The one cross-generation edge is narrow on all
+three axes: the source is the V(N) dev package itself (not its payload, not a consumer below it), the target is the
+V(N-1) **dev** package (not its payload), and the field is `devDependencies` (V(N-1) exists only to be tested
+against, so nothing may put it on a shipping path). Every other edge into the family — a consumer on V(N-1), anyone
+on a generation that is neither — fails. The rule also covers a dependency no committed `package.json` declares: the
+spec the Hardhat template mirror patch injects into the rendered template is resolved as if the template package had
+declared it.
 
 ```jsonc
 // ✅ In hardhat/v3/plugin/pkg: the current generation's payload.
 "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg"
 
-// ✅ In host-contracts-cleartext/v13 (V(N)): the previous generation, for the upgrade e2e.
-"devDependencies": { "@fhevm/host-contracts-cleartext-v12-dev": "0.0.0" }
+// ✅ In host-contracts-cleartext/v13 (V(N)): the V(N-1) dev package, for the upgrade e2e. The only edge into V(N-1).
+"devDependencies": { "@fhevm/host-contracts-cleartext-v12-dev": "file:../v12" }
+
+// ❌ In host-contracts-cleartext/v13 (V(N)): the same target from a runtime field. V(N-1) is for tests only.
+"dependencies": { "@fhevm/host-contracts-cleartext-v12-dev": "file:../v12" }
+
+// ❌ In host-contracts-cleartext/v13 (V(N)): V(N-1)'s payload rather than its dev package.
+"devDependencies": { "@fhevm/host-contracts-cleartext": "file:../v12/pkg" }
+
+// ❌ In host-contracts-cleartext/v13/pkg: below V(N) is not V(N); only the dev package carries the edge.
+"devDependencies": { "@fhevm/host-contracts-cleartext-v12-dev": "file:../../v12" }
 
 // ❌ In hardhat/v3/plugin/pkg: a consumer on V(N-1). When v14 arrives this is the pin that is forgotten.
 "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v12/pkg"
@@ -402,18 +415,29 @@ injects into the rendered template is resolved as if the template package had de
 "@fhevm/host-contracts-cleartext": "^0.13.0"
 ```
 
-**3.4.2 A vendored destination under a generation family sits in a live generation.** `common-vendored/manifest.json`
-names its destinations as plain paths; every one below the family directory must be under V(N) or V(N-1). A path
-under a retired generation is the entry a rotation forgets, and the validator names it. The two live generations
-receive the same files today; that they both do is declared twice on purpose, not derived.
+**3.4.2 Every vendored destination under a generation family sits in a live generation, and every live generation is
+among the directories that receive a face.** In `common-vendored/manifest.json` a destination's `to` is always an
+array: one entry names every directory that receives the same files under the same rewrites, so "both generations get
+an identical copy" is structural instead of restated once per directory. Each path below the family directory must be
+under V(N) or V(N-1). A path left under a retired generation is the entry a rotation forgets, and it makes
+`sync-vendored` write into a generation nothing depends on. The converse half matters more: a live generation missing
+from an entry receives no copy and no byte comparison, so its committed copy drifts from `common-vendored/src`
+unnoticed — the exact failure that file exists to prevent. One entry writes one face, so its family paths must agree on
+what they write below the generation directory; that is what lets a missing generation be named as the destination to
+add. An entry whose family paths are all retired is reported only as something to retarget.
 
 ```jsonc
-// ✅ Both live generations, listed explicitly.
-{ "to": "host-contracts-cleartext/v13/pkg/ts", "files": ["cleartext-config.ts"] }
-{ "to": "host-contracts-cleartext/v12/pkg/ts", "files": ["cleartext-config.ts"] }
+// ✅ One entry per face, both live generations on it.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config.ts"] }
 
-// ❌ After v12 is retired: the path names a generation the manifest no longer lists.
-{ "to": "host-contracts-cleartext/v12/pkg/ts", "files": ["cleartext-config.ts"] }
+// ❌ After the pair rotates to v14/v13: V(N) is missing, so it silently keeps a stale copy.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts"], "files": ["cleartext-config.ts"] }
+
+// ❌ v12 is retired: the path names a generation the manifest no longer lists.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config.ts"] }
+
+// ❌ One entry, two faces: which face is a missing generation owed?
+{ "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts/types"], "files": ["x.ts"] }
 ```
 
 **3.4.3 `cleartext-config.json#appliesTo.generations` names exactly the live generations.** The generator writes a
@@ -427,6 +451,22 @@ from the list receives no face, and `check-cleartext-config` cannot miss a face 
 
 // ❌ v11 is retired, and v13 — live — would get no face.
 "appliesTo": { "generations": ["v11", "v12"] }
+```
+
+**3.4.4 V(N)'s published payload is a workspace member; V(N-1)'s is not.** Both generations publish one npm name, so
+at most one of their payloads may be listed in an installation root — and it must be the one every consumer resolves.
+A generation's payload is the directory its dev package names in `publishedRelPath`. This is the flag a rotation
+forgets: left behind, the retired payload keeps claiming the shared name, and rule 2.1 then reports a name assigned to
+two members plus a member missing from `sdk/package.json#workspaces` — two consequences, neither of which names the
+field that is wrong.
+
+```jsonc
+// ✅ With generations.current = ./host-contracts-cleartext/v13 and previous = ./host-contracts-cleartext/v12
+"./host-contracts-cleartext/v13/pkg": { "kind": "published", "member": true }
+"./host-contracts-cleartext/v12/pkg": { "kind": "published", "member": false }
+
+// ❌ After the pair rotates to v14/v13: the retired payload still claims the shared published name.
+"./host-contracts-cleartext/v13/pkg": { "kind": "published", "member": true }
 ```
 
 ## 4. Where a version lives

@@ -1,6 +1,6 @@
 {
   "name": "@fhevm/hardhat-plugin",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "FHEVM Hardhat Plugin v2",
   "license": "BSD-3-Clause-Clear",
   "type": "commonjs",
@@ -45,7 +45,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg",
+    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v14/pkg",
     "debug": "^4.1.1",
     "dotenv": "^16.5.0",
     "picocolors": "^1.1.1",
