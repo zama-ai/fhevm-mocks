@@ -1259,6 +1259,25 @@ immutable except through `test-consumer-regenerate-package-lock`, which refuses 
 and runs `npm install --install-links` for a workspace member (none by policy) or for an isolated consumer that lacks
 one, which prints a warning. `--ci` turns that warning into an error and changes nothing else.
 
+**6.1.2 No lockfile carries an extraneous node.** npm writes `"extraneous": true` on a package it knows about but
+cannot reach from the declared graph — nothing in any `package.json` asks for it. It is what a RETARGETED dependency
+leaves behind: the edges move to the new target, the old node is demoted rather than deleted, and the lockfile goes on
+naming a package that is no longer in the tree. Retargeting the Hardhat plugins from V(N-1)'s payload to V(N)'s left
+exactly that in three lockfiles at once.
+
+npm will not install it, which is precisely why it survives: nothing breaks, so nobody notices. The cost is that the
+lockfile stops being the record of what a clean machine gets, and the stale line reads like a real dependency to the
+next person auditing it — a retired generation still apparently in the tree long after the switch. It outlives every
+incremental install; only rebuilding the tree drops it.
+
+```text
+❌ "../../host-contracts-cleartext/v13/pkg": { "extraneous": true }   after the plugin moved to v14/pkg
+✅ rm -rf node_modules package-lock.json && npm install               the node is gone, the edges stay
+```
+
+Both lockfile shapes are read — `packages` (lockfileVersion 2 and 3) and the legacy nested `dependencies` (version 1)
+— so an older file cannot pass vacuously.
+
 ### 6.2 Recovering a broken tree
 
 **6.2.1 A member rename or a `workspaces` edit invalidates the tree, not just the lock.** npm compares against

@@ -25,6 +25,7 @@ export const commandNames = [
   'cleartext-config',
   'generations',
   'generation-parity',
+  'extraneous',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
 
@@ -248,6 +249,12 @@ Prerequisite:
     .description('Check that packages depend on the current generation, not an older one.')
     .action(() => {
       selected = 'generations';
+    });
+  check
+    .command('extraneous')
+    .description('Check that no package-lock.json carries an extraneous node.')
+    .action(() => {
+      selected = 'extraneous';
     });
   check
     .command('generation-parity')

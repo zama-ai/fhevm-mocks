@@ -514,6 +514,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check scripts)
 	$(call run-fhevm-npm,check tsc-mode)
 	$(call run-fhevm-npm,check lockfiles)
+	$(call run-fhevm-npm,check extraneous)
 	$(call run-fhevm-npm,check lint-policy)
 	$(call run-fhevm-npm,check cleartext-config)
 	$(call run-fhevm-npm,sync vendored --check)
