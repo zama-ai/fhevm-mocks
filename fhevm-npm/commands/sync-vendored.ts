@@ -5,8 +5,8 @@ import type { NpmManifest } from '../manifest.ts';
 /**
  * Writes both kinds of vendored content, or compares them with `--check`.
  *
- * Two sources, one command: the shared TypeScript comes from `common-vendored/manifest.json`, the
- * pinned Solidity from `npm-manifest.json` at a declared commit. They were separate before — the
+ * Two kinds, one command and one manifest: npm-manifest.json declares both the shared TypeScript
+ * copied out of common-vendored/src and the pinned Solidity taken from another repository at a commit. They were separate before — the
  * TypeScript had a writer and the Solidity had only a checker — which is what made a tag bump a manual
  * edit that `check-vendored-origin` graded afterwards.
  */

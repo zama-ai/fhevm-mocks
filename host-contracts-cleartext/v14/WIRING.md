@@ -16,7 +16,7 @@ created, for the developer who wires v14 in. Delete it when the list is empty.
    → `s3://cleartext-kms-bucket-`, for every generation.
 4. `sdk/fhevm-npm/base/generate-cleartext-config.ts`: emit the scoped face `cleartext-config-v14.ts`
    (the sample checkout's version of this change is the reference).
-5. `sdk/common-vendored/manifest.json`: destinations `host-contracts-cleartext/v14/pkg/ts` and
+5. `npm-manifest.json`: vendored destinations `host-contracts-cleartext/v14/pkg/ts` and
    `.../pkg/ts/types`; v12's removed.
 6. Hardhat pins to `v14/pkg`: `hardhat/v2/plugin/pkg`, `hardhat/v2/e2e`, `hardhat/v3/plugin/pkg`, and the
    mirror patch in `fhevm-npm/base/mirrors/hardhat-template-v2.ts`.

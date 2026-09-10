@@ -247,7 +247,7 @@
       "name": "fhevm-hardhat-v2-workspace",
       "private": true,
       "member": false,
-      "note": "Installation root for the hardhat v2 generation (a CLUSTER): one npm workspace with its own lockfile and hoisting, so every member resolves the SAME hardhat@2 — the no-symlink singleton guarantee. One installation root per hardhat major; the sdk root workspace holds no hardhat at all."
+      "note": "Installation root for the hardhat v2 generation (a CLUSTER): one npm workspace with its own lockfile and hoisting, so every member resolves the SAME hardhat@2 \u2014 the no-symlink singleton guarantee. One installation root per hardhat major; the sdk root workspace holds no hardhat at all."
     },
     "./hardhat/v2/plugin": {
       "kind": "dev",
@@ -277,6 +277,13 @@
           "relPath": "./src/internal/vendored",
           "files": ["ethersEthereumLib.ts", "fhevm-chains.ts", "operatorsPrices.ts", "priceTypes.ts"],
           "source": "./common-vendored/src",
+          "rewrites": [
+            {
+              "file": "ethersEthereumLib.ts",
+              "from": "} from './ethereumLibTypes.ts';",
+              "to": "} from '@fhevm/host-contracts-cleartext/ts';"
+            }
+          ],
           "reason": "A published package cannot depend on the private @fhevm/sdk-vendored-dev; the copy's sibling type import is rewritten to @fhevm/host-contracts-cleartext."
         }
       ]
@@ -325,7 +332,7 @@
       "name": "fhevm-hardhat-v3-workspace",
       "private": true,
       "member": false,
-      "note": "Installation root for the hardhat v3 generation (a CLUSTER): its own lockfile pins hardhat 3.x, hoisted once for every member — the same no-symlink singleton guarantee as ./hardhat/v2, one root per hardhat major."
+      "note": "Installation root for the hardhat v3 generation (a CLUSTER): its own lockfile pins hardhat 3.x, hoisted once for every member \u2014 the same no-symlink singleton guarantee as ./hardhat/v2, one root per hardhat major."
     },
     "./hardhat/v3/plugin": {
       "kind": "dev",
@@ -356,6 +363,13 @@
           "relPath": "./src/internal/vendored",
           "files": ["fhevm-chains.ts", "operatorsPrices.ts", "priceTypes.ts", "viemEthereumLib.ts"],
           "source": "./common-vendored/src",
+          "rewrites": [
+            {
+              "file": "viemEthereumLib.ts",
+              "from": "} from './ethereumLibTypes.ts';",
+              "to": "} from '@fhevm/host-contracts-cleartext/ts';"
+            }
+          ],
           "reason": "A published package cannot depend on the private @fhevm/sdk-vendored-dev; the copy's sibling type import is rewritten to @fhevm/host-contracts-cleartext."
         }
       ]

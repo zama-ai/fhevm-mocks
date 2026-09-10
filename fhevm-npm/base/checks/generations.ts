@@ -151,9 +151,9 @@ export function validateGenerationVendoredDestinations(
         if (target.generation !== 'other') continue;
         violations.push({
           rule: '3.4.2',
-          packageKey: './common-vendored/manifest.json',
+          packageKey: './npm-manifest.json',
           message:
-            `common-vendored/manifest.json destination '${target.to}' is under ${family.family} ` +
+            `vendored destination '${target.to}' is under ${family.family} ` +
             `but not under ${liveDescription(family)}; retarget it to a live generation`,
         });
       }
@@ -167,9 +167,9 @@ export function validateGenerationVendoredDestinations(
       if (faces.length > 1) {
         violations.push({
           rule: '3.4.2',
-          packageKey: './common-vendored/manifest.json',
+          packageKey: './npm-manifest.json',
           message:
-            `common-vendored/manifest.json writes one set of files into ${String(faces.length)} different faces of ` +
+            `one set of vendored files lands in ${String(faces.length)} different faces of ` +
             `${family.family} (${faces.join(', ')}); split the entry so each one names a single face`,
         });
         continue;
@@ -181,9 +181,9 @@ export function validateGenerationVendoredDestinations(
         if (targets.some((target) => target.generationKey === generationKey)) continue;
         violations.push({
           rule: '3.4.2',
-          packageKey: './common-vendored/manifest.json',
+          packageKey: './npm-manifest.json',
           message:
-            `common-vendored/manifest.json has no destination '${generationKey.slice(2)}/${face}'; ` +
+            `no vendored destination '${generationKey.slice(2)}/${face}'; ` +
             `${roleOf(family, generationKey)} receives no copy of that face and no byte comparison, ` +
             `so its committed copy would drift unnoticed`,
         });

@@ -7,7 +7,7 @@ import {
   validateGenerationUpgradeSuite,
   validateGenerationVendoredDestinations,
 } from '../base/checks/generations.ts';
-import { loadCommonVendoredManifest } from '../base/checks/vendored.ts';
+import { localVendoredManifest } from '../base/checks/vendored.ts';
 import type { CheckCommand } from '../base/command.ts';
 import { CLEARTEXT_CONFIG_FAMILY, cleartextConfigGenerations } from '../base/generate-cleartext-config.ts';
 import { hardhatTemplateV2PackageKey, patchHardhatTemplateV2Manifest } from '../base/mirrors/hardhat-template-v2.ts';
@@ -43,10 +43,7 @@ export const checkGenerations: CheckCommand = (context) => {
       },
       MIRROR_PATCH_LABEL,
     ),
-    ...validateGenerationVendoredDestinations(
-      context.manifest,
-      loadCommonVendoredManifest(context.workspaceRoot).destinations,
-    ),
+    ...validateGenerationVendoredDestinations(context.manifest, localVendoredManifest(context.manifest).destinations),
     ...validateGenerationCleartextConfig(
       context.manifest,
       CLEARTEXT_CONFIG_FAMILY,

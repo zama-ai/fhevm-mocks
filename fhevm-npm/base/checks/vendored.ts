@@ -48,6 +48,7 @@ const publishedVendoredFromSchema = z
   .strict();
 
 export type CommonVendoredManifest = z.infer<typeof commonVendoredManifestSchema>;
+export type Rewrite = z.infer<typeof rewriteSchema>;
 export type CommonDestination = z.infer<typeof destinationSchema>;
 
 /**
@@ -214,8 +215,6 @@ export function validateVendoredPackage(
   // Resolved on demand: only a LOCAL entry needs it, to turn a repository-root-relative source into a
   // path. A package whose entries are all pinned is now verified by digest alone, and asking git where
   // the repository is would fail a copied tree for a reason that no longer applies to it.
-  let repositoryRoot: string | undefined;
-  let commonManifest: CommonVendoredManifest | undefined;
   const successes: string[] = [];
   const violations: Violation[] = [];
   const spend = emptySpend();
@@ -226,9 +225,7 @@ export function validateVendoredPackage(
 
   for (const entry of entries) {
     if (typeof entry.source === 'string') {
-      commonManifest ??= loadCommonVendoredManifest(workspaceRoot);
-      repositoryRoot ??= gitRepositoryRoot(workspaceRoot);
-      validateLocalEntry(repositoryRoot, workspaceRoot, published, entry as LocalVendoredEntry, commonManifest, {
+      validateLocalEntry(workspaceRoot, published, entry as LocalVendoredEntry, {
         successes,
         violations,
         spend,
@@ -363,54 +360,42 @@ function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntr
   output.successes.push(`${published.key} ${entry.relPath}: matches the recorded digest of ${entry.source.tag}`);
 }
 
+/**
+ * Compares one package's local copies with the directory they came from.
+ *
+ * There is no second manifest to reconcile with any more: npm-manifest.json says what the copy is, so
+ * the only question left is whether the bytes on disk still match the source, after this entry's own
+ * rewrites. What used to fail here was the two manifests disagreeing — a problem that no longer
+ * exists, rather than one that is now unchecked.
+ */
 function validateLocalEntry(
-  repositoryRoot: string,
   workspaceRoot: string,
   published: LoadedPackage,
   entry: LocalVendoredEntry,
-  manifest: CommonVendoredManifest,
   output: MutableOutput,
 ): void {
   const violationsBefore = output.violations.length;
   const destination = safeResolve(published.directory, entry.relPath, 'vendored destination');
-  const declaredSource = safeResolve(repositoryRoot, entry.source, 'vendored source');
-  const manifestSource = safeResolve(workspaceRoot, manifest.source, 'common-vendored source');
-  if (declaredSource !== manifestSource) {
-    violation(
-      output,
-      published.key,
-      `${entry.relPath}: source '${entry.source}' does not match common-vendored/manifest.json source '${manifest.source}'`,
-    );
+  const sourceDirectory = safeResolve(workspaceRoot, entry.source, 'vendored source');
+
+  if (!existsSync(sourceDirectory)) {
+    violation(output, published.key, `${entry.relPath}: source '${entry.source}' does not exist`);
     return;
   }
 
-  const commonDestination = manifest.destinations.find((candidate) =>
-    candidate.to.some((to) => safeResolve(workspaceRoot, to, 'common-vendored destination') === destination),
-  );
-  if (commonDestination === undefined) {
-    violation(output, published.key, `${entry.relPath}: destination is not declared in common-vendored/manifest.json`);
+  const files = [...(entry.files ?? [])].sort();
+  if (files.length === 0) {
+    violation(output, published.key, `${entry.relPath}: names no files to compare`);
     return;
   }
 
-  const declaredFiles = [...(entry.files ?? commonDestination.files)].sort();
-  const mappedFiles = [...commonDestination.files].sort();
-  if (declaredFiles.join('\0') !== mappedFiles.join('\0')) {
-    violation(
-      output,
-      published.key,
-      `${entry.relPath}: npm-manifest.json files (${declaredFiles.join(', ')}) differ from common-vendored/manifest.json (${mappedFiles.join(', ')})`,
-    );
-    return;
-  }
-
-  for (const file of declaredFiles) {
-    compareLocalFile(workspaceRoot, published, manifestSource, destination, commonDestination, file, output);
+  const mapping: CommonDestination = { to: [entry.relPath], files, rewrites: entry.rewrites };
+  for (const file of files) {
+    compareLocalFile(workspaceRoot, published, sourceDirectory, destination, mapping, file, output);
   }
 
   if (output.violations.length === violationsBefore) {
-    output.successes.push(
-      `${published.key} ${entry.relPath}: ${declaredFiles.length} file(s) match ${manifest.source}`,
-    );
+    output.successes.push(`${published.key} ${entry.relPath}: ${files.length} file(s) match ${entry.source}`);
   }
 }
 
@@ -450,17 +435,49 @@ function compareLocalFile(
   }
 }
 
-export function loadCommonVendoredManifest(workspaceRoot: string): CommonVendoredManifest {
-  const file = join(workspaceRoot, 'common-vendored', 'manifest.json');
-  let value: unknown;
-  try {
-    value = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-  } catch (error) {
-    throw new Error(`Unable to parse ${file}: ${errorMessage(error)}`);
+/**
+ * The local-copy map, derived from npm-manifest.json rather than kept beside it.
+ *
+ * npm-manifest.json owns what every package contains, vendored directories included, so the copy map
+ * is read back out of it instead of being restated in a second file. Two files saying the same thing
+ * could only ever disagree, and did: they were resolved against different bases, so a re-rooted
+ * checkout failed a comparison that was never about the bytes.
+ *
+ * Entries are grouped by the file set they carry, reproducing the shape the consumers want: one
+ * destination names every directory receiving the SAME files under the SAME rewrites, which is what
+ * lets rule 3.4.2 ask whether every live generation is among them.
+ */
+export function localVendoredManifest(manifest: NpmManifest): CommonVendoredManifest {
+  const grouped = new Map<string, { to: string[]; files: string[]; rewrites?: Rewrite[] }>();
+  const sources = new Set<string>();
+
+  for (const [key, entry] of Object.entries(manifest.packages)) {
+    for (const element of entry.vendored ?? []) {
+      if (typeof element.source !== 'string') continue;
+      sources.add(element.source);
+      const files = [...(element.files ?? [])].sort();
+      const rewrites = element.rewrites === undefined ? undefined : [...element.rewrites];
+      // The grouping key is the payload: same files, same rewrites, one destination with many `to`.
+      const groupKey = JSON.stringify([files, rewrites ?? null]);
+      const to = `${key === '.' ? '' : `${key.slice(2)}/`}${element.relPath.slice(2)}`;
+      const existing = grouped.get(groupKey);
+      if (existing === undefined) grouped.set(groupKey, { to: [to], files, rewrites });
+      else existing.to.push(to);
+    }
   }
-  const result = commonVendoredManifestSchema.safeParse(value);
-  if (!result.success) throw new Error(`Invalid ${file}: ${z.prettifyError(result.error)}`);
-  return result.data;
+
+  if (sources.size > 1) {
+    throw new Error(
+      `npm-manifest.json local vendored entries disagree on their source: ${[...sources].sort().join(', ')}`,
+    );
+  }
+  const source = [...sources][0] ?? './common-vendored/src';
+
+  return {
+    // Stored with a leading './' in the manifest; the consumers resolve against the workspace root.
+    source: source.startsWith('./') ? source.slice(2) : source,
+    destinations: [...grouped.values()],
+  };
 }
 
 export function gitRepositoryRoot(workspaceRoot: string): string {

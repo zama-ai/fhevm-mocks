@@ -337,7 +337,7 @@ test('accepts vendored destinations under V(N) and V(N-1), rejects one under a r
   const violations = validateGenerationVendoredDestinations(manifest(), stale);
   assert.equal(violations.length, 1);
   assert.equal(violations[0]?.rule, '3.4.2');
-  assert.equal(violations[0]?.packageKey, './common-vendored/manifest.json');
+  assert.equal(violations[0]?.packageKey, './npm-manifest.json');
   assert.match(violations[0]?.message ?? '', /not under V\(N\) '\.\/host-contracts-cleartext\/v13' or V\(N-1\)/);
 
   assert.deepEqual(validateGenerationVendoredDestinations(manifest(null), stale), []);
@@ -351,11 +351,11 @@ test('requires every live generation to be among the directories that receive a 
   assert.deepEqual(
     halfRotated.map((violation) => [violation.rule, violation.packageKey]),
     [
-      ['3.4.2', './common-vendored/manifest.json'],
-      ['3.4.2', './common-vendored/manifest.json'],
+      ['3.4.2', './npm-manifest.json'],
+      ['3.4.2', './npm-manifest.json'],
     ],
   );
-  assert.match(halfRotated[1]?.message ?? '', /has no destination 'host-contracts-cleartext\/v12\/pkg\/ts'/);
+  assert.match(halfRotated[1]?.message ?? '', /no vendored destination 'host-contracts-cleartext\/v12\/pkg\/ts'/);
   assert.match(halfRotated[1]?.message ?? '', /V\(N-1\) '\.\/host-contracts-cleartext\/v12' receives no copy/);
 
   // The rotation that adds nothing: the new V(N) is missing from an entry that still lists V(N-1).
@@ -365,7 +365,7 @@ test('requires every live generation to be among the directories that receive a 
   );
   assert.deepEqual(
     notRotated.map((violation) => violation.packageKey),
-    ['./common-vendored/manifest.json'],
+    ['./npm-manifest.json'],
   );
   assert.match(notRotated[0]?.message ?? '', /V\(N\) '\.\/host-contracts-cleartext\/v11' receives no copy/);
 
@@ -374,7 +374,7 @@ test('requires every live generation to be among the directories that receive a 
     { to: [`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts/types`] },
   ]);
   assert.equal(mixed.length, 1);
-  assert.match(mixed[0]?.message ?? '', /writes one set of files into 2 different faces/);
+  assert.match(mixed[0]?.message ?? '', /one set of vendored files lands in 2 different faces/);
 
   // A family the entry does not touch is unconstrained, and a single-generation family needs only V(N).
   assert.deepEqual(

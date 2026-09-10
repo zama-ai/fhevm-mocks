@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -13,7 +12,6 @@ import {
 import type { NpmManifest } from '../manifest.ts';
 
 test('checks a manifest-selected local vendored copy with its declared rewrite', () => {
-  const repositoryRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
   const workspaceRoot = mkdtempSync(join(process.cwd(), '.tmp-check-vendored-origin-'));
   try {
     const sourceDirectory = join(workspaceRoot, 'common-vendored', 'src');
@@ -25,25 +23,7 @@ test('checks a manifest-selected local vendored copy with its declared rewrite',
     writeFileSync(join(workspaceRoot, 'library', 'pkg', 'package.json'), '{"name":"library"}\n');
     writeFileSync(join(sourceDirectory, 'adapter.ts'), "export { value } from './types.ts';\n");
     writeFileSync(join(destinationDirectory, 'adapter.ts'), "export { value } from 'types-package';\n");
-    writeFileSync(
-      join(workspaceRoot, 'common-vendored', 'manifest.json'),
-      `${JSON.stringify(
-        {
-          source: 'common-vendored/src',
-          destinations: [
-            {
-              to: ['library/pkg/vendored'],
-              files: ['adapter.ts'],
-              rewrites: [{ file: 'adapter.ts', from: "'./types.ts'", to: "'types-package'" }],
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
-    );
 
-    const repositoryRelativeSource = `./${relative(repositoryRoot, sourceDirectory).replaceAll('\\', '/')}`;
     const manifest = {
       packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
       packages: {
@@ -66,7 +46,8 @@ test('checks a manifest-selected local vendored copy with its declared rewrite',
             {
               relPath: './vendored',
               files: ['adapter.ts'],
-              source: repositoryRelativeSource,
+              source: './common-vendored/src',
+              rewrites: [{ file: 'adapter.ts', from: "'./types.ts'", to: "'types-package'" }],
               reason: 'The published package cannot import the private source package.',
             },
           ],
@@ -118,7 +99,7 @@ test('requires package.json fhevm.vendoredFrom to match the pinned manifest sour
 test('rejects stale fhevm.vendoredFrom metadata for a package with only local vendored sources', () => {
   const localEntry = {
     relPath: './src/vendored',
-    source: './sdk/common-vendored/src',
+    source: './common-vendored/src',
     reason: 'The published package cannot depend on a private package.',
   } as const;
 
@@ -139,7 +120,7 @@ test('with no selector, enumerates every package that declares vendored content'
         browser: false,
         name: 'library',
         member: false,
-        vendored: [{ relPath: './vendored', source: './sdk/common-vendored/src', reason: 'reason' }],
+        vendored: [{ relPath: './vendored', source: './common-vendored/src', reason: 'reason' }],
       },
       './plain': { kind: 'published', type: 'esm', browser: false, name: 'plain', member: false },
     },
