@@ -1,8 +1,0 @@
-# directories
-**/artifacts
-**/node_modules
-**/cache
-**/_cjs
-**/_types
-**/typechain-types
-**/test
