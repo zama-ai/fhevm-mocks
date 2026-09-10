@@ -797,6 +797,40 @@ tampering unless you know to re-run the sync after a toolchain bump.
 "source": { "repository": "…", "tag": "v0.12.5", "commit": "ac18e49…", "from": "host-contracts/contracts" }
 ```
 
+**5.1.3b `npm-manifest.json` is the only place a vendored copy is declared.** What is copied, where it lands, which
+files, and what is rewritten on arrival all live on the destination package's `vendored` entry. Nothing else declares
+a copy, and no second file restates one.
+
+This was two files once: `common-vendored/manifest.json` said which files went where, and the manifest restated the
+same destinations and file lists per package. Two files describing one thing can only agree by luck, and eventually
+did not — each side was resolved against a different base, so moving the workspace out of `<repo>/sdk/` failed a
+comparison that was never about the bytes. The manifest wins because it already owns what a package CONTAINS: the
+schema refuses `vendored` on a non-package or a workspace root, and the lint-policy, script and inventory checks
+already read it there.
+
+A `rewrite` belongs to the destination for the same reason. It exists because THIS package resolves an import
+differently from the package the bytes came from — a fact about the consumer, not about the source.
+
+The copy map `sync vendored` walks is derived from the manifest, grouping entries by the file set they carry, so
+"these generations receive an identical copy" is still one destination with several `to` paths and rule 3.4.2 can
+still ask whether every live generation is among them.
+
+```jsonc
+// ✅ One entry says everything: the source, the files, and the edit this package needs on arrival.
+"vendored": [{
+  "relPath": "./src/internal/vendored",
+  "files": ["ethersEthereumLib.ts", "fhevm-chains.ts"],
+  "source": "./common-vendored/src",
+  "rewrites": [{ "file": "ethersEthereumLib.ts", "from": "from './ethereumLibTypes.ts';", "to": "from '@fhevm/host-contracts-cleartext/ts';" }],
+  "reason": "A published package cannot depend on a private workspace member."
+}]
+
+// ❌ A second manifest repeating the destination and its files. It can only ever drift from this one.
+```
+
+Every manifest path resolves against the WORKSPACE ROOT. Two bases for one comparison is what made a re-rooted
+checkout fail, and `./sdk/…` prefixes are the fossil of that layout.
+
 **5.1.4 Private source-owning workspace packages expose common hygiene scripts.** Every `dev`, `shared-helper` and
 `internal-consumer` package defines non-empty `fmt`, `fmt:check`, `lint`, `prettier:check` and `prettier:write`;
 `fmt`/`fmt:check` are the orchestrator's formatting verbs (prettier plus `forge fmt` where the package owns Solidity).
