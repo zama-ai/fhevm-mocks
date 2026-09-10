@@ -13,6 +13,7 @@
     "check": "npm run typecheck && npm test",
     "check:dependencies": "node ./fhevm-npm.ts check dependencies",
     "check:foundry": "node ./fhevm-npm.ts check foundry",
+    "check:generation-parity": "node ./fhevm-npm.ts check generation-parity",
     "check:json-schemas": "node ./fhevm-npm.ts check json-schemas",
     "check:lockfiles": "node ./fhevm-npm.ts check lockfiles",
     "check:manifest-coverage": "node ./fhevm-npm.ts check manifest-coverage",
