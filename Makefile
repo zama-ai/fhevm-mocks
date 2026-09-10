@@ -510,6 +510,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check dependencies)
 	$(call run-fhevm-npm,check pinned-dependencies)
 	$(call run-fhevm-npm,check generations)
+	$(call run-fhevm-npm,check generation-parity)
 	$(call run-fhevm-npm,check scripts)
 	$(call run-fhevm-npm,check tsc-mode)
 	$(call run-fhevm-npm,check lockfiles)

@@ -493,6 +493,30 @@ there. A family with no V(N-1) is exempt — there is no older stack to upgrade 
 "test": "npm run test:forge && node internal/cli/runUpgradeE2e.ts"
 ```
 
+**3.4.6 V(N-1) is byte-identical to the release branch that owns it, minus whatever a rotation deleted.** A generation
+is authored on its own release branch and then keeps living here as V(N-1), the stack V(N)'s upgrade suite upgrades
+FROM. That copy is not a fork: edit it in place and the upgrade is rehearsed against a stack nobody ships, while the
+branch that does ship it says something else. The branch is derived from the generation's own number — `v13` is owned
+by `release/0.13.x` — so nothing hardcodes a version and a rotation needs no edit here. Resolution prefers the local
+branch and falls back to `origin/`; when neither resolves the check fails rather than passing quietly, because a
+comparison that did not happen is not a comparison that succeeded.
+
+The rule is DELIBERATELY one-directional. Files may exist on the release branch and not here: a rotation deletes
+V(N-1)'s own upgrade lane (§ 3.4.5, and the generation's `ROTATION.md`), and those deletions are the point. What may
+never happen is the other direction — a file here that differs from the branch, or that the branch never had. Both
+mean the retired generation was edited in place instead of on the branch that owns it.
+
+The generation's own `package.json` is the single exemption, and it is forced rather than chosen: § 3.4.5 requires
+V(N-1) to drop `test:upgrade` and § 3.4.1 requires it to drop the dependency on the generation it upgraded from, yet
+both lines are still present on the release branch, where that generation was V(N). Exempting it leaves nothing
+unguarded — those two rules own its content, and every nested `package.json` below it stays in scope.
+
+```sh
+# ✅ V(N-1) lost its six `upgrade` folders to the rotation and changed nothing else.
+# ❌ host-contracts-cleartext/v13/internal/constants.ts: differs from release/0.13.x
+# ❌ host-contracts-cleartext/v13/INVENTED.md: present in v13 here but absent from release/0.13.x
+```
+
 ## 4. Where a version lives
 
 Which rules apply depends on the kind of package, as named in § 1.1.

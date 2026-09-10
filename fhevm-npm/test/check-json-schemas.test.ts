@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 
+import { generationFamilies, liveGenerationNames } from '../base/checks/generations.ts';
 import { checkJsonSchemas } from '../commands/check-json-schemas.ts';
 import { loadNpmManifest } from '../manifest.ts';
 
@@ -16,10 +17,11 @@ const ROOT_JSON_FILES = [
   'fhevm-chains.config.json',
   'fhevm-network-groups.config.json',
 ] as const;
-const EXPORT_MANIFESTS = [
-  join('host-contracts-cleartext', 'v12', 'export.manifest.json'),
-  join('host-contracts-cleartext', 'v13', 'export.manifest.json'),
-] as const;
+// Derived from npm-manifest.json#generations, never spelled out: a rotation retires a generation
+// directory, and a literal 'v12' here turns that into an ENOENT in a test that is about schemas.
+const EXPORT_MANIFESTS = generationFamilies(MANIFEST).flatMap((family) =>
+  liveGenerationNames(family).map((name) => join(family.family, name, 'export.manifest.json')),
+);
 
 function makeWorkspace(): string {
   const workspace = mkdtempSync(join(tmpdir(), 'fhevm-npm-json-schemas-'));

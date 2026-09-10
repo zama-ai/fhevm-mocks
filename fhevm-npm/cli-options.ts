@@ -24,6 +24,7 @@ export const commandNames = [
   'commit-scope',
   'cleartext-config',
   'generations',
+  'generation-parity',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
 
@@ -247,6 +248,12 @@ Prerequisite:
     .description('Check that packages depend on the current generation, not an older one.')
     .action(() => {
       selected = 'generations';
+    });
+  check
+    .command('generation-parity')
+    .description('Check that the previous generation is byte-identical to its own release branch.')
+    .action(() => {
+      selected = 'generation-parity';
     });
   check
     .command('ownership')
