@@ -1,6 +1,6 @@
 {
   "name": "@fhevm/hardhat-plugin-v3",
-  "version": "0.14.0",
+  "version": "0.13.0",
   "description": "FHEVM plugin for Hardhat 3: a cleartext FHEVM stack on every development connection, encryption, public and user decryption, error diagnostics, HCU accounting and the fhevm tasks.",
   "license": "BSD-3-Clause-Clear",
   "type": "module",
@@ -30,7 +30,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v14/pkg"
+    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg"
   },
   "peerDependencies": {
     "@fhevm/sdk": "^0.13.4",

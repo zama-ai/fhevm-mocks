@@ -3,7 +3,7 @@
 //
 // Run: npm run test:create2-deploy-e2e
 //
-// The sibling `create2-upgrade.test.ts` starts from a v12 stack and upgrades it; this one has no previous
+// The sibling `upgrade/create2.test.ts` starts from a v12 stack and upgrades it; this one has no previous
 // generation at all. The two are separate on purpose: a broken fresh deploy and a broken upgrade are
 // different defects, and one failing must not hide the other behind a skip.
 //

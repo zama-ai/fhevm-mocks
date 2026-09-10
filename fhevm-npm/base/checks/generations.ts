@@ -310,6 +310,56 @@ function validatePayloadMembership(
   });
 }
 
+/**
+ * Rule 3.4.5: V(N) declares `test:upgrade` and V(N-1) does not.
+ *
+ * A generation can prove most of itself alone; the upgrade FROM the older generation it can only prove
+ * against a real V(N-1) stack, so that suite lives behind its own verb and the Makefile asks it of V(N)
+ * only. The rule holds both ends of that arrangement. Missing on V(N): a new generation was wired up
+ * without the one suite that exercises the migration consumers will actually run. Still present on
+ * V(N-1): the rotation left behind a verb whose previous generation is gone — nothing invokes it, so
+ * nothing fails, and it sits there looking like coverage. npm cannot report that one: a missing script
+ * breaks the run that asks for it, while a script nobody asks for is indistinguishable from a passing
+ * suite. Only a rule that knows which generation is V(N-1) can say it.
+ *
+ * A family with no V(N-1) is exempt: there is no older stack to upgrade from, so the verb would have
+ * nothing to run.
+ */
+export function validateGenerationUpgradeSuite(
+  manifest: NpmManifest,
+  packages: readonly LoadedPackage[],
+): readonly Violation[] {
+  const violations: Violation[] = [];
+  for (const family of generationFamilies(manifest)) {
+    if (family.previous === undefined) continue;
+    const current = packages.find((pkg) => pkg.key === family.current);
+    const previous = packages.find((pkg) => pkg.key === family.previous);
+    if (current !== undefined && !hasUpgradeSuite(current)) {
+      violations.push({
+        rule: '3.4.5',
+        packageKey: current.key,
+        message:
+          `V(N) of ${family.family} must define a non-empty 'test:upgrade' script: it is the suite that ` +
+          `upgrades a live V(N-1) '${family.previous}' stack, and only V(N) has a V(N-1) to run it against`,
+      });
+    }
+    if (previous !== undefined && hasUpgradeSuite(previous)) {
+      violations.push({
+        rule: '3.4.5',
+        packageKey: previous.key,
+        message:
+          `V(N-1) of ${family.family} must not define 'test:upgrade': the generation it upgraded from is ` +
+          `retired, so nothing invokes the verb and nothing fails — remove it with the suite it ran`,
+      });
+    }
+  }
+  return violations;
+}
+
+function hasUpgradeSuite(pkg: LoadedPackage): boolean {
+  return (pkg.packageJson.scripts?.['test:upgrade'] ?? '').trim() !== '';
+}
+
 function validateSourceEdges(
   source: LoadedPackage,
   declarations: readonly DependencyDeclaration[],

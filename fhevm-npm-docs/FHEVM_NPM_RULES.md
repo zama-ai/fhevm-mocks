@@ -469,6 +469,30 @@ field that is wrong.
 "./host-contracts-cleartext/v13/pkg": { "kind": "published", "member": true }
 ```
 
+**3.4.5 V(N) declares `test:upgrade`; V(N-1) does not.** A generation proves most of itself alone, but the upgrade
+FROM the older generation it can only prove against a real V(N-1) stack. That suite therefore lives behind its own
+verb, and the Makefile asks it of V(N) only — so a rotation retires the older generation's upgrade suite by moving the
+pair, with nothing to remember inside the package. The verb holds its commands DIRECTLY rather than chaining
+`npm run` leaves: one script to delete when the suite goes, and no leaf left behind to look like coverage. The rule holds both ends. Missing on V(N): a generation was wired
+up without the one suite that exercises the migration consumers will actually run. Still present on V(N-1): the verb
+outlived the generation it upgraded from, so nothing invokes it, nothing fails, and it reads as coverage that is not
+there. A family with no V(N-1) is exempt — there is no older stack to upgrade from.
+
+```jsonc
+// ✅ In host-contracts-cleartext/v13 (V(N)): the self-contained lane, then the cross-generation one.
+"test": "npm run test:forge && npm run test:templates:run && npm run test:harness:run && npm run test:create2-deploy-e2e"
+"test:upgrade": "node internal/cli/runUpgradeE2e.ts && node --test test/e2e/create2-upgrade.test.ts"
+
+// ✅ In host-contracts-cleartext/v12 (V(N-1)): `test` only. Its own upgrade suite went with v11.
+"test": "npm run test:forge && npm run test:templates:run && npm run test:harness:run"
+
+// ❌ In V(N-1) after a rotation: a verb whose previous generation no longer exists.
+"test:upgrade": "node internal/cli/runUpgradeE2e.ts && node --test test/e2e/create2-upgrade.test.ts"
+
+// ❌ In V(N): one lane for everything. The upgrade suite then runs for V(N-1) too, against a stack that is gone.
+"test": "npm run test:forge && node internal/cli/runUpgradeE2e.ts"
+```
+
 ## 4. Where a version lives
 
 Which rules apply depends on the kind of package, as named in § 1.1.

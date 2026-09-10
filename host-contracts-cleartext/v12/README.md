@@ -184,9 +184,9 @@ previous generation to upgrade from: no `updateV11ToV12`, no upgrade e2e, no pre
 (RULES.md rule 21, an explicit exception to rule 10). There is nothing here to re-point.
 
 What that means concretely, and what to restore if v11 is ever added: `pkg/ts/upgrade.ts`,
-`internal/prepareTestV11Consumer.ts`, `internal/runUpgradeE2e.ts`, `test/ts/upgrade-e2e.test.ts`,
+`internal/prepareTestV11Consumer.ts`, `internal/upgrade/runUpgradeE2e.ts`, `test/ts/upgrade/library.test.ts`,
 `test/ts/vitest.e2e.config.ts`, `test/ts/tsconfig.e2e.json`, the `PREVIOUS_GENERATION_*` constants in
-`internal/constants.ts`, the `test:upgrade-e2e` script, and a `FhevmAddressesV11` /
+`internal/constants.ts`, the `test:upgrade` script, and a `FhevmAddressesV11` /
 `UpdateV11ToV12MigrationConfig` type pair. v13 carries all of it for the v12→v13 path and is the model.
 
 `internal/listUpgradeOps.ts` is deliberately **kept**: it takes the previous generation as a CLI argument

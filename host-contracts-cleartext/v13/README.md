@@ -180,7 +180,8 @@ RULES.md rule 11.
 
 ## 6. Re-point the previous generation (V(N-1))
 
-Re-point the previous generation (V(N-1))
+This section is the AUTHORING side: what the NEW generation must point at. For the other side — what
+THIS generation deletes once it stops being V(N) — see [ROTATION.md](ROTATION.md).
 
 The upgrade path and its e2e are hardcoded to a specific pair of generations. For version N the
 previous generation becomes N-1 everywhere:
@@ -189,20 +190,21 @@ previous generation becomes N-1 everywhere:
 # excludes build output (_cjs/_esm/_types) and the tarball fixture under test/ts/node_modules
 grep -rln --exclude-dir=node_modules --exclude-dir=_types --exclude-dir=_cjs --exclude-dir=_esm \
   'V12\|v12' --include='*.ts' --include='*.sol' internal pkg test
-#   internal/runUpgradeE2e.ts                 pkg/ts/types/public.ts
+#   internal/upgrade/runUpgradeE2e.ts         pkg/ts/types/public.ts
 #   internal/constants.ts                     pkg/ts/upgrade.ts
 #   pkg/src/cleartext/CleartextArithmetic.sol pkg/ts/utils.ts
-#   pkg/src/cleartext/ICleartextArithmetic.sol test/ts/upgrade-e2e/upgrade-e2e.test.ts
+#   pkg/src/cleartext/ICleartextArithmetic.sol test/ts/upgrade/library.test.ts
 #   pkg/ts/addresses.ts                       test/ts/utils/viemEthereumLib.ts
-#   pkg/ts/deploy.ts                          test/ts/upgrade-e2e/vitest.config.ts
+#   pkg/ts/deploy.ts                          test/ts/upgrade/vitest.config.ts
 #   pkg/ts/index.ts                           pkg/ts/types/private.ts
 ```
 
 Three groups, in increasing order of effort:
 
-1. **The previous-generation edge** — `internal/constants.ts` (`PREVIOUS_GENERATION_DIR_ABS_PATH`),
-   the devDependency pin in `package.json`, and the import specifier
-   `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts` in `test/ts/upgrade-e2e/upgrade-e2e.test.ts`.
+1. **The previous-generation edge** — the devDependency pin in `package.json`, the import specifier
+   `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`, and
+   `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`. Every one of them lives in
+   an `upgrade/` directory that the rotation deletes whole.
 
    Much smaller than it used to be. The e2e once built v(N-1), packed it, and extracted it under an
    alias in `test/ts/node_modules` just to obtain an importable copy — a whole `prepareTestV12Consumer`
@@ -217,7 +219,7 @@ Three groups, in increasing order of effort:
 3. **The Solidity** — `pkg/src/cleartext/CleartextArithmetic.sol` and `ICleartextArithmetic.sol` carry
    generation references too.
 
-Also update `test/ts/upgrade-e2e/upgrade-e2e.test.ts`, which imports the previous generation by its published name
+Also update `test/ts/upgrade/library.test.ts`, which imports the previous generation by its published name
 (`@fhevm/host-contracts-cleartext-v12/ts`), and the v13-named tests (`deploy-v13.test.ts`, and the `v13`
 strings in the other `test/ts` specs).
 

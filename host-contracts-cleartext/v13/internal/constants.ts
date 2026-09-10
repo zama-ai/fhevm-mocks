@@ -4,7 +4,7 @@
 // This module is deliberately dependency-free: paths and literals only, no imports from generateTemplates
 // or its siblings. Everything in internal/ may import it, so a dependency of its own would risk a cycle.
 import { findWorkspaceRootAbsPath } from '@fhevm/sdk-common-dev';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -22,22 +22,6 @@ export const WORKSPACE_ROOT_ABS_PATH = findWorkspaceRootAbsPath(PACKAGE_ROOT_ABS
 
 /** The pkg/ directory — the published payload, and the only part of the tree that ships. */
 export const PKG_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg');
-
-/**
- * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
- * processes, and cleaning its build output. `test/e2e/create2-upgrade.test.ts` is the only caller.
- *
- * TypeScript that merely wants v12's code must NOT come through here. v12 is a workspace member, so
- * it is imported like any dependency — `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts`,
- * resolved through the link npm created, with types and go-to-definition intact. The upgrade e2e used
- * to build v12, pack it and extract it under an alias in `test/ts/node_modules` purely to get an
- * importable copy; a workspace link does that already, and the whole apparatus is gone.
- *
- * A tarball is for testing the PUBLISH CONTRACT — `files` omissions, undeclared deps, stale output —
- * and it is worth its cost only when the packed artifact is what is on trial. Using one to obtain a
- * sibling's source code buys nothing and pays a build, a pack and an install for it.
- */
-export const PREVIOUS_GENERATION_DIR_ABS_PATH = resolve(PACKAGE_ROOT_ABS_PATH, '..', 'v12');
 
 // The local stack's deploy identity, defined in @fhevm/sdk-common-dev because every generation shares it.
 // Re-exported so all of internal/ keeps one import point for constants.

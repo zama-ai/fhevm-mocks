@@ -45,18 +45,21 @@ function installedSdkSigners(root: string): readonly string[] {
  */
 function readInstalledSdkSigners(): string {
   const paths = installedSdkSigners(WORKSPACE_ROOT_ABS_PATH);
-  if (paths.length === 0) {
+  // Destructuring is also the "none installed" check: an empty list has no first element, and taking
+  // the first one this way is what lets the return type be `string` without asserting it.
+  const [first, ...rest] = paths;
+  if (first === undefined) {
     throw new Error(`No installed @fhevm/sdk under ${WORKSPACE_ROOT_ABS_PATH}: run 'make install' before this test`);
   }
-  const contents = paths.map((path) => readFileSync(path, 'utf8'));
-  const differing = paths.filter((_, index) => contents[index] !== contents[0]);
+  const expected = readFileSync(first, 'utf8');
+  const differing = rest.filter((path) => readFileSync(path, 'utf8') !== expected);
   if (differing.length > 0) {
     throw new Error(
       `Installed copies of @fhevm/sdk disagree on ${JS_SDK_SIGNERS_REL_PATH}, so there is no single SDK ` +
         `to compare against:\n${paths.map((path) => `  ${path}`).join('\n')}`,
     );
   }
-  return contents[0]!;
+  return expected;
 }
 // The shared cleartext config, not ts/constants.ts: the mnemonic and HD paths live in
 // pkg/ts/cleartext-config.ts, generated from sdk/cleartext-config.json and synced from common-vendored.

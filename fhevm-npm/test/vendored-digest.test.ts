@@ -82,13 +82,10 @@ test('two files differing only in an undecodable byte digest differently', () =>
 });
 
 test('CRLF digests as LF, but a lone CR is content', () => {
-  withTrees(
-    [{ 'a.sol': 'one\r\ntwo\r\n' }, { 'a.sol': 'one\ntwo\n' }, { 'a.sol': 'one\rtwo\r' }],
-    ([crlf, lf, cr]) => {
-      assert.equal(vendoredDigest(crlf!), vendoredDigest(lf!), 'CRLF should digest as LF');
-      assert.notEqual(vendoredDigest(cr!), vendoredDigest(lf!), 'a lone CR is content, not a line ending');
-    },
-  );
+  withTrees([{ 'a.sol': 'one\r\ntwo\r\n' }, { 'a.sol': 'one\ntwo\n' }, { 'a.sol': 'one\rtwo\r' }], ([crlf, lf, cr]) => {
+    assert.equal(vendoredDigest(crlf!), vendoredDigest(lf!), 'CRLF should digest as LF');
+    assert.notEqual(vendoredDigest(cr!), vendoredDigest(lf!), 'a lone CR is content, not a line ending');
+  });
 });
 
 test('every file counts, whatever its extension', () => {

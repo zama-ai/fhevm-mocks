@@ -15,12 +15,12 @@
   "source": "common-vendored/src",
   "destinations": [
     {
-      "to": ["host-contracts-cleartext/v14/pkg/ts/types", "host-contracts-cleartext/v13/pkg/ts/types"],
+      "to": ["host-contracts-cleartext/v13/pkg/ts/types", "host-contracts-cleartext/v12/pkg/ts/types"],
       "note": "The adapter interfaces. Both live generations get the same copy, and public.ts re-exports it instead of declaring the types.",
       "files": ["ethereumLibTypes.ts"]
     },
     {
-      "to": ["host-contracts-cleartext/v14/pkg/ts", "host-contracts-cleartext/v13/pkg/ts"],
+      "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"],
       "note": "The TypeScript form of sdk/cleartext-config.json, compiled into the published package. Both live generations get the same copy.",
       "files": ["cleartext-config.ts"]
     },

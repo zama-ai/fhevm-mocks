@@ -58,7 +58,7 @@
   ],
 
   "appliesTo": {
-    "generations": ["v13", "v14"],
+    "generations": ["v12", "v13"],
     "_note": [
       "The two generations use this set IDENTICALLY — both receive the same generated",
       "`cleartext-config.ts`, synced from `common-vendored/src` — which is why there is no per-generation",

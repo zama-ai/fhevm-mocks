@@ -8,6 +8,7 @@ import {
   validateGenerationDependencies,
   validateGenerationMemberFlags,
   validateGenerationMirrorPatch,
+  validateGenerationUpgradeSuite,
   validateGenerationVendoredDestinations,
 } from '../base/checks/generations.ts';
 import type { LoadedPackage } from '../base/npm.ts';
@@ -270,6 +271,56 @@ test('is a no-op without a generations block', () => {
     plugin({ '@fhevm/host-contracts-cleartext': `file:../../../../${FAMILY}/v12/pkg` }),
   ];
   assert.deepEqual(validateGenerationDependencies(manifest(null), packages), []);
+});
+
+test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
+  const withSuite = (gen: string, script?: string): LoadedPackage =>
+    loadedPackage(`./${FAMILY}/${gen}`, dev(gen), {
+      name: `@fhevm/host-contracts-cleartext-${gen}-dev`,
+      private: true,
+      version: '0.0.0',
+      scripts: { test: 'npm run test:forge', ...(script === undefined ? {} : { 'test:upgrade': script }) },
+    });
+
+  // The intended arrangement: V(N) owns the suite that needs a live V(N-1).
+  assert.deepEqual(
+    validateGenerationUpgradeSuite(manifest(), [
+      root,
+      withSuite('v12'),
+      withSuite('v13', 'node internal/cli/runUpgradeE2e.ts'),
+    ]),
+    [],
+  );
+
+  // V(N) without it: the migration consumers will run is the one thing untested.
+  const missing = validateGenerationUpgradeSuite(manifest(), [root, withSuite('v12'), withSuite('v13')]);
+  assert.deepEqual(
+    missing.map((violation) => [violation.rule, violation.packageKey]),
+    [['3.4.5', CURRENT]],
+  );
+  assert.match(missing[0]?.message ?? '', /must define a non-empty 'test:upgrade' script/);
+
+  // Left behind on V(N-1) after a rotation: nothing invokes it, so nothing fails.
+  const leftover = validateGenerationUpgradeSuite(manifest(), [
+    root,
+    withSuite('v12', 'node internal/cli/runUpgradeE2e.ts'),
+    withSuite('v13', 'node internal/cli/runUpgradeE2e.ts'),
+  ]);
+  assert.deepEqual(
+    leftover.map((violation) => [violation.rule, violation.packageKey]),
+    [['3.4.5', PREVIOUS]],
+  );
+  assert.match(leftover[0]?.message ?? '', /must not define 'test:upgrade'/);
+
+  // An empty command is not a suite.
+  assert.equal(validateGenerationUpgradeSuite(manifest(), [root, withSuite('v12'), withSuite('v13', '  ')]).length, 1);
+
+  // No V(N-1) to upgrade from, and no generations at all: nothing to require.
+  assert.deepEqual(
+    validateGenerationUpgradeSuite(manifest({ [FAMILY]: { current: CURRENT } }), [root, withSuite('v13')]),
+    [],
+  );
+  assert.deepEqual(validateGenerationUpgradeSuite(manifest(null), [root, withSuite('v13')]), []);
 });
 
 test('accepts vendored destinations under V(N) and V(N-1), rejects one under a retired generation', () => {

@@ -1,10 +1,25 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { cleartextPayloadSpec, patchHardhatTemplateV2Manifest } from '../base/mirrors/hardhat-template-v2.ts';
+import { VERSIONS_SCHEMA_REFERENCE } from '../base/versions.ts';
 import { parseTestNpmManifest } from './helpers.ts';
 
 const FAMILY = 'host-contracts-cleartext';
+const TEMPLATE_KEY = './hardhat/v2/fhevm-hardhat-template/pkg';
+
+/** A workspace root holding only what the patch reads from disk: the template's version. */
+function workspace(version = '0.13.0'): string {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-mirror-patch-'));
+  writeFileSync(
+    join(root, 'versions.json'),
+    `${JSON.stringify({ $schema: VERSIONS_SCHEMA_REFERENCE, schemaVersion: 1, packages: { [TEMPLATE_KEY]: version } }, null, 2)}\n`,
+  );
+  return root;
+}
 
 // Only what the patch reads: the pinned specs it injects, and the generation pair it links against.
 function npmManifest(current = 'v13') {
@@ -35,6 +50,7 @@ function npmManifest(current = 'v13') {
 }
 
 test('applies the complete Hardhat v2 workspace mirror transformation', () => {
+  const root = workspace();
   const patched = patchHardhatTemplateV2Manifest(
     {
       name: 'fhevm-hardhat-template',
@@ -50,6 +66,7 @@ test('applies the complete Hardhat v2 workspace mirror transformation', () => {
       },
       scripts: { test: 'hardhat test' },
     },
+    root,
     npmManifest(),
   );
 
@@ -66,6 +83,30 @@ test('applies the complete Hardhat v2 workspace mirror transformation', () => {
   const dev = patched.devDependencies as Record<string, string>;
   assert.equal(dev['@fhevm/sdk'], '^0.13.4');
   assert.equal(dev['@fhevm/host-contracts-cleartext'], 'file:../../../../host-contracts-cleartext/v13/pkg');
+  // The version is versions.json's, not the upstream 0.4.1 and not a copy kept in the patch.
+  assert.equal(patched.version, '0.13.0');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('takes the rendered version from versions.json, and refuses a payload it does not version', () => {
+  const root = workspace('9.9.9');
+  try {
+    const patched = patchHardhatTemplateV2Manifest({ version: '0.0.1' }, root, npmManifest());
+    assert.equal(patched.version, '9.9.9');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+
+  const bare = mkdtempSync(join(tmpdir(), 'fhevm-npm-mirror-patch-'));
+  try {
+    writeFileSync(
+      join(bare, 'versions.json'),
+      `${JSON.stringify({ $schema: VERSIONS_SCHEMA_REFERENCE, schemaVersion: 1, packages: {} }, null, 2)}\n`,
+    );
+    assert.throws(() => patchHardhatTemplateV2Manifest({}, bare, npmManifest()), /does not version/);
+  } finally {
+    rmSync(bare, { recursive: true, force: true });
+  }
 });
 
 test('follows the generation pair instead of a spec written down here', () => {

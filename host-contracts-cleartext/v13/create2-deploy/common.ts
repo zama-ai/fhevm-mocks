@@ -1,4 +1,4 @@
-// Shared machinery for the two CREATE2 coordinators, `deploy-testnet.ts` and `upgrade-testnet.ts`.
+// Shared machinery for the two CREATE2 coordinators, `deploy-testnet.ts` and `upgrade/testnet.ts`.
 //
 // The split is by WHAT VARIES, not by size. Both flows want the same everything-except-the-stages:
 // argument parsing, the config file, the out-dir identity check, the chain and factory preflight, signer

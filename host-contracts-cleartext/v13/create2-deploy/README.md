@@ -32,8 +32,8 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 | File | Plan section | What it is |
 | --- | --- | --- |
 | [deploy-testnet.ts](deploy-testnet.ts) | §1, §3, §11 | fresh-stack coordinator: preflight gates, 3 builds, one forge invocation per stage |
-| [upgrade-testnet.ts](upgrade-testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v12 stack without moving ownership or pausers |
-| [UPGRADE_RUNBOOK.md](UPGRADE_RUNBOOK.md) | — | the upgrade as terminal commands, in order, with what "good" looks like at each step |
+| [upgrade/testnet.ts](upgrade/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v12 stack without moving ownership or pausers |
+| [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) | — | the upgrade as terminal commands, in order, with what "good" looks like at each step |
 | [utils.ts](utils.ts) | — | dependency-free helpers: process running, JSONL, path containment |
 | `deploy.config.json` | — | optional, auto-discovered: the stable arguments, so they aren't retyped |
 | [anvil-config.json](anvil-config.json) | — | ready-made config for the local rehearsal — see GUIDE |
@@ -49,13 +49,13 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 | [script/FhevmAcceptOwnershipAsAdmin.s.sol](script/FhevmAcceptOwnershipAsAdmin.s.sol) | §7 | step F — the admin accepts. The only script **not** sent by the deployer |
 | [script/FhevmStatus.s.sol](script/FhevmStatus.s.sol) | — | what's done, what's left, and why. Read-only, never reverts |
 | [script/FhevmVerify.s.sol](script/FhevmVerify.s.sol) | §7, §11 R1 | the terminal conditions; reverts non-zero if any is unmet |
-| [script/FhevmUpgradeBase.s.sol](script/FhevmUpgradeBase.s.sol) | upgrade plan §5–§6 | the upgrade's 10-create and 7-op role/artifact tables |
-| [script/FhevmComputeUpgradeAddresses.s.sol](script/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | two-pass computation over the live v12 addresses and two new proxies |
-| [script/FhevmUpgradeCreates.s.sol](script/FhevmUpgradeCreates.s.sol) | upgrade plan §5 | the ten resumable factory CREATE2 calls |
-| [script/FhevmUpgradeChecks.s.sol](script/FhevmUpgradeChecks.s.sol) | — | the upgrade's non-reverting checks, shared by the gate before materialize and the verify after |
-| [script/FhevmPreMaterializeCheck.s.sol](script/FhevmPreMaterializeCheck.s.sol) | — | the gate before the point of no return: build, bytecode, implementation identity, pre-state, migration freshness. Read-only |
-| [script/FhevmMaterializeUpgrade.s.sol](script/FhevmMaterializeUpgrade.s.sol) | upgrade plan §6 | one admin-authorized atomic `ACLOwner.upgrade`, re-asserting the gate's load-bearing subset as `require`s |
-| [script/FhevmVerifyUpgrade.s.sol](script/FhevmVerifyUpgrade.s.sol) | upgrade plan §7 | version, wiring, migration and authority terminal conditions, from a fresh recompile |
+| [script/upgrade/FhevmUpgradeBase.s.sol](script/upgrade/FhevmUpgradeBase.s.sol) | upgrade plan §5–§6 | the upgrade's 10-create and 7-op role/artifact tables |
+| [script/upgrade/FhevmComputeUpgradeAddresses.s.sol](script/upgrade/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | two-pass computation over the live v12 addresses and two new proxies |
+| [script/upgrade/FhevmUpgradeCreates.s.sol](script/upgrade/FhevmUpgradeCreates.s.sol) | upgrade plan §5 | the ten resumable factory CREATE2 calls |
+| [script/upgrade/FhevmUpgradeChecks.s.sol](script/upgrade/FhevmUpgradeChecks.s.sol) | — | the upgrade's non-reverting checks, shared by the gate before materialize and the verify after |
+| [script/upgrade/FhevmPreMaterializeCheck.s.sol](script/upgrade/FhevmPreMaterializeCheck.s.sol) | — | the gate before the point of no return: build, bytecode, implementation identity, pre-state, migration freshness. Read-only |
+| [script/upgrade/FhevmMaterializeUpgrade.s.sol](script/upgrade/FhevmMaterializeUpgrade.s.sol) | upgrade plan §6 | one admin-authorized atomic `ACLOwner.upgrade`, re-asserting the gate's load-bearing subset as `require`s |
+| [script/upgrade/FhevmVerifyUpgrade.s.sol](script/upgrade/FhevmVerifyUpgrade.s.sol) | upgrade plan §7 | version, wiring, migration and authority terminal conditions, from a fresh recompile |
 | [script/Interfaces.sol](script/Interfaces.sol) | — | minimal local views so the draft needs only `forge-std` |
 | [script/MaterializeInitData.sol](script/MaterializeInitData.sol) | §10 | step D's initializer payloads, from `LocalHostBootstrap` |
 
@@ -97,7 +97,7 @@ that previous head to **finalize**; for a single manual stage, pass `--min-block
 
 ### Upgrading a v12 stack
 
-`upgrade-testnet.ts` has a separate four-stage flow because it preserves the live ACL, executor,
+`upgrade/testnet.ts` has a separate four-stage flow because it preserves the live ACL, executor,
 verifiers, HCU limit, cleartext contracts, `PauserSet`, and `ACLOwner`:
 
 ```text
@@ -183,7 +183,8 @@ What is **not** proven, and would have to be added to prove it:
 - **The rehearsal is a fork, not the chain.** anvil replays state faithfully, but block timestamps, gas
   accounting and the mempool are its own. A payload that passes on the fork can still fail live for
   reasons of gas or ordering, which is what `materialize`'s own `require`s and the post-hoc `verify` are for.
-  Verified on anvil forking anvil (`npm run test:create2-e2e`); not yet on an anvil forking a public testnet.
+  Verified on anvil forking anvil (`npm run test:create2-deploy-e2e`, `npm run test:upgrade`); not yet on an anvil
+  forking a public testnet.
 
 ## Checking a stage before running it
 

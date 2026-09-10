@@ -2,17 +2,34 @@ import { posix } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import { generationFamilies } from '../checks/generations.ts';
+import { loadVersions } from '../versions.ts';
 
 export const hardhatTemplateV2PackageKey = './hardhat/v2/fhevm-hardhat-template/pkg';
 
 /** The published payload this template links against. Its generation is never spelled out here. */
 const CLEARTEXT_PAYLOAD_NAME = '@fhevm/host-contracts-cleartext';
 
-const identity: Readonly<Record<string, string>> = {
-  name: 'fhevm-hardhat-template-v2',
-  version: '0.4.2',
-  description: 'Hardhat v2 based template for developing FHEVM Solidity smart contracts',
-};
+/**
+ * The rendered manifest's own identity. `version` is read from versions.json, which owns every published
+ * payload's version — written down here it went stale exactly as the specs below did, saying 0.4.2 while
+ * versions.json and the committed mirror both said 0.13.0. Field order matches the upstream template's,
+ * so a field this patch has to ADD lands where it did before.
+ */
+function identityFields(workspaceRoot: string): Readonly<Record<string, string>> {
+  return {
+    name: 'fhevm-hardhat-template-v2',
+    version: templateVersion(workspaceRoot),
+    description: 'Hardhat v2 based template for developing FHEVM Solidity smart contracts',
+  };
+}
+
+function templateVersion(workspaceRoot: string): string {
+  const version = loadVersions(workspaceRoot).packages[hardhatTemplateV2PackageKey];
+  if (version === undefined) {
+    throw new Error(`versions.json does not version '${hardhatTemplateV2PackageKey}', which the mirror renders`);
+  }
+  return version;
+}
 
 const removedDependencies = ['@fhevm/mock-utils', '@zama-fhe/relayer-sdk'] as const;
 
@@ -65,11 +82,12 @@ export type JsonObject = Record<string, unknown>;
 
 export function patchHardhatTemplateV2Manifest(
   source: JsonObject,
+  workspaceRoot: string,
   npmManifest: NpmManifest,
   log: (message: string) => void = () => undefined,
 ): JsonObject {
   const manifest = structuredClone(source);
-  for (const [field, value] of Object.entries(identity)) {
+  for (const [field, value] of Object.entries(identityFields(workspaceRoot))) {
     log(`~ ${field.padEnd(33)} ${JSON.stringify(manifest[field])} → ${JSON.stringify(value)}`);
     manifest[field] = value;
   }

@@ -114,7 +114,7 @@ run-fhevm-npm = $(FHEVM_NPM_CLI) $(FHEVM_NPM_ARGS) $(1)
 # Aggregates
 ########################################################################################################
 
-.PHONY: help graph build compile rebuild ci build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci
+.PHONY: help graph build compile rebuild ci build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -203,6 +203,14 @@ install: ## Install every installation root (sdk, fhevm-npm, each hardhat cluste
 	npm --prefix $(DIR_HH_V2) install
 	npm --prefix $(DIR_HH_V3) install
 	$(call run-fhevm-npm,install-forge-dependencies)
+
+# The CLI alone, for a tree where nothing else is installed yet — a fresh clone, or a copy taken out of
+# this repository. fhevm-npm depends on no workspace package (only ajv, commander, prettier, typescript
+# and zod), so its root installs and runs on its own: every `check` works with the sdk root, the hardhat
+# clusters and the forge trees all still empty. That autonomy is the same property `distclean` relies on
+# when it keeps this one tree and deletes the rest.
+install-npm-cli: ## Install ONLY fhevm-npm's own root, so the CLI runs with nothing else installed
+	npm --prefix $(DIR_FHEVM_NPM) install
 
 install-fast: ## Install every installation root (sdk, fhevm-npm, each hardhat cluster) and forge dependencies
 	npm install --no-audit --no-fund
@@ -606,14 +614,23 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 # silently rebuilds hides what it costs. `make ci` is the one-liner that orders the whole thing.
 ########################################################################################################
 
-.PHONY: test-cleartext-v-prev test-cleartext-v-cur test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
+.PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-upgrade test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
 .PHONY: test-hh-v2-e2e test-hh-v2-e2e-anvil test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
 
+# `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
+# and only V(N) has a V(N-1) to prove it against. Which generation that is comes from the manifest, so the
+# verb is asked of V(N) and never of V(N-1) — a rotation retires the older generation's upgrade suite by
+# moving the pair, with nothing to remember inside the package. Deleting the suite it can no longer run is
+# then unhurried cleanup rather than a step the rotation is blocked on.
 test-cleartext-v-prev: compile-cleartext-v-prev ## Previous cleartext generation, V(N-1): unit + forge + harness tests (self-provides ./out)
 	$(call run,$(W_CLEARTEXT_V_PREV),test)
 
-test-cleartext-v-cur: compile-cleartext-v-cur ## Current cleartext generation, V(N): unit + forge + harness tests (self-provides ./out)
+test-cleartext-v-cur: compile-cleartext-v-cur ## Current cleartext generation, V(N): the above, then the upgrade from V(N-1)
 	$(call run,$(W_CLEARTEXT_V_CUR),test)
+	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
+
+test-cleartext-upgrade: compile-cleartext-v-cur ## V(N) only: the upgrade from V(N-1), on its own
+	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
 
 test-hh-v2-plugin: compile-hh-v2-plugin ## Hardhat v2 plugin tests
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),test)

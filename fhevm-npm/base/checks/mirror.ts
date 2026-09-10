@@ -70,7 +70,7 @@ function compareHardhatTemplate(
         string,
         unknown
       >;
-      const expected = `${JSON.stringify(patchHardhatTemplateV2Manifest(upstreamManifest, manifest), null, 2)}\n`;
+      const expected = `${JSON.stringify(patchHardhatTemplateV2Manifest(upstreamManifest, workspaceRoot, manifest), null, 2)}\n`;
       if (readFileSync(join(localDirectory, path), 'utf8') !== expected) {
         violations.push({
           rule: '5.1.3',
