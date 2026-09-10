@@ -18,6 +18,7 @@ import { checkPackageJson } from './commands/check-package-json.ts';
 import { checkPinnedDependencies } from './commands/check-pinned-dependencies.ts';
 import { checkCleartextConfig } from './commands/check-cleartext-config.ts';
 import { checkCommitScope } from './commands/check-commit-scope.ts';
+import { checkExtraneous } from './commands/check-extraneous.ts';
 import { checkGenerationParity } from './commands/check-generation-parity.ts';
 import { checkScripts } from './commands/check-scripts.ts';
 import { checkTscMode } from './commands/check-tsc-mode.ts';
@@ -67,6 +68,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   'cleartext-config': checkCleartextConfig,
   generations: checkGenerations,
   'generation-parity': checkGenerationParity,
+  extraneous: checkExtraneous,
 };
 
 async function main(): Promise<void> {
