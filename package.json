@@ -8,9 +8,9 @@
   "workspaces": [
     "common",
     "common-vendored",
-    "host-contracts-cleartext/v12",
     "host-contracts-cleartext/v13",
-    "host-contracts-cleartext/v13/pkg"
+    "host-contracts-cleartext/v14",
+    "host-contracts-cleartext/v14/pkg"
   ],
   "scripts": {
     "build": "make build",
