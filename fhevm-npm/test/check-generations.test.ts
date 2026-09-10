@@ -131,7 +131,58 @@ test('rejects a consumer pinned to V(N-1) by file path', () => {
   assert.equal(violations[0]?.rule, '3.4.1');
   assert.equal(violations[0]?.packageKey, './hardhat/v3/plugin/pkg');
   assert.match(violations[0]?.message ?? '', /targets \.\/host-contracts-cleartext\/v12\/pkg, V\(N-1\)/);
-  assert.match(violations[0]?.message ?? '', /only V\(N\) '\.\/host-contracts-cleartext\/v13'/);
+  assert.match(violations[0]?.message ?? '', /only the V\(N\) dev package '\.\/host-contracts-cleartext\/v13' itself/);
+});
+
+test('narrows the V(N)-on-V(N-1) exception to the dev package, the dev target, and devDependencies', () => {
+  const base = [root, devPackage('v12'), payload('v12', '0.12.0', false), payload('v13', '0.13.0', true)];
+  const currentDev = (packageJson: Record<string, unknown>): LoadedPackage =>
+    loadedPackage(CURRENT, dev('v13'), {
+      name: '@fhevm/host-contracts-cleartext-v13-dev',
+      private: true,
+      version: '0.0.0',
+      ...packageJson,
+    });
+
+  // A runtime field would put V(N-1) on a shipping path.
+  const runtime = validateGenerationDependencies(manifest(), [
+    ...base,
+    currentDev({ dependencies: { '@fhevm/host-contracts-cleartext-v12-dev': '0.0.0' } }),
+  ]);
+  assert.equal(runtime.length, 1);
+  assert.equal(runtime[0]?.packageKey, CURRENT);
+  assert.match(runtime[0]?.message ?? '', /from 'dependencies'; V\(N-1\) exists only to be tested against/);
+
+  // V(N-1)'s payload is not the dev package, even reached from V(N) itself.
+  const onPayload = validateGenerationDependencies(manifest(), [
+    ...base,
+    currentDev({ devDependencies: { '@fhevm/host-contracts-cleartext': `file:../v12/pkg` } }),
+  ]);
+  assert.equal(onPayload.length, 1);
+  assert.match(
+    onPayload[0]?.message ?? '',
+    /dev package '\.\/host-contracts-cleartext\/v12' only, not on a package below it/,
+  );
+
+  // A package BELOW V(N) is not V(N) itself.
+  const fromPayload = validateGenerationDependencies(manifest(), [
+    root,
+    devPackage('v12'),
+    payload('v12', '0.12.0', false),
+    devPackage('v13'),
+    loadedPackage(
+      `${CURRENT}/pkg`,
+      { kind: 'published', name: '@fhevm/host-contracts-cleartext', member: true },
+      {
+        name: '@fhevm/host-contracts-cleartext',
+        version: '0.13.0',
+        devDependencies: { '@fhevm/host-contracts-cleartext-v12-dev': '0.0.0' },
+      },
+    ),
+  ]);
+  assert.equal(fromPayload.length, 1);
+  assert.equal(fromPayload[0]?.packageKey, `${CURRENT}/pkg`);
+  assert.match(fromPayload[0]?.message ?? '', /only the V\(N\) dev package .* itself may depend on V\(N-1\)/);
 });
 
 test('rejects a consumer depending on the V(N-1) dev package by name, and V(N-1) is not exempt toward a retired one', () => {

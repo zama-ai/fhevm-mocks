@@ -50,10 +50,11 @@ export function liveGenerationNames(family: GenerationFamily): readonly string[]
 }
 
 /**
- * Rule 3.4.1: a dependency on a package of a generation family targets V(N), with one exception — a
- * package of V(N) may depend on V(N-1), because V(N-1) exists only so V(N)'s upgrade path from it can be
- * built and tested. Every other edge into the family (from a consumer to V(N-1), from anywhere to a
- * retired generation) is a violation. A generation may always depend on itself.
+ * Rule 3.4.1: a dependency on a package of a generation family targets V(N), with exactly one exception —
+ * the V(N) dev package's own `devDependencies` entry on the V(N-1) DEV package, which is what V(N)'s
+ * upgrade tests build against. That is the whole exception: not a package below V(N), not a runtime
+ * field, not a link to V(N-1)'s payload. Every other edge into the family (from a consumer to V(N-1),
+ * from anywhere to a retired generation) is a violation. A generation may always depend on itself.
  *
  * A `file:` spec is resolved by directory. A version spec is resolved by name; when the name is shared
  * across generations (the published payload has one name in every generation) the spec must be the exact
@@ -199,25 +200,56 @@ function checkEdge(
   prefix: string,
   violations: Violation[],
 ): void {
-  const sourceGeneration = generationOf(family, source.key);
   const targetGeneration = generationOf(family, target.key);
-  if (targetGeneration === undefined || targetGeneration === 'current') return;
-  if (targetGeneration === 'previous' && (sourceGeneration === 'current' || sourceGeneration === 'previous')) return;
-  if (targetGeneration === 'other' && sourceGeneration === 'other' && sameGenerationDirectory(family, source, target)) {
-    return;
-  }
+  if (targetGeneration === undefined) return;
+  // A generation may always depend on itself, live or retired.
+  if (generationOf(family, source.key) !== undefined && sameGenerationDirectory(family, source, target)) return;
+  if (targetGeneration === 'current') return;
 
-  const role =
+  const reason =
     targetGeneration === 'previous'
-      ? `V(N-1) '${family.previous ?? ''}'`
-      : 'a generation that is neither V(N) nor V(N-1)';
+      ? upgradeTestEdgeViolation(source, declaration, target, family)
+      : `${target.key} is a generation of ${family.family} that is neither V(N) nor V(N-1); ` +
+        `only V(N) '${family.current}' may be depended on from outside its own generation`;
+  if (reason === undefined) return;
   violations.push({
     rule: '3.4.1',
     packageKey: source.key,
-    message:
-      `${prefix}package '${declaration.name}' in '${declaration.field}' targets ${target.key}, ${role} of ${family.family}; ` +
-      `only V(N) '${family.current}' may be depended on from outside V(N)`,
+    message: `${prefix}package '${declaration.name}' in '${declaration.field}' ${reason}`,
   });
+}
+
+/**
+ * The single edge that may cross from V(N) into V(N-1): the V(N) dev package's own `devDependencies`
+ * entry on the V(N-1) DEV package, which is what its upgrade tests build against. Anything else — a
+ * package below V(N) rather than V(N) itself, a runtime field, or a link to V(N-1)'s payload instead of
+ * its dev root — would put V(N-1) on a shipping path, and V(N-1) exists only to be tested against.
+ * Returns undefined when the edge is that one, or the reason it is not.
+ */
+function upgradeTestEdgeViolation(
+  source: LoadedPackage,
+  declaration: DependencyDeclaration,
+  target: LoadedPackage,
+  family: GenerationFamily,
+): string | undefined {
+  const previous = family.previous ?? '';
+  const intro = `targets ${target.key}, V(N-1) '${previous}' of ${family.family}`;
+  if (source.key !== family.current) {
+    return (
+      `${intro}; only the V(N) dev package '${family.current}' itself may depend on V(N-1), ` +
+      `and only for its upgrade tests`
+    );
+  }
+  if (target.key !== family.previous) {
+    return `${intro}; V(N) may depend on the V(N-1) dev package '${previous}' only, not on a package below it`;
+  }
+  if (declaration.field !== 'devDependencies') {
+    return (
+      `${intro} from '${declaration.field}'; V(N-1) exists only to be tested against, ` +
+      `so V(N) may depend on it from 'devDependencies' only`
+    );
+  }
+  return undefined;
 }
 
 function resolveTarget(
