@@ -91,7 +91,7 @@ test('a member consumer needs no own lockfile; an isolated consumer still does',
   );
   assert.deepEqual(
     arrayMissing.map((violation) => violation.packageKey),
-    ['./plugin/test-consumer/cjs'],
+    ['./plugin/test-consumer/cjs/package.json'],
   );
 });
 

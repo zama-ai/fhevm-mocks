@@ -53,12 +53,12 @@ test('rule 3.3.3 rejects forbidden dependencies except on the exact package decl
   assert.deepEqual(validateForbiddenDependencies(manifest, [allowed, forbidden, stale]), [
     {
       rule: '3.3.3',
-      packageKey: './forbidden',
+      packageKey: './forbidden/package.json',
       message: "package 'solhint' in 'peerDependencies' is forbidden by npm-manifest.json#dependencies.forbidden",
     },
     {
       rule: '3.3.3',
-      packageKey: './stale',
+      packageKey: './stale/package.json',
       message: "dependency exception 'solhint' is unused; remove it from this package's manifest entry",
     },
   ]);
@@ -95,12 +95,12 @@ test("rule 4.2.4 requires kind 'dev' to use only devDependencies", () => {
   assert.deepEqual(validateDevDependencyPlacement([invalid]), [
     {
       rule: '4.2.4',
-      packageKey: './invalid',
+      packageKey: './invalid/package.json',
       message: "kind 'dev' must declare 'ethers' in 'devDependencies', not 'dependencies'",
     },
     {
       rule: '4.2.4',
-      packageKey: './invalid',
+      packageKey: './invalid/package.json',
       message: "kind 'dev' must declare 'hardhat' in 'devDependencies', not 'peerDependencies'",
     },
   ]);
@@ -125,12 +125,12 @@ test('dependency sections must be alphabetically ordered', () => {
   assert.deepEqual(validateDependencyOrder([unordered]), [
     {
       rule: 'dependencies-order',
-      packageKey: './unordered',
+      packageKey: './unordered/package.json',
       message: "'dependencies' entries must be alphabetically ordered",
     },
     {
       rule: 'dependencies-order',
-      packageKey: './unordered',
+      packageKey: './unordered/package.json',
       message: "'devDependencies' entries must be alphabetically ordered",
     },
   ]);
@@ -262,7 +262,7 @@ test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', ()
   assert.deepEqual(validateWorkspaceMemberSpecs([root, consumer]), [
     {
       rule: '3.1.2',
-      packageKey: './template/pkg',
+      packageKey: './template/pkg/package.json',
       message:
         "package '@scope/plugin' in 'devDependencies' uses forbidden tarball spec \"file:../../tarballs/plugin.tgz\"",
     },
@@ -299,7 +299,7 @@ test('rule 4.2.1 requires imported root pins exactly and rejects unused declarat
     "package 'ethers' must move from 'devDependencies' to 'dependencies' for kind 'shared-helper'",
   );
   assert.equal(
-    violations.find((violation) => violation.packageKey === './missing')?.message,
+    violations.find((violation) => violation.packageKey === './missing/package.json')?.message,
     `imports root-pinned package 'ethers' but does not declare it; add "ethers": "6.17.0" to 'dependencies' as required for kind 'shared-helper'`,
   );
 });
@@ -371,12 +371,12 @@ test("rule 4.3.1 requires published dependency range floors to equal the workspa
   assert.deepEqual(validatePublishedRootPinFloors([pinnedRoot, valid, invalid, privatePackage]), [
     {
       rule: '4.3.1',
-      packageKey: './invalid/pkg',
+      packageKey: './invalid/pkg/package.json',
       message: `'ethers' in 'dependencies' has unsupported range ">=6.17.0 <7"; use an exact, caret, or tilde range whose floor equals root pin "6.17.0"`,
     },
     {
       rule: '4.3.1',
-      packageKey: './invalid/pkg',
+      packageKey: './invalid/pkg/package.json',
       message: `'viem' in 'peerDependencies' has range "^2.54.0" with floor "2.54.0"; its floor must equal root pin "2.55.19"`,
     },
   ]);
@@ -436,13 +436,13 @@ test('rule 3.3.1 requires npm-script tools in devDependencies', () => {
   assert.deepEqual(validateScriptDependencyDeclarations([toolRoot, consumer], scriptUses), [
     {
       rule: '3.3.1',
-      packageKey: './e2e',
+      packageKey: './e2e/package.json',
       message:
         "npm scripts invoke 'prettier' from package 'prettier'; move it from 'dependencies' to 'devDependencies'",
     },
     {
       rule: '3.3.1',
-      packageKey: './e2e',
+      packageKey: './e2e/package.json',
       message:
         "npm scripts invoke 'tsc' from root dependency 'typescript' but do not declare it; add \"typescript\": \"^6.0.2\" to 'devDependencies'",
     },
@@ -479,7 +479,7 @@ test('rule 4.2.2 keeps a dependency that differs by dependency group out of the 
   assert.deepEqual(violations, [
     {
       rule: '4.2.2',
-      packageKey: '.',
+      packageKey: './package.json',
       message:
         "'hardhat' has master declaration \"2.28.6\" in sdk/package.json field 'devDependencies', but member packages across dependency groups use different ranges (./family/v1=^2.0.0, ./family/v2=^3.0.0); remove it from sdk/package.json, or align the member ranges if the difference is unintended",
     },

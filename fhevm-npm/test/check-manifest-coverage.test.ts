@@ -56,13 +56,13 @@ test('reports both missing and stale inventory entries', () => {
   assert.deepEqual(validateInventorySets(manifest, ['.', './missing']), [
     {
       rule: '7.1.3',
-      packageKey: './missing',
+      packageKey: './missing/package.json',
       message: 'source package.json is missing from npm-manifest.json',
     },
     {
       rule: '7.1.3',
-      packageKey: './stale',
-      message: 'manifest entry has no discoverable source package.json',
+      packageKey: './npm-manifest.json',
+      message: "entry './stale' has no discoverable source package.json",
     },
   ]);
 });

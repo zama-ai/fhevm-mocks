@@ -40,7 +40,7 @@ test('a package.json version must equal the central one; payloads the file lacks
   assert.deepEqual(validatePackageVersions([library('1.2.4'), plugin], central), [
     {
       rule: 'version-package',
-      packageKey: './library/pkg',
+      packageKey: './library/pkg/package.json',
       message: 'package.json has 1.2.4; central version is 1.2.3 — run `version apply`',
     },
   ]);
@@ -64,9 +64,8 @@ test('every lockfile entry resolving to a payload directory must record the cent
   assert.deepEqual(validateLockfileMemberVersions([library('1.2.3'), plugin], central, locks), [
     {
       rule: 'version-lockfile',
-      packageKey: './library/pkg',
-      message:
-        "./cluster/package-lock.json records 1.2.2 for '../library/pkg'; central version is 1.2.3 — run `version apply`",
+      packageKey: './cluster/package-lock.json',
+      message: "records 1.2.2 for '../library/pkg'; central version is 1.2.3 — run `version apply`",
     },
   ]);
 });

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { registeredConsumers } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import { lockfilePath, packageJsonPath } from './package-names.ts';
 import type { LoadedPackage } from '../npm.ts';
 
 export function validateLockfiles(
@@ -26,7 +27,7 @@ export function validateLockfiles(
     if (required && !exists) {
       violations.push({
         rule: '6.1.1',
-        packageKey: pkg.key,
+        packageKey: packageJsonPath(pkg.key),
         message: configuredConsumer
           ? 'manifest-selected consumer must have its own package-lock.json for isolated npm ci'
           : `kind '${pkg.inventory.kind}' must have its own package-lock.json`,
@@ -34,8 +35,8 @@ export function validateLockfiles(
     } else if (!required && exists) {
       violations.push({
         rule: '6.1.1',
-        packageKey: pkg.key,
-        message: `kind '${pkg.inventory.kind}' must use the workspace root lockfile, not '${lockfile}'`,
+        packageKey: lockfilePath(pkg.key),
+        message: `kind '${pkg.inventory.kind}' must use the workspace root lockfile; delete this one`,
       });
     }
   }

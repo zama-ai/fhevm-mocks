@@ -1,4 +1,5 @@
 import type { Violation } from '../diagnostics.ts';
+import { packageJsonPath } from './package-names.ts';
 import type { LoadedPackage } from '../npm.ts';
 
 export function validateOwnership(packages: readonly LoadedPackage[]): readonly Violation[] {
@@ -12,7 +13,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     if (targetKey === undefined) {
       violations.push({
         rule: '5.3.2',
-        packageKey: owner.key,
+        packageKey: packageJsonPath(owner.key),
         message: `dev owner has no 'publishedRelPath'`,
       });
       continue;
@@ -22,7 +23,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     if (targetKey !== expectedTargetKey) {
       violations.push({
         rule: '2.1.2',
-        packageKey: owner.key,
+        packageKey: packageJsonPath(owner.key),
         message: `'publishedRelPath' is '${targetKey}'; a dev owner's payload must be '${expectedTargetKey}'`,
       });
     }
@@ -31,7 +32,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     if (target === undefined) {
       violations.push({
         rule: '5.3.2',
-        packageKey: owner.key,
+        packageKey: packageJsonPath(owner.key),
         message: `'publishedRelPath' target '${targetKey}' is absent from the manifest`,
       });
       continue;
@@ -39,7 +40,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     if (target.inventory.kind !== 'published') {
       violations.push({
         rule: '5.3.2',
-        packageKey: owner.key,
+        packageKey: packageJsonPath(owner.key),
         message: `'publishedRelPath' target '${targetKey}' has kind '${target.inventory.kind}', not 'published'`,
       });
       continue;
@@ -55,7 +56,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     if (owners.length === 1) continue;
     violations.push({
       rule: '5.3.2',
-      packageKey: published.key,
+      packageKey: packageJsonPath(published.key),
       message:
         owners.length === 0
           ? `published package has no dev owner`

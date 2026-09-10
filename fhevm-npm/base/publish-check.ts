@@ -11,6 +11,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import { packageJsonPath } from './checks/package-names.ts';
 import type { Violation } from './diagnostics.ts';
 import { type LoadedPackage, type PackageJson, dependencyDeclarations, loadPackages } from './npm.ts';
 import { tarballsOutDir } from './pack-tarball.ts';
@@ -227,5 +228,5 @@ async function withRetry(registry: RegistryOptions, probe: () => Promise<boolean
 }
 
 function violation(pkg: LoadedPackage, message: string): Violation {
-  return { rule: RULE, packageKey: pkg.key, message };
+  return { rule: RULE, packageKey: packageJsonPath(pkg.key), message };
 }

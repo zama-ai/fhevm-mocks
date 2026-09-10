@@ -50,8 +50,8 @@ test('coverage is checked both ways: a payload without an entry, an entry withou
   assert.deepEqual(missing, [
     {
       rule: 'version-coverage',
-      packageKey: './plugin/pkg',
-      message: `published payload is missing from ${VERSIONS_FILE}`,
+      packageKey: `./${VERSIONS_FILE}`,
+      message: `'./plugin/pkg' is a published payload with no entry here`,
     },
   ]);
   const extra = validateVersionGraph(
@@ -60,7 +60,7 @@ test('coverage is checked both ways: a payload without an entry, an entry withou
   );
   assert.deepEqual(
     extra.map((violation) => [violation.rule, violation.packageKey]),
-    [['version-coverage', './library']],
+    [['version-coverage', `./${VERSIONS_FILE}`]],
   );
 });
 

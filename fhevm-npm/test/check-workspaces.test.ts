@@ -99,11 +99,11 @@ test("flags a cluster root's missing member, and a '.'-rooted member living insi
     clusterMember,
   ]);
   assert.ok(
-    violations.some((v) => v.rule === '2.1.1' && v.packageKey === './hardhat/v2/plugin/pkg'),
+    violations.some((v) => v.rule === '2.1.1' && v.packageKey === './hardhat/v2/plugin/pkg/package.json'),
     'the cluster member missing from the cluster workspaces array must be flagged',
   );
   assert.ok(
-    violations.some((v) => v.rule === '2.1.6' && v.packageKey === './hardhat/v2/e2e'),
+    violations.some((v) => v.rule === '2.1.6' && v.packageKey === './hardhat/v2/e2e/package.json'),
     "a '.'-rooted member inside the cluster must be told to declare memberOf",
   );
 });

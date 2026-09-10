@@ -171,7 +171,7 @@ export function syncPinnedVendored(options: SyncPinnedOptions): SyncVendoredResu
       continue;
     }
     if (!existsSync(target.directory)) {
-      violations.push({ rule: RULE, packageKey: target.packageKey, message: `${target.relPath}: destination missing` });
+      violations.push({ rule: RULE, packageKey: `./${targetLabel(target)}`, message: `destination missing` });
       continue;
     }
     const startedAt = performance.now();
@@ -218,8 +218,8 @@ function reportUpstreamDigest(target: PinnedVendoredTarget, violations: Violatio
   } catch (error) {
     violations.push({
       rule: RULE,
-      packageKey: target.packageKey,
-      message: `${target.relPath}: ${error instanceof Error ? error.message : String(error)}`,
+      packageKey: `./${targetLabel(target)}`,
+      message: `${error instanceof Error ? error.message : String(error)}`,
     });
     return 0;
   }
@@ -242,8 +242,8 @@ function checkPinnedDigest(options: SyncPinnedOptions, target: PinnedVendoredTar
   } catch (error) {
     violations.push({
       rule: RULE,
-      packageKey: target.packageKey,
-      message: `${target.relPath}: ${error instanceof Error ? error.message : String(error)}`,
+      packageKey: `./${targetLabel(target)}`,
+      message: `${error instanceof Error ? error.message : String(error)}`,
     });
     return 0;
   }
@@ -251,15 +251,15 @@ function checkPinnedDigest(options: SyncPinnedOptions, target: PinnedVendoredTar
   if (target.source.digest === undefined) {
     violations.push({
       rule: RULE,
-      packageKey: target.packageKey,
-      message: `${target.relPath}: no digest recorded, so the copies are unverified — ${digestInstruction(target, actual)}`,
+      packageKey: `./${targetLabel(target)}`,
+      message: `no digest recorded, so the copies are unverified — ${digestInstruction(target, actual)}`,
     });
     return 1;
   }
   if (target.source.digest !== actual) {
     violations.push({
       rule: RULE,
-      packageKey: target.packageKey,
+      packageKey: `./${targetLabel(target)}`,
       message:
         `${target.relPath}: content is ${actual}, but npm-manifest.json records ${target.source.digest}. ` +
         `The copies were edited, or the pin moved — run 'fhevm-npm sync vendored' to rewrite them from ${target.source.tag}.`,
@@ -301,8 +301,8 @@ function syncPinnedTarget(
   } catch (error) {
     violations.push({
       rule: RULE,
-      packageKey: target.packageKey,
-      message: `${target.relPath}: unable to read ${target.source.repository} at ${target.source.commit}: ${
+      packageKey: `./${targetLabel(target)}`,
+      message: `unable to read ${target.source.repository} at ${target.source.commit}: ${
         error instanceof Error ? error.message : String(error)
       }`,
     });
@@ -327,7 +327,7 @@ function reportDigest(options: SyncPinnedOptions, target: PinnedVendoredTarget, 
   }
   violations.push({
     rule: RULE,
-    packageKey: target.packageKey,
+    packageKey: `./${targetLabel(target)}`,
     message:
       `${target.relPath}: ${target.source.digest === undefined ? 'no digest recorded' : `recorded digest is ${target.source.digest}`}, ` +
       `content is ${digest} — ${digestInstruction(target, digest)}`,
@@ -352,7 +352,7 @@ function removeStale(
     if (options.check) {
       violations.push({
         rule: RULE,
-        packageKey: target.packageKey,
+        packageKey: `./${targetLabel(target)}`,
         message: `${target.relPath}/${file}: absent from ${target.source.from} at ${target.source.tag}`,
       });
       continue;
@@ -383,7 +383,7 @@ function writeVendoredFrom(options: SyncPinnedOptions, target: PinnedVendoredTar
   if (options.check) {
     violations.push({
       rule: RULE,
-      packageKey: target.packageKey,
+      packageKey: `./${targetLabel(target)}`,
       message: 'package.json#fhevm.vendoredFrom does not match npm-manifest.json',
     });
     return;

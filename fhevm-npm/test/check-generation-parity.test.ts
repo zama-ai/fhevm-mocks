@@ -186,7 +186,7 @@ test('a generation directory that names no version is a violation, not a silent 
   const [violation, ...rest] = inspectGenerationParity(WORKSPACE_ROOT, manifest(generations), git).violations;
 
   assert.deepEqual(rest, []);
-  assert.equal(violation?.packageKey, `./${FAMILY}/legacy`);
+  assert.equal(violation?.packageKey, './npm-manifest.json');
   assert.match(violation?.message ?? '', /is not named 'v<number>'/);
 });
 

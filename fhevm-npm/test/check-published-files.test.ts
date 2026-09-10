@@ -32,7 +32,7 @@ test('a file that npm would not pack and no "!" pattern names is a stray', () =>
     [
       {
         rule: '5.2.6',
-        packageKey: './project/pkg',
+        packageKey: './project/pkg/package.json',
         message: `'NOTES.md' is neither published (not selected by "files") nor excluded by a "!" pattern in "files"; delete it or declare it`,
       },
     ],
@@ -70,7 +70,7 @@ test('a published package without "files" ships every stray file, so the whiteli
     [
       {
         rule: '5.2.6',
-        packageKey: './project/pkg',
+        packageKey: './project/pkg/package.json',
         message: 'published package.json must declare "files": without the whitelist, every stray file ships',
       },
     ],
@@ -104,7 +104,11 @@ test('rule 5.2.7: LICENSE and README.md must exist and be listed in "files"', ()
   // Listed but not on disk: the listing is a promise the directory does not keep.
   const missing = validateRequiredPayloadFiles(complete, probes(['package.json', 'LICENSE', 'src/index.js'], []));
   assert.deepEqual(missing, [
-    { rule: '5.2.7', packageKey: './project/pkg', message: `'README.md' is missing from the payload directory` },
+    {
+      rule: '5.2.7',
+      packageKey: './project/pkg/package.json',
+      message: `'README.md' is missing from the payload directory`,
+    },
   ]);
 
   // Case matters: npmjs.com shows the file, the rule names it exactly.
@@ -143,7 +147,10 @@ test('only npm-distributed payloads are inspected: a mirror-only payload is its 
       packedFiles: () => ['package.json'],
     });
     assert.deepEqual(inspection.checkedPackageKeys, ['./plugin/pkg']);
-    assert.deepEqual([...new Set(inspection.violations.map((violation) => violation.packageKey))], ['./plugin/pkg']);
+    assert.deepEqual(
+      [...new Set(inspection.violations.map((violation) => violation.packageKey))],
+      ['./plugin/pkg/package.json'],
+    );
     // Both rules run on the same payload: the stray (5.2.6) and the two required files it lacks (5.2.7).
     assert.deepEqual(
       inspection.violations.map((violation) => violation.rule),
