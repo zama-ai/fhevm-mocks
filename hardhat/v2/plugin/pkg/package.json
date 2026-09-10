@@ -45,7 +45,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg",
+    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v14/pkg",
     "debug": "^4.1.1",
     "dotenv": "^16.5.0",
     "picocolors": "^1.1.1",
