@@ -22,7 +22,7 @@ jobs:
       run:
         working-directory: ./sdk
     permissions:
-      contents: 'read' # Required to checkout repository code
+      contents: 'read' # Required to checkout this repository code
     steps:
       - name: placeholder
         run: |
