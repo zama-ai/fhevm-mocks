@@ -21,7 +21,7 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { HDNodeWallet, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { FHEVM_CONFIG_REMAPPING_PREFIX, PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
@@ -43,6 +43,11 @@ const LOCAL_HOST_ADDRESSES_PATH = join(
   '_internal',
   'LocalHostAddresses.sol',
 );
+/**
+ * This package's generation key, `v13` — the directory name, which is also its npm-manifest.json key and
+ * the value a constant's `generations` list names.
+ */
+const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
 
 /**
  * Which generation's `localhost` table this package is.
@@ -67,13 +72,33 @@ type Entry = {
   solidity: string;
   formula?: string;
   note?: string;
+  /** Generations whose faces carry the constant. Absent means every one of them. */
+  generations?: string[];
 };
 
+/** Every constant the shared JSON declares, scoped or not — what the JSON-only checks below walk. */
 function readSourceOfTruth(): Map<string, Entry> {
   const parsed = JSON.parse(readFileSync(JSON_PATH, 'utf8')) as { constants: Record<string, Entry> };
   // Object key order is declaration order and the faces rely on it, so a Map (which preserves insertion
   // order) rather than a plain lookup.
   return new Map(Object.entries(parsed.constants));
+}
+
+function filterTruth(keep: (e: Entry) => boolean): Map<string, Entry> {
+  return new Map([...readSourceOfTruth()].filter(([, e]) => keep(e)));
+}
+
+/** The unscoped constants: what the shared TypeScript face, copied into every generation, carries. */
+function readSharedTruth(): Map<string, Entry> {
+  return filterTruth((e) => e.generations === undefined);
+}
+
+/**
+ * Unscoped plus scoped-to-us, in declaration order: what this generation's Solidity and shell faces carry.
+ * A constant another generation scopes to itself is not this one's to declare, and the faces omit it.
+ */
+function readVisibleTruth(): Map<string, Entry> {
+  return filterTruth((e) => e.generations === undefined || e.generations.includes(GENERATION));
 }
 
 /**
@@ -262,7 +287,8 @@ void test('addresses are EIP-55 checksummed', () => {
 });
 
 void test('the TypeScript face matches the source of truth', () => {
-  const truth = readSourceOfTruth();
+  // The shared face reaches every generation, so it carries only what every generation has a field for.
+  const truth = readSharedTruth();
   const face = readTsFace();
 
   assert.deepEqual(
@@ -294,7 +320,8 @@ void test('the TypeScript face matches the source of truth', () => {
 });
 
 void test('the Solidity face matches the source of truth', () => {
-  const truth = readSourceOfTruth();
+  // Per-generation file, so it carries the shared set AND what is scoped to this generation.
+  const truth = readVisibleTruth();
   const face = readSolFace();
 
   assert.deepEqual(
