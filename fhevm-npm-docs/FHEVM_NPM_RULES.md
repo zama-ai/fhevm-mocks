@@ -426,9 +426,21 @@ unnoticed — the exact failure that file exists to prevent. One entry writes on
 what they write below the generation directory; that is what lets a missing generation be named as the destination to
 add. An entry whose family paths are all retired is reported only as something to retarget.
 
+The one exception is a face NAMED for a generation, `<name>-<gen>.<ext>` — today `cleartext-config-v14.ts`, the
+scoped face rule 5.1.3c's `generations` field produces. It exists for one generation by construction, so it is not
+demanded of the others; what is demanded is the converse, that it lands in the generation it is named for and nowhere
+else, and that it travels in an entry of its own rather than bundled with a shared face. A v14-only constant copied
+into v13 is a value v13's contracts have no field for.
+
 ```jsonc
 // ✅ One entry per face, both live generations on it.
 { "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config.ts"] }
+
+// ✅ A face named for v13 lands in v13 alone, in its own entry.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts"], "files": ["cleartext-config-v13.ts"] }
+
+// ❌ The v13-only face copied into v12 too: a value v12's contracts have no field for.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config-v13.ts"] }
 
 // ❌ After the pair rotates to v14/v13: V(N) is missing, so it silently keeps a stale copy.
 { "to": ["host-contracts-cleartext/v13/pkg/ts"], "files": ["cleartext-config.ts"] }
