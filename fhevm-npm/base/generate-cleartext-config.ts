@@ -4,6 +4,10 @@
 //   common-vendored/src/cleartext-config.ts                    ONE copy; `sync-vendored` fans it out to
 //                                                              each generation's pkg/ts (a published
 //                                                              package cannot import the private helper).
+//   common-vendored/src/cleartext-config-<gen>.ts              the SCOPED face: only the constants whose
+//                                                              `generations` names <gen>. Emitted only for
+//                                                              a generation that has some; synced into
+//                                                              that generation's pkg/ts alone.
 //   <gen>/create2-deploy/script/FhevmCleartextConfig.sol       written PER GENERATION, directly — a .sol
 //                                                              in common-vendored would make it a
 //                                                              Solidity-owning package with no forge.
@@ -11,6 +15,11 @@
 //                                                              launchers, never executed.
 //
 // The generations come from the JSON's own `appliesTo.generations`, so adding one extends the fan-out.
+//
+// Scoping. A constant without `generations` reaches every generation — the historical meaning, and still
+// the common case. One with `generations: ["v14"]` reaches v14's Solidity and shell faces and v14's scoped
+// TypeScript face, and nothing else: the shared TypeScript face is copied into every generation, so it can
+// carry only what every generation has a field for. Declaration order is preserved within every face.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -34,6 +43,8 @@ type ConstantEntry = {
   readonly tsEmit?: 'bigint';
   readonly solidity: string;
   readonly formula?: string;
+  /** Generations whose faces carry this constant. Absent means every one in `appliesTo.generations`. */
+  readonly generations?: readonly string[];
 };
 
 type LocalhostBlock = {
@@ -82,15 +93,49 @@ export function renderCleartextConfigFaces(workspaceRoot: string): readonly Rend
     join(workspaceRoot, CLEARTEXT_CONFIG_FAMILY, gen, ...segments);
 
   return [
-    { path: join(workspaceRoot, ...TS_FACE_PATH), content: renderTsFace(config.constants) },
-    ...config.generations.flatMap((gen) => [
-      {
-        path: generation(gen, 'create2-deploy', 'script', 'FhevmCleartextConfig.sol'),
-        content: renderSolFace(config.constants),
-      },
-      { path: generation(gen, 'scripts', 'cleartext-config.sh'), content: renderShFace(config) },
-    ]),
+    { path: join(workspaceRoot, ...TS_FACE_PATH), content: renderTsFace(sharedConstants(config.constants)) },
+    ...config.generations.flatMap((gen) => {
+      const visible = visibleConstants(config.constants, gen);
+      const scoped = scopedConstants(config.constants, gen);
+      return [
+        // No scoped face for a generation that scopes nothing: an empty module would be a file to explain.
+        ...(scoped.size === 0
+          ? []
+          : [{ path: join(workspaceRoot, ...scopedTsFacePath(gen)), content: renderScopedTsFace(gen, scoped) }]),
+        {
+          path: generation(gen, 'create2-deploy', 'script', 'FhevmCleartextConfig.sol'),
+          content: renderSolFace(visible),
+        },
+        { path: generation(gen, 'scripts', 'cleartext-config.sh'), content: renderShFace(visible, config.localhost) },
+      ];
+    }),
   ];
+}
+
+/** `common-vendored/src/cleartext-config-<gen>.ts`, exported so a consumer can name the file it is synced from. */
+export function scopedTsFacePath(gen: string): readonly string[] {
+  return ['common-vendored', 'src', `cleartext-config-${gen}.ts`];
+}
+
+/** A generation's Solidity and shell faces: everything unscoped, plus what is scoped to it, in declaration order. */
+function visibleConstants(
+  constants: ReadonlyMap<string, ConstantEntry>,
+  gen: string,
+): ReadonlyMap<string, ConstantEntry> {
+  return new Map([...constants].filter(([, e]) => e.generations === undefined || e.generations.includes(gen)));
+}
+
+/** The shared TypeScript face: only what every generation has a field for. */
+function sharedConstants(constants: ReadonlyMap<string, ConstantEntry>): ReadonlyMap<string, ConstantEntry> {
+  return new Map([...constants].filter(([, e]) => e.generations === undefined));
+}
+
+/** A generation's scoped TypeScript face: only what names it. */
+function scopedConstants(
+  constants: ReadonlyMap<string, ConstantEntry>,
+  gen: string,
+): ReadonlyMap<string, ConstantEntry> {
+  return new Map([...constants].filter(([, e]) => e.generations !== undefined && e.generations.includes(gen)));
 }
 
 function compareOutput(output: RenderedOutput): GeneratedCleartextConfigStatus {
@@ -107,26 +152,56 @@ function loadCleartextConfig(configFile: string): CleartextConfig {
     localhost?: LocalhostBlock;
   };
   // Object key order is declaration order; the faces preserve it, so aliases follow what they alias.
-  const constants = new Map(Object.entries(parsed.constants ?? {}));
-  if (constants.size === 0) throw new Error(`${configFile} declares no "constants" — refusing to emit an empty face.`);
-  for (const [name, entry] of constants) validateEntry(name, entry, constants);
-
   const generations = parsed.appliesTo?.generations ?? [];
   if (generations.length === 0) throw new Error(`${configFile} declares no "appliesTo.generations".`);
   for (const gen of generations) {
     if (!/^v\d+$/.test(gen)) throw new Error(`appliesTo.generations: '${gen}' is not a generation key like 'v13'`);
   }
 
+  const constants = new Map(Object.entries(parsed.constants ?? {}));
+  if (constants.size === 0) throw new Error(`${configFile} declares no "constants" — refusing to emit an empty face.`);
+  for (const [name, entry] of constants) validateEntry(name, entry, constants, generations);
+
   return { constants, localhost: validateLocalhost(configFile, parsed.localhost), generations };
 }
 
-function validateEntry(name: string, entry: ConstantEntry, declared: ReadonlyMap<string, ConstantEntry>): void {
+function validateEntry(
+  name: string,
+  entry: ConstantEntry,
+  declared: ReadonlyMap<string, ConstantEntry>,
+  generations: readonly string[],
+): void {
   if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error(`${name}: not a CONSTANT_CASE identifier`);
   if ((entry.value === undefined) === (entry.alias === undefined)) {
     throw new Error(`${name}: exactly one of "value" or "alias" must be present`);
   }
-  if (entry.alias !== undefined && !declared.has(entry.alias)) {
-    throw new Error(`${name}: aliases ${entry.alias}, which is not declared`);
+  if (entry.generations !== undefined) {
+    if (entry.generations.length === 0)
+      throw new Error(`${name}: "generations" is empty — omit it to mean every generation`);
+    if (new Set(entry.generations).size !== entry.generations.length) {
+      throw new Error(`${name}: "generations" repeats a generation`);
+    }
+    for (const gen of entry.generations) {
+      if (!generations.includes(gen)) {
+        throw new Error(
+          `${name}: scoped to '${gen}', which appliesTo.generations does not list (${generations.join(', ')})`,
+        );
+      }
+    }
+  }
+  if (entry.alias !== undefined) {
+    const target = declared.get(entry.alias);
+    if (target === undefined) throw new Error(`${name}: aliases ${entry.alias}, which is not declared`);
+    // Both faces emit the alias as a bare reference to the target's NAME, so the target has to be declared
+    // in every file the alias lands in — which is exactly "same scope": a scoped TypeScript face is
+    // import-free and cannot see the shared module, and a shared alias of a scoped target would dangle in
+    // every generation the target skips.
+    if (scopeKey(entry) !== scopeKey(target)) {
+      throw new Error(
+        `${name}: aliases ${entry.alias} across scopes (${describeScope(entry)} vs ${describeScope(target)}); ` +
+          `an alias and its target must declare the same "generations"`,
+      );
+    }
   }
   if (!['bigint', 'number', 'string'].includes(entry.ts)) throw new Error(`${name}: unknown "ts" type ${entry.ts}`);
   if (entry.tsEmit !== undefined && (entry.tsEmit !== 'bigint' || entry.ts === 'string')) {
@@ -138,6 +213,14 @@ function validateEntry(name: string, entry: ConstantEntry, declared: ReadonlyMap
   if (!/^(string|address|bytes32|u?int\d*|bool)$/.test(entry.solidity)) {
     throw new Error(`${name}: unknown "solidity" type ${entry.solidity}`);
   }
+}
+
+function scopeKey(entry: ConstantEntry): string {
+  return entry.generations === undefined ? '' : [...entry.generations].sort().join(',');
+}
+
+function describeScope(entry: ConstantEntry): string {
+  return entry.generations === undefined ? 'every generation' : `generations [${entry.generations.join(', ')}]`;
 }
 
 const ZAMA_LOCAL_FIELDS = ['ACLAddress', 'CoprocessorAddress', 'KMSVerifierAddress'] as const;
@@ -196,6 +279,28 @@ const TS_FACE_HEADER = `// AUTO-GENERATED by \`fhevm-npm generate cleartext-conf
 `;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Scoped TypeScript face
+////////////////////////////////////////////////////////////////////////////////
+
+function renderScopedTsFace(gen: string, constants: ReadonlyMap<string, ConstantEntry>): string {
+  const entries = [...constants].map(([name, entry]) => renderTsEntry(name, entry));
+  return `${scopedTsFaceHeader(gen)}\n${entries.join('\n\n')}\n`;
+}
+
+function scopedTsFaceHeader(gen: string): string {
+  return `// AUTO-GENERATED by \`fhevm-npm generate cleartext-config\` from sdk/cleartext-config.json — DO NOT EDIT.
+//
+// The ${gen}-ONLY face: every constant whose \`generations\` names ${gen}, in declaration order. These are values
+// only ${gen}'s contracts have a field for, so they cannot ride the shared \`cleartext-config.ts\` — that module
+// is copied into every generation, and a constant nothing else can consume does not belong in it.
+//
+// \`fhevm-npm sync vendored\` copies this file into ${gen}'s pkg/ts/ alone, next to the shared face, and
+// ${gen}'s \`test/cleartext-config-mirror.test.ts\` checks the copy against the JSON. Import-free and
+// browser-safe like the shared face: the generator emits nothing but \`export const\` literals.
+`;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Solidity face
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -247,9 +352,8 @@ pragma solidity ^0.8.24;
 // Shell face
 ////////////////////////////////////////////////////////////////////////////////
 
-function renderShFace(config: CleartextConfig): string {
-  const constants = [...config.constants].map(([name, entry]) => renderShEntry(name, entry)).join('\n');
-  const l = config.localhost;
+function renderShFace(visible: ReadonlyMap<string, ConstantEntry>, l: LocalhostBlock): string {
+  const constants = [...visible].map(([name, entry]) => renderShEntry(name, entry)).join('\n');
   return `${SH_FACE_HEADER}
 ${constants}
 
