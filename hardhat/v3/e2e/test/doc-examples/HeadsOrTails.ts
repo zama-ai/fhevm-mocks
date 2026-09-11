@@ -34,6 +34,20 @@ async function deployFixture(): Promise<{
  * cryptographically verifiable result of the decryption of a single original
  * on-chain ciphertext.
  */
+/**
+ * Flips the least significant byte of the first KMS signature's `s`: proof byte 64, i.e. one byte of signer
+ * count, then 63 bytes into the first 65-byte signature (`r` is bytes 0-31 of it, `s` bytes 32-63). Unlike
+ * appending bytes, this keeps the proof well-formed — every length check passes — so the verifier reaches
+ * signature recovery and gets an address that is not a registered KMS signer. `s` rather than `r` on
+ * purpose: any `s` in range recovers to SOME address, whereas `r` must be an on-curve x-coordinate, which a
+ * flipped `r` is only about half the time — the other half fails earlier, as `ECDSAInvalidSignature`.
+ */
+function withCorruptedFirstSignature(decryptionProof: string): string {
+  const at = 2 + 2 * 64; // '0x', then byte 64 as two hex characters
+  const flipped = (parseInt(decryptionProof.slice(at, at + 2), 16) ^ 0xff).toString(16).padStart(2, '0');
+  return decryptionProof.slice(0, at) + flipped + decryptionProof.slice(at + 2);
+}
+
 describe('HeadsOrTails', function () {
   let contract: HeadsOrTails;
   let contractAddress: Hex;
@@ -156,7 +170,13 @@ describe('HeadsOrTails', function () {
     }
   });
 
-  // ❌ The test must fail if the decryption proof is invalid
+  // ❌ The test must fail if the decryption proof is invalid.
+  //
+  // A proof is `numSigners (1 byte) | signatures (65 bytes each) | extraData`, so bytes appended to it land in
+  // extraData, not in a signature. Since v0.14 the KMSVerifier requires extraData to be exactly 33 bytes
+  // (version 1) or 65 bytes (version 2) and rejects anything else BEFORE recovering a single signer, so the
+  // malformed proof is refused as malformed: `DeserializingExtraDataFail`. (v0.13 tolerated trailing bytes,
+  // which then corrupted the signed digest and surfaced later as `KMSInvalidSigner`.)
   it('should fail when the decryption proof is invalid', async function () {
     const gameCreatedEvent = await play();
 
@@ -166,6 +186,21 @@ describe('HeadsOrTails', function () {
         gameCreatedEvent.gameId,
         publicDecryptResults.abiEncodedClearValues,
         `${publicDecryptResults.decryptionProof}dead`,
+      ),
+    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'DeserializingExtraDataFail'));
+  });
+
+  // ❌ The test must fail if a KMS signature inside the proof is corrupted: the proof stays well-formed, so
+  // the verifier recovers a signer from the tampered signature — one that is not a registered KMS signer.
+  it('should fail with KMSInvalidSigner when a KMS signature is corrupted', async function () {
+    const gameCreatedEvent = await play();
+
+    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
+    await expect(
+      contract.recordAndVerifyWinner(
+        gameCreatedEvent.gameId,
+        publicDecryptResults.abiEncodedClearValues,
+        withCorruptedFirstSignature(publicDecryptResults.decryptionProof),
       ),
     ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
   });
