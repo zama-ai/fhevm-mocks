@@ -38,6 +38,7 @@ export const COPROCESSOR_EVENT_NAMES: readonly CoprocessorEventName[] = [
   'FheIfThenElse',
   'FheSum',
   'FheIsIn',
+  'FheMulDiv',
   'VerifyInput',
 ];
 

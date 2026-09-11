@@ -165,6 +165,7 @@ export type CoprocessorEventName =
   | 'FheIfThenElse'
   | 'FheSum'
   | 'FheIsIn'
+  | 'FheMulDiv'
   | 'VerifyInput';
 
 /**
