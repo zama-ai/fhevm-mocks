@@ -88,14 +88,9 @@ function filterTruth(keep: (e: Entry) => boolean): Map<string, Entry> {
   return new Map([...readSourceOfTruth()].filter(([, e]) => keep(e)));
 }
 
-/** The unscoped constants: what the shared TypeScript face, copied into every generation, carries. */
-function readSharedTruth(): Map<string, Entry> {
-  return filterTruth((e) => e.generations === undefined);
-}
-
 /**
- * Unscoped plus scoped-to-us, in declaration order: what this generation's Solidity and shell faces carry.
- * A constant another generation scopes to itself is not this one's to declare, and the faces omit it.
+ * Unscoped plus scoped-to-us, in declaration order: what every one of this generation's faces carries. A
+ * constant another generation scopes to itself is not this one's to declare, and the faces omit it.
  */
 function readVisibleTruth(): Map<string, Entry> {
   return filterTruth((e) => e.generations === undefined || e.generations.includes(GENERATION));
@@ -287,8 +282,9 @@ void test('addresses are EIP-55 checksummed', () => {
 });
 
 void test('the TypeScript face matches the source of truth', () => {
-  // The shared face reaches every generation, so it carries only what every generation has a field for.
-  const truth = readSharedTruth();
+  // Complete for this generation, like the Solidity face: `sync vendored` copies common-vendored's
+  // `cleartext-config-<gen>.ts` here under the stable name, so the file is judged against visible truth.
+  const truth = readVisibleTruth();
   const face = readTsFace();
 
   assert.deepEqual(

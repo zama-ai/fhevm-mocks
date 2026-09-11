@@ -386,3 +386,56 @@ test('rejects bad memberOf declarations', () => {
     assert.throws(() => parseNpmManifest({ ...base, packages }), message);
   }
 });
+
+test('a vendored `renamed` map names listed files, distinct sources, and only on a local copy', () => {
+  const base = {
+    $schema: './fhevm-npm/schemas/npm-manifest.schema.json',
+    foundry: { version: '1.5.1-stable' },
+    packageJson: { published: { required: ['name'], excluded: ['private'] } },
+  };
+  const root = { kind: 'workspace-root', type: 'esm', browser: false, name: 'workspace', private: true, member: false };
+  const withVendored = (vendored: Record<string, unknown>) => ({
+    ...base,
+    packages: {
+      '.': root,
+      './lib/pkg': { kind: 'published', type: 'esm', browser: false, name: 'lib', member: true, vendored: [vendored] },
+    },
+  });
+  const local = { relPath: './ts', files: ['cleartext-config.ts'], source: './common-vendored/src', reason: 'copy' };
+
+  // The intended shape: the stable destination name, renamed from the generation-named source.
+  const ok = parseNpmManifest(
+    withVendored({ ...local, renamed: { 'cleartext-config.ts': 'cleartext-config-v14.ts' } }),
+  );
+  assert.deepEqual(ok.packages['./lib/pkg']?.vendored?.[0]?.renamed, {
+    'cleartext-config.ts': 'cleartext-config-v14.ts',
+  });
+
+  const cases: readonly [Record<string, unknown>, RegExp][] = [
+    [{ ...local, renamed: {} }, /must not be empty/],
+    [{ ...local, renamed: { 'other.ts': 'cleartext-config-v14.ts' } }, /must name a file listed in `files`/],
+    [{ ...local, renamed: { 'cleartext-config.ts': 'cleartext-config.ts' } }, /renames a file to its own name/],
+    [
+      { ...local, files: ['a.ts', 'b.ts'], renamed: { 'a.ts': 'x.ts', 'b.ts': 'x.ts' } },
+      /two destination files name the same source file/,
+    ],
+    [
+      {
+        relPath: './src/contracts',
+        files: ['A.sol'],
+        renamed: { 'A.sol': 'B.sol' },
+        source: {
+          repository: 'https://github.com/example/repository',
+          tag: 'v1.2.3',
+          commit: '0123456789abcdef0123456789abcdef01234567',
+          from: 'contracts',
+        },
+        reason: 'pinned',
+      },
+      /only a local \(in-repository\) copy can be renamed/,
+    ],
+  ];
+  for (const [vendored, message] of cases) {
+    assert.throws(() => parseNpmManifest(withVendored(vendored)), message);
+  }
+});

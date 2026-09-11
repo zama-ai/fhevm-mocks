@@ -389,16 +389,19 @@ test('requires every live generation to be among the directories that receive a 
   );
 });
 
-test('a face named for a generation lands in that generation alone, and is not demanded of the others', () => {
-  const scoped = (to: readonly string[]) => [{ to, files: ['cleartext-config-v13.ts'] }];
+test('a face named for a generation (by source name) lands in that generation alone, and is not demanded of the others', () => {
+  // v13's complete face, copied under the stable name: the generation is in the SOURCE name only.
+  const v13Face = (to: readonly string[]) => [
+    { to, files: ['cleartext-config.ts'], renamed: { 'cleartext-config.ts': 'cleartext-config-v13.ts' } },
+  ];
 
-  // The scoped face on its own generation: nothing to report, and V(N-1) is NOT owed a copy.
-  assert.deepEqual(validateGenerationVendoredDestinations(manifest(), scoped([`${FAMILY}/v13/pkg/ts`])), []);
+  // On its own generation: nothing to report, and V(N-1) is NOT owed a copy of it.
+  assert.deepEqual(validateGenerationVendoredDestinations(manifest(), v13Face([`${FAMILY}/v13/pkg/ts`])), []);
 
   // Copied into the other live generation as well: v12 has no field for a v13-only value.
   const leaked = validateGenerationVendoredDestinations(
     manifest(),
-    scoped([`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts`]),
+    v13Face([`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts`]),
   );
   assert.equal(leaked.length, 1);
   assert.match(
@@ -407,7 +410,7 @@ test('a face named for a generation lands in that generation alone, and is not d
   );
 
   // Copied ONLY into the wrong generation: both halves — wrong landing, and its own generation missing.
-  const misplaced = validateGenerationVendoredDestinations(manifest(), scoped([`${FAMILY}/v12/pkg/ts`]));
+  const misplaced = validateGenerationVendoredDestinations(manifest(), v13Face([`${FAMILY}/v12/pkg/ts`]));
   assert.deepEqual(
     misplaced.map((v) => v.rule),
     ['3.4.2', '3.4.2'],
@@ -417,14 +420,18 @@ test('a face named for a generation lands in that generation alone, and is not d
     /no vendored destination 'host-contracts-cleartext\/v13\/pkg\/ts' for 'cleartext-config-v13.ts'/,
   );
 
-  // A scoped face must travel alone: bundled with the shared face, the entry cannot be graded either way.
+  // A per-generation face must travel alone: bundled with an ordinary file, the entry cannot be graded either way.
   const bundled = validateGenerationVendoredDestinations(manifest(), [
-    { to: [`${FAMILY}/v13/pkg/ts`], files: ['cleartext-config.ts', 'cleartext-config-v13.ts'] },
+    {
+      to: [`${FAMILY}/v13/pkg/ts`],
+      files: ['types.ts', 'cleartext-config.ts'],
+      renamed: { 'cleartext-config.ts': 'cleartext-config-v13.ts' },
+    },
   ]);
   assert.equal(bundled.length, 1);
   assert.match(bundled[0]?.message ?? '', /mixes faces named for a generation with others/);
 
-  // Files that name no generation keep the every-live-generation rule, `files` present or not.
+  // Without a rename the destination name IS the source name, so a plain file keeps the every-generation rule.
   const plain = validateGenerationVendoredDestinations(manifest(), [
     { to: [`${FAMILY}/v13/pkg/ts`], files: ['cleartext-config.ts'] },
   ]);

@@ -45,10 +45,9 @@ const LOCAL_HOST_ADDRESSES_PATH = join(
 );
 /**
  * This package's generation key, `v14` — the directory name, which is also its npm-manifest.json key and
- * the value a constant's `generations` list names. The scoped TypeScript face is named after it.
+ * the value a constant's `generations` list names.
  */
 const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
-const TS_SCOPED_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', `cleartext-config-${GENERATION}.ts`);
 
 /**
  * Which generation's `localhost` table this package is.
@@ -89,17 +88,10 @@ function filterTruth(keep: (e: Entry) => boolean): Map<string, Entry> {
   return new Map([...readSourceOfTruth()].filter(([, e]) => keep(e)));
 }
 
-/** The unscoped constants: what the shared TypeScript face, copied into every generation, carries. */
-function readSharedTruth(): Map<string, Entry> {
-  return filterTruth((e) => e.generations === undefined);
-}
-
-/** The constants scoped to this generation: what its scoped TypeScript face carries, and nothing else. */
-function readScopedTruth(): Map<string, Entry> {
-  return filterTruth((e) => e.generations?.includes(GENERATION) ?? false);
-}
-
-/** Unscoped plus scoped-to-us, in declaration order: what this generation's Solidity and shell faces carry. */
+/**
+ * Unscoped plus scoped-to-us, in declaration order: what every one of this generation's faces carries. A
+ * constant another generation scopes to itself is not this one's to declare, and the faces omit it.
+ */
 function readVisibleTruth(): Map<string, Entry> {
   return filterTruth((e) => e.generations === undefined || e.generations.includes(GENERATION));
 }
@@ -289,14 +281,10 @@ void test('addresses are EIP-55 checksummed', () => {
   }
 });
 
-void test('the TypeScript faces match the source of truth', () => {
-  // One face at a time, each against exactly its own subset: a merge would still pass if a constant scoped
-  // to this generation leaked into the shared module, which reaches every other generation as well.
-  const faces = [
-    { label: 'pkg/ts/cleartext-config.ts', truth: readSharedTruth(), face: readTsFace() },
-    { label: `pkg/ts/cleartext-config-${GENERATION}.ts`, truth: readScopedTruth(), face: readTsFace(TS_SCOPED_PATH) },
-  ];
-  for (const { label, truth, face } of faces) checkTsFace(label, truth, face);
+void test('the TypeScript face matches the source of truth', () => {
+  // Complete for this generation, like the Solidity face: `sync vendored` copies common-vendored's
+  // `cleartext-config-<gen>.ts` here under the stable name, so the file is judged against visible truth.
+  checkTsFace('pkg/ts/cleartext-config.ts', readVisibleTruth(), readTsFace());
 });
 
 function checkTsFace(label: string, truth: Map<string, Entry>, face: Map<string, string>): void {

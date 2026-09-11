@@ -132,17 +132,22 @@ export function validateGenerationMirrorPatch(
  * One entry writes one face, so its family targets must all name the same path below their generation
  * directory; that is what lets a missing generation be reported as the exact destination to add.
  *
- * The exception is a face NAMED for a generation — `cleartext-config-v14.ts`, the scoped face
- * `generate cleartext-config` emits for constants whose `generations` list names v14. Such a file exists
- * for one generation by construction, so demanding it of every live generation would be wrong; what is
- * demanded instead is the converse, that it lands in the generation it is named for and nowhere else. A
- * v14-only constant copied into v13 is a value v13's contracts have no field for.
+ * The exception is a face NAMED for a generation — `cleartext-config-v14.ts`, the complete TypeScript face
+ * `generate cleartext-config` emits for v14, which lands in v14's pkg/ts renamed to `cleartext-config.ts`.
+ * Judged by its SOURCE name: such a file exists for one generation by construction, so demanding it of
+ * every live generation would be wrong; what is demanded instead is the converse, that it lands in the
+ * generation it is named for and nowhere else. v14's face copied into v13 would hand v13 constants its
+ * contracts have no field for.
  *
  * The vendored manifest keeps plain paths — this only reads them.
  */
 export function validateGenerationVendoredDestinations(
   manifest: NpmManifest,
-  destinations: readonly { readonly to: readonly string[]; readonly files?: readonly string[] }[],
+  destinations: readonly {
+    readonly to: readonly string[];
+    readonly files?: readonly string[];
+    readonly renamed?: Readonly<Record<string, string>>;
+  }[],
 ): readonly Violation[] {
   const violations: Violation[] = [];
   for (const family of generationFamilies(manifest)) {
@@ -184,16 +189,15 @@ export function validateGenerationVendoredDestinations(
       const face = faces[0];
       if (face === undefined) continue;
 
-      const scoped = scopedGenerations(family, destination.files ?? []);
-      if (
-        scoped.size > 1 ||
-        (scoped.size === 1 && (destination.files ?? []).length > scoped.values().next().value!.length)
-      ) {
+      // Judged by SOURCE names: a renamed copy lands under a stable name, and the generation is in the source.
+      const sources = (destination.files ?? []).map((file) => destination.renamed?.[file] ?? file);
+      const scoped = scopedGenerations(family, sources);
+      if (scoped.size > 1 || (scoped.size === 1 && sources.length > scoped.values().next().value!.length)) {
         violations.push({
           rule: '3.4.2',
           packageKey: './npm-manifest.json',
           message:
-            `one vendored entry mixes faces named for a generation with others (${(destination.files ?? []).join(', ')}); ` +
+            `one vendored entry mixes faces named for a generation with others (${sources.join(', ')}); ` +
             `split it so a per-generation face travels alone`,
         });
         continue;
@@ -239,8 +243,8 @@ export function validateGenerationVendoredDestinations(
 }
 
 /**
- * The generation each file is named for, `<name>-<gen>.<ext>` → `./<family>/<gen>`, grouped: the files
- * that name none are not in the map. `cleartext-config-v14.ts` → `./host-contracts-cleartext/v14`.
+ * The generation each SOURCE file is named for, `<name>-<gen>.<ext>` → `./<family>/<gen>`, grouped: the
+ * files that name none are not in the map. `cleartext-config-v14.ts` → `./host-contracts-cleartext/v14`.
  */
 function scopedGenerations(family: GenerationFamily, files: readonly string[]): Map<string, string[]> {
   const scoped = new Map<string, string[]>();

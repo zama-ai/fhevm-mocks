@@ -44,15 +44,13 @@ import {
   CLEARTEXT_KMS_NODE_COUNT,
   CLEARTEXT_KMS_NODE_IP_ADDRESS_PREFIX,
   CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX,
-  CLEARTEXT_MAX_HCU_DEPTH_PER_TX,
-  CLEARTEXT_MAX_HCU_PER_TX,
-} from '@fhevm/sdk-vendored-dev/cleartext-config.ts';
-import {
   CLEARTEXT_KMS_NODE_CA_CERT,
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX,
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX,
   CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX,
   CLEARTEXT_KMS_SOFTWARE_VERSION,
+  CLEARTEXT_MAX_HCU_DEPTH_PER_TX,
+  CLEARTEXT_MAX_HCU_PER_TX,
 } from '@fhevm/sdk-vendored-dev/cleartext-config-v14.ts';
 import {
   ADDRESS_NAMES,
@@ -355,9 +353,9 @@ ${constants}
  * registering any other address is one the SDK holds no key for and cannot sign against.
  */
 /**
- * The five v14-only constants, from v14's scoped face in @fhevm/sdk-vendored-dev — the generated module
- * `sync vendored` copies into pkg/ts, so this reads the same truth pkg/ts compiles. (internal/ cannot import
- * pkg/ts itself: internal/tsconfig.json roots at `.`.)
+ * The five v14-only constants, from v14's face in @fhevm/sdk-vendored-dev — the generated module
+ * `sync vendored` copies into pkg/ts as cleartext-config.ts, so this reads the same truth pkg/ts compiles.
+ * (internal/ cannot import pkg/ts itself: internal/tsconfig.json roots at `.`.)
  */
 type ScopedCleartextConstants = {
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX: string;

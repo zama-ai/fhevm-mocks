@@ -16,16 +16,14 @@ import {
   CLEARTEXT_KMS_NODE_COUNT,
   CLEARTEXT_KMS_NODE_IP_ADDRESS_PREFIX,
   CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX,
-  CLEARTEXT_MAX_HCU_DEPTH_PER_TX,
-  CLEARTEXT_MAX_HCU_PER_TX,
-} from './cleartext-config.js';
-import {
   CLEARTEXT_KMS_NODE_CA_CERT,
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX,
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX,
   CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX,
   CLEARTEXT_KMS_SOFTWARE_VERSION,
-} from './cleartext-config-v14.js';
+  CLEARTEXT_MAX_HCU_DEPTH_PER_TX,
+  CLEARTEXT_MAX_HCU_PER_TX,
+} from './cleartext-config.js';
 
 /** Node i's metadata, all one-based like the IP and storage-URL suffixes were in v13. */
 function kmsNodeMetadata(i: number): Omit<KmsNodeParams, 'txSenderAddress' | 'signerAddress'> {

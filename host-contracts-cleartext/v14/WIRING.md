@@ -9,10 +9,10 @@ created, for the developer who wires v14 in. Delete it when the list is empty.
 Every item of the two lists this file carried is done. Outside `v14/`: npm-manifest.json names v14 as
 `current` and v13 as `previous` with v12 gone, the root workspaces list v14, `cleartext-config.json` holds
 the five KMS constants scoped with `generations: ["v14"]` and `localhost.generations["0.14.0"]`, the
-generator emits the scoped face `cleartext-config-v14.ts` into common-vendored/src and `sync vendored`
-copies it here, and the three Hardhat packages pin `v14/pkg`. Inside `v14/`: the provisional JSON, its
-guard test and the byte-equality test for the vendored faces are deleted, the faces are regenerated, and
-`internal/generateLocalHostBytecode.ts` imports the scoped constants from
+generator emits v14's complete TypeScript face `cleartext-config-v14.ts` into common-vendored/src and
+`sync vendored` copies it here as the stable `pkg/ts/cleartext-config.ts`, and the three Hardhat packages
+pin `v14/pkg`. Inside `v14/`: the provisional JSON, its guard test and the byte-equality test for the
+vendored faces are deleted, the faces are regenerated, and `internal/` imports the constants from
 `@fhevm/sdk-vendored-dev/cleartext-config-v14.ts`.
 
 What v13's copy of `test/cleartext-config-mirror.test.ts` still needs — reading truth through the same
