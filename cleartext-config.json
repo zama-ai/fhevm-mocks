@@ -229,6 +229,41 @@
       "ts": "string",
       "solidity": "string",
       "note": "Node i gets `${prefix}${i + 1}`, one-based like the IP prefix and built in the same two places. A plausible-looking s3 URL for a bucket that does not exist: `ProtocolConfig` only stores the string, so what matters is that it has the right shape and points nowhere."
+    },
+
+    "CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX": {
+      "value": "kms-core-",
+      "ts": "string",
+      "solidity": "string",
+      "note": "v14 only: the first half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
+    },
+
+    "CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX": {
+      "value": "-cleartext-core-",
+      "ts": "string",
+      "solidity": "string",
+      "note": "v14 only: the second half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
+    },
+
+    "CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX": {
+      "value": "cleartext-",
+      "ts": "string",
+      "solidity": "string",
+      "note": "v14 only: `KmsNodeParams.storagePrefix`, the prefix WITHIN the storage bucket where KMS Core writes public material (upstream: proto `MpcNode.public_storage_prefix`; devnet: `PUB-pN`). Node i gets `${prefix}${i + 1}`. Distinct from CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX, which is the bucket itself."
+    },
+
+    "CLEARTEXT_KMS_SOFTWARE_VERSION": {
+      "value": "0.0.0-cleartext",
+      "ts": "string",
+      "solidity": "string",
+      "note": "v14 only: the `softwareVersion` argument of `ProtocolConfig.initializeFromEmptyProxy` and `reinitializeV2`, naming the KMS build a context was created under (devnet: `v0.13.20`). There is no KMS build behind a cleartext stack; valid semver with a prerelease tag says exactly that, and nothing on-chain parses it."
+    },
+
+    "CLEARTEXT_KMS_NODE_CA_CERT": {
+      "value": "0x",
+      "ts": "string",
+      "solidity": "string",
+      "note": "v14 only: `KmsNodeParams.caCert`, the node's CA certificate as HEX (devnet: a ~768-byte PEM). Carried as a hex string because that is what viem takes for `bytes` and the only bytes-like type the config faces know; the generated LocalHostBootstrap turns it into a Solidity `bytes` constant. A cleartext stack has no MPC peer to verify, so it is empty: `0x`."
     }
   },
 
