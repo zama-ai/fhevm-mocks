@@ -59,6 +59,11 @@ git add -A sdk && git commit -m "chore(sdk): bump @fhevm/hardhat-plugin and fhev
 ## If something goes wrong
 
 - `only versions.json may be modified` — the tree was not clean; stash or commit the other changes first.
-- `a central version only moves forward` — the new version is not greater than the committed one.
+- `a central version only moves forward` — the new version is not greater than the committed one. Note
+  that turning a release back into a prerelease (`0.13.0` → `0.13.0-0`) counts: SemVer §11 sorts a
+  prerelease below its own release. The rule stands in for "a published version is never reused", but it
+  compares against HEAD rather than the registry, so it also refuses moves that are safe because nothing
+  was ever published. When that is the case, waive it and let the registry answer the real question:
+  `./fhevm-npm-cli version apply --allow-downgrade --check-npmjs`.
 - The run fails after writing — it leaves the diff for you to inspect; restore with
   `git checkout -- sdk` (this also drops your `versions.json` edit) and start again from step 2.
