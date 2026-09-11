@@ -20,8 +20,8 @@
 // written to look for, so a NAME that drifted would be invisible.
 
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { HDNodeWallet, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { FHEVM_CONFIG_REMAPPING_PREFIX, PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
@@ -43,11 +43,12 @@ const LOCAL_HOST_ADDRESSES_PATH = join(
   '_internal',
   'LocalHostAddresses.sol',
 );
-/** What v14 will add to the shared JSON at wiring time, carried here until then (plan section 6). */
-const PROVISIONAL_PATH = join(PACKAGE_ROOT_ABS_PATH, 'internal', 'cleartext-config.provisional.json');
-const TS_SCOPED_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'cleartext-config-v14.ts');
-/** The vendored TypeScript faces are byte copies of these; `sync-vendored` does not know v14 yet. */
-const VENDORED_SOURCE_DIR = join(PACKAGE_ROOT_ABS_PATH, '..', '..', 'common-vendored', 'src');
+/**
+ * This package's generation key, `v14` — the directory name, which is also its npm-manifest.json key and
+ * the value a constant's `generations` list names. The scoped TypeScript face is named after it.
+ */
+const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
+const TS_SCOPED_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', `cleartext-config-${GENERATION}.ts`);
 
 /**
  * Which generation's `localhost` table this package is.
@@ -72,8 +73,11 @@ type Entry = {
   solidity: string;
   formula?: string;
   note?: string;
+  /** Generations whose faces carry the constant. Absent means every one of them. */
+  generations?: string[];
 };
 
+/** Every constant the shared JSON declares, scoped or not — what the JSON-only checks below walk. */
 function readSourceOfTruth(): Map<string, Entry> {
   const parsed = JSON.parse(readFileSync(JSON_PATH, 'utf8')) as { constants: Record<string, Entry> };
   // Object key order is declaration order and the faces rely on it, so a Map (which preserves insertion
@@ -81,20 +85,23 @@ function readSourceOfTruth(): Map<string, Entry> {
   return new Map(Object.entries(parsed.constants));
 }
 
-type Provisional = { constants: Record<string, Entry>; localhost: { generations: Record<string, NonceTable> } };
-
-function readProvisional(): Provisional {
-  return JSON.parse(readFileSync(PROVISIONAL_PATH, 'utf8')) as Provisional;
+function filterTruth(keep: (e: Entry) => boolean): Map<string, Entry> {
+  return new Map([...readSourceOfTruth()].filter(([, e]) => keep(e)));
 }
 
-/** The constants only this generation has a field for: the scoped TypeScript face carries exactly these. */
+/** The unscoped constants: what the shared TypeScript face, copied into every generation, carries. */
+function readSharedTruth(): Map<string, Entry> {
+  return filterTruth((e) => e.generations === undefined);
+}
+
+/** The constants scoped to this generation: what its scoped TypeScript face carries, and nothing else. */
 function readScopedTruth(): Map<string, Entry> {
-  return new Map(Object.entries(readProvisional().constants));
+  return filterTruth((e) => e.generations?.includes(GENERATION) ?? false);
 }
 
-/** Shared then scoped, in declaration order: what the per-generation Solidity face carries. */
+/** Unscoped plus scoped-to-us, in declaration order: what this generation's Solidity and shell faces carry. */
 function readVisibleTruth(): Map<string, Entry> {
-  return new Map([...readSourceOfTruth(), ...readScopedTruth()]);
+  return filterTruth((e) => e.generations === undefined || e.generations.includes(GENERATION));
 }
 
 /**
@@ -283,11 +290,11 @@ void test('addresses are EIP-55 checksummed', () => {
 });
 
 void test('the TypeScript faces match the source of truth', () => {
-  // One face at a time, each against exactly its own subset: a merge would still pass if a v14-only
-  // constant leaked into the shared module, which reaches v12 and v13 as well.
+  // One face at a time, each against exactly its own subset: a merge would still pass if a constant scoped
+  // to this generation leaked into the shared module, which reaches every other generation as well.
   const faces = [
-    { label: 'pkg/ts/cleartext-config.ts', truth: readSourceOfTruth(), face: readTsFace() },
-    { label: 'pkg/ts/cleartext-config-v14.ts', truth: readScopedTruth(), face: readTsFace(TS_SCOPED_PATH) },
+    { label: 'pkg/ts/cleartext-config.ts', truth: readSharedTruth(), face: readTsFace() },
+    { label: `pkg/ts/cleartext-config-${GENERATION}.ts`, truth: readScopedTruth(), face: readTsFace(TS_SCOPED_PATH) },
   ];
   for (const { label, truth, face } of faces) checkTsFace(label, truth, face);
 });
@@ -401,8 +408,7 @@ type Localhost = {
 };
 
 function readLocalhost(): Localhost {
-  const shared = (JSON.parse(readFileSync(JSON_PATH, 'utf8')) as { localhost: Localhost }).localhost;
-  return { ...shared, generations: { ...shared.generations, ...readProvisional().localhost.generations } };
+  return (JSON.parse(readFileSync(JSON_PATH, 'utf8')) as { localhost: Localhost }).localhost;
 }
 
 /** Both categories in deploy order — primary first, which is the only order the nonces allow. */
@@ -679,34 +685,4 @@ void test('the vitest bootstrap fixture matches the source of truth', () => {
     if (!literal.endsWith('n')) diffs.push(`${name}: must be a bigint literal, found ${literal}`);
   }
   assert.deepEqual(diffs, [], 'test/ts/utils/expectedBootstrap.ts disagrees with sdk/cleartext-config.json');
-});
-
-////////////////////////////////////////////////////////////////////////////////
-// Provisional: what v14 carries until it is wired in (plan section 6)
-////////////////////////////////////////////////////////////////////////////////
-
-void test('the shared JSON does not yet declare what v14 carries provisionally', () => {
-  // Designed to fail on the day the wiring step adds these to sdk/cleartext-config.json: that is the
-  // reminder to delete internal/cleartext-config.provisional.json, regenerate the faces, and delete this test.
-  const shared = readSourceOfTruth();
-  const provisional = readProvisional();
-  const leaked = Object.keys(provisional.constants).filter((name) => shared.has(name));
-  assert.deepEqual(leaked, [], 'now declared by the shared JSON: remove them from the provisional file');
-  const sharedTables = Object.keys(
-    (JSON.parse(readFileSync(JSON_PATH, 'utf8')) as { localhost: Localhost }).localhost.generations,
-  );
-  for (const key of Object.keys(provisional.localhost.generations)) {
-    assert.ok(!sharedTables.includes(key), `localhost.generations["${key}"] is now in the shared JSON`);
-  }
-});
-
-void test('the vendored TypeScript faces are byte copies of common-vendored/src', () => {
-  // `sync-vendored` writes these into every generation it knows; it does not know v14 yet, so the copies
-  // were made by hand and this is what keeps them honest until it does.
-  for (const relPath of ['cleartext-config.ts', join('types', 'ethereumLibTypes.ts')]) {
-    const source = join(VENDORED_SOURCE_DIR, relPath.split('/').at(-1) ?? relPath);
-    const copy = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', relPath);
-    assert.ok(existsSync(source), `${source} is missing`);
-    assert.equal(readFileSync(copy, 'utf8'), readFileSync(source, 'utf8'), `${relPath} differs from ${source}`);
-  }
 });

@@ -48,6 +48,13 @@ import {
   CLEARTEXT_MAX_HCU_PER_TX,
 } from '@fhevm/sdk-vendored-dev/cleartext-config.ts';
 import {
+  CLEARTEXT_KMS_NODE_CA_CERT,
+  CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX,
+  CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX,
+  CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX,
+  CLEARTEXT_KMS_SOFTWARE_VERSION,
+} from '@fhevm/sdk-vendored-dev/cleartext-config-v14.ts';
+import {
   ADDRESS_NAMES,
   CONSTANT_NAMES,
   type ContractName,
@@ -82,8 +89,6 @@ export const ADDRESSES_OUTPUT_PATH = join(
 );
 const BOOTSTRAP_OUTPUT_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'forge', 'src', '_internal', 'LocalHostBootstrap.sol');
 const REMAPPINGS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'remappings.txt');
-/** v14's scoped constants until the shared JSON declares them (plan section 6); see pkg/ts/cleartext-config-v14.ts. */
-const PROVISIONAL_CONFIG_PATH = join(PACKAGE_ROOT_ABS_PATH, 'internal', 'cleartext-config.provisional.json');
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -349,7 +354,11 @@ ${constants}
  * keys from FHEVM_MNEMONIC at these HD paths and looks them up by on-chain address, so a stack
  * registering any other address is one the SDK holds no key for and cannot sign against.
  */
-/** The five v14-only constants; internal/ cannot import pkg/ts, so it reads the same provisional truth. */
+/**
+ * The five v14-only constants, from v14's scoped face in @fhevm/sdk-vendored-dev — the generated module
+ * `sync vendored` copies into pkg/ts, so this reads the same truth pkg/ts compiles. (internal/ cannot import
+ * pkg/ts itself: internal/tsconfig.json roots at `.`.)
+ */
 type ScopedCleartextConstants = {
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX: string;
   CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX: string;
@@ -359,15 +368,12 @@ type ScopedCleartextConstants = {
 };
 
 function _scopedCleartextConstants(): ScopedCleartextConstants {
-  const parsed = JSON.parse(readFileSync(PROVISIONAL_CONFIG_PATH, 'utf8')) as {
-    constants: Record<keyof ScopedCleartextConstants, { value: string }>;
-  };
   return {
-    CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX: parsed.constants.CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX.value,
-    CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX: parsed.constants.CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX.value,
-    CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX: parsed.constants.CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX.value,
-    CLEARTEXT_KMS_SOFTWARE_VERSION: parsed.constants.CLEARTEXT_KMS_SOFTWARE_VERSION.value,
-    CLEARTEXT_KMS_NODE_CA_CERT: parsed.constants.CLEARTEXT_KMS_NODE_CA_CERT.value,
+    CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX,
+    CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX,
+    CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX,
+    CLEARTEXT_KMS_SOFTWARE_VERSION,
+    CLEARTEXT_KMS_NODE_CA_CERT,
   };
 }
 
