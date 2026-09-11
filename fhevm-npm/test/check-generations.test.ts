@@ -389,6 +389,49 @@ test('requires every live generation to be among the directories that receive a 
   );
 });
 
+test('a face named for a generation lands in that generation alone, and is not demanded of the others', () => {
+  const scoped = (to: readonly string[]) => [{ to, files: ['cleartext-config-v13.ts'] }];
+
+  // The scoped face on its own generation: nothing to report, and V(N-1) is NOT owed a copy.
+  assert.deepEqual(validateGenerationVendoredDestinations(manifest(), scoped([`${FAMILY}/v13/pkg/ts`])), []);
+
+  // Copied into the other live generation as well: v12 has no field for a v13-only value.
+  const leaked = validateGenerationVendoredDestinations(
+    manifest(),
+    scoped([`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts`]),
+  );
+  assert.equal(leaked.length, 1);
+  assert.match(
+    leaked[0]?.message ?? '',
+    /named for host-contracts-cleartext\/v13 but lands in 'host-contracts-cleartext\/v12\/pkg\/ts'/,
+  );
+
+  // Copied ONLY into the wrong generation: both halves — wrong landing, and its own generation missing.
+  const misplaced = validateGenerationVendoredDestinations(manifest(), scoped([`${FAMILY}/v12/pkg/ts`]));
+  assert.deepEqual(
+    misplaced.map((v) => v.rule),
+    ['3.4.2', '3.4.2'],
+  );
+  assert.match(
+    misplaced[1]?.message ?? '',
+    /no vendored destination 'host-contracts-cleartext\/v13\/pkg\/ts' for 'cleartext-config-v13.ts'/,
+  );
+
+  // A scoped face must travel alone: bundled with the shared face, the entry cannot be graded either way.
+  const bundled = validateGenerationVendoredDestinations(manifest(), [
+    { to: [`${FAMILY}/v13/pkg/ts`], files: ['cleartext-config.ts', 'cleartext-config-v13.ts'] },
+  ]);
+  assert.equal(bundled.length, 1);
+  assert.match(bundled[0]?.message ?? '', /mixes faces named for a generation with others/);
+
+  // Files that name no generation keep the every-live-generation rule, `files` present or not.
+  const plain = validateGenerationVendoredDestinations(manifest(), [
+    { to: [`${FAMILY}/v13/pkg/ts`], files: ['cleartext-config.ts'] },
+  ]);
+  assert.equal(plain.length, 1);
+  assert.match(plain[0]?.message ?? '', /no vendored destination 'host-contracts-cleartext\/v12\/pkg\/ts'/);
+});
+
 test('names the live generations by directory basename', () => {
   assert.deepEqual(liveGenerationNames({ family: FAMILY, current: CURRENT, previous: PREVIOUS }), ['v13', 'v12']);
   assert.deepEqual(liveGenerationNames({ family: FAMILY, current: CURRENT, previous: undefined }), ['v13']);
