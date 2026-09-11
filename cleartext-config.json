@@ -313,6 +313,33 @@
     },
 
     "generations": {
+      "0.14.0": {
+        "PROXY_COUNT": "9",
+        "ADDRESSED_NONCE_COUNT": "12",
+        "_note": "Identical to 0.13.0 on purpose: v14 deploys the same nine proxies in the same order from the same deployer.",
+        "nonces": {
+          "primary": [
+            { "nonce": 0, "address": "0x34e3eD8472e409dbF8FDf933cA996DC75e4Be126", "role": "EmptyUUPSProxyACL" },
+            { "nonce": 1, "address": "0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D", "role": "ACL_ADDRESS" },
+            { "nonce": 2, "address": "0xCD3ab3bd6bcc0c0bf3E27912a92043e817B1cf69", "role": "EmptyUUPSProxy" },
+            { "nonce": 3, "address": "0xe3a9105a3a932253A70F126eb1E3b589C643dD24", "role": "FHEVM_EXECUTOR_ADDRESS" },
+            { "nonce": 4, "address": "0x901F8942346f7AB3a01F6D7613119Bca447Bb030", "role": "KMS_VERIFIER_ADDRESS" },
+            { "nonce": 5, "address": "0x36772142b74871f255CbD7A3e89B401d3e45825f", "role": "INPUT_VERIFIER_ADDRESS" },
+            { "nonce": 6, "address": "0x233ff88A48c172d29F675403e6A8e302b0F032D9", "role": "HCU_LIMIT_ADDRESS" },
+            { "nonce": 7, "address": "0x44aA028fd264C76BF4A8f8B4d8A5272f6AE25CAc", "role": "PROTOCOL_CONFIG_ADDRESS" },
+            { "nonce": 8, "address": "0x216be43148dB537BeddBC268163deb1a802b5553", "role": "KMS_GENERATION_ADDRESS" }
+          ],
+          "secondary": [
+            {
+              "nonce": 9,
+              "address": "0xded0D2a71268DC12622BdD1b55d68a1CB5662327",
+              "role": "CLEARTEXT_ARITHMETIC_ADDRESS"
+            },
+            { "nonce": 10, "address": "0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E", "role": "CLEARTEXT_DB_ADDRESS" },
+            { "nonce": 11, "address": "0x590e3330386Fa042843773541aaBb3a45EC3164D", "role": "PAUSER_SET_ADDRESS" }
+          ]
+        }
+      },
       "0.13.0": {
         "PROXY_COUNT": "9",
         "ADDRESSED_NONCE_COUNT": "12",
@@ -337,31 +364,6 @@
             },
             { "nonce": 10, "address": "0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E", "role": "CLEARTEXT_DB_ADDRESS" },
             { "nonce": 11, "address": "0x590e3330386Fa042843773541aaBb3a45EC3164D", "role": "PAUSER_SET_ADDRESS" }
-          ]
-        }
-      },
-      "0.12.0": {
-        "PROXY_COUNT": "7",
-        "ADDRESSED_NONCE_COUNT": "10",
-        "_note": "Two fewer proxies and two fewer nonces than v13: this generation has no ProtocolConfig and no KMSGeneration. Everything from nonce 7 on therefore names a different contract than v13's table does at the same nonce.",
-        "nonces": {
-          "primary": [
-            { "nonce": 0, "address": "0x34e3eD8472e409dbF8FDf933cA996DC75e4Be126", "role": "EmptyUUPSProxyACL" },
-            { "nonce": 1, "address": "0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D", "role": "ACL_ADDRESS" },
-            { "nonce": 2, "address": "0xCD3ab3bd6bcc0c0bf3E27912a92043e817B1cf69", "role": "EmptyUUPSProxy" },
-            { "nonce": 3, "address": "0xe3a9105a3a932253A70F126eb1E3b589C643dD24", "role": "FHEVM_EXECUTOR_ADDRESS" },
-            { "nonce": 4, "address": "0x901F8942346f7AB3a01F6D7613119Bca447Bb030", "role": "KMS_VERIFIER_ADDRESS" },
-            { "nonce": 5, "address": "0x36772142b74871f255CbD7A3e89B401d3e45825f", "role": "INPUT_VERIFIER_ADDRESS" },
-            { "nonce": 6, "address": "0x233ff88A48c172d29F675403e6A8e302b0F032D9", "role": "HCU_LIMIT_ADDRESS" }
-          ],
-          "secondary": [
-            {
-              "nonce": 7,
-              "address": "0x44aA028fd264C76BF4A8f8B4d8A5272f6AE25CAc",
-              "role": "CLEARTEXT_ARITHMETIC_ADDRESS"
-            },
-            { "nonce": 8, "address": "0x216be43148dB537BeddBC268163deb1a802b5553", "role": "CLEARTEXT_DB_ADDRESS" },
-            { "nonce": 9, "address": "0xded0D2a71268DC12622BdD1b55d68a1CB5662327", "role": "PAUSER_SET_ADDRESS" }
           ]
         }
       }
