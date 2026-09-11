@@ -100,7 +100,7 @@ jobs:
           export PAYLOAD="$payload"
           version="$(node -p "require('./versions.json').packages[process.env.PAYLOAD] ?? ''")"
           if [[ -z "$version" ]]; then
-            echo "::error::'${payload}' has no entry in sdk/versions.json — is the payload key right?"
+            echo "::error::'${payload}' has no entry in ./versions.json — is the payload key right?"
             exit 1
           fi
           if [[ "$version" == *-* ]]; then dist_tag="alpha"; else dist_tag="latest"; fi
@@ -118,7 +118,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
         with:
-          version: stable
+          version: v1.5.1
 
       # -----------------------------------------------------------------------
       # 3. safe-chain

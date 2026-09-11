@@ -4,13 +4,11 @@ on:
   pull_request:
     branches:
       - release/0.14.x
-      # js-sdk lists its own long-lived branch here too (devex/js-sdk); add the
-      # working branch while a cluster is being developed, if that is wanted.
-    paths:
-      - '.github/workflows/sdk-cleartext-tests*.yml'
-      - '**'
-      # Prose only: no check or test reads these.
-      - '!fhevm-npm-docs/**'
+    # Deliberately no `paths:` here — the equivalent filtering lives in the `changes`
+    # job below. A workflow skipped by a path filter reports NO check at all, so the
+    # required `sdk-cleartext-tests/test (bpr)` gate would stay pending forever and the
+    # PR would be unmergeable. A job skipped by an `if:` reports "skipped", which branch
+    # protection counts as a pass.
   workflow_dispatch:
 
 # No permissions at the workflow level — each job declares only what it needs.
@@ -30,8 +28,59 @@ env:
   NPM_CONFIG_FETCH_TIMEOUT: '600000'
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Does this PR touch anything a test could observe?
+  #
+  # Cheap ubuntu runner, no checkout: dorny reads the PR's file list from the API.
+  # Its answer gates the expensive job below, which is the whole point — a skipped
+  # job still reports its check, so the required gate is satisfied either way.
+  #
+  # Everything is assumed test-affecting; the filter only ever subtracts. Each exclusion
+  # is a claim that no check or test reads those files, so it has to stay true as the repo
+  # moves — keep the list short.
+  # ---------------------------------------------------------------------------
+  changes:
+    name: sdk-cleartext-tests/changes
+    # Only a pull request has a file list to read from the API. A manual run is someone
+    # asking for the suite on purpose, so it skips straight past this and tests everything.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: 'read' # Required to read the file list of the pull request
+    outputs:
+      payload: ${{ steps.filter.outputs.payload }}
+    steps:
+      - name: Filter changed paths
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        with:
+          # WITHOUT this the patterns below are OR-ed, a negated pattern is just "any file
+          # that isn't X", and `payload` comes out true for every changed file — the
+          # exclusions would silently do nothing. `every` is what turns them into real
+          # exclusions: a file counts only if it matches ALL of them.
+          #
+          # So ONLY negated patterns belong in this list. Adding a positive one means every
+          # file would also have to match that, and the filter would go quiet.
+          # `every` needs v3.0.4; the v3.0.2 pinned elsewhere in the org has no such input.
+          predicate-quantifier: 'every'
+          filters: |
+            payload:
+              # Publishing is a separate workflow reached by workflow_call. Nothing in
+              # it is imported, compiled or asserted on by the suite.
+              - '!.github/workflows/sdk-cleartext-publish-*.yml'
+              # Prose only: no check or test reads these.
+              - '!fhevm-npm-docs/**'
+
   run-tests:
     name: sdk-cleartext-tests/test (bpr)
+    needs: changes
+    # Only an explicit `false` skips the suite. A skipped filter (manual run) or a failed
+    # one (dorny erroring, the API refusing) leaves this empty and the tests run anyway —
+    # a broken filter must not be able to wave a PR through a gate that never executed.
+    # Naming a status function is also what stops a skipped dependency from skipping this
+    # job by default, which is what lets a manual run reach the suite at all.
+    if: ${{ !cancelled() && needs.changes.outputs.payload != 'false' }}
     # The runner js-sdk-tests.yml uses: runs-on.io, 4 vCPU, with the S3-backed cache extra.
     runs-on: runs-on=${{ github.run_id }}/runner=4cpu-linux-x64/extras=s3-cache
     # `make ci` takes about an hour and a half on a laptop. Generous until a real run says otherwise.
@@ -159,9 +208,31 @@ jobs:
       - name: Consumer rehearsal
         run: make test-consumer-ci
 
-      # -----------------------------------------------------------------------
-      # 10. Run Zizmor
-      # -----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Lint the workflows themselves — always, on its own runner.
+  #
+  # Deliberately NOT a step of run-tests: that job is skipped on PRs that touch only
+  # the publish workflows, which is precisely when a workflow linter has the most to
+  # say. It also needs no build, so it should not sit behind ninety minutes of one.
+  #
+  # zizmor-action uploads its findings as SARIF through codeql-action, so they land in
+  # the repository's code-scanning view like every other SAST result in the org. That
+  # upload is what `security-events: write` is for — same shape as common-pull-request-lint.
+  # ---------------------------------------------------------------------------
+  zizmor:
+    name: sdk-cleartext-tests/zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: 'read' # Required to checkout repository code
+      security-events: 'write' # Required to write security events for SAST results
+    steps:
+      # A shallow checkout is enough: zizmor reads the workflow files as they are.
+      - name: Check out repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: 'false'
+
       - name: Run zizmor 🌈
         uses: zizmorcore/zizmor-action@e673c3917a1aef3c65c972347ed84ccd013ecda4 # v0.2.0
         with:
