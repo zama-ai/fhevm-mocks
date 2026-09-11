@@ -1,4 +1,4 @@
-name: sdk-cleartext-publish-hardhat-plugin-v2
+name: sdk-cleartext-publish-hardhat-plugin-v3
 
 on:
   workflow_dispatch:
