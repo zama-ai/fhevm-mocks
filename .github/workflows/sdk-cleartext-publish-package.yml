@@ -23,9 +23,6 @@ jobs:
   publish:
     name: sdk-publish-payload/publish
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./sdk
     permissions:
       contents: 'read' # Required to checkout repository code
       id-token: 'write' # Required for OIDC / npm provenance attestation

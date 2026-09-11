@@ -3,7 +3,7 @@ name: sdk-cleartext-tests
 on:
   pull_request:
     branches:
-      - release/0.13.x
+      - release/0.14.x
       # js-sdk lists its own long-lived branch here too (devex/js-sdk); add the
       # working branch while a cluster is being developed, if that is wanted.
     paths:
@@ -36,9 +36,6 @@ jobs:
     runs-on: runs-on=${{ github.run_id }}/runner=4cpu-linux-x64/extras=s3-cache
     # `make ci` takes about an hour and a half on a laptop. Generous until a real run says otherwise.
     timeout-minutes: 180
-    defaults:
-      run:
-        working-directory: ./sdk
     permissions:
       contents: 'read' # Required to checkout repository code
     steps:
