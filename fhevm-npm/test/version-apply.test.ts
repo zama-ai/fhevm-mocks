@@ -76,6 +76,21 @@ test('the central diff lists forward moves and new entries, and refuses a versio
   }
 });
 
+test('--allow-downgrade accepts a version that does not increase, such as a release turned prerelease', () => {
+  const { root, workspace } = repoWithCentral({ './plugin/pkg': '0.13.0' });
+  try {
+    // SemVer §11 sorts a prerelease below its own release, so this reads as a downgrade even though it is
+    // the ordinary way to reopen an unpublished version for more prereleases.
+    const reopened = versions({ './plugin/pkg': '0.13.0-0' });
+    assert.throws(() => centralDiffAgainstHead(workspace, reopened), /only moves forward/);
+    assert.deepEqual(centralDiffAgainstHead(workspace, reopened, true), [
+      { key: './plugin/pkg', from: '0.13.0', to: '0.13.0-0' },
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('the plan names every derived field that disagrees: package.json versions and lockfile member lines', () => {
   const plugin = loadedPackage(
     './cluster/plugin/pkg',
