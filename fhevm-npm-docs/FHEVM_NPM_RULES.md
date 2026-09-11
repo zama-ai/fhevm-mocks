@@ -831,6 +831,46 @@ still ask whether every live generation is among them.
 Every manifest path resolves against the WORKSPACE ROOT. Two bases for one comparison is what made a re-rooted
 checkout fail, and `./sdk/…` prefixes are the fossil of that layout.
 
+**5.1.3c A generation pins ONE upstream commit, and every copy taken from upstream rides it.** A generation's
+published package pins `host-contracts/contracts` at a tag and commit; anything else the generation copies from the
+same upstream — today `library-solidity/config`, which its dev package vendors into `internal/zama-config/` so
+`check:zama-config` reads the localhost address set at the commit the contracts came from — names the SAME tag and
+commit. Two entries, one pin: the second is the existing pin covering one more directory of the same tree, not a
+second version to keep in step by hand.
+
+The copy sits on the dev package, not the published one, because only `pkg/` ships and a file that exists to grade
+a workspace constant must never reach a consumer. `package.json#fhevm.vendoredFrom` is singular, so a package can
+carry one pinned entry — which is also why the config cannot join `pkg`'s entry and lives on the dev owner. A
+retired generation takes its copy with it (see each generation's `ROTATION.md`).
+
+Reading the file from `@fhevm/solidity` in `node_modules` instead is wrong even though it is the same file: the
+installed version is whatever the Hardhat packages pin, not the version line either generation vendors, so a green
+check there would be a check against a config nothing in the generation builds.
+
+```jsonc
+// ✅ The dev package's entry repeats its pkg's tag and commit exactly. Rotating one means rotating both.
+"./host-contracts-cleartext/v14": {
+  "kind": "dev",
+  "vendored": [{
+    "relPath": "./internal/zama-config",
+    "source": { "repository": "https://github.com/zama-ai/fhevm", "tag": "v0.14.1", "commit": "e7e7fec…", "from": "library-solidity/config", "digest": "sha256-…" },
+    "reason": "…"
+  }]
+},
+"./host-contracts-cleartext/v14/pkg": {
+  "kind": "published",
+  "vendored": [{
+    "relPath": "./src/contracts",
+    "source": { "repository": "https://github.com/zama-ai/fhevm", "tag": "v0.14.1", "commit": "e7e7fec…", "from": "host-contracts/contracts", "digest": "sha256-…" },
+    "reason": "…"
+  }]
+}
+
+// ❌ The config at a newer tag than the contracts. The check now grades a constant against addresses no contract
+//    in this generation was compiled with.
+"source": { "tag": "v0.14.2", "commit": "…", "from": "library-solidity/config" }
+```
+
 **5.1.4 Private source-owning workspace packages expose common hygiene scripts.** Every `dev`, `shared-helper` and
 `internal-consumer` package defines non-empty `fmt`, `fmt:check`, `lint`, `prettier:check` and `prettier:write`;
 `fmt`/`fmt:check` are the orchestrator's formatting verbs (prettier plus `forge fmt` where the package owns Solidity).

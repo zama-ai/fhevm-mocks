@@ -88,22 +88,92 @@ test('a subtree the archive does not contain is reported against the pin that na
   }
 });
 
-test('withPinnedTree removes its scratch directory, including after a failure', () => {
-  let seen = '';
-  withPinnedTree(source, (tree) => (seen = tree), servingArchive({ 'host-contracts/contracts/A.sol': 'x' }));
-  assert.notEqual(seen, '');
-  assert.equal(existsSync(seen), false, 'the extracted tree outlived the call');
+test('withPinnedTree downloads a commit once and serves every later call from the cache', () => {
+  const cacheRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-cache-'));
+  try {
+    let downloads = 0;
+    const counting: Downloader = (url, destination) => {
+      downloads += 1;
+      servingArchive({
+        'host-contracts/contracts/A.sol': 'x',
+        'library-solidity/config/ZamaConfig.sol': 'config',
+      })(url, destination);
+    };
 
-  let escaped = '';
-  assert.throws(() =>
-    withPinnedTree(
-      source,
-      (tree) => {
-        escaped = tree;
-        throw new Error('body failed');
-      },
-      servingArchive({ 'host-contracts/contracts/A.sol': 'x' }),
-    ),
-  );
-  assert.equal(existsSync(escaped), false, 'a throwing body left the extracted tree behind');
+    const first = withPinnedTree(source, (tree) => tree, counting, cacheRoot);
+    assert.equal(downloads, 1);
+    assert.equal(existsSync(first), true, 'the cached tree must outlive the call');
+    assert.equal(readFileSync(join(first, 'A.sol'), 'utf8'), 'x');
+
+    // Same commit, another subtree: the entry the config vendoring adds costs nothing extra.
+    const config = withPinnedTree({ ...source, from: 'library-solidity/config' }, (tree) => tree, counting, cacheRoot);
+    assert.equal(downloads, 1, 'a second subtree of a cached commit was downloaded again');
+    assert.equal(readFileSync(join(config, 'ZamaConfig.sol'), 'utf8'), 'config');
+
+    // A different commit is a different slot.
+    withPinnedTree({ ...source, commit: 'b'.repeat(40) }, () => undefined, counting, cacheRoot);
+    assert.equal(downloads, 2);
+
+    // Only the extracted tree is kept: the 40 MB archive is not.
+    const slots = readdirSync(cacheRoot).sort();
+    assert.deepEqual(slots, [`zama-ai-fhevm-${source.commit}`, `zama-ai-fhevm-${'b'.repeat(40)}`]);
+    assert.deepEqual(readdirSync(join(cacheRoot, slots[0]!)), ['extracted']);
+  } finally {
+    rmSync(cacheRoot, { recursive: true, force: true });
+  }
+});
+
+test('a failed download leaves no cache slot behind, so the next run retries', () => {
+  const cacheRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-cache-'));
+  try {
+    assert.throws(
+      () =>
+        withPinnedTree(
+          source,
+          () => undefined,
+          () => {
+            throw new Error('network down');
+          },
+          cacheRoot,
+        ),
+      /network down/,
+    );
+    assert.deepEqual(readdirSync(cacheRoot), [], 'a partial slot survived the failure');
+
+    // A body that throws does not poison the cache either: the commit stays available.
+    assert.throws(() =>
+      withPinnedTree(
+        source,
+        () => {
+          throw new Error('body failed');
+        },
+        servingArchive({ 'host-contracts/contracts/A.sol': 'x' }),
+        cacheRoot,
+      ),
+    );
+    assert.deepEqual(readdirSync(cacheRoot), [`zama-ai-fhevm-${source.commit}`]);
+  } finally {
+    rmSync(cacheRoot, { recursive: true, force: true });
+  }
+});
+
+test('a cached commit that lacks the requested subtree is reported against the pin that named it', () => {
+  const cacheRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-cache-'));
+  try {
+    withPinnedTree(source, () => undefined, servingArchive({ 'host-contracts/contracts/A.sol': 'x' }), cacheRoot);
+    assert.throws(
+      () =>
+        withPinnedTree(
+          { ...source, from: 'library-solidity/config' },
+          () => undefined,
+          () => {
+            throw new Error('must not download: the commit is cached');
+          },
+          cacheRoot,
+        ),
+      /library-solidity\/config does not exist in https:\/\/github\.com\/zama-ai\/fhevm at ac18e49/,
+    );
+  } finally {
+    rmSync(cacheRoot, { recursive: true, force: true });
+  }
 });

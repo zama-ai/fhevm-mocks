@@ -92,7 +92,20 @@
       "member": true,
       "publishedRelPath": "./host-contracts-cleartext/v12/pkg",
       "dependencyGroup": "host-contracts-cleartext/v12",
-      "note": "Older generation. Reachable as @fhevm/host-contracts-cleartext-v12-dev/pkg/... only because this manifest declares no `exports`."
+      "note": "Older generation. Reachable as @fhevm/host-contracts-cleartext-v12-dev/pkg/... only because this manifest declares no `exports`.",
+      "vendored": [
+        {
+          "relPath": "./internal/zama-config",
+          "source": {
+            "repository": "https://github.com/zama-ai/fhevm",
+            "tag": "v0.12.5",
+            "commit": "ac18e49ea85dd3c26788fc66f9ac0ea7cfe48519",
+            "digest": "sha256-S7f65VAAOS1Z6lNX+Xseq4tRimLe2fyMhSJxl0nbGQI=",
+            "from": "library-solidity/config"
+          },
+          "reason": "The localhost address set is upstream's, and the check must read it at the same commit this generation vendors its contracts from. Reformatted by `forge fmt` on the way in, like every pinned copy."
+        }
+      ]
     },
     "./host-contracts-cleartext/v12/pkg": {
       "kind": "published",
@@ -171,7 +184,20 @@
       "member": true,
       "publishedRelPath": "./host-contracts-cleartext/v13/pkg",
       "dependencyGroup": "host-contracts-cleartext/v13",
-      "note": "Current generation, and the reference implementation every older generation is derived from."
+      "note": "Current generation, and the reference implementation every older generation is derived from.",
+      "vendored": [
+        {
+          "relPath": "./internal/zama-config",
+          "source": {
+            "repository": "https://github.com/zama-ai/fhevm",
+            "tag": "v0.13.2",
+            "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
+            "digest": "sha256-4g0KsXAHNRkHbMgqXdkdMTnjs5Fxufgw6C1oaS/Ez9s=",
+            "from": "library-solidity/config"
+          },
+          "reason": "The localhost address set is upstream's, and the check must read it at the same commit this generation vendors its contracts from. Reformatted by `forge fmt` on the way in, like every pinned copy."
+        }
+      ]
     },
     "./host-contracts-cleartext/v13/pkg": {
       "kind": "published",

@@ -134,7 +134,7 @@ export function expectedVendoredContent(sourceText: string, mapping: CommonDesti
  * Derived rather than listed, so a package that starts vendoring is checked the day it says so — the
  * whole point of a no-argument run is that it cannot silently skip one.
  */
-/** A pinned vendored destination: an external tree, at a commit, written into a published package. */
+/** A pinned vendored destination: an external tree, at a commit, written into a package (published or dev). */
 export type PinnedVendoredTarget = {
   readonly packageKey: string;
   readonly packageDirectory: string;
@@ -199,17 +199,44 @@ export function vendoredPackageKeys(workspaceRoot: string, manifest: NpmManifest
     .map((entry) => entry.key);
 }
 
+/**
+ * Every package a selector denotes, each validated on its own. A published key or name is itself; a dev
+ * key is its published payload, PLUS the dev package itself when it declares vendored content of its own
+ * — a dev owner can pin a tree that must never ship (a generation's `internal/zama-config`), and
+ * `npm run check:vendored-origin` in that package has to grade both.
+ */
+export function validateVendoredPackages(
+  workspaceRoot: string,
+  manifest: NpmManifest,
+  selector: string,
+): readonly VendoredCheckResult[] {
+  const packages = loadPackages(workspaceRoot, manifest);
+  const selected = selectVendoredPackages(packages, selector);
+  if (selected.length === 0) {
+    throw new Error(`Package '${selector}' does not declare vendored content in npm-manifest.json`);
+  }
+  return selected.map((pkg) => validateLoadedPackage(workspaceRoot, pkg));
+}
+
+/** `validateVendoredPackages` for a selector that denotes exactly one package. */
 export function validateVendoredPackage(
   workspaceRoot: string,
   manifest: NpmManifest,
   selector: string,
 ): VendoredCheckResult {
-  const packages = loadPackages(workspaceRoot, manifest);
-  const published = selectPublishedPackage(packages, selector);
-  const entries = published.inventory.vendored;
-  if (entries === undefined || entries.length === 0) {
-    throw new Error(`Package '${selector}' does not declare vendored content in npm-manifest.json`);
+  const results = validateVendoredPackages(workspaceRoot, manifest, selector);
+  if (results.length !== 1) {
+    throw new Error(
+      `Vendored package selector '${selector}' denotes ${String(results.length)} packages: ${results
+        .map((result) => result.packageKey)
+        .join(', ')}`,
+    );
   }
+  return results[0]!;
+}
+
+function validateLoadedPackage(workspaceRoot: string, published: LoadedPackage): VendoredCheckResult {
+  const entries = published.inventory.vendored ?? [];
 
   const startedAt = performance.now();
   // Resolved on demand: only a LOCAL entry needs it, to turn a repository-root-relative source into a
@@ -293,26 +320,28 @@ export function validateVendoredMetadata(
     : [`package.json#fhevm.vendoredFrom differs from npm-manifest.json: ${mismatches.join(', ')}`];
 }
 
-function selectPublishedPackage(packages: readonly LoadedPackage[], selector: string): LoadedPackage {
+function selectVendoredPackages(packages: readonly LoadedPackage[], selector: string): readonly LoadedPackage[] {
   const normalized = selector === '.' || selector.startsWith('./') ? selector : `./${selector.replace(/^\//, '')}`;
   const direct = packages.find((pkg) => pkg.key === normalized);
   const candidates = direct === undefined ? packages.filter((pkg) => pkg.packageJson.name === selector) : [direct];
-  const published = candidates.flatMap((pkg) => {
-    if (pkg.inventory.kind === 'published') return [pkg];
-    if (pkg.inventory.kind !== 'dev' || pkg.inventory.publishedRelPath === undefined) return [];
-    const payload = packages.find((candidate) => candidate.key === pkg.inventory.publishedRelPath);
-    return payload === undefined ? [] : [payload];
-  });
-
-  if (published.length === 0) {
-    throw new Error(`No published package or dev owner matches '${selector}'`);
-  }
-  if (published.length > 1) {
+  if (candidates.length > 1) {
     throw new Error(
-      `Vendored package selector '${selector}' is ambiguous; use a package path: ${published.map((pkg) => pkg.key).join(', ')}`,
+      `Vendored package selector '${selector}' is ambiguous; use a package path: ${candidates.map((pkg) => pkg.key).join(', ')}`,
     );
   }
-  return published[0]!;
+  const candidate = candidates[0];
+  if (candidate === undefined) {
+    throw new Error(`No published package or dev owner matches '${selector}'`);
+  }
+
+  if (candidate.inventory.kind === 'published') return [candidate];
+  if (candidate.inventory.kind !== 'dev') {
+    throw new Error(`No published package or dev owner matches '${selector}'`);
+  }
+  const payload = packages.find((pkg) => pkg.key === candidate.inventory.publishedRelPath);
+  return [candidate, payload].filter(
+    (pkg): pkg is LoadedPackage => pkg !== undefined && (pkg.inventory.vendored ?? []).length > 0,
+  );
 }
 
 /**

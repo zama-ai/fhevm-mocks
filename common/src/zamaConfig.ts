@@ -1,12 +1,13 @@
-// Checks ZAMA_LOCAL_CONFIG against the real `library-solidity/config/ZamaConfig.sol`. Source-level and
-// read-only: it parses the Solidity, compiling and deploying nothing.
+// Checks ZAMA_LOCAL_CONFIG against upstream's `library-solidity/config/ZamaConfig.sol`, read from the
+// calling generation's vendored copy at the commit it pins. Source-level and read-only: it parses the
+// Solidity, compiling and deploying nothing.
 //
 // Two cases it refuses to pass quietly, because both look exactly like success: ZamaConfig.sol not being
 // found, and `_getLocalConfig()` having grown a field this workspace does not place.
 
 import { readFileSync } from 'node:fs';
 import { LOCAL_CHAIN_ID, ZAMA_LOCAL_CONFIG } from './constants.ts';
-import { sourceLabel, zamaConfigAbsPath } from './paths.ts';
+import { sourceLabel } from './paths.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -145,11 +146,13 @@ function _parseFields(body: string, label: string): Map<string, string> {
  * Compares ZAMA_LOCAL_CONFIG field by field against `_getLocalConfig()`. Returns the comparison instead
  * of throwing on a mismatch, so a caller can report every drifted field at once.
  *
- * @param sourcePath ZamaConfig.sol to read. Defaults to {@link zamaConfigAbsPath}.
+ * @param sourcePath ZamaConfig.sol to read — the caller's generation-pinned copy, see
+ *        {@link vendoredZamaConfigAbsPath}. There is no default: the file is per generation, and there is no
+ *        workspace-wide location to fall back to.
  * @throws on a structural problem — no file, no function, an unknown field — which means the check itself
  *         is broken rather than that it has a result.
  */
-export function checkZamaLocalConfig(sourcePath: string = zamaConfigAbsPath()): ZamaLocalConfigCheck {
+export function checkZamaLocalConfig(sourcePath: string): ZamaLocalConfigCheck {
   const label = sourceLabel(sourcePath);
   const source = _stripComments(readFileSync(sourcePath, 'utf8'));
 
