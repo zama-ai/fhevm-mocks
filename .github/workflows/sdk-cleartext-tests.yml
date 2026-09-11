@@ -31,7 +31,7 @@ env:
 
 jobs:
   run-tests:
-    name: sdk-tests/test
+    name: sdk-cleartext-tests/test (bpr)
     # The runner js-sdk-tests.yml uses: runs-on.io, 4 vCPU, with the S3-backed cache extra.
     runs-on: runs-on=${{ github.run_id }}/runner=4cpu-linux-x64/extras=s3-cache
     # `make ci` takes about an hour and a half on a laptop. Generous until a real run says otherwise.
