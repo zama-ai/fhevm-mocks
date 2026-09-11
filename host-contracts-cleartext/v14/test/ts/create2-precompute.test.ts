@@ -307,4 +307,7 @@ test('precomputeCreate2Addresses predicts where a real create2 deploy actually l
     // The seal goes; `build/` stays, so the next run is warm.
     clearSealKeepingBuildCache();
   }
-}, 180_000);
+  // Sized for CI, not for a laptop: a runner checks out clean, so `build/` is always cold (~90s of solc
+  // rather than ~30s), and it has fewer cores than the machine the ~40s figure above was measured on.
+  // 180s fit locally and timed out there.
+}, 600_000);
