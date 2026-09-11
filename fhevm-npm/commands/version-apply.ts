@@ -2,16 +2,20 @@ import type { NpmManifest } from '../manifest.ts';
 import { loadPackages } from '../base/npm.ts';
 import { applyPlan, formatPlan, guardNpmjs, planVersionApply } from '../base/version-apply.ts';
 
-export type VersionApplyOptions = { readonly dryRun: boolean; readonly checkNpmjs: boolean };
+export type VersionApplyOptions = {
+  readonly dryRun: boolean;
+  readonly checkNpmjs: boolean;
+  readonly allowDowngrade: boolean;
+};
 
-// `version apply`: plan from sdk/versions.json, optionally prove the new versions are not on npmjs.com,
+// `version apply`: plan from versions.json, optionally prove the new versions are not on npmjs.com,
 // then reconcile the derived files unless --dry-run. Writes nothing when there is nothing to reconcile.
 export async function versionApply(
   workspaceRoot: string,
   manifest: NpmManifest,
   options: VersionApplyOptions,
 ): Promise<void> {
-  const plan = planVersionApply(workspaceRoot, manifest);
+  const plan = planVersionApply(workspaceRoot, manifest, options.allowDowngrade);
   const packages = loadPackages(workspaceRoot, manifest);
   console.log(formatPlan(plan, packages));
   if (options.checkNpmjs) await guardNpmjs(plan.transitions, packages, registryFetch);
