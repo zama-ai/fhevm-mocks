@@ -1,6 +1,6 @@
-// Locating the sdk workspace, the fhevm repo around it, and the files that live at either root.
+// Locating the sdk workspace and the files that live inside it. Nothing here looks outside the workspace:
+// the `<fhevm repo>/sdk/` layout this once assumed no longer exists, and the workspace IS the repository.
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,9 +10,6 @@ const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** The one file of upstream's `library-solidity/config` this workspace reads. */
 const ZAMA_CONFIG_FILE_NAME = 'ZamaConfig.sol';
-
-/** Path of ZamaConfig.sol relative to the fhevm repo root. */
-const ZAMA_CONFIG_REPO_PATH = join('library-solidity', 'config', ZAMA_CONFIG_FILE_NAME);
 
 /**
  * Nearest ancestor of `startDir` whose package.json declares `workspaces`.
@@ -38,45 +35,6 @@ export function findWorkspaceRootAbsPath(startDir: string): string {
     }
     current = parent;
   }
-}
-
-/** The fhevm repo root according to git, or undefined outside a checkout. */
-function _gitRepoRoot(): string | undefined {
-  try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: THIS_DIR,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Absolute path of `library-solidity/config/ZamaConfig.sol`, tried as the sdk workspace's sibling then
- * from the git repo root — so moving a package within the repo cannot silently lose the file.
- *
- * @throws if neither candidate exists, which means it moved rather than that it may be skipped.
- * @example
- * zamaConfigAbsPath(); // '/repo/library-solidity/config/ZamaConfig.sol'
- */
-export function zamaConfigAbsPath(): string {
-  const layoutRelative = join(dirname(findWorkspaceRootAbsPath(THIS_DIR)), ZAMA_CONFIG_REPO_PATH);
-  const repoRoot = _gitRepoRoot();
-  const candidates =
-    repoRoot === undefined ? [layoutRelative] : [...new Set([layoutRelative, join(repoRoot, ZAMA_CONFIG_REPO_PATH)])];
-
-  const found = candidates.find((candidate) => existsSync(candidate));
-  if (found === undefined) {
-    throw new Error(
-      `ZamaConfig.sol not found. Tried:\n${candidates.map((candidate) => `     ${candidate}`).join('\n')}\n` +
-        `   It is the source of truth for the localhost address set, so this check cannot be skipped: fix ` +
-        `the path in @fhevm/sdk-common-dev (src/paths.ts) if the file moved.`,
-    );
-  }
-
-  return found;
 }
 
 /**
@@ -126,18 +84,14 @@ function _vendoredTo(packageJson: unknown): string | undefined {
 }
 
 /**
- * How to name a path in output: relative to the fhevm repo root when it sits inside one, absolute
- * otherwise.
+ * How to name a path in output: relative to the sdk workspace root when it sits inside it, absolute
+ * otherwise. No git involved, so the label reads the same in a copied tree with no repository.
  *
  * @example
- * sourceLabel('/repo/library-solidity/config/ZamaConfig.sol'); // 'library-solidity/config/ZamaConfig.sol'
+ * sourceLabel('/repo/host-contracts-cleartext/v14/internal/zama-config/ZamaConfig.sol');
+ * // 'host-contracts-cleartext/v14/internal/zama-config/ZamaConfig.sol'
  */
 export function sourceLabel(sourcePath: string): string {
-  const repoRoot = _gitRepoRoot();
-  if (repoRoot === undefined) {
-    return sourcePath;
-  }
-
-  const fromRoot = relative(repoRoot, sourcePath);
+  const fromRoot = relative(findWorkspaceRootAbsPath(THIS_DIR), sourcePath);
   return fromRoot.startsWith('..') ? sourcePath : fromRoot;
 }

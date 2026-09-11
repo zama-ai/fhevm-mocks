@@ -10,7 +10,7 @@ export {
   MNEMONIC,
   ZAMA_LOCAL_CONFIG,
 } from './constants.ts';
-export { findWorkspaceRootAbsPath, sourceLabel, vendoredZamaConfigAbsPath, zamaConfigAbsPath } from './paths.ts';
+export { findWorkspaceRootAbsPath, sourceLabel, vendoredZamaConfigAbsPath } from './paths.ts';
 export { readContractVersions, solidityConstantName, tsKeyName } from './contractVersions.ts';
 export type { ContractVersion } from './contractVersions.ts';
 export { checkZamaLocalConfig } from './zamaConfig.ts';
