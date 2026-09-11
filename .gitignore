@@ -62,11 +62,13 @@ tmp/
 .out
 .out-*
 
-# Per-generation build output and fetched dependencies. Each generation's own .gitignore covers these, but
-# that file is tracked only on the branch that owns the generation: switch to a release branch that does
-# not, and the generation's directory is still on disk with nothing ignoring it — which is how 404 files
-# of v14's tsc output, soldeer dependencies and forge cache were once committed to release/0.13.x. Named
-# here so a branch switch can never un-ignore them. Nothing tracked on any branch matches these.
+# Per-generation build output, caches and scratch. Each generation's own .gitignore covers these, but that
+# file is tracked only on the branch that owns the generation: switch to a release branch that does not,
+# and the generation's directory is still on disk with nothing ignoring it — which is how 404 files of
+# v14's tsc output, soldeer dependencies and forge cache were once committed to release/0.13.x, and how two
+# vitest result caches under v14/test/ts later surfaced there as an untracked v14/. Every pattern the
+# generation file carries is therefore repeated here, so a branch switch can never un-ignore any of them.
+# Nothing tracked on any branch matches these.
 cache/
 dependencies/
 broadcast/
@@ -74,6 +76,12 @@ broadcast/
 **/pkg/ts/_esm/
 **/pkg/ts/_types/
 **/pkg/ts/_types-cjs/
+**/pkg/state/
+.vitest-cache/
+tarball/
+.deploy-config/
+.tmp-localhost/
+.test-*
 
 # Coverage
 coverage/
