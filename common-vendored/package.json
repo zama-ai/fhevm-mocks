@@ -10,7 +10,7 @@
   "scripts": {
     "clean": "rm -rf *.tsbuildinfo src/*.tsbuildinfo test/*.tsbuildinfo",
     "clean:generate:chain-constants": "rm -rf src/fhevm-chains.ts",
-    "clean:generate:cleartext-config": "rm -rf src/cleartext-config.ts",
+    "clean:generate:cleartext-config": "rm -rf src/cleartext-config.ts src/cleartext-config-v*.ts",
     "clean:generated": "npm run clean:generate:chain-constants && npm run clean:generate:cleartext-config",
     "fmt": "npm run prettier:write",
     "fmt:check": "npm run prettier:check",

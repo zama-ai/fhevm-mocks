@@ -34,6 +34,12 @@
     "  solidity   the Solidity type the mirror declares. Also what tells a consumer how to compare the",
     "             value: `address` case-insensitively, `string` exactly, `uint*` numerically.",
     "  formula    for a derived value, the expression it comes from — see below.",
+    "  generations  optional. The generations whose faces carry this constant — a subset of",
+    "             `appliesTo.generations`. Absent means every one of them, which is the common case and",
+    "             what every entry meant before the field existed. Set it when only one generation's",
+    "             contracts have a field for the value: that generation's Solidity and shell faces and its",
+    "             own scoped TypeScript face (`pkg/ts/cleartext-config-<gen>.ts`) emit it; the shared",
+    "             `cleartext-config.ts`, which is synced into every generation, does not.",
     "  note       why the value is what it is. Required on every entry, and checked.",
     "",
     "## Why a derived value records its formula",
@@ -60,11 +66,12 @@
   "appliesTo": {
     "generations": ["v13", "v14"],
     "_note": [
-      "The two generations use this set IDENTICALLY — both receive the same generated",
-      "`cleartext-config.ts`, synced from `common-vendored/src` — which is why there is no per-generation",
-      "section here. That is a fact about today, not a design guarantee. Should a generation ever need a different",
-      "value, add an explicit `overrides` block keyed by generation rather than forking a copy: a forked",
-      "copy is indistinguishable from drift, which is the entire failure this file exists to end."
+      "Every constant reaches every generation listed here unless it says otherwise. A constant carrying its own",
+      "`generations` list is scoped: only those generations' faces emit it, and the shared `cleartext-config.ts`",
+      "(synced from `common-vendored/src` into every generation) omits it. That is the per-generation mechanism",
+      "this note used to ask for as an `overrides` block, in its smallest form — a scope on the one entry that",
+      "needs it, never a forked copy, because a forked copy is indistinguishable from drift, which is the entire",
+      "failure this file exists to end."
     ]
   },
 
@@ -235,6 +242,7 @@
       "value": "kms-core-",
       "ts": "string",
       "solidity": "string",
+      "generations": ["v14"],
       "note": "v14 only: the first half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
     },
 
@@ -242,6 +250,7 @@
       "value": "-cleartext-core-",
       "ts": "string",
       "solidity": "string",
+      "generations": ["v14"],
       "note": "v14 only: the second half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
     },
 
@@ -249,6 +258,7 @@
       "value": "cleartext-",
       "ts": "string",
       "solidity": "string",
+      "generations": ["v14"],
       "note": "v14 only: `KmsNodeParams.storagePrefix`, the prefix WITHIN the storage bucket where KMS Core writes public material (upstream: proto `MpcNode.public_storage_prefix`; devnet: `PUB-pN`). Node i gets `${prefix}${i + 1}`. Distinct from CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX, which is the bucket itself."
     },
 
@@ -256,6 +266,7 @@
       "value": "0.0.0-cleartext",
       "ts": "string",
       "solidity": "string",
+      "generations": ["v14"],
       "note": "v14 only: the `softwareVersion` argument of `ProtocolConfig.initializeFromEmptyProxy` and `reinitializeV2`, naming the KMS build a context was created under (devnet: `v0.13.20`). There is no KMS build behind a cleartext stack; valid semver with a prerelease tag says exactly that, and nothing on-chain parses it."
     },
 
@@ -263,6 +274,7 @@
       "value": "0x",
       "ts": "string",
       "solidity": "string",
+      "generations": ["v14"],
       "note": "v14 only: `KmsNodeParams.caCert`, the node's CA certificate as HEX (devnet: a ~768-byte PEM). Carried as a hex string because that is what viem takes for `bytes` and the only bytes-like type the config faces know; the generated LocalHostBootstrap turns it into a Solidity `bytes` constant. A cleartext stack has no MPC peer to verify, so it is empty: `0x`."
     }
   },

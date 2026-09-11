@@ -68,4 +68,14 @@ library FhevmCleartextConfig {
     string internal constant CLEARTEXT_KMS_NODE_IP_ADDRESS_PREFIX = "127.0.0.";
 
     string internal constant CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX = "s3://kms-bucket-";
+
+    string internal constant CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX = "kms-core-";
+
+    string internal constant CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX = "-cleartext-core-";
+
+    string internal constant CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX = "cleartext-";
+
+    string internal constant CLEARTEXT_KMS_SOFTWARE_VERSION = "0.0.0-cleartext";
+
+    string internal constant CLEARTEXT_KMS_NODE_CA_CERT = "0x";
 }

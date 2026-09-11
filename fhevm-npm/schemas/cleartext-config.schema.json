@@ -54,6 +54,14 @@
         "tsEmit": { "const": "bigint" },
         "solidity": { "type": "string", "pattern": "^(string|address|bytes32|u?int[0-9]*|bool)$" },
         "formula": { "type": "string", "minLength": 1 },
+        "generations": {
+          "type": "array",
+          "description": "Generations whose faces carry this constant, a subset of `appliesTo.generations`. Absent means every generation. The generator emits a scoped constant only into the named generations' Solidity, shell and scoped TypeScript faces, never into the shared `cleartext-config.ts`.",
+          "$comment": "Optional on purpose: the field did not exist before v14, and an unscoped entry keeps meaning what it always meant. Membership in `appliesTo.generations` is a cross-field check the TypeScript validator owns.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^v[0-9]+$" }
+        },
         "note": { "type": "string", "minLength": 1 }
       },
       "oneOf": [

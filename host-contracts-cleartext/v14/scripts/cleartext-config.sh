@@ -33,6 +33,11 @@ CLEARTEXT_KMS_NODES_TX_SENDER_MNEMONIC_PATH="m/44'/60'/0'/4/"
 CLEARTEXT_KMS_NODES_TX_SENDER_MNEMONIC_INDEX="0"
 CLEARTEXT_KMS_NODE_IP_ADDRESS_PREFIX="127.0.0."
 CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX="s3://kms-bucket-"
+CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX="kms-core-"
+CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX="-cleartext-core-"
+CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX="cleartext-"
+CLEARTEXT_KMS_SOFTWARE_VERSION="0.0.0-cleartext"
+CLEARTEXT_KMS_NODE_CA_CERT="0x"
 
 # The localhost deploy recipe. MNEMONIC is the DEPLOY mnemonic — NOT FHEVM_MNEMONIC, which derives the
 # KMS and coprocessor signer pools. Two different strings with two different jobs: swap them and the
