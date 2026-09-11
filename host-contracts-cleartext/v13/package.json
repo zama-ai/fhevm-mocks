@@ -84,5 +84,14 @@
     "typescript-eslint": "^8.58.2",
     "viem": "2.55.19",
     "vitest": "^4.0.18"
+  },
+  "fhevm": {
+    "vendoredFrom": {
+      "repository": "https://github.com/zama-ai/fhevm",
+      "tag": "v0.13.2",
+      "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
+      "from": "library-solidity/config",
+      "to": "internal/zama-config"
+    }
   }
 }

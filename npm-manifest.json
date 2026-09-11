@@ -92,7 +92,20 @@
       "member": true,
       "publishedRelPath": "./host-contracts-cleartext/v13/pkg",
       "dependencyGroup": "host-contracts-cleartext/v13",
-      "note": "Current generation, and the reference implementation every older generation is derived from."
+      "note": "Current generation, and the reference implementation every older generation is derived from.",
+      "vendored": [
+        {
+          "relPath": "./internal/zama-config",
+          "source": {
+            "repository": "https://github.com/zama-ai/fhevm",
+            "tag": "v0.13.2",
+            "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
+            "digest": "sha256-4g0KsXAHNRkHbMgqXdkdMTnjs5Fxufgw6C1oaS/Ez9s=",
+            "from": "library-solidity/config"
+          },
+          "reason": "The localhost address set is upstream's, and the check must read it at the same commit this generation vendors its contracts from. Reformatted by `forge fmt` on the way in, like every pinned copy."
+        }
+      ]
     },
     "./host-contracts-cleartext/v13/pkg": {
       "kind": "published",
@@ -170,7 +183,20 @@
       "private": true,
       "member": true,
       "publishedRelPath": "./host-contracts-cleartext/v14/pkg",
-      "dependencyGroup": "host-contracts-cleartext/v14"
+      "dependencyGroup": "host-contracts-cleartext/v14",
+      "vendored": [
+        {
+          "relPath": "./internal/zama-config",
+          "source": {
+            "repository": "https://github.com/zama-ai/fhevm",
+            "tag": "v0.14.1",
+            "commit": "e7e7fecf10ea7a59c68603376caac2a308e18cca",
+            "digest": "sha256-0ftNPGsVZmP5VLHmlACenc2Pi7/vl88A/XalaEyDR7k=",
+            "from": "library-solidity/config"
+          },
+          "reason": "The localhost address set is upstream's, and the check must read it at the same commit this generation vendors its contracts from. Reformatted by `forge fmt` on the way in, like every pinned copy."
+        }
+      ]
     },
     "./host-contracts-cleartext/v14/pkg": {
       "kind": "published",

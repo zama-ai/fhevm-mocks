@@ -7,6 +7,7 @@ import {
   expectedVendoredContent,
   validateVendoredMetadata,
   validateVendoredPackage,
+  validateVendoredPackages,
   vendoredPackageKeys,
 } from '../base/checks/vendored.ts';
 import type { NpmManifest } from '../manifest.ts';
@@ -161,4 +162,87 @@ test('expectedVendoredContent applies declared rewrites and fails loudly when on
   // A rewrite is scoped to its own file, so another file in the same destination is untouched.
   const other = expectedVendoredContent("export { value } from './types.ts';\n", mapping, 'elsewhere.ts');
   assert.equal(other.error === undefined ? other.content : '', "export { value } from './types.ts';\n");
+});
+
+test('a dev selector grades the dev package itself when it pins a tree of its own, and its payload', () => {
+  const workspaceRoot = mkdtempSync(join(process.cwd(), '.tmp-check-vendored-origin-dev-'));
+  try {
+    const sourceDirectory = join(workspaceRoot, 'common-vendored', 'src');
+    const payloadDestination = join(workspaceRoot, 'library', 'pkg', 'vendored');
+    const devDestination = join(workspaceRoot, 'library', 'internal', 'zama-config');
+    mkdirSync(sourceDirectory, { recursive: true });
+    mkdirSync(payloadDestination, { recursive: true });
+    mkdirSync(devDestination, { recursive: true });
+    const pinned = {
+      repository: 'https://github.com/example/repository',
+      tag: 'v1.2.3',
+      commit: '0123456789abcdef0123456789abcdef01234567',
+      from: 'library-solidity/config',
+    };
+    writeFileSync(
+      join(workspaceRoot, 'library', 'package.json'),
+      JSON.stringify({
+        name: 'library-dev',
+        private: true,
+        fhevm: { vendoredFrom: { ...pinned, to: 'internal/zama-config' } },
+      }),
+    );
+    writeFileSync(join(workspaceRoot, 'library', 'pkg', 'package.json'), '{"name":"library"}\n');
+    writeFileSync(join(sourceDirectory, 'adapter.ts'), 'export const value = 1;\n');
+    writeFileSync(join(payloadDestination, 'adapter.ts'), 'export const value = 1;\n');
+    writeFileSync(join(devDestination, 'ZamaConfig.sol'), 'contract ZamaConfig {}\n');
+
+    const manifest = {
+      packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
+      packages: {
+        './library': {
+          kind: 'dev',
+          type: 'esm',
+          browser: false,
+          name: 'library-dev',
+          private: true,
+          member: true,
+          publishedRelPath: './library/pkg',
+          vendored: [
+            {
+              relPath: './internal/zama-config',
+              source: pinned,
+              reason: 'The check reads upstream config at the commit this generation pins; the copy never ships.',
+            },
+          ],
+        },
+        './library/pkg': {
+          kind: 'published',
+          type: 'esm',
+          browser: false,
+          name: 'library',
+          member: false,
+          vendored: [
+            {
+              relPath: './vendored',
+              files: ['adapter.ts'],
+              source: './common-vendored/src',
+              reason: 'The published package cannot import the private source package.',
+            },
+          ],
+        },
+      },
+    } satisfies NpmManifest;
+
+    const results = validateVendoredPackages(workspaceRoot, manifest, './library');
+    assert.deepEqual(
+      results.map((result) => result.packageKey),
+      ['./library', './library/pkg'],
+    );
+    // The dev entry records no digest yet, which is the violation that proves it was graded at all.
+    assert.equal(results[0]!.violations.length, 1);
+    assert.match(results[0]!.violations[0]!.message, /no digest recorded/);
+    assert.deepEqual(results[1]!.violations, []);
+
+    // The published key alone stays a single package, as before.
+    assert.equal(validateVendoredPackage(workspaceRoot, manifest, './library/pkg').packageKey, './library/pkg');
+    assert.throws(() => validateVendoredPackage(workspaceRoot, manifest, './library'), /denotes 2 packages/);
+  } finally {
+    rmSync(workspaceRoot, { recursive: true, force: true });
+  }
 });

@@ -2,7 +2,7 @@ import {
   type VendoredCheckResult,
   addSpend,
   emptySpend,
-  validateVendoredPackage,
+  validateVendoredPackages,
   vendoredPackageKeys,
 } from '../base/checks/vendored.ts';
 import type { CommandContext } from '../base/command.ts';
@@ -11,9 +11,12 @@ import type { CommandReport, Timing } from '../base/diagnostics.ts';
 export function checkVendoredOrigin(context: CommandContext, packageSelector?: string): CommandReport {
   const selectors =
     packageSelector === undefined ? vendoredPackageKeys(context.workspaceRoot, context.manifest) : [packageSelector];
-  const results = selectors.map((selector) =>
-    validateVendoredPackage(context.workspaceRoot, context.manifest, selector),
-  );
+  // A dev selector expands to its payload and, when it pins a tree of its own, to itself — so the
+  // no-argument walk, which already lists both keys, is deduplicated by the package actually graded.
+  const seen = new Set<string>();
+  const results = selectors
+    .flatMap((selector) => validateVendoredPackages(context.workspaceRoot, context.manifest, selector))
+    .filter((result) => (seen.has(result.packageKey) ? false : (seen.add(result.packageKey), true)));
 
   return {
     command: 'check vendored-origin',
