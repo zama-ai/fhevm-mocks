@@ -7,6 +7,7 @@ import { checkDependencies } from './commands/check-dependencies.ts';
 import { checkFoundry } from './commands/check-foundry.ts';
 import { checkJsonSchemas } from './commands/check-json-schemas.ts';
 import { checkLintPolicy } from './commands/check-lint-policy.ts';
+import { checkConsumerLockfiles } from './commands/check-consumer-lockfiles.ts';
 import { checkLockfiles } from './commands/check-lockfiles.ts';
 import { checkManifestCoverage } from './commands/check-manifest-coverage.ts';
 import { checkPublishedFiles } from './commands/check-published-files.ts';
@@ -57,6 +58,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   ownership: checkOwnership,
   scripts: checkScripts,
   lockfiles: checkLockfiles,
+  'consumer-lockfiles': checkConsumerLockfiles,
   foundry: checkFoundry,
   'json-schemas': checkJsonSchemas,
   'lint-policy': checkLintPolicy,

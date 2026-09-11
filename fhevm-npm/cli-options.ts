@@ -14,6 +14,7 @@ export const commandNames = [
   'ownership',
   'scripts',
   'lockfiles',
+  'consumer-lockfiles',
   'manifest-coverage',
   'published-files',
   'foundry',
@@ -307,6 +308,14 @@ Checked scripts:
     .description('Check that each package-lock.json sits where it belongs, and nowhere else.')
     .action(() => {
       selected = 'lockfiles';
+    });
+  check
+    .command('consumer-lockfiles')
+    .description(
+      'Check that every isolated consumer lockfile pins the published payloads at the versions.json versions.',
+    )
+    .action(() => {
+      selected = 'consumer-lockfiles';
     });
   check
     .command('foundry')
