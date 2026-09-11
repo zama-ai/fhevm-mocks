@@ -2,9 +2,6 @@ name: sdk-cleartext-tests
 
 on:
   pull_request:
-    branches:
-      - release/0.13.x
-      - release/0.14.x
   workflow_dispatch:
 
 permissions: {}
@@ -18,12 +15,12 @@ jobs:
     name: sdk-cleartext-tests/test (bpr)
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    defaults:
-      run:
-        working-directory: ./sdk
     permissions:
-      contents: 'read' # Required to checkout repository code
+      contents: 'read' # Required to checkout this repository code
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: placeholder
         run: |
           echo "placeholder job"
