@@ -69,18 +69,32 @@ export function classifyWorktree(workspaceRoot: string, git: GitRunner = runGit)
   return { kind: 'dirty', paths: lines.map((line) => line.slice(3)) };
 }
 
-/** Every entry that differs from HEAD's central file; each existing one must strictly increase. */
+/**
+ * Every entry that differs from HEAD's central file; each existing one must strictly increase unless
+ * `allowDowngrade`.
+ *
+ * The rule stands in for "a published version is never reused", which is what npmjs.com enforces and
+ * cannot be undone. It is a proxy, though — it compares against HEAD, not against the registry — so it
+ * also refuses a move that is perfectly safe because nothing was ever published under the old version.
+ * Turning a release back into a prerelease (`0.12.0` → `0.12.0-0`) is the case that hits this: SemVer
+ * §11 sorts a prerelease BELOW its release, so it reads as a downgrade. `--allow-downgrade` waives the
+ * proxy; `--check-npmjs` still asks the registry the real question.
+ */
 export function centralDiffAgainstHead(
   workspaceRoot: string,
   versions: VersionsFile,
+  allowDowngrade = false,
   git: GitRunner = runGit,
 ): readonly CentralTransition[] {
   const head = headVersions(workspaceRoot, git);
   return Object.entries(versions.packages).flatMap(([key, to]) => {
     const from = head[key];
     if (from === to) return [];
-    if (from !== undefined && !increases(from, to)) {
-      throw new Error(`${VERSIONS_FILE}: ${key} goes from ${from} to ${to}; a central version only moves forward`);
+    if (from !== undefined && !allowDowngrade && !increases(from, to)) {
+      throw new Error(
+        `${VERSIONS_FILE}: ${key} goes from ${from} to ${to}; a central version only moves forward ` +
+          '(pass --allow-downgrade if nothing was ever published under the old version)',
+      );
     }
     return [from === undefined ? { key, to } : { key, from, to }];
   });
@@ -111,7 +125,12 @@ export function formatPlan(plan: ApplyPlan, packages: readonly LoadedPackage[]):
 }
 
 /** Classify, validate the graph, diff against HEAD, plan. Throws rather than planning on a dirty tree. */
-export function planVersionApply(workspaceRoot: string, manifest: NpmManifest, git: GitRunner = runGit): ApplyPlan {
+export function planVersionApply(
+  workspaceRoot: string,
+  manifest: NpmManifest,
+  allowDowngrade = false,
+  git: GitRunner = runGit,
+): ApplyPlan {
   const state = classifyWorktree(workspaceRoot, git);
   if (state.kind === 'dirty') {
     throw new Error(
@@ -127,7 +146,8 @@ export function planVersionApply(workspaceRoot: string, manifest: NpmManifest, g
   }
   const packages = loadPackages(workspaceRoot, manifest);
   return {
-    transitions: state.kind === 'central-edit' ? centralDiffAgainstHead(workspaceRoot, versions, git) : [],
+    transitions:
+      state.kind === 'central-edit' ? centralDiffAgainstHead(workspaceRoot, versions, allowDowngrade, git) : [],
     writes: planDerivedWrites(workspaceRoot, packages, versions, readInstallationLocks(workspaceRoot, packages)),
   };
 }

@@ -91,7 +91,12 @@ export type CliOptions = {
   | { readonly command: 'publish-order' }
   | { readonly command: 'publish-pack'; readonly payload: string; readonly outDir?: string }
   | { readonly command: 'publish-render'; readonly payload: string; readonly json: boolean }
-  | { readonly command: 'version-apply'; readonly dryRun: boolean; readonly checkNpmjs: boolean }
+  | {
+      readonly command: 'version-apply';
+      readonly dryRun: boolean;
+      readonly checkNpmjs: boolean;
+      readonly allowDowngrade: boolean;
+    }
   | { readonly command: 'version-check' }
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
@@ -160,7 +165,8 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
     | undefined;
   let listVersions: { readonly checkNpmjs: boolean; readonly json: boolean } | undefined;
   let versionCheckSelected = false;
-  let versionApply: { readonly dryRun: boolean; readonly checkNpmjs: boolean } | undefined;
+  let versionApply:
+    { readonly dryRun: boolean; readonly checkNpmjs: boolean; readonly allowDowngrade: boolean } | undefined;
   let publishOrderSelected = false;
   let publishRender: { readonly payload: string; readonly json: boolean } | undefined;
   let publishPack: { readonly payload: string; readonly outDir?: string } | undefined;
@@ -515,8 +521,17 @@ Why:
     .description('Update every package.json and lockfile to match versions.json.')
     .option('--dry-run', 'print the central edit and the derived writes without changing any file', false)
     .option('--check-npmjs', 'refuse a changed npm-distributed version that registry.npmjs.org already has', false)
-    .action((options: { readonly dryRun: boolean; readonly checkNpmjs: boolean }) => {
-      versionApply = { dryRun: options.dryRun, checkNpmjs: options.checkNpmjs };
+    .option(
+      '--allow-downgrade',
+      'accept a central version that does not increase, for one that was never published; pair with --check-npmjs',
+      false,
+    )
+    .action((options: { readonly dryRun: boolean; readonly checkNpmjs: boolean; readonly allowDowngrade: boolean }) => {
+      versionApply = {
+        dryRun: options.dryRun,
+        checkNpmjs: options.checkNpmjs,
+        allowDowngrade: options.allowDowngrade,
+      };
     });
   // The publication group: what npmjs.com will see, and in which order payloads must get there.
   const publish = program
@@ -825,6 +840,7 @@ Why:
       command: 'version-apply',
       dryRun: versionApply.dryRun,
       checkNpmjs: versionApply.checkNpmjs,
+      allowDowngrade: versionApply.allowDowngrade,
       workspaceRoot,
       manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
       verbosity: options.verbose,

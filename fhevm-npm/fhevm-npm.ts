@@ -154,7 +154,11 @@ async function main(): Promise<void> {
     return;
   }
   if (options.command === 'version-apply') {
-    await versionApply(options.workspaceRoot, manifest, { dryRun: options.dryRun, checkNpmjs: options.checkNpmjs });
+    await versionApply(options.workspaceRoot, manifest, {
+      dryRun: options.dryRun,
+      checkNpmjs: options.checkNpmjs,
+      allowDowngrade: options.allowDowngrade,
+    });
     return;
   }
   if (options.command === 'version-check') {
