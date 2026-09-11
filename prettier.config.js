@@ -1,31 +1,3 @@
-/** @type {import("prettier").Config} */
-module.exports = {
-  bracketSpacing: true,
-  plugins: ["@trivago/prettier-plugin-sort-imports", "prettier-plugin-solidity"],
-  printWidth: 120,
-  proseWrap: "always",
-  singleQuote: false,
-  tabWidth: 2,
-  trailingComma: "all",
-
-  overrides: [
-    {
-      files: "*.sol",
-      options: {
-        compiler: "0.8.24",
-        parser: "solidity-parse",
-        tabWidth: 4,
-      },
-    },
-    {
-      files: "*.ts",
-      options: {
-        importOrder: ["<THIRD_PARTY_MODULES>", "^[./]"],
-        importOrderParserPlugins: ["typescript"],
-        importOrderSeparation: true,
-        importOrderSortSpecifiers: true,
-        parser: "typescript",
-      },
-    },
-  ],
-};
+// CAUTION: prettier.config.js is mandatory in the root directory.
+//          It must import the base config.
+export { default } from './prettier.base.mjs';

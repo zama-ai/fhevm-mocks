@@ -1,0 +1,575 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { z } from 'zod';
+
+import type { NpmManifest, NpmManifestEntry } from '../../manifest.ts';
+import type { Violation } from '../diagnostics.ts';
+import { vendoredDigest } from '../vendored-digest.ts';
+import { type LoadedPackage, loadPackages } from '../npm.ts';
+
+type VendoredEntry = NonNullable<NpmManifestEntry['vendored']>[number];
+type LocalVendoredEntry = VendoredEntry & { readonly source: string };
+type PinnedVendoredEntry = VendoredEntry & { readonly source: Exclude<VendoredEntry['source'], string> };
+
+const rewriteSchema = z
+  .object({
+    file: z.string().min(1),
+    from: z.string().min(1),
+    to: z.string(),
+  })
+  .strict();
+const destinationSchema = z
+  .object({
+    // Always an array, never a bare string: one entry names every directory that receives the SAME files
+    // under the SAME rewrites, so "these generations get an identical copy" is structural rather than a
+    // fact restated once per directory and enforced by nothing.
+    to: z.array(z.string().min(1)).min(1),
+    files: z.array(z.string().min(1)).min(1),
+    rewrites: z.array(rewriteSchema).optional(),
+    /** Destination name → source name, for the files that change name on arrival. */
+    renamed: z.record(z.string().min(1), z.string().min(1)).optional(),
+    note: z.string().optional(),
+  })
+  .strict();
+const commonVendoredManifestSchema = z
+  .object({
+    _readme: z.array(z.string()).optional(),
+    source: z.string().min(1),
+    destinations: z.array(destinationSchema).min(1),
+  })
+  .strict();
+const publishedVendoredFromSchema = z
+  .object({
+    repository: z.string().url(),
+    tag: z.string().min(1),
+    commit: z.string().regex(/^[0-9a-f]{40}$/),
+    from: z.string().min(1),
+    to: z.string().min(1),
+  })
+  .strict();
+
+export type CommonVendoredManifest = z.infer<typeof commonVendoredManifestSchema>;
+export type Rewrite = z.infer<typeof rewriteSchema>;
+export type CommonDestination = z.infer<typeof destinationSchema>;
+
+/** The name a destination file has in the source directory: its own, unless the entry renames it. */
+export function sourceFileName(mapping: Pick<CommonDestination, 'renamed'>, file: string): string {
+  return mapping.renamed?.[file] ?? file;
+}
+
+/**
+ * Where the wall clock goes, by child process.
+ *
+ * This check is dominated by subprocess startup, not by the comparison: it spawns `git show` and
+ * `forge fmt` once per vendored file. Counting both makes that visible instead of inferable.
+ */
+export type SpendTotals = {
+  gitMilliseconds: number;
+  gitCalls: number;
+  formatMilliseconds: number;
+  formatCalls: number;
+};
+
+export type VendoredCheckResult = {
+  readonly packageKey: string;
+  readonly successes: readonly string[];
+  readonly violations: readonly Violation[];
+  readonly spend: SpendTotals;
+  readonly milliseconds: number;
+};
+
+export function emptySpend(): SpendTotals {
+  return { gitMilliseconds: 0, gitCalls: 0, formatMilliseconds: 0, formatCalls: 0 };
+}
+
+export function addSpend(into: SpendTotals, from: SpendTotals): void {
+  into.gitMilliseconds += from.gitMilliseconds;
+  into.gitCalls += from.gitCalls;
+  into.formatMilliseconds += from.formatMilliseconds;
+  into.formatCalls += from.formatCalls;
+}
+
+/** Runs `run`, adding its wall-clock cost to the named counters. */
+function measure<Result>(spend: SpendTotals, kind: 'git' | 'format', run: () => Result): Result {
+  const startedAt = performance.now();
+  try {
+    return run();
+  } finally {
+    const elapsed = performance.now() - startedAt;
+    if (kind === 'git') {
+      spend.gitMilliseconds += elapsed;
+      spend.gitCalls += 1;
+    } else {
+      spend.formatMilliseconds += elapsed;
+      spend.formatCalls += 1;
+    }
+  }
+}
+
+/** What a destination should hold, or why it could not be produced. Never both. */
+export type ExpectedContent = { readonly content: string; readonly error?: undefined } | { readonly error: string };
+
+/**
+ * The content a destination file must hold: the source verbatim, plus any rewrites it declares.
+ *
+ * Shared by the checker and by `sync-vendored`, deliberately — a writer and a checker that each decide
+ * this for themselves can disagree, and the disagreement looks like drift in the destination rather
+ * than a bug in one of them.
+ *
+ * A rewrite is an exact string swap, never a regex, and a `from` that is absent is a hard failure: a
+ * renamed import would otherwise leave a destination unrewritten but still compiling.
+ */
+export function expectedVendoredContent(sourceText: string, mapping: CommonDestination, file: string): ExpectedContent {
+  let content = sourceText;
+  for (const rewrite of mapping.rewrites ?? []) {
+    if (rewrite.file !== file) continue;
+    if (!content.includes(rewrite.from)) {
+      return { error: `rewrite source ${JSON.stringify(rewrite.from)} was not found` };
+    }
+    content = content.split(rewrite.from).join(rewrite.to);
+    if (content.includes(rewrite.from)) {
+      return { error: `rewrite left ${JSON.stringify(rewrite.from)} behind` };
+    }
+  }
+  return { content };
+}
+
+/**
+ * Every package declaring vendored content, in manifest order.
+ *
+ * Derived rather than listed, so a package that starts vendoring is checked the day it says so — the
+ * whole point of a no-argument run is that it cannot silently skip one.
+ */
+/** A pinned vendored destination: an external tree, at a commit, written into a package (published or dev). */
+export type PinnedVendoredTarget = {
+  readonly packageKey: string;
+  readonly packageDirectory: string;
+  readonly directory: string;
+  readonly relPath: string;
+  readonly source: PinnedVendoredEntry['source'];
+  /** Index in the package's own `vendored` array, so a message can name the entry to edit. Taken
+   *  before pinned entries are filtered out, or it would point at the wrong element. */
+  readonly entryIndex: number;
+};
+
+/** Every pinned vendored destination in the workspace — what `sync-vendored` writes and this file checks. */
+export function pinnedVendoredTargets(workspaceRoot: string, manifest: NpmManifest): readonly PinnedVendoredTarget[] {
+  return loadPackages(workspaceRoot, manifest).flatMap((pkg) =>
+    (pkg.inventory.vendored ?? [])
+      .map((entry, entryIndex) => ({ entry, entryIndex }))
+      .filter(
+        (element): element is { entry: PinnedVendoredEntry; entryIndex: number } =>
+          typeof element.entry.source !== 'string',
+      )
+      .map(({ entry, entryIndex }) => ({
+        packageKey: pkg.key,
+        packageDirectory: pkg.directory,
+        directory: safeResolve(pkg.directory, entry.relPath, 'vendored destination'),
+        relPath: entry.relPath,
+        source: entry.source,
+        entryIndex,
+      })),
+  );
+}
+
+/** The `.sol` files the pinned tree holds at its commit, relative to `source.from`. */
+export function upstreamVendoredFiles(
+  repositoryRoot: string,
+  source: PinnedVendoredTarget['source'],
+): readonly string[] {
+  execFileSync('git', ['-C', repositoryRoot, 'cat-file', '-e', `${source.commit}^{commit}`], { stdio: 'ignore' });
+  return execFileSync('git', ['-C', repositoryRoot, 'ls-tree', '-r', '--name-only', source.commit, '--', source.from], {
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter((file) => file.endsWith('.sol'))
+    .map((file) => file.slice(source.from.length + 1))
+    .sort();
+}
+
+/** One upstream file, normalized the way the destination stores it. */
+export function upstreamVendoredContent(
+  repositoryRoot: string,
+  source: PinnedVendoredTarget['source'],
+  file: string,
+): string {
+  const upstream = execFileSync('git', ['-C', repositoryRoot, 'show', `${source.commit}:${source.from}/${file}`], {
+    encoding: 'utf8',
+  });
+  return execFileSync('forge', ['fmt', '--raw', '-'], { encoding: 'utf8', input: upstream });
+}
+
+export function vendoredPackageKeys(workspaceRoot: string, manifest: NpmManifest): readonly string[] {
+  return loadPackages(workspaceRoot, manifest)
+    .filter((entry) => (entry.inventory.vendored ?? []).length > 0)
+    .map((entry) => entry.key);
+}
+
+/**
+ * Every package a selector denotes, each validated on its own. A published key or name is itself; a dev
+ * key is its published payload, PLUS the dev package itself when it declares vendored content of its own
+ * — a dev owner can pin a tree that must never ship (a generation's `internal/zama-config`), and
+ * `npm run check:vendored-origin` in that package has to grade both.
+ */
+export function validateVendoredPackages(
+  workspaceRoot: string,
+  manifest: NpmManifest,
+  selector: string,
+): readonly VendoredCheckResult[] {
+  const packages = loadPackages(workspaceRoot, manifest);
+  const selected = selectVendoredPackages(packages, selector);
+  if (selected.length === 0) {
+    throw new Error(`Package '${selector}' does not declare vendored content in npm-manifest.json`);
+  }
+  return selected.map((pkg) => validateLoadedPackage(workspaceRoot, pkg));
+}
+
+/** `validateVendoredPackages` for a selector that denotes exactly one package. */
+export function validateVendoredPackage(
+  workspaceRoot: string,
+  manifest: NpmManifest,
+  selector: string,
+): VendoredCheckResult {
+  const results = validateVendoredPackages(workspaceRoot, manifest, selector);
+  if (results.length !== 1) {
+    throw new Error(
+      `Vendored package selector '${selector}' denotes ${String(results.length)} packages: ${results
+        .map((result) => result.packageKey)
+        .join(', ')}`,
+    );
+  }
+  return results[0]!;
+}
+
+function validateLoadedPackage(workspaceRoot: string, published: LoadedPackage): VendoredCheckResult {
+  const entries = published.inventory.vendored ?? [];
+
+  const startedAt = performance.now();
+  // Resolved on demand: only a LOCAL entry needs it, to turn a repository-root-relative source into a
+  // path. A package whose entries are all pinned is now verified by digest alone, and asking git where
+  // the repository is would fail a copied tree for a reason that no longer applies to it.
+  const successes: string[] = [];
+  const violations: Violation[] = [];
+  const spend = emptySpend();
+
+  for (const message of validateVendoredMetadata(published.packageJson, entries)) {
+    violation({ successes, violations, spend }, published.key, message);
+  }
+
+  for (const entry of entries) {
+    if (typeof entry.source === 'string') {
+      validateLocalEntry(workspaceRoot, published, entry as LocalVendoredEntry, {
+        successes,
+        violations,
+        spend,
+      });
+    } else {
+      validatePinnedEntry(published, entry as PinnedVendoredEntry, { successes, violations, spend });
+    }
+  }
+
+  return {
+    packageKey: published.key,
+    successes,
+    violations,
+    spend,
+    milliseconds: performance.now() - startedAt,
+  };
+}
+
+export function validateVendoredMetadata(
+  packageJson: LoadedPackage['packageJson'],
+  entries: readonly VendoredEntry[],
+): readonly string[] {
+  const pinnedEntries = entries.filter((entry): entry is PinnedVendoredEntry => typeof entry.source !== 'string');
+  const fhevm = packageJson.fhevm;
+  const declared =
+    typeof fhevm === 'object' && fhevm !== null && 'vendoredFrom' in fhevm
+      ? (fhevm as { readonly vendoredFrom?: unknown }).vendoredFrom
+      : undefined;
+
+  if (pinnedEntries.length === 0) {
+    return declared === undefined
+      ? []
+      : ['package.json#fhevm.vendoredFrom is declared, but npm-manifest.json has no pinned vendored source'];
+  }
+  if (pinnedEntries.length > 1) {
+    return [
+      `npm-manifest.json declares ${pinnedEntries.length} pinned vendored sources, which singular package.json#fhevm.vendoredFrom cannot represent`,
+    ];
+  }
+  if (declared === undefined) {
+    return ['package.json must define fhevm.vendoredFrom for its pinned vendored source'];
+  }
+
+  const parsed = publishedVendoredFromSchema.safeParse(declared);
+  if (!parsed.success) {
+    return [`package.json#fhevm.vendoredFrom is invalid: ${z.prettifyError(parsed.error)}`];
+  }
+
+  const entry = pinnedEntries[0]!;
+  const expected = {
+    repository: entry.source.repository,
+    tag: entry.source.tag,
+    commit: entry.source.commit,
+    from: entry.source.from,
+    to: entry.relPath.slice(2),
+  };
+  const mismatches = Object.entries(expected)
+    .filter(([field, value]) => parsed.data[field as keyof typeof expected] !== value)
+    .map(
+      ([field, value]) =>
+        `${field}=${JSON.stringify(parsed.data[field as keyof typeof expected])} (expected ${JSON.stringify(value)})`,
+    );
+  return mismatches.length === 0
+    ? []
+    : [`package.json#fhevm.vendoredFrom differs from npm-manifest.json: ${mismatches.join(', ')}`];
+}
+
+function selectVendoredPackages(packages: readonly LoadedPackage[], selector: string): readonly LoadedPackage[] {
+  const normalized = selector === '.' || selector.startsWith('./') ? selector : `./${selector.replace(/^\//, '')}`;
+  const direct = packages.find((pkg) => pkg.key === normalized);
+  const candidates = direct === undefined ? packages.filter((pkg) => pkg.packageJson.name === selector) : [direct];
+  if (candidates.length > 1) {
+    throw new Error(
+      `Vendored package selector '${selector}' is ambiguous; use a package path: ${candidates.map((pkg) => pkg.key).join(', ')}`,
+    );
+  }
+  const candidate = candidates[0];
+  if (candidate === undefined) {
+    throw new Error(`No published package or dev owner matches '${selector}'`);
+  }
+
+  if (candidate.inventory.kind === 'published') return [candidate];
+  if (candidate.inventory.kind !== 'dev') {
+    throw new Error(`No published package or dev owner matches '${selector}'`);
+  }
+  const payload = packages.find((pkg) => pkg.key === candidate.inventory.publishedRelPath);
+  return [candidate, payload].filter(
+    (pkg): pkg is LoadedPackage => pkg !== undefined && (pkg.inventory.vendored ?? []).length > 0,
+  );
+}
+
+/**
+ * Compares the copies against the digest recorded in npm-manifest.json, not against upstream.
+ *
+ * Reading upstream needed the pinned commit to be present in the enclosing repository, which is true
+ * only in the repository the sdk vendors FROM — everywhere else every pinned entry failed. The digest
+ * moves that verification to `sync vendored`, the one command that reaches the network, and leaves this
+ * one able to run on a copied tree with no git and no upstream at all.
+ */
+function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntry, output: MutableOutput): void {
+  const destination = safeResolve(published.directory, entry.relPath, 'vendored destination');
+  if (!isDirectory(destination)) {
+    violation(output, published.key, `${entry.relPath}: vendored destination directory does not exist`);
+    return;
+  }
+
+  let actual: string;
+  try {
+    actual = vendoredDigest(destination);
+  } catch (error) {
+    violation(output, published.key, `${entry.relPath}: ${errorMessage(error)}`);
+    return;
+  }
+
+  if (entry.source.digest === undefined) {
+    violation(
+      output,
+      published.key,
+      `${entry.relPath}: no digest recorded in npm-manifest.json, so the copies are unverified — ` +
+        `run 'fhevm-npm sync vendored --digest' and record the value it prints`,
+    );
+    return;
+  }
+  if (entry.source.digest !== actual) {
+    violation(
+      output,
+      published.key,
+      `${entry.relPath}: content is ${actual}, but npm-manifest.json records ${entry.source.digest}. ` +
+        `The copies were edited, or the pin moved — run 'fhevm-npm sync vendored' to rewrite them from ${entry.source.tag}.`,
+    );
+    return;
+  }
+
+  output.successes.push(`${published.key} ${entry.relPath}: matches the recorded digest of ${entry.source.tag}`);
+}
+
+/**
+ * Compares one package's local copies with the directory they came from.
+ *
+ * There is no second manifest to reconcile with any more: npm-manifest.json says what the copy is, so
+ * the only question left is whether the bytes on disk still match the source, after this entry's own
+ * rewrites. What used to fail here was the two manifests disagreeing — a problem that no longer
+ * exists, rather than one that is now unchecked.
+ */
+function validateLocalEntry(
+  workspaceRoot: string,
+  published: LoadedPackage,
+  entry: LocalVendoredEntry,
+  output: MutableOutput,
+): void {
+  const violationsBefore = output.violations.length;
+  const destination = safeResolve(published.directory, entry.relPath, 'vendored destination');
+  const sourceDirectory = safeResolve(workspaceRoot, entry.source, 'vendored source');
+
+  if (!existsSync(sourceDirectory)) {
+    violation(output, published.key, `${entry.relPath}: source '${entry.source}' does not exist`);
+    return;
+  }
+
+  const files = [...(entry.files ?? [])].sort();
+  if (files.length === 0) {
+    violation(output, published.key, `${entry.relPath}: names no files to compare`);
+    return;
+  }
+
+  const mapping: CommonDestination = { to: [entry.relPath], files, rewrites: entry.rewrites, renamed: entry.renamed };
+  for (const file of files) {
+    compareLocalFile(workspaceRoot, published, sourceDirectory, destination, mapping, file, output);
+  }
+
+  if (output.violations.length === violationsBefore) {
+    output.successes.push(`${published.key} ${entry.relPath}: ${files.length} file(s) match ${entry.source}`);
+  }
+}
+
+function compareLocalFile(
+  workspaceRoot: string,
+  published: LoadedPackage,
+  sourceDirectory: string,
+  destination: string,
+  mapping: CommonDestination,
+  file: string,
+  output: MutableOutput,
+): void {
+  const sourceFile = safeResolve(sourceDirectory, sourceFileName(mapping, file), 'common-vendored file');
+  const destinationFile = safeResolve(destination, file, 'vendored destination file');
+  if (!existsSync(sourceFile)) {
+    violation(output, published.key, `${workspacePath(workspaceRoot, destinationFile)}: source file is missing`);
+    return;
+  }
+  if (!existsSync(destinationFile)) {
+    violation(output, published.key, `${workspacePath(workspaceRoot, destinationFile)}: vendored file is missing`);
+    return;
+  }
+
+  const expectation = expectedVendoredContent(readFileSync(sourceFile, 'utf8'), mapping, file);
+  if (expectation.error !== undefined) {
+    violation(output, published.key, `${workspacePath(workspaceRoot, destinationFile)}: ${expectation.error}`);
+    return;
+  }
+  const expected = expectation.content;
+
+  if (readFileSync(destinationFile, 'utf8') !== expected) {
+    violation(
+      output,
+      published.key,
+      `${workspacePath(workspaceRoot, destinationFile)}: differs from ${workspacePath(workspaceRoot, sourceFile)}`,
+    );
+  }
+}
+
+/**
+ * The local-copy map, derived from npm-manifest.json rather than kept beside it.
+ *
+ * npm-manifest.json owns what every package contains, vendored directories included, so the copy map
+ * is read back out of it instead of being restated in a second file. Two files saying the same thing
+ * could only ever disagree, and did: they were resolved against different bases, so a re-rooted
+ * checkout failed a comparison that was never about the bytes.
+ *
+ * Entries are grouped by the file set they carry, reproducing the shape the consumers want: one
+ * destination names every directory receiving the SAME files under the SAME rewrites, which is what
+ * lets rule 3.4.2 ask whether every live generation is among them.
+ */
+export function localVendoredManifest(manifest: NpmManifest): CommonVendoredManifest {
+  const grouped = new Map<
+    string,
+    { to: string[]; files: string[]; rewrites?: Rewrite[]; renamed?: Record<string, string> }
+  >();
+  const sources = new Set<string>();
+
+  for (const [key, entry] of Object.entries(manifest.packages)) {
+    for (const element of entry.vendored ?? []) {
+      if (typeof element.source !== 'string') continue;
+      sources.add(element.source);
+      const files = [...(element.files ?? [])].sort();
+      const rewrites = element.rewrites === undefined ? undefined : [...element.rewrites];
+      const renamed =
+        element.renamed === undefined ? undefined : Object.fromEntries(Object.entries(element.renamed).sort());
+      // The grouping key is the payload: same files from the same source names under the same rewrites,
+      // one destination with many `to`. A rename is part of it — two generations receiving their own
+      // `cleartext-config-<gen>.ts` as `cleartext-config.ts` receive different bytes.
+      const groupKey = JSON.stringify([files, rewrites ?? null, renamed ?? null]);
+      const to = `${key === '.' ? '' : `${key.slice(2)}/`}${element.relPath.slice(2)}`;
+      const existing = grouped.get(groupKey);
+      if (existing === undefined) grouped.set(groupKey, { to: [to], files, rewrites, renamed });
+      else existing.to.push(to);
+    }
+  }
+
+  if (sources.size > 1) {
+    throw new Error(
+      `npm-manifest.json local vendored entries disagree on their source: ${[...sources].sort().join(', ')}`,
+    );
+  }
+  const source = [...sources][0] ?? './common-vendored/src';
+
+  return {
+    // Stored with a leading './' in the manifest; the consumers resolve against the workspace root.
+    source: source.startsWith('./') ? source.slice(2) : source,
+    destinations: [...grouped.values()],
+  };
+}
+
+export function gitRepositoryRoot(workspaceRoot: string): string {
+  try {
+    return execFileSync('git', ['-C', workspaceRoot, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch (error) {
+    throw new Error(`Unable to locate the Git repository containing ${workspaceRoot}: ${errorMessage(error)}`);
+  }
+}
+
+function listFiles(root: string, extension: string, current = root): string[] {
+  const result: string[] = [];
+  for (const entry of readdirSync(current, { withFileTypes: true })) {
+    const absolute = join(current, entry.name);
+    if (entry.isDirectory()) result.push(...listFiles(root, extension, absolute));
+    else if (entry.isFile() && entry.name.endsWith(extension))
+      result.push(relative(root, absolute).split(sep).join('/'));
+  }
+  return result.sort();
+}
+
+function safeResolve(root: string, value: string, label: string): string {
+  const candidate = resolve(root, value);
+  const rel = relative(resolve(root), candidate);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error(`${label} '${value}' resolves outside ${root}`);
+  }
+  return candidate;
+}
+
+function workspacePath(workspaceRoot: string, file: string): string {
+  const rel = relative(workspaceRoot, file).split(sep).join('/');
+  return rel === '' ? '.' : `./${rel}`;
+}
+
+function isDirectory(directory: string): boolean {
+  try {
+    return statSync(directory).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+type MutableOutput = { readonly successes: string[]; readonly violations: Violation[]; readonly spend: SpendTotals };
+
+function violation(output: MutableOutput, packageKey: string, message: string): void {
+  output.violations.push({ rule: '5.1.3', packageKey, message });
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
