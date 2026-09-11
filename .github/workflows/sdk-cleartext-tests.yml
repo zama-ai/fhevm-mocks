@@ -36,9 +36,6 @@ jobs:
     runs-on: runs-on=${{ github.run_id }}/runner=4cpu-linux-x64/extras=s3-cache
     # `make ci` takes about an hour and a half on a laptop. Generous until a real run says otherwise.
     timeout-minutes: 180
-    defaults:
-      run:
-        working-directory: ./sdk
     permissions:
       contents: 'read' # Required to checkout repository code
     steps:
