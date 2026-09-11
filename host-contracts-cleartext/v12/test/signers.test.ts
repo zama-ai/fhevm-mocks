@@ -6,7 +6,7 @@ import { PKG_DIR_ABS_PATH, WORKSPACE_ROOT_ABS_PATH } from '../internal/constants
 
 // The js-sdk relayer duplicates this package's cleartext signer config (mnemonic, HD paths, pool size)
 // deep in its internals — see js-sdk .../relayer/cleartext/signers.ts. It is not exported, so we read
-// The relevant files as text and assert they agree. A silent drift here breaks cleartext decrypt.
+// the relevant files as text and assert they agree. A silent drift here breaks cleartext decrypt.
 // Read from the INSTALLED @fhevm/sdk, not from a sibling js-sdk source tree: js-sdk is named in
 // npm-manifest.json#inventory.exclude and is absent from a workspace copied out of this repository, and
 // the published package ships its TypeScript sources, so the installed copy is both reachable and the
@@ -61,6 +61,7 @@ function readInstalledSdkSigners(): string {
   }
   return expected;
 }
+
 // The shared cleartext config, not ts/constants.ts: the mnemonic and HD paths live in
 // pkg/ts/cleartext-config.ts, generated from sdk/cleartext-config.json and synced from common-vendored.
 const HOST_CONFIG_PATH = join(PKG_DIR_ABS_PATH, 'ts', 'cleartext-config.ts');
@@ -93,7 +94,7 @@ void test('js-sdk cleartext signer config matches host-contracts-cleartext/v12 c
   assert.equal(
     capture(sdk, /const FHEVM_TEST_MNEMONIC\s*=\s*'([^']+)'/, 'js-sdk FHEVM_TEST_MNEMONIC'),
     capture(host, /const FHEVM_MNEMONIC\s*=\s*'([^']+)'/, 'host FHEVM_MNEMONIC'),
-    'mnemonic mismatch between js-sdk and host-contracts-cleartext/v13',
+    'mnemonic mismatch between js-sdk and host-contracts-cleartext/v12',
   );
 
   // HD paths. The js-sdk stores only the suffix after the shared `m/44'/60'/` prefix (it prepends the
