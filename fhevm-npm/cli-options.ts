@@ -166,8 +166,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let listVersions: { readonly checkNpmjs: boolean; readonly json: boolean } | undefined;
   let versionCheckSelected = false;
   let versionApply:
-    | { readonly dryRun: boolean; readonly checkNpmjs: boolean; readonly allowDowngrade: boolean }
-    | undefined;
+    { readonly dryRun: boolean; readonly checkNpmjs: boolean; readonly allowDowngrade: boolean } | undefined;
   let publishOrderSelected = false;
   let publishRender: { readonly payload: string; readonly json: boolean } | undefined;
   let publishPack: { readonly payload: string; readonly outDir?: string } | undefined;
