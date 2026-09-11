@@ -426,21 +426,22 @@ unnoticed — the exact failure that file exists to prevent. One entry writes on
 what they write below the generation directory; that is what lets a missing generation be named as the destination to
 add. An entry whose family paths are all retired is reported only as something to retarget.
 
-The one exception is a face NAMED for a generation, `<name>-<gen>.<ext>` — today `cleartext-config-v14.ts`, the
-scoped face rule 5.1.3c's `generations` field produces. It exists for one generation by construction, so it is not
+The one exception is a face NAMED for a generation, `<name>-<gen>.<ext>` by its SOURCE name — today
+`cleartext-config-v14.ts`, the complete TypeScript face rule 5.1.3c's generator emits for v14, which lands in v14's
+pkg/ts `renamed` to the stable `cleartext-config.ts`. It exists for one generation by construction, so it is not
 demanded of the others; what is demanded is the converse, that it lands in the generation it is named for and nowhere
-else, and that it travels in an entry of its own rather than bundled with a shared face. A v14-only constant copied
-into v13 is a value v13's contracts have no field for.
+else, and that it travels in an entry of its own. v14's face copied into v13 would hand v13 constants its contracts
+have no field for.
 
 ```jsonc
 // ✅ One entry per face, both live generations on it.
 { "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config.ts"] }
 
-// ✅ A face named for v13 lands in v13 alone, in its own entry.
-{ "to": ["host-contracts-cleartext/v13/pkg/ts"], "files": ["cleartext-config-v13.ts"] }
+// ✅ v13's face lands in v13 alone, in its own entry, under the stable name.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts"], "files": ["cleartext-config.ts"], "renamed": { "cleartext-config.ts": "cleartext-config-v13.ts" } }
 
-// ❌ The v13-only face copied into v12 too: a value v12's contracts have no field for.
-{ "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config-v13.ts"] }
+// ❌ v13's face copied into v12 too: values v12's contracts have no field for.
+{ "to": ["host-contracts-cleartext/v13/pkg/ts", "host-contracts-cleartext/v12/pkg/ts"], "files": ["cleartext-config.ts"], "renamed": { "cleartext-config.ts": "cleartext-config-v13.ts" } }
 
 // ❌ After the pair rotates to v14/v13: V(N) is missing, so it silently keeps a stale copy.
 { "to": ["host-contracts-cleartext/v13/pkg/ts"], "files": ["cleartext-config.ts"] }
@@ -823,6 +824,12 @@ already read it there.
 A `rewrite` belongs to the destination for the same reason. It exists because THIS package resolves an import
 differently from the package the bytes came from — a fact about the consumer, not about the source.
 
+So does a `renamed` entry, destination name to source name, for a copy that changes name on arrival. It exists for one
+case: each generation's `pkg/ts/cleartext-config.ts` is common-vendored's `cleartext-config-<gen>.ts`, so the module a
+consumer imports keeps one stable name while the generation lives in the source file's name — and in nothing a
+consumer writes. Keyed by the destination so `files` keeps meaning "what sits in relPath"; every key must be listed
+there, and only a local copy can be renamed.
+
 The copy map `sync vendored` walks is derived from the manifest, grouping entries by the file set they carry, so
 "these generations receive an identical copy" is still one destination with several `to` paths and rule 3.4.2 can
 still ask whether every live generation is among them.
@@ -854,6 +861,11 @@ The copy sits on the dev package, not the published one, because only `pkg/` shi
 a workspace constant must never reach a consumer. `package.json#fhevm.vendoredFrom` is singular, so a package can
 carry one pinned entry — which is also why the config cannot join `pkg`'s entry and lives on the dev owner. A
 retired generation takes its copy with it (see each generation's `ROTATION.md`).
+
+The same one-commit thinking governs `cleartext-config.json`'s `generations` field: a constant only one generation's
+contracts have a field for is scoped to it, and the generator renders every face COMPLETE for its generation — one
+`cleartext-config-<gen>.ts` per generation in common-vendored/src, each generation's Solidity and shell faces — so a
+shared constant appears in each generation's faces as generated duplication from one JSON, never as a forked copy.
 
 Reading the file from `@fhevm/solidity` in `node_modules` instead is wrong even though it is the same file: the
 installed version is whatever the Hardhat packages pin, not the version line either generation vendors, so a green

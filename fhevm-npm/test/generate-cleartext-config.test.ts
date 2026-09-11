@@ -4,11 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import {
-  generateCleartextConfig,
-  renderCleartextConfigFaces,
-  scopedTsFacePath,
-} from '../base/generate-cleartext-config.ts';
+import { generateCleartextConfig, renderCleartextConfigFaces, tsFacePath } from '../base/generate-cleartext-config.ts';
 
 const LOCALHOST = {
   MNEMONIC: { value: 'adapt mosquito move limb' },
@@ -50,7 +46,7 @@ test('renders the TypeScript face: order, formula comments, literal shapes, quot
     assert.deepEqual(
       outputs.map((output) => output.path),
       [
-        join(workspace, 'common-vendored', 'src', 'cleartext-config.ts'),
+        join(workspace, 'common-vendored', 'src', 'cleartext-config-v13.ts'),
         join(workspace, 'host-contracts-cleartext', 'v13', 'create2-deploy', 'script', 'FhevmCleartextConfig.sol'),
         join(workspace, 'host-contracts-cleartext', 'v13', 'scripts', 'cleartext-config.sh'),
       ],
@@ -162,26 +158,27 @@ test('write mode creates every face; check mode reports identical, different and
   }
 });
 
-test('a constant scoped by `generations` reaches only those generations, and the scoped face is emitted for them', () => {
+test('a constant scoped by `generations` reaches only those generations, and every face is complete for its own', () => {
   const constants = {
     ...CONSTANTS,
     V14_ONLY: { value: 'kms-core-', ts: 'string', solidity: 'string', generations: ['v14'] },
     V14_ONLY_ALIAS: { alias: 'V14_ONLY', ts: 'string', solidity: 'string', generations: ['v14'] },
+    // An alias may be narrower than its target: URL is everywhere, this alias only in v14.
+    NARROW_ALIAS: { alias: 'URL', ts: 'string', solidity: 'string', generations: ['v14'] },
     BOTH_EXPLICIT: { value: '7', ts: 'number', solidity: 'uint8', generations: ['v13', 'v14'] },
   };
   const workspace = makeWorkspace(constants, { appliesTo: { generations: ['v13', 'v14'] } });
   try {
     const outputs = renderCleartextConfigFaces(workspace);
     const rel = (path: string): string => path.slice(workspace.length + 1);
+    // Three faces per generation, the TypeScript one first; no shared file anywhere.
     assert.deepEqual(
       outputs.map((o) => rel(o.path)),
       [
-        'common-vendored/src/cleartext-config.ts',
-        // BOTH_EXPLICIT names v13, so v13 gets a scoped face too — holding exactly that one constant.
-        join(...scopedTsFacePath('v13')),
+        join(...tsFacePath('v13')),
         'host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol',
         'host-contracts-cleartext/v13/scripts/cleartext-config.sh',
-        join(...scopedTsFacePath('v14')),
+        join(...tsFacePath('v14')),
         'host-contracts-cleartext/v14/create2-deploy/script/FhevmCleartextConfig.sol',
         'host-contracts-cleartext/v14/scripts/cleartext-config.sh',
       ],
@@ -190,60 +187,56 @@ test('a constant scoped by `generations` reaches only those generations, and the
     const names = (content: string): string[] =>
       [...content.matchAll(/(?:export const|internal constant|^)\s*([A-Z][A-Z0-9_]*)\s*=/gm)].map((m) => m[1] ?? '');
 
-    // The shared TypeScript face carries only the unscoped constants — BOTH_EXPLICIT is scoped, if to everyone.
-    assert.deepEqual(names(byPath.get('common-vendored/src/cleartext-config.ts') ?? ''), Object.keys(CONSTANTS));
+    // v13's faces agree with each other: the unscoped set plus what names v13, nothing v14-only. (The shell
+    // face also carries the deploy recipe, so it is checked for membership rather than for the exact list.)
+    const v13Expected = [...Object.keys(CONSTANTS), 'BOTH_EXPLICIT'];
+    assert.deepEqual(names(byPath.get(join(...tsFacePath('v13'))) ?? ''), v13Expected);
+    assert.deepEqual(
+      names(byPath.get('host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol') ?? ''),
+      v13Expected,
+    );
+    const v13Sh = byPath.get('host-contracts-cleartext/v13/scripts/cleartext-config.sh') ?? '';
+    assert.match(v13Sh, /^BOTH_EXPLICIT="7"$/m);
+    for (const face of [
+      join(...tsFacePath('v13')),
+      'host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol',
+      'host-contracts-cleartext/v13/scripts/cleartext-config.sh',
+    ]) {
+      assert.doesNotMatch(byPath.get(face) ?? '', /V14_ONLY|NARROW_ALIAS/, face);
+    }
 
-    // v13's faces: the unscoped set plus what names v13, in declaration order; nothing v14-only.
-    const v13Sol = byPath.get('host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol') ?? '';
-    assert.deepEqual(names(v13Sol), [...Object.keys(CONSTANTS), 'BOTH_EXPLICIT']);
-    assert.doesNotMatch(v13Sol, /V14_ONLY/);
-    assert.doesNotMatch(byPath.get('host-contracts-cleartext/v13/scripts/cleartext-config.sh') ?? '', /V14_ONLY/);
-
-    // v14's faces carry everything, and its shell face resolves the scoped alias to the scoped target.
+    // v14's three faces carry everything, in declaration order, with the aliases resolved by bare name.
+    const v14Expected = [...Object.keys(CONSTANTS), 'V14_ONLY', 'V14_ONLY_ALIAS', 'NARROW_ALIAS', 'BOTH_EXPLICIT'];
+    const v14Ts = byPath.get(join(...tsFacePath('v14'))) ?? '';
+    assert.deepEqual(names(v14Ts), v14Expected);
+    assert.match(v14Ts, /The v14 TypeScript face/);
+    assert.doesNotMatch(v14Ts, /^import /m);
+    assert.match(v14Ts, /^export const V14_ONLY_ALIAS = V14_ONLY;$/m);
+    assert.match(v14Ts, /^export const NARROW_ALIAS = URL;$/m);
     const v14Sol = byPath.get('host-contracts-cleartext/v14/create2-deploy/script/FhevmCleartextConfig.sol') ?? '';
-    assert.deepEqual(names(v14Sol), [...Object.keys(CONSTANTS), 'V14_ONLY', 'V14_ONLY_ALIAS', 'BOTH_EXPLICIT']);
+    assert.deepEqual(names(v14Sol), v14Expected);
     assert.match(v14Sol, /string internal constant V14_ONLY_ALIAS = V14_ONLY;/);
     assert.match(
       byPath.get('host-contracts-cleartext/v14/scripts/cleartext-config.sh') ?? '',
       /^V14_ONLY_ALIAS="\$V14_ONLY"$/m,
-    );
-
-    // v13's scoped face is the one explicitly-shared constant and nothing v14-only.
-    const v13Scoped = byPath.get(join(...scopedTsFacePath('v13'))) ?? '';
-    assert.match(v13Scoped, /The v13-ONLY face/);
-    assert.deepEqual(names(v13Scoped), ['BOTH_EXPLICIT']);
-
-    // The scoped TypeScript face: header names the generation, body is exactly what names v14, import-free.
-    const scoped = byPath.get(join(...scopedTsFacePath('v14'))) ?? '';
-    assert.match(scoped, /^\/\/ AUTO-GENERATED by `fhevm-npm generate cleartext-config`/);
-    assert.match(scoped, /The v14-ONLY face/);
-    assert.doesNotMatch(scoped, /^import /m);
-    assert.equal(
-      scoped.split('\n\n').slice(1).join('\n\n'),
-      [
-        "export const V14_ONLY = 'kms-core-';",
-        '',
-        'export const V14_ONLY_ALIAS = V14_ONLY;',
-        '',
-        'export const BOTH_EXPLICIT = 7;',
-        '',
-      ].join('\n'),
     );
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
 });
 
-test('an unscoped source of truth renders exactly as it did before `generations` existed', () => {
-  // Every pre-existing config has no `generations` anywhere: same outputs, same paths, no scoped face.
+test('an unscoped source of truth gives every generation identical faces, differing only by the name in the header', () => {
   const workspace = makeWorkspace(CONSTANTS, { appliesTo: { generations: ['v13', 'v14'] } });
   try {
     const outputs = renderCleartextConfigFaces(workspace);
-    assert.equal(outputs.length, 5);
-    assert.ok(outputs.every((o) => !o.path.includes('cleartext-config-v')));
-    const [shared, v13Sol, , v14Sol] = outputs.map((o) => o.content);
+    assert.equal(outputs.length, 6);
+    const [v13Ts, v13Sol, v13Sh, v14Ts, v14Sol, v14Sh] = outputs.map((o) => o.content);
     assert.equal(v13Sol, v14Sol);
-    assert.match(shared ?? '', /export const URL_ALIAS = URL;/);
+    assert.equal(v13Sh, v14Sh);
+    const body = (ts: string | undefined): string => (ts ?? '').split('\n\n').slice(1).join('\n\n');
+    assert.equal(body(v13Ts), body(v14Ts));
+    assert.notEqual(v13Ts, v14Ts, 'the header names its generation');
+    assert.match(body(v13Ts), /export const URL_ALIAS = URL;/);
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -270,19 +263,15 @@ test('rejects a malformed source of truth instead of emitting a wrong face', () 
       undefined,
       /scoped to 'v14', which appliesTo\.generations does not list/,
     ],
-    // An alias and its target must land in the same files, so their scopes must be identical.
+    // A target must be declared in every face its alias lands in: an unscoped alias of a scoped target
+    // dangles everywhere the target is absent. The narrower direction is fine and tested above.
     [
       {
         TARGET: { ...entry, generations: ['v13'] },
         SHARED_ALIAS: { alias: 'TARGET', ts: 'number', solidity: 'uint256' },
       },
       undefined,
-      /aliases TARGET across scopes/,
-    ],
-    [
-      { TARGET: entry, SCOPED_ALIAS: { alias: 'TARGET', ts: 'number', solidity: 'uint256', generations: ['v13'] } },
-      undefined,
-      /aliases TARGET across scopes/,
+      /aliases TARGET, which is not declared everywhere SHARED_ALIAS is/,
     ],
   ];
   for (const [constants, overrides, message] of cases) {

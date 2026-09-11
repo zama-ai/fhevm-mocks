@@ -69,6 +69,51 @@ test('checks a manifest-selected local vendored copy with its declared rewrite',
   }
 });
 
+test('a renamed local copy is compared against the source file it was renamed from', () => {
+  const workspaceRoot = mkdtempSync(join(process.cwd(), '.tmp-check-vendored-origin-renamed-'));
+  try {
+    const sourceDirectory = join(workspaceRoot, 'common-vendored', 'src');
+    const destinationDirectory = join(workspaceRoot, 'gen', 'pkg', 'ts');
+    mkdirSync(sourceDirectory, { recursive: true });
+    mkdirSync(destinationDirectory, { recursive: true });
+    writeFileSync(join(workspaceRoot, 'gen', 'pkg', 'package.json'), '{"name":"gen"}\n');
+    writeFileSync(join(sourceDirectory, 'cleartext-config-v14.ts'), 'export const A = 1;\n');
+    // The destination holds the stable name; there is no `cleartext-config.ts` in the source at all.
+    writeFileSync(join(destinationDirectory, 'cleartext-config.ts'), 'export const A = 1;\n');
+
+    const manifest = {
+      packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
+      packages: {
+        './gen/pkg': {
+          kind: 'published',
+          type: 'esm',
+          browser: false,
+          name: 'gen',
+          member: true,
+          vendored: [
+            {
+              relPath: './ts',
+              files: ['cleartext-config.ts'],
+              renamed: { 'cleartext-config.ts': 'cleartext-config-v14.ts' },
+              source: './common-vendored/src',
+              reason: 'The generation lives in the source name, not in the module a consumer imports.',
+            },
+          ],
+        },
+      },
+    } satisfies NpmManifest;
+
+    assert.deepEqual(validateVendoredPackage(workspaceRoot, manifest, './gen/pkg').violations, []);
+
+    writeFileSync(join(destinationDirectory, 'cleartext-config.ts'), 'export const A = 2;\n');
+    const drifted = validateVendoredPackage(workspaceRoot, manifest, './gen/pkg');
+    assert.equal(drifted.violations.length, 1);
+    assert.match(drifted.violations[0]!.message, /cleartext-config\.ts: differs from .*cleartext-config-v14\.ts/);
+  } finally {
+    rmSync(workspaceRoot, { recursive: true, force: true });
+  }
+});
+
 test('requires package.json fhevm.vendoredFrom to match the pinned manifest source', () => {
   const entry = {
     relPath: './src/contracts',

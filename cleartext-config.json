@@ -4,10 +4,11 @@
     "THE source of truth for every value the cleartext stack's languages must agree on.",
     "",
     "Above every generation on purpose. Every face is GENERATED from this file by `fhevm-npm",
-    "generate-cleartext-config`: the TypeScript module in `common-vendored/src` (synced into each",
-    "generation's `pkg/ts/` by `fhevm-npm sync vendored`), each generation's",
-    "`create2-deploy/script/FhevmCleartextConfig.sol`, and each generation's `scripts/cleartext-config.sh`",
-    "(sourced by the launchers). This is the one place a value is DECIDED; every copy is a face of it. See",
+    "generate-cleartext-config`, three per generation: the TypeScript module",
+    "`common-vendored/src/cleartext-config-<gen>.ts` (synced into that generation's `pkg/ts/cleartext-config.ts`",
+    "by `fhevm-npm sync vendored`), `create2-deploy/script/FhevmCleartextConfig.sol`, and",
+    "`scripts/cleartext-config.sh` (sourced by the launchers). Each face is COMPLETE for its generation. This",
+    "is the one place a value is DECIDED; every copy is a face of it. See",
     "host-contracts-cleartext/RULES.md rule 23.",
     "",
     "Why JSON and not TypeScript. Solidity cannot read a `.ts` module, and neither can a shell script, a",
@@ -34,6 +35,11 @@
     "  solidity   the Solidity type the mirror declares. Also what tells a consumer how to compare the",
     "             value: `address` case-insensitively, `string` exactly, `uint*` numerically.",
     "  formula    for a derived value, the expression it comes from — see below.",
+    "  generations  optional. The generations whose faces carry this constant — a subset of",
+    "             `appliesTo.generations`. Absent means every one of them, which is the common case and",
+    "             what every entry meant before the field existed. Set it when only one generation's",
+    "             contracts have a field for the value: that generation's three faces emit it and no other",
+    "             generation's do.",
     "  note       why the value is what it is. Required on every entry, and checked.",
     "",
     "## Why a derived value records its formula",
@@ -60,11 +66,11 @@
   "appliesTo": {
     "generations": ["v12", "v13"],
     "_note": [
-      "The two generations use this set IDENTICALLY — both receive the same generated",
-      "`cleartext-config.ts`, synced from `common-vendored/src` — which is why there is no per-generation",
-      "section here. That is a fact about today, not a design guarantee. Should a generation ever need a different",
-      "value, add an explicit `overrides` block keyed by generation rather than forking a copy: a forked",
-      "copy is indistinguishable from drift, which is the entire failure this file exists to end."
+      "Every constant reaches every generation listed here unless it says otherwise: a constant carrying its own",
+      "`generations` list is emitted only into those generations' faces. Each generation gets its own complete",
+      "set of faces, so a shared constant appears in each — generated duplication from this one file, never a",
+      "forked copy, which would be indistinguishable from drift. That is the per-generation mechanism this note",
+      "used to ask for as an `overrides` block, in its smallest form: a scope on the one entry that needs it."
     ]
   },
 

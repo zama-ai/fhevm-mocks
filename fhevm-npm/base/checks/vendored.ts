@@ -27,6 +27,8 @@ const destinationSchema = z
     to: z.array(z.string().min(1)).min(1),
     files: z.array(z.string().min(1)).min(1),
     rewrites: z.array(rewriteSchema).optional(),
+    /** Destination name → source name, for the files that change name on arrival. */
+    renamed: z.record(z.string().min(1), z.string().min(1)).optional(),
     note: z.string().optional(),
   })
   .strict();
@@ -50,6 +52,11 @@ const publishedVendoredFromSchema = z
 export type CommonVendoredManifest = z.infer<typeof commonVendoredManifestSchema>;
 export type Rewrite = z.infer<typeof rewriteSchema>;
 export type CommonDestination = z.infer<typeof destinationSchema>;
+
+/** The name a destination file has in the source directory: its own, unless the entry renames it. */
+export function sourceFileName(mapping: Pick<CommonDestination, 'renamed'>, file: string): string {
+  return mapping.renamed?.[file] ?? file;
+}
 
 /**
  * Where the wall clock goes, by child process.
@@ -418,7 +425,7 @@ function validateLocalEntry(
     return;
   }
 
-  const mapping: CommonDestination = { to: [entry.relPath], files, rewrites: entry.rewrites };
+  const mapping: CommonDestination = { to: [entry.relPath], files, rewrites: entry.rewrites, renamed: entry.renamed };
   for (const file of files) {
     compareLocalFile(workspaceRoot, published, sourceDirectory, destination, mapping, file, output);
   }
@@ -437,7 +444,7 @@ function compareLocalFile(
   file: string,
   output: MutableOutput,
 ): void {
-  const sourceFile = safeResolve(sourceDirectory, file, 'common-vendored file');
+  const sourceFile = safeResolve(sourceDirectory, sourceFileName(mapping, file), 'common-vendored file');
   const destinationFile = safeResolve(destination, file, 'vendored destination file');
   if (!existsSync(sourceFile)) {
     violation(output, published.key, `${workspacePath(workspaceRoot, destinationFile)}: source file is missing`);
@@ -477,7 +484,10 @@ function compareLocalFile(
  * lets rule 3.4.2 ask whether every live generation is among them.
  */
 export function localVendoredManifest(manifest: NpmManifest): CommonVendoredManifest {
-  const grouped = new Map<string, { to: string[]; files: string[]; rewrites?: Rewrite[] }>();
+  const grouped = new Map<
+    string,
+    { to: string[]; files: string[]; rewrites?: Rewrite[]; renamed?: Record<string, string> }
+  >();
   const sources = new Set<string>();
 
   for (const [key, entry] of Object.entries(manifest.packages)) {
@@ -486,11 +496,15 @@ export function localVendoredManifest(manifest: NpmManifest): CommonVendoredMani
       sources.add(element.source);
       const files = [...(element.files ?? [])].sort();
       const rewrites = element.rewrites === undefined ? undefined : [...element.rewrites];
-      // The grouping key is the payload: same files, same rewrites, one destination with many `to`.
-      const groupKey = JSON.stringify([files, rewrites ?? null]);
+      const renamed =
+        element.renamed === undefined ? undefined : Object.fromEntries(Object.entries(element.renamed).sort());
+      // The grouping key is the payload: same files from the same source names under the same rewrites,
+      // one destination with many `to`. A rename is part of it — two generations receiving their own
+      // `cleartext-config-<gen>.ts` as `cleartext-config.ts` receive different bytes.
+      const groupKey = JSON.stringify([files, rewrites ?? null, renamed ?? null]);
       const to = `${key === '.' ? '' : `${key.slice(2)}/`}${element.relPath.slice(2)}`;
       const existing = grouped.get(groupKey);
-      if (existing === undefined) grouped.set(groupKey, { to: [to], files, rewrites });
+      if (existing === undefined) grouped.set(groupKey, { to: [to], files, rewrites, renamed });
       else existing.to.push(to);
     }
   }

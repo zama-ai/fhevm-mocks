@@ -300,6 +300,14 @@
             "$ref": "#/$defs/filename"
           }
         },
+        "renamed": {
+          "type": "object",
+          "description": "Destination filename → source filename, for a copy that changes name on arrival. Each key must be listed in `files`; a file not listed here keeps its name.",
+          "$comment": "Keyed by the destination so `files` keeps meaning \"what sits in relPath\". Exists for the per-generation cleartext-config face: common-vendored/src holds one complete `cleartext-config-<gen>.ts` per generation, and each generation's pkg/ts receives its own as the stable `cleartext-config.ts`, so the module a consumer imports never carries a generation in its name. Only a local copy can be renamed; a pinned tree is copied as a whole.",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/filename" },
+          "additionalProperties": { "$ref": "#/$defs/filename" }
+        },
         "source": {
           "description": "Where the bytes come from. A string when the source is a directory in this repository; an object when it is a pinned point in another repository.",
           "$comment": "Two shapes because there are two kinds of copy. A directory in this repository is always in step with the working tree, so a relative path is the whole answer. A copy from elsewhere is frozen at one commit, and without that commit nothing can tell a legitimate upstream change from drift in the copy.",

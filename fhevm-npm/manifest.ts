@@ -157,6 +157,15 @@ const vendoredElementSchema = z
   .object({
     relPath: z.string().regex(PREFIXED_PATH, 'must be a safe path with a leading ./'),
     files: z.array(z.string().regex(FILE_NAME, 'must be one safe filename')).min(1).optional(),
+    // Destination name → source name, for a copy that changes name on arrival: each generation's
+    // `pkg/ts/cleartext-config.ts` is common-vendored's `cleartext-config-<gen>.ts`. Keyed by the
+    // destination so `files` keeps meaning "what sits in relPath"; every key must be listed there.
+    renamed: z
+      .record(
+        z.string().regex(FILE_NAME, 'must be one safe filename'),
+        z.string().regex(FILE_NAME, 'must be one safe filename'),
+      )
+      .optional(),
     source: z.union([z.string().regex(PREFIXED_PATH, 'must be a safe workspace-relative path'), pinnedSourceSchema]),
     // A rewrite belongs to the DESTINATION: it exists because this package resolves an import
     // differently from the package the bytes came from.
@@ -178,6 +187,34 @@ const vendoredElementSchema = z
   .superRefine((value, context) => {
     if (value.files !== undefined && new Set(value.files).size !== value.files.length) {
       context.addIssue({ code: 'custom', path: ['files'], message: 'must not contain duplicate filenames' });
+    }
+    if (value.renamed !== undefined) {
+      const entries = Object.entries(value.renamed);
+      if (entries.length === 0) {
+        context.addIssue({ code: 'custom', path: ['renamed'], message: 'must not be empty — omit it instead' });
+      }
+      if (typeof value.source !== 'string') {
+        context.addIssue({
+          code: 'custom',
+          path: ['renamed'],
+          message: 'only a local (in-repository) copy can be renamed',
+        });
+      }
+      for (const [file, from] of entries) {
+        if (!(value.files ?? []).includes(file)) {
+          context.addIssue({ code: 'custom', path: ['renamed', file], message: 'must name a file listed in `files`' });
+        }
+        if (file === from) {
+          context.addIssue({ code: 'custom', path: ['renamed', file], message: 'renames a file to its own name' });
+        }
+      }
+      if (new Set(entries.map(([, from]) => from)).size !== entries.length) {
+        context.addIssue({
+          code: 'custom',
+          path: ['renamed'],
+          message: 'two destination files name the same source file',
+        });
+      }
     }
   });
 

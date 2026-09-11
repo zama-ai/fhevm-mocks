@@ -23,6 +23,7 @@ import {
   expectedVendoredContent,
   localVendoredManifest,
   pinnedVendoredTargets,
+  sourceFileName,
 } from './checks/vendored.ts';
 import type { Violation } from './diagnostics.ts';
 import { vendoredDigest } from './vendored-digest.ts';
@@ -103,12 +104,15 @@ function syncOne(
   file: string,
   written: string[],
 ): string | undefined {
-  const sourceFile = join(options.workspaceRoot, source, file);
+  const sourceName = sourceFileName(destination, file);
+  const sourceFile = join(options.workspaceRoot, source, sourceName);
   const destinationDirectory = join(options.workspaceRoot, to);
   const destinationFile = join(destinationDirectory, file);
 
   if (!existsSync(sourceFile)) {
-    return `listed here but absent from ${source}`;
+    return sourceName === file
+      ? `listed here but absent from ${source}`
+      : `renamed from ${sourceName}, which is absent from ${source}`;
   }
   if (!existsSync(destinationDirectory)) {
     return 'destination directory does not exist';
@@ -125,7 +129,9 @@ function syncOne(
   }
 
   if (options.check) {
-    return actual === undefined ? 'missing' : describeDifference(actual, expectation.content, `${source}/${file}`);
+    return actual === undefined
+      ? 'missing'
+      : describeDifference(actual, expectation.content, `${source}/${sourceName}`);
   }
 
   writeFileSync(destinationFile, expectation.content);
