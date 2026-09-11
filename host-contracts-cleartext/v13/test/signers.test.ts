@@ -61,6 +61,7 @@ function readInstalledSdkSigners(): string {
   }
   return expected;
 }
+
 // The shared cleartext config, not ts/constants.ts: the mnemonic and HD paths live in
 // pkg/ts/cleartext-config.ts, generated from sdk/cleartext-config.json and synced from common-vendored.
 const HOST_CONFIG_PATH = join(PKG_DIR_ABS_PATH, 'ts', 'cleartext-config.ts');
