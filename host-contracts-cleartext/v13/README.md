@@ -358,7 +358,7 @@ The rules 15/17 gate — the localhost address set still being the one `ZamaConf
 ```sh
 npm run check:zama-config         # also runs inside `npm run build`
 #   🔎 rules 15 and 17: ZAMA_LOCAL_CONFIG must match ZamaConfig.sol _getLocalConfig()
-#      library-solidity/config/ZamaConfig.sol
+#      host-contracts-cleartext/v13/internal/zama-config/ZamaConfig.sol
 #      ✅ ACLAddress           aclAddress             0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D
 #      ✅ CoprocessorAddress   fhevmExecutorAddress   0xe3a9105a3a932253A70F126eb1E3b589C643dD24
 #      ✅ KMSVerifierAddress   kmsVerifierAddress     0x901F8942346f7AB3a01F6D7613119Bca447Bb030
@@ -370,6 +370,11 @@ forge constants do too — but all of them compare against that same hand-writte
 `internal/constants.ts`. An upstream edit to `_getLocalConfig()` therefore leaves the whole chain
 self-consistent and collectively wrong. This one parses the Solidity instead, so the transcription is
 checked against its source.
+
+It reads this generation's own copy of upstream's `library-solidity/config/ZamaConfig.sol`, vendored into
+`internal/zama-config/` at the same commit `pkg/src/contracts` is pinned to (rule 5.1.3c): the localhost
+addresses are graded against the config the vendored contracts were released with, not against whatever
+`@fhevm/solidity` happens to be installed. `fhevm-npm sync vendored` writes the copy; it is never edited.
 
 It reads the file, compiles nothing, and refuses to pass vacuously: an absent `ZamaConfig.sol`, a 31337
 branch that no longer routes to `_getLocalConfig()`, a renamed field, or a **new** field are all

@@ -41,6 +41,10 @@ They mention v13, but they are not going anywhere:
 
 Other files mention v13 too. They describe what v14 upgrades _from_, which stays true.
 
+`internal/zama-config/` stays too. It is v14's copy of upstream's `library-solidity/config`, pinned at the same
+commit as `pkg/src/contracts` (rule 5.1.3c), and `check:zama-config` reads it. It goes with the generation: it
+leaves only when v14 itself is retired, and it is never edited by hand — `fhevm-npm sync vendored` owns it.
+
 ## 4. Check it worked
 
 ```sh
