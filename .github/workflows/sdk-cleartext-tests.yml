@@ -1,0 +1,25 @@
+name: sdk-cleartext-tests
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-tests:
+    name: sdk-cleartext-tests/test (bpr)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: ./sdk
+    permissions:
+      contents: 'read' # Required to checkout repository code
+    steps:
+      - name: placeholder
+        run: |
+          echo "placeholder job"
