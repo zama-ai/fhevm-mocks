@@ -1376,6 +1376,24 @@ incremental install; only rebuilding the tree drops it.
 Both lockfile shapes are read — `packages` (lockfileVersion 2 and 3) and the legacy nested `dependencies` (version 1)
 — so an older file cannot pass vacuously.
 
+**6.1.3 An isolated consumer lockfile pins every published payload at its `versions.json` version, resolved to the
+payload its depender names.** The lock is what `npm ci` installs for `test-consumer --ci`, so a stale one tests
+yesterday's package while every other check reads today's sources. Two assertions per published node: its `version`
+equals `versions.json` for the payload its `resolved` path points at, and that path is the one the depender's
+`package.json` declares — the consumer's own, and each payload's the lock reached through it. The second is what the
+first cannot see: after the Hardhat v3 plugin moved from V(N-1)'s host contracts to V(N)'s, its consumer lock still
+recorded `@fhevm/hardhat-plugin-v3@0.13.0` depending on `host-contracts-cleartext/v13/pkg`; both versions were correct
+for the files they named, and both files were the wrong ones. A member consumer has no lock of its own (6.1.1) and is
+not graded here.
+
+```text
+❌ "node_modules/@fhevm/hardhat-plugin-v3": { "version": "0.13.0", "resolved": "file:../../pkg" }
+   versions.json: "./hardhat/v3/plugin/pkg": "0.14.0-0"
+❌ "node_modules/@fhevm/host-contracts-cleartext": { "resolved": "file:../../../../../host-contracts-cleartext/v13/pkg" }
+   hardhat/v3/plugin/pkg/package.json: "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v14/pkg"
+✅ fhevm-npm test-consumer-regenerate-package-lock ./hardhat/v3/plugin/test-consumer/esm
+```
+
 ### 6.2 Recovering a broken tree
 
 **6.2.1 A member rename or a `workspaces` edit invalidates the tree, not just the lock.** npm compares against

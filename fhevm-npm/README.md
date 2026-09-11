@@ -14,6 +14,7 @@ node ./fhevm-npm.ts check workspaces
 node ./fhevm-npm.ts check ownership
 node ./fhevm-npm.ts check scripts
 node ./fhevm-npm.ts check lockfiles
+node ./fhevm-npm.ts check consumer-lockfiles
 node ./fhevm-npm.ts check foundry
 node ./fhevm-npm.ts check json-schemas
 node ./fhevm-npm.ts check manifest-coverage
