@@ -62,6 +62,19 @@ tmp/
 .out
 .out-*
 
+# Per-generation build output and fetched dependencies. Each generation's own .gitignore covers these, but
+# that file is tracked only on the branch that owns the generation: switch to a release branch that does
+# not, and the generation's directory is still on disk with nothing ignoring it — which is how 404 files
+# of v14's tsc output, soldeer dependencies and forge cache were once committed to release/0.13.x. Named
+# here so a branch switch can never un-ignore them. Nothing tracked on any branch matches these.
+cache/
+dependencies/
+broadcast/
+**/pkg/ts/_cjs/
+**/pkg/ts/_esm/
+**/pkg/ts/_types/
+**/pkg/ts/_types-cjs/
+
 # Coverage
 coverage/
 .nyc_output/
