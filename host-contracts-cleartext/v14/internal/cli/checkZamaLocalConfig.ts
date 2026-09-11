@@ -1,16 +1,25 @@
 // Run: npm run check:zama-config
 //
-// Gate: ZAMA_LOCAL_CONFIG must equal the addresses
-// `library-solidity/config/ZamaConfig.sol` returns from `_getLocalConfig()`. The check itself lives in
-// @fhevm/sdk-common-dev, which is where ZAMA_LOCAL_CONFIG is declared.
+// Gate: ZAMA_LOCAL_CONFIG must equal the addresses upstream's `library-solidity/config/ZamaConfig.sol`
+// returns from `_getLocalConfig()`, read from THIS generation's vendored copy in `internal/zama-config/`
+// — the same upstream commit its contracts are pinned at, declared in package.json#fhevm.vendoredFrom
+// and written by `fhevm-npm sync vendored`. The check itself lives in @fhevm/sdk-common-dev, which is
+// where ZAMA_LOCAL_CONFIG is declared; since that constant is workspace-wide and every generation runs
+// this, one constant is asserted against every pinned commit at once.
 //
 // Wired into `npm run build` (and therefore `npm run test`, which builds). Cheap and read-only, so it
 // runs before anything that compiles or deploys.
 
-import { checkZamaLocalConfig } from '@fhevm/sdk-common-dev';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { checkZamaLocalConfig, vendoredZamaConfigAbsPath } from '@fhevm/sdk-common-dev';
+
+/** This generation's dev package: two levels above internal/cli/. */
+const GENERATION_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 try {
-  const { label, entries, mismatches } = checkZamaLocalConfig();
+  const { label, entries, mismatches } = checkZamaLocalConfig(vendoredZamaConfigAbsPath(GENERATION_DIR));
 
   console.log('🔎 ZAMA_LOCAL_CONFIG must match ZamaConfig.sol _getLocalConfig()');
   console.log(`   ${label}`);
