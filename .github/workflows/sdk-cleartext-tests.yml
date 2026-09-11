@@ -2,9 +2,6 @@ name: sdk-cleartext-tests
 
 on:
   pull_request:
-    branches:
-      - release/0.13.x
-      - release/0.14.x
   workflow_dispatch:
 
 permissions: {}
