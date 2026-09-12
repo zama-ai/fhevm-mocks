@@ -4,11 +4,11 @@ on:
   workflow_call:
     inputs:
       build_target:
-        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin'
+        description: "compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin"
         required: true
         type: string
       dry_run:
-        description: 'run every step but stop short of publishing'
+        description: "run every step but stop short of publishing"
         required: false
         default: true
         type: boolean
@@ -24,8 +24,8 @@ jobs:
     name: sdk-publish-payload/publish
     runs-on: ubuntu-latest
     permissions:
-      contents: 'read' # Required to checkout repository code
-      id-token: 'write' # Required for OIDC / npm provenance attestation
+      contents: "read" # Required to checkout repository code
+      id-token: "write" # Required for OIDC / npm provenance attestation
     # One publish at a time per payload: two concurrent runs could both pass `publish check` and race.
     # Each supported build target identifies one payload before metadata resolution.
     concurrency:
@@ -43,7 +43,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          persist-credentials: 'false'
+          persist-credentials: "false"
 
       # -----------------------------------------------------------------------
       # 2. Node.js setup
