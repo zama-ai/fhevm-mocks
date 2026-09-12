@@ -18,9 +18,6 @@ jobs:
     name: sdk-cleartext-tests/test (bpr)
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    defaults:
-      run:
-        working-directory: ./sdk
     permissions:
       contents: 'read' # Required to checkout repository code
     steps:
