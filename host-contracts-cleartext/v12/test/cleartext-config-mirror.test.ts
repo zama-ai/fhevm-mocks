@@ -1,6 +1,6 @@
 // `sdk/cleartext-config.json` is THE source of truth for the cleartext stack's shared
 // values; `pkg/ts/cleartext-config.ts` (generated from the JSON, synced from common-vendored/src) and
-// `create2-deploy/script/FhevmCleartextConfig.sol` (generated directly) are faces of it — same names,
+// `pkg/forge/src/FhevmCleartextConfig.sol` (generated directly) are faces of it — same names,
 // same order, equal values.
 //
 // The rule's whole safety argument is that the faces are CHECKED rather than trusted, so this file is that
@@ -36,7 +36,7 @@ import { FHEVM_CONFIG_REMAPPING_PREFIX, PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG
  */
 const JSON_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', '..', 'cleartext-config.json');
 const TS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'cleartext-config.ts');
-const SOL_PATH = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'script', 'FhevmCleartextConfig.sol');
+const SOL_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'forge', 'src', 'FhevmCleartextConfig.sol');
 const LOCAL_HOST_ADDRESSES_PATH = join(
   PACKAGE_ROOT_ABS_PATH,
   'pkg',
@@ -325,7 +325,7 @@ void test('the Solidity face matches the source of truth', () => {
   assert.deepEqual(
     [...face.keys()],
     [...truth.keys()],
-    `create2-deploy/script/FhevmCleartextConfig.sol declares a different set of constants, or in a\n` +
+    `pkg/forge/src/FhevmCleartextConfig.sol declares a different set of constants, or in a\n` +
       `different order, than sdk/cleartext-config.json. The file is generated: rerun \`make generate\`,\n` +
       `never edit it. The mirror is COMPLETE, not trimmed to what today's scripts use — and a\n` +
       `Solidity-only value (a role name, an artifact path) does not belong in the JSON at all.`,

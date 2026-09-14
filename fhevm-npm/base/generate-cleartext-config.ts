@@ -9,9 +9,13 @@
 //                                                              cannot import the private helper); internal/
 //                                                              imports it from @fhevm/sdk-vendored-dev by
 //                                                              its generation name.
-//   <gen>/create2-deploy/script/FhevmCleartextConfig.sol       written PER GENERATION, directly — a .sol
+//   <gen>/pkg/forge/src/FhevmCleartextConfig.sol               written PER GENERATION, directly — a .sol
 //                                                              in common-vendored would make it a
 //                                                              Solidity-owning package with no forge.
+//                                                              It sits in the payload's Foundry half
+//                                                              because it is the payload's own config,
+//                                                              readable by a consumer and by the
+//                                                              create2-deploy scripts alike.
 //   <gen>/scripts/cleartext-config.sh                          per generation likewise; sourced by the
 //                                                              launchers, never executed.
 //
@@ -97,7 +101,7 @@ export function renderCleartextConfigFaces(workspaceRoot: string): readonly Rend
     return [
       { path: join(workspaceRoot, ...tsFacePath(gen)), content: renderTsFace(gen, visible) },
       {
-        path: generation(gen, 'create2-deploy', 'script', 'FhevmCleartextConfig.sol'),
+        path: generation(gen, 'pkg', 'forge', 'src', 'FhevmCleartextConfig.sol'),
         content: renderSolFace(visible),
       },
       { path: generation(gen, 'scripts', 'cleartext-config.sh'), content: renderShFace(visible, config.localhost) },
@@ -254,7 +258,7 @@ function tsFaceHeader(gen: string): string {
 // cleartext stack's languages must agree on: it records the keccak FORMULA behind each derived value rather
 // than only the hex, and ${gen}'s \`test/cleartext-config-mirror.test.ts\` checks its copy of this module
 // against it — name for name, in declaration order, value for value, bigint-vs-number literal shape included.
-// ${gen}'s \`create2-deploy/script/FhevmCleartextConfig.sol\` is the same JSON's Solidity face.
+// ${gen}'s \`pkg/forge/src/FhevmCleartextConfig.sol\` is the same JSON's Solidity face.
 //
 // \`fhevm-npm sync vendored\` copies this file into ${gen}'s pkg/ts/ as \`cleartext-config.ts\` — a published
 // package cannot depend on the private @fhevm/sdk-vendored-dev, so it compiles a byte-identical copy under
