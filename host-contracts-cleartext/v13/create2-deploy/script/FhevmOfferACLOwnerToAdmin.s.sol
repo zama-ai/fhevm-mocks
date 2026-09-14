@@ -81,8 +81,7 @@ contract FhevmOfferACLOwnerToAdmin is FhevmCreate2Base {
         // PRECONDITION. Fatal: either this is not the stack the manifest describes, or the ACLOwner
         // was already handed to someone who is not our admin.
         require(
-            owner_ == cfg.deployer,
-            "FhevmOfferACLOwnerToAdmin: E precondition - deployer does not own the ACLOwner"
+            owner_ == cfg.deployer, "FhevmOfferACLOwnerToAdmin: E precondition - deployer does not own the ACLOwner"
         );
 
         _warnIfNotMaterialized(manifest);

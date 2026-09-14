@@ -100,8 +100,7 @@ contract FhevmStatus is FhevmCreate2Base {
         if (c.initCode.length > MAX_INITCODE_SIZE) {
             _bad++;
             console.log(
-                string.concat("  TOO BIG  ", c.role, "  - initcode over the EIP-3860 limit:"),
-                c.initCode.length
+                string.concat("  TOO BIG  ", c.role, "  - initcode over the EIP-3860 limit:"), c.initCode.length
             );
             return;
         }

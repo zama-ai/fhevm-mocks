@@ -371,7 +371,7 @@ abstract contract FhevmCreate2Base is Script {
     function _factoryCreate2(bytes32 salt, bytes memory initCode) internal {
         require(initCode.length > 0, "FhevmCreate2Base: empty initcode (artifact not built?)");
         require(initCode.length <= MAX_INITCODE_SIZE, "FhevmCreate2Base: initcode exceeds EIP-3860 limit");
-        (bool ok, ) = CREATE2_FACTORY.call(bytes.concat(salt, initCode));
+        (bool ok,) = CREATE2_FACTORY.call(bytes.concat(salt, initCode));
         require(ok, "FhevmCreate2Base: factory call reverted");
     }
 
