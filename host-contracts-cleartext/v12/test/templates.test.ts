@@ -523,7 +523,8 @@ void test('LocalHostAddresses.sol agrees with the derivation and with LocalHostB
   assert.match(source, new RegExp(`address constant DEPLOYER_ADDRESS = ${deployer};`), 'deployer constant');
   assert.match(source, /uint64 constant DEPLOYER_START_NONCE = 0;/, 'start nonce');
   assert.match(source, /uint32 constant DEPLOYER_ADDRESS_INDEX = \d+;/, 'deployer index');
-  assert.match(source, /string constant MNEMONIC = "(?:[a-z]+ ){11,}[a-z]+";/, 'mnemonic');
+  // `forge fmt` wraps the value onto its own line, hence the \s* rather than a single space.
+  assert.match(source, /string constant MNEMONIC =\s*"(?:[a-z]+ ){11,}[a-z]+";/, 'mnemonic');
 
   for (const name of ADDRESS_NAMES) {
     assert.match(source, new RegExp(`address constant ${name} = ${byName[name]};`), `${name} constant`);
