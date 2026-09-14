@@ -191,7 +191,7 @@ export const NONCE_LABEL: Readonly<Record<AddressName, string>> = {
  * generator error rather than a guessed name.
  */
 export const CONSTANT_NAMES = {
-  ACL: 'ACL',
+  CleartextACL: 'CLEARTEXT_ACL',
   ACLOwner: 'ACL_OWNER',
   CleartextArithmetic: 'CLEARTEXT_ARITHMETIC',
   CleartextDB: 'CLEARTEXT_DB',
