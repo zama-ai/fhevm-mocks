@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {Vm} from "forge-std/Vm.sol";
+import {ForgeVmBase} from "./ForgeVmBase.sol";
 
 import {
     ACL_ADDRESS,
@@ -107,10 +107,7 @@ import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
  *
  * All five are `private`, as is everything else here bar the entry point.
  */
-abstract contract FhevmDeploy {
-    /// @dev `Vm`, not `VmSafe`: standing the stack up needs the mutating cheatcodes (prank, etch, setNonce).
-    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-
+abstract contract FhevmDeploy is ForgeVmBase {
     /// @dev ERC-1967 implementation slot: keccak256("eip1967.proxy.implementation") - 1.
     bytes32 private constant _ERC1967_IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
@@ -230,14 +227,14 @@ abstract contract FhevmDeploy {
         _fhevmDeployed = true;
 
         require(
-            vm.getNonce(DEPLOYER_ADDRESS) == DEPLOYER_START_NONCE,
+            fvm.getNonce(DEPLOYER_ADDRESS) == DEPLOYER_START_NONCE,
             "FhevmDeploy: deployer nonce must be DEPLOYER_START_NONCE; every address derives from it"
         );
 
-        vm.startPrank(DEPLOYER_ADDRESS);
+        fvm.startPrank(DEPLOYER_ADDRESS);
         _deployEmptyProxies();
         _deployPauserSet();
-        vm.stopPrank();
+        fvm.stopPrank();
 
         _setupACLOwner();
         address[] memory implementations = _deployImplementations();
@@ -284,12 +281,12 @@ abstract contract FhevmDeploy {
 
     /**
      * @dev PauserSet has no constructor and no immutables, so its runtime blob is complete and etching it
-     *      is equivalent to constructing it. The nonce is still consumed so the address matches: `vm.etch`
+     *      is equivalent to constructing it. The nonce is still consumed so the address matches: `fvm.etch`
      *      does not advance it, hence the explicit bump.
      */
     function _deployPauserSet() private {
-        vm.etch(PAUSER_SET_ADDRESS, PAUSER_SET_RUNTIME_CODE);
-        vm.setNonce(DEPLOYER_ADDRESS, uint64(vm.getNonce(DEPLOYER_ADDRESS) + 1));
+        fvm.etch(PAUSER_SET_ADDRESS, PAUSER_SET_RUNTIME_CODE);
+        fvm.setNonce(DEPLOYER_ADDRESS, uint64(fvm.getNonce(DEPLOYER_ADDRESS) + 1));
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -302,14 +299,14 @@ abstract contract FhevmDeploy {
      *      offers, and the admin accepts through ACLOwner.
      */
     function _setupACLOwner() private {
-        vm.startPrank(DEPLOYER_ADDRESS);
+        fvm.startPrank(DEPLOYER_ADDRESS);
         _fhevmACLOwner =
             _create(abi.encodePacked(ACL_OWNER_CREATION_CODE, abi.encode(_fhevmAdmin(), ACL_ADDRESS)), "ACLOwner");
         IPauserSet(PAUSER_SET_ADDRESS).addPauser(_fhevmACLOwner);
         IACL(ACL_ADDRESS).transferOwnership(_fhevmACLOwner);
-        vm.stopPrank();
+        fvm.stopPrank();
 
-        vm.prank(_fhevmAdmin());
+        fvm.prank(_fhevmAdmin());
         IACLOwner(_fhevmACLOwner).acceptACLOwnership();
     }
 
@@ -397,7 +394,7 @@ abstract contract FhevmDeploy {
             abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (CLEARTEXT_ARITHMETIC_ADDRESS))
         );
 
-        vm.prank(_fhevmAdmin());
+        fvm.prank(_fhevmAdmin());
         IACLOwner(_fhevmACLOwner).upgrade(ops);
     }
 
@@ -432,7 +429,7 @@ abstract contract FhevmDeploy {
         addr = _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(implementation, initData)), what);
         require(addr == expected, string.concat("FhevmDeploy: ", what, " landed at the wrong address"));
         require(
-            vm.load(addr, _ERC1967_IMPL_SLOT) == bytes32(uint256(uint160(implementation))),
+            fvm.load(addr, _ERC1967_IMPL_SLOT) == bytes32(uint256(uint160(implementation))),
             string.concat("FhevmDeploy: ", what, " implementation slot not set")
         );
     }
