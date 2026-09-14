@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 //
-// DRAFT — see README.md. Small, dependency-free helpers for deploy-testnet.ts.
+// Small, dependency-free helpers for deploy-testnet.ts.
 //
 // Runs on plain `node` (>= 22.6), which strips types at load. That constrains the syntax to the
 // "erasable" subset: no `enum`, no `namespace`, no parameter properties, and relative imports must
