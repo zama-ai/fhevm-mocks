@@ -1,0 +1,119 @@
+{
+  "op": "div",
+  "arity": 2,
+  "semantics": "unsigned-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "div_64_64_zero_by_one",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "div_64_64_zero_by_small",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "div_64_64_small_by_one",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "div_64_64_equal",
+      "lhs": { "bits": 64, "value": "0x7" },
+      "rhs": { "bits": 64, "value": "0x7" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "div_64_64_one_by_max",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "div_64_64_max_by_one",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "div_64_64_max_by_two",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x2" },
+      "result": { "bits": 64, "value": "0x7fffffffffffffff" }
+    },
+    {
+      "id": "div_64_64_max_by_small",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0xb21642c8590b216" }
+    },
+    {
+      "id": "div_64_64_max_by_top_bit",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "div_64_64_max_by_max_minus_1",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xfffffffffffffffe" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "div_64_64_max_by_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "div_64_64_max_minus_1_by_max",
+      "lhs": { "bits": 64, "value": "0xfffffffffffffffe" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "div_64_64_top_bit_by_two",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x2" },
+      "result": { "bits": 64, "value": "0x4000000000000000" }
+    },
+    {
+      "id": "div_64_64_top_bit_by_top_bit",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "div_64_64_mid_by_top_bit",
+      "lhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "rhs": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "div_64_64_pattern_by_255",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0xff" },
+      "result": { "bits": 64, "value": "0xa64bf1973ce288" }
+    },
+    {
+      "id": "div_64_64_max_by_half_power_of_two",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x100000000" },
+      "result": { "bits": 64, "value": "0xffffffff" }
+    },
+    {
+      "id": "div_64_64_pattern_by_half_power_of_two",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0x100000000" },
+      "result": { "bits": 64, "value": "0xa5a5a5a5" }
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "op": "shl",
+  "arity": 2,
+  "semantics": "overshift-zero",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "shl_32_8_zero_by_zero",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_by_zero",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "shl_32_8_max_by_zero",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "shl_32_8_one_by_one",
+      "lhs": { "bits": 32, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x2" }
+    },
+    {
+      "id": "shl_32_8_two_by_one",
+      "lhs": { "bits": 32, "value": "0x2" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x4" }
+    },
+    {
+      "id": "shl_32_8_max_by_one",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "shl_32_8_top_bit_by_one",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_one_by_w_minus_1",
+      "lhs": { "bits": 32, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x1f" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "shl_32_8_top_bit_by_w_minus_1",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "rhs": { "bits": 8, "value": "0x1f" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_max_by_w_minus_1",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x1f" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "shl_32_8_one_by_w",
+      "lhs": { "bits": 32, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x20" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_top_bit_by_w",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "rhs": { "bits": 8, "value": "0x20" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_max_by_w",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x20" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_max_by_w_plus_1",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x21" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_max_by_255",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "shl_32_8_pattern_by_255",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 32, "value": "0x0" }
+    }
+  ]
+}
