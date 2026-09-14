@@ -639,5 +639,11 @@ export function writeLocalHostBytecode(): LocalHostBytecodeResult {
     rmSync(TMP_DIR, { recursive: true, force: true });
   }
 
+  // The emitted files are formatted HERE, not by `npm run fmt`: foundry.toml's `src` is pkg/src, so
+  // `forge fmt` never reaches pkg/forge on its own, and check-generated compares the committed files
+  // byte-for-byte with what this writes. Formatting on the way out is what lets the two agree even when
+  // someone runs `forge fmt pkg/forge` by hand — the result is the same either way.
+  forge(['fmt', dirname(OUTPUT_PATH)]);
+
   return { stack, code, interfaces };
 }
