@@ -105,8 +105,8 @@ contract FhevmVerify is FhevmVerifyBase {
             "InputVerifier.getCoprocessorSigners()"
         );
         _expect(
-            IWiredInputVerifier(_readManifestAddress(manifest, R_INPUT_VERIFIER)).getThreshold() ==
-                C.CLEARTEXT_COPROCESSOR_THRESHOLD,
+            IWiredInputVerifier(_readManifestAddress(manifest, R_INPUT_VERIFIER)).getThreshold()
+                == C.CLEARTEXT_COPROCESSOR_THRESHOLD,
             "InputVerifier.getThreshold() == coprocessor threshold"
         );
 

@@ -202,7 +202,9 @@ contract DeployLocalStack is Script {
     function _materialize(address aclOwner) private {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
         ops[0] = ACLOwner.Op(
-            ACL_ADDRESS, _create(CLEARTEXT_ACL_CREATION_CODE, "ACL impl"), abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ())
+            ACL_ADDRESS,
+            _create(CLEARTEXT_ACL_CREATION_CODE, "ACL impl"),
+            abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ())
         );
         ops[1] = ACLOwner.Op(
             FHEVM_EXECUTOR_ADDRESS,
@@ -282,9 +284,7 @@ contract DeployLocalStack is Script {
      * @dev An ERC-1967 proxy over `implementation`, checked against the address the pre-compiled bytecode
      *      expects. A mismatch means the nonce sequence diverged and every later address is wrong too.
      */
-    function _createProxy(address implementation, bytes memory initData, address expected, string memory what)
-        private
-    {
+    function _createProxy(address implementation, bytes memory initData, address expected, string memory what) private {
         address addr =
             _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(implementation, initData)), what);
         require(addr == expected, string.concat("DeployLocalStack: ", what, " landed at the wrong address"));

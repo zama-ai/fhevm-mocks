@@ -7,7 +7,6 @@ pragma solidity ^0.8.24;
 import {FheType} from "../../../../src/contracts/shared/FheType.sol";
 
 interface ICleartextFHEVMExecutor {
-
     error ACLNotAllowed(bytes32 handle, address account);
     error AddressEmptyCode(address target);
     error DivisionByZero();

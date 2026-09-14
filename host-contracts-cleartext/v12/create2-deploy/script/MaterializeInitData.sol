@@ -74,40 +74,37 @@ library MaterializeInitData {
     /// @dev This generation's KMSVerifier carries its own signer set and threshold. 0.13 moves them out
     ///      to ProtocolConfig and reduces this call to the EIP-712 domain alone.
     function _kmsVerifier() private pure returns (bytes memory) {
-        return
-            abi.encodeCall(
-                KMSVerifier.initializeFromEmptyProxy,
-                (
-                    LocalHostBootstrap.DECRYPTION_ADDRESS,
-                    LocalHostBootstrap.GATEWAY_CHAIN_ID,
-                    LocalHostBootstrap.kmsSigners(),
-                    LocalHostBootstrap.KMS_NODE_COUNT
-                )
-            );
+        return abi.encodeCall(
+            KMSVerifier.initializeFromEmptyProxy,
+            (
+                LocalHostBootstrap.DECRYPTION_ADDRESS,
+                LocalHostBootstrap.GATEWAY_CHAIN_ID,
+                LocalHostBootstrap.kmsSigners(),
+                LocalHostBootstrap.KMS_NODE_COUNT
+            )
+        );
     }
 
     function _inputVerifier() private pure returns (bytes memory) {
-        return
-            abi.encodeCall(
-                InputVerifier.initializeFromEmptyProxy,
-                (
-                    LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS,
-                    LocalHostBootstrap.GATEWAY_CHAIN_ID,
-                    LocalHostBootstrap.coprocessorSigners(),
-                    LocalHostBootstrap.COPROCESSOR_THRESHOLD
-                )
-            );
+        return abi.encodeCall(
+            InputVerifier.initializeFromEmptyProxy,
+            (
+                LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS,
+                LocalHostBootstrap.GATEWAY_CHAIN_ID,
+                LocalHostBootstrap.coprocessorSigners(),
+                LocalHostBootstrap.COPROCESSOR_THRESHOLD
+            )
+        );
     }
 
     function _hcuLimit() private pure returns (bytes memory) {
-        return
-            abi.encodeCall(
-                HCULimit.initializeFromEmptyProxy,
-                (
-                    LocalHostBootstrap.HCU_CAP_PER_BLOCK,
-                    LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,
-                    LocalHostBootstrap.MAX_HCU_PER_TX
-                )
-            );
+        return abi.encodeCall(
+            HCULimit.initializeFromEmptyProxy,
+            (
+                LocalHostBootstrap.HCU_CAP_PER_BLOCK,
+                LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,
+                LocalHostBootstrap.MAX_HCU_PER_TX
+            )
+        );
     }
 }

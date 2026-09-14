@@ -7,7 +7,6 @@ pragma solidity ^0.8.24;
 import {FheType} from "../../../../src/contracts/shared/FheType.sol";
 
 interface IHCULimit {
-
     error AddressEmptyCode(address target);
     error AlreadyBlockHCUWhitelisted(address account);
     error CallerMustBeFHEVMExecutorContract();

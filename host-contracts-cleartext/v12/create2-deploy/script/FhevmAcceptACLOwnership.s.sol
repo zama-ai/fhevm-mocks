@@ -67,8 +67,7 @@ contract FhevmAcceptACLOwnership is FhevmCreate2Base {
         address pauserSet = _readManifestAddress(manifest, R_PAUSER_SET);
         address aclOwner = _readManifestAddress(manifest, R_ACL_OWNER);
         require(
-            _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner),
-            "FhevmAcceptACLOwnership: run creates first"
+            _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner), "FhevmAcceptACLOwnership: run creates first"
         );
 
         _banner("step C - accept ACL ownership");

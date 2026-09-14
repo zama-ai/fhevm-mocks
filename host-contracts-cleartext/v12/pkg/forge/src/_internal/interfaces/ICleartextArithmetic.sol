@@ -11,7 +11,6 @@ library FHEVMExecutor {
 }
 
 interface ICleartextArithmetic {
-
     error AddressEmptyCode(address target);
     error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
     error CleartextErrorUnsupportedBinaryOp(FHEVMExecutor.Operators op);

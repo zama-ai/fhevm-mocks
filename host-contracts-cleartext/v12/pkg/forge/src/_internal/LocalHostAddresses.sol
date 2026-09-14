@@ -13,7 +13,8 @@ pragma solidity ^0.8.24;
 //, which is why none of this may drift.
 
 /// @dev BIP-39 mnemonic the local stack is deployed with.
-string constant MNEMONIC = "adapt mosquito move limb mobile illegal tree voyage juice mosquito burger raise father hope layer";
+string constant MNEMONIC =
+    "adapt mosquito move limb mobile illegal tree voyage juice mosquito burger raise father hope layer";
 
 /// @dev Account index derived from MNEMONIC that deploys the stack (path m/44'/60'/0'/0/5).
 uint32 constant DEPLOYER_ADDRESS_INDEX = 5;

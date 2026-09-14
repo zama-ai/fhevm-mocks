@@ -102,7 +102,6 @@ import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
  * All five are `private`, as is everything else here bar the entry point.
  */
 abstract contract FhevmDeploy is ForgeVmBase {
-
     /// @dev ERC-1967 implementation slot: keccak256("eip1967.proxy.implementation") - 1.
     bytes32 private constant _ERC1967_IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
@@ -111,6 +110,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
 
     /// @dev The standing ACLOwner, owner of ACL once phase 3 completes. Read it through `fhevmACLOwner()`.
     address private _fhevmACLOwner;
+
     // Deliberately runtime state rather than a generated constant. On a fresh deploy it happens to be
     // CREATE(deployer, ADDRESSED_NONCE_COUNT), but the ACLOwner *survives an upgrade*: the v12->v13
     // update takes the standing
@@ -154,11 +154,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
         );
     }
 
-    function _fhevmHcuLimitConfig()
-        private
-        pure
-        returns (uint48 capPerBlock, uint48 maxDepthPerTx, uint48 maxPerTx)
-    {
+    function _fhevmHcuLimitConfig() private pure returns (uint48 capPerBlock, uint48 maxDepthPerTx, uint48 maxPerTx) {
         return (
             LocalHostBootstrap.HCU_CAP_PER_BLOCK,
             LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,
@@ -166,7 +162,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
         );
     }
 
-////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // Entry point
     ////////////////////////////////////////////////////////////////////////////
 
@@ -232,10 +228,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
     function _deployEmptyProxies() private {
         address emptyACLImpl = _create(EMPTY_UUPS_PROXY_ACL_CREATION_CODE, "EmptyUUPSProxyACL");
         _createProxy(
-            emptyACLImpl,
-            abi.encodeCall(IEmptyUUPSProxyACL.initialize, (DEPLOYER_ADDRESS)),
-            ACL_ADDRESS,
-            "ACL proxy"
+            emptyACLImpl, abi.encodeCall(IEmptyUUPSProxyACL.initialize, (DEPLOYER_ADDRESS)), ACL_ADDRESS, "ACL proxy"
         );
 
         address emptyImpl = _create(EMPTY_UUPS_PROXY_CREATION_CODE, "EmptyUUPSProxy");
@@ -329,7 +322,8 @@ abstract contract FhevmDeploy is ForgeVmBase {
         (uint48 capPerBlock, uint48 maxDepthPerTx, uint48 maxPerTx) = _fhevmHcuLimitConfig();
 
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
-        ops[0] = ACLOwner.Op(ACL_ADDRESS, implementations[0], abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ()));
+        ops[0] =
+            ACLOwner.Op(ACL_ADDRESS, implementations[0], abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ()));
         ops[1] = ACLOwner.Op(
             FHEVM_EXECUTOR_ADDRESS,
             implementations[1],
@@ -371,7 +365,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
         IACLOwner(_fhevmACLOwner).upgrade(ops);
     }
 
-////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     // Primitives
     ////////////////////////////////////////////////////////////////////////////
 

@@ -265,7 +265,8 @@ contract FhevmDeployScript is Script {
     function _materialize(ACLOwner aclOwner) private {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
 
-        ops[0] = ACLOwner.Op(aclAdd, address(new CleartextACL()), abi.encodeCall(CleartextACL.initializeFromEmptyProxy, ()));
+        ops[0] =
+            ACLOwner.Op(aclAdd, address(new CleartextACL()), abi.encodeCall(CleartextACL.initializeFromEmptyProxy, ()));
         ops[1] = ACLOwner.Op(
             fhevmExecutorAdd,
             address(new CleartextFHEVMExecutor()),
@@ -325,5 +326,4 @@ contract FhevmDeployScript is Script {
             )
         );
     }
-
 }

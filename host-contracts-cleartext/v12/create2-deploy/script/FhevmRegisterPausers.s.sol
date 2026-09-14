@@ -77,8 +77,7 @@ contract FhevmRegisterPausers is FhevmCreate2Base {
         aclOwner = _readManifestAddress(manifest, R_ACL_OWNER);
 
         require(
-            _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner),
-            "FhevmRegisterPausers: run creates first"
+            _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner), "FhevmRegisterPausers: run creates first"
         );
 
         _banner("pausers - steps A, A'");
