@@ -57,4 +57,14 @@ interface IForgeVm {
     function startPrank(address msgSender) external;
     /// @notice Ends the prank started by `startPrank`.
     function stopPrank() external;
+
+    // Gas metering. Plain `external`, so a caller cannot be `view`: the price of keeping the emulation
+    // libraries out of a test's gas figure.
+
+    /// @notice Stops counting gas until `resumeGasMetering`. Not nested: a caller already paused resumes
+    ///         early when the callee resumes, so the libraries that use this must not be called from a
+    ///         paused region.
+    function pauseGasMetering() external;
+    /// @notice Resumes counting gas after `pauseGasMetering`.
+    function resumeGasMetering() external;
 }

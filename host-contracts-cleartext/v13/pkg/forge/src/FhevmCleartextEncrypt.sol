@@ -85,9 +85,23 @@ library FhevmCleartextEncrypt {
      * @param userAddress The account that will call that dApp.
      * @dev Both addresses are bound into the metadata the handle hashes over AND into the signed digest,
      *      so a bundle cannot be replayed by another caller or against another contract.
+     *
+     *      Gas metering is paused for the whole call. This library stands in for the SDK, which runs
+     *      off-chain, so a test's gas figure must not carry it: what is left is the dApp's own call. The
+     *      pause is why `encrypt` is not `view`; see `IForgeVm.pauseGasMetering` for the nesting rule.
      */
     function encrypt(uint8[] memory typeIds, uint256[] memory values, address contractAddress, address userAddress)
         internal
+        returns (bytes32[] memory handles, bytes memory inputProof)
+    {
+        fvm.pauseGasMetering();
+        (handles, inputProof) = _encrypt(typeIds, values, contractAddress, userAddress);
+        fvm.resumeGasMetering();
+    }
+
+    /// @dev `encrypt`, metered. Split out so both entry points pause exactly once around it.
+    function _encrypt(uint8[] memory typeIds, uint256[] memory values, address contractAddress, address userAddress)
+        private
         view
         returns (bytes32[] memory handles, bytes memory inputProof)
     {
@@ -140,9 +154,9 @@ library FhevmCleartextEncrypt {
      */
     function encrypt(bytes memory abiEncodedTypeValuePairs, address contractAddress, address userAddress)
         internal
-        view
         returns (bytes32[] memory handles, bytes memory inputProof)
     {
+        fvm.pauseGasMetering();
         uint256 length = abiEncodedTypeValuePairs.length;
         if (length == 0 || length % 64 != 0) revert MalformedTypeValuePairs(length);
 
@@ -162,7 +176,8 @@ library FhevmCleartextEncrypt {
             values[i] = value;
         }
 
-        return encrypt(typeIds, values, contractAddress, userAddress);
+        (handles, inputProof) = _encrypt(typeIds, values, contractAddress, userAddress);
+        fvm.resumeGasMetering();
     }
 
     // ---------------------------------------------------------------------------------------------

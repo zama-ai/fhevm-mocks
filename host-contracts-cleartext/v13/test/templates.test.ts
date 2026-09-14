@@ -486,8 +486,19 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fh
   // library can bind it too, and ForgeVmBase pulls it in alongside the interface.
   assert.match(base, /import \{[^}]*\bIForgeVm\b[^}]*\} from "\.\/IForgeVm\.sol";/, 'ForgeVmBase.sol: import');
 
-  // Every cheatcode FhevmDeploy reaches for. A missing one is a compile error there, but this names them.
-  for (const cheatcode of ['getNonce', 'load', 'etch', 'setNonce', 'prank', 'startPrank', 'stopPrank']) {
+  // Every cheatcode FhevmDeploy and the emulation libraries reach for. A missing one is a compile error
+  // there, but this names them.
+  for (const cheatcode of [
+    'getNonce',
+    'load',
+    'etch',
+    'setNonce',
+    'prank',
+    'startPrank',
+    'stopPrank',
+    'pauseGasMetering',
+    'resumeGasMetering',
+  ]) {
     assert.match(iface, new RegExp(`function ${cheatcode}\\(`), `IForgeVm.sol declares ${cheatcode}`);
   }
 });
