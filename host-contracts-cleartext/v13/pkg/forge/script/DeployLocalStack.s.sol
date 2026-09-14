@@ -212,7 +212,9 @@ contract DeployLocalStack is Script {
     function _materialize(address aclOwner) private {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
         ops[0] = ACLOwner.Op(
-            ACL_ADDRESS, _create(CLEARTEXT_ACL_CREATION_CODE, "ACL impl"), abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ())
+            ACL_ADDRESS,
+            _create(CLEARTEXT_ACL_CREATION_CODE, "ACL impl"),
+            abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ())
         );
         ops[1] = ACLOwner.Op(
             FHEVM_EXECUTOR_ADDRESS,
@@ -229,7 +231,9 @@ contract DeployLocalStack is Script {
         );
         ops[4] = ACLOwner.Op(HCU_LIMIT_ADDRESS, _create(HCU_LIMIT_CREATION_CODE, "HCULimit impl"), _hcuLimitInit());
         ops[5] = ACLOwner.Op(
-            PROTOCOL_CONFIG_ADDRESS, _create(PROTOCOL_CONFIG_CREATION_CODE, "ProtocolConfig impl"), _protocolConfigInit()
+            PROTOCOL_CONFIG_ADDRESS,
+            _create(PROTOCOL_CONFIG_CREATION_CODE, "ProtocolConfig impl"),
+            _protocolConfigInit()
         );
         ops[6] = ACLOwner.Op(
             KMS_GENERATION_ADDRESS,
@@ -290,10 +294,7 @@ contract DeployLocalStack is Script {
         IProtocolConfig.KmsNode[] memory nodes = new IProtocolConfig.KmsNode[](LocalHostBootstrap.KMS_NODE_COUNT);
         for (uint256 i = 0; i < nodes.length; i++) {
             nodes[i] = IProtocolConfig.KmsNode({
-                txSenderAddress: txSenders[i],
-                signerAddress: signers[i],
-                ipAddress: ips[i],
-                storageUrl: urls[i]
+                txSenderAddress: txSenders[i], signerAddress: signers[i], ipAddress: ips[i], storageUrl: urls[i]
             });
         }
 
@@ -304,10 +305,7 @@ contract DeployLocalStack is Script {
             (
                 nodes,
                 IProtocolConfig.KmsThresholds({
-                    publicDecryption: count,
-                    userDecryption: count,
-                    kmsGen: count,
-                    mpc: count
+                    publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count
                 })
             )
         );
@@ -327,9 +325,7 @@ contract DeployLocalStack is Script {
      * @dev An ERC-1967 proxy over `implementation`, checked against the address the pre-compiled bytecode
      *      expects. A mismatch means the nonce sequence diverged and every later address is wrong too.
      */
-    function _createProxy(address implementation, bytes memory initData, address expected, string memory what)
-        private
-    {
+    function _createProxy(address implementation, bytes memory initData, address expected, string memory what) private {
         address addr =
             _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(implementation, initData)), what);
         require(addr == expected, string.concat("DeployLocalStack: ", what, " landed at the wrong address"));
