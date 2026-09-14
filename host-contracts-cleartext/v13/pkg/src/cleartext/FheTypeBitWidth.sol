@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {FheType} from "../contracts/shared/FheType.sol";
 
 library FheTypeBitWidth {
-    error UnsupportedType();
+    error CleartextErrorUnsupportedType();
 
     function bitWidthForType(FheType fheType) internal pure returns (uint256) {
         if (fheType == FheType.Bool) return 1;
@@ -16,6 +16,6 @@ library FheTypeBitWidth {
         if (fheType == FheType.Uint160) return 160;
         if (fheType == FheType.Uint256) return 256;
 
-        revert UnsupportedType();
+        revert CleartextErrorUnsupportedType();
     }
 }

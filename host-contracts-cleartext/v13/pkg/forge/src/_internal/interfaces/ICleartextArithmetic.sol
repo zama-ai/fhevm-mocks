@@ -13,6 +13,12 @@ library FHEVMExecutor {
 interface ICleartextArithmetic {
 
     error AddressEmptyCode(address target);
+    error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
+    error CleartextErrorUnsupportedBinaryOp(FHEVMExecutor.Operators op);
+    error CleartextErrorUnsupportedNaryOp(FHEVMExecutor.Operators op);
+    error CleartextErrorUnsupportedTernaryOp(FHEVMExecutor.Operators op);
+    error CleartextErrorUnsupportedType();
+    error CleartextErrorUnsupportedUnaryOp(FHEVMExecutor.Operators op);
     error ERC1967InvalidImplementation(address implementation);
     error ERC1967NonPayable();
     error FailedCall();
@@ -22,15 +28,11 @@ interface ICleartextArithmetic {
     error NotInitializingFromEmptyProxy();
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
-    error UnsupportedBinaryOp(FHEVMExecutor.Operators op);
-    error UnsupportedNaryOp(FHEVMExecutor.Operators op);
-    error UnsupportedTernaryOp(FHEVMExecutor.Operators op);
-    error UnsupportedType();
-    error UnsupportedUnaryOp(FHEVMExecutor.Operators op);
 
     event Initialized(uint64 version);
     event Upgraded(address indexed implementation);
 
+    function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function getCleartextDBAddress() external view returns (address);
     function getVersion() external pure returns (string memory);

@@ -21,9 +21,9 @@ import {
 } from "./_internal/LocalHostAddresses.sol";
 
 import {
-    ACL_CREATION_CODE,
     ACL_OWNER_CREATION_CODE,
     CLEARTEXT_DB_CREATION_CODE,
+    CLEARTEXT_FORGE_ACL_CREATION_CODE,
     CLEARTEXT_FORGE_ARITHMETIC_CREATION_CODE,
     CLEARTEXT_FORGE_FHEVM_EXECUTOR_CREATION_CODE,
     CLEARTEXT_INPUT_VERIFIER_CREATION_CODE,
@@ -317,19 +317,20 @@ abstract contract FhevmDeploy is ForgeVmBase {
     /**
      * @dev Permissionless, and their addresses are never referenced, so no determinism is required here.
      *
-     *      Slots 1 and 7 take the CLEARTEXT_FORGE_* blobs, which `DeployLocalStack.s.sol` deliberately
+     *      Slots 0, 1 and 7 take the CLEARTEXT_FORGE_* blobs, which `DeployLocalStack.s.sol` deliberately
      *      does NOT — the two files are otherwise twins, so the divergence is the point rather than an
-     *      oversight. Those variants call cheatcodes (pauseGasMetering, randomUint), and forge grants
-     *      cheatcodes only to contracts it created during the test. This contract runs in-process and
-     *      creates the whole stack, so its contracts qualify; DeployLocalStack broadcasts to a node,
-     *      where 0x7109...dD12D has no code and every FHE operation would revert instead.
+     *      oversight. The executor and arithmetic variants call cheatcodes (pauseGasMetering, randomUint),
+     *      and forge grants cheatcodes only to contracts it created during the test. This contract runs
+     *      in-process and creates the whole stack, so its contracts qualify; DeployLocalStack broadcasts
+     *      to a node, where 0x7109...dD12D has no code and every FHE operation would revert instead.
+     *      The ACL variant is the hook for forge-only checks and follows the same rule.
      *
      *      Bytecode only: `CREATE(deployer, nonce)` puts these at the same addresses either way, so
      *      the layout RULES.md rules 15 and 17 pin is untouched.
      */
     function _deployImplementations() private returns (address[] memory implementations) {
         implementations = new address[](PROXY_COUNT);
-        implementations[0] = _create(ACL_CREATION_CODE, "ACL impl");
+        implementations[0] = _create(CLEARTEXT_FORGE_ACL_CREATION_CODE, "ACL impl (forge)");
         implementations[1] = _create(CLEARTEXT_FORGE_FHEVM_EXECUTOR_CREATION_CODE, "FHEVMExecutor impl (forge)");
         implementations[2] = _create(CLEARTEXT_KMS_VERIFIER_CREATION_CODE, "KMSVerifier impl");
         implementations[3] = _create(CLEARTEXT_INPUT_VERIFIER_CREATION_CODE, "InputVerifier impl");
