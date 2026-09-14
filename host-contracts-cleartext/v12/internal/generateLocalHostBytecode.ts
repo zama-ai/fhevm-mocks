@@ -119,13 +119,14 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
  *
  * Additive on purpose. Overwriting the standard constants in place cannot work: `DeployLocalStack.s.sol`
  * imports this same file and BROADCASTS to a node, and cheatcode-calling bytecode there makes every FHE
- * operation revert — cheatcodes live in forge's own EVM and nowhere else. Two extra constants let each
+ * operation revert — cheatcodes live in forge's own EVM and nowhere else. Extra constants let each
  * path import what it needs, with no build mode to get wrong.
  *
  *   FhevmDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
  *   DeployLocalStack.s.sol   broadcast to a node    -> CLEARTEXT_*_CREATION_CODE
  *
- * Only these two contracts have Forge variants: they are the only ones that call cheatcodes.
+ * Three contracts have Forge variants. The executor and arithmetic ones call cheatcodes; the ACL one is
+ * the hook for forge-only checks and is blank until those land (see CleartextForgeACL.sol).
  */
 const FORGE_VARIANTS: ReadonlyArray<{
   readonly constantName: string;
@@ -141,6 +142,11 @@ const FORGE_VARIANTS: ReadonlyArray<{
     constantName: 'CLEARTEXT_FORGE_FHEVM_EXECUTOR',
     contractName: 'CleartextForgeFHEVMExecutor',
     sourcePath: 'src/cleartext/CleartextForgeFHEVMExecutor.sol',
+  },
+  {
+    constantName: 'CLEARTEXT_FORGE_ACL',
+    contractName: 'CleartextForgeACL',
+    sourcePath: 'src/cleartext/CleartextForgeACL.sol',
   },
 ];
 
@@ -491,7 +497,7 @@ pragma solidity ^0.8.24;
 // CREATION_CODE must be deployed: the constructor either takes arguments or writes storage.
 // RUNTIME_CODE may be etched at its address, being equivalent to constructing the contract.
 //
-// CLEARTEXT_FORGE_* are the cheatcode-calling variants of the executor and arithmetic contracts, and
+// CLEARTEXT_FORGE_* are the forge-only variants of the executor, arithmetic and ACL contracts, and
 // are for pkg/forge/src/FhevmDeploy.sol ONLY — a forge test that creates the stack in-process.
 // Broadcast to a node, they revert on every FHE operation: cheatcodes live in forge's own EVM, so
 // 0x7109...dD12D has no code anywhere else and Solidity's extcodesize guard turns the call into a
@@ -542,6 +548,7 @@ ${needsFheType ? body.replace(`${FHE_TYPE_DECLARATION}\n`, '') : body}
     writeFileSync(join(interfaceDir, `${name}.sol`), source, 'utf8');
     written.push(name);
   }
+
   return written;
 }
 

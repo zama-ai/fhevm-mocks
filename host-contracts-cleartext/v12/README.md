@@ -27,6 +27,8 @@ Start a new anvil with a fresh deployed cleartext
 | Path                  | Contents                                                                        |
 | --------------------- | ------------------------------------------------------------------------------- |
 | `src/FhevmDeploy.sol` | the deploy tool, and the **only** file a consumer imports                       |
+| `src/ForgeVmBase.sol` | binds the forge cheatcode address; inherited by `FhevmDeploy`                   |
+| `src/IForgeVm.sol`    | the forge cheatcodes the deploy tool calls, vendored so there is no forge-std dep |
 | `script/`             | forge scripts (`*.s.sol`) — run by path, not imported, so outside the remapping |
 | `src/_internal/`      | everything generated — addresses, bytecode blobs, bootstrap args, interfaces    |
 

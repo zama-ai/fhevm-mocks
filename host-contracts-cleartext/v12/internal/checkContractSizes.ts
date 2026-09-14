@@ -6,6 +6,7 @@ import { PACKAGE_ROOT_ABS_PATH } from './constants.ts';
 export const EIP_170_RUNTIME_SIZE_LIMIT = 24_576;
 
 export const CONTRACT_SIZE_EXCEPTIONS = new Set([
+  'pkg/src/cleartext/CleartextForgeACL.sol',
   'pkg/src/cleartext/CleartextForgeArithmetic.sol',
   'pkg/src/cleartext/CleartextForgeFHEVMExecutor.sol',
 ]);

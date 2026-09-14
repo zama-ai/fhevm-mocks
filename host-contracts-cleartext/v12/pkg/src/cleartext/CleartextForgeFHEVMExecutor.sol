@@ -15,6 +15,15 @@ import {VmSafe} from "forge-std/Vm.sol";
 contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
     VmSafe private constant vmSafe = VmSafe(address(uint160(uint256(keccak256("hevm cheat code")))));
 
+    /// @notice Marks the Forge-only variant, mirroring forge-std's `IS_TEST`. A constant rather than a
+    ///         storage variable: these run behind proxies, where an initialized state variable would
+    ///         only ever be set in the implementation's own storage and read back as `false`.
+    bool public constant IS_FORGE = true;
+
+    /// @notice Same marker as `CleartextFHEVMExecutor`: this variant extends `FHEVMExecutor` directly, so it
+    ///         does not inherit it, yet it is every bit as much a cleartext implementation.
+    bool public constant IS_CLEARTEXT = true;
+
     /// @dev Handle to cleartext value mapping for local testing.
     //mapping(bytes32 => uint256) public plaintexts;
     function plaintexts(bytes32 result) public view returns (uint256) {
