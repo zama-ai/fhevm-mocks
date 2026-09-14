@@ -49,6 +49,7 @@ interface ICleartextInputVerifier {
 
     function EIP712_INPUT_VERIFICATION_TYPE() external view returns (string memory);
     function EIP712_INPUT_VERIFICATION_TYPEHASH() external view returns (bytes32);
+    function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function cleanTransientStorage() external;
     function defineNewContext(address[] memory newSignersSet, uint256 newThreshold) external;

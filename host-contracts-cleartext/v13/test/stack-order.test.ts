@@ -53,11 +53,12 @@ function canonicalRole(name: string): string {
   // The Forge variants are the same ROLE deployed with different bytecode — FhevmDeploy uses them so
   // its in-process stack can call cheatcodes, DeployLocalStack cannot because it broadcasts. This test
   // compares ORDER, and the order is identical, so the infix is dropped before anything else. Were it
-  // not, every layer would appear to disagree with FhevmDeploy about two positions that never moved.
+  // not, every layer would appear to disagree with FhevmDeploy about three positions that never moved.
   const deforged = snake.replace(/^CLEARTEXT_FORGE_/, 'CLEARTEXT_');
   // The cleartext variants sit behind the stock proxies; CleartextArithmetic and CleartextDB are their
-  // own roles, so only the three substitutions are rewritten.
-  return deforged.replace(/^CLEARTEXT_(FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER)$/, '$1');
+  // own roles, so only the four substitutions are rewritten. ACL appears only through its Forge
+  // variant (there is no plain CleartextACL), which the line above has just reduced to CLEARTEXT_ACL.
+  return deforged.replace(/^CLEARTEXT_(ACL|FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER)$/, '$1');
 }
 
 function read(relativePath: string): string {

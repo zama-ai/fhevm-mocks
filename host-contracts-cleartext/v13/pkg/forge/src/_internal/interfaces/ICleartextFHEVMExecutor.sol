@@ -69,6 +69,7 @@ interface ICleartextFHEVMExecutor {
         bytes32 result
     );
 
+    function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function cast(bytes32 ct, FheType toType) external returns (bytes32 result);
     function fheAdd(bytes32 lhs, bytes32 rhs, bytes1 scalarByte) external returns (bytes32 result);

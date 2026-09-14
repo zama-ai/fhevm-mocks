@@ -30,6 +30,10 @@ import {IPauserSet} from "../pkg/forge/src/FhevmDeploy.sol";
 import {IProtocolConfig} from "../pkg/forge/src/FhevmDeploy.sol";
 import {LocalHostBootstrap} from "../pkg/forge/src/_internal/LocalHostBootstrap.sol";
 import {LocalHostVersions} from "../pkg/forge/src/_internal/LocalHostVersions.sol";
+import {CleartextHandle} from "../pkg/src/cleartext/CleartextHandle.sol";
+import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
+import {FHEVMExecutor as HostExecutor} from "../pkg/src/contracts/FHEVMExecutor.sol";
+import {FHEVMExecutor as OperatorsLib} from "../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 
 /**
  * The Foundry half of the suite: `FhevmDeploy` is the one artifact a TS test cannot exercise, because it
@@ -78,6 +82,123 @@ contract FhevmDeployTest is Test, FhevmDeploy {
             ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).getVersion(), LocalHostVersions.CLEARTEXT_ARITHMETIC
         );
         assertEq(IPauserSet(PAUSER_SET_ADDRESS).getVersion(), LocalHostVersions.PAUSER_SET);
+    }
+
+    /**
+     * Slots 0, 1 and 7 must be the Forge variants, not the plain contracts: `getVersion()` cannot tell them
+     * apart, so `IS_FORGE` is the only evidence the in-process stack took the CLEARTEXT_FORGE_* blobs
+     * rather than the ones `DeployLocalStack.s.sol` broadcasts.
+     */
+    function test_forgeVariantsSitBehindTheirProxies() public pure {
+        assertTrue(IForgeMarker(ACL_ADDRESS).IS_FORGE(), "ACL proxy must sit over CleartextForgeACL");
+        assertTrue(IForgeMarker(FHEVM_EXECUTOR_ADDRESS).IS_FORGE(), "executor proxy must sit over the Forge variant");
+        assertTrue(
+            IForgeMarker(CLEARTEXT_ARITHMETIC_ADDRESS).IS_FORGE(), "arithmetic proxy must sit over the Forge variant"
+        );
+    }
+
+    /// Every cleartext substitution advertises itself, so a consumer can tell this stack from a real one.
+    function test_cleartextContractsAdvertiseTheMarker() public view {
+        assertTrue(IForgeMarker(ACL_ADDRESS).IS_CLEARTEXT(), "acl");
+        assertTrue(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).IS_CLEARTEXT(), "executor");
+        assertTrue(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).IS_CLEARTEXT(), "kms verifier");
+        assertTrue(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).IS_CLEARTEXT(), "input verifier");
+        assertTrue(ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).IS_CLEARTEXT(), "arithmetic");
+        assertTrue(ICleartextDB(CLEARTEXT_DB_ADDRESS).IS_CLEARTEXT(), "db");
+    }
+
+    /**
+     * The forge ACL rejects a handle minted on another chain before the base ACL gets to see it. The
+     * fixture handles are otherwise unallowed, so the plain `SenderNotAllowed` on the matching one is
+     * the proof that the chain id check let it through and only the base logic stopped it.
+     */
+    function test_forgeAclRejectsHandlesFromAnotherChain() public {
+        uint64 here = uint64(block.chainid);
+        bytes32 foreign = _handleWithChainId(here + 1);
+        bytes32 local = _handleWithChainId(here);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+            )
+        );
+        IACL(ACL_ADDRESS).allow(foreign, address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(IACL.SenderNotAllowed.selector, address(this)));
+        IACL(ACL_ADDRESS).allow(local, address(this));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+            )
+        );
+        IACL(ACL_ADDRESS).allowTransient(foreign, address(this));
+
+        bytes32[] memory list = new bytes32[](2);
+        list[0] = local;
+        list[1] = foreign;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+            )
+        );
+        IACL(ACL_ADDRESS).allowForDecryption(list);
+
+        // Read paths reject the foreign handle too, and answer normally for the local one.
+        bytes memory mismatch = abi.encodeWithSelector(
+            CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+        );
+        vm.expectRevert(mismatch);
+        IACL(ACL_ADDRESS).isAllowed(foreign, address(this));
+        vm.expectRevert(mismatch);
+        IACL(ACL_ADDRESS).allowedTransient(foreign, address(this));
+        vm.expectRevert(mismatch);
+        IACL(ACL_ADDRESS).persistAllowed(foreign, address(this));
+        vm.expectRevert(mismatch);
+        IACL(ACL_ADDRESS).isAllowedForDecryption(foreign);
+        vm.expectRevert(mismatch);
+        IACL(ACL_ADDRESS).isHandleDelegatedForUserDecryption(address(this), address(1), address(2), foreign);
+        assertFalse(IACL(ACL_ADDRESS).isAllowed(local, address(this)));
+        assertFalse(IACL(ACL_ADDRESS).isAllowedForDecryption(local));
+    }
+
+    /// The arithmetic mirror refuses to record under a handle from another chain, on every entry point.
+    function test_cleartextArithmeticRejectsHandlesFromAnotherChain() public {
+        uint64 here = uint64(block.chainid);
+        bytes32 foreign = _handleWithChainId(here + 1);
+        bytes32 local = _handleWithChainId(here);
+        bytes memory mismatch = abi.encodeWithSelector(
+            CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+        );
+        ICleartextArithmetic arithmetic = ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS);
+
+        vm.expectRevert(mismatch);
+        arithmetic.recordTrivialEncrypt(foreign, 1, FheType.Uint8);
+        vm.expectRevert(mismatch);
+        arithmetic.recordCast(local, foreign, FheType.Uint8);
+        vm.expectRevert(mismatch);
+        arithmetic.recordUnaryOp(_op(HostExecutor.Operators.fheNeg), local, foreign, FheType.Uint8);
+        vm.expectRevert(mismatch);
+        arithmetic.recordTernaryOp(_op(HostExecutor.Operators.fheIfThenElse), local, local, local, foreign);
+        // A scalar rhs is a plaintext and must not be mistaken for a foreign handle.
+        vm.expectRevert(mismatch);
+        arithmetic.recordBinaryOp(_op(HostExecutor.Operators.fheAdd), local, foreign, foreign, 0x01, FheType.Uint8);
+        vm.expectRevert(mismatch);
+        arithmetic.recordBinaryOp(_op(HostExecutor.Operators.fheAdd), local, local, foreign, 0x00, FheType.Uint8);
+    }
+
+    /// The generated interface types operators as a bare `uint8` wrapper; bridge from the real enum.
+    function _op(HostExecutor.Operators op) private pure returns (OperatorsLib.Operators) {
+        return OperatorsLib.Operators.wrap(uint8(op));
+    }
+
+    /// A handle shaped like `FHEVMExecutor._appendMetadataToPrehandle` output, with the given chain id.
+    function _handleWithChainId(uint64 chainId) private pure returns (bytes32 result) {
+        result = keccak256("fixture") & 0xffffffffffffffffffffffffffffffffffffffffff0000000000000000000000;
+        result = result | (bytes32(uint256(0xff)) << 80);
+        result = result | (bytes32(uint256(chainId)) << 16);
+        result = result | (bytes32(uint256(2)) << 8); // type byte 30: any FheType will do
+        // version byte 31 stays 0
     }
 
     /**
@@ -228,4 +349,11 @@ contract FhevmDeployGuardTest is Test, FhevmDeploy {
 /// `ACLOwner.pause()` is not on the generated interface (it is inherited); declare the one selector used.
 interface IACLOwnerPause {
     function pause() external;
+}
+
+/// `IS_FORGE()` is not on any generated interface (those come from the plain contracts); declare it here.
+/// Likewise `IS_CLEARTEXT()` for the ACL, whose generated `IACL` comes from the plain contract.
+interface IForgeMarker {
+    function IS_FORGE() external pure returns (bool);
+    function IS_CLEARTEXT() external pure returns (bool);
 }

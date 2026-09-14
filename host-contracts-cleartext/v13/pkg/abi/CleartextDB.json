@@ -6,6 +6,19 @@
   },
   {
     "type": "function",
+    "name": "IS_CLEARTEXT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -223,32 +236,48 @@
   },
   {
     "type": "error",
-    "name": "AccountAlreadyWriter",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "AccountNotWriter",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "AddressEmptyCode",
     "inputs": [
       {
         "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorAccountAlreadyWriter",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorAccountNotWriter",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidNullWriter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorNotWriter",
+    "inputs": [
+      {
+        "name": "account",
         "type": "address",
         "internalType": "address"
       }
@@ -282,11 +311,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidNullWriter",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "NotHostOwner",
     "inputs": [
       {
@@ -305,17 +329,6 @@
     "type": "error",
     "name": "NotInitializingFromEmptyProxy",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "NotWriter",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
   },
   {
     "type": "error",
