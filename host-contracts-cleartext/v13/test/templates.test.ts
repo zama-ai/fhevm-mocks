@@ -482,7 +482,9 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fh
   assert.match(iface, /interface IForgeVm \{/, 'IForgeVm.sol: interface');
   assert.doesNotMatch(iface, /abstract contract/, 'IForgeVm.sol: declarations only, the binder moved out');
   assert.match(base, /abstract contract ForgeVmBase \{/, 'ForgeVmBase.sol: binder');
-  assert.match(base, /import \{IForgeVm\} from "\.\/IForgeVm\.sol";/, 'ForgeVmBase.sol: import');
+  // Allows extra named imports: the cheatcode address is a file-level constant in IForgeVm.sol so a
+  // library can bind it too, and ForgeVmBase pulls it in alongside the interface.
+  assert.match(base, /import \{[^}]*\bIForgeVm\b[^}]*\} from "\.\/IForgeVm\.sol";/, 'ForgeVmBase.sol: import');
 
   // Every cheatcode FhevmDeploy reaches for. A missing one is a compile error there, but this names them.
   for (const cheatcode of ['getNonce', 'load', 'etch', 'setNonce', 'prank', 'startPrank', 'stopPrank']) {
