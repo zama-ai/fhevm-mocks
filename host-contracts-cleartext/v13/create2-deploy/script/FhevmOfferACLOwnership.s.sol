@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Compiles; never run.
+// Compiles; never run.
 
 import {console} from "forge-std/Script.sol";
 import {FhevmCreate2Base} from "./FhevmCreate2Base.s.sol";
