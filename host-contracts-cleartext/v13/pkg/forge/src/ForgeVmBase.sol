@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {IForgeVm} from "./IForgeVm.sol";
+import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
 
 /**
  * @title ForgeVmBase
@@ -10,7 +10,5 @@ import {IForgeVm} from "./IForgeVm.sol";
  *      consumer writing `is Test, FhevmDeploy` would hit `Error (9097): Identifier already declared`.
  */
 abstract contract ForgeVmBase {
-    /// @dev `address(uint160(uint256(keccak256("hevm cheat code"))))`.
-    address internal constant FORGE_VM_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     IForgeVm internal constant fvm = IForgeVm(FORGE_VM_ADDRESS);
 }
