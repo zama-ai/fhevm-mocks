@@ -16,7 +16,7 @@ import {
     KMS_VERIFIER_ADDRESS,
     PAUSER_SET_ADDRESS
 } from "../pkg/forge/src/FhevmDeploy.sol";
-import {IACL} from "../pkg/forge/src/FhevmDeploy.sol";
+import {ICleartextACL} from "../pkg/forge/src/FhevmDeploy.sol";
 import {ICleartextArithmetic} from "../pkg/forge/src/FhevmDeploy.sol";
 import {ICleartextDB} from "../pkg/forge/src/FhevmDeploy.sol";
 import {ICleartextFHEVMExecutor} from "../pkg/forge/src/FhevmDeploy.sol";
@@ -65,7 +65,7 @@ contract FhevmDeployTest is Test, FhevmDeploy {
      * rather than the empty one it was created over — phase 5 either ran or it did not.
      */
     function test_proxiesResolveToTheRealImplementations() public pure {
-        assertEq(IACL(ACL_ADDRESS).getVersion(), LocalHostVersions.ACL);
+        assertEq(ICleartextACL(ACL_ADDRESS).getVersion(), LocalHostVersions.ACL);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getVersion(), LocalHostVersions.FHEVM_EXECUTOR);
         assertEq(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).getVersion(), LocalHostVersions.KMS_VERIFIER);
         assertEq(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).getVersion(), LocalHostVersions.INPUT_VERIFIER);
@@ -92,6 +92,8 @@ contract FhevmDeployTest is Test, FhevmDeploy {
     /// Every cleartext substitution advertises itself, so a consumer can tell this stack from a real one.
     function test_cleartextContractsAdvertiseTheMarker() public view {
         assertTrue(IForgeMarker(ACL_ADDRESS).IS_CLEARTEXT(), "acl");
+        // Inherited from `CleartextACL`, so this also proves the forge ACL actually extends it.
+        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 12, "protocol version");
         assertTrue(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).IS_CLEARTEXT(), "executor");
         assertTrue(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).IS_CLEARTEXT(), "kms verifier");
         assertTrue(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).IS_CLEARTEXT(), "input verifier");
@@ -114,17 +116,17 @@ contract FhevmDeployTest is Test, FhevmDeploy {
                 CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
             )
         );
-        IACL(ACL_ADDRESS).allow(foreign, address(this));
+        ICleartextACL(ACL_ADDRESS).allow(foreign, address(this));
 
-        vm.expectRevert(abi.encodeWithSelector(IACL.SenderNotAllowed.selector, address(this)));
-        IACL(ACL_ADDRESS).allow(local, address(this));
+        vm.expectRevert(abi.encodeWithSelector(ICleartextACL.SenderNotAllowed.selector, address(this)));
+        ICleartextACL(ACL_ADDRESS).allow(local, address(this));
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
             )
         );
-        IACL(ACL_ADDRESS).allowTransient(foreign, address(this));
+        ICleartextACL(ACL_ADDRESS).allowTransient(foreign, address(this));
 
         bytes32[] memory list = new bytes32[](2);
         list[0] = local;
@@ -134,24 +136,24 @@ contract FhevmDeployTest is Test, FhevmDeploy {
                 CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
             )
         );
-        IACL(ACL_ADDRESS).allowForDecryption(list);
+        ICleartextACL(ACL_ADDRESS).allowForDecryption(list);
 
         // Read paths reject the foreign handle too, and answer normally for the local one.
         bytes memory mismatch = abi.encodeWithSelector(
             CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
         );
         vm.expectRevert(mismatch);
-        IACL(ACL_ADDRESS).isAllowed(foreign, address(this));
+        ICleartextACL(ACL_ADDRESS).isAllowed(foreign, address(this));
         vm.expectRevert(mismatch);
-        IACL(ACL_ADDRESS).allowedTransient(foreign, address(this));
+        ICleartextACL(ACL_ADDRESS).allowedTransient(foreign, address(this));
         vm.expectRevert(mismatch);
-        IACL(ACL_ADDRESS).persistAllowed(foreign, address(this));
+        ICleartextACL(ACL_ADDRESS).persistAllowed(foreign, address(this));
         vm.expectRevert(mismatch);
-        IACL(ACL_ADDRESS).isAllowedForDecryption(foreign);
+        ICleartextACL(ACL_ADDRESS).isAllowedForDecryption(foreign);
         vm.expectRevert(mismatch);
-        IACL(ACL_ADDRESS).isHandleDelegatedForUserDecryption(address(this), address(1), address(2), foreign);
-        assertFalse(IACL(ACL_ADDRESS).isAllowed(local, address(this)));
-        assertFalse(IACL(ACL_ADDRESS).isAllowedForDecryption(local));
+        ICleartextACL(ACL_ADDRESS).isHandleDelegatedForUserDecryption(address(this), address(1), address(2), foreign);
+        assertFalse(ICleartextACL(ACL_ADDRESS).isAllowed(local, address(this)));
+        assertFalse(ICleartextACL(ACL_ADDRESS).isAllowedForDecryption(local));
     }
 
     /// The arithmetic mirror refuses to record under a handle from another chain, on every entry point.
@@ -198,8 +200,8 @@ contract FhevmDeployTest is Test, FhevmDeploy {
      * are baked in, so a mismatch is unfixable at runtime and invisible without reading them back.
      */
     function test_bakedInWiringMatchesTheDeployedStack() public view {
-        assertEq(IACL(ACL_ADDRESS).getFHEVMExecutorAddress(), FHEVM_EXECUTOR_ADDRESS);
-        assertEq(IACL(ACL_ADDRESS).getPauserSetAddress(), PAUSER_SET_ADDRESS);
+        assertEq(ICleartextACL(ACL_ADDRESS).getFHEVMExecutorAddress(), FHEVM_EXECUTOR_ADDRESS);
+        assertEq(ICleartextACL(ACL_ADDRESS).getPauserSetAddress(), PAUSER_SET_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getACLAddress(), ACL_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getHCULimitAddress(), HCU_LIMIT_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getInputVerifierAddress(), INPUT_VERIFIER_ADDRESS);
@@ -208,13 +210,13 @@ contract FhevmDeployTest is Test, FhevmDeploy {
 
     /// Phase 3: ACLOwner holds ACL ownership and is a registered pauser, in that order.
     function test_aclOwnerHoldsOwnershipAndCanPause() public {
-        assertEq(IACL(ACL_ADDRESS).owner(), fhevmACLOwner(), "ACLOwner must own ACL");
+        assertEq(ICleartextACL(ACL_ADDRESS).owner(), fhevmACLOwner(), "ACLOwner must own ACL");
         assertTrue(IPauserSet(PAUSER_SET_ADDRESS).isPauser(fhevmACLOwner()), "ACLOwner must be a pauser");
 
-        assertFalse(IACL(ACL_ADDRESS).paused());
+        assertFalse(ICleartextACL(ACL_ADDRESS).paused());
         vm.prank(DEPLOYER_ADDRESS);
         IACLOwnerPause(fhevmACLOwner()).pause();
-        assertTrue(IACL(ACL_ADDRESS).paused(), "pausing through ACLOwner must reach ACL");
+        assertTrue(ICleartextACL(ACL_ADDRESS).paused(), "pausing through ACLOwner must reach ACL");
     }
 
     /// Phase 5 pointed CleartextDB at the arithmetic contract.
@@ -328,8 +330,9 @@ interface IACLOwnerPause {
 }
 
 /// `IS_FORGE()` is not on any generated interface (those come from the plain contracts); declare it here.
-/// Likewise `IS_CLEARTEXT()` for the ACL, whose generated `IACL` comes from the plain contract.
+/// Likewise `IS_CLEARTEXT()` for the ACL, whose generated `ICleartextACL` comes from the plain contract.
 interface IForgeMarker {
     function IS_FORGE() external pure returns (bool);
     function IS_CLEARTEXT() external pure returns (bool);
+    function CLEARTEXT_PROTOCOL_VERSION() external pure returns (uint256);
 }

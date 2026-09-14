@@ -100,7 +100,7 @@ const REMAPPINGS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'remappings.txt');
  *     difference is invisible through a proxy but real, so they ship creation code.
  */
 export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
-  ACL: 'creation',
+  CleartextACL: 'creation',
   ACLOwner: 'creation',
   CleartextArithmetic: 'creation',
   CleartextDB: 'creation',

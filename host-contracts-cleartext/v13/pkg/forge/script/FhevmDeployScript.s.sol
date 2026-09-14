@@ -117,7 +117,7 @@ import {
  *
  * Ownership: `EmptyUUPSProxy._authorizeUpgrade` is `onlyACLOwner`, i.e. it
  * checks `Ownable2StepUpgradeable(aclAdd).owner()`. The ACL proxy is
- * initialized with `deployer` as owner at nonce+1, and `ACL.initializeFromEmptyProxy`
+ * initialized with `deployer` as owner at nonce+1, and `CleartextACL.initializeFromEmptyProxy`
  * preserves it via `__Ownable_init(owner())`, so the deployer retains upgrade
  * authority over every proxy for the whole run. It also satisfies
  * `PauserSet.addPauser`, which is `onlyACLOwner` too.
@@ -275,7 +275,7 @@ contract FhevmDeployScript is Script {
     function _materialize(ACLOwner aclOwner) private {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
 
-        ops[0] = ACLOwner.Op(aclAdd, address(new ACL()), abi.encodeCall(ACL.initializeFromEmptyProxy, ()));
+        ops[0] = ACLOwner.Op(aclAdd, address(new CleartextACL()), abi.encodeCall(CleartextACL.initializeFromEmptyProxy, ()));
         ops[1] = ACLOwner.Op(
             fhevmExecutorAdd,
             address(new CleartextFHEVMExecutor()),

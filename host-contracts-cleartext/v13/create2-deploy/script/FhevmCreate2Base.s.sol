@@ -160,7 +160,7 @@ abstract contract FhevmCreate2Base is Script {
     ///      The cleartext build substitutes three of the stock implementations — same rule as
     ///      FhevmDeployScript._materialize.
     function _implArtifact(uint256 i) internal pure returns (string memory) {
-        if (i == 0) return "pkg/src/contracts/ACL.sol:ACL";
+        if (i == 0) return "pkg/src/cleartext/CleartextACL.sol:CleartextACL";
         if (i == 1) return "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         if (i == 2) return "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
         if (i == 3) return "pkg/src/cleartext/CleartextInputVerifier.sol:CleartextInputVerifier";

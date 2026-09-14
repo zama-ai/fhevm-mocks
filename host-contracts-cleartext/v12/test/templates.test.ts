@@ -364,7 +364,7 @@ void test('LocalHostBytecode.sol declares the ZamaConfig localhost addresses', (
 const FORGE_BLOBS: ReadonlyArray<{ readonly constantName: string; readonly standardOf: string }> = [
   { constantName: 'CLEARTEXT_FORGE_ARITHMETIC', standardOf: 'CLEARTEXT_ARITHMETIC' },
   { constantName: 'CLEARTEXT_FORGE_FHEVM_EXECUTOR', standardOf: 'CLEARTEXT_FHEVM_EXECUTOR' },
-  { constantName: 'CLEARTEXT_FORGE_ACL', standardOf: 'ACL' },
+  { constantName: 'CLEARTEXT_FORGE_ACL', standardOf: 'CLEARTEXT_ACL' },
 ];
 
 void test('LocalHostBytecode.sol carries the Forge cleartext variants alongside the standard blobs', () => {

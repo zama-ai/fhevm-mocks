@@ -49,7 +49,7 @@ export const TARGET_CONTRACTS: TargetContract[] = [
   },
   // Proxies
   // v0.12.0
-  { contractName: 'ACL', kind: 'proxy', sourcePath: 'src/contracts/ACL.sol' },
+  { contractName: 'CleartextACL', kind: 'proxy', sourcePath: 'src/cleartext/CleartextACL.sol' },
   {
     contractName: 'CleartextFHEVMExecutor',
     kind: 'proxy',

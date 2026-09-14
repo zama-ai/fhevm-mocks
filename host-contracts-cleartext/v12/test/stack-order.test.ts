@@ -56,10 +56,21 @@ function canonicalRole(name: string): string {
   // not, every layer would appear to disagree with FhevmDeploy about three positions that never moved.
   const deforged = snake.replace(/^CLEARTEXT_FORGE_/, 'CLEARTEXT_');
   // The cleartext variants sit behind the stock proxies; CleartextArithmetic and CleartextDB are their
-  // own roles, so only the four substitutions are rewritten. ACL appears only through its Forge
-  // variant (there is no plain CleartextACL), which the line above has just reduced to CLEARTEXT_ACL.
+  // own roles, so only the four substitutions are rewritten. `CleartextACL` exists but no deploy layer
+  // names it, so ACL reaches this scan only through its Forge variant, which the line above has just
+  // reduced to CLEARTEXT_ACL.
   return deforged.replace(/^CLEARTEXT_(ACL|FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER)$/, '$1');
 }
+
+/** Every layer that chooses an ACL implementation, for the guard below. */
+const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path: string }> = [
+  { label: 'pkg/ts/deploy.ts', path: 'pkg/ts/deploy.ts' },
+  { label: 'pkg/forge/src/FhevmDeploy.sol', path: 'pkg/forge/src/FhevmDeploy.sol' },
+  { label: 'pkg/forge/script/FhevmDeployScript.s.sol', path: 'pkg/forge/script/FhevmDeployScript.s.sol' },
+  { label: 'pkg/forge/script/DeployLocalStack.s.sol', path: 'pkg/forge/script/DeployLocalStack.s.sol' },
+  { label: 'create2-deploy/script/FhevmCreate2Base.s.sol', path: 'create2-deploy/script/FhevmCreate2Base.s.sol' },
+  { label: 'scripts/anvil-lib.sh', path: 'scripts/anvil-lib.sh' },
+];
 
 function read(relativePath: string): string {
   return readFileSync(join(PACKAGE_ROOT_ABS_PATH, relativePath), 'utf8');
@@ -188,4 +199,34 @@ void test('the create2 role table agrees with the deploy order', () => {
     'FhevmCreate2Base _sharedProxyRoles',
   );
   assert.deepEqual(['ACL', ...shared], tsDeployOrder(), 'the create2 role table must match the deploy order');
+});
+
+/**
+ * `ACL.sol` is the upstream contract and this package must never deploy it. A cleartext stack has to
+ * advertise itself, and the ACL is the one address every consumer already holds through `ZamaConfig`, so
+ * an unmarked ACL there is indistinguishable from a production deployment. Only `CleartextACL` (every
+ * broadcast path) or `CleartextForgeACL` (the in-process forge stack) may sit behind the ACL proxy.
+ *
+ * A text scan for the same reason the order comparison above is one: these layers are four languages and
+ * no compiler sees them together.
+ */
+void test('no deploy layer deploys the plain ACL', () => {
+  // Each pattern is a way a layer could name the plain contract. The lookbehind keeps
+  // CLEARTEXT_ACL_CREATION_CODE and EMPTY_UUPS_PROXY_ACL_CREATION_CODE out of it.
+  const forbidden: ReadonlyArray<{ readonly pattern: RegExp; readonly what: string }> = [
+    { pattern: /(?<![A-Za-z_])ACL_CREATION_CODE/, what: 'the plain ACL bytecode blob' },
+    { pattern: /new ACL\(\)/, what: 'a direct `new ACL()`' },
+    { pattern: /contracts\/ACL\.sol:ACL\b/, what: 'the ACL.sol forge artifact' },
+    { pattern: /artifacts\/ACL\.(?:js|ts)\b/, what: 'the ACL TypeScript artifact' },
+  ];
+
+  const offences: string[] = [];
+  for (const { label, path } of DEPLOY_LAYER_FILES) {
+    const source = read(path);
+    for (const { pattern, what } of forbidden) {
+      if (pattern.test(source)) offences.push(`${label} reaches for ${what}`);
+    }
+  }
+
+  assert.deepEqual(offences, [], 'a deploy layer still names the plain ACL');
 });

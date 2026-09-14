@@ -70,6 +70,16 @@ const EXECUTOR_ABI = [
 ] as const;
 
 const ACL_ABI = [
+  // The cleartext markers. `CleartextACL` is the only ACL any deploy layer installs, so a stack that
+  // answers these is provably a cleartext stack rather than a production one.
+  { type: 'function', name: 'IS_CLEARTEXT', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  {
+    type: 'function',
+    name: 'CLEARTEXT_PROTOCOL_VERSION',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   {
     type: 'function',
@@ -176,6 +186,13 @@ async function expectPatchedWiring(parameters: {
   expect(
     lower(await publicClient.readContract({ address: acl, abi: ACL_ABI, functionName: 'getFHEVMExecutorAddress' })),
   ).toBe(lower(executor));
+
+  // Readable at the ACL address on a deployed stack, which is what a consumer holding only a ZamaConfig
+  // can probe. The forge suite covers the in-process stack; this covers what actually gets broadcast.
+  expect(await publicClient.readContract({ address: acl, abi: ACL_ABI, functionName: 'IS_CLEARTEXT' })).toBe(true);
+  expect(
+    await publicClient.readContract({ address: acl, abi: ACL_ABI, functionName: 'CLEARTEXT_PROTOCOL_VERSION' }),
+  ).toBe(12n);
   expect(
     lower(await publicClient.readContract({ address: acl, abi: ACL_ABI, functionName: 'getPauserSetAddress' })),
   ).toBe(lower(pauserSetAddress));

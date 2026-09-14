@@ -1,8 +1,29 @@
 [
   {
-    "type": "constructor",
+    "type": "function",
+    "name": "CLEARTEXT_PROTOCOL_VERSION",
     "inputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "IS_CLEARTEXT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -13,6 +34,19 @@
         "name": "",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "WILDCARD_DELEGATION_ADDRESS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -434,7 +468,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV3",
+    "name": "reinitializeV4",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -820,6 +854,17 @@
     "inputs": [
       {
         "name": "contractAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DelegateCannotBeWildcard",
+    "inputs": [
+      {
+        "name": "delegate",
         "type": "address",
         "internalType": "address"
       }

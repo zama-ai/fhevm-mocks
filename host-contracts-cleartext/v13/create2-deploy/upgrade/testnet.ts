@@ -367,7 +367,7 @@ type PreUpgradeSnapshot = {
 const ERC1967_IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 
 const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly role: string; readonly abi: string }> = [
-  { label: 'ACL', role: 'ACL_ADDRESS', abi: 'ACL.json' },
+  { label: 'ACL', role: 'ACL_ADDRESS', abi: 'CleartextACL.json' },
   { label: 'FHEVMExecutor', role: 'FHEVM_EXECUTOR_ADDRESS', abi: 'CleartextFHEVMExecutor.json' },
   { label: 'KMSVerifier', role: 'KMS_VERIFIER_ADDRESS', abi: 'CleartextKMSVerifier.json' },
   { label: 'InputVerifier', role: 'INPUT_VERIFIER_ADDRESS', abi: 'CleartextInputVerifier.json' },
@@ -1014,6 +1014,9 @@ const MAY_CHANGE = new Set([
   'KMSVerifier.getVersion',
   'HCULimit.getVersion',
   'CleartextArithmetic.getVersion',
+  // The ACL's protocol-version marker: 12 before the upgrade, 13 after, by construction. `IS_CLEARTEXT`
+  // is deliberately NOT here — it reads true on both sides, so it must not move.
+  'ACL.CLEARTEXT_PROTOCOL_VERSION',
   'HCULimit.getBlockMeter',
 ]);
 

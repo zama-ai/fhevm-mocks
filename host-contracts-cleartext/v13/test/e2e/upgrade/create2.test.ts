@@ -235,7 +235,11 @@ function view<T>(address: string, abi: readonly string[], provider: JsonRpcProvi
 
 type VersionedView = { getVersion(): Promise<string> };
 type OwnableView = { owner(): Promise<string>; pendingOwner(): Promise<string> };
-type AclView = OwnableView & { getPauserSetAddress(): Promise<string> };
+type AclView = OwnableView & {
+  getPauserSetAddress(): Promise<string>;
+  IS_CLEARTEXT(): Promise<boolean>;
+  CLEARTEXT_PROTOCOL_VERSION(): Promise<bigint>;
+};
 type PauserSetView = { isPauser(account: string): Promise<boolean> };
 type TrivialEncryptWriter = {
   trivialEncrypt(pt: bigint, toType: number): Promise<{ wait(): Promise<{ logs: readonly unknown[] } | null> }>;
@@ -243,7 +247,13 @@ type TrivialEncryptWriter = {
 
 const VERSIONED_ABI = ['function getVersion() view returns (string)'];
 const OWNABLE_ABI = ['function owner() view returns (address)', 'function pendingOwner() view returns (address)'];
-const ACL_ABI = [...OWNABLE_ABI, 'function getPauserSetAddress() view returns (address)'];
+const ACL_ABI = [
+  ...OWNABLE_ABI,
+  'function getPauserSetAddress() view returns (address)',
+  // Only `CleartextACL` answers these; the upstream `ACL` has no such selectors.
+  'function IS_CLEARTEXT() view returns (bool)',
+  'function CLEARTEXT_PROTOCOL_VERSION() view returns (uint256)',
+];
 const PAUSER_SET_ABI = ['function isPauser(address) view returns (bool)'];
 const TRIVIAL_ENCRYPT_ABI = [
   'function trivialEncrypt(uint256,uint8) returns (bytes32)',
@@ -436,6 +446,14 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
       }
     });
 
+    await t.test('the freshly deployed v12 ACL is a CleartextACL reporting v12', async (st) => {
+      if (needsV12(st)) return;
+      assert.ok(provider);
+      const acl = view<AclView>(addressOf(v12, 'ACL_ADDRESS'), ACL_ABI, provider);
+      assert.equal(await acl.IS_CLEARTEXT(), true, 'the v12 ACL must advertise IS_CLEARTEXT');
+      assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 12n, 'the v12 ACL must report 12');
+    });
+
     await t.test('the v12 stack is owned through ACLOwner, with nothing dangling', async (st) => {
       if (needsV12(st)) return;
       announce(4, STEPS, 'snapshot v12 ownership and pausers');
@@ -622,6 +640,16 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         expectVersion(table, 'inputVerifier'),
         'InputVerifier is untouched by the upgrade',
       );
+    });
+
+    await t.test('the upgraded ACL is still a CleartextACL, now reporting v13', { skip: upgradeSkip }, async (st) => {
+      if (needsV13(st)) return;
+      assert.ok(provider);
+      // The upgrade deploys a fresh ACL implementation of its own. If it ever reinstated the upstream
+      // `ACL`, an upgraded stack would silently stop advertising itself and these calls would revert.
+      const acl = view<AclView>(addressOf(v12, 'ACL_ADDRESS'), ACL_ABI, provider);
+      assert.equal(await acl.IS_CLEARTEXT(), true, 'the upgraded ACL must still advertise IS_CLEARTEXT');
+      assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 13n, 'the upgraded ACL must report 13');
     });
 
     await t.test('the two new v13 proxies exist at their predicted addresses', { skip: upgradeSkip }, async (st) => {

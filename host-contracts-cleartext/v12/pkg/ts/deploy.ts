@@ -1,5 +1,5 @@
 import { deployACLProxy, deployEmptyUUPSProxy, deployEmptyUUPSProxyACL, deployERC1967Proxy } from './proxies.js';
-import { abi as aclAbi, template as aclTemplate } from './artifacts/ACL.js';
+import { abi as aclAbi, template as aclTemplate } from './artifacts/CleartextACL.js';
 import { abi as fhevmExecutorAbi, template as fhevmExecutorTemplate } from './artifacts/CleartextFHEVMExecutor.js';
 import { abi as kmsVerifierAbi, template as kmsVerifierTemplate } from './artifacts/CleartextKMSVerifier.js';
 import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/HCULimit.js';

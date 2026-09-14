@@ -39,7 +39,7 @@ import {
 
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 
-import {IACL} from "./_internal/interfaces/IACL.sol";
+import {ICleartextACL} from "./_internal/interfaces/ICleartextACL.sol";
 import {ACLOwner, IACLOwner} from "./_internal/interfaces/IACLOwner.sol";
 import {ICleartextArithmetic} from "./_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextDB} from "./_internal/interfaces/ICleartextDB.sol";
@@ -85,11 +85,11 @@ import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
  * already pulls in are reachable through it:
  *
  * ```solidity
- * import {FhevmDeploy, IACL, ACL_ADDRESS} from "host-contracts-cleartext-forge/FhevmDeploy.sol";
+ * import {FhevmDeploy, ICleartextACL, ACL_ADDRESS} from "host-contracts-cleartext-forge/FhevmDeploy.sol";
  *
  * contract MyTest is Test, FhevmDeploy {
  *     function setUp() public { deployFhevm(); }
- *     function test_x() public { IACL(ACL_ADDRESS).isAllowed(handle, user); }
+ *     function test_x() public { ICleartextACL(ACL_ADDRESS).isAllowed(handle, user); }
  * }
  * ```
  *
@@ -303,7 +303,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
         _fhevmACLOwner =
             _create(abi.encodePacked(ACL_OWNER_CREATION_CODE, abi.encode(_fhevmAdmin(), ACL_ADDRESS)), "ACLOwner");
         IPauserSet(PAUSER_SET_ADDRESS).addPauser(_fhevmACLOwner);
-        IACL(ACL_ADDRESS).transferOwnership(_fhevmACLOwner);
+        ICleartextACL(ACL_ADDRESS).transferOwnership(_fhevmACLOwner);
         fvm.stopPrank();
 
         fvm.prank(_fhevmAdmin());
@@ -356,7 +356,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
         (uint48 capPerBlock, uint48 maxDepthPerTx, uint48 maxPerTx) = _fhevmHcuLimitConfig();
 
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
-        ops[0] = ACLOwner.Op(ACL_ADDRESS, implementations[0], abi.encodeCall(IACL.initializeFromEmptyProxy, ()));
+        ops[0] = ACLOwner.Op(ACL_ADDRESS, implementations[0], abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ()));
         ops[1] = ACLOwner.Op(
             FHEVM_EXECUTOR_ADDRESS,
             implementations[1],
