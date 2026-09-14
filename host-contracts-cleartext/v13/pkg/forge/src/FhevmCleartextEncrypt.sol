@@ -5,6 +5,7 @@ import {ACL_ADDRESS, INPUT_VERIFIER_ADDRESS} from "./_internal/LocalHostAddresse
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 import {ICleartextInputVerifier} from "./_internal/interfaces/ICleartextInputVerifier.sol";
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
+import {FhevmCleartextConfig} from "./FhevmCleartextConfig.sol";
 
 /**
  * @title CleartextEncrypt
@@ -51,7 +52,7 @@ import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
  * SDK draws it with `crypto.getRandomValues`. The handle hashes over that blob, so encrypting the same
  * value twice yields two different handles, which is what the protocol expects.
  */
-library CleartextEncrypt {
+library FhevmCleartextEncrypt {
     IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);
 
     /// @dev Domain separator over the raw "ciphertext" blob. `FHEVM_HANDLE_RAW_CT_HASH_DOMAIN_SEPARATOR`.
@@ -68,14 +69,10 @@ library CleartextEncrypt {
     /// @dev Trailing byte of every handle. `FHEVM_HANDLE_CURRENT_CIPHERTEXT_VERSION`.
     uint8 private constant HANDLE_VERSION = 0;
 
-    /// @dev The signer pools sit on their own mnemonic and HD path, NOT the deployer's. Mirrors
-    ///      `CLEARTEXT_COPROCESSORS_MNEMONIC*` in the vendored cleartext config; `_coprocessorKeyFor`
-    ///      re-derives each address and reverts rather than signing with a key the stack never registered.
-    string private constant SIGNER_MNEMONIC = "test test test test test test test future home engine virtual motion";
-    string private constant COPROCESSOR_PATH = "m/44'/60'/0'/2/";
-
     error InputLengthMismatch(uint256 typeIds, uint256 values);
     error TooManyInputs(uint256 count);
+    error MalformedTypeValuePairs(uint256 length);
+    error InvalidFheTypeId(uint256 typeId);
     error ThresholdExceedsSigners(uint256 threshold, uint256 signers);
     error UnknownCoprocessorSigner(address signer);
     error CoprocessorKeyMismatch(uint256 index, address derived, address registered);
@@ -110,8 +107,8 @@ library CleartextEncrypt {
         }
 
         // The stack says what to sign and who may sign it, so the EIP-712 domain is never rebuilt here.
-        (bytes32 digest, address[] memory signers, uint256 threshold) =
-            ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).inputProof(handles, userAddress, contractAddress, cleartextExtraData);
+        (bytes32 digest, address[] memory signers, uint256 threshold) = ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS)
+            .inputProof(handles, userAddress, contractAddress, cleartextExtraData);
 
         // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
         uint256[] memory chosen = _randomUniqueIndices(signers.length, threshold);
@@ -123,6 +120,49 @@ library CleartextEncrypt {
 
         // <len(handles)><len(signatures)><handles: 32 each><signatures: 65 each><cleartextExtraData>
         inputProof = abi.encodePacked(uint8(n), uint8(threshold), _packHandles(handles), signatures, cleartextExtraData);
+    }
+
+    /**
+     * @notice Same bundle from `abi.encode(typeId, value, typeId, value, ...)`, so a caller can write
+     *         one expression instead of filling two parallel arrays:
+     *
+     * ```solidity
+     * encrypt(abi.encode(uint8(2), uint256(a), uint8(4), uint256(b)), address(dapp), alice);
+     * ```
+     *
+     * @dev `abi.encode` pads each field to a 32-byte word, so a pair is always 64 bytes and the count
+     *      falls out of the length. The words are read raw rather than through `abi.decode`, which cannot
+     *      decode a dynamic-length sequence of fixed pairs.
+     *
+     *      An out-of-range type id is rejected rather than truncated. The array form takes `uint8` and so
+     *      cannot express one, but here the caller supplies a full word, and silently narrowing 256 to 0
+     *      would turn a typo into a `Bool` handle that verifies and decrypts to the wrong thing.
+     */
+    function encrypt(bytes memory abiEncodedTypeValuePairs, address contractAddress, address userAddress)
+        internal
+        view
+        returns (bytes32[] memory handles, bytes memory inputProof)
+    {
+        uint256 length = abiEncodedTypeValuePairs.length;
+        if (length == 0 || length % 64 != 0) revert MalformedTypeValuePairs(length);
+
+        uint256 n = length / 64;
+        uint8[] memory typeIds = new uint8[](n);
+        uint256[] memory values = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            uint256 typeWord;
+            uint256 value;
+            assembly {
+                let base := add(add(abiEncodedTypeValuePairs, 32), mul(i, 64))
+                typeWord := mload(base)
+                value := mload(add(base, 32))
+            }
+            if (typeWord > type(uint8).max) revert InvalidFheTypeId(typeWord);
+            typeIds[i] = uint8(typeWord);
+            values[i] = value;
+        }
+
+        return encrypt(typeIds, values, contractAddress, userAddress);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -183,8 +223,9 @@ library CleartextEncrypt {
      *      `keccak256("ZK-w_hdl" || blobHash || index || ACL || chainId)`.
      */
     function _inputHandle(bytes32 blobHash, uint256 index, uint8 typeId) private view returns (bytes32) {
-        bytes21 hash21 =
-            bytes21(keccak256(abi.encodePacked(HANDLE_HASH_DOMAIN, blobHash, uint8(index), ACL_ADDRESS, block.chainid)));
+        bytes21 hash21 = bytes21(
+            keccak256(abi.encodePacked(HANDLE_HASH_DOMAIN, blobHash, uint8(index), ACL_ADDRESS, block.chainid))
+        );
 
         // bytes21 -> bytes32 left-aligns, so bytes 21..31 arrive zeroed and are filled in below.
         uint256 h = uint256(bytes32(hash21));
@@ -222,7 +263,11 @@ library CleartextEncrypt {
         address[] memory registered = LocalHostBootstrap.coprocessorSigners();
         for (uint256 i = 0; i < registered.length; i++) {
             if (registered[i] != signer) continue;
-            privateKey = fvm.deriveKey(SIGNER_MNEMONIC, COPROCESSOR_PATH, uint32(i));
+            privateKey = fvm.deriveKey(
+                FhevmCleartextConfig.CLEARTEXT_COPROCESSORS_MNEMONIC,
+                FhevmCleartextConfig.CLEARTEXT_COPROCESSORS_MNEMONIC_PATH,
+                uint32(i) + FhevmCleartextConfig.CLEARTEXT_COPROCESSORS_MNEMONIC_INDEX
+            );
             address derived = fvm.addr(privateKey);
             if (derived != signer) revert CoprocessorKeyMismatch(i, derived, signer);
             return privateKey;
