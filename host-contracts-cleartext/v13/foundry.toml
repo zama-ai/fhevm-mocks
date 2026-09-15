@@ -15,6 +15,18 @@ fs_permissions = [
     { access = "read-write", path = "./create2-deploy" },      # this path
 ]
 
+# The forge payload. `[profile.default]` leaves it out so it never lands in `out/`; this profile is how
+# it gets compiled, formatted and linted. Its own `out` keeps the artifacts apart.
+[profile.forgefhevmcore]
+src = 'pkg/forge/src'
+script = 'pkg/forge/script'
+out = 'out-forgefhevmcore'
+
+# The CREATE2 broadcast scripts, left out of the default profile for the same reason.
+[profile.create2]
+src = 'create2-deploy/script'
+out = 'out-create2'
+
 [fmt]
 ignore = ["test/ts/node_modules"]
 
