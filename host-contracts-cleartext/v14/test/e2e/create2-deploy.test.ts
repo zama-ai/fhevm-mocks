@@ -283,7 +283,7 @@ void test(
         // and the call would revert, which is exactly the distinction a consumer needs to be able to make.
         const acl = view<AclView>(addressOf(manifest, 'ACL_ADDRESS'), ACL_ABI, provider);
         assert.equal(await acl.IS_CLEARTEXT(), true, 'ACL must advertise IS_CLEARTEXT');
-        assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 13n, 'ACL must report protocol version 13');
+        assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 14n, 'ACL must report protocol version 14');
       });
 
       await t.test('the admin holds root through ACLOwner, with nothing dangling', async (st) => {
