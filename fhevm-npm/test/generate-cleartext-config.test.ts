@@ -31,12 +31,13 @@ const CONSTANTS = {
     ts: 'number',
     tsEmit: 'bigint',
     solidity: 'uint256',
+    summary: 'The chain id.',
     formula: 'uint48(uint256(keccak256("fhevm.cheat.chainId cleartext gateway")))',
   },
-  PLAIN_COUNT: { value: '4', ts: 'number', solidity: 'uint256' },
-  URL: { value: 'https://relayer.cleartext.foo', ts: 'string', solidity: 'string' },
-  HD_PATH: { value: "m/44'/60'/0'/2/", ts: 'string', solidity: 'string' },
-  URL_ALIAS: { alias: 'URL', ts: 'string', solidity: 'string' },
+  PLAIN_COUNT: { value: '4', ts: 'number', solidity: 'uint256', summary: 'A count.' },
+  URL: { value: 'https://relayer.cleartext.foo', ts: 'string', solidity: 'string', summary: 'A URL.' },
+  HD_PATH: { value: "m/44'/60'/0'/2/", ts: 'string', solidity: 'string', summary: 'An HD path.' },
+  URL_ALIAS: { alias: 'URL', ts: 'string', solidity: 'string', summary: 'An alias.' },
 } as const;
 
 test('renders the TypeScript face: order, formula comments, literal shapes, quoting, aliases', () => {
@@ -78,8 +79,13 @@ test('renders the TypeScript face: order, formula comments, literal shapes, quot
 test('renders the Solidity face: declared types, bare addresses, quoted strings, aliases', () => {
   const constants = {
     ...CONSTANTS,
-    AN_ADDRESS: { value: '0x6189F6c0c3E40B4a3c72ec86262295D78d845297', ts: 'string', solidity: 'address' },
-    AN_INDEX: { value: '0', ts: 'number', solidity: 'uint32' },
+    AN_ADDRESS: {
+      value: '0x6189F6c0c3E40B4a3c72ec86262295D78d845297',
+      ts: 'string',
+      solidity: 'address',
+      summary: 'An address.',
+    },
+    AN_INDEX: { value: '0', ts: 'number', solidity: 'uint32', summary: 'An index.' },
   };
   const workspace = makeWorkspace(constants);
   try {
@@ -87,19 +93,27 @@ test('renders the Solidity face: declared types, bare addresses, quoted strings,
     assert.match(sol, /^\/\/ SPDX-License-Identifier: BSD-3-Clause-Clear\npragma solidity \^0\.8\.24;\n/);
     const expected = [
       'library FhevmCleartextConfig {',
+      // The one-line summary always; the formula line only where the JSON records one.
+      '    /// The chain id.',
       '    // uint48(uint256(keccak256("fhevm.cheat.chainId cleartext gateway")))',
       '    uint256 internal constant CHAIN_ID = 100733346448153;',
       '',
+      '    /// A count.',
       '    uint256 internal constant PLAIN_COUNT = 4;',
       '',
+      '    /// A URL.',
       '    string internal constant URL = "https://relayer.cleartext.foo";',
       '',
+      '    /// An HD path.',
       "    string internal constant HD_PATH = \"m/44'/60'/0'/2/\";",
       '',
+      '    /// An alias.',
       '    string internal constant URL_ALIAS = URL;',
       '',
+      '    /// An address.',
       '    address internal constant AN_ADDRESS = 0x6189F6c0c3E40B4a3c72ec86262295D78d845297;',
       '',
+      '    /// An index.',
       '    uint32 internal constant AN_INDEX = 0;',
       '}',
       '',
