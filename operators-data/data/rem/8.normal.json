@@ -1,0 +1,47 @@
+{
+  "op": "rem",
+  "arity": 2,
+  "semantics": "unsigned-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "rem_8_8_small_by_small",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 8, "value": "0x8" }
+    },
+    {
+      "id": "rem_8_8_small_by_larger",
+      "lhs": { "bits": 8, "value": "0x17" },
+      "rhs": { "bits": 8, "value": "0x64" },
+      "result": { "bits": 8, "value": "0x17" }
+    },
+    {
+      "id": "rem_8_8_top_bit_by_three",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x3" },
+      "result": { "bits": 8, "value": "0x2" }
+    },
+    {
+      "id": "rem_8_8_pattern_by_small",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 8, "value": "0x4" }
+    },
+    {
+      "id": "rem_8_8_pattern_by_mid_lo",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 8, "value": "0x1e" }
+    },
+    {
+      "id": "rem_8_8_mid_hi_by_mid_lo",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 8, "value": "0x11" }
+    }
+  ]
+}

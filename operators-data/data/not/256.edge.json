@@ -1,0 +1,36 @@
+{
+  "op": "not",
+  "arity": 1,
+  "semantics": "bitwise-complement",
+  "encoding": "hex-string",
+  "width": 256,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "not_256_zero",
+      "lhs": { "bits": 256, "value": "0x0" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "not_256_one",
+      "lhs": { "bits": 256, "value": "0x1" },
+      "result": { "bits": 256, "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe" }
+    },
+    {
+      "id": "not_256_max",
+      "lhs": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 256, "value": "0x0" }
+    },
+    {
+      "id": "not_256_max_minus_1",
+      "lhs": { "bits": 256, "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe" },
+      "result": { "bits": 256, "value": "0x1" }
+    },
+    {
+      "id": "not_256_top_bit",
+      "lhs": { "bits": 256, "value": "0x8000000000000000000000000000000000000000000000000000000000000000" },
+      "result": { "bits": 256, "value": "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+    }
+  ]
+}

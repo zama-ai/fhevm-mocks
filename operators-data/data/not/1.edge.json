@@ -1,0 +1,21 @@
+{
+  "op": "not",
+  "arity": 1,
+  "semantics": "bitwise-complement",
+  "encoding": "hex-string",
+  "width": 1,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "not_1_zero",
+      "lhs": { "bits": 1, "value": "0x0" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "not_1_one",
+      "lhs": { "bits": 1, "value": "0x1" },
+      "result": { "bits": 1, "value": "0x0" }
+    }
+  ]
+}

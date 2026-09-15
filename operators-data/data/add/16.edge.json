@@ -1,0 +1,209 @@
+{
+  "op": "add",
+  "arity": 2,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 16,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "add_16_16_zero_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "add_16_16_plus_zero",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "add_16_16_zero_plus",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x64" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "add_16_16_max_plus_zero",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "add_16_16_max_minus_1_plus_zero",
+      "lhs": { "bits": 16, "value": "0xfffe" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_16_16_max",
+      "lhs": { "bits": 16, "value": "0xfff8" },
+      "rhs": { "bits": 16, "value": "0x7" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "add_16_16_max_minus_1",
+      "lhs": { "bits": 16, "value": "0xfff7" },
+      "rhs": { "bits": 16, "value": "0x7" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_16_16_both_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_16_16_carry_top_bit",
+      "lhs": { "bits": 16, "value": "0x7fff" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "add_16_16_wrap_to_0",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "add_16_16_wrap_past_0",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0x7" },
+      "result": { "bits": 16, "value": "0x6" }
+    },
+    {
+      "id": "add_16_8_zero_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "add_16_8_plus_zero",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "add_16_8_zero_plus",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x64" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "add_16_8_max_plus_zero",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "add_16_8_max_minus_1_plus_zero",
+      "lhs": { "bits": 16, "value": "0xfffe" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_16_8_max",
+      "lhs": { "bits": 16, "value": "0xfff8" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "add_16_8_max_minus_1",
+      "lhs": { "bits": 16, "value": "0xfff7" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_16_8_both_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xfe" }
+    },
+    {
+      "id": "add_16_8_carry_top_bit",
+      "lhs": { "bits": 16, "value": "0x7fff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "add_16_8_wrap_to_0",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "add_16_8_wrap_past_0",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 16, "value": "0x6" }
+    },
+    {
+      "id": "add_8_16_zero_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "add_8_16_plus_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x64" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "add_8_16_zero_plus",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "add_8_16_max_plus_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "add_8_16_max_minus_1_plus_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0xfffe" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_8_16_max",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 16, "value": "0xfff8" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "add_8_16_max_minus_1",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 16, "value": "0xfff7" },
+      "result": { "bits": 16, "value": "0xfffe" }
+    },
+    {
+      "id": "add_8_16_both_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0xfe" }
+    },
+    {
+      "id": "add_8_16_carry_top_bit",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x7fff" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "add_8_16_wrap_to_0",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "add_8_16_wrap_past_0",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0x6" }
+    }
+  ]
+}

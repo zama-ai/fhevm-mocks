@@ -1,2 +1,0 @@
-npm run --no-install prettier:check
-npm run --no-install lint

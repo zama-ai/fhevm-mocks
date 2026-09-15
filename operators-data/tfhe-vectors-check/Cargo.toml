@@ -1,0 +1,20 @@
+[package]
+name = "tfhe-vectors-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Default build: tfhe-rs 1.7.x. For 1.6.x build the sibling package instead:
+#   cargo run --manifest-path tfhe16/Cargo.toml -- <vectors.json>
+# Two semver-compatible versions of one crate cannot coexist in a single package,
+# hence the second manifest sharing this src/main.rs.
+[features]
+tfhe16 = []
+
+[dependencies]
+tfhe = { version = "~1.7", features = ["integer"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.dev]
+opt-level = 3

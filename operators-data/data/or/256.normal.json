@@ -1,0 +1,209 @@
+{
+  "op": "or",
+  "arity": 2,
+  "semantics": "bitwise",
+  "encoding": "hex-string",
+  "width": 256,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "or_256_256_small_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "rhs": { "bits": 256, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_256_256_pattern_pattern",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "or_256_256_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "or_256_128_small_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "rhs": { "bits": 128, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_256_128_pattern_pattern",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "or_256_128_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "or_256_64_small_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_256_64_pattern_pattern",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "or_256_64_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0x5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "or_256_32_small_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_256_32_pattern_pattern",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5" }
+    },
+    {
+      "id": "or_256_32_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 32, "value": "0x5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffff" }
+    },
+    {
+      "id": "or_256_16_small_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_256_16_pattern_pattern",
+      "lhs": { "bits": 256, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0xa5a5" },
+      "result": { "bits": 256, "value": "0xa5a5" }
+    },
+    {
+      "id": "or_256_16_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0x5a5a" },
+      "result": { "bits": 256, "value": "0xffff" }
+    },
+    {
+      "id": "or_256_8_small_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_256_8_pattern_pattern",
+      "lhs": { "bits": 256, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0xa5" },
+      "result": { "bits": 256, "value": "0xa5" }
+    },
+    {
+      "id": "or_256_8_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x5a" },
+      "result": { "bits": 256, "value": "0xff" }
+    },
+    {
+      "id": "or_128_256_small_small",
+      "lhs": { "bits": 128, "value": "0x64" },
+      "rhs": { "bits": 256, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_128_256_pattern_pattern",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "or_128_256_pattern_vs_inverse",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "or_64_256_small_small",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 256, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_64_256_pattern_pattern",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "or_64_256_pattern_vs_inverse",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "or_32_256_small_small",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 256, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_32_256_pattern_pattern",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0xa5a5a5a5" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5" }
+    },
+    {
+      "id": "or_32_256_pattern_vs_inverse",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 256, "value": "0x5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xffffffff" }
+    },
+    {
+      "id": "or_16_256_small_small",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 256, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_16_256_pattern_pattern",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 256, "value": "0xa5a5" },
+      "result": { "bits": 256, "value": "0xa5a5" }
+    },
+    {
+      "id": "or_16_256_pattern_vs_inverse",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 256, "value": "0x5a5a" },
+      "result": { "bits": 256, "value": "0xffff" }
+    },
+    {
+      "id": "or_8_256_small_small",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 256, "value": "0x17" },
+      "result": { "bits": 256, "value": "0x77" }
+    },
+    {
+      "id": "or_8_256_pattern_pattern",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 256, "value": "0xa5" },
+      "result": { "bits": 256, "value": "0xa5" }
+    },
+    {
+      "id": "or_8_256_pattern_vs_inverse",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 256, "value": "0x5a" },
+      "result": { "bits": 256, "value": "0xff" }
+    }
+  ]
+}

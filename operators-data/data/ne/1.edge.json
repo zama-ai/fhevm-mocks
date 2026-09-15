@@ -1,0 +1,35 @@
+{
+  "op": "ne",
+  "arity": 2,
+  "semantics": "boolean",
+  "encoding": "hex-string",
+  "width": 1,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "ne_1_1_zero_zero",
+      "lhs": { "bits": 1, "value": "0x0" },
+      "rhs": { "bits": 1, "value": "0x0" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "ne_1_1_one_one",
+      "lhs": { "bits": 1, "value": "0x1" },
+      "rhs": { "bits": 1, "value": "0x1" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "ne_1_1_one_zero",
+      "lhs": { "bits": 1, "value": "0x1" },
+      "rhs": { "bits": 1, "value": "0x0" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "ne_1_1_zero_one",
+      "lhs": { "bits": 1, "value": "0x0" },
+      "rhs": { "bits": 1, "value": "0x1" },
+      "result": { "bits": 1, "value": "0x1" }
+    }
+  ]
+}

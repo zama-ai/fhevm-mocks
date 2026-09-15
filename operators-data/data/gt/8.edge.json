@@ -1,0 +1,77 @@
+{
+  "op": "gt",
+  "arity": 2,
+  "semantics": "boolean",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "gt_8_8_equal",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_zero_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_zero_vs_small",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x64" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_small_vs_zero",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "gt_8_8_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_zero_vs_rhs_max",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_lhs_max_vs_zero",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "gt_8_8_narrow_max_vs_off_by_one",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xfe" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "gt_8_8_off_by_one_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0xfe" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_top_bit_vs_top_bit_minus_1",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x7f" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "gt_8_8_top_bit_minus_1_vs_top_bit",
+      "lhs": { "bits": 8, "value": "0x7f" },
+      "rhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 1, "value": "0x0" }
+    }
+  ]
+}
