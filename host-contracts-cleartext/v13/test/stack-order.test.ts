@@ -72,11 +72,9 @@ const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path:
   { label: 'scripts/anvil-lib.sh', path: 'scripts/anvil-lib.sh' },
   // The upgrade path deploys fresh implementations too. Left out at first, and it was the one layer
   // still reaching for the plain ACL — an upgraded stack would have lost the marker it deployed with.
+  // v13 on main carries only the library half of that path: the v12 -> v13 CREATE2 upgrade scripts live
+  // with the v12 generation, which this tree no longer has.
   { label: 'pkg/ts/upgrade.ts', path: 'pkg/ts/upgrade.ts' },
-  {
-    label: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
-    path: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
-  },
 ];
 
 function read(relativePath: string): string {
