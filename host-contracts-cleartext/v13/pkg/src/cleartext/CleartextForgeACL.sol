@@ -8,7 +8,7 @@ import {VmSafe} from "forge-std/Vm.sol";
 /**
  * @title CleartextForgeACL
  * @notice ACL variant for the in-process forge stack, carrying forge-only checks the real ACL cannot afford.
- * @dev Deployed by `pkg/forge/src/FhevmDeploy.sol` behind the ACL proxy in place of the plain `ACL`.
+ * @dev Deployed by `pkg/forge/src/FhevmCleartextDeploy.sol` behind the ACL proxy in place of the plain `ACL`.
  *      Extends `CleartextACL`, so `IS_CLEARTEXT` and `CLEARTEXT_PROTOCOL_VERSION` come from there rather
  *      than being restated here: a `constant` cannot be overridden, so one declaration is the only option.
  *      `DeployLocalStack.s.sol` broadcasts to a node and keeps `ACL`: anything here that calls a

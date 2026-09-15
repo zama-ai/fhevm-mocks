@@ -59,8 +59,8 @@ import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
  * @title DeployLocalStack
  * @notice Deploys the canonical local cleartext stack from the PRE-COMPILED blobs, onto a live node.
  *
- * The broadcast twin of `pkg/forge/src/FhevmDeploy.sol`: same phases, same order, same blobs from
- * `_internal/LocalHostBytecode.sol`. The difference is only that `FhevmDeploy` runs inside a forge test
+ * The broadcast twin of `pkg/forge/src/FhevmCleartextDeploy.sol`: same phases, same order, same blobs from
+ * `_internal/LocalHostBytecode.sol`. The difference is only that `FhevmCleartextDeploy` runs inside a forge test
  * with cheatcodes, and this sends real transactions.
  *
  * Why it is faster than scripts/deploy.sh: the addresses are already compiled into these blobs, so there
@@ -72,7 +72,7 @@ import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
  *
  * ## Why PauserSet is CREATEd here rather than `anvil_setCode`d
  *
- * `FhevmDeploy` installs PauserSet with `vm.etch` and then bumps the nonce by hand, because etch places
+ * `FhevmCleartextDeploy` installs PauserSet with `vm.etch` and then bumps the nonce by hand, because etch places
  * code without consuming one. The obvious translation — `anvil_setCode` plus `anvil_setNonce` over RPC —
  * does not work under `--broadcast`, and it fails quietly:
  *
