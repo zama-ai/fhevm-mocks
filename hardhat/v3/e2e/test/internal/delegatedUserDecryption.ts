@@ -89,11 +89,15 @@ describe('Delegated user decryption', function () {
     await executeTx.wait();
   }
 
-  async function delegate(delegateAddress: string): Promise<void> {
-    const expirationTimestamp = (await timestampNowAdjusted()) + 86400; // 24 hours from now
+  async function delegate(
+    delegateAddress: string,
+    contractAddress: string = counterAddress,
+    lifetimeSeconds = 86400, // 24 hours from now
+  ): Promise<void> {
+    const expirationTimestamp = (await timestampNowAdjusted()) + lifetimeSeconds;
     const tx = await smartWallet
       .connect(signers.bob)
-      .delegateUserDecryption(delegateAddress, counterAddress, expirationTimestamp);
+      .delegateUserDecryption(delegateAddress, contractAddress, expirationTimestamp);
     await tx.wait();
   }
 
@@ -132,6 +136,41 @@ describe('Delegated user decryption', function () {
     const countHandle = (await counter.getCount()) as Hex;
     await expectRejectedWith(
       fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.bob, {
+        delegatorAddress: smartWalletAddress,
+      }),
+      NOT_DELEGATED,
+    );
+  });
+
+  it('a delegation for another contract does not cover the counter handle', async function () {
+    // Eve is delegated, but on a different app contract. The delegation table is keyed on the contract,
+    // so the entry says nothing about handles the counter issued.
+    const otherFactory: FHECounterUserDecrypt__factory = await ethers.getContractFactory('FHECounterUserDecrypt');
+    const other = await otherFactory.deploy();
+    const otherAddress = (await other.getAddress()) as Hex;
+
+    await delegate(signers.eve.address, otherAddress);
+    const countHandle = (await counter.getCount()) as Hex;
+
+    await expectRejectedWith(
+      fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.eve, {
+        delegatorAddress: smartWalletAddress,
+      }),
+      NOT_DELEGATED,
+    );
+  });
+
+  it('an expired delegation no longer decrypts the smartWallet count', async function () {
+    const lifetimeSeconds = 75;
+    await delegate(signers.eve.address, counterAddress, lifetimeSeconds);
+
+    // `timestampNowAdjusted` adds 100s of head-room on top of the lifetime, so step past both.
+    await ethers.provider.send('evm_increaseTime', [lifetimeSeconds + 100 + 1]);
+    await ethers.provider.send('evm_mine', []);
+
+    const countHandle = (await counter.getCount()) as Hex;
+    await expectRejectedWith(
+      fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.eve, {
         delegatorAddress: smartWalletAddress,
       }),
       NOT_DELEGATED,

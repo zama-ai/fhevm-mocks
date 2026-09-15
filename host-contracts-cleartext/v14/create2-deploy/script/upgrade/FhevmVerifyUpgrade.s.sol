@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {console} from "forge-std/Script.sol";
 import {FhevmUpgradeChecks} from "./FhevmUpgradeChecks.s.sol";
 import {IVersioned, IWiredInputVerifier, IWiredProtocolConfig} from "../Interfaces.sol";
-import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
 
 /**
  * @title  FhevmVerifyUpgrade

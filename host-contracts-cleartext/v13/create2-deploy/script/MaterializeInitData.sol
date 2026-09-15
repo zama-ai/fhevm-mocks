@@ -81,36 +81,33 @@ library MaterializeInitData {
     /// @dev v13 moved the KMS signer set out of KMSVerifier into ProtocolConfig, so only the EIP-712
     ///      domain is set here and the signers are seeded as a KMS context on ProtocolConfig instead.
     function _kmsVerifier() private pure returns (bytes memory) {
-        return
-            abi.encodeCall(
-                KMSVerifier.initializeFromEmptyProxy,
-                (LocalHostBootstrap.DECRYPTION_ADDRESS, LocalHostBootstrap.GATEWAY_CHAIN_ID)
-            );
+        return abi.encodeCall(
+            KMSVerifier.initializeFromEmptyProxy,
+            (LocalHostBootstrap.DECRYPTION_ADDRESS, LocalHostBootstrap.GATEWAY_CHAIN_ID)
+        );
     }
 
     function _inputVerifier() private pure returns (bytes memory) {
-        return
-            abi.encodeCall(
-                InputVerifier.initializeFromEmptyProxy,
-                (
-                    LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS,
-                    LocalHostBootstrap.GATEWAY_CHAIN_ID,
-                    LocalHostBootstrap.coprocessorSigners(),
-                    LocalHostBootstrap.COPROCESSOR_THRESHOLD
-                )
-            );
+        return abi.encodeCall(
+            InputVerifier.initializeFromEmptyProxy,
+            (
+                LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS,
+                LocalHostBootstrap.GATEWAY_CHAIN_ID,
+                LocalHostBootstrap.coprocessorSigners(),
+                LocalHostBootstrap.COPROCESSOR_THRESHOLD
+            )
+        );
     }
 
     function _hcuLimit() private pure returns (bytes memory) {
-        return
-            abi.encodeCall(
-                HCULimit.initializeFromEmptyProxy,
-                (
-                    LocalHostBootstrap.HCU_CAP_PER_BLOCK,
-                    LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,
-                    LocalHostBootstrap.MAX_HCU_PER_TX
-                )
-            );
+        return abi.encodeCall(
+            HCULimit.initializeFromEmptyProxy,
+            (
+                LocalHostBootstrap.HCU_CAP_PER_BLOCK,
+                LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,
+                LocalHostBootstrap.MAX_HCU_PER_TX
+            )
+        );
     }
 
     /// @dev v13 only: seeds the initial KMS context that KMSVerifier used to hold itself.
@@ -128,10 +125,7 @@ library MaterializeInitData {
         nodes = new KmsNode[](LocalHostBootstrap.KMS_NODE_COUNT);
         for (uint256 i = 0; i < nodes.length; i++) {
             nodes[i] = KmsNode({
-                txSenderAddress: txSenders[i],
-                signerAddress: signers[i],
-                ipAddress: ips[i],
-                storageUrl: urls[i]
+                txSenderAddress: txSenders[i], signerAddress: signers[i], ipAddress: ips[i], storageUrl: urls[i]
             });
         }
     }

@@ -80,6 +80,7 @@
       "ts": "number",
       "tsEmit": "bigint",
       "solidity": "uint256",
+      "summary": "The gateway chain id, hashed from a name so it cannot collide with a real network.",
       "formula": "uint48(uint256(keccak256(\"fhevm.cheat.chainId cleartext gateway\")))",
       "note": "A cheat-code chain id: chosen by hashing a name so it cannot collide with a real network by accident, and so anyone can reproduce it from the string alone. Truncated to 48 bits because a chain id has to fit where chain ids are stored, and 2^48 is far above any real one while still being nowhere near a plausible typo of one. `ts` is `number` because the value fits a double exactly; the emitted face widens it to `bigint` (`tsEmit`) because a chain id is compared against bigint chain ids everywhere it is used."
     },
@@ -88,6 +89,7 @@
       "value": "https://relayer.cleartext.foo",
       "ts": "string",
       "solidity": "string",
+      "summary": "The relayer URL, on a `.foo` TLD that cannot be registered.",
       "note": "Deliberately a `.foo` TLD, which cannot be registered. A cleartext stack has no relayer to talk to, so the URL exists only to be well-formed; pointing it at an unregistrable name means a client that ignores the cleartext path and actually dials it fails to resolve rather than reaching somebody's real host."
     },
 
@@ -95,6 +97,7 @@
       "value": "0x6189F6c0c3E40B4a3c72ec86262295D78d845297",
       "ts": "string",
       "solidity": "address",
+      "summary": "Where the gateway's input-verification contract is said to live. Never deployed.",
       "formula": "address(uint160(uint256(keccak256(\"fhevm.cheat.address cleartext input verification\"))))",
       "note": "Where the gateway's input-verification contract is *said* to live. Nothing is ever deployed there — the address is a name the cleartext path can carry in place of a real one. Hashed rather than picked so it cannot collide with a deployed contract on any chain, and so it is reproducible from the string. Stored EIP-55 checksummed because Solidity REJECTS a hex address literal containing letters unless it is (error 9429), while TypeScript does not care — so the checksummed spelling is the one both faces can use verbatim."
     },
@@ -103,6 +106,7 @@
       "value": "0xEaaA2FC6BC259dF015Aa7Dc8e59e0B67df622721",
       "ts": "string",
       "solidity": "address",
+      "summary": "Where the gateway's decryption contract is said to live. Never deployed.",
       "formula": "address(uint160(uint256(keccak256(\"fhevm.cheat.address cleartext decryption\"))))",
       "note": "The same idea as the input-verification address, for the gateway's decryption contract: a hashed placeholder, never deployed, reproducible from its preimage, and checksummed for Solidity's sake."
     },
@@ -111,6 +115,7 @@
       "value": "4",
       "ts": "number",
       "solidity": "uint256",
+      "summary": "How many coprocessor signers the stack registers on `InputVerifier`.",
       "note": "How many coprocessor signers the stack registers on `InputVerifier`, and therefore how many keys are derived from the coprocessor HD path. Four rather than one because the multi-signer code paths are what a consumer exercises against a real deployment, and a stack with a single signer would let a bug in them pass unnoticed."
     },
 
@@ -118,6 +123,7 @@
       "value": "4",
       "ts": "number",
       "solidity": "uint256",
+      "summary": "Signatures required on an input proof. Equal to the count, not a majority.",
       "note": "Equal to the count, not a majority. A cleartext stack has no real threshold cryptography whose partial failure it needs to tolerate, so requiring every signer keeps a missing or wrong one a loud failure instead of something the threshold silently absorbs."
     },
 
@@ -125,6 +131,7 @@
       "value": "4",
       "ts": "number",
       "solidity": "uint256",
+      "summary": "How many KMS nodes the stack registers.",
       "note": "How many KMS nodes the stack registers. In v13 it is also the length of every per-node metadata array `ProtocolConfig` stores — signer, tx-sender, IP address, storage URL — and every KMS threshold equals it, for the reason `CLEARTEXT_COPROCESSOR_THRESHOLD` gives."
     },
 
@@ -133,6 +140,7 @@
       "ts": "number",
       "tsEmit": "bigint",
       "solidity": "uint256",
+      "summary": "The per-block HCU cap, at uint48 max so a test can never hit it.",
       "formula": "type(uint48).max",
       "note": "Effectively uncapped, and uint48 max specifically because that is the width `HCULimit` stores the figure in — the largest value the field can hold, so the cap can never be the thing a test hits. The cleartext stack does no FHE work, so a real per-block HCU budget would only ever be an artificial limit."
     },
@@ -142,6 +150,7 @@
       "ts": "number",
       "tsEmit": "bigint",
       "solidity": "uint256",
+      "summary": "The per-transaction depth bound, at the protocol's real default.",
       "note": "Kept at the protocol's real default rather than raised to the uint48 maximum like the per-block cap. Depth bounds how far a single transaction can chain dependent operations, and that limit is one a consumer can legitimately hit in cleartext just as in FHE — so leaving it realistic means a contract that would exceed it on a real stack also fails here, rather than passing and failing later."
     },
 
@@ -150,6 +159,7 @@
       "ts": "number",
       "tsEmit": "bigint",
       "solidity": "uint256",
+      "summary": "The per-transaction total, at the protocol's real default.",
       "note": "The per-transaction total, at the protocol's real default for the same reason as the depth limit: four times the depth bound, so a wide transaction is allowed more total work than a deep one."
     },
 
@@ -157,6 +167,7 @@
       "value": "test test test test test test test future home engine virtual motion",
       "ts": "string",
       "solidity": "string",
+      "summary": "The signer-pool mnemonic. Published on purpose, and NOT the deploy mnemonic.",
       "note": "Published on purpose, and NOT the deploy mnemonic — a different string with a different job. This one is what makes a cleartext stack SDK-compatible: the js-sdk cleartext relayer derives its keys from it at the paths below and looks a signer up by the address they produce. Seed a different set and every other check still passes — the stack deploys, verifies against itself, and fails only when the relayer arrives. It is also why the stack is testnet-only: on mainnet these are keys everyone has."
     },
 
@@ -164,6 +175,7 @@
       "alias": "FHEVM_MNEMONIC",
       "ts": "string",
       "solidity": "string",
+      "summary": "The mnemonic the coprocessor keys derive from.",
       "note": "An alias rather than a repeat, in both emitted faces. The three pools share one mnemonic today and are separated only by HD path; naming each one anyway lets a future generation give a pool its own mnemonic without touching a single call site."
     },
 
@@ -171,6 +183,7 @@
       "value": "m/44'/60'/0'/2/",
       "ts": "string",
       "solidity": "string",
+      "summary": "The HD branch the coprocessor signer pool derives from.",
       "note": "The HD branch the coprocessor signer pool derives from. Its own branch, so the coprocessor and KMS pools can never overlap however either count changes. The trailing `/` is part of the value: `vm.deriveKey(mnemonic, path, index)` concatenates, so dropping it derives at `m/44'/60'/0'/2<index>` — real keys at a wrong path."
     },
 
@@ -178,6 +191,7 @@
       "value": "0",
       "ts": "number",
       "solidity": "uint32",
+      "summary": "First index of the coprocessor pool, which runs to `INDEX + COUNT - 1`.",
       "note": "The first index of the pool, which occupies `INDEX` through `INDEX + COUNT - 1`. Declared but currently read by nothing: `internal/generateSigners.ts` and `internal/generateLocalHostBytecode.ts` both start at 0 implicitly, so changing this today would have no effect. Recorded anyway because it is the value those two would have to consult, and having it named is what makes that a small change rather than a search. `uint32` on the Solidity side because that is what `vm.deriveKey`'s index parameter takes."
     },
 
@@ -185,6 +199,7 @@
       "alias": "FHEVM_MNEMONIC",
       "ts": "string",
       "solidity": "string",
+      "summary": "The mnemonic the KMS signing keys derive from.",
       "note": "Aliased for the reason `CLEARTEXT_COPROCESSORS_MNEMONIC` gives."
     },
 
@@ -192,6 +207,7 @@
       "value": "m/44'/60'/0'/3/",
       "ts": "string",
       "solidity": "string",
+      "summary": "The HD branch the KMS signing keys derive from.",
       "note": "The HD branch the KMS signing keys derive from — the set registered on `KMSVerifier` in v12 and on `ProtocolConfig` in v13. A branch of its own, distinct from both the coprocessors' and the tx-senders'. Trailing `/` load-bearing, as above."
     },
 
@@ -199,6 +215,7 @@
       "value": "0",
       "ts": "number",
       "solidity": "uint32",
+      "summary": "First index of the KMS signing pool.",
       "note": "First index of the KMS signing pool. Declared and currently unread, exactly as the coprocessors' index is."
     },
 
@@ -206,6 +223,7 @@
       "alias": "FHEVM_MNEMONIC",
       "ts": "string",
       "solidity": "string",
+      "summary": "The mnemonic the KMS tx-sender keys derive from.",
       "note": "Aliased for the reason `CLEARTEXT_COPROCESSORS_MNEMONIC` gives."
     },
 
@@ -213,6 +231,7 @@
       "value": "m/44'/60'/0'/4/",
       "ts": "string",
       "solidity": "string",
+      "summary": "The HD branch the KMS tx-senders derive from, distinct from the signing keys.",
       "note": "A pool distinct from the KMS signing keys, on its own branch. v13's `ProtocolConfig` records a tx-sender per node alongside that node's signer, and they are deliberately different keys: the address that submits a transaction is not the address that signed the payload. Trailing `/` load-bearing, as above."
     },
 
@@ -220,6 +239,7 @@
       "value": "0",
       "ts": "number",
       "solidity": "uint32",
+      "summary": "First index of the KMS tx-sender pool.",
       "note": "First index of the KMS tx-sender pool. Declared and currently unread, exactly as the other two indexes are."
     },
 
@@ -227,6 +247,7 @@
       "value": "127.0.0.",
       "ts": "string",
       "solidity": "string",
+      "summary": "IP address prefix: node i gets `<prefix><i + 1>`, one-based.",
       "note": "Node i gets `${prefix}${i + 1}` — so 127.0.0.1 through 127.0.0.4 — in both `pkg/ts/constants.ts` and `internal/generateLocalHostBytecode.ts`. Loopback deliberately: the per-node metadata v13's `ProtocolConfig` stores has to be well-formed, and must not name anything reachable. Note the one-based suffix, which is why the prefix ends at the final dot rather than including a digit."
     },
 
@@ -234,6 +255,7 @@
       "value": "s3://kms-bucket-",
       "ts": "string",
       "solidity": "string",
+      "summary": "Storage URL prefix: node i gets `<prefix><i + 1>`, one-based like the IP prefix.",
       "note": "Node i gets `${prefix}${i + 1}`, one-based like the IP prefix and built in the same two places. A plausible-looking s3 URL for a bucket that does not exist: `ProtocolConfig` only stores the string, so what matters is that it has the right shape and points nowhere."
     },
 
@@ -241,6 +263,7 @@
       "value": "kms-core-",
       "ts": "string",
       "solidity": "string",
+      "summary": "v14 only. First half of `mpcIdentity`: node i is `<prefix><i + 1><infix><i + 1>`.",
       "generations": ["v14"],
       "note": "v14 only: the first half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
     },
@@ -249,6 +272,7 @@
       "value": "-cleartext-core-",
       "ts": "string",
       "solidity": "string",
+      "summary": "v14 only. Second half of `mpcIdentity`, naming the cluster as cleartext.",
       "generations": ["v14"],
       "note": "v14 only: the second half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
     },
@@ -257,6 +281,7 @@
       "value": "cleartext-",
       "ts": "string",
       "solidity": "string",
+      "summary": "v14 only. Prefix inside the storage bucket; node i gets `<prefix><i + 1>`.",
       "generations": ["v14"],
       "note": "v14 only: `KmsNodeParams.storagePrefix`, the prefix WITHIN the storage bucket where KMS Core writes public material (upstream: proto `MpcNode.public_storage_prefix`; devnet: `PUB-pN`). Node i gets `${prefix}${i + 1}`. Distinct from CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX, which is the bucket itself."
     },
@@ -265,6 +290,7 @@
       "value": "0.0.0-cleartext",
       "ts": "string",
       "solidity": "string",
+      "summary": "v14 only. The KMS `softwareVersion` a context is created under. No build exists.",
       "generations": ["v14"],
       "note": "v14 only: the `softwareVersion` argument of `ProtocolConfig.initializeFromEmptyProxy` and `reinitializeV2`, naming the KMS build a context was created under (devnet: `v0.13.20`). There is no KMS build behind a cleartext stack; valid semver with a prerelease tag says exactly that, and nothing on-chain parses it."
     },
@@ -273,6 +299,7 @@
       "value": "0x",
       "ts": "string",
       "solidity": "string",
+      "summary": "v14 only. `KmsNodeParams.caCert` as hex. Empty: there is no MPC peer to verify.",
       "generations": ["v14"],
       "note": "v14 only: `KmsNodeParams.caCert`, the node's CA certificate as HEX (devnet: a ~768-byte PEM). Carried as a hex string because that is what viem takes for `bytes` and the only bytes-like type the config faces know; the generated LocalHostBootstrap turns it into a Solidity `bytes` constant. A cleartext stack has no MPC peer to verify, so it is empty: `0x`."
     }

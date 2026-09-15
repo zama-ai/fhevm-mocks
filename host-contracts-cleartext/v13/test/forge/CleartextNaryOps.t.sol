@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmDeploy} from "../pkg/forge/src/FhevmDeploy.sol";
-import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextDB} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../pkg/forge/src/FhevmDeploy.sol";
-import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
+import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
 
 /**
  * The v13 nary operators, `fheSum` and `fheIsIn`, end to end: executor -> CleartextArithmetic ->
@@ -38,12 +38,12 @@ import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
  * (library-solidity/lib/FHE.sol). So the equivalent fixture here is an explicit encryption of 0, and
  * "uninitialized is 0" is a library guarantee rather than something this contract implements.
  */
-contract CleartextNaryOpsTest is Test, FhevmDeploy {
+contract CleartextNaryOpsTest is Test, FhevmCleartextDeploy {
     ICleartextFHEVMExecutor internal executor;
     ICleartextDB internal db;
 
     function setUp() public {
-        deployFhevm();
+        deployLocalFhevm();
         executor = ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS);
         db = ICleartextDB(CLEARTEXT_DB_ADDRESS);
     }

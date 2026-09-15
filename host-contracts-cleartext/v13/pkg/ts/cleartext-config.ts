@@ -5,7 +5,7 @@
 // cleartext stack's languages must agree on: it records the keccak FORMULA behind each derived value rather
 // than only the hex, and v13's `test/cleartext-config-mirror.test.ts` checks its copy of this module
 // against it — name for name, in declaration order, value for value, bigint-vs-number literal shape included.
-// v13's `create2-deploy/script/FhevmCleartextConfig.sol` is the same JSON's Solidity face.
+// v13's `pkg/forge/src/FhevmCleartextConfig.sol` is the same JSON's Solidity face.
 //
 // `fhevm-npm sync vendored` copies this file into v13's pkg/ts/ as `cleartext-config.ts` — a published
 // package cannot depend on the private @fhevm/sdk-vendored-dev, so it compiles a byte-identical copy under

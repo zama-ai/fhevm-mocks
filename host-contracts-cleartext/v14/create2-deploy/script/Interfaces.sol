@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Not wired into the build, not compiled, not tested.
+// Not wired into the build, not compiled, not tested.
 //
 // Minimal local views, so this draft compiles against forge-std alone and nothing here can influence
 // an address by pulling a real contract into the build. The production version should import

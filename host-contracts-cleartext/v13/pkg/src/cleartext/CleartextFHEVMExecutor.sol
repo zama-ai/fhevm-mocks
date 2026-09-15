@@ -12,6 +12,10 @@ import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
 ///      `CleartextDB`. The executor never touches the DB — keeping the arithmetic + storage bytecode
 ///      out of this contract preserves EIP-170 headroom and lets multiple executors share one DB.
 contract CleartextFHEVMExecutor is FHEVMExecutor {
+    /// @notice Marks a cleartext (mock) implementation. Real host contracts have no such selector, so a
+    ///         consumer can probe it to tell a cleartext stack from a production deployment.
+    bool public constant IS_CLEARTEXT = true;
+
     /// @dev Handle to cleartext value mapping for local testing.
     //mapping(bytes32 => uint256) public plaintexts;
     function plaintexts(bytes32 result) public view returns (uint256) {

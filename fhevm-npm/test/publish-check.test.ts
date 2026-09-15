@@ -133,12 +133,12 @@ test('an entry point the tarball does not contain is a 5.3.10 violation; a subpa
     types: './_types/index.d.ts',
     exports: { '.': { import: './_esm/index.js' }, './abi/*.json': './abi/*.json' },
   } as never;
-  const complete = ['package.json', '_types/index.d.ts', '_esm/index.js', 'abi/ACL.json'];
+  const complete = ['package.json', '_types/index.d.ts', '_esm/index.js', 'abi/CleartextACL.json'];
   assert.deepEqual(validateTarballEntryPoints(plugin, shipped, complete), []);
 
   // Built on disk but left out of "files": the published package resolves to nothing.
   assert.deepEqual(
-    validateTarballEntryPoints(plugin, shipped, ['package.json', '_esm/index.js', 'abi/ACL.json']).map((v) => [
+    validateTarballEntryPoints(plugin, shipped, ['package.json', '_esm/index.js', 'abi/CleartextACL.json']).map((v) => [
       v.rule,
       v.message,
     ]),

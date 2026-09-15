@@ -32,7 +32,7 @@ function __loadAbi(file: string): EthersT.InterfaceAbi {
 
 /** Maps a host contract to the ABI file that describes it in the cleartext package. */
 const ABI_FILE: Readonly<Record<FhevmContractName, string>> = {
-  ACL: 'ACL',
+  ACL: 'CleartextACL',
   FHEVMExecutor: 'CleartextFHEVMExecutor',
   InputVerifier: 'CleartextInputVerifier',
   KMSVerifier: 'CleartextKMSVerifier',

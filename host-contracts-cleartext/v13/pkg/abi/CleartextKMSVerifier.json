@@ -27,6 +27,19 @@
   },
   {
     "type": "function",
+    "name": "IS_CLEARTEXT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -521,7 +534,7 @@
   },
   {
     "type": "error",
-    "name": "ContractAddressNotAuthorized",
+    "name": "CleartextErrorContractAddressNotAuthorized",
     "inputs": [
       {
         "name": "contractAddress",
@@ -532,7 +545,7 @@
   },
   {
     "type": "error",
-    "name": "ContractNotAuthorizedForDecrypt",
+    "name": "CleartextErrorContractNotAuthorizedForDecrypt",
     "inputs": [
       {
         "name": "handle",
@@ -541,6 +554,80 @@
       },
       {
         "name": "contractAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorHandleNotAllowedForPublicDecryption",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorHandleNotDelegatedForUserDecryption",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "contractAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidUserDecryptSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorPublicKeyTooShort",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserAddressEqualsContractAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserNotAuthorizedForDecrypt",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "userAddress",
         "type": "address",
         "internalType": "address"
       }
@@ -611,49 +698,7 @@
   },
   {
     "type": "error",
-    "name": "HandleNotAllowedForPublicDecryption",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "HandleNotDelegatedForUserDecryption",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "contractAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "delegator",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "delegate",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "InvalidInitialization",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidUserDecryptSignature",
     "inputs": []
   },
   {
@@ -706,17 +751,6 @@
   },
   {
     "type": "error",
-    "name": "PublicKeyTooShort",
-    "inputs": [
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "UUPSUnauthorizedCallContext",
     "inputs": []
   },
@@ -739,27 +773,6 @@
         "name": "version",
         "type": "uint8",
         "internalType": "uint8"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "UserAddressEqualsContractAddress",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "UserNotAuthorizedForDecrypt",
-    "inputs": [
-      {
-        "name": "handle",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "userAddress",
-        "type": "address",
-        "internalType": "address"
       }
     ]
   }

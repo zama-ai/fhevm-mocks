@@ -31,12 +31,13 @@ const CONSTANTS = {
     ts: 'number',
     tsEmit: 'bigint',
     solidity: 'uint256',
+    summary: 'The chain id.',
     formula: 'uint48(uint256(keccak256("fhevm.cheat.chainId cleartext gateway")))',
   },
-  PLAIN_COUNT: { value: '4', ts: 'number', solidity: 'uint256' },
-  URL: { value: 'https://relayer.cleartext.foo', ts: 'string', solidity: 'string' },
-  HD_PATH: { value: "m/44'/60'/0'/2/", ts: 'string', solidity: 'string' },
-  URL_ALIAS: { alias: 'URL', ts: 'string', solidity: 'string' },
+  PLAIN_COUNT: { value: '4', ts: 'number', solidity: 'uint256', summary: 'A count.' },
+  URL: { value: 'https://relayer.cleartext.foo', ts: 'string', solidity: 'string', summary: 'A URL.' },
+  HD_PATH: { value: "m/44'/60'/0'/2/", ts: 'string', solidity: 'string', summary: 'An HD path.' },
+  URL_ALIAS: { alias: 'URL', ts: 'string', solidity: 'string', summary: 'An alias.' },
 } as const;
 
 test('renders the TypeScript face: order, formula comments, literal shapes, quoting, aliases', () => {
@@ -47,7 +48,7 @@ test('renders the TypeScript face: order, formula comments, literal shapes, quot
       outputs.map((output) => output.path),
       [
         join(workspace, 'common-vendored', 'src', 'cleartext-config-v13.ts'),
-        join(workspace, 'host-contracts-cleartext', 'v13', 'create2-deploy', 'script', 'FhevmCleartextConfig.sol'),
+        join(workspace, 'host-contracts-cleartext', 'v13', 'pkg', 'forge', 'src', 'FhevmCleartextConfig.sol'),
         join(workspace, 'host-contracts-cleartext', 'v13', 'scripts', 'cleartext-config.sh'),
       ],
     );
@@ -78,8 +79,13 @@ test('renders the TypeScript face: order, formula comments, literal shapes, quot
 test('renders the Solidity face: declared types, bare addresses, quoted strings, aliases', () => {
   const constants = {
     ...CONSTANTS,
-    AN_ADDRESS: { value: '0x6189F6c0c3E40B4a3c72ec86262295D78d845297', ts: 'string', solidity: 'address' },
-    AN_INDEX: { value: '0', ts: 'number', solidity: 'uint32' },
+    AN_ADDRESS: {
+      value: '0x6189F6c0c3E40B4a3c72ec86262295D78d845297',
+      ts: 'string',
+      solidity: 'address',
+      summary: 'An address.',
+    },
+    AN_INDEX: { value: '0', ts: 'number', solidity: 'uint32', summary: 'An index.' },
   };
   const workspace = makeWorkspace(constants);
   try {
@@ -87,19 +93,27 @@ test('renders the Solidity face: declared types, bare addresses, quoted strings,
     assert.match(sol, /^\/\/ SPDX-License-Identifier: BSD-3-Clause-Clear\npragma solidity \^0\.8\.24;\n/);
     const expected = [
       'library FhevmCleartextConfig {',
+      // The one-line summary always; the formula line only where the JSON records one.
+      '    /// The chain id.',
       '    // uint48(uint256(keccak256("fhevm.cheat.chainId cleartext gateway")))',
       '    uint256 internal constant CHAIN_ID = 100733346448153;',
       '',
+      '    /// A count.',
       '    uint256 internal constant PLAIN_COUNT = 4;',
       '',
+      '    /// A URL.',
       '    string internal constant URL = "https://relayer.cleartext.foo";',
       '',
+      '    /// An HD path.',
       "    string internal constant HD_PATH = \"m/44'/60'/0'/2/\";",
       '',
+      '    /// An alias.',
       '    string internal constant URL_ALIAS = URL;',
       '',
+      '    /// An address.',
       '    address internal constant AN_ADDRESS = 0x6189F6c0c3E40B4a3c72ec86262295D78d845297;',
       '',
+      '    /// An index.',
       '    uint32 internal constant AN_INDEX = 0;',
       '}',
       '',
@@ -176,10 +190,10 @@ test('a constant scoped by `generations` reaches only those generations, and eve
       outputs.map((o) => rel(o.path)),
       [
         join(...tsFacePath('v13')),
-        'host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol',
+        'host-contracts-cleartext/v13/pkg/forge/src/FhevmCleartextConfig.sol',
         'host-contracts-cleartext/v13/scripts/cleartext-config.sh',
         join(...tsFacePath('v14')),
-        'host-contracts-cleartext/v14/create2-deploy/script/FhevmCleartextConfig.sol',
+        'host-contracts-cleartext/v14/pkg/forge/src/FhevmCleartextConfig.sol',
         'host-contracts-cleartext/v14/scripts/cleartext-config.sh',
       ],
     );
@@ -192,14 +206,14 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     const v13Expected = [...Object.keys(CONSTANTS), 'BOTH_EXPLICIT'];
     assert.deepEqual(names(byPath.get(join(...tsFacePath('v13'))) ?? ''), v13Expected);
     assert.deepEqual(
-      names(byPath.get('host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol') ?? ''),
+      names(byPath.get('host-contracts-cleartext/v13/pkg/forge/src/FhevmCleartextConfig.sol') ?? ''),
       v13Expected,
     );
     const v13Sh = byPath.get('host-contracts-cleartext/v13/scripts/cleartext-config.sh') ?? '';
     assert.match(v13Sh, /^BOTH_EXPLICIT="7"$/m);
     for (const face of [
       join(...tsFacePath('v13')),
-      'host-contracts-cleartext/v13/create2-deploy/script/FhevmCleartextConfig.sol',
+      'host-contracts-cleartext/v13/pkg/forge/src/FhevmCleartextConfig.sol',
       'host-contracts-cleartext/v13/scripts/cleartext-config.sh',
     ]) {
       assert.doesNotMatch(byPath.get(face) ?? '', /V14_ONLY|NARROW_ALIAS/, face);
@@ -213,7 +227,7 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     assert.doesNotMatch(v14Ts, /^import /m);
     assert.match(v14Ts, /^export const V14_ONLY_ALIAS = V14_ONLY;$/m);
     assert.match(v14Ts, /^export const NARROW_ALIAS = URL;$/m);
-    const v14Sol = byPath.get('host-contracts-cleartext/v14/create2-deploy/script/FhevmCleartextConfig.sol') ?? '';
+    const v14Sol = byPath.get('host-contracts-cleartext/v14/pkg/forge/src/FhevmCleartextConfig.sol') ?? '';
     assert.deepEqual(names(v14Sol), v14Expected);
     assert.match(v14Sol, /string internal constant V14_ONLY_ALIAS = V14_ONLY;/);
     assert.match(

@@ -134,7 +134,7 @@ forge build --out "$BUILD_OUT" --skip test
 # Prove the config took effect rather than trusting it: no placeholder marker may survive. Without this a
 # silently-ignored remapping would deploy markers as if they were real addresses.
 ACL_MARKER="$(sed -n 's/.*ACL_ADDRESS = address(0x\([0-9a-fA-F]*\)).*/\1/p' internal/placeholders/addresses.sol)"
-if [ -n "$ACL_MARKER" ] && grep -qi "$ACL_MARKER" "$BUILD_OUT/ACL.sol/ACL.json"; then
+if [ -n "$ACL_MARKER" ] && grep -qi "$ACL_MARKER" "$BUILD_OUT/CleartextACL.sol/CleartextACL.json"; then
     echo "Error: placeholder marker 0x$ACL_MARKER survived the build — the remapping did not take." >&2
     exit 1
 fi

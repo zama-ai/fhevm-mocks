@@ -58,7 +58,7 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
     /// @dev The implementation artifact at each position, index-aligned with _expectedRoles().
     function _expectedArtifacts() private pure returns (string[] memory a) {
         a = new string[](9);
-        a[0] = "pkg/src/contracts/ACL.sol:ACL";
+        a[0] = "pkg/src/cleartext/CleartextACL.sol:CleartextACL";
         a[1] = "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         a[2] = "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
         a[3] = "pkg/src/cleartext/CleartextInputVerifier.sol:CleartextInputVerifier";
