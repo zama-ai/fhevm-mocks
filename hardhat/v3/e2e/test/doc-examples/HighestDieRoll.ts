@@ -197,29 +197,61 @@ describe('HighestDieRoll', function () {
     // internally verifies the proof (e.g., checks a signature against a newly computed hash).
     // This intentional failure is expected to revert with the `KMSInvalidSigner` error,
     // confirming the proof's order dependency.
-    const tx = await contract.connect(signers.owner).highestDieRoll(playerA, playerB);
-    const receipt = requireReceipt(await tx.wait());
-    const gameCreatedEvent = parseGameCreatedEvent(receipt);
-    const gameId = gameCreatedEvent.gameId;
-    const playerADiceRoll = gameCreatedEvent.playerAEncryptedDiceRoll;
-    const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
-    // Call `fhevm.publicDecrypt` using order (A, B)
-    const publicDecryptResults = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
-    const clearValueA = publicDecryptResults.clearValues[playerADiceRoll];
-    const clearValueB = publicDecryptResults.clearValues[playerBDiceRoll];
-    const decryptionProof = publicDecryptResults.decryptionProof;
-    expect(typeof clearValueA).to.eq('bigint');
-    expect(typeof clearValueB).to.eq('bigint');
-    expect(ethers.AbiCoder.defaultAbiCoder().encode(['uint256', 'uint256'], [clearValueA, clearValueB])).to.eq(
-      publicDecryptResults.abiEncodedClearValues,
-    );
+    // The reordering below only changes the payload when the two rolls DIFFER. `randEuint8()` is a full
+    // byte, not a one-to-six die, so the two collide roughly once in 256 games. The "wrong" order is
+    // then byte-identical to the right one: the proof verifies, nothing reverts, and this test fails
+    // for a reason that has nothing to do with ordering. Play until the rolls differ, so the mutation
+    // under test is always a real one.
+    const MAX_DRAWS = 20;
+    let game:
+      | {
+          readonly gameId: number;
+          readonly clearValueA: bigint;
+          readonly clearValueB: bigint;
+          readonly results: Awaited<ReturnType<typeof fhevm.publicDecrypt>>;
+        }
+      | undefined;
+
+    for (let attempt = 0; attempt < MAX_DRAWS && game === undefined; attempt++) {
+      const tx = await contract.connect(signers.owner).highestDieRoll(playerA, playerB);
+      const receipt = requireReceipt(await tx.wait());
+      const gameCreatedEvent = parseGameCreatedEvent(receipt);
+      const playerADiceRoll = gameCreatedEvent.playerAEncryptedDiceRoll;
+      const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
+      // Call `fhevm.publicDecrypt` using order (A, B)
+      const results = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
+      const clearValueA = results.clearValues[playerADiceRoll];
+      const clearValueB = results.clearValues[playerBDiceRoll];
+      expect(typeof clearValueA).to.eq('bigint');
+      expect(typeof clearValueB).to.eq('bigint');
+      if (clearValueA !== clearValueB) {
+        game = {
+          gameId: gameCreatedEvent.gameId,
+          clearValueA: clearValueA as bigint,
+          clearValueB: clearValueB as bigint,
+          results,
+        };
+      }
+    }
+
+    if (game === undefined) {
+      throw new Error(`${MAX_DRAWS} games in a row were a draw; the reordering could not be tested`);
+    }
+
+    expect(
+      ethers.AbiCoder.defaultAbiCoder().encode(['uint256', 'uint256'], [game.clearValueA, game.clearValueB]),
+    ).to.eq(game.results.abiEncodedClearValues);
     const wrongOrderBAInsteadOfABAbiEncodedValues = ethers.AbiCoder.defaultAbiCoder().encode(
       ['uint256', 'uint256'],
-      [clearValueB, clearValueA],
+      [game.clearValueB, game.clearValueA],
     );
     // ❌ Call `contract.recordAndVerifyWinner` using order (B, A)
     await expect(
-      contract.recordAndVerifyWinner(gameId, wrongOrderBAInsteadOfABAbiEncodedValues, decryptionProof),
+      contract.recordAndVerifyWinner(
+        game.gameId,
+        wrongOrderBAInsteadOfABAbiEncodedValues,
+        game.results.decryptionProof,
+      ),
     ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
   });
 });
