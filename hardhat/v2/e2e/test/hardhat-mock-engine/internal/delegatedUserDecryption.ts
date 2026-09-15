@@ -59,7 +59,7 @@ export const delegatedUserDecryptSingleHandle = async (
   return decrypted.value;
 };
 
-describe('xxx Delegated user decryption', function () {
+describe('Delegated user decryption', function () {
   let signers: Signers;
   let token: TestConfidentialERC20Mintable;
   let tokenAddress: `0x${string}`;
