@@ -2,10 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {ACL_ADDRESS, INPUT_VERIFIER_ADDRESS} from "./_internal/LocalHostAddresses.sol";
-import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 import {ICleartextInputVerifier} from "./_internal/interfaces/ICleartextInputVerifier.sol";
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
-import {FhevmCleartextConfig} from "./FhevmCleartextConfig.sol";
+import {FhevmCleartextSigners} from "./FhevmCleartextSigners.sol";
 
 /**
  * @title CleartextEncrypt
@@ -73,9 +72,6 @@ library FhevmCleartextEncrypt {
     error TooManyInputs(uint256 count);
     error MalformedTypeValuePairs(uint256 length);
     error InvalidFheTypeId(uint256 typeId);
-    error ThresholdExceedsSigners(uint256 threshold, uint256 signers);
-    error UnknownCoprocessorSigner(address signer);
-    error CoprocessorKeyMismatch(uint256 index, address derived, address registered);
 
     /**
      * @notice Bundles `values` into external handles plus the proof that authenticates them.
@@ -125,12 +121,9 @@ library FhevmCleartextEncrypt {
             .inputProof(handles, userAddress, contractAddress, cleartextExtraData);
 
         // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
-        uint256[] memory chosen = _randomUniqueIndices(signers.length, threshold);
-        bytes memory signatures;
-        for (uint256 j = 0; j < threshold; j++) {
-            (uint8 v, bytes32 r, bytes32 s) = fvm.sign(_coprocessorKeyFor(signers[chosen[j]]), digest);
-            signatures = abi.encodePacked(signatures, r, s, v);
-        }
+        bytes memory signatures = FhevmCleartextSigners.packSignatures(
+            FhevmCleartextSigners.randomCoprocessorSignatures(digest, signers, threshold)
+        );
 
         // <len(handles)><len(signatures)><handles: 32 each><signatures: 65 each><cleartextExtraData>
         inputProof = abi.encodePacked(uint8(n), uint8(threshold), _packHandles(handles), signatures, cleartextExtraData);
@@ -249,45 +242,6 @@ library FhevmCleartextEncrypt {
         h |= uint256(typeId) << 8;
         h |= uint256(HANDLE_VERSION);
         return bytes32(h);
-    }
-
-    /**
-     * @dev `count` distinct indices drawn uniformly from `[0, n)`, mirroring the SDK's
-     *      `randomUniqueUints`: a partial Fisher-Yates shuffle of the index pool, first `count` taken.
-     *
-     *      Signing with the first `threshold` signers would also verify, because `InputVerifier` only
-     *      counts distinct valid signers against the threshold. Choosing at random is what makes a forge
-     *      test exercise the same signer-set variability a real client produces, instead of pinning one
-     *      subset forever and never noticing a bug the others would surface.
-     */
-    function _randomUniqueIndices(uint256 n, uint256 count) private view returns (uint256[] memory pool) {
-        if (count > n) revert ThresholdExceedsSigners(count, n);
-        pool = new uint256[](n);
-        for (uint256 i = 0; i < n; i++) {
-            pool[i] = i;
-        }
-        for (uint256 i = 0; i < count; i++) {
-            uint256 j = i + (fvm.randomUint() % (n - i));
-            (pool[i], pool[j]) = (pool[j], pool[i]);
-        }
-    }
-
-    /// @dev The key for a signer the stack actually registered, or a revert. Never signs with a key the
-    ///      verifier does not know, which would otherwise surface as an opaque proof rejection.
-    function _coprocessorKeyFor(address signer) private pure returns (uint256 privateKey) {
-        address[] memory registered = LocalHostBootstrap.coprocessorSigners();
-        for (uint256 i = 0; i < registered.length; i++) {
-            if (registered[i] != signer) continue;
-            privateKey = fvm.deriveKey(
-                FhevmCleartextConfig.CLEARTEXT_COPROCESSORS_MNEMONIC,
-                FhevmCleartextConfig.CLEARTEXT_COPROCESSORS_MNEMONIC_PATH,
-                uint32(i) + FhevmCleartextConfig.CLEARTEXT_COPROCESSORS_MNEMONIC_INDEX
-            );
-            address derived = fvm.addr(privateKey);
-            if (derived != signer) revert CoprocessorKeyMismatch(i, derived, signer);
-            return privateKey;
-        }
-        revert UnknownCoprocessorSigner(signer);
     }
 
     /// @dev `abi.encodePacked` on a bytes32[] concatenates with no length prefix — the proof's handle
