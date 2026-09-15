@@ -1,6 +1,5 @@
 import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
-import type { ContractRunner, ContractTransactionResponse } from 'ethers';
 import { network } from 'hardhat';
 
 import type {
@@ -60,13 +59,21 @@ const ACL_ABI = [
 
 // The two ACL entry points this file touches directly. Typed by hand: the ACL is not part of this
 // package's typechain output, and only these two members are needed.
+//
+// Both helper types are DERIVED from the connection's own `ethers` rather than imported from the
+// `ethers` package. The suite reaches ethers through the hardhat connection everywhere else, so a direct
+// import — even a type-only one — would make `ethers` a dependency this package has to declare and pin
+// (rule 4.2.1), for two names.
+type ContractRunnerLike = ConstructorParameters<typeof ethers.Contract>[2];
+type SentTransaction = { wait(): Promise<unknown> };
+
 type AclWildcardView = {
   WILDCARD_DELEGATION_ADDRESS(): Promise<string>;
   delegateForUserDecryption(
     delegate: string,
     contractAddress: string,
     expirationDate: bigint,
-  ): Promise<ContractTransactionResponse>;
+  ): Promise<SentTransaction>;
 };
 
 // chai-as-promised is not typed in this suite; the assertion is spelled out instead.
@@ -134,7 +141,7 @@ describe('Delegated user decryption — wildcard', function () {
   });
 
   // The stack's ACL, at the address the coprocessor config of any deployed contract reports.
-  async function acl(runner: ContractRunner): Promise<AclWildcardView> {
+  async function acl(runner: ContractRunnerLike): Promise<AclWildcardView> {
     const { ACLAddress } = await fhevm.getCoprocessorConfig(counterAddress);
     return new ethers.Contract(ACLAddress, ACL_ABI, runner) as unknown as AclWildcardView;
   }
