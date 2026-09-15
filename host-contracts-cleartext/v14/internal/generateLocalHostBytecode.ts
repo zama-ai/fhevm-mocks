@@ -16,11 +16,12 @@
 // nothing that can be patched wrongly. The script asserts no placeholder marker survives, which is what
 // proves the config injection took effect rather than silently falling back.
 //
-// Output lives in pkg/forge/, deliberately outside foundry.toml's `src`. Forge therefore never compiles
-// these files, which is what keeps them from becoming inputs to the very build that produces them, frees
-// their pragma from the harness's pinned solc, and spares a consumer sweeping src/ from compiling ~139 KB
-// of hex it may never use. The cost is one remapping in the consuming layer (see README.md, "Consuming
-// pkg/forge from Foundry").
+// Output lives in pkg/forge/, deliberately outside `[profile.default]`'s `src`. The default build
+// therefore never compiles these files, which is what keeps them from becoming inputs to the very build
+// that produces them, frees their pragma from the harness's pinned solc, and spares a consumer sweeping
+// src/ from compiling ~139 KB of hex it may never use. (`[profile.forgefhevmcore]` does compile them,
+// into its own `out`, purely as a gate — see foundry.toml.) The cost is one remapping in the consuming
+// layer (see README.md, "Consuming pkg/forge from Foundry").
 //
 // Isolation: the fresh config goes to a tmp directory reached by temporarily repointing remappings.txt,
 // and the build gets its own --out. internal/placeholders/addresses.sol, the committed templates and the
@@ -105,7 +106,7 @@ const REMAPPINGS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'remappings.txt');
  *     difference is invisible through a proxy but real, so they ship creation code.
  */
 export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
-  ACL: 'creation',
+  CleartextACL: 'creation',
   ACLOwner: 'creation',
   CleartextArithmetic: 'creation',
   CleartextDB: 'creation',
@@ -132,10 +133,11 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
  * path import what it needs, with no build mode to get wrong and nothing to remember before
  * committing.
  *
- *   FhevmDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
+ *   FhevmCleartextDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
  *   DeployLocalStack.s.sol   broadcast to a node    -> CLEARTEXT_*_CREATION_CODE
  *
- * Only these two contracts have Forge variants: they are the only ones that call cheatcodes.
+ * Three contracts have Forge variants. The executor and arithmetic ones call cheatcodes; the ACL one is
+ * the hook for forge-only checks and is blank until those land (see CleartextForgeACL.sol).
  */
 const FORGE_VARIANTS: ReadonlyArray<{
   readonly constantName: string;
@@ -151,6 +153,11 @@ const FORGE_VARIANTS: ReadonlyArray<{
     constantName: 'CLEARTEXT_FORGE_FHEVM_EXECUTOR',
     contractName: 'CleartextForgeFHEVMExecutor',
     sourcePath: 'src/cleartext/CleartextForgeFHEVMExecutor.sol',
+  },
+  {
+    constantName: 'CLEARTEXT_FORGE_ACL',
+    contractName: 'CleartextForgeACL',
+    sourcePath: 'src/cleartext/CleartextForgeACL.sol',
   },
 ];
 
@@ -299,7 +306,7 @@ function _renderAddresses(stack: LocalHostStack): string {
   const proxyCount = ADDRESS_NAMES.filter((name) => NONCE_LABEL[name].startsWith('ERC1967Proxy')).length;
 
   // ^0.8.24, not the model's ^0.8.27: it is the payload's own floor, it is what the harness
-  // pins so test/FhevmDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
+  // pins so test/forge/FhevmCleartextDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
   return `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
@@ -541,7 +548,7 @@ function _render(
     .join('\n\n');
 
   // ^0.8.24, not the model's ^0.8.27: it is the payload's own floor, it is what the harness
-  // pins so test/FhevmDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
+  // pins so test/forge/FhevmCleartextDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
   return `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
@@ -556,8 +563,8 @@ pragma solidity ^0.8.24;
 // CREATION_CODE must be deployed: the constructor either takes arguments or writes storage.
 // RUNTIME_CODE may be etched at its address, being equivalent to constructing the contract.
 //
-// CLEARTEXT_FORGE_* are the cheatcode-calling variants of the executor and arithmetic contracts, and
-// are for pkg/forge/src/FhevmDeploy.sol ONLY — a forge test that creates the stack in-process.
+// CLEARTEXT_FORGE_* are the forge-only variants of the executor, arithmetic and ACL contracts, and
+// are for pkg/forge/src/FhevmCleartextDeploy.sol ONLY — a forge test that creates the stack in-process.
 // Broadcast to a node, they revert on every FHE operation: cheatcodes live in forge's own EVM, so
 // 0x7109...dD12D has no code anywhere else and Solidity's extcodesize guard turns the call into a
 // revert. DeployLocalStack.s.sol broadcasts, and therefore uses the plain CLEARTEXT_* blobs.
@@ -692,6 +699,12 @@ export function writeLocalHostBytecode(): LocalHostBytecodeResult {
     writeFileSync(REMAPPINGS_PATH, originalRemappings, 'utf8');
     rmSync(TMP_DIR, { recursive: true, force: true });
   }
+
+  // The emitted files are formatted HERE rather than left to `npm run fmt`: the default profile's `src`
+  // is pkg/src, so a bare `forge fmt` never reaches pkg/forge, and check-generated compares the committed
+  // files byte-for-byte with what this writes. Formatting on the way out is what lets the two agree even when
+  // someone runs `forge fmt pkg/forge` by hand — the result is the same either way.
+  forge(['fmt', dirname(OUTPUT_PATH)]);
 
   return { stack, code, interfaces };
 }

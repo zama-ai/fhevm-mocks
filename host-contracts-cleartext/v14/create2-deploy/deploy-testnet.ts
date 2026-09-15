@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 //
-// DRAFT — see README.md. Deploy a cleartext FHEVM stack to a public EVM testnet via the canonical
+// Deploy a cleartext FHEVM stack to a public EVM testnet via the canonical
 // CREATE2 factory. Coordinator for create2-deploy/script/*.
 //
 //   node create2-deploy/deploy-testnet.ts --help

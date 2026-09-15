@@ -15,6 +15,7 @@ import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
 import {IProtocolConfig} from "../../src/contracts/interfaces/IProtocolConfig.sol";
 import {KmsNodeParams, PcrValues} from "../../src/contracts/shared/Structs.sol";
+import {CleartextACL} from "../../src/cleartext/CleartextACL.sol";
 import {CleartextFHEVMExecutor} from "../../src/cleartext/CleartextFHEVMExecutor.sol";
 import {CleartextKMSVerifier} from "../../src/cleartext/CleartextKMSVerifier.sol";
 import {CleartextInputVerifier} from "../../src/cleartext/CleartextInputVerifier.sol";
@@ -117,7 +118,7 @@ import {
  *
  * Ownership: `EmptyUUPSProxy._authorizeUpgrade` is `onlyACLOwner`, i.e. it
  * checks `Ownable2StepUpgradeable(aclAdd).owner()`. The ACL proxy is
- * initialized with `deployer` as owner at nonce+1, and `ACL.initializeFromEmptyProxy`
+ * initialized with `deployer` as owner at nonce+1, and `CleartextACL.initializeFromEmptyProxy`
  * preserves it via `__Ownable_init(owner())`, so the deployer retains upgrade
  * authority over every proxy for the whole run. It also satisfies
  * `PauserSet.addPauser`, which is `onlyACLOwner` too.
@@ -275,7 +276,11 @@ contract FhevmDeployScript is Script {
     function _materialize(ACLOwner aclOwner) private {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
 
-        ops[0] = ACLOwner.Op(aclAdd, address(new ACL()), abi.encodeCall(ACL.initializeFromEmptyProxy, ()));
+        ops[0] =
+        // The implementation is CleartextACL; the initializer is encoded against ACL because
+        // CleartextACL inherits it without redeclaring it, and solc cannot form a function
+        // pointer to an inherited member through the derived type. Same signature, same selector.
+        ACLOwner.Op(aclAdd, address(new CleartextACL()), abi.encodeCall(ACL.initializeFromEmptyProxy, ()));
         ops[1] = ACLOwner.Op(
             fhevmExecutorAdd,
             address(new CleartextFHEVMExecutor()),

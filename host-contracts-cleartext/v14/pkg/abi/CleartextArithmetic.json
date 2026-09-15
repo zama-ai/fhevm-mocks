@@ -6,6 +6,19 @@
   },
   {
     "type": "function",
+    "name": "IS_CLEARTEXT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -436,6 +449,76 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorHandleChainIdMismatch",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "handleChainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockChainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUnsupportedBinaryOp",
+    "inputs": [
+      {
+        "name": "op",
+        "type": "uint8",
+        "internalType": "enum FHEVMExecutor.Operators"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUnsupportedNaryOp",
+    "inputs": [
+      {
+        "name": "op",
+        "type": "uint8",
+        "internalType": "enum FHEVMExecutor.Operators"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUnsupportedTernaryOp",
+    "inputs": [
+      {
+        "name": "op",
+        "type": "uint8",
+        "internalType": "enum FHEVMExecutor.Operators"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUnsupportedType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUnsupportedUnaryOp",
+    "inputs": [
+      {
+        "name": "op",
+        "type": "uint8",
+        "internalType": "enum FHEVMExecutor.Operators"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -494,55 +577,6 @@
         "name": "slot",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "UnsupportedBinaryOp",
-    "inputs": [
-      {
-        "name": "op",
-        "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "UnsupportedNaryOp",
-    "inputs": [
-      {
-        "name": "op",
-        "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "UnsupportedTernaryOp",
-    "inputs": [
-      {
-        "name": "op",
-        "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "UnsupportedType",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "UnsupportedUnaryOp",
-    "inputs": [
-      {
-        "name": "op",
-        "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
       }
     ]
   }

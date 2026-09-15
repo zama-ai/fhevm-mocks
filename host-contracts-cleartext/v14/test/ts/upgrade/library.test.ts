@@ -64,7 +64,7 @@ const MIGRATED_CONTEXT_ID = (7n << 248n) + 1n;
  * ERR_PACKAGE_PATH_NOT_EXPORTED right here, instead of surfacing as a puzzling missing-ABI much later.
  */
 const V13_ABI_DIR = dirname(
-  fileURLToPath(import.meta.resolve('@fhevm/host-contracts-cleartext-v13-dev/pkg/abi/ACL.json')),
+  fileURLToPath(import.meta.resolve('@fhevm/host-contracts-cleartext-v13-dev/pkg/abi/CleartextACL.json')),
 );
 
 type AbiEntry = {
@@ -82,7 +82,7 @@ function surveyTargets(deployed: {
   readonly aclOwnerAddress: string;
 }): ReadonlyArray<{ readonly label: string; readonly abiFile: string; readonly address: Address }> {
   return [
-    { label: 'ACL', abiFile: 'ACL.json', address: deployed.fhevmAddresses.aclAddress as Address },
+    { label: 'ACL', abiFile: 'CleartextACL.json', address: deployed.fhevmAddresses.aclAddress as Address },
     {
       label: 'FHEVMExecutor',
       abiFile: 'CleartextFHEVMExecutor.json',
@@ -139,6 +139,9 @@ const MAY_CHANGE = new Set([
   'HCULimit.getVersion',
   'KMSVerifier.getVersion',
   'CleartextArithmetic.getVersion',
+  // The ACL's protocol-version marker: 13 before the upgrade, 14 after, by construction. `IS_CLEARTEXT`
+  // is deliberately NOT here — it reads true on both sides, so it must not move.
+  'ACL.CLEARTEXT_PROTOCOL_VERSION',
   // Returns `block.number` by construction, so it differs between any two blocks.
   'HCULimit.getBlockMeter',
 ]);
@@ -389,6 +392,19 @@ const PAUSER_EVENTS_ABI = [
   },
 ] as const;
 
+// The cleartext markers on the ACL. Both generations install a `CleartextACL`, so the upgrade must carry
+// the marker across and move the protocol version with it.
+const CLEARTEXT_MARKER_ABI = [
+  { type: 'function', name: 'IS_CLEARTEXT', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  {
+    type: 'function',
+    name: 'CLEARTEXT_PROTOCOL_VERSION',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+] as const;
+
 const CLEARTEXT_DB_ABI = [
   {
     type: 'function',
@@ -489,6 +505,23 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
       kmsGeneration: 'KMSGeneration v0.1.0',
       cleartextArithmetic: 'CleartextArithmetic v0.4.0',
     });
+
+    // The v13 stack already carries the marker, and reports 13. Asserted before the upgrade as well as
+    // after, so the pair proves the protocol version actually moved rather than always having read 14.
+    expect(
+      await publicClient.readContract({
+        address: v13.fhevmAddresses.aclAddress as Address,
+        abi: CLEARTEXT_MARKER_ABI,
+        functionName: 'IS_CLEARTEXT',
+      }),
+    ).toBe(true);
+    expect(
+      await publicClient.readContract({
+        address: v13.fhevmAddresses.aclAddress as Address,
+        abi: CLEARTEXT_MARKER_ABI,
+        functionName: 'CLEARTEXT_PROTOCOL_VERSION',
+      }),
+    ).toBe(13n);
 
     // ERC-1967 implementation slot of every proxy, by name: the upgrade must move exactly seven of them.
     const implementations = async (): Promise<Record<string, string>> => {
@@ -639,6 +672,21 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
       kmsGeneration: 'KMSGeneration v0.2.0',
       cleartextArithmetic: 'CleartextArithmetic v0.5.0',
     });
+
+    // The ACL still advertises itself as cleartext after the migration, and now reports v14. A consumer
+    // holding only a ZamaConfig reads this to tell which generation it is talking to, so an upgrade that
+    // silently reinstated the plain `ACL` would be invisible without it.
+    const aclAddress = v13.fhevmAddresses.aclAddress as Address;
+    expect(
+      await publicClient.readContract({ address: aclAddress, abi: CLEARTEXT_MARKER_ABI, functionName: 'IS_CLEARTEXT' }),
+    ).toBe(true);
+    expect(
+      await publicClient.readContract({
+        address: aclAddress,
+        abi: CLEARTEXT_MARKER_ABI,
+        functionName: 'CLEARTEXT_PROTOCOL_VERSION',
+      }),
+    ).toBe(14n);
 
     // --- 4b. Everything readable survives. Every zero-argument getter the v13 stack exposed returns
     //         exactly what it did before, except the versions the upgrade is supposed to move. ---

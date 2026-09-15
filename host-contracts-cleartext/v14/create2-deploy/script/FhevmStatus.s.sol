@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Compiles; never run.
+// Compiles; never run.
 
 import {console} from "forge-std/Script.sol";
 import {FhevmCreate2Base} from "./FhevmCreate2Base.s.sol";
@@ -100,8 +100,7 @@ contract FhevmStatus is FhevmCreate2Base {
         if (c.initCode.length > MAX_INITCODE_SIZE) {
             _bad++;
             console.log(
-                string.concat("  TOO BIG  ", c.role, "  - initcode over the EIP-3860 limit:"),
-                c.initCode.length
+                string.concat("  TOO BIG  ", c.role, "  - initcode over the EIP-3860 limit:"), c.initCode.length
             );
             return;
         }

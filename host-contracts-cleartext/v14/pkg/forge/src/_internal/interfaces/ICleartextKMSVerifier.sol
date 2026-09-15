@@ -11,8 +11,16 @@ interface ICleartextKMSVerifier {
     }
 
     error AddressEmptyCode(address target);
-    error ContractAddressNotAuthorized(address contractAddress);
-    error ContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
+    error CleartextErrorContractAddressNotAuthorized(address contractAddress);
+    error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
+    error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
+    error CleartextErrorHandleNotDelegatedForUserDecryption(
+        bytes32 handle, address contractAddress, address delegator, address delegate
+    );
+    error CleartextErrorInvalidUserDecryptSignature();
+    error CleartextErrorPublicKeyTooShort(uint256 length);
+    error CleartextErrorUserAddressEqualsContractAddress();
+    error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
     error DeserializingDecryptionProofFail();
     error DeserializingExtraDataFail();
     error ECDSAInvalidSignature();
@@ -22,24 +30,16 @@ interface ICleartextKMSVerifier {
     error ERC1967NonPayable();
     error EmptyDecryptionProof();
     error FailedCall();
-    error HandleNotAllowedForPublicDecryption(bytes32 handle);
-    error HandleNotDelegatedForUserDecryption(
-        bytes32 handle, address contractAddress, address delegator, address delegate
-    );
     error InvalidInitialization();
-    error InvalidUserDecryptSignature();
     error KMSInvalidSigner(address invalidSigner);
     error KMSSignatureThresholdNotReached(uint256 numSignatures);
     error KMSZeroSignature();
     error NotHostOwner(address sender);
     error NotInitializing();
     error NotInitializingFromEmptyProxy();
-    error PublicKeyTooShort(uint256 length);
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
     error UnsupportedExtraDataVersion(uint8 version);
-    error UserAddressEqualsContractAddress();
-    error UserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
 
     event EIP712DomainChanged();
     event Initialized(uint64 version);
@@ -47,6 +47,7 @@ interface ICleartextKMSVerifier {
 
     function DECRYPTION_RESULT_TYPEHASH() external view returns (bytes32);
     function EIP712_PUBLIC_DECRYPT_TYPE() external view returns (string memory);
+    function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function delegatedUserDecrypt(
         HandleContractPair[] memory pairs,
