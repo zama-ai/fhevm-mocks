@@ -26,7 +26,9 @@ Start a new anvil with a fresh deployed cleartext
 
 | Path                  | Contents                                                                        |
 | --------------------- | ------------------------------------------------------------------------------- |
-| `src/FhevmDeploy.sol` | the deploy tool, and the **only** file a consumer imports                       |
+| `src/FhevmCleartextDeploy.sol` | the deploy tool, and the **only** file a consumer imports                       |
+| `src/ForgeVmBase.sol` | binds the forge cheatcode address; inherited by `FhevmCleartextDeploy`                   |
+| `src/IForgeVm.sol`    | the forge cheatcodes the deploy tool calls, vendored so there is no forge-std dep |
 | `script/`             | forge scripts (`*.s.sol`) — run by path, not imported, so outside the remapping |
 | `src/_internal/`      | everything generated — addresses, bytecode blobs, bootstrap args, interfaces    |
 
@@ -34,7 +36,7 @@ It is the Foundry counterpart to `pkg/ts/`: both are optional conveniences, and 
 `pkg/src/` is still the product. The layout is deliberately Foundry-shaped — `src` and `script` where the
 toolchain expects them — so `forge build` and `forge script` work with default config from inside
 `pkg/forge`. There is no `test/` here: rule 14 keeps tests out of the payload, so the forge tests for these
-tools live in the harness at `test/FhevmDeploy.t.sol`.
+tools live in the harness at `test/forge/FhevmCleartextDeploy.t.sol`.
 
 The two `LocalHost*.sol` files are halves of one artifact — the bytecode is compiled against exactly those
 addresses — so they are regenerated together and `test/templates.test.ts` fails if they drift apart. The
@@ -61,19 +63,19 @@ remappings = [
 Then:
 
 ```solidity
-import {FhevmDeploy, IACL, ACL_ADDRESS} from "host-contracts-cleartext-forge/FhevmDeploy.sol";
+import {FhevmCleartextDeploy, IACL, ACL_ADDRESS} from "host-contracts-cleartext-forge/FhevmCleartextDeploy.sol";
 
-contract MyTest is Test, FhevmDeploy {
-    function setUp() public { deployFhevm(); }
+contract MyTest is Test, FhevmCleartextDeploy {
+    function setUp() public { deployLocalFhevm(); }
     function test_x() public view { IACL(ACL_ADDRESS).getVersion(); }
 }
 ```
 
-Everything comes through `FhevmDeploy.sol`: Solidity re-exports imported symbols, so the interfaces and
+Everything comes through `FhevmCleartextDeploy.sol`: Solidity re-exports imported symbols, so the interfaces and
 address constants it pulls in are reachable from it, and `ACL_ADDRESS` stays a compile-time constant rather
 than a getter. `src/_internal/` is not API — reaching into it works, since Solidity has no directory
 visibility, but nothing there is stable. `LocalHostBytecode.sol` especially: those blobs are pre-compiled
-against the canonical addresses, so deploying them by hand bypasses `FhevmDeploy`'s nonce-ordering guards
+against the canonical addresses, so deploying them by hand bypasses `FhevmCleartextDeploy`'s nonce-ordering guards
 and produces a stack whose bytecode points at addresses nothing lives at.
 
 Note `_internal/LocalHostAddresses.sol` declares the same constant names as the

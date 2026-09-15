@@ -1,0 +1,31 @@
+{
+  "op": "neg",
+  "arity": 1,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 128,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "neg_128_two",
+      "lhs": { "bits": 128, "value": "0x2" },
+      "result": { "bits": 128, "value": "0xfffffffffffffffffffffffffffffffe" }
+    },
+    {
+      "id": "neg_128_small",
+      "lhs": { "bits": 128, "value": "0x64" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffff9c" }
+    },
+    {
+      "id": "neg_128_pattern",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5b" }
+    },
+    {
+      "id": "neg_128_inverse_pattern",
+      "lhs": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a6" }
+    }
+  ]
+}

@@ -7,6 +7,10 @@ import {InputVerifier} from "../contracts/InputVerifier.sol";
  * @title CleartextInputVerifier
  */
 contract CleartextInputVerifier is InputVerifier {
+    /// @notice Marks a cleartext (mock) implementation. Real host contracts have no such selector, so a
+    ///         consumer can probe it to tell a cleartext stack from a production deployment.
+    bool public constant IS_CLEARTEXT = true;
+
     function inputProof(
         bytes32[] calldata ctHandles,
         address userAddress,

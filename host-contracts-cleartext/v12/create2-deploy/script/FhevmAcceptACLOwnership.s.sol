@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Compiles; never run.
+// Compiles; never run.
 
 import {console} from "forge-std/Script.sol";
 import {FhevmCreate2Base} from "./FhevmCreate2Base.s.sol";
@@ -67,8 +67,7 @@ contract FhevmAcceptACLOwnership is FhevmCreate2Base {
         address pauserSet = _readManifestAddress(manifest, R_PAUSER_SET);
         address aclOwner = _readManifestAddress(manifest, R_ACL_OWNER);
         require(
-            _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner),
-            "FhevmAcceptACLOwnership: run creates first"
+            _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner), "FhevmAcceptACLOwnership: run creates first"
         );
 
         _banner("step C - accept ACL ownership");

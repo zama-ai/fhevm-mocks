@@ -1,4 +1,4 @@
-import { abi as aclAbi } from './artifacts/ACL.js';
+import { abi as aclAbi } from './artifacts/CleartextACL.js';
 import { abi as aclOwnerAbi } from './artifacts/ACLOwner.js';
 import { abi as cleartextArithmeticAbi } from './artifacts/CleartextArithmetic.js';
 import { abi as cleartextDbAbi } from './artifacts/CleartextDB.js';

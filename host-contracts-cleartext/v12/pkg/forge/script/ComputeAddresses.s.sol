@@ -116,7 +116,7 @@ contract ComputeAddresses is Script {
     }
 
     /// @dev One `address constant NAME = address(0x...);` declaration.
-    function _constant(string memory name, address value) private view returns (string memory) {
+    function _constant(string memory name, address value) private pure returns (string memory) {
         return string.concat("\naddress constant ", name, " = address(", vm.toString(value), ");\n");
     }
 }

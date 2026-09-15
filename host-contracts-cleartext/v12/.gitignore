@@ -12,6 +12,8 @@ pkg/ts/_esm
 pkg/ts/_types
 pkg/ts/_types-cjs
 out
+out-forgefhevmcore
+out-create2
 tarball
 .vitest-cache/
 test/ts/node_modules

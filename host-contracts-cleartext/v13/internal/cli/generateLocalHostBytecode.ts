@@ -1,7 +1,7 @@
 // Run: npm run generate:local-host-bytecode
 //
 // Emits both cleartext variants every time: the standard blobs and the CLEARTEXT_FORGE_* ones. There
-// is no mode to choose — DeployLocalStack.s.sol broadcasts and takes the standard blobs, FhevmDeploy.sol
+// is no mode to choose — DeployLocalStack.s.sol broadcasts and takes the standard blobs, FhevmCleartextDeploy.sol
 // runs in-process under forge and takes the Forge ones. See FORGE_VARIANTS in the module.
 //
 // Must run from the package root, and after `forge build`'s inputs exist: it repoints remappings.txt at a

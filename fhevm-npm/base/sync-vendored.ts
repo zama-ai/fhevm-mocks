@@ -27,7 +27,7 @@ import {
 } from './checks/vendored.ts';
 import type { Violation } from './diagnostics.ts';
 import { vendoredDigest } from './vendored-digest.ts';
-import { withPinnedTree } from './vendored-download.ts';
+import { pinnedTreeCacheRoot, withPinnedTree } from './vendored-download.ts';
 
 /** Progress sink. Supplied only in verbose mode, so a quiet run stays silent until its report. */
 export type ProgressLogger = (message: string) => void;
@@ -309,9 +309,16 @@ function syncPinnedTarget(
     violations.push({
       rule: RULE,
       packageKey: `./${targetLabel(target)}`,
-      message: `unable to read ${target.source.repository} at ${target.source.commit}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      message:
+        `unable to read ${target.source.repository} at ${target.source.commit}: ${
+          error instanceof Error ? error.message : String(error)
+        }. ` +
+        // A commit is immutable, so the tree is downloaded once and kept. The cache lives in the
+        // system temp directory, which macOS prunes on a schedule — and it prunes FILES while leaving
+        // the directories, so a pruned slot still looks present and is reused forever. Reading it then
+        // reports the tree as holding nothing. Clearing it costs one re-download.
+        `If this looks like the pinned tree is empty, the download cache was probably pruned: ` +
+        `delete ${pinnedTreeCacheRoot()} and run again.`,
     });
     return 0;
   }

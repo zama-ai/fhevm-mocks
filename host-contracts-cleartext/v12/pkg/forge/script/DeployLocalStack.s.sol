@@ -21,7 +21,7 @@ import {
 } from "../src/_internal/LocalHostAddresses.sol";
 
 import {
-    ACL_CREATION_CODE,
+    CLEARTEXT_ACL_CREATION_CODE,
     ACL_OWNER_CREATION_CODE,
     CLEARTEXT_ARITHMETIC_CREATION_CODE,
     CLEARTEXT_DB_CREATION_CODE,
@@ -37,7 +37,7 @@ import {
 
 import {LocalHostBootstrap} from "../src/_internal/LocalHostBootstrap.sol";
 
-import {IACL} from "../src/_internal/interfaces/IACL.sol";
+import {ICleartextACL} from "../src/_internal/interfaces/ICleartextACL.sol";
 import {ACLOwner, IACLOwner} from "../src/_internal/interfaces/IACLOwner.sol";
 import {ICleartextArithmetic} from "../src/_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextDB} from "../src/_internal/interfaces/ICleartextDB.sol";
@@ -53,8 +53,8 @@ import {IPauserSet} from "../src/_internal/interfaces/IPauserSet.sol";
  * @title DeployLocalStack
  * @notice Deploys the canonical local cleartext stack from the PRE-COMPILED blobs, onto a live node.
  *
- * The broadcast twin of `pkg/forge/src/FhevmDeploy.sol`: same phases, same order, same blobs from
- * `_internal/LocalHostBytecode.sol`. The difference is only that `FhevmDeploy` runs inside a forge test
+ * The broadcast twin of `pkg/forge/src/FhevmCleartextDeploy.sol`: same phases, same order, same blobs from
+ * `_internal/LocalHostBytecode.sol`. The difference is only that `FhevmCleartextDeploy` runs inside a forge test
  * with cheatcodes, and this sends real transactions.
  *
  * Why it is faster than scripts/deploy.sh: the addresses are already compiled into these blobs, so there
@@ -66,7 +66,7 @@ import {IPauserSet} from "../src/_internal/interfaces/IPauserSet.sol";
  *
  * ## Why PauserSet is CREATEd here rather than `anvil_setCode`d
  *
- * `FhevmDeploy` installs PauserSet with `vm.etch` and then bumps the nonce by hand, because etch places
+ * `FhevmCleartextDeploy` installs PauserSet with `vm.etch` and then bumps the nonce by hand, because etch places
  * code without consuming one. The obvious translation — `anvil_setCode` plus `anvil_setNonce` over RPC —
  * does not work under `--broadcast`, and it fails quietly:
  *
@@ -182,7 +182,7 @@ contract DeployLocalStack is Script {
     function _setupACLOwner(address deployer) private returns (address aclOwner) {
         aclOwner = _create(abi.encodePacked(ACL_OWNER_CREATION_CODE, abi.encode(deployer, ACL_ADDRESS)), "ACLOwner");
         IPauserSet(PAUSER_SET_ADDRESS).addPauser(aclOwner);
-        IACL(ACL_ADDRESS).transferOwnership(aclOwner);
+        ICleartextACL(ACL_ADDRESS).transferOwnership(aclOwner);
         IACLOwner(aclOwner).acceptACLOwnership();
     }
 
@@ -202,7 +202,9 @@ contract DeployLocalStack is Script {
     function _materialize(address aclOwner) private {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
         ops[0] = ACLOwner.Op(
-            ACL_ADDRESS, _create(ACL_CREATION_CODE, "ACL impl"), abi.encodeCall(IACL.initializeFromEmptyProxy, ())
+            ACL_ADDRESS,
+            _create(CLEARTEXT_ACL_CREATION_CODE, "ACL impl"),
+            abi.encodeCall(ICleartextACL.initializeFromEmptyProxy, ())
         );
         ops[1] = ACLOwner.Op(
             FHEVM_EXECUTOR_ADDRESS,
@@ -282,9 +284,7 @@ contract DeployLocalStack is Script {
      * @dev An ERC-1967 proxy over `implementation`, checked against the address the pre-compiled bytecode
      *      expects. A mismatch means the nonce sequence diverged and every later address is wrong too.
      */
-    function _createProxy(address implementation, bytes memory initData, address expected, string memory what)
-        private
-    {
+    function _createProxy(address implementation, bytes memory initData, address expected, string memory what) private {
         address addr =
             _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(implementation, initData)), what);
         require(addr == expected, string.concat("DeployLocalStack: ", what, " landed at the wrong address"));

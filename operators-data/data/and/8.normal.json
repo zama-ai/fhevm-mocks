@@ -1,0 +1,29 @@
+{
+  "op": "and",
+  "arity": 2,
+  "semantics": "bitwise",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "and_8_8_small_small",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 8, "value": "0x4" }
+    },
+    {
+      "id": "and_8_8_pattern_pattern",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0xa5" },
+      "result": { "bits": 8, "value": "0xa5" }
+    },
+    {
+      "id": "and_8_8_pattern_vs_inverse",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x5a" },
+      "result": { "bits": 8, "value": "0x0" }
+    }
+  ]
+}

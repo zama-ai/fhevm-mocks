@@ -1,0 +1,53 @@
+{
+  "op": "sub",
+  "arity": 2,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "sub_64_64_plain",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    },
+    {
+      "id": "sub_64_32_plain",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    },
+    {
+      "id": "sub_64_16_plain",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    },
+    {
+      "id": "sub_64_8_plain",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    },
+    {
+      "id": "sub_32_64_plain",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    },
+    {
+      "id": "sub_16_64_plain",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    },
+    {
+      "id": "sub_8_64_plain",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x4d" }
+    }
+  ]
+}

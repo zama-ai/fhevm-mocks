@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Not wired into the build, not compiled, not tested.
+// Not wired into the build, not compiled, not tested.
 
 import {Script, console} from "forge-std/Script.sol";
 
@@ -156,7 +156,7 @@ abstract contract FhevmCreate2Base is Script {
     ///      The cleartext build substitutes three of the stock implementations — same rule as
     ///      FhevmDeployScript._materialize.
     function _implArtifact(uint256 i) internal pure returns (string memory) {
-        if (i == 0) return "pkg/src/contracts/ACL.sol:ACL";
+        if (i == 0) return "pkg/src/cleartext/CleartextACL.sol:CleartextACL";
         if (i == 1) return "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         if (i == 2) return "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
         if (i == 3) return "pkg/src/cleartext/CleartextInputVerifier.sol:CleartextInputVerifier";
@@ -365,7 +365,7 @@ abstract contract FhevmCreate2Base is Script {
     function _factoryCreate2(bytes32 salt, bytes memory initCode) internal {
         require(initCode.length > 0, "FhevmCreate2Base: empty initcode (artifact not built?)");
         require(initCode.length <= MAX_INITCODE_SIZE, "FhevmCreate2Base: initcode exceeds EIP-3860 limit");
-        (bool ok, ) = CREATE2_FACTORY.call(bytes.concat(salt, initCode));
+        (bool ok,) = CREATE2_FACTORY.call(bytes.concat(salt, initCode));
         require(ok, "FhevmCreate2Base: factory call reverted");
     }
 

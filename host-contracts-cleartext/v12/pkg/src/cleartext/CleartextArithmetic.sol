@@ -5,6 +5,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {FheType} from "../contracts/shared/FheType.sol";
 import {FHEVMExecutor} from "../contracts/FHEVMExecutor.sol";
 import {FheTypeBitWidth} from "./FheTypeBitWidth.sol";
+import {CleartextHandle} from "./CleartextHandle.sol";
 import {ICleartextArithmetic} from "./ICleartextArithmetic.sol";
 import {ICleartextDB} from "./ICleartextDB.sol";
 import {cleartextDbAdd} from "../addresses/FHEVMHostAddresses.sol";
@@ -23,9 +24,13 @@ import {ACLOwnable} from "../contracts/shared/ACLOwnable.sol";
  */
 /// @custom:security-contact https://github.com/zama-ai/fhevm/blob/main/SECURITY.md
 contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy, ACLOwnable {
-    error UnsupportedBinaryOp(FHEVMExecutor.Operators op);
-    error UnsupportedUnaryOp(FHEVMExecutor.Operators op);
-    error UnsupportedTernaryOp(FHEVMExecutor.Operators op);
+    /// @notice Marks a cleartext (mock) implementation. Real host contracts have no such selector, so a
+    ///         consumer can probe it to tell a cleartext stack from a production deployment.
+    bool public constant IS_CLEARTEXT = true;
+
+    error CleartextErrorUnsupportedBinaryOp(FHEVMExecutor.Operators op);
+    error CleartextErrorUnsupportedUnaryOp(FHEVMExecutor.Operators op);
+    error CleartextErrorUnsupportedTernaryOp(FHEVMExecutor.Operators op);
 
     /// @dev Name of the contract, used in `getVersion`.
     string private constant CONTRACT_NAME = "CleartextArithmetic";
@@ -91,12 +96,15 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
 
     /// @inheritdoc ICleartextArithmetic
     function recordCast(bytes32 result, bytes32 ct, FheType toType) external override {
+        CleartextHandle.checkChainId(result);
+        CleartextHandle.checkChainId(ct);
         ICleartextDB db = ICleartextDB(cleartextDbAdd);
         db.set(result, _fheCast(db.get(ct), toType));
     }
 
     /// @inheritdoc ICleartextArithmetic
     function recordTrivialEncrypt(bytes32 result, uint256 pt, FheType toType) external override {
+        CleartextHandle.checkChainId(result);
         ICleartextDB(cleartextDbAdd).set(result, _normalizePlaintextToType(pt, toType));
     }
 
@@ -105,6 +113,8 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
         external
         override
     {
+        CleartextHandle.checkChainId(result);
+        CleartextHandle.checkChainId(inputHandle);
         (bool foundCleartext, uint256 cleartext) = _tryReadCleartextFromProof(inputHandle, inputProof);
         if (foundCleartext) {
             ICleartextDB(cleartextDbAdd).set(result, _normalizePlaintextToType(cleartext, inputType));
@@ -121,12 +131,14 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
 
     /// @inheritdoc ICleartextArithmetic
     function recordRand(bytes32 result, FheType randType, bytes16 seed) external override {
+        CleartextHandle.checkChainId(result);
         uint256 randomValue = randomUint256(randType, seed);
         ICleartextDB(cleartextDbAdd).set(result, clamp(randomValue, FheTypeBitWidth.bitWidthForType(randType)));
     }
 
     /// @inheritdoc ICleartextArithmetic
     function recordRandBounded(bytes32 result, uint256 upperBound, bytes16 seed) external override {
+        CleartextHandle.checkChainId(result);
         uint256 randomValue = randomBoundedUint256(upperBound, seed);
         ICleartextDB(cleartextDbAdd).set(result, randomValue);
     }
@@ -140,6 +152,10 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
         bytes1 scalarByte,
         FheType fheType
     ) external override {
+        CleartextHandle.checkChainId(result);
+        CleartextHandle.checkChainId(lhs);
+        // A scalar `rhs` is a plaintext, not a handle; only check it when it is one.
+        if (scalarByte != 0x01) CleartextHandle.checkChainId(rhs);
         ICleartextDB db = ICleartextDB(cleartextDbAdd);
         uint256 lhsValue = db.get(lhs);
         uint256 rhsValue = (scalarByte == 0x01) ? uint256(rhs) : db.get(rhs);
@@ -148,6 +164,8 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
 
     /// @inheritdoc ICleartextArithmetic
     function recordUnaryOp(FHEVMExecutor.Operators op, bytes32 result, bytes32 ct, FheType fheType) external override {
+        CleartextHandle.checkChainId(result);
+        CleartextHandle.checkChainId(ct);
         ICleartextDB db = ICleartextDB(cleartextDbAdd);
         db.set(result, _computeUnaryOp(op, db.get(ct), fheType));
     }
@@ -157,7 +175,11 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
         external
         override
     {
-        if (op != FHEVMExecutor.Operators.fheIfThenElse) revert UnsupportedTernaryOp(op);
+        CleartextHandle.checkChainId(result);
+        CleartextHandle.checkChainId(lhs);
+        CleartextHandle.checkChainId(middle);
+        CleartextHandle.checkChainId(rhs);
+        if (op != FHEVMExecutor.Operators.fheIfThenElse) revert CleartextErrorUnsupportedTernaryOp(op);
         ICleartextDB db = ICleartextDB(cleartextDbAdd);
         uint256 control = db.get(lhs);
         require(control == 0 || control == 1, "Unexpected FheIfThenElse control value");
@@ -198,7 +220,7 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
         if (op == FHEVMExecutor.Operators.fheMin) return (a < b) ? a : b;
         if (op == FHEVMExecutor.Operators.fheMax) return (a > b) ? a : b;
 
-        revert UnsupportedBinaryOp(op);
+        revert CleartextErrorUnsupportedBinaryOp(op);
     }
 
     function _computeUnaryOp(FHEVMExecutor.Operators op, uint256 valueRaw, FheType fheType)
@@ -210,7 +232,7 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
         if (op == FHEVMExecutor.Operators.fheNeg) return neg(valueRaw, bw);
         if (op == FHEVMExecutor.Operators.fheNot) return bitNot(valueRaw, bw);
 
-        revert UnsupportedUnaryOp(op);
+        revert CleartextErrorUnsupportedUnaryOp(op);
     }
 
     /// @dev Bool matches `trivial_encrypt_be_bytes`: only the least-significant byte matters.

@@ -36,13 +36,13 @@ export type FhevmSetupProvider = EthersT.Provider & {
  * Stands up the canonical localhost cleartext FHEVM stack.
  *
  * The whole deployment is one call to `@fhevm/host-contracts-cleartext/ts`'s `deploy()`. That
- * function is the source of truth — the package's `FhevmDeploy.sol` and `scripts/anvil-local-v3.sh`
+ * function is the source of truth — the package's `FhevmCleartextDeploy.sol` and `scripts/anvil-local-v3.sh`
  * are transcriptions of it, not alternatives to it — so the only job left here is to satisfy its
  * three preconditions:
  *
  *   1. `deployer` is account index 5 of the package mnemonic, and it is funded
  *   2. `deployer` is at nonce 0, because every address is `CREATE(deployer, nonce)`
- *   3. `admin` is the same account (`FhevmDeploy._fhevmAdmin()` returns `DEPLOYER_ADDRESS`)
+ *   3. `admin` is the same account (`FhevmCleartextDeploy._fhevmAdmin()` returns `DEPLOYER_ADDRESS`)
  *
  * `config` is deliberately not passed: the default `DEFAULT_BOOTSTRAP_CONFIG_V13` is what seeds the
  * KMS/coprocessor signer sets that `@fhevm/sdk`'s cleartext relayer holds the keys for. A configured
@@ -83,7 +83,7 @@ export async function deployFhevmCleartextHostContracts(provider: FhevmSetupProv
     ethProvider,
     ethUtils,
     deployer,
-    // `FhevmDeploy._fhevmAdmin()` returns DEPLOYER_ADDRESS: deployer and admin are one account.
+    // `FhevmCleartextDeploy._fhevmAdmin()` returns DEPLOYER_ADDRESS: deployer and admin are one account.
     // Pass the *same adapter object*, not a second one over the same wallet — each adapter keeps its
     // own nonce counter, so two would hand out the same nonce twice.
     admin: deployer,

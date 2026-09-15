@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Not wired into the build, not compiled, not tested.
+// Not wired into the build, not compiled, not tested.
 
 import {console} from "forge-std/Script.sol";
 import {FhevmCreate2Base} from "./FhevmCreate2Base.s.sol";
@@ -132,10 +132,8 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
 
         // The dependency graph step 6: a leaf. Its address is referenced by nothing — but it must still be
         // predictable, because step E hands it to the admin and `verify` checks it.
-        address aclOwnerAdd = _predictCreate2Address(
-            R_ACL_OWNER,
-            _initCode(A_ACL_OWNER, abi.encode(cfg.deployer, aclAdd))
-        );
+        address aclOwnerAdd =
+            _predictCreate2Address(R_ACL_OWNER, _initCode(A_ACL_OWNER, abi.encode(cfg.deployer, aclAdd)));
 
         console.log("  impl1 (EmptyUUPSProxyACL)", impl1);
         console.log("  impl3 (EmptyUUPSProxy)   ", impl3);
@@ -189,9 +187,8 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
         require(aclAdd == vm.parseJsonAddress(scratch, ".aclAdd"), "pass3: aclAdd moved between builds");
 
         bytes32 sharedImplHash = keccak256(_initCode(A_EMPTY_SHARED));
-        bytes32 sharedProxyHash = keccak256(
-            _proxyInitCode(vm.parseJsonAddress(scratch, ".impl3"), _sharedProxyInitData())
-        );
+        bytes32 sharedProxyHash =
+            keccak256(_proxyInitCode(vm.parseJsonAddress(scratch, ".impl3"), _sharedProxyInitData()));
 
         require(
             sharedImplHash == vm.parseJsonBytes32(scratch, ".sharedImplHash"),
@@ -202,13 +199,13 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
             "pass3: ERC1967Proxy init-code hash moved - pass-2 addresses are invalid"
         );
         require(
-            _predictCreate2Address(R_PAUSER_SET, _initCode(A_PAUSER_SET)) ==
-                vm.parseJsonAddress(scratch, ".pauserSetAdd"),
+            _predictCreate2Address(R_PAUSER_SET, _initCode(A_PAUSER_SET))
+                == vm.parseJsonAddress(scratch, ".pauserSetAdd"),
             "pass3: PauserSet init-code hash moved - pass-2 addresses are invalid"
         );
         require(
-            _predictCreate2Address(R_ACL_OWNER, _initCode(A_ACL_OWNER, abi.encode(cfg.deployer, aclAdd))) ==
-                vm.parseJsonAddress(scratch, ".aclOwnerAdd"),
+            _predictCreate2Address(R_ACL_OWNER, _initCode(A_ACL_OWNER, abi.encode(cfg.deployer, aclAdd)))
+                == vm.parseJsonAddress(scratch, ".aclOwnerAdd"),
             "pass3: ACLOwner init-code hash moved - pass-2 addresses are invalid"
         );
 
