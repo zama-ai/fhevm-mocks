@@ -15,6 +15,7 @@ import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
 import {IProtocolConfig} from "../../src/contracts/interfaces/IProtocolConfig.sol";
 import {KmsNode} from "../../src/contracts/shared/Structs.sol";
+import {CleartextACL} from "../../src/cleartext/CleartextACL.sol";
 import {CleartextFHEVMExecutor} from "../../src/cleartext/CleartextFHEVMExecutor.sol";
 import {CleartextKMSVerifier} from "../../src/cleartext/CleartextKMSVerifier.sol";
 import {CleartextInputVerifier} from "../../src/cleartext/CleartextInputVerifier.sol";
@@ -276,7 +277,10 @@ contract FhevmDeployScript is Script {
         ACLOwner.Op[] memory ops = new ACLOwner.Op[](PROXY_COUNT);
 
         ops[0] =
-            ACLOwner.Op(aclAdd, address(new CleartextACL()), abi.encodeCall(CleartextACL.initializeFromEmptyProxy, ()));
+        // The implementation is CleartextACL; the initializer is encoded against ACL because
+        // CleartextACL inherits it without redeclaring it, and solc cannot form a function
+        // pointer to an inherited member through the derived type. Same signature, same selector.
+        ACLOwner.Op(aclAdd, address(new CleartextACL()), abi.encodeCall(ACL.initializeFromEmptyProxy, ()));
         ops[1] = ACLOwner.Op(
             fhevmExecutorAdd,
             address(new CleartextFHEVMExecutor()),
