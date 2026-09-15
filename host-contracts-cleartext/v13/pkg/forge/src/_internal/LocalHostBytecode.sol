@@ -13,7 +13,7 @@ pragma solidity ^0.8.24;
 // RUNTIME_CODE may be etched at its address, being equivalent to constructing the contract.
 //
 // CLEARTEXT_FORGE_* are the forge-only variants of the executor, arithmetic and ACL contracts, and
-// are for pkg/forge/src/FhevmDeploy.sol ONLY — a forge test that creates the stack in-process.
+// are for pkg/forge/src/FhevmCleartextDeploy.sol ONLY — a forge test that creates the stack in-process.
 // Broadcast to a node, they revert on every FHE operation: cheatcodes live in forge's own EVM, so
 // 0x7109...dD12D has no code anywhere else and Solidity's extcodesize guard turns the call into a
 // revert. DeployLocalStack.s.sol broadcasts, and therefore uses the plain CLEARTEXT_* blobs.

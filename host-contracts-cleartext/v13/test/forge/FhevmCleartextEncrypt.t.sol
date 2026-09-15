@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmDeploy} from "../pkg/forge/src/FhevmDeploy.sol";
-import {FHEVM_EXECUTOR_ADDRESS} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextInputVerifier} from "../pkg/forge/src/_internal/interfaces/ICleartextInputVerifier.sol";
-import {FhevmCleartextEncrypt} from "../pkg/forge/src/FhevmCleartextEncrypt.sol";
-import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
-import {Bits} from "./utils/Bits.sol";
+import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextInputVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextInputVerifier.sol";
+import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
+import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {Bits} from "../utils/Bits.sol";
 
 /**
  * `FhevmCleartextEncrypt` produces a bundle the real `InputVerifier` accepts, and the cleartext survives
@@ -28,12 +28,12 @@ import {Bits} from "./utils/Bits.sol";
  * They are the same call: `fromExternal` forwards to the executor with `msg.sender` as the bound contract.
  * The FHE library is not a dependency of this package, so reaching for it here is not possible.
  */
-contract FhevmCleartextEncryptTest is Test, FhevmDeploy {
+contract FhevmCleartextEncryptTest is Test, FhevmCleartextDeploy {
     address internal alice;
     address internal bob;
 
     function setUp() public {
-        deployFhevm();
+        deployLocalFhevm();
         alice = vm.addr(uint256(keccak256("alice")));
         bob = vm.addr(uint256(keccak256("bob")));
     }

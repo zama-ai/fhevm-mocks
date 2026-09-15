@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmDeploy} from "../pkg/forge/src/FhevmDeploy.sol";
+import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {
     ACL_ADDRESS,
     CLEARTEXT_ARITHMETIC_ADDRESS,
@@ -17,33 +17,33 @@ import {
     KMS_VERIFIER_ADDRESS,
     PAUSER_SET_ADDRESS,
     PROTOCOL_CONFIG_ADDRESS
-} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextACL} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextArithmetic} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextDB} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextInputVerifier} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextKMSVerifier} from "../pkg/forge/src/FhevmDeploy.sol";
-import {IHCULimit} from "../pkg/forge/src/FhevmDeploy.sol";
-import {IKMSGeneration} from "../pkg/forge/src/FhevmDeploy.sol";
-import {IPauserSet} from "../pkg/forge/src/FhevmDeploy.sol";
-import {IProtocolConfig} from "../pkg/forge/src/FhevmDeploy.sol";
-import {LocalHostBootstrap} from "../pkg/forge/src/_internal/LocalHostBootstrap.sol";
-import {LocalHostVersions} from "../pkg/forge/src/_internal/LocalHostVersions.sol";
-import {CleartextHandle} from "../pkg/src/cleartext/CleartextHandle.sol";
-import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
-import {FHEVMExecutor as HostExecutor} from "../pkg/src/contracts/FHEVMExecutor.sol";
-import {FHEVMExecutor as OperatorsLib} from "../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
+} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextACL} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextArithmetic} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextInputVerifier} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextKMSVerifier} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {IHCULimit} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {IKMSGeneration} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {IPauserSet} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {IProtocolConfig} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
+import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions.sol";
+import {CleartextHandle} from "../../pkg/src/cleartext/CleartextHandle.sol";
+import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {FHEVMExecutor as HostExecutor} from "../../pkg/src/contracts/FHEVMExecutor.sol";
+import {FHEVMExecutor as OperatorsLib} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 
 /**
- * The Foundry half of the suite: `FhevmDeploy` is the one artifact a TS test cannot exercise, because it
+ * The Foundry half of the suite: `FhevmCleartextDeploy` is the one artifact a TS test cannot exercise, because it
  * only runs inside forge. What it proves that `test/templates.test.ts` cannot is that the generated
  * `pkg/forge/` files actually stand up a working stack — the TS tests check those files are internally
  * consistent, not that they function.
  */
-contract FhevmDeployTest is Test, FhevmDeploy {
+contract FhevmDeployTest is Test, FhevmCleartextDeploy {
     function setUp() public {
-        deployFhevm();
+        deployLocalFhevm();
     }
 
     /// The address set is the product; a stack anywhere else is useless to a ZamaConfig consumer.
@@ -321,30 +321,30 @@ contract FhevmDeployTest is Test, FhevmDeploy {
     /// Callable from several `setUp()` bodies without redeploying.
     function test_deployIsIdempotent() public {
         address ownerBefore = fhevmACLOwner();
-        deployFhevm();
+        deployLocalFhevm();
         assertEq(fhevmACLOwner(), ownerBefore, "a second call must not redeploy");
     }
 }
 
 /**
  * There is deliberately no "configured" variant. Every bootstrap argument is `private`, so this contract
- * produces exactly one stack — see the note in FhevmDeploy about why a configurable one would be a
+ * produces exactly one stack — see the note in FhevmCleartextDeploy about why a configurable one would be a
  * liability rather than a feature.
  */
 
 /// The determinism guard: every address derives from the deployer's nonce, so a dirty one must abort.
-contract FhevmDeployGuardTest is Test, FhevmDeploy {
+contract FhevmDeployGuardTest is Test, FhevmCleartextDeploy {
     function test_refusesToDeployFromADirtyNonce() public {
         vm.setNonce(DEPLOYER_ADDRESS, uint64(DEPLOYER_START_NONCE + 3));
         vm.expectRevert(
-            bytes("FhevmDeploy: deployer nonce must be DEPLOYER_START_NONCE; every address derives from it")
+            bytes("FhevmCleartextDeploy: deployer nonce must be DEPLOYER_START_NONCE; every address derives from it")
         );
         this.callDeployFhevm();
     }
 
     /// External so `vm.expectRevert` sees a call boundary.
     function callDeployFhevm() external {
-        deployFhevm();
+        deployLocalFhevm();
     }
 }
 

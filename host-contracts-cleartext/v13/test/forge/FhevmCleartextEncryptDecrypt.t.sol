@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 
-import {FhevmDeploy} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextACL, ICleartextFHEVMExecutor} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextKMSVerifier} from "../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
-import {FhevmCleartextEncrypt} from "../pkg/forge/src/FhevmCleartextEncrypt.sol";
-import {FhevmCleartextDecrypt} from "../pkg/forge/src/FhevmCleartextDecrypt.sol";
-import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
+import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextACL, ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
+import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
+import {FhevmCleartextDecrypt} from "../../pkg/forge/src/FhevmCleartextDecrypt.sol";
+import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
 
 /**
  * The smallest dApp that takes two encrypted inputs, adds them and keeps the sum, written against the
@@ -50,7 +50,7 @@ contract AddDapp {
  * the stack. This one proves they compose, with a real contract in the middle, which is the shape every
  * consumer test will have.
  */
-contract FhevmCleartextEncryptDecryptTest is Test, FhevmDeploy {
+contract FhevmCleartextEncryptDecryptTest is Test, FhevmCleartextDeploy {
     uint256 internal constant ALICE_PK = uint256(keccak256("alice"));
 
     AddDapp internal dapp;
@@ -62,7 +62,7 @@ contract FhevmCleartextEncryptDecryptTest is Test, FhevmDeploy {
     address[] internal contractAddresses;
 
     function setUp() public {
-        deployFhevm();
+        deployLocalFhevm();
         dapp = new AddDapp();
         alice = vm.addr(ALICE_PK);
         publicKey = abi.encodePacked(keccak256("transport-key-x"), keccak256("transport-key-y"));

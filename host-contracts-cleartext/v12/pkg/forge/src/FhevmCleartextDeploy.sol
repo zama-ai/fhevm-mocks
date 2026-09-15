@@ -48,10 +48,10 @@ import {IHCULimit} from "./_internal/interfaces/IHCULimit.sol";
 import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 
 /**
- * @title  FhevmDeploy
+ * @title  FhevmCleartextDeploy
  * @notice Stands up a cleartext FHEVM stack at the canonical localhost addresses.
  * @dev
- * Inherit and call `deployFhevm()`. It is idempotent, so calling it from `setUp()` in a base contract and
+ * Inherit and call `deployLocalFhevm()`. It is idempotent, so calling it from `setUp()` in a base contract and
  * again from a derived one is safe.
  *
  * ## Why the sequence looks the way it does
@@ -64,7 +64,7 @@ import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
  * bytecode here is pre-compiled against those addresses so it cannot adapt.
  *
  * Every creation is therefore checked against its expected address rather than trusted, and every member
- * except `deployFhevm()` is `private` — including the bootstrap arguments. That is deliberate rather than
+ * except `deployLocalFhevm()` is `private` — including the bootstrap arguments. That is deliberate rather than
  * restrictive: the signer sets in particular are the contract with the js-sdk cleartext relayer, which
  * derives its keys from FHEVM_MNEMONIC at fixed HD paths and looks them up by the address the chain
  * reports. A configurable stack is a stack that can be configured into one the SDK holds no key for, so
@@ -79,10 +79,10 @@ import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
  * already pulls in are reachable through it:
  *
  * ```solidity
- * import {FhevmDeploy, ICleartextACL, ACL_ADDRESS} from "host-contracts-cleartext-forge/FhevmDeploy.sol";
+ * import {FhevmCleartextDeploy, ICleartextACL, ACL_ADDRESS} from "host-contracts-cleartext-forge/FhevmCleartextDeploy.sol";
  *
- * contract MyTest is Test, FhevmDeploy {
- *     function setUp() public { deployFhevm(); }
+ * contract MyTest is Test, FhevmCleartextDeploy {
+ *     function setUp() public { deployLocalFhevm(); }
  *     function test_x() public { ICleartextACL(ACL_ADDRESS).isAllowed(handle, user); }
  * }
  * ```
@@ -101,11 +101,11 @@ import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
  *
  * All five are `private`, as is everything else here bar the entry point.
  */
-abstract contract FhevmDeploy is ForgeVmBase {
+abstract contract FhevmCleartextDeploy is ForgeVmBase {
     /// @dev ERC-1967 implementation slot: keccak256("eip1967.proxy.implementation") - 1.
     bytes32 private constant _ERC1967_IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    /// @dev Set once `deployFhevm()` has run, so it is safe to call from several `setUp()` bodies.
+    /// @dev Set once `deployLocalFhevm()` has run, so it is safe to call from several `setUp()` bodies.
     bool private _fhevmDeployed;
 
     /// @dev The standing ACLOwner, owner of ACL once phase 3 completes. Read it through `fhevmACLOwner()`.
@@ -184,15 +184,15 @@ abstract contract FhevmDeploy is ForgeVmBase {
      *      and the same contract carries across generations. `ACL.owner()` answers the same question on
      *      chain, but only after the fact and only if ownership has not since moved.
      *
-     *      Reverts rather than returning zero before `deployFhevm()` has run — a zero here would other-
+     *      Reverts rather than returning zero before `deployLocalFhevm()` has run — a zero here would other-
      *      wise surface much later as a call into an empty address.
      */
     function fhevmACLOwner() internal view returns (address) {
-        require(_fhevmACLOwner != address(0), "FhevmDeploy: call deployFhevm() before fhevmACLOwner()");
+        require(_fhevmACLOwner != address(0), "FhevmCleartextDeploy: call deployLocalFhevm() before fhevmACLOwner()");
         return _fhevmACLOwner;
     }
 
-    function deployFhevm() internal virtual {
+    function deployLocalFhevm() internal virtual {
         if (_fhevmDeployed) {
             return;
         }
@@ -200,7 +200,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
 
         require(
             fvm.getNonce(DEPLOYER_ADDRESS) == DEPLOYER_START_NONCE,
-            "FhevmDeploy: deployer nonce must be DEPLOYER_START_NONCE; every address derives from it"
+            "FhevmCleartextDeploy: deployer nonce must be DEPLOYER_START_NONCE; every address derives from it"
         );
 
         fvm.startPrank(DEPLOYER_ADDRESS);
@@ -374,7 +374,7 @@ abstract contract FhevmDeploy is ForgeVmBase {
         assembly {
             addr := create(0, add(creationCode, 0x20), mload(creationCode))
         }
-        require(addr != address(0), string.concat("FhevmDeploy: failed to deploy ", what));
+        require(addr != address(0), string.concat("FhevmCleartextDeploy: failed to deploy ", what));
     }
 
     /**
@@ -387,10 +387,10 @@ abstract contract FhevmDeploy is ForgeVmBase {
         returns (address addr)
     {
         addr = _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(implementation, initData)), what);
-        require(addr == expected, string.concat("FhevmDeploy: ", what, " landed at the wrong address"));
+        require(addr == expected, string.concat("FhevmCleartextDeploy: ", what, " landed at the wrong address"));
         require(
             fvm.load(addr, _ERC1967_IMPL_SLOT) == bytes32(uint256(uint160(implementation))),
-            string.concat("FhevmDeploy: ", what, " implementation slot not set")
+            string.concat("FhevmCleartextDeploy: ", what, " implementation slot not set")
         );
     }
 }

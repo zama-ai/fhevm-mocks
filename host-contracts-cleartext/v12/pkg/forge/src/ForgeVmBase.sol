@@ -7,7 +7,7 @@ import {IForgeVm} from "./IForgeVm.sol";
  * @title ForgeVmBase
  * @notice Binds the cheatcode address.
  * @dev The constant is `fvm`, NOT `vm`: forge-std's `CommonBase` declares `Vm internal constant vm`, so a
- *      consumer writing `is Test, FhevmDeploy` would hit `Error (9097): Identifier already declared`.
+ *      consumer writing `is Test, FhevmCleartextDeploy` would hit `Error (9097): Identifier already declared`.
  */
 abstract contract ForgeVmBase {
     /// @dev `address(uint160(uint256(keccak256("hevm cheat code"))))`.

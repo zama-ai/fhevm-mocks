@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title IForgeVm
- * @notice The subset of forge's cheatcode interface `FhevmDeploy.sol` calls.
+ * @notice The subset of forge's cheatcode interface `FhevmCleartextDeploy.sol` calls.
  * @dev Vendored so `pkg/forge/src` has NO forge-std dependency, and modeled on forge-fhevm-std's
  *      `src/forge/IForgeVm.sol`. Hand-written and committed, so it sits here rather than under
  *      `_internal/`: nothing generates or re-derives it. Mirrored from `forge-std/Vm.sol`, so re-check it

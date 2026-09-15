@@ -511,7 +511,7 @@ build_initializer_calldata() {
 
 }
 
-# Materializes every proxy in ONE ACLOwner.upgrade, mirroring pkg/ts/deploy.ts and FhevmDeploy.sol.
+# Materializes every proxy in ONE ACLOwner.upgrade, mirroring pkg/ts/deploy.ts and FhevmCleartextDeploy.sol.
 #
 # Atomic on purpose: separate per-proxy upgradeToAndCall transactions can fail part way and leave some proxies
 # real and some still empty, which passes every "has code" check and fails only in use.

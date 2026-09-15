@@ -353,7 +353,7 @@ void test('LocalHostBytecode.sol declares the ZamaConfig localhost addresses', (
 
 /**
  * The cheatcode-calling cleartext variants, which LocalHostBytecode.sol carries ALONGSIDE the standard
- * blobs so `FhevmDeploy.sol` can use them while `DeployLocalStack.s.sol` keeps the plain ones.
+ * blobs so `FhevmCleartextDeploy.sol` can use them while `DeployLocalStack.s.sol` keeps the plain ones.
  *
  * They have no committed template, and should not: `TARGET_CONTRACTS` drives `pkg/ts/artifacts`, and a
  * contract that reverts outside forge has no business shipping to a TypeScript consumer. So they are
@@ -434,7 +434,7 @@ void test('generated interfaces cover every target and share one FheType', () =>
     const source = readFileSync(path, 'utf8');
 
     assert.match(source, /^\/\/ SPDX-License-Identifier: BSD-3-Clause-Clear\n/, `${path}: SPDX`);
-    // ^0.8.24: the payload's own floor, and what the harness pins so test/FhevmDeploy.t.sol can compile
+    // ^0.8.24: the payload's own floor, and what the harness pins so test/forge/FhevmCleartextDeploy.t.sol can compile
     // these files. It also accepts every consumer a ^0.8.27 pragma would.
     assert.match(source, /^pragma solidity \^0\.8\.24;$/m, `${path}: pragma`);
     assert.match(source, new RegExp(`interface I${target.contractName} \\{`), `${path}: interface name`);
@@ -461,11 +461,11 @@ void test('generated interfaces cover every target and share one FheType', () =>
 /**
  * The two hand-written files in the forge payload, and the reason it needs no forge-std.
  *
- * Both sit directly under `src/`, beside `FhevmDeploy.sol`, rather than in `_internal/`: that directory
+ * Both sit directly under `src/`, beside `FhevmCleartextDeploy.sol`, rather than in `_internal/`: that directory
  * is for generated files, and the generator wipes `_internal/interfaces/` on every run. Nothing re-derives
  * either of these, so their shape is checked here.
  */
-void test('the vendored forge cheatcode files are hand-written and cover what FhevmDeploy calls', () => {
+void test('the vendored forge cheatcode files are hand-written and cover what FhevmCleartextDeploy calls', () => {
   const forgeSrc = join(PKG_DIR_ABS_PATH, 'forge', 'src');
   const iface = readFileSync(join(forgeSrc, 'IForgeVm.sol'), 'utf8');
   const base = readFileSync(join(forgeSrc, 'ForgeVmBase.sol'), 'utf8');
@@ -486,7 +486,7 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fh
   // library can bind it too, and ForgeVmBase pulls it in alongside the interface.
   assert.match(base, /import \{[^}]*\bIForgeVm\b[^}]*\} from "\.\/IForgeVm\.sol";/, 'ForgeVmBase.sol: import');
 
-  // Every cheatcode FhevmDeploy and the emulation libraries reach for. A missing one is a compile error
+  // Every cheatcode FhevmCleartextDeploy and the emulation libraries reach for. A missing one is a compile error
   // there, but this names them.
   for (const cheatcode of [
     'getNonce',

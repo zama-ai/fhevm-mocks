@@ -128,7 +128,7 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
  * path import what it needs, with no build mode to get wrong and nothing to remember before
  * committing.
  *
- *   FhevmDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
+ *   FhevmCleartextDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
  *   DeployLocalStack.s.sol   broadcast to a node    -> CLEARTEXT_*_CREATION_CODE
  *
  * Three contracts have Forge variants. The executor and arithmetic ones call cheatcodes; the ACL one is
@@ -301,7 +301,7 @@ function _renderAddresses(stack: LocalHostStack): string {
   const proxyCount = ADDRESS_NAMES.filter((name) => NONCE_LABEL[name].startsWith('ERC1967Proxy')).length;
 
   // ^0.8.24, not the model's ^0.8.27: it is the payload's own floor, it is what the harness
-  // pins so test/FhevmDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
+  // pins so test/forge/FhevmCleartextDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
   return `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
@@ -488,7 +488,7 @@ function _render(
     .join('\n\n');
 
   // ^0.8.24, not the model's ^0.8.27: it is the payload's own floor, it is what the harness
-  // pins so test/FhevmDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
+  // pins so test/forge/FhevmCleartextDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
   return `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
@@ -504,7 +504,7 @@ pragma solidity ^0.8.24;
 // RUNTIME_CODE may be etched at its address, being equivalent to constructing the contract.
 //
 // CLEARTEXT_FORGE_* are the forge-only variants of the executor, arithmetic and ACL contracts, and
-// are for pkg/forge/src/FhevmDeploy.sol ONLY — a forge test that creates the stack in-process.
+// are for pkg/forge/src/FhevmCleartextDeploy.sol ONLY — a forge test that creates the stack in-process.
 // Broadcast to a node, they revert on every FHE operation: cheatcodes live in forge's own EVM, so
 // 0x7109...dD12D has no code anywhere else and Solidity's extcodesize guard turns the call into a
 // revert. DeployLocalStack.s.sol broadcasts, and therefore uses the plain CLEARTEXT_* blobs.

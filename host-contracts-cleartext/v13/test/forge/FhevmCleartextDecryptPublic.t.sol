@@ -3,15 +3,15 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmDeploy} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextACL} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../pkg/forge/src/FhevmDeploy.sol";
-import {ICleartextKMSVerifier} from "../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
-import {FhevmCleartextEncrypt} from "../pkg/forge/src/FhevmCleartextEncrypt.sol";
-import {FhevmCleartextDecryptPublic} from "../pkg/forge/src/FhevmCleartextDecryptPublic.sol";
-import {FheType} from "../pkg/src/contracts/shared/FheType.sol";
-import {Bits} from "./utils/Bits.sol";
+import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextACL} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
+import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
+import {FhevmCleartextDecryptPublic} from "../../pkg/forge/src/FhevmCleartextDecryptPublic.sol";
+import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {Bits} from "../utils/Bits.sol";
 
 /**
  * `FhevmCleartextDecryptPublic` produces a result the real `KMSVerifier` accepts, and the values it
@@ -25,11 +25,11 @@ import {Bits} from "./utils/Bits.sol";
  * refuses any handle not marked publicly decryptable, so a test that gets a result has also proved the
  * dApp called `FHE.makePubliclyDecryptable`. That gate is exercised below.
  */
-contract FhevmCleartextDecryptPublicTest is Test, FhevmDeploy {
+contract FhevmCleartextDecryptPublicTest is Test, FhevmCleartextDeploy {
     address internal alice;
 
     function setUp() public {
-        deployFhevm();
+        deployLocalFhevm();
         alice = vm.addr(uint256(keccak256("alice")));
     }
 
