@@ -4,15 +4,9 @@ pragma solidity ^0.8.24;
 import {KMS_VERIFIER_ADDRESS} from "./_internal/LocalHostAddresses.sol";
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 import {ICleartextKMSVerifier} from "./_internal/interfaces/ICleartextKMSVerifier.sol";
-import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
-import {FhevmCleartextConfig} from "./FhevmCleartextConfig.sol";
+import {FhevmCleartextSigners} from "./FhevmCleartextSigners.sol";
 
 library FhevmCleartextDecrypt {
-    IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);
-
-    error ThresholdExceedsSigners(uint256 threshold, uint256 signers);
-    error UnknownKmsSigner(address signer);
-    error KmsNodeKeyMismatch(uint256 index, address derived, address registered);
     error NoShares();
     error InvalidKmsExtraData(uint256 length);
     error InvalidShareSignature(uint256 index);
@@ -184,12 +178,7 @@ library FhevmCleartextDecrypt {
         bytes32 digest = _shareDigest(publicKey, _handlesOf(pairs), payload, extraData);
 
         // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
-        uint256[] memory chosen = _randomUniqueIndices(signers.length, threshold);
-        signatures = new bytes[](threshold);
-        for (uint256 j = 0; j < threshold; j++) {
-            (uint8 v, bytes32 r, bytes32 s) = fvm.sign(_kmsNodeKeyFor(signers[chosen[j]]), digest);
-            signatures[j] = abi.encodePacked(r, s, v);
-        }
+        signatures = FhevmCleartextSigners.randomKmsNodeSignatures(digest, signers, threshold);
     }
 
     /**
@@ -273,42 +262,6 @@ library FhevmCleartextDecrypt {
         assembly {
             mstore(add(extraData, 33), contextId)
         }
-    }
-
-    /**
-     * @dev `count` distinct indices drawn uniformly from `[0, n)`, mirroring the SDK's
-     *      `randomUniqueUints`: a partial Fisher-Yates shuffle of the index pool, first `count` taken.
-     *      Same helper as in `FhevmCleartextEncrypt`; kept private to each library like `_kmsNodeKeyFor`.
-     */
-    function _randomUniqueIndices(uint256 n, uint256 count) private view returns (uint256[] memory pool) {
-        if (count > n) revert ThresholdExceedsSigners(count, n);
-        pool = new uint256[](n);
-        for (uint256 i = 0; i < n; i++) {
-            pool[i] = i;
-        }
-        for (uint256 i = 0; i < count; i++) {
-            uint256 j = i + (fvm.randomUint() % (n - i));
-            (pool[i], pool[j]) = (pool[j], pool[i]);
-        }
-    }
-
-    /// @dev The key for a KMS signer the stack actually registered, or a revert. Never signs with a key
-    ///      the client would not recognise, which would otherwise surface as an opaque share rejection.
-    ///      Same derivation as `FhevmCleartextDecryptPublic._kmsNodeKeyFor`.
-    function _kmsNodeKeyFor(address signer) private pure returns (uint256 privateKey) {
-        address[] memory registered = LocalHostBootstrap.kmsSigners();
-        for (uint256 i = 0; i < registered.length; i++) {
-            if (registered[i] != signer) continue;
-            privateKey = fvm.deriveKey(
-                FhevmCleartextConfig.CLEARTEXT_KMS_NODES_MNEMONIC,
-                FhevmCleartextConfig.CLEARTEXT_KMS_NODES_MNEMONIC_PATH,
-                uint32(i) + FhevmCleartextConfig.CLEARTEXT_KMS_NODES_MNEMONIC_INDEX
-            );
-            address derived = fvm.addr(privateKey);
-            if (derived != signer) revert KmsNodeKeyMismatch(i, derived, signer);
-            return privateKey;
-        }
-        revert UnknownKmsSigner(signer);
     }
 
     /**
