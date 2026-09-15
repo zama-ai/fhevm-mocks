@@ -5,13 +5,7 @@
   "description": "Source of truth for values shared by the generated TypeScript, Solidity, and shell cleartext configuration faces.",
   "$comment": "This schema validates local structure. fhevm-npm additionally validates cross-entry aliases, derived formulas, checksummed addresses, CREATE address derivations, nonce ordering, and generated-file drift.",
   "type": "object",
-  "required": [
-    "$schema",
-    "_readme",
-    "appliesTo",
-    "constants",
-    "localhost"
-  ],
+  "required": ["$schema", "_readme", "appliesTo", "constants", "localhost"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -22,9 +16,7 @@
     },
     "appliesTo": {
       "type": "object",
-      "required": [
-        "generations"
-      ],
+      "required": ["generations"],
       "additionalProperties": false,
       "properties": {
         "generations": {
@@ -84,12 +76,7 @@
     },
     "constant": {
       "type": "object",
-      "required": [
-        "ts",
-        "solidity",
-        "summary",
-        "note"
-      ],
+      "required": ["ts", "solidity", "summary", "note"],
       "additionalProperties": false,
       "properties": {
         "value": {
@@ -100,11 +87,7 @@
           "pattern": "^[A-Z][A-Z0-9_]*$"
         },
         "ts": {
-          "enum": [
-            "bigint",
-            "number",
-            "string"
-          ]
+          "enum": ["bigint", "number", "string"]
         },
         "tsEmit": {
           "const": "bigint"
@@ -141,23 +124,15 @@
       },
       "oneOf": [
         {
-          "required": [
-            "value"
-          ],
+          "required": ["value"],
           "not": {
-            "required": [
-              "alias"
-            ]
+            "required": ["alias"]
           }
         },
         {
-          "required": [
-            "alias"
-          ],
+          "required": ["alias"],
           "not": {
-            "required": [
-              "value"
-            ]
+            "required": ["value"]
           }
         }
       ],
@@ -166,15 +141,10 @@
           "if": {
             "properties": {
               "ts": {
-                "enum": [
-                  "bigint",
-                  "number"
-                ]
+                "enum": ["bigint", "number"]
               }
             },
-            "required": [
-              "ts"
-            ]
+            "required": ["ts"]
           },
           "then": {
             "properties": {
@@ -191,15 +161,11 @@
                 "const": "string"
               }
             },
-            "required": [
-              "ts"
-            ]
+            "required": ["ts"]
           },
           "then": {
             "not": {
-              "required": [
-                "tsEmit"
-              ]
+              "required": ["tsEmit"]
             }
           }
         }
@@ -207,10 +173,7 @@
     },
     "documentedValue": {
       "type": "object",
-      "required": [
-        "value",
-        "note"
-      ],
+      "required": ["value", "note"],
       "additionalProperties": false,
       "properties": {
         "value": {
@@ -228,11 +191,7 @@
     },
     "nonce": {
       "type": "object",
-      "required": [
-        "nonce",
-        "address",
-        "role"
-      ],
+      "required": ["nonce", "address", "role"],
       "additionalProperties": false,
       "properties": {
         "nonce": {
@@ -250,11 +209,7 @@
     },
     "generation": {
       "type": "object",
-      "required": [
-        "PROXY_COUNT",
-        "ADDRESSED_NONCE_COUNT",
-        "nonces"
-      ],
+      "required": ["PROXY_COUNT", "ADDRESSED_NONCE_COUNT", "nonces"],
       "additionalProperties": false,
       "properties": {
         "PROXY_COUNT": {
@@ -268,10 +223,7 @@
         },
         "nonces": {
           "type": "object",
-          "required": [
-            "primary",
-            "secondary"
-          ],
+          "required": ["primary", "secondary"],
           "additionalProperties": false,
           "properties": {
             "primary": {
@@ -369,11 +321,7 @@
         },
         "zamaConfigLocal": {
           "type": "object",
-          "required": [
-            "ACLAddress",
-            "CoprocessorAddress",
-            "KMSVerifierAddress"
-          ],
+          "required": ["ACLAddress", "CoprocessorAddress", "KMSVerifierAddress"],
           "additionalProperties": false,
           "properties": {
             "_note": {
