@@ -16,11 +16,12 @@
 // nothing that can be patched wrongly. The script asserts no placeholder marker survives, which is what
 // proves the config injection took effect rather than silently falling back.
 //
-// Output lives in pkg/forge/, deliberately outside foundry.toml's `src`. Forge therefore never compiles
-// these files, which is what keeps them from becoming inputs to the very build that produces them, frees
-// their pragma from the harness's pinned solc, and spares a consumer sweeping src/ from compiling ~139 KB
-// of hex it may never use. The cost is one remapping in the consuming layer (see README.md, "Consuming
-// pkg/forge from Foundry").
+// Output lives in pkg/forge/, deliberately outside `[profile.default]`'s `src`. The default build
+// therefore never compiles these files, which is what keeps them from becoming inputs to the very build
+// that produces them, frees their pragma from the harness's pinned solc, and spares a consumer sweeping
+// src/ from compiling ~139 KB of hex it may never use. (`[profile.forgefhevmcore]` does compile them,
+// into its own `out`, purely as a gate — see foundry.toml.) The cost is one remapping in the consuming
+// layer (see README.md, "Consuming pkg/forge from Foundry").
 //
 // Isolation: the fresh config goes to a tmp directory reached by temporarily repointing remappings.txt,
 // and the build gets its own --out. internal/placeholders/addresses.sol, the committed templates and the
@@ -639,9 +640,9 @@ export function writeLocalHostBytecode(): LocalHostBytecodeResult {
     rmSync(TMP_DIR, { recursive: true, force: true });
   }
 
-  // The emitted files are formatted HERE, not by `npm run fmt`: foundry.toml's `src` is pkg/src, so
-  // `forge fmt` never reaches pkg/forge on its own, and check-generated compares the committed files
-  // byte-for-byte with what this writes. Formatting on the way out is what lets the two agree even when
+  // The emitted files are formatted HERE rather than left to `npm run fmt`: the default profile's `src`
+  // is pkg/src, so a bare `forge fmt` never reaches pkg/forge, and check-generated compares the committed
+  // files byte-for-byte with what this writes. Formatting on the way out is what lets the two agree even when
   // someone runs `forge fmt pkg/forge` by hand — the result is the same either way.
   forge(['fmt', dirname(OUTPUT_PATH)]);
 
