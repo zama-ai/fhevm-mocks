@@ -30,7 +30,7 @@
 // stay covered by the deploy tests and `VerifyFhevmDeploy`, which read them back off a live chain.
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { PACKAGE_ROOT_ABS_PATH } from '../internal/constants.ts';
@@ -63,7 +63,7 @@ function canonicalRole(name: string): string {
 }
 
 /** Every layer that chooses an ACL implementation, for the guard below. */
-const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path: string }> = [
+const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path: string; readonly optional?: true }> = [
   { label: 'pkg/ts/deploy.ts', path: 'pkg/ts/deploy.ts' },
   { label: 'pkg/forge/src/FhevmCleartextDeploy.sol', path: 'pkg/forge/src/FhevmCleartextDeploy.sol' },
   { label: 'pkg/forge/script/FhevmDeployScript.s.sol', path: 'pkg/forge/script/FhevmDeployScript.s.sol' },
@@ -76,6 +76,10 @@ const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path:
   {
     label: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
     path: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
+    // The CREATE2 upgrade lane is what a rotation deletes from V(N-1) (ROTATION.md § 1), so on the next
+    // generation's branch this file is legitimately gone. Everything else in the list stays for the life
+    // of the generation, so only this entry may be absent.
+    optional: true,
   },
 ];
 
@@ -233,7 +237,8 @@ void test('no deploy layer deploys the plain ACL', () => {
   ];
 
   const offences: string[] = [];
-  for (const { label, path } of DEPLOY_LAYER_FILES) {
+  for (const { label, path, optional } of DEPLOY_LAYER_FILES) {
+    if (optional === true && !existsSync(join(PACKAGE_ROOT_ABS_PATH, path))) continue;
     const source = read(path);
     for (const { pattern, what } of forbidden) {
       if (pattern.test(source)) offences.push(`${label} reaches for ${what}`);
