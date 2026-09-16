@@ -1,6 +1,5 @@
 import { expect } from 'chai';
 import { network } from 'hardhat';
-import type { ethers as EthersT } from 'ethers';
 
 import type { TestACL, TestACL__factory } from '../../types/ethers-contracts/index.ts';
 import { type Accounts, type Signers, getAccounts, getSigners } from '../utils/signers.ts';
@@ -23,7 +22,7 @@ async function deployFixture(): Promise<{
 
 // `InvalidSigner` is declared by `InputVerifier`, a stack contract this suite never deploys, so
 // chai gets an interface declaring just that error instead of a contract instance.
-const inputVerifier = (): { interface: EthersT.Interface } => ({
+const inputVerifier = (): { interface: InstanceType<typeof ethers.Interface> } => ({
   interface: new ethers.Interface(['error InvalidSigner(address signerRecovered)']),
 });
 

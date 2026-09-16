@@ -16,6 +16,8 @@ import plugin from '#esm/index.js';
 import { FhevmType } from '#esm/types-p.js';
 import { developmentChain, developmentPublicClient } from '#esm/internal/clients.js';
 import { precomputeLocalhostAddresses } from '#esm/internal/deploy.js';
+import { FhevmCleartextContractsRepository } from '#esm/internal/contracts.js';
+import { parseCoprocessorEvents } from '#esm/internal/events.js';
 
 const ALICE = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const ZERO_HANDLE = `0x${'0'.repeat(64)}` as const;
@@ -27,7 +29,13 @@ void test('cleartextDb reads trivially encrypted values of every kind, with no A
   const connection = await hre.network.create();
   try {
     const { fhevm } = connection;
-    const [executor] = fhevm.revertedWithCustomErrorArgs('FHEVMExecutor', 'ACLNotAllowed');
+    const client0 = developmentPublicClient(connection.provider, await developmentChain(connection.provider));
+    const { fhevmAddresses, cleartextAddresses, pauserSetAddress } = precomputeLocalhostAddresses();
+    const executor = new FhevmCleartextContractsRepository(client0, {
+      ...fhevmAddresses,
+      ...cleartextAddresses,
+      pauserSetAddress,
+    }).fhevmExecutor;
     const executorAddress = precomputeLocalhostAddresses().fhevmAddresses.fhevmExecutorAddress as `0x${string}`;
     const [from] = (await connection.provider.request({ method: 'eth_accounts' })) as Array<`0x${string}`>;
     const client = developmentPublicClient(connection.provider, await developmentChain(connection.provider));
@@ -44,7 +52,7 @@ void test('cleartextDb reads trivially encrypted values of every kind, with no A
         ],
       })) as `0x${string}`;
       const receipt = await client.getTransactionReceipt({ hash });
-      const [event] = fhevm.parseCoprocessorEvents(receipt.logs);
+      const [event] = parseCoprocessorEvents(executor, receipt.logs);
       assert.equal(event?.eventName, 'TrivialEncrypt');
       return (event.args as { result: `0x${string}` }).result;
     };

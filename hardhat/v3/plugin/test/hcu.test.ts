@@ -13,7 +13,7 @@ import { encodeAbiParameters, encodeEventTopics, encodeFunctionData } from 'viem
 
 import plugin, { getHCU as publicGetHCU } from '#esm/index.js';
 import { FhevmType } from '#esm/types-p.js';
-import type { FhevmLog } from '#esm/index.js';
+import type { FhevmLog } from '#esm/types-p.js';
 import { developmentChain, developmentPublicClient } from '#esm/internal/clients.js';
 import { type FhevmContractWrapper, FhevmCleartextContractsRepository } from '#esm/internal/contracts.js';
 import { precomputeLocalhostAddresses } from '#esm/internal/deploy.js';
@@ -160,8 +160,9 @@ void test('a live trivialEncrypt costs exactly the table price', async () => {
     assert.deepEqual(viaFhevm, info);
     const [resultHandle] = Object.keys(info.HCUDepthByHandle) as Array<`0x${string}`>;
     assert.ok(resultHandle !== undefined);
-    assert.equal(connection.fhevm.typeof(resultHandle), 'euint32');
-    assert.throws(() => connection.fhevm.typeof('0x1234'), isPluginError);
+    // `fhevm.typeof` is gone from the surface; the handle decoder it wrapped still names the type.
+    assert.equal(parseFhevmHandle(resultHandle).typeName, 'euint32');
+    assert.throws(() => parseFhevmHandle('0x1234'), isPluginError);
     assert.equal(info.globalHCU, price);
     assert.equal(info.maxHCUDepth, price);
     assert.equal(Object.keys(info.HCUDepthByHandle).length, 1);

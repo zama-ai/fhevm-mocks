@@ -1,6 +1,5 @@
 import { expect } from 'chai';
 import { network } from 'hardhat';
-import type { ethers as EthersT } from 'ethers';
 
 import type { TestTrivialPermissions, TestTrivialPermissions__factory } from '../../types/ethers-contracts/index.ts';
 import { type Signers, getSigners } from '../utils/signers.ts';
@@ -10,7 +9,7 @@ const { ethers } = connection;
 
 // `ACLNotAllowed` is declared by `FHEVMExecutor`, a stack contract this suite never deploys, so
 // chai gets an interface declaring just that error instead of a contract instance.
-const fhevmExecutor = (): { interface: EthersT.Interface } => ({
+const fhevmExecutor = (): { interface: InstanceType<typeof ethers.Interface> } => ({
   interface: new ethers.Interface(['error ACLNotAllowed(bytes32 handle, address account)']),
 });
 

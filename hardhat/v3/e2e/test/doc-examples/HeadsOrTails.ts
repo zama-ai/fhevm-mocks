@@ -1,7 +1,6 @@
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { network } from 'hardhat';
-import type { ethers as EthersT } from 'ethers';
 
 import type { HeadsOrTails, HeadsOrTails__factory } from '../../types/ethers-contracts/index.ts';
 import { requireReceipt } from '../utils/receipts.ts';
@@ -31,7 +30,7 @@ async function deployFixture(): Promise<{
 // `KMSInvalidSigner` is declared by `KMSVerifier`, a stack contract this suite never deploys, so there
 // is no contract instance to hand chai. Declaring the one error signature is enough for it to match the
 // revert data — it only needs something that can decode the error.
-const kmsVerifier = (): { interface: EthersT.Interface } => ({
+const kmsVerifier = (): { interface: InstanceType<typeof ethers.Interface> } => ({
   interface: new ethers.Interface(['error KMSInvalidSigner(address invalidSigner)']),
 });
 
