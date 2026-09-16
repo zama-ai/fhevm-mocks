@@ -16,7 +16,8 @@ import {
   toHex,
 } from 'viem';
 
-import type { CoprocessorConfig, FhevmAddressLike } from '../types.js';
+import type { FhevmAddressLike } from '../types-p.js';
+import type { CoprocessorConfig } from '../types.js';
 import {
   FHEVM_SOLIDITY_CONFIG_CONTRACT_NAME,
   FHEVM_SOLIDITY_CONFIG_FILE,

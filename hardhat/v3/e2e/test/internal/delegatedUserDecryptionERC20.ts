@@ -107,12 +107,12 @@ describe('Delegated user decryption (ConfidentialERC20)', function () {
 
     // Alice transfers some tokens to the smartWallet contract.
     const transferAmount = 500000n;
-    const encryptedTransferAmount = await fhevm
-      .createEncryptedInput(tokenAddress, signers.alice.address as Hex)
-      .add64(transferAmount)
-      .encrypt();
-    const [transferHandle] = encryptedTransferAmount.handles;
-    if (transferHandle === undefined) throw new Error('encrypt() returned no handle');
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: transferAmount,
+      contractAddress: tokenAddress,
+      userAddress: signers.alice.address,
+    });
+    const transferHandle = encryptedTransferAmount.externalEuint64;
 
     const transferTx = await token
       .connect(signers.alice)
@@ -187,11 +187,12 @@ describe('Delegated user decryption (ConfidentialERC20)', function () {
     // Bob proposes a transaction from the smartWallet to transfer tokens to Carol.
     // The encrypted input must be created for the smartWallet address since it will be the msg.sender.
     const transferAmount = 100000n;
-    const input = fhevm.createEncryptedInput(tokenAddress, smartWalletAddress);
-    input.add64(transferAmount);
-    const encryptedTransferAmount = await input.encrypt();
-    const [transferHandle] = encryptedTransferAmount.handles;
-    if (transferHandle === undefined) throw new Error('encrypt() returned no handle');
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: transferAmount,
+      contractAddress: tokenAddress,
+      userAddress: smartWalletAddress,
+    });
+    const transferHandle = encryptedTransferAmount.externalEuint64;
 
     // Encode the transfer function call with full signature to avoid ambiguity.
     const transferData = token.interface.encodeFunctionData('transfer(address,bytes32,bytes)', [

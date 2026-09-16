@@ -28,8 +28,15 @@ async function encryptTwo8(
   a: bigint,
   b: bigint,
 ): Promise<{ handleA: Hex; handleB: Hex; inputProof: Hex }> {
-  const encrypted = await fhevm.createEncryptedInput(contractAddress, user).add8(a).add8(b).encrypt();
-  const [handleA, handleB] = encrypted.handles;
+  const encrypted = await fhevm.client.encryptValues({
+    values: [
+      { type: 'uint8', value: a },
+      { type: 'uint8', value: b },
+    ],
+    contractAddress: contractAddress,
+    userAddress: user,
+  });
+  const [handleA, handleB] = encrypted.encryptedValues;
   if (handleA === undefined || handleB === undefined) throw new Error('encrypt() returned fewer than two handles');
   return { handleA, handleB, inputProof: encrypted.inputProof };
 }
@@ -58,7 +65,7 @@ describe('FHEVM HCU 1', function () {
 
     const resEuint8 = (await contract1.resEuint8()) as Hex;
 
-    const hcu = fhevm.computeTransactionHCU(receipt);
+    const hcu = await fhevm.computeTransactionHCU(receipt.hash);
 
     expect(hcu.globalHCU).to.eq(getHCU('FheAdd', 'Uint8'));
     expect(hcu.HCUDepthByHandle[resEuint8]).to.eq(getHCU('FheAdd', 'Uint8'));
@@ -76,7 +83,7 @@ describe('FHEVM HCU 1', function () {
 
     const resEuint8 = (await contract1.resEuint8()) as Hex;
 
-    const hcu = fhevm.computeTransactionHCU(receipt);
+    const hcu = await fhevm.computeTransactionHCU(receipt.hash);
 
     expect(hcu.globalHCU).to.eq(getHCU('FheSub', 'Uint8'));
     expect(hcu.HCUDepthByHandle[resEuint8]).to.eq(getHCU('FheSub', 'Uint8'));

@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -33,25 +32,24 @@ describe('FHECounter debugger', function () {
   });
 
   it('reads a count nobody is allowed to decrypt', async function () {
-    const encrypted = await fhevm
-      .createEncryptedInput(counterAddress, signers.alice.address as Hex)
-      .add32(5)
-      .encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
+    const encrypted = await fhevm.helpers.encryptUint32({
+      value: 5,
+      contractAddress: counterAddress,
+      userAddress: signers.alice.address,
+    });
+    const handle = encrypted.externalEuint32;
     const tx = await counter.connect(signers.alice).incrementNotPubliclyDecryptable(handle, encrypted.inputProof);
     await tx.wait();
     const count = (await counter.getCount()) as Hex;
 
     let refused = false;
     try {
-      await fhevm.publicDecryptEuint(FhevmType.euint32, count);
+      await fhevm.helpers.decryptPublicUint32({ euint32: count });
     } catch {
       refused = true;
     }
     expect(refused).to.eq(true);
 
-    expect(await fhevm.debugger.decryptEuint(FhevmType.euint32, count)).to.eq(5n);
-    expect(fhevm.typeof(count)).to.eq('euint32');
+    expect(await fhevm.cleartextDb.readUint32({ euint32: count })).to.eq(5n);
   });
 });

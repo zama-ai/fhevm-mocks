@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { network } from 'hardhat';
@@ -31,7 +30,7 @@ describe('APlusB', function () {
     aplusbContract = await deployAPlusBFixture(signers.alice);
     aplusbContractAddress = (await aplusbContract.getAddress()) as Hex;
 
-    await fhevm.assertCoprocessorInitialized(aplusbContract, 'APlusB');
+    await fhevm.assertCoprocessorInitialized(aplusbContractAddress, 'APlusB');
   });
 
   it('uint8: add 80 to 123 should equal 203', async function () {
@@ -40,13 +39,14 @@ describe('APlusB', function () {
     // 1. Validates and Stores value 'a'
 
     // Create the encrypted input
-    const inputA = fhevm.createEncryptedInput(aplusbContractAddress, alice.address as Hex);
-    inputA.add8(80);
-    const encryptedInputA = await inputA.encrypt();
+    const encryptedInputA = await fhevm.helpers.encryptUint8({
+      value: 80,
+      contractAddress: aplusbContractAddress,
+      userAddress: alice.address,
+    });
 
     // Call the contract with the encrypted value `a`
-    const [encryptedA] = encryptedInputA.handles;
-    if (encryptedA === undefined) throw new Error('encrypt() returned no handle');
+    const encryptedA = encryptedInputA.externalEuint8;
     const proofA = encryptedInputA.inputProof;
 
     let tx = await aplusbContract.setA(encryptedA, proofA);
@@ -55,13 +55,14 @@ describe('APlusB', function () {
     // 2. Validates and Stores value 'b'
 
     // Create the encrypted input
-    const inputB = fhevm.createEncryptedInput(aplusbContractAddress, alice.address as Hex);
-    inputB.add8(123);
-    const encryptedInputB = await inputB.encrypt();
+    const encryptedInputB = await fhevm.helpers.encryptUint8({
+      value: 123,
+      contractAddress: aplusbContractAddress,
+      userAddress: alice.address,
+    });
 
     // Call the contract with the encrypted value `b`
-    const [encryptedB] = encryptedInputB.handles;
-    if (encryptedB === undefined) throw new Error('encrypt() returned no handle');
+    const encryptedB = encryptedInputB.externalEuint8;
     const proofB = encryptedInputB.inputProof;
 
     tx = await aplusbContract.setB(encryptedB, proofB);
@@ -75,12 +76,11 @@ describe('APlusB', function () {
     const encryptedAPlusB = (await aplusbContract.aplusb()) as Hex;
 
     // 5. Decrypts `aplusb` — the decrypting user is alice's viem account
-    const clearAPlusB = await fhevm.userDecryptEuint(
-      FhevmType.euint8,
-      encryptedAPlusB,
-      aplusbContractAddress,
-      accounts.alice,
-    );
+    const clearAPlusB = await fhevm.helpers.decryptUint8({
+      euint8: encryptedAPlusB,
+      contractAddress: aplusbContractAddress,
+      userAddress: accounts.alice.address,
+    });
 
     expect(clearAPlusB).to.eq(BigInt(80 + 123));
   });

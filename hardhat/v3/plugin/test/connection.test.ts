@@ -27,8 +27,6 @@ void test('every connection carries a frozen fhevm object of its own', async () 
     assert.equal(first.fhevm.network.kind, 'hardhat');
     assert.equal(first.fhevm.isCleartext, true);
     assert.equal(first.fhevm.isDevelopment, true);
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- the alias is the thing under test
-    assert.equal(first.fhevm.isMock, first.fhevm.isCleartext);
   } finally {
     await first.close();
     await second.close();

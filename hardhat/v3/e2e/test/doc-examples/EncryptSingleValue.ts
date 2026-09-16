@@ -1,4 +1,4 @@
-import { FhevmType, type HardhatFhevmRuntimeEnvironment } from '@fhevm/hardhat-plugin-v3';
+import { type HardhatFhevmRuntimeEnvironment } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { network } from 'hardhat';
@@ -69,21 +69,22 @@ describe('EncryptSingleValue', function () {
     // Values are encrypted locally and bound to a specific contract/user pair.
     // This grants the bound contract FHE permissions to receive and process the encrypted value,
     // but only when it is sent by the bound user.
-    const input = fhevm.createEncryptedInput(contractAddress, signers.alice.address as Hex);
 
-    // Add a uint32 value to the list of values to encrypt locally.
-    input.add32(123456);
-
-    // Perform the local encryption. This operation produces two components:
-    // 1. `handles`: an array of FHEVM handles. In this case, a single handle associated with the
-    //    locally encrypted uint32 value `123456`.
-    // 2. `inputProof`: a zero-knowledge proof that attests the `handles` are cryptographically
+    // Encrypt a single uint32 locally. `fhevm.helpers` has one method per Solidity type, so the call
+    // names the type it produces; several values under one proof would go through
+    // `fhevm.client.encryptValues` instead. The result has two components:
+    // 1. `externalEuint32`: the FHEVM handle for the locally encrypted uint32 value `123456`, named
+    //    after the Solidity type the contract will receive it as.
+    // 2. `inputProof`: a zero-knowledge proof that attests the handle is cryptographically
     //    bound to the pair `[contractAddress, signers.alice.address]`.
-    const enc = await input.encrypt();
+    const enc = await fhevm.helpers.encryptUint32({
+      value: 123456,
+      contractAddress: contractAddress,
+      userAddress: signers.alice.address,
+    });
 
     // a 32-bytes FHEVM handle that represents a future Solidity `euint32` value.
-    const [inputEuint32] = enc.handles;
-    if (inputEuint32 === undefined) throw new Error('encrypt() returned no handle');
+    const inputEuint32 = enc.externalEuint32;
     const inputProof = enc.inputProof;
 
     // Now `signers.alice.address` can send the encrypted value and its associated zero-knowledge proof
@@ -94,27 +95,26 @@ describe('EncryptSingleValue', function () {
     // Let's try to decrypt it to check that everything is ok!
     const encryptedUint32 = (await contract.encryptedUint32()) as Hex;
 
-    const clearUint32 = await fhevm.userDecryptEuint(
-      FhevmType.euint32, // Specify the encrypted type
-      encryptedUint32,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearUint32 = await fhevm.helpers.decryptUint32({
+      euint32: encryptedUint32,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
-    expect(clearUint32).to.equal(123456n);
+    expect(clearUint32).to.equal(123456);
   });
 
   // ❌ This test illustrates a very common pitfall
   it('encryption should fail', async function () {
     const fhevm: HardhatFhevmRuntimeEnvironment = connection.fhevm;
 
-    const enc = await fhevm
-      .createEncryptedInput(contractAddress, signers.alice.address as Hex)
-      .add32(123456)
-      .encrypt();
+    const enc = await fhevm.helpers.encryptUint32({
+      value: 123456,
+      contractAddress,
+      userAddress: signers.alice.address,
+    });
 
-    const [inputEuint32] = enc.handles;
-    if (inputEuint32 === undefined) throw new Error('encrypt() returned no handle');
+    const inputEuint32 = enc.externalEuint32;
     const inputProof = enc.inputProof;
 
     // Here is a very common error !

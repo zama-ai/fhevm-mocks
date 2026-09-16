@@ -57,9 +57,9 @@ describe('TestFHENotInitialized', function () {
 
   it('Assertion should fail if the FHE contract is uninitialized', async function () {
     // The contract object itself resolves through `getAddress()`.
-    await expectRejectedWith(fhevm.assertCoprocessorInitialized(testFHENotInitialized), NOT_INITIALIZED);
+    await expectRejectedWith(fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress), NOT_INITIALIZED);
     await expectRejectedWith(
-      fhevm.assertCoprocessorInitialized(testFHENotInitialized, 'TestFHENotInitialized'),
+      fhevm.assertCoprocessorInitialized(testFHENotInitializedAddress, 'TestFHENotInitialized'),
       NOT_INITIALIZED,
     );
   });

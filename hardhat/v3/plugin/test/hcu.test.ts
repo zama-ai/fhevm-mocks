@@ -11,15 +11,16 @@ import { createHardhatRuntimeEnvironment } from 'hardhat/hre';
 import { HardhatPluginError } from 'hardhat/plugins';
 import { encodeAbiParameters, encodeEventTopics, encodeFunctionData } from 'viem';
 
-import plugin, { FhevmType, getHCU as publicGetHCU } from '#esm/index.js';
-import type { FhevmLog } from '#esm/index.js';
+import plugin, { getHCU as publicGetHCU } from '#esm/index.js';
+import { FhevmType } from '#esm/types-p.js';
+import type { FhevmLog } from '#esm/types-p.js';
 import { developmentChain, developmentPublicClient } from '#esm/internal/clients.js';
 import { type FhevmContractWrapper, FhevmCleartextContractsRepository } from '#esm/internal/contracts.js';
 import { precomputeLocalhostAddresses } from '#esm/internal/deploy.js';
 import { COPROCESSOR_EVENT_NAMES } from '#esm/internal/events.js';
 import { parseFhevmHandle } from '#esm/internal/fhevmHandle.js';
 import { getFheTypeName, getFheTypeNameFromByte } from '#esm/internal/hcu/fheTypeName.js';
-import { computeTransactionHCU } from '#esm/internal/hcu/hcu.js';
+import { computeReceiptHCU, computeTransactionHCU } from '#esm/internal/hcu/hcu.js';
 import { HCU_PRICE_BY_EVENT, getBucketedHCU, getHCU, hcuPriceOf } from '#esm/internal/hcu/prices.js';
 import { ALL_OPERATORS_PRICES } from '#esm/internal/vendored/operatorsPrices.js';
 
@@ -117,7 +118,7 @@ void test('a synthetic receipt walks HCU depth through the dependency chain', as
       [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes1' }, { type: 'bytes32' }],
       [h1, h2, '0x00', h3],
     );
-    const info = computeTransactionHCU(executor, { status: 'success', transactionHash: TX_HASH, logs: [trivial, add] });
+    const info = computeReceiptHCU(executor, { status: 'success', transactionHash: TX_HASH, logs: [trivial, add] });
 
     const trivialPrice = ALL_OPERATORS_PRICES.trivialEncrypt.types?.Uint32 ?? -1;
     const addPrice = ALL_OPERATORS_PRICES.fheAdd.nonScalar?.Uint32 ?? -1;
@@ -128,11 +129,8 @@ void test('a synthetic receipt walks HCU depth through the dependency chain', as
     assert.equal(info.maxHCUDepth, addPrice + trivialPrice);
 
     // ethers shape, and a reverted receipt.
-    assert.equal(
-      computeTransactionHCU(executor, { status: 1, hash: TX_HASH, logs: [trivial] }).globalHCU,
-      trivialPrice,
-    );
-    assert.throws(() => computeTransactionHCU(executor, { status: 0, hash: TX_HASH, logs: [] }), isPluginError);
+    assert.equal(computeReceiptHCU(executor, { status: 1, hash: TX_HASH, logs: [trivial] }).globalHCU, trivialPrice);
+    assert.throws(() => computeReceiptHCU(executor, { status: 0, hash: TX_HASH, logs: [] }), isPluginError);
   });
 });
 
@@ -152,16 +150,19 @@ void test('a live trivialEncrypt costs exactly the table price', async () => {
     const client = developmentPublicClient(connection.provider, await developmentChain(connection.provider));
     const receipt = await client.getTransactionReceipt({ hash });
 
-    const info = computeTransactionHCU(executor, receipt);
+    const info = computeReceiptHCU(executor, receipt);
     const price = ALL_OPERATORS_PRICES.trivialEncrypt.types?.Uint32 ?? -1;
     assert.equal(publicGetHCU('TrivialEncrypt', 'Uint32'), price);
+    // Fetching by hash must reach the same answer as pricing the receipt we already hold.
+    assert.deepEqual(await computeTransactionHCU(executor, client, hash), info);
     // The public surface answers the same, and names the result handle's type.
-    const viaFhevm = connection.fhevm.computeTransactionHCU(receipt);
+    const viaFhevm = await connection.fhevm.computeTransactionHCU(hash);
     assert.deepEqual(viaFhevm, info);
     const [resultHandle] = Object.keys(info.HCUDepthByHandle) as Array<`0x${string}`>;
     assert.ok(resultHandle !== undefined);
-    assert.equal(connection.fhevm.typeof(resultHandle), 'euint32');
-    assert.throws(() => connection.fhevm.typeof('0x1234'), isPluginError);
+    // `fhevm.typeof` is gone from the surface; the handle decoder it wrapped still names the type.
+    assert.equal(parseFhevmHandle(resultHandle).typeName, 'euint32');
+    assert.throws(() => parseFhevmHandle('0x1234'), isPluginError);
     assert.equal(info.globalHCU, price);
     assert.equal(info.maxHCUDepth, price);
     assert.equal(Object.keys(info.HCUDepthByHandle).length, 1);

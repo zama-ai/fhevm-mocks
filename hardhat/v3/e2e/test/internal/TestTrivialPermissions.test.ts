@@ -5,7 +5,13 @@ import type { TestTrivialPermissions, TestTrivialPermissions__factory } from '..
 import { type Signers, getSigners } from '../utils/signers.ts';
 
 const connection = await network.getOrCreate();
-const { ethers, fhevm } = connection;
+const { ethers } = connection;
+
+// `ACLNotAllowed` is declared by `FHEVMExecutor`, a stack contract this suite never deploys, so
+// chai gets an interface declaring just that error instead of a contract instance.
+const fhevmExecutor = (): { interface: InstanceType<typeof ethers.Interface> } => ({
+  interface: new ethers.Interface(['error ACLNotAllowed(bytes32 handle, address account)']),
+});
 
 describe('TestTrivialPermissions', function () {
   let signers: Signers;
@@ -23,7 +29,8 @@ describe('TestTrivialPermissions', function () {
 
   it('should fail because missing ACL permission', async function () {
     await expect(testTrivialPermissions.connect(signers.carol).computeFheAdd()).to.be.revertedWithCustomError(
-      ...fhevm.revertedWithCustomErrorArgs('FHEVMExecutor', 'ACLNotAllowed'),
+      fhevmExecutor(),
+      'ACLNotAllowed',
     );
   });
 });

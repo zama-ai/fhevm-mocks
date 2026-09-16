@@ -5,7 +5,13 @@ import type { TestErrors, TestErrors__factory } from '../../types/ethers-contrac
 import { type Signers, getSigners } from '../utils/signers.ts';
 
 const connection = await network.getOrCreate();
-const { ethers, fhevm } = connection;
+const { ethers } = connection;
+
+// `ACLNotAllowed` is declared by `FHEVMExecutor`, a stack contract this suite never deploys, so
+// chai gets an interface declaring just that error instead of a contract instance.
+const fhevmExecutor = (): { interface: InstanceType<typeof ethers.Interface> } => ({
+  interface: new ethers.Interface(['error ACLNotAllowed(bytes32 handle, address account)']),
+});
 
 describe('TestErrors', function () {
   let signers: Signers;
@@ -26,7 +32,8 @@ describe('TestErrors', function () {
     await tx.wait();
 
     await expect(testErrors.connect(signers.alice).add(456)).to.be.revertedWithCustomError(
-      ...fhevm.revertedWithCustomErrorArgs('FHEVMExecutor', 'ACLNotAllowed'),
+      fhevmExecutor(),
+      'ACLNotAllowed',
     );
   });
 });

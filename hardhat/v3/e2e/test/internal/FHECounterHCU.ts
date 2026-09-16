@@ -1,4 +1,4 @@
-import { FhevmType, getHCU } from '@fhevm/hardhat-plugin-v3';
+import { getHCU } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -36,12 +36,12 @@ describe('FHECounter HCU', function () {
     receipt: NonNullable<Awaited<ReturnType<Awaited<ReturnType<typeof counter.increment>>['wait']>>>;
     count: Hex;
   }> {
-    const encrypted = await fhevm
-      .createEncryptedInput(counterAddress, signers.alice.address as Hex)
-      .add32(value)
-      .encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
+    const encrypted = await fhevm.helpers.encryptUint32({
+      value: value,
+      contractAddress: counterAddress,
+      userAddress: signers.alice.address,
+    });
+    const handle = encrypted.externalEuint32;
     const tx = await counter.connect(signers.alice).increment(handle, encrypted.inputProof);
     const receipt = await tx.wait();
     if (receipt === null) throw new Error('Expected a transaction receipt');
@@ -50,20 +50,18 @@ describe('FHECounter HCU', function () {
 
   it('the first increment trivially encrypts the zero count, then adds', async function () {
     const { receipt, count } = await increment(1);
-    const hcu = fhevm.computeTransactionHCU(receipt);
+    const hcu = await fhevm.computeTransactionHCU(receipt.hash);
 
     const expected = getHCU('TrivialEncrypt', 'Uint32') + getHCU('FheAdd', 'Uint32');
     expect(hcu.globalHCU).to.eq(expected);
     expect(hcu.HCUDepthByHandle[count]).to.eq(expected);
     expect(hcu.maxHCUDepth).to.eq(expected);
-    expect(fhevm.typeof(count)).to.eq('euint32');
-    expect(FhevmType[FhevmType.euint32]).to.eq(fhevm.typeof(count));
   });
 
   it('the second increment is a single FheAdd on an initialized count', async function () {
     await increment(1);
     const { receipt, count } = await increment(2);
-    const hcu = fhevm.computeTransactionHCU(receipt);
+    const hcu = await fhevm.computeTransactionHCU(receipt.hash);
 
     expect(hcu.globalHCU).to.eq(getHCU('FheAdd', 'Uint32'));
     // Depth is per transaction: the previous count enters this receipt with no depth of its own.

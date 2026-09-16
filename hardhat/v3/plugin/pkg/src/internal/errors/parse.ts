@@ -4,7 +4,7 @@
 
 import { getAddress } from 'viem';
 
-import type { FhevmContractError, FhevmInputVerifierError } from '../../types.js';
+import type { FhevmContractError, FhevmInputVerifierError } from '../../types-p.js';
 import type { FhevmContractsRepository } from '../contracts.js';
 import { type RevertData, decodeRevert, extractRevertData } from './decorate.js';
 import { type TransactionParties, formatFhevmErrorMessages } from './messages.js';

@@ -5,7 +5,7 @@
 import { type Abi, type Hex, decodeErrorResult, toFunctionSelector } from 'viem';
 import { formatAbiItem } from 'viem/utils';
 
-import type { FhevmErrorFragment, FhevmErrorInterface } from '../../types.js';
+import type { FhevmErrorFragment, FhevmErrorInterface } from '../../types-p.js';
 import type { FhevmContractWrapper } from '../contracts.js';
 
 type AbiError = Extract<Abi[number], { type: 'error' }>;
