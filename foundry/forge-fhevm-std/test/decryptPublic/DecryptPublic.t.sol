@@ -24,7 +24,7 @@ contract AddOneDapp is ZamaEthereumConfig {
         //
     }
 
-    function submit(externalEuint64 input, bytes calldata inputProof) external {
+    function addOne(externalEuint64 input, bytes calldata inputProof) external {
         euint64 value = FHE.fromExternal(input, inputProof);
         _result = FHE.add(value, 1);
 
@@ -74,10 +74,10 @@ contract DecryptPublicTest is Test, FhevmStd {
     function test_publicDecryptReturnsTheDappResult() public {
         // The input proof is bound to both the contract and the caller, so it is built for alice and
         // must be sent by alice.
-        (externalEuint64 handle, bytes memory inputProof) = encryptEuint64(41, address(dapp), alice);
+        (externalEuint64 handle, bytes memory inputProof) = encryptUint64(41, address(dapp), alice);
 
         vm.prank(alice);
-        dapp.submit(handle, inputProof);
+        dapp.addOne(handle, inputProof);
 
         (uint64 clear, bytes memory decryptionProof) = decryptPublicWithProof(dapp.result());
         assertEq(clear, 42);
@@ -88,10 +88,10 @@ contract DecryptPublicTest is Test, FhevmStd {
     }
 
     function test_verifyResultRejectsAValueThatWasNotDecrypted() public {
-        (externalEuint64 handle, bytes memory inputProof) = encryptEuint64(41, address(dapp), alice);
+        (externalEuint64 handle, bytes memory inputProof) = encryptUint64(41, address(dapp), alice);
 
         vm.prank(alice);
-        dapp.submit(handle, inputProof);
+        dapp.addOne(handle, inputProof);
 
         (, bytes memory decryptionProof) = decryptPublicWithProof(dapp.result());
 

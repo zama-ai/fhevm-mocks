@@ -15,7 +15,7 @@ abstract contract FhevmStd is FhevmCleartextDeploy {
 
     // -- Encrypt Single Value -------------------------------------------------
 
-    function encryptEuint32(uint32 value, address contractAddress, address userAddress)
+    function encryptUint32(uint32 value, address contractAddress, address userAddress)
         internal
         returns (externalEuint32 externalEnc, bytes memory inputProof)
     {
@@ -24,7 +24,7 @@ abstract contract FhevmStd is FhevmCleartextDeploy {
         externalEnc = externalEuint32.wrap(handle);
     }
 
-    function encryptEuint64(uint64 value, address contractAddress, address userAddress)
+    function encryptUint64(uint64 value, address contractAddress, address userAddress)
         internal
         returns (externalEuint64 externalEnc, bytes memory inputProof)
     {
