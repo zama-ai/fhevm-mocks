@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -77,9 +76,12 @@ describe('Delegated user decryption', function () {
   });
 
   async function incrementThroughWallet(value: number): Promise<void> {
-    const encrypted = await fhevm.createEncryptedInput(counterAddress, smartWalletAddress).add32(value).encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
+    const encrypted = await fhevm.helpers.encryptUint32({
+      value: value,
+      contractAddress: counterAddress,
+      userAddress: smartWalletAddress,
+    });
+    const handle = encrypted.externalEuint32;
 
     const data = counter.interface.encodeFunctionData('increment', [handle, encrypted.inputProof]);
     const proposeTx = await smartWallet.connect(signers.bob).proposeTx(counterAddress, data);
@@ -101,20 +103,30 @@ describe('Delegated user decryption', function () {
     await delegate(signers.bob.address);
     const countHandle = (await counter.getCount()) as Hex;
 
-    const clearCount = await fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.bob, {
-      delegatorAddress: smartWalletAddress,
+    const clearCount = await fhevm.helpers.decryptUint32({
+      euint32: countHandle,
+      contractAddress: counterAddress,
+      userAddress: accounts.bob.address,
+      options: {
+        delegatorAddress: smartWalletAddress,
+      },
     });
-    expect(clearCount).to.equal(7n);
+    expect(clearCount).to.equal(7);
   });
 
   it('smartWallet owner delegates a third EOA to decrypt the smartWallet count', async function () {
     await delegate(signers.carol.address);
     const countHandle = (await counter.getCount()) as Hex;
 
-    const clearCount = await fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.carol, {
-      delegatorAddress: smartWalletAddress,
+    const clearCount = await fhevm.helpers.decryptUint32({
+      euint32: countHandle,
+      contractAddress: counterAddress,
+      userAddress: accounts.carol.address,
+      options: {
+        delegatorAddress: smartWalletAddress,
+      },
     });
-    expect(clearCount).to.equal(7n);
+    expect(clearCount).to.equal(7);
   });
 
   it('smartWallet can execute another increment and the delegate reads the new count', async function () {
@@ -122,17 +134,27 @@ describe('Delegated user decryption', function () {
     await incrementThroughWallet(5);
     const countHandle = (await counter.getCount()) as Hex;
 
-    const clearCount = await fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.bob, {
-      delegatorAddress: smartWalletAddress,
+    const clearCount = await fhevm.helpers.decryptUint32({
+      euint32: countHandle,
+      contractAddress: counterAddress,
+      userAddress: accounts.bob.address,
+      options: {
+        delegatorAddress: smartWalletAddress,
+      },
     });
-    expect(clearCount).to.equal(12n);
+    expect(clearCount).to.equal(12);
   });
 
   it('an EOA without delegation cannot decrypt the smartWallet count', async function () {
     const countHandle = (await counter.getCount()) as Hex;
     await expectRejectedWith(
-      fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.bob, {
-        delegatorAddress: smartWalletAddress,
+      fhevm.helpers.decryptUint32({
+        euint32: countHandle,
+        contractAddress: counterAddress,
+        userAddress: accounts.bob.address,
+        options: {
+          delegatorAddress: smartWalletAddress,
+        },
       }),
       NOT_DELEGATED,
     );
@@ -150,8 +172,13 @@ describe('Delegated user decryption', function () {
 
     const countHandle = (await counter.getCount()) as Hex;
     await expectRejectedWith(
-      fhevm.userDecryptEuint(FhevmType.euint32, countHandle, counterAddress, accounts.bob, {
-        delegatorAddress: smartWalletAddress,
+      fhevm.helpers.decryptUint32({
+        euint32: countHandle,
+        contractAddress: counterAddress,
+        userAddress: accounts.bob.address,
+        options: {
+          delegatorAddress: smartWalletAddress,
+        },
       }),
       NOT_DELEGATED,
     );

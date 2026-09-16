@@ -1,9 +1,7 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { network } from 'hardhat';
 
 import type { IConfidentialERC20, TestConfidentialERC20Mintable } from '../../types/ethers-contracts/index.ts';
-import { accountFor } from '../utils/signers.ts';
 
 const connection = await network.getOrCreate();
 const { ethers, fhevm } = connection;
@@ -29,7 +27,11 @@ export async function userDecryptAllowance(
   tokenAddress: Hex,
 ): Promise<bigint> {
   const allowanceHandle = (await token.allowance(account, spender)) as Hex;
-  return fhevm.userDecryptEuint(FhevmType.euint64, allowanceHandle, tokenAddress, accountFor(account));
+  return fhevm.helpers.decryptUint64({
+    euint64: allowanceHandle,
+    contractAddress: tokenAddress,
+    userAddress: account.address,
+  });
 }
 
 export async function userDecryptBalance(
@@ -38,5 +40,9 @@ export async function userDecryptBalance(
   tokenAddress: Hex,
 ): Promise<bigint> {
   const balanceHandle = (await token.balanceOf(account)) as Hex;
-  return fhevm.userDecryptEuint(FhevmType.euint64, balanceHandle, tokenAddress, accountFor(account));
+  return fhevm.helpers.decryptUint64({
+    euint64: balanceHandle,
+    contractAddress: tokenAddress,
+    userAddress: account.address,
+  });
 }

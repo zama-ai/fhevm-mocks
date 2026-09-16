@@ -1,6 +1,7 @@
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { network } from 'hardhat';
+import type { ethers as EthersT } from 'ethers';
 
 import type { HeadsOrTails, HeadsOrTails__factory } from '../../types/ethers-contracts/index.ts';
 import { requireReceipt } from '../utils/receipts.ts';
@@ -26,6 +27,13 @@ async function deployFixture(): Promise<{
 
   return { headsOrTails, headsOrTailsAddress };
 }
+
+// `KMSInvalidSigner` is declared by `KMSVerifier`, a stack contract this suite never deploys, so there
+// is no contract instance to hand chai. Declaring the one error signature is enough for it to match the
+// revert data — it only needs something that can decode the error.
+const kmsVerifier = (): { interface: EthersT.Interface } => ({
+  interface: new ethers.Interface(['error KMSInvalidSigner(address invalidSigner)']),
+});
 
 /**
  * The `HeadsOrTails` example showcases the public decryption mechanism and
@@ -130,17 +138,18 @@ describe('HeadsOrTails', function () {
     const gameId = gameCreatedEvent.gameId;
     const encryptedBool = gameCreatedEvent.encryptedHasHeadsWon;
 
-    // Call the Zama Relayer to compute the decryption
-    const publicDecryptResults = await fhevm.publicDecrypt([encryptedBool]);
+    // Call the Zama Relayer to compute the decryption. One handle, so this is a `helpers` call; the
+    // `WithSignatures` form is the one that also returns the proof the contract needs.
+    const { checkSignaturesArgs } = await fhevm.helpers.decryptPublicBoolWithSignatures({ ebool: encryptedBool });
 
-    // The Relayer returns a `PublicDecryptResults` object containing:
-    // - the ORDERED clear values (here we have only one single value)
+    // Alongside the clear value, the Relayer returns a `checkSignaturesArgs` object containing:
+    // - the ORDERED handles the proof was computed over (here a single one)
     // - the ORDERED clear values in ABI-encoded form
     // - the KMS decryption proof associated with the ORDERED clear values in ABI-encoded form
-    const abiEncodedClearGameResult = publicDecryptResults.abiEncodedClearValues;
-    const decryptionProof = publicDecryptResults.decryptionProof;
+    const abiEncodedClearGameResult = checkSignaturesArgs.abiEncodedCleartexts;
+    const decryptionProof = checkSignaturesArgs.decryptionProof;
 
-    // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
+    // Let's forward the decrypted payload and its proof to the on-chain contract whose job
     // will simply be to verify the proof and declare the final winner of the game
     await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
 
@@ -160,14 +169,16 @@ describe('HeadsOrTails', function () {
   it('should fail when the decryption proof is invalid', async function () {
     const gameCreatedEvent = await play();
 
-    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
+    const { checkSignaturesArgs } = await fhevm.helpers.decryptPublicBoolWithSignatures({
+      ebool: gameCreatedEvent.encryptedHasHeadsWon,
+    });
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent.gameId,
-        publicDecryptResults.abiEncodedClearValues,
-        `${publicDecryptResults.decryptionProof}dead`,
+        checkSignaturesArgs.abiEncodedCleartexts,
+        `${checkSignaturesArgs.decryptionProof}dead`,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 
   // ❌ The test must fail if a malicious operator attempts to use a decryption proof
@@ -175,29 +186,27 @@ describe('HeadsOrTails', function () {
   it('should fail when using a decryption proof with a forged game result', async function () {
     const gameCreatedEvent = await play();
 
-    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
-    const clearHeadsHasWon = publicDecryptResults.clearValues[gameCreatedEvent.encryptedHasHeadsWon];
+    const { clearValue: clearHeadsHasWon, checkSignaturesArgs } = await fhevm.helpers.decryptPublicBoolWithSignatures({
+      ebool: gameCreatedEvent.encryptedHasHeadsWon,
+    });
 
     // The clear value is also ABI-encoded
     const decodedHeadsHasWon: unknown = ethers.AbiCoder.defaultAbiCoder().decode(
       ['bool'],
-      publicDecryptResults.abiEncodedClearValues,
+      checkSignaturesArgs.abiEncodedCleartexts,
     )[0];
     expect(decodedHeadsHasWon).to.eq(clearHeadsHasWon);
 
-    // Let's try to forge the game result
-    const forgedABIEncodedClearValues = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['bool'],
-      [!(clearHeadsHasWon as boolean)],
-    );
+    // Let's try to forge the game result. `clearValue` is already a boolean, so no cast is needed.
+    const forgedABIEncodedClearValues = ethers.AbiCoder.defaultAbiCoder().encode(['bool'], [!clearHeadsHasWon]);
 
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent.gameId,
         forgedABIEncodedClearValues,
-        publicDecryptResults.decryptionProof,
+        checkSignaturesArgs.decryptionProof,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 
   // ❌ Two games (Game1 and Game2) are played between playerA and playerB.
@@ -211,14 +220,16 @@ describe('HeadsOrTails', function () {
     const gameCreatedEvent2 = await play();
 
     // Let's try to forge the Game1's winner using the result of Game2
-    const publicDecryptResults2 = await fhevm.publicDecrypt([gameCreatedEvent2.encryptedHasHeadsWon]);
+    const { checkSignaturesArgs: checkSignaturesArgs2 } = await fhevm.helpers.decryptPublicBoolWithSignatures({
+      ebool: gameCreatedEvent2.encryptedHasHeadsWon,
+    });
 
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent1.gameId,
-        publicDecryptResults2.abiEncodedClearValues,
-        publicDecryptResults2.decryptionProof,
+        checkSignaturesArgs2.abiEncodedCleartexts,
+        checkSignaturesArgs2.decryptionProof,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 });

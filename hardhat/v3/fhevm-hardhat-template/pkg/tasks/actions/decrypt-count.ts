@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import type { NewTaskActionFunction } from 'hardhat/types/tasks';
 
 import { firstWallet, parseAddress } from './helpers.js';
@@ -14,15 +13,14 @@ const decryptCount: NewTaskActionFunction<Args> = async ({ address }, hre) => {
 
   if (BigInt(encryptedCount) === 0n) {
     console.log('Clear count: 0');
-    return 0n;
+    return 0;
   }
 
-  const clearCount = await connection.fhevm.userDecryptEuint(
-    FhevmType.euint32,
-    encryptedCount,
+  const clearCount = await connection.fhevm.helpers.decryptUint32({
+    euint32: encryptedCount,
     contractAddress,
-    wallet,
-  );
+    userAddress: wallet.account.address,
+  });
   console.log(`Clear count: ${String(clearCount)}`);
   return clearCount;
 };

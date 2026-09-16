@@ -1,9 +1,7 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { network } from 'hardhat';
 
 import type { ConfidentialVestingWallet, TestConfidentialVestingWallet } from '../../types/ethers-contracts/index.ts';
-import { accountFor } from '../utils/signers.ts';
 
 const connection = await network.getOrCreate();
 const { ethers, fhevm } = connection;
@@ -29,5 +27,9 @@ export async function userDecryptReleased(
   vestingWalletAddress: Hex,
 ): Promise<bigint> {
   const releasedHandled = (await vestingWallet.released(tokenAddress)) as Hex;
-  return fhevm.userDecryptEuint(FhevmType.euint64, releasedHandled, vestingWalletAddress, accountFor(account));
+  return fhevm.helpers.decryptUint64({
+    euint64: releasedHandled,
+    contractAddress: vestingWalletAddress,
+    userAddress: account.address,
+  });
 }

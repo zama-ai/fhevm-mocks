@@ -1,4 +1,4 @@
-import { FhevmType, type HardhatFhevmRuntimeEnvironment } from '@fhevm/hardhat-plugin-v3';
+import { type HardhatFhevmRuntimeEnvironment } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import type { LocalAccount } from 'viem';
@@ -70,12 +70,11 @@ describe('DecryptSingleValue', function () {
     // that make it easy to perform FHEVM operations within your Hardhat environment.
     const fhevm: HardhatFhevmRuntimeEnvironment = connection.fhevm;
 
-    const clearUint32 = await fhevm.userDecryptEuint(
-      FhevmType.euint32, // Specify the encrypted type
-      encryptedUint32,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearUint32 = await fhevm.helpers.decryptUint32({
+      euint32: encryptedUint32,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
     expect(clearUint32).to.equal(BigInt(123456 + 1));
   });
@@ -88,7 +87,11 @@ describe('DecryptSingleValue', function () {
     const encryptedUint32 = (await contract.encryptedUint32()) as Hex;
 
     await expectRejectedWith(
-      connection.fhevm.userDecryptEuint(FhevmType.euint32, encryptedUint32, contractAddress, accounts.alice),
+      connection.fhevm.helpers.decryptUint32({
+        euint32: encryptedUint32,
+        contractAddress: contractAddress,
+        userAddress: accounts.alice.address,
+      }),
       /is not authorized to user decrypt handle/i,
     );
   });

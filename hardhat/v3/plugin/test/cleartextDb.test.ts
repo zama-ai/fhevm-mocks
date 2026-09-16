@@ -1,6 +1,6 @@
-// D6: the debugger reads a handle's cleartext off CleartextDB with no ACL, after checking the type
-// byte. Values come from `trivialEncrypt` sent straight to the executor, so no consumer contract is
-// needed; a caller with no permission at all still reads them.
+// D6: `fhevm.cleartextDb` reads a handle's cleartext straight off CleartextDB with no ACL, after
+// checking the type byte. Values come from `trivialEncrypt` sent straight to the executor, so no
+// consumer contract is needed; a caller with no permission at all still reads them.
 //
 // Tests import the BUILT payload (pkg/_esm); see connection.test.ts.
 
@@ -11,7 +11,9 @@ import { createHardhatRuntimeEnvironment } from 'hardhat/hre';
 import { HardhatPluginError } from 'hardhat/plugins';
 import { encodeFunctionData } from 'viem';
 
-import plugin, { FhevmType } from '#esm/index.js';
+import plugin from '#esm/index.js';
+// `FhevmType` is internal now: not part of the published surface, but this suite drives internals.
+import { FhevmType } from '#esm/types-p.js';
 import { developmentChain, developmentPublicClient } from '#esm/internal/clients.js';
 import { precomputeLocalhostAddresses } from '#esm/internal/deploy.js';
 
@@ -20,7 +22,7 @@ const ZERO_HANDLE = `0x${'0'.repeat(64)}` as const;
 const pluginError = (fragment: string) => (e: unknown) =>
   e instanceof HardhatPluginError && e.message.includes(fragment);
 
-void test('the debugger reads trivially encrypted values of every kind, with no ACL', async () => {
+void test('cleartextDb reads trivially encrypted values of every kind, with no ACL', async () => {
   const hre = await createHardhatRuntimeEnvironment({ plugins: [plugin] });
   const connection = await hre.network.create();
   try {
@@ -51,24 +53,20 @@ void test('the debugger reads trivially encrypted values of every kind, with no 
     const ebool = await trivialEncrypt(1n, FhevmType.ebool);
     const eaddress = await trivialEncrypt(BigInt(ALICE), FhevmType.eaddress);
 
-    assert.equal(await fhevm.debugger.decryptEuint(FhevmType.euint32, euint32), 42n);
-    assert.equal(await fhevm.debugger.decryptEbool(ebool), true);
-    assert.equal(await fhevm.debugger.decryptEaddress(eaddress), ALICE);
+    // euint32 reads back as a `number` now; bigint starts at euint64.
+    assert.equal(await fhevm.cleartextDb.readUint32({ euint32 }), 42);
+    assert.equal(await fhevm.cleartextDb.readBool({ ebool }), true);
+    assert.equal(await fhevm.cleartextDb.readAddress({ eaddress }), ALICE);
     // The ACL would refuse the same read through the permissioned path.
-    await assert.rejects(fhevm.publicDecryptEuint(FhevmType.euint32, euint32));
+    await assert.rejects(fhevm.helpers.decryptPublicUint32({ euint32 }));
 
-    // Type checks come from the handle itself.
-    await assert.rejects(fhevm.debugger.decryptEbool(euint32), pluginError('is a euint32, not a ebool'));
-    await assert.rejects(
-      fhevm.debugger.decryptEuint(FhevmType.euint8, euint32),
-      pluginError('is a euint32, not a euint8'),
-    );
-    await assert.rejects(fhevm.debugger.decryptEaddress(ebool), pluginError('is a ebool, not a eaddress'));
-    await assert.rejects(
-      fhevm.debugger.decryptEuint(FhevmType.ebool as unknown as FhevmType.euint8, euint32),
-      pluginError('expected an euint type'),
-    );
-    await assert.rejects(fhevm.debugger.decryptEuint(FhevmType.euint32, ZERO_HANDLE), pluginError('not initialized'));
+    // Type checks come from the handle itself: the argument name is the caller's claim, byte 30 the fact.
+    await assert.rejects(fhevm.cleartextDb.readBool({ ebool: euint32 }), pluginError('is a euint32, not a ebool'));
+    await assert.rejects(fhevm.cleartextDb.readUint8({ euint8: euint32 }), pluginError('is a euint32, not a euint8'));
+    await assert.rejects(fhevm.cleartextDb.readAddress({ eaddress: ebool }), pluginError('is a ebool, not a eaddress'));
+    // The old `expected an euint type` guard is gone, and cannot be re-tested: `decryptEuint` took a
+    // `fhevmType` a caller could get wrong, whereas one fixed-width method per type has nothing to pass.
+    await assert.rejects(fhevm.cleartextDb.readUint32({ euint32: ZERO_HANDLE }), pluginError('not initialized'));
   } finally {
     await connection.close();
   }

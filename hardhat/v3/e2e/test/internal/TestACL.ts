@@ -1,6 +1,6 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
+import type { ethers as EthersT } from 'ethers';
 
 import type { TestACL, TestACL__factory } from '../../types/ethers-contracts/index.ts';
 import { type Accounts, type Signers, getAccounts, getSigners } from '../utils/signers.ts';
@@ -20,6 +20,12 @@ async function deployFixture(): Promise<{
 
   return { contract, contractAddress };
 }
+
+// `InvalidSigner` is declared by `InputVerifier`, a stack contract this suite never deploys, so
+// chai gets an interface declaring just that error instead of a contract instance.
+const inputVerifier = (): { interface: EthersT.Interface } => ({
+  interface: new ethers.Interface(['error InvalidSigner(address signerRecovered)']),
+});
 
 describe('TestACL', function () {
   let signers: Signers;
@@ -42,12 +48,12 @@ describe('TestACL', function () {
 
   // Encrypts one euint32 for alice; `handles` is `Hex[]`, so the single handle is narrowed here once.
   async function encryptOneForAlice(value: number): Promise<{ handle: Hex; inputProof: Hex }> {
-    const encrypted = await fhevm
-      .createEncryptedInput(contractAddress, signers.alice.address as Hex)
-      .add32(value)
-      .encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
+    const encrypted = await fhevm.helpers.encryptUint32({
+      value: value,
+      contractAddress: contractAddress,
+      userAddress: signers.alice.address,
+    });
+    const handle = encrypted.externalEuint32;
     return { handle, inputProof: encrypted.inputProof };
   }
 
@@ -71,12 +77,11 @@ describe('TestACL', function () {
 
     const encryptedCountAfterInc = (await contract.getCount()) as Hex;
 
-    const clearCountAlice = await fhevm.userDecryptEuint(
-      FhevmType.euint32, // Specify the encrypted type
-      encryptedCountAfterInc,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearCountAlice = await fhevm.helpers.decryptUint32({
+      euint32: encryptedCountAfterInc,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
     expect(clearCountAlice).to.eq(BigInt(0 + clearOne));
   });
@@ -91,7 +96,7 @@ describe('TestACL', function () {
 
     await expect(
       contract.connect(signers.bob).increment1(encryptedOne.handle, encryptedOne.inputProof),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('InputVerifier', 'InvalidSigner'));
+    ).to.be.revertedWithCustomError(inputVerifier(), 'InvalidSigner');
   });
 
   it('Bob successfully increments the counter by 1 using Alice encrypted input', async function () {
@@ -109,19 +114,17 @@ describe('TestACL', function () {
 
     const encryptedCountAfterInc = (await contract.getCount()) as Hex;
 
-    const clearCountAlice = await fhevm.userDecryptEuint(
-      FhevmType.euint32, // Specify the encrypted type
-      encryptedCountAfterInc,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearCountAlice = await fhevm.helpers.decryptUint32({
+      euint32: encryptedCountAfterInc,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
-    const clearCountBob = await fhevm.userDecryptEuint(
-      FhevmType.euint32, // Specify the encrypted type
-      encryptedCountAfterInc,
-      contractAddress, // The contract address
-      accounts.bob, // The user account
-    );
+    const clearCountBob = await fhevm.helpers.decryptUint32({
+      euint32: encryptedCountAfterInc,
+      contractAddress: contractAddress,
+      userAddress: accounts.bob.address,
+    });
 
     expect(clearCountAlice).to.eq(BigInt(0 + clearOne));
     expect(clearCountBob).to.eq(BigInt(0 + clearOne));

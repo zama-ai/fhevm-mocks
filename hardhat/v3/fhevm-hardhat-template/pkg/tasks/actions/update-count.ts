@@ -9,11 +9,12 @@ export function updateCount(method: 'increment' | 'decrement'): NewTaskActionFun
     const connection = await hre.network.create();
     const wallet = await firstWallet(connection);
     const counter = await connection.viem.getContractAt('FHECounter', contractAddress);
-    const encryptedValue = await connection.fhevm
-      .createEncryptedInput(contractAddress, wallet.account.address)
-      .add32(clearValue)
-      .encrypt();
-    const handle = encryptedValue.handles[0];
+    const encryptedValue = await connection.fhevm.helpers.encryptUint32({
+      value: clearValue,
+      contractAddress,
+      userAddress: wallet.account.address,
+    });
+    const handle = encryptedValue.externalEuint32;
     const transactionHash = await counter.write[method]([handle, encryptedValue.inputProof]);
     console.log(`Waiting for transaction ${transactionHash}...`);
     const publicClient = await connection.viem.getPublicClient();

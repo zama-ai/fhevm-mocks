@@ -6,7 +6,8 @@
 import { HardhatPluginError } from 'hardhat/plugins';
 import { type Address, type Hex, isAddress } from 'viem';
 
-import type { FhevmClient, PublicDecryptResults } from '../types.js';
+import type { FhevmClient } from '../types.js';
+import type { PublicDecryptResults } from '../types-p.js';
 import { PLUGIN_ID } from './constants.js';
 import { assertHandleIsInitialized, handleKey } from './fhevmHandle.js';
 

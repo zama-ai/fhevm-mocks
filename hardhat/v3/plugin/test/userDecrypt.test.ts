@@ -1,7 +1,10 @@
-// D3b guards: the zero handle, a bad contract address and a wallet client without an account fail by
-// name before any permit is signed; a local account signs a permit the stack accepts, and the decrypt
-// then fails on the ACL (nothing allowed this user), which proves the signing path. The success path
-// needs a contract that calls `FHE.allow`, so it lives in the e2e counter test.
+// D3b guards: the zero handle, a mistyped handle and a bad contract or user address fail by name
+// before any permit is signed; a valid address then signs a permit the stack accepts, and the decrypt
+// fails on the ACL (nothing allowed this user), which proves the signing path. The success path needs
+// a contract that calls `FHE.allow`, so it lives in the e2e counter test.
+//
+// `fhevm.helpers.decrypt*` takes a user ADDRESS, not a signer: it builds a wallet client over the
+// connection's provider, so the development node holds the key and signs the EIP-712 permit.
 //
 // Tests import the BUILT payload (pkg/_esm); see connection.test.ts.
 
@@ -10,10 +13,9 @@ import test from 'node:test';
 
 import { createHardhatRuntimeEnvironment } from 'hardhat/hre';
 import { HardhatPluginError } from 'hardhat/plugins';
-import { createWalletClient, custom } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import plugin, { FhevmType, timestampNow } from '#esm/index.js';
+import plugin, { timestampNow } from '#esm/index.js';
 
 const ZERO_HANDLE = `0x${'0'.repeat(64)}` as const;
 const CONTRACT = '0x1111111111111111111111111111111111111111';
@@ -28,20 +30,38 @@ void test('user decryption guards fail by name before any permit is signed', asy
   const hre = await createHardhatRuntimeEnvironment({ plugins: [plugin] });
   const connection = await hre.network.create();
   try {
-    const { fhevm } = connection;
+    const { helpers } = connection.fhevm;
     await assert.rejects(
-      fhevm.userDecryptEuint(FhevmType.euint32, ZERO_HANDLE, CONTRACT, ALICE),
+      helpers.decryptUint32({ euint32: ZERO_HANDLE, contractAddress: CONTRACT, userAddress: ALICE.address }),
       pluginError('not initialized'),
     );
-    const { externalEuint } = await fhevm.encryptUint(FhevmType.euint32, 7, CONTRACT, ALICE.address);
-    await assert.rejects(fhevm.userDecryptEbool(externalEuint, '0xnope', ALICE), pluginError("'contractAddress'"));
-    const noAccount = createWalletClient({ transport: custom(connection.provider) });
+    const { externalEuint32 } = await helpers.encryptUint32({
+      value: 7,
+      contractAddress: CONTRACT,
+      userAddress: ALICE.address,
+    });
+    // The type in the argument name is checked against the handle, as on the public path.
     await assert.rejects(
-      fhevm.userDecryptEaddress(externalEuint, CONTRACT, noAccount),
-      pluginError('carries no account'),
+      helpers.decryptBool({ ebool: externalEuint32, contractAddress: CONTRACT, userAddress: ALICE.address }),
+      pluginError('is a euint32, not a ebool'),
     );
     await assert.rejects(
-      fhevm.userDecryptEuint(FhevmType.euint32, externalEuint, CONTRACT, ALICE, { delegatorAddress: '0xbad' }),
+      helpers.decryptUint32({ euint32: externalEuint32, contractAddress: '0xnope', userAddress: ALICE.address }),
+      pluginError("'contractAddress'"),
+    );
+    // Replaces the old "wallet client carries no account" guard: a caller now supplies an address, and
+    // an unusable one is caught before any wallet client is built.
+    await assert.rejects(
+      helpers.decryptUint32({ euint32: externalEuint32, contractAddress: CONTRACT, userAddress: '0xnope' }),
+      pluginError("'userAddress'"),
+    );
+    await assert.rejects(
+      helpers.decryptUint32({
+        euint32: externalEuint32,
+        contractAddress: CONTRACT,
+        userAddress: ALICE.address,
+        options: { delegatorAddress: '0xbad' },
+      }),
       pluginError("'delegatorAddress'"),
     );
   } finally {
@@ -49,15 +69,25 @@ void test('user decryption guards fail by name before any permit is signed', asy
   }
 });
 
-void test('a local account signs the permit; the ACL then refuses a handle nobody allowed', async () => {
+void test('the node signs the permit for the given address; the ACL then refuses an unallowed handle', async () => {
   const hre = await createHardhatRuntimeEnvironment({ plugins: [plugin] });
   const connection = await hre.network.create();
   try {
-    const { fhevm } = connection;
-    const { externalEuint } = await fhevm.encryptUint(FhevmType.euint32, 7, CONTRACT, ALICE.address);
+    const { helpers } = connection.fhevm;
+    const { externalEuint32 } = await helpers.encryptUint32({
+      value: 7,
+      contractAddress: CONTRACT,
+      userAddress: ALICE.address,
+    });
     const validity = { startTimestamp: timestampNow(), durationDays: 1 };
+    // Not a plugin error: every guard passed, the permit was signed, and the ACL did the refusing.
     await assert.rejects(
-      fhevm.userDecryptEuint(FhevmType.euint32, externalEuint, CONTRACT, ALICE, { validity }),
+      helpers.decryptUint32({
+        euint32: externalEuint32,
+        contractAddress: CONTRACT,
+        userAddress: ALICE.address,
+        options: { validity },
+      }),
       (e: unknown) => !(e instanceof HardhatPluginError),
     );
   } finally {

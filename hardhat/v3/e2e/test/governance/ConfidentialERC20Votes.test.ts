@@ -1,5 +1,4 @@
 /* eslint-disable no-unexpected-multiline */
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -7,7 +6,7 @@ import type { TestConfidentialERC20Votes } from '../../types/ethers-contracts/in
 import { userDecryptBalance } from '../confidentialERC20/ConfidentialERC20.fixture.ts';
 import { waitNBlocks } from '../utils/blocks.ts';
 import { expectRejectedWith } from '../utils/expect.ts';
-import { type Signers, accountFor, getSigners } from '../utils/signers.ts';
+import { type Signers, getSigners } from '../utils/signers.ts';
 import {
   deployConfidentialERC20Votes,
   userDecryptCurrentVotes,
@@ -23,12 +22,6 @@ const { parseUnits } = ethers;
 type Hex = `0x${string}`;
 
 // `handles` is `Hex[]`: the first handle, or a loud failure.
-function first(handles: readonly Hex[]): Hex {
-  const [handle] = handles;
-  if (handle === undefined) throw new Error('encrypt() returned no handle');
-  return handle;
-}
-
 describe('ConfidentialERC20Votes', function () {
   // @dev The placeholder is type(uint256).max --> 2**256 - 1.
   const PLACEHOLDER = 2n ** 256n - 1n;
@@ -51,14 +44,15 @@ describe('ConfidentialERC20Votes', function () {
   it('should transfer tokens', async function () {
     const transferAmount = parseUnits(String(2_000_000), 6);
 
-    const input = fhevm.createEncryptedInput(confidentialERC20VotesAddress, signers.alice.address as Hex);
-
-    input.add64(transferAmount);
-    const encryptedTransferAmount = await input.encrypt();
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: transferAmount,
+      contractAddress: confidentialERC20VotesAddress,
+      userAddress: signers.alice.address,
+    });
 
     const tx = await confidentialERC20Votes['transfer(address,bytes32,bytes)'](
       signers.bob.address,
-      first(encryptedTransferAmount.handles),
+      encryptedTransferAmount.externalEuint64,
       encryptedTransferAmount.inputProof,
     );
     await tx.wait();
@@ -167,15 +161,17 @@ describe('ConfidentialERC20Votes', function () {
     ).to.equal(parseUnits(String(10_000_000), 6));
 
     const transferAmount = parseUnits(String(10_000_000), 6);
-    const input = fhevm.createEncryptedInput(confidentialERC20VotesAddress, signers.alice.address as Hex);
-    input.add64(transferAmount);
-    const encryptedTransferAmount = await input.encrypt();
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: transferAmount,
+      contractAddress: confidentialERC20VotesAddress,
+      userAddress: signers.alice.address,
+    });
 
     tx = await confidentialERC20Votes
       .connect(signers.alice)
       ['transfer(address,bytes32,bytes)'](
         signers.bob.address,
-        first(encryptedTransferAmount.handles),
+        encryptedTransferAmount.externalEuint64,
         encryptedTransferAmount.inputProof,
       );
 
@@ -302,13 +298,15 @@ describe('ConfidentialERC20Votes', function () {
     // Alice transfers 1M tokens to Bob, 1M tokens to Carol, 1M tokens to Dave
     const transferAmount = parseUnits(String(1_000_000), 6);
 
-    const input = fhevm.createEncryptedInput(confidentialERC20VotesAddress, signers.alice.address as Hex);
-    input.add64(transferAmount);
-    const encryptedTransferAmount = await input.encrypt();
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: transferAmount,
+      contractAddress: confidentialERC20VotesAddress,
+      userAddress: signers.alice.address,
+    });
 
     let tx = await confidentialERC20Votes['transfer(address,bytes32,bytes)'](
       signers.bob.address,
-      first(encryptedTransferAmount.handles),
+      encryptedTransferAmount.externalEuint64,
       encryptedTransferAmount.inputProof,
     );
 
@@ -316,7 +314,7 @@ describe('ConfidentialERC20Votes', function () {
 
     tx = await confidentialERC20Votes['transfer(address,bytes32,bytes)'](
       signers.carol.address,
-      first(encryptedTransferAmount.handles),
+      encryptedTransferAmount.externalEuint64,
       encryptedTransferAmount.inputProof,
     );
 
@@ -324,7 +322,7 @@ describe('ConfidentialERC20Votes', function () {
 
     tx = await confidentialERC20Votes['transfer(address,bytes32,bytes)'](
       signers.dave.address,
-      first(encryptedTransferAmount.handles),
+      encryptedTransferAmount.externalEuint64,
       encryptedTransferAmount.inputProof,
     );
 
@@ -382,12 +380,11 @@ describe('ConfidentialERC20Votes', function () {
     expect(currentVoteHandle).to.be.eq(0n);
 
     await expectRejectedWith(
-      fhevm.userDecryptEuint(
-        FhevmType.euint64,
-        currentVoteHandle,
-        confidentialERC20VotesAddress,
-        accountFor(signers.bob),
-      ),
+      fhevm.helpers.decryptUint64({
+        euint64: currentVoteHandle,
+        contractAddress: confidentialERC20VotesAddress,
+        userAddress: signers.bob.address,
+      }),
       /Handle is not initialized/,
     );
 
@@ -403,12 +400,11 @@ describe('ConfidentialERC20Votes', function () {
     expect(currentVoteHandle).to.be.eq(0n);
 
     await expectRejectedWith(
-      fhevm.userDecryptEuint(
-        FhevmType.euint64,
-        currentVoteHandle,
-        confidentialERC20VotesAddress,
-        accountFor(signers.bob),
-      ),
+      fhevm.helpers.decryptUint64({
+        euint64: currentVoteHandle,
+        contractAddress: confidentialERC20VotesAddress,
+        userAddress: signers.bob.address,
+      }),
       /Handle is not initialized/,
     );
 
@@ -427,12 +423,11 @@ describe('ConfidentialERC20Votes', function () {
     expect(currentVoteHandle).to.eq(0n);
 
     await expectRejectedWith(
-      fhevm.userDecryptEuint(
-        FhevmType.euint64,
-        currentVoteHandle,
-        confidentialERC20VotesAddress,
-        accountFor(signers.bob),
-      ),
+      fhevm.helpers.decryptUint64({
+        euint64: currentVoteHandle,
+        contractAddress: confidentialERC20VotesAddress,
+        userAddress: signers.bob.address,
+      }),
       /Handle is not initialized/,
     );
   });
@@ -517,13 +512,15 @@ describe('ConfidentialERC20Votes', function () {
   it('different voters can delegate to same delegatee', async function () {
     const transferAmount = parseUnits(String(2_000_000), 6);
 
-    const input = fhevm.createEncryptedInput(confidentialERC20VotesAddress, signers.alice.address as Hex);
-    input.add64(transferAmount);
-    const encryptedTransferAmount = await input.encrypt();
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: transferAmount,
+      contractAddress: confidentialERC20VotesAddress,
+      userAddress: signers.alice.address,
+    });
 
     let tx = await confidentialERC20Votes['transfer(address,bytes32,bytes)'](
       signers.bob.address,
-      first(encryptedTransferAmount.handles),
+      encryptedTransferAmount.externalEuint64,
       encryptedTransferAmount.inputProof,
     );
 

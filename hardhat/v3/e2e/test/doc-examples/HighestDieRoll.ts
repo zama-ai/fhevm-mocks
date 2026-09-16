@@ -1,6 +1,7 @@
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { network } from 'hardhat';
+import type { ethers as EthersT } from 'ethers';
 
 import type { HighestDieRoll, HighestDieRoll__factory } from '../../types/ethers-contracts/index.ts';
 import { requireReceipt } from '../utils/receipts.ts';
@@ -26,6 +27,13 @@ async function deployFixture(): Promise<{
 
   return { highestDiceRoll, highestDiceRollAddress };
 }
+
+// `KMSInvalidSigner` is declared by `KMSVerifier`, a stack contract this suite never deploys, so there
+// is no contract instance to hand chai. Declaring the one error signature is enough for it to match the
+// revert data — it only needs something that can decode the error.
+const kmsVerifier = (): { interface: EthersT.Interface } => ({
+  interface: new ethers.Interface(['error KMSInvalidSigner(address invalidSigner)']),
+});
 
 /**
  * The `HighestDieRoll` example showcases the public decryption mechanism and
@@ -136,21 +144,26 @@ describe('HighestDieRoll', function () {
     const playerADiceRoll = gameCreatedEvent.playerAEncryptedDiceRoll;
     const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
 
-    // Call the Zama Relayer to compute the decryption
-    const publicDecryptResults = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
+    // Call the Zama Relayer to compute the decryption. TWO handles under ONE proof is the client's
+    // job: `fhevm.helpers` decrypts a single value at a time and could not tie the two together.
+    const publicDecryptResults = await fhevm.client.decryptPublicValuesWithSignatures({
+      encryptedValues: [playerADiceRoll, playerBDiceRoll],
+    });
 
-    // The Relayer returns a `PublicDecryptResults` object containing:
-    // - the ORDERED clear values
-    // - the ORDERED clear values in ABI-encoded form
-    // - the KMS decryption proof associated with the ORDERED clear values in ABI-encoded form
-    const abiEncodedClearGameResult = publicDecryptResults.abiEncodedClearValues;
-    const decryptionProof = publicDecryptResults.decryptionProof;
+    // The Relayer returns:
+    // - the ORDERED clear values, one entry per handle, in the order they were passed
+    // - `checkSignaturesArgs.abiEncodedCleartexts`: those same clear values in ABI-encoded form
+    // - `checkSignaturesArgs.decryptionProof`: the KMS proof over that ABI-encoded payload
+    const abiEncodedClearGameResult = publicDecryptResults.checkSignaturesArgs.abiEncodedCleartexts;
+    const decryptionProof = publicDecryptResults.checkSignaturesArgs.decryptionProof;
 
-    const clearValueA = publicDecryptResults.clearValues[playerADiceRoll];
-    const clearValueB = publicDecryptResults.clearValues[playerBDiceRoll];
+    // Positional, not keyed by handle: entry 0 is A's roll because A's handle was passed first.
+    const clearValueA = publicDecryptResults.clearValues[0].value;
+    const clearValueB = publicDecryptResults.clearValues[1]?.value;
 
-    expect(typeof clearValueA).to.eq('bigint');
-    expect(typeof clearValueB).to.eq('bigint');
+    // A die roll is a euint8, which clears as a `number` — bigint only starts at euint64.
+    expect(typeof clearValueA).to.eq('number');
+    expect(typeof clearValueB).to.eq('number');
 
     // playerA's 8-sided die roll result (between 1 and 8)
     const a = (Number(clearValueA) % 8) + 1;
@@ -165,7 +178,7 @@ describe('HighestDieRoll', function () {
     console.log(`🎲 playerA's 8-sided die roll is ${String(a)}`);
     console.log(`🎲 playerB's 8-sided die roll is ${String(b)}`);
 
-    // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
+    // Let's forward the decrypted payload and its proof to the on-chain contract whose job
     // will simply be to verify the proof and store the final winner of the game
     await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
 
@@ -206,9 +219,9 @@ describe('HighestDieRoll', function () {
     let game:
       | {
           readonly gameId: number;
-          readonly clearValueA: bigint;
-          readonly clearValueB: bigint;
-          readonly results: Awaited<ReturnType<typeof fhevm.publicDecrypt>>;
+          readonly clearValueA: number;
+          readonly clearValueB: number;
+          readonly results: Awaited<ReturnType<typeof fhevm.client.decryptPublicValuesWithSignatures>>;
         }
       | undefined;
 
@@ -218,17 +231,20 @@ describe('HighestDieRoll', function () {
       const gameCreatedEvent = parseGameCreatedEvent(receipt);
       const playerADiceRoll = gameCreatedEvent.playerAEncryptedDiceRoll;
       const playerBDiceRoll = gameCreatedEvent.playerBEncryptedDiceRoll;
-      // Call `fhevm.publicDecrypt` using order (A, B)
-      const results = await fhevm.publicDecrypt([playerADiceRoll, playerBDiceRoll]);
-      const clearValueA = results.clearValues[playerADiceRoll];
-      const clearValueB = results.clearValues[playerBDiceRoll];
-      expect(typeof clearValueA).to.eq('bigint');
-      expect(typeof clearValueB).to.eq('bigint');
+      // Decrypt using order (A, B); the answer comes back in that same order.
+      const results = await fhevm.client.decryptPublicValuesWithSignatures({
+        encryptedValues: [playerADiceRoll, playerBDiceRoll],
+      });
+      const clearValueA = results.clearValues[0].value;
+      const clearValueB = results.clearValues[1]?.value;
+      // A die roll is a euint8, which clears as a `number` — bigint only starts at euint64.
+      expect(typeof clearValueA).to.eq('number');
+      expect(typeof clearValueB).to.eq('number');
       if (clearValueA !== clearValueB) {
         game = {
           gameId: gameCreatedEvent.gameId,
-          clearValueA: clearValueA as bigint,
-          clearValueB: clearValueB as bigint,
+          clearValueA: clearValueA as number,
+          clearValueB: clearValueB as number,
           results,
         };
       }
@@ -240,7 +256,7 @@ describe('HighestDieRoll', function () {
 
     expect(
       ethers.AbiCoder.defaultAbiCoder().encode(['uint256', 'uint256'], [game.clearValueA, game.clearValueB]),
-    ).to.eq(game.results.abiEncodedClearValues);
+    ).to.eq(game.results.checkSignaturesArgs.abiEncodedCleartexts);
     const wrongOrderBAInsteadOfABAbiEncodedValues = ethers.AbiCoder.defaultAbiCoder().encode(
       ['uint256', 'uint256'],
       [game.clearValueB, game.clearValueA],
@@ -250,8 +266,8 @@ describe('HighestDieRoll', function () {
       contract.recordAndVerifyWinner(
         game.gameId,
         wrongOrderBAInsteadOfABAbiEncodedValues,
-        game.results.decryptionProof,
+        game.results.checkSignaturesArgs.decryptionProof,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 });
