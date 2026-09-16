@@ -21,37 +21,6 @@ const plugin: HardhatPlugin = definePlugin({
   // `hardhat fhevm <task>`: an empty scope root, then one lazily-loaded action per task. Required
   // inputs are positional (hardhat 3 options always carry a default).
   tasks: [
-    //emptyTask(['fhevm'], 'FHEVM related commands').build(),
-    // task(['fhevm', 'public-decrypt'], 'Performs a public decryption of the specified byte-32 handle')
-    //   .addPositionalArgument({
-    //     name: 'type',
-    //     description: 'The FHEVM primitive type name (ebool, euint8, …, eaddress)',
-    //   })
-    //   .addPositionalArgument({ name: 'handle', description: 'The byte-32 handle to decrypt' })
-    //   .setAction(() => import('./tasks/publicDecrypt.js'))
-    //   .build(),
-    // task(['fhevm', 'user-decrypt'], 'Performs a user decryption of the specified byte-32 handle')
-    //   .addPositionalArgument({
-    //     name: 'type',
-    //     description: 'The FHEVM primitive type name (ebool, euint8, …, eaddress)',
-    //   })
-    //   .addPositionalArgument({ name: 'handle', description: 'The byte-32 handle to decrypt' })
-    //   .addPositionalArgument({ name: 'contract', description: 'The contract address the handle is allowed for' })
-    //   .addOption({
-    //     name: 'user',
-    //     description: 'The decrypting account, by index',
-    //     type: ArgumentType.INT,
-    //     defaultValue: 0,
-    //   })
-    //   .setAction(() => import('./tasks/userDecrypt.js'))
-    //   .build(),
-    // task(
-    //   ['fhevm', 'check-fhevm-compatibility'],
-    //   'Checks if a FHEVM contract is well configured to perform FHEVM operations',
-    // )
-    //   .addPositionalArgument({ name: 'address', description: 'The contract address to check' })
-    //   .setAction(() => import('./tasks/checkFhevmCompatibility.js'))
-    //   .build(),
     // The one builtin override that survived the triage: `hardhat node` prints the stack it serves.
     overrideTask('node')
       .setAction(() => import('./tasks/node.js'))
