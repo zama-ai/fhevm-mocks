@@ -15,10 +15,10 @@ interface ICleartextDB {
     /// @notice Emitted when an address's write access is revoked.
     event RemoveWriter(address indexed account);
 
-    error InvalidNullWriter();
-    error AccountAlreadyWriter(address account);
-    error AccountNotWriter(address account);
-    error NotWriter(address account);
+    error CleartextErrorInvalidNullWriter();
+    error CleartextErrorAccountAlreadyWriter(address account);
+    error CleartextErrorAccountNotWriter(address account);
+    error CleartextErrorNotWriter(address account);
 
     /// @notice Returns the cleartext value stored for `handle` (0 if unset).
     function get(bytes32 handle) external view returns (uint256);

@@ -71,7 +71,7 @@ abstract contract FhevmUpgradeBase is FhevmCreate2Base {
     function _upgradeImplArtifact(uint256 i) internal pure returns (string memory) {
         if (i == 0) return "pkg/src/contracts/ProtocolConfig.sol:ProtocolConfig";
         if (i == 1) return "pkg/src/contracts/KMSGeneration.sol:KMSGeneration";
-        if (i == 2) return "pkg/src/contracts/ACL.sol:ACL";
+        if (i == 2) return "pkg/src/cleartext/CleartextACL.sol:CleartextACL";
         if (i == 3) return "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         if (i == 4) return "pkg/src/contracts/HCULimit.sol:HCULimit";
         if (i == 5) return "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";

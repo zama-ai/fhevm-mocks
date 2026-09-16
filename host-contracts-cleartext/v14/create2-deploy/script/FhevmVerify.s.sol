@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// DRAFT — see ../README.md. Not wired into the build, not compiled, not tested.
+// Not wired into the build, not compiled, not tested.
 
 import {console} from "forge-std/Script.sol";
 import {FhevmVerifyBase} from "./FhevmVerifyBase.s.sol";
-import {FhevmCleartextConfig as C} from "./FhevmCleartextConfig.sol";
+import {FhevmCleartextConfig as C} from "../../pkg/forge/src/FhevmCleartextConfig.sol";
 import {IOwnable2Step, IPauserSet, IACLOwner, IWiredInputVerifier, IWiredProtocolConfig} from "./Interfaces.sol";
 
 /**
@@ -105,8 +105,8 @@ contract FhevmVerify is FhevmVerifyBase {
             "InputVerifier.getCoprocessorSigners()"
         );
         _expect(
-            IWiredInputVerifier(_readManifestAddress(manifest, R_INPUT_VERIFIER)).getThreshold() ==
-                C.CLEARTEXT_COPROCESSOR_THRESHOLD,
+            IWiredInputVerifier(_readManifestAddress(manifest, R_INPUT_VERIFIER)).getThreshold()
+                == C.CLEARTEXT_COPROCESSOR_THRESHOLD,
             "InputVerifier.getThreshold() == coprocessor threshold"
         );
 

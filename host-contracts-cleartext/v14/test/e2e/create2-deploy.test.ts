@@ -164,7 +164,12 @@ function expectVersion(table: Readonly<Record<string, string>>, key: string): st
 
 type VersionedView = { getVersion(): Promise<string> };
 type OwnableView = { owner(): Promise<string>; pendingOwner(): Promise<string> };
-type AclView = OwnableView & { getPauserSetAddress(): Promise<string>; getFHEVMExecutorAddress(): Promise<string> };
+type AclView = OwnableView & {
+  getPauserSetAddress(): Promise<string>;
+  getFHEVMExecutorAddress(): Promise<string>;
+  IS_CLEARTEXT(): Promise<boolean>;
+  CLEARTEXT_PROTOCOL_VERSION(): Promise<bigint>;
+};
 type PauserSetView = { isPauser(account: string): Promise<boolean> };
 
 const VERSIONED_ABI = ['function getVersion() view returns (string)'];
@@ -173,6 +178,9 @@ const ACL_ABI = [
   ...OWNABLE_ABI,
   'function getPauserSetAddress() view returns (address)',
   'function getFHEVMExecutorAddress() view returns (address)',
+  // Only `CleartextACL` answers these; the upstream `ACL` has no such selectors.
+  'function IS_CLEARTEXT() view returns (bool)',
+  'function CLEARTEXT_PROTOCOL_VERSION() view returns (uint256)',
 ];
 const PAUSER_SET_ABI = ['function isPauser(address) view returns (bool)'];
 const ZERO = `0x${'0'.repeat(40)}`;
@@ -265,6 +273,17 @@ void test(
           const got = await view<VersionedView>(addressOf(manifest, role), VERSIONED_ABI, provider).getVersion();
           assert.equal(got, expectVersion(table, key), role);
         }
+      });
+
+      await t.test('the ACL sealed at its CREATE2 address is a CleartextACL', async (st) => {
+        if (needsStack(st)) return;
+        assert.ok(provider);
+        // The CREATE2 path deploys implementations of its own, so this is the only place that proves it
+        // installed `CleartextACL` rather than the upstream `ACL`. A production ACL has no such selector
+        // and the call would revert, which is exactly the distinction a consumer needs to be able to make.
+        const acl = view<AclView>(addressOf(manifest, 'ACL_ADDRESS'), ACL_ABI, provider);
+        assert.equal(await acl.IS_CLEARTEXT(), true, 'ACL must advertise IS_CLEARTEXT');
+        assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 14n, 'ACL must report protocol version 14');
       });
 
       await t.test('the admin holds root through ACLOwner, with nothing dangling', async (st) => {

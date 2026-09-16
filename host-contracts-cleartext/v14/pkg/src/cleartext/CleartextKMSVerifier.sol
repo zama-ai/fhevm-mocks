@@ -38,6 +38,10 @@ struct HandleContractPair {
  * @title CleartextKMSVerifier
  */
 contract CleartextKMSVerifier is KMSVerifier {
+    /// @notice Marks a cleartext (mock) implementation. Real host contracts have no such selector, so a
+    ///         consumer can probe it to tell a cleartext stack from a production deployment.
+    bool public constant IS_CLEARTEXT = true;
+
     IACL private constant ACL_CONTRACT = IACL(aclAdd);
     ICleartextFHEVMExecutor private constant FHEVM_EXECUTOR = ICleartextFHEVMExecutor(fhevmExecutorAdd);
 
@@ -51,15 +55,15 @@ contract CleartextKMSVerifier is KMSVerifier {
     bytes32 internal constant DELEGATED_USER_DECRYPT_REQUEST_TYPEHASH = keccak256(
         "DelegatedUserDecryptRequestVerification(bytes publicKey,address[] contractAddresses,address delegatorAddress,uint256 startTimestamp,uint256 durationDays,bytes extraData)"
     );
-    error InvalidUserDecryptSignature();
-    error ContractAddressNotAuthorized(address contractAddress);
-    error HandleNotAllowedForPublicDecryption(bytes32 handle);
-    error HandleNotDelegatedForUserDecryption(
+    error CleartextErrorInvalidUserDecryptSignature();
+    error CleartextErrorContractAddressNotAuthorized(address contractAddress);
+    error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
+    error CleartextErrorHandleNotDelegatedForUserDecryption(
         bytes32 handle, address contractAddress, address delegator, address delegate
     );
-    error UserAddressEqualsContractAddress();
-    error UserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
-    error ContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
+    error CleartextErrorUserAddressEqualsContractAddress();
+    error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
+    error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
 
     /// @notice Serializes the v1 extraData layout consumed by the KMS verifier.
     /// @dev Wire format (33 bytes):
@@ -211,7 +215,7 @@ contract CleartextKMSVerifier is KMSVerifier {
         return _toTypedDataHash(_domainHashWithHostChainId(), structHash);
     }
 
-    error PublicKeyTooShort(uint256 length);
+    error CleartextErrorPublicKeyTooShort(uint256 length);
 
     /// @notice Mock "encrypt-for-user": XORs each cleartext with the first 32 bytes of `publicKey`.
     /// @dev NOT real encryption. A reversible mask used only by the cleartext/debug KMS
@@ -219,7 +223,7 @@ contract CleartextKMSVerifier is KMSVerifier {
     ///      ECIES / AES. The client reverses it by XORing the received values with the
     ///      same 32 bytes from their own public key.
     ///
-    ///      Reverts with `PublicKeyTooShort(publicKey.length)` if `publicKey` is shorter
+    ///      Reverts with `CleartextErrorPublicKeyTooShort(publicKey.length)` if `publicKey` is shorter
     ///      than 32 bytes.
     /// @param publicKey The user's public key; only the first 32 bytes are used as mask.
     /// @param cleartexts Values to mask in-place of a copy returned to the caller.
@@ -229,7 +233,7 @@ contract CleartextKMSVerifier is KMSVerifier {
         pure
         returns (uint256[] memory masked)
     {
-        if (publicKey.length < 32) revert PublicKeyTooShort(publicKey.length);
+        if (publicKey.length < 32) revert CleartextErrorPublicKeyTooShort(publicKey.length);
 
         bytes32 mask;
         assembly {
@@ -358,7 +362,7 @@ contract CleartextKMSVerifier is KMSVerifier {
             bytes32 handle = handles[i];
 
             if (!ACL_CONTRACT.isAllowedForDecryption(handle)) {
-                revert HandleNotAllowedForPublicDecryption(handle);
+                revert CleartextErrorHandleNotAllowedForPublicDecryption(handle);
             }
         }
 
@@ -382,13 +386,13 @@ contract CleartextKMSVerifier is KMSVerifier {
             address contractAddress = pairs[i].contractAddress;
 
             if (userAddress == contractAddress) {
-                revert UserAddressEqualsContractAddress();
+                revert CleartextErrorUserAddressEqualsContractAddress();
             }
             if (!ACL_CONTRACT.persistAllowed(handle, userAddress)) {
-                revert UserNotAuthorizedForDecrypt(handle, userAddress);
+                revert CleartextErrorUserNotAuthorizedForDecrypt(handle, userAddress);
             }
             if (!ACL_CONTRACT.persistAllowed(handle, contractAddress)) {
-                revert ContractNotAuthorizedForDecrypt(handle, contractAddress);
+                revert CleartextErrorContractNotAuthorizedForDecrypt(handle, contractAddress);
             }
         }
 
@@ -412,7 +416,7 @@ contract CleartextKMSVerifier is KMSVerifier {
             address contractAddress = pairs[i].contractAddress;
 
             if (!ACL_CONTRACT.isHandleDelegatedForUserDecryption(delegator, delegate, contractAddress, handle)) {
-                revert HandleNotDelegatedForUserDecryption(handle, contractAddress, delegator, delegate);
+                revert CleartextErrorHandleNotDelegatedForUserDecryption(handle, contractAddress, delegator, delegate);
             }
         }
 
@@ -429,7 +433,7 @@ contract CleartextKMSVerifier is KMSVerifier {
         (uint8 v, bytes32 r, bytes32 s) = _decodeSignature(signature);
         address recoveredSigner = ecrecover(digest, v, r, s);
         if (recoveredSigner == address(0) || recoveredSigner != expectedSigner) {
-            revert InvalidUserDecryptSignature();
+            revert CleartextErrorInvalidUserDecryptSignature();
         }
     }
 
@@ -452,7 +456,7 @@ contract CleartextKMSVerifier is KMSVerifier {
                 }
             }
             if (!authorized) {
-                revert ContractAddressNotAuthorized(c);
+                revert CleartextErrorContractAddressNotAuthorized(c);
             }
         }
     }
@@ -460,7 +464,7 @@ contract CleartextKMSVerifier is KMSVerifier {
     /// @notice Decodes an ECDSA signature into `(v, r, s)` components.
     function _decodeSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
         if (signature.length != 65) {
-            revert InvalidUserDecryptSignature();
+            revert CleartextErrorInvalidUserDecryptSignature();
         }
 
         assembly {
@@ -473,7 +477,7 @@ contract CleartextKMSVerifier is KMSVerifier {
             v += 27;
         }
         if (v != 27 && v != 28) {
-            revert InvalidUserDecryptSignature();
+            revert CleartextErrorInvalidUserDecryptSignature();
         }
     }
 }

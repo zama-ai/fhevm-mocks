@@ -12,7 +12,13 @@ pkg/ts/_esm
 pkg/ts/_types
 pkg/ts/_types-cjs
 out
+out-forgefhevmcore
+out-create2
 tarball
+# Gas snapshots written by `vm.snapshotGas*` (snapshots/<group>.json). Not committed for now: the numbers
+# they hold are mostly the vendored upstream contracts' cost, so they would need a refresh on every
+# upstream sync. Commit them, and run tests with FORGE_SNAPSHOT_CHECK=true, once a figure is worth pinning.
+snapshots
 .vitest-cache/
 test/ts/node_modules
 .deploy-config

@@ -16,6 +16,10 @@ import {ACLOwnable, aclAdd} from "../contracts/shared/ACLOwnable.sol";
  */
 /// @custom:security-contact https://github.com/zama-ai/fhevm/blob/main/SECURITY.md
 contract CleartextDB is ICleartextDB, UUPSUpgradeableEmptyProxy, ACLOwnable {
+    /// @notice Marks a cleartext (mock) implementation. Real host contracts have no such selector, so a
+    ///         consumer can probe it to tell a cleartext stack from a production deployment.
+    bool public constant IS_CLEARTEXT = true;
+
     /// @dev Name of the contract, used in `getVersion`.
     string private constant CONTRACT_NAME = "CleartextDB";
 
@@ -47,7 +51,7 @@ contract CleartextDB is ICleartextDB, UUPSUpgradeableEmptyProxy, ACLOwnable {
     /// @dev Restricts a function to registered writers.
     modifier onlyWriter() {
         if (!_getCleartextDBStorage().writers[msg.sender]) {
-            revert NotWriter(msg.sender);
+            revert CleartextErrorNotWriter(msg.sender);
         }
         _;
     }
@@ -69,7 +73,7 @@ contract CleartextDB is ICleartextDB, UUPSUpgradeableEmptyProxy, ACLOwnable {
         reinitializer(REINITIALIZER_VERSION)
     {
         if (initialWriter == address(0)) {
-            revert InvalidNullWriter();
+            revert CleartextErrorInvalidNullWriter();
         }
         _getCleartextDBStorage().writers[initialWriter] = true;
         emit AddWriter(initialWriter);
@@ -103,18 +107,18 @@ contract CleartextDB is ICleartextDB, UUPSUpgradeableEmptyProxy, ACLOwnable {
 
     /// @inheritdoc ICleartextDB
     function addWriter(address account) external override onlyACLOwner {
-        if (account == address(0)) revert InvalidNullWriter();
+        if (account == address(0)) revert CleartextErrorInvalidNullWriter();
         CleartextDBStorage storage $ = _getCleartextDBStorage();
-        if ($.writers[account]) revert AccountAlreadyWriter(account);
+        if ($.writers[account]) revert CleartextErrorAccountAlreadyWriter(account);
         $.writers[account] = true;
         emit AddWriter(account);
     }
 
     /// @inheritdoc ICleartextDB
     function removeWriter(address account) external override onlyACLOwner {
-        if (account == address(0)) revert InvalidNullWriter();
+        if (account == address(0)) revert CleartextErrorInvalidNullWriter();
         CleartextDBStorage storage $ = _getCleartextDBStorage();
-        if (!$.writers[account]) revert AccountNotWriter(account);
+        if (!$.writers[account]) revert CleartextErrorAccountNotWriter(account);
         $.writers[account] = false;
         emit RemoveWriter(account);
     }

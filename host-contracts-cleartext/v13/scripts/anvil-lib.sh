@@ -281,7 +281,7 @@ pad_word() { cast to-uint256 "$1"; }
 # One bytecode blob from LocalHostBytecode.sol: `bytes constant NAME =` with the hex literal on the
 # following line. Returned WITHOUT a 0x prefix, so add one for `cast send --create` and for
 # anvil_setCode, and omit it when appending ABI-encoded constructor arguments.
-#   read_blob ACL_CREATION_CODE      -> 6080604052…  (10393 bytes)
+#   read_blob CLEARTEXT_ACL_CREATION_CODE      -> 6080604052…  (10393 bytes)
 #   read_blob PAUSER_SET_RUNTIME_CODE -> 6080604052…  (2330 bytes)
 read_blob() {
     awk -v name="$1" '
@@ -450,7 +450,7 @@ deploy_empty_implementation() {
 # Sets IMPL_ACL, IMPL_EXECUTOR, IMPL_KMS_VERIFIER, IMPL_INPUT_VERIFIER, IMPL_HCU_LIMIT,
 # IMPL_PROTOCOL_CONFIG, IMPL_KMS_GENERATION, IMPL_ARITHMETIC, IMPL_DB.
 deploy_real_implementations() {
-    IMPL_ACL="$(deploy_contract "0x$(read_blob ACL_CREATION_CODE)" "ACL impl")"
+    IMPL_ACL="$(deploy_contract "0x$(read_blob CLEARTEXT_ACL_CREATION_CODE)" "ACL impl")"
     IMPL_EXECUTOR="$(deploy_contract "0x$(read_blob CLEARTEXT_FHEVM_EXECUTOR_CREATION_CODE)" "CleartextFHEVMExecutor impl")"
     IMPL_KMS_VERIFIER="$(deploy_contract "0x$(read_blob CLEARTEXT_KMS_VERIFIER_CREATION_CODE)" "CleartextKMSVerifier impl")"
     IMPL_INPUT_VERIFIER="$(deploy_contract "0x$(read_blob CLEARTEXT_INPUT_VERIFIER_CREATION_CODE)" "CleartextInputVerifier impl")"
@@ -530,7 +530,7 @@ build_initializer_calldata() {
     INIT_PROTOCOL_CONFIG="$(cast calldata "$SIG_INIT_PROTOCOL_CONFIG" "[$nodes]" "($n,$n,$n,$n)")"
 }
 
-# Materializes every proxy in ONE ACLOwner.upgrade, mirroring pkg/ts/deploy.ts and FhevmDeploy.sol.
+# Materializes every proxy in ONE ACLOwner.upgrade, mirroring pkg/ts/deploy.ts and FhevmCleartextDeploy.sol.
 #
 # Atomic on purpose: separate per-proxy upgradeToAndCall transactions can fail part way and leave some proxies
 # real and some still empty, which passes every "has code" check and fails only in use.

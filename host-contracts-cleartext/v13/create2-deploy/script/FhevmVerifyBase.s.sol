@@ -172,10 +172,10 @@ abstract contract FhevmVerifyBase is FhevmCreate2Base {
      *                    MEANS differs: on a deploy, "not yet materialized" is a legitimate state to
      *                    report; on an upgrade it is the upgrade having not taken effect.
      */
-    function _expectImplementations(
-        string memory manifest,
-        string[] memory roles
-    ) internal returns (uint256 mismatched) {
+    function _expectImplementations(string memory manifest, string[] memory roles)
+        internal
+        returns (uint256 mismatched)
+    {
         for (uint256 i = 0; i < roles.length; i++) {
             address live = _implementationOf(_readManifestAddress(manifest, roles[i]));
             address sealedImpl = _readManifestAddress(manifest, _implRole(roles[i]));

@@ -1,4 +1,4 @@
-import { abi as aclAbi } from './artifacts/ACL.js';
+import { abi as aclAbi } from './artifacts/CleartextACL.js';
 import { abi as aclOwnerAbi } from './artifacts/ACLOwner.js';
 import { abi as cleartextArithmeticAbi } from './artifacts/CleartextArithmetic.js';
 import { abi as cleartextDbAbi } from './artifacts/CleartextDB.js';
@@ -608,6 +608,9 @@ export const DEFAULT_MAY_CHANGE: readonly string[] = [
   'KMSVerifier.getVersion',
   'HCULimit.getVersion',
   'CleartextArithmetic.getVersion',
+  // The ACL's protocol-version marker: 12 before the upgrade, 13 after, by construction. `IS_CLEARTEXT`
+  // is deliberately NOT here — it reads true on both sides, so it must not move.
+  'ACL.CLEARTEXT_PROTOCOL_VERSION',
   // Returns `block.number` by construction, so it differs between any two blocks.
   'HCULimit.getBlockMeter',
 ];

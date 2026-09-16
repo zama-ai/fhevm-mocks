@@ -5,18 +5,18 @@ pragma solidity ^0.8.24;
 // DO NOT EDIT — your changes will be overwritten. See internal/generateLocalHostBytecode.ts.
 
 interface ICleartextDB {
-    error AccountAlreadyWriter(address account);
-    error AccountNotWriter(address account);
     error AddressEmptyCode(address target);
+    error CleartextErrorAccountAlreadyWriter(address account);
+    error CleartextErrorAccountNotWriter(address account);
+    error CleartextErrorInvalidNullWriter();
+    error CleartextErrorNotWriter(address account);
     error ERC1967InvalidImplementation(address implementation);
     error ERC1967NonPayable();
     error FailedCall();
     error InvalidInitialization();
-    error InvalidNullWriter();
     error NotHostOwner(address sender);
     error NotInitializing();
     error NotInitializingFromEmptyProxy();
-    error NotWriter(address account);
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
 
@@ -25,6 +25,7 @@ interface ICleartextDB {
     event RemoveWriter(address indexed account);
     event Upgraded(address indexed implementation);
 
+    function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function addWriter(address account) external;
     function get(bytes32 handle) external view returns (uint256);

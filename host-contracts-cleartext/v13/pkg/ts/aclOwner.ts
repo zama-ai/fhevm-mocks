@@ -1,5 +1,5 @@
 import { abi as aclOwnerAbi, template as aclOwnerTemplate } from './artifacts/ACLOwner.js';
-import { abi as aclAbi } from './artifacts/ACL.js';
+import { abi as aclAbi } from './artifacts/CleartextACL.js';
 import { abi as pauserSetAbi } from './artifacts/PauserSet.js';
 import type { AbstractEthereumSigner, AbstractEthereumUtils, DeployReturnType } from './types/public.js';
 import type { HexString, DeployedImplementation } from './types/private.js';

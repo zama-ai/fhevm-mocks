@@ -1,8 +1,29 @@
 [
   {
-    "type": "constructor",
+    "type": "function",
+    "name": "CLEARTEXT_PROTOCOL_VERSION",
     "inputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "IS_CLEARTEXT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -132,25 +153,6 @@
   },
   {
     "type": "function",
-    "name": "decryptionSignatureInvalidatedBefore",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "delegateForUserDecryption",
     "inputs": [
       {
@@ -171,19 +173,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "getConfidentialBridgeAddress",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -257,19 +246,6 @@
     "type": "function",
     "name": "initializeFromEmptyProxy",
     "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "invalidateDecryptionSignaturesBefore",
-    "inputs": [
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -492,7 +468,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV5",
+    "name": "reinitializeV4",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -626,25 +602,6 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "DecryptionSignaturesInvalidated",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "beforeTimestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -983,16 +940,6 @@
   {
     "type": "error",
     "name": "InvalidInitialization",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidationTimestampInTheFuture",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidationTimestampTooLow",
     "inputs": []
   },
   {

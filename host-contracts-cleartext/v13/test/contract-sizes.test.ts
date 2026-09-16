@@ -18,13 +18,14 @@ void test('rejects an EIP-170 overflow outside the two Forge-only exception file
   assert.equal(report.allowedOverflows.length, 0);
 });
 
-void test('allows only the two declared Forge-only source files to exceed EIP-170', () => {
+void test('allows only the three declared Forge-only source files to exceed EIP-170', () => {
   const report = assessContractSizes([
+    contract('pkg/src/cleartext/CleartextForgeACL.sol', EIP_170_RUNTIME_SIZE_LIMIT + 1),
     contract('pkg/src/cleartext/CleartextForgeArithmetic.sol', EIP_170_RUNTIME_SIZE_LIMIT + 1),
     contract('pkg/src/cleartext/CleartextForgeFHEVMExecutor.sol', EIP_170_RUNTIME_SIZE_LIMIT + 1),
     contract('pkg/src/cleartext/CleartextFHEVMExecutor.sol', EIP_170_RUNTIME_SIZE_LIMIT),
   ]);
 
   assert.equal(report.violations.length, 0);
-  assert.equal(report.allowedOverflows.length, 2);
+  assert.equal(report.allowedOverflows.length, 3);
 });
