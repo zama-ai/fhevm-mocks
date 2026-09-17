@@ -4,10 +4,11 @@
   "description": "FHEVM Hardhat Plugin v2",
   "license": "BSD-3-Clause-Clear",
   "type": "commonjs",
-  "homepage": "https://github.com/zama-ai/fhevm/blob/main/sdk/hardhat/v2/README.md",
+  "homepage": "https://github.com/zama-ai/fhevm-mocks/blob/main/hardhat/v2/plugin/pkg/README.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zama-ai/fhevm.git"
+    "url": "git+https://github.com/zama-ai/fhevm-mocks.git",
+    "directory": "hardhat/v2/plugin/pkg"
   },
   "keywords": [
     "fhevm",
