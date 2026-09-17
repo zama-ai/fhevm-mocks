@@ -1,12 +1,15 @@
 # FHEVM Hardhat 3 Template
 
 A Hardhat 3 template for developing Fully Homomorphic Encryption (FHE) enabled Solidity smart contracts with Zama's
-FHEVM protocol. It follows Hardhat's official ESM, `node:test`, Viem, and Ignition project profile.
+FHEVM protocol. It follows Hardhat's official ESM, `node:test`, Viem, and Ignition project profile and uses the
+[`@fhevm/hardhat-plugin-v3`](https://github.com/zama-ai/fhevm-mocks/tree/release/0.13.x/hardhat/v3/plugin/pkg) plugin: the
+FHEVM API lives on the network connection (`const { fhevm } = await network.connect()`).
+
+> **Note**: this version of the plugin only supports development networks (in-process Hardhat network, `hardhat node`
+> and anvil). Public FHEVM networks such as Sepolia will be supported in a later release: `deploy:sepolia` works, but
+> `test:sepolia` and the `counter` tasks cannot target Sepolia yet.
 
 ## Quick Start
-
-For detailed instructions see:
-[FHEVM Hardhat Quick Start Tutorial](https://docs.zama.ai/protocol/solidity-guides/getting-started/quick-start-tutorial)
 
 ### Prerequisites
 
@@ -45,27 +48,21 @@ For detailed instructions see:
    npm run deploy:localhost
    ```
 
-5. **Deploy to Sepolia Testnet**
+5. **Interact with a deployed counter**
+
+   ```bash
+   npx hardhat --network localhost counter decrypt-count <CONTRACT_ADDRESS>
+   npx hardhat --network localhost counter increment <CONTRACT_ADDRESS> 2
+   npx hardhat --network localhost counter decrement <CONTRACT_ADDRESS> 1
+   ```
+
+6. **Deploy to Sepolia Testnet**
 
    ```bash
    npm run deploy:sepolia
 
    # Verify contract on Etherscan
    npx hardhat verify --network sepolia <CONTRACT_ADDRESS>
-   ```
-
-6. **Test on Sepolia Testnet**
-
-   ```bash
-   FHECOUNTER_ADDRESS=<CONTRACT_ADDRESS> npm run test:sepolia
-   ```
-
-7. **Interact with a deployed counter**
-
-   ```bash
-   npx hardhat counter decrypt-count --network localhost <CONTRACT_ADDRESS>
-   npx hardhat counter increment --network localhost <CONTRACT_ADDRESS> 2
-   npx hardhat counter decrement --network localhost <CONTRACT_ADDRESS> 1
    ```
 
 ## 📁 Project Structure
@@ -83,21 +80,21 @@ fhevm-hardhat-template/
 
 ## 📜 Available Scripts
 
-| Script                     | Description                            |
-| -------------------------- | -------------------------------------- |
-| `npm run compile`          | Compile contracts                      |
-| `npm run test`             | Run local cleartext tests              |
-| `npm run test:coverage`    | Run tests with Hardhat 3 coverage      |
-| `npm run test:sepolia`     | Run the public-network test            |
-| `npm run chain`            | Start the local Hardhat 3 node         |
-| `npm run deploy:localhost` | Deploy to the local node               |
-| `npm run deploy:sepolia`   | Deploy to Sepolia                      |
-| `npm run lint`             | Run ESLint and formatting checks       |
-| `npm run clean`            | Remove generated artifacts and typings |
+| Script                     | Description                                     |
+| -------------------------- | ----------------------------------------------- |
+| `npm run compile`          | Compile contracts                               |
+| `npm run test`             | Run local cleartext tests                       |
+| `npm run test:coverage`    | Run tests with Hardhat 3 coverage               |
+| `npm run test:sepolia`     | Run the public-network test (not yet supported) |
+| `npm run chain`            | Start the local Hardhat 3 node                  |
+| `npm run deploy:localhost` | Deploy to the local node                        |
+| `npm run deploy:sepolia`   | Deploy to Sepolia                               |
+| `npm run lint`             | Run ESLint and formatting checks                |
+| `npm run clean`            | Remove generated artifacts and typings          |
 
 ## 📚 Documentation
 
-- [FHEVM Documentation](https://docs.zama.ai/fhevm)
+- [FHEVM Documentation](https://docs.zama.ai/protocol)
 - [FHEVM Hardhat Setup Guide](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup)
 - [FHEVM Testing Guide](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat/write_test)
 - [FHEVM Hardhat Plugin](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat)
