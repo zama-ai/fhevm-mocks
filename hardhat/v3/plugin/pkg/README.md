@@ -175,45 +175,45 @@ All helpers live on the connection's `fhevm` object: `const { fhevm } = await ne
 
 Each takes `{ value, contractAddress, userAddress }` and returns `{ external<Type>, inputProof }`.
 
-| Function | `value` |
-| --- | --- |
-| `encryptBool` | `boolean` |
-| `encryptUint8` | `number \| bigint` |
-| `encryptUint16` | `number \| bigint` |
-| `encryptUint32` | `number \| bigint` |
-| `encryptUint64` | `number \| bigint` |
+| Function         | `value`            |
+| ---------------- | ------------------ |
+| `encryptBool`    | `boolean`          |
+| `encryptUint8`   | `number \| bigint` |
+| `encryptUint16`  | `number \| bigint` |
+| `encryptUint32`  | `number \| bigint` |
+| `encryptUint64`  | `number \| bigint` |
 | `encryptUint128` | `number \| bigint` |
 | `encryptUint256` | `number \| bigint` |
-| `encryptAddress` | `string` |
+| `encryptAddress` | `string`           |
 
 ### `fhevm.helpers` — decrypt (user decryption, requires an ACL allow + a permit)
 
 Each takes `{ <handle>, contractAddress, userAddress, options? }`.
 
-| Function | Handle arg | Returns |
-| --- | --- | --- |
-| `decryptBool` | `ebool` | `boolean` |
-| `decryptUint8` | `euint8` | `number` |
-| `decryptUint16` | `euint16` | `number` |
-| `decryptUint32` | `euint32` | `number` |
-| `decryptUint64` | `euint64` | `bigint` |
-| `decryptUint128` | `euint128` | `bigint` |
-| `decryptUint256` | `euint256` | `bigint` |
+| Function         | Handle arg | Returns             |
+| ---------------- | ---------- | ------------------- |
+| `decryptBool`    | `ebool`    | `boolean`           |
+| `decryptUint8`   | `euint8`   | `number`            |
+| `decryptUint16`  | `euint16`  | `number`            |
+| `decryptUint32`  | `euint32`  | `number`            |
+| `decryptUint64`  | `euint64`  | `bigint`            |
+| `decryptUint128` | `euint128` | `bigint`            |
+| `decryptUint256` | `euint256` | `bigint`            |
 | `decryptAddress` | `eaddress` | `` `0x${string}` `` |
 
 ### `fhevm.helpers` — decryptPublic (requires `FHE.makePubliclyDecryptable`)
 
 Each takes `{ <handle> }` only.
 
-| Function | Handle arg | Returns |
-| --- | --- | --- |
-| `decryptPublicBool` | `ebool` | `boolean` |
-| `decryptPublicUint8` | `euint8` | `number` |
-| `decryptPublicUint16` | `euint16` | `number` |
-| `decryptPublicUint32` | `euint32` | `number` |
-| `decryptPublicUint64` | `euint64` | `bigint` |
-| `decryptPublicUint128` | `euint128` | `bigint` |
-| `decryptPublicUint256` | `euint256` | `bigint` |
+| Function               | Handle arg | Returns             |
+| ---------------------- | ---------- | ------------------- |
+| `decryptPublicBool`    | `ebool`    | `boolean`           |
+| `decryptPublicUint8`   | `euint8`   | `number`            |
+| `decryptPublicUint16`  | `euint16`  | `number`            |
+| `decryptPublicUint32`  | `euint32`  | `number`            |
+| `decryptPublicUint64`  | `euint64`  | `bigint`            |
+| `decryptPublicUint128` | `euint128` | `bigint`            |
+| `decryptPublicUint256` | `euint256` | `bigint`            |
 | `decryptPublicAddress` | `eaddress` | `` `0x${string}` `` |
 
 Every `decryptPublic*` has a `decryptPublic*WithSignatures` twin returning `{ clearValue, checkSignaturesArgs }`, for
@@ -223,15 +223,15 @@ testing on-chain signature verification.
 
 Each takes `{ <handle> }` only and answers even when nobody is allowed to see the value.
 
-| Function | Handle arg | Returns |
-| --- | --- | --- |
-| `readBool` | `ebool` | `boolean` |
-| `readUint8` | `euint8` | `number` |
-| `readUint16` | `euint16` | `number` |
-| `readUint32` | `euint32` | `number` |
-| `readUint64` | `euint64` | `bigint` |
-| `readUint128` | `euint128` | `bigint` |
-| `readUint256` | `euint256` | `bigint` |
+| Function      | Handle arg | Returns             |
+| ------------- | ---------- | ------------------- |
+| `readBool`    | `ebool`    | `boolean`           |
+| `readUint8`   | `euint8`   | `number`            |
+| `readUint16`  | `euint16`  | `number`            |
+| `readUint32`  | `euint32`  | `number`            |
+| `readUint64`  | `euint64`  | `bigint`            |
+| `readUint128` | `euint128` | `bigint`            |
+| `readUint256` | `euint256` | `bigint`            |
 | `readAddress` | `eaddress` | `` `0x${string}` `` |
 
 ### `fhevm.client` — the raw `@fhevm/sdk` client
