@@ -1,0 +1,23 @@
+[profile.default]
+extends = "../../foundry.base.toml"
+libs = ["dependencies", "node_modules", "../../node_modules"]
+src = "pkg/src"
+test = "test"
+script = "script"
+out = "out"
+solc_version = "0.8.24"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 800
+via_ir = false
+bytecode_hash = "none"
+
+[profile.ci]
+deny = "warnings"
+
+[lint]
+ignore = ["pkg/src/_host/**/*.sol"]
+exclude_lints = ["unsafe-cheatcode"]
+
+[dependencies]
+forge-std = "1.11.0"

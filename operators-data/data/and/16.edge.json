@@ -1,0 +1,251 @@
+{
+  "op": "and",
+  "arity": 2,
+  "semantics": "bitwise",
+  "encoding": "hex-string",
+  "width": 16,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "and_16_16_zero_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_one_one",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x1" }
+    },
+    {
+      "id": "and_16_16_one_zero",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_zero_one",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_zero_vs_rhs_max",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_lhs_max_vs_zero",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "and_16_16_pattern_vs_zero",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_pattern_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0xa5a5" }
+    },
+    {
+      "id": "and_16_16_top_bit_top_bit",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 16, "value": "0x8000" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "and_16_16_top_bit_vs_one",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_16_top_bit_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "and_16_8_zero_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_one_one",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x1" }
+    },
+    {
+      "id": "and_16_8_one_zero",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_zero_one",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_zero_vs_rhs_max",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_lhs_max_vs_zero",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xff" }
+    },
+    {
+      "id": "and_16_8_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xff" }
+    },
+    {
+      "id": "and_16_8_pattern_vs_zero",
+      "lhs": { "bits": 16, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_pattern_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xa5" }
+    },
+    {
+      "id": "and_16_8_top_bit_top_bit",
+      "lhs": { "bits": 16, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 16, "value": "0x80" }
+    },
+    {
+      "id": "and_16_8_top_bit_vs_one",
+      "lhs": { "bits": 16, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_16_8_top_bit_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0x80" }
+    },
+    {
+      "id": "and_16_8_same_low_bits",
+      "lhs": { "bits": 16, "value": "0x1ff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xff" }
+    },
+    {
+      "id": "and_8_16_zero_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_one_one",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x1" }
+    },
+    {
+      "id": "and_8_16_one_zero",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_zero_one",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_zero_vs_rhs_max",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_lhs_max_vs_zero",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 16, "value": "0xff" }
+    },
+    {
+      "id": "and_8_16_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 16, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xff" }
+    },
+    {
+      "id": "and_8_16_pattern_vs_zero",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_pattern_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 16, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xa5" }
+    },
+    {
+      "id": "and_8_16_top_bit_top_bit",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 16, "value": "0x80" },
+      "result": { "bits": 16, "value": "0x80" }
+    },
+    {
+      "id": "and_8_16_top_bit_vs_one",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "and_8_16_top_bit_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 16, "value": "0xff" },
+      "result": { "bits": 16, "value": "0x80" }
+    },
+    {
+      "id": "and_8_16_same_low_bits",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 16, "value": "0x1ff" },
+      "result": { "bits": 16, "value": "0xff" }
+    }
+  ]
+}

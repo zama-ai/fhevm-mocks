@@ -1,0 +1,24 @@
+[package]
+name = "tfhe-vectors-check-16"
+version = "0.1.0"
+edition = "2021"
+publish = false
+build = "../build.rs"
+
+[workspace]
+
+[[bin]]
+name = "tfhe-vectors-check-16"
+path = "../src/main.rs"
+
+[features]
+default = ["tfhe16"]
+tfhe16 = []
+
+[dependencies]
+tfhe = { version = "~1.6", features = ["integer"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.dev]
+opt-level = 3

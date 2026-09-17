@@ -66,7 +66,7 @@ jobs:
       #     compile-hh-v2-plugin    -> Hardhat 2 plugin
       #     compile-hh-v3-plugin    -> Hardhat 3 plugin
       #     The current contracts directory comes from npm-manifest.json.
-      #     The version comes from sdk/versions.json:
+      #     The version comes from versions.json:
       #       X.Y.Z -> latest; X.Y.Z-A -> alpha.
       #     Fail before installing or building if the target or version is missing
       #     or the target is unsupported.
@@ -197,9 +197,9 @@ jobs:
       # 7c. Tarball gate
       #     Check that:
       #     - No local `file:` dependencies remain.
-      #     - The package version matches sdk/versions.json.
+      #     - The package version matches versions.json.
       #     - All declared entry points exist in the archive.
-      #     - Converted dependency ranges match sdk/versions.json.
+      #     - Converted dependency ranges match versions.json.
       #     - npmjs.com has a published version matching each converted range.
       #     - This package version is not already published on npmjs.com.
       #     This means contracts must be published before plugins that need them.

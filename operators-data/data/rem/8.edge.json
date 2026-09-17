@@ -1,0 +1,119 @@
+{
+  "op": "rem",
+  "arity": 2,
+  "semantics": "unsigned-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "rem_8_8_zero_by_one",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_zero_by_small",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_small_by_one",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_equal",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_one_by_max",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0x1" }
+    },
+    {
+      "id": "rem_8_8_max_by_one",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_max_by_two",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x2" },
+      "result": { "bits": 8, "value": "0x1" }
+    },
+    {
+      "id": "rem_8_8_max_by_small",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 8, "value": "0x2" }
+    },
+    {
+      "id": "rem_8_8_max_by_top_bit",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 8, "value": "0x7f" }
+    },
+    {
+      "id": "rem_8_8_max_by_max_minus_1",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xfe" },
+      "result": { "bits": 8, "value": "0x1" }
+    },
+    {
+      "id": "rem_8_8_max_by_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_max_minus_1_by_max",
+      "lhs": { "bits": 8, "value": "0xfe" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0xfe" }
+    },
+    {
+      "id": "rem_8_8_top_bit_by_two",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x2" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_top_bit_by_top_bit",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rem_8_8_mid_by_top_bit",
+      "lhs": { "bits": 8, "value": "0x2d" },
+      "rhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 8, "value": "0x2d" }
+    },
+    {
+      "id": "rem_8_8_pattern_by_255",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0xa5" }
+    },
+    {
+      "id": "rem_8_8_max_by_half_power_of_two",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x10" },
+      "result": { "bits": 8, "value": "0xf" }
+    },
+    {
+      "id": "rem_8_8_pattern_by_half_power_of_two",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x10" },
+      "result": { "bits": 8, "value": "0x5" }
+    }
+  ]
+}
