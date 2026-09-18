@@ -16,7 +16,7 @@ bytecode_hash = "none"
 deny = "warnings"
 
 [lint]
-ignore = ["pkg/src/_host/**/*.sol"]
+ignore = ["pkg/src/_host/**/*.sol", "test/**/contracts/**/*.sol"]
 exclude_lints = ["unsafe-cheatcode"]
 
 [dependencies]

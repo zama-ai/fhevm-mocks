@@ -31,8 +31,8 @@ contract EncryptValuesArrayTest is Test, StdFhevm {
         assertEq(e.length(), 6);
 
         vm.startPrank(alice);
-        vault.setEUint8(e.externalEuint8At(0), e.inputProof);
-        vault.setEUint256(e.externalEuint256At(5), e.inputProof);
+        vault.setEUint8(e.externalEuint8At(0), e.inputProof());
+        vault.setEUint256(e.externalEuint256At(5), e.inputProof());
         vm.stopPrank();
 
         assertEq(decryptPublic(abi.encode(vault.eUint8())), abi.encode(uint8(255)));
@@ -62,7 +62,7 @@ contract EncryptValuesArrayTest is Test, StdFhevm {
         EncryptedInput memory e = encryptValues(batch, address(vault), alice);
 
         vm.prank(alice);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof());
         assertEq(decryptPublic(vault.eUint32()), 7);
     }
 

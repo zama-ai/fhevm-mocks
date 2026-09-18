@@ -21,7 +21,7 @@
 // the three imports are repointed at it. Everything else is byte-identical to the origin.
 
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -37,15 +37,18 @@ const PAYLOAD_REL = join('pkg', 'forge', 'src');
 const FHE_TYPE_REL = join('pkg', 'src', 'contracts', 'shared', 'FheType.sol');
 
 /**
- * The payload's only out-of-tree import, and where it is repointed.
+ * The payload's only out-of-tree import, and where it lands.
  *
- * FheType is copied OUTSIDE _host, to pkg/src/_internal, because the top-level libraries need it too
- * and two copies would be two distinct enum types that do not convert. _host is wiped on every run;
- * this one file is the single exception, so it is written after the wipe and never removed by it.
+ * FheType is not part of the payload directory — it belongs to the host CONTRACTS, which the forge
+ * sources reach by climbing out of their own tree. It is copied in beside them, under `shared/`, so
+ * the shipped payload is self-contained and there is exactly one FheType: two copies would be two
+ * distinct enum types that do not convert.
+ *
+ * The climb is matched rather than hardcoded because the payload has files at more than one depth
+ * (`shared/` and `_internal/interfaces/`), so the number of `../` differs per file.
  */
-const FHE_TYPE_IMPORT_FROM = '../../../../src/contracts/shared/FheType.sol';
-const FHE_TYPE_IMPORT_TO = '../../../_internal/FheType.sol';
-const FHE_TYPE_DEST = join(ROOT, 'pkg', 'src', '_internal', 'FheType.sol');
+const FHE_TYPE_IMPORT_FROM = /(?:\.\.\/)+src\/contracts\/shared\/FheType\.sol/g;
+const FHE_TYPE_DEST_REL = join('shared', 'FheType.sol');
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -83,13 +86,22 @@ function _solFiles(dir: string): string[] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/** Repoints the payload's single out-of-tree import. Returns the files it touched. */
+/**
+ * Repoints the payload's out-of-tree FheType import at the copy under `shared/`, one file at a time so
+ * each gets a path relative to ITSELF. Returns the files it touched.
+ */
 function _rewriteFheTypeImports(): string[] {
   const touched: string[] = [];
+  const fheTypeDest = join(DEST_DIR, FHE_TYPE_DEST_REL);
+
   for (const rel of _solFiles(DEST_DIR)) {
     const path = join(DEST_DIR, rel);
     const before = readFileSync(path, 'utf8');
-    const after = before.split(FHE_TYPE_IMPORT_FROM).join(FHE_TYPE_IMPORT_TO);
+
+    let to = relative(dirname(path), fheTypeDest).split(sep).join('/');
+    if (!to.startsWith('.')) to = `./${to}`;
+
+    const after = before.replace(FHE_TYPE_IMPORT_FROM, to);
     if (after === before) continue;
     writeFileSync(path, after, 'utf8');
     touched.push(rel);
@@ -123,8 +135,9 @@ export function writeForgePayload(): PayloadResult {
   mkdirSync(DEST_DIR, { recursive: true });
   cpSync(payloadDir, DEST_DIR, { recursive: true });
 
-  mkdirSync(dirname(FHE_TYPE_DEST), { recursive: true });
-  cpSync(fheTypePath, FHE_TYPE_DEST);
+  const fheTypeDest = join(DEST_DIR, FHE_TYPE_DEST_REL);
+  mkdirSync(dirname(fheTypeDest), { recursive: true });
+  cpSync(fheTypePath, fheTypeDest);
 
   const rewritten = _rewriteFheTypeImports();
   return { generationDir, files: _solFiles(DEST_DIR).length, rewritten };

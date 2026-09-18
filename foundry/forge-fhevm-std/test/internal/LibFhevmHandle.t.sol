@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {StdFhevm, EncryptedInput, TypedValue} from "../../pkg/src/StdFhevm.sol";
-import {FheType} from "../../pkg/src/_internal/FheType.sol";
-import {LibFhevmHandle} from "../../pkg/src/_internal/LibFhevmHandle.sol";
+import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
+import {LibFhevmHandle} from "../../pkg/src/_host/shared/LibFhevmHandle.sol";
 
 /// Field extraction from the handle layout `LibFhevmHandle` owns.
 contract LibFhevmHandleTest is Test, StdFhevm {
@@ -16,7 +16,7 @@ contract LibFhevmHandleTest is Test, StdFhevm {
     /// The chain id a real handle carries is the one it was minted on.
     function test_chainIdOfReadsBackTheMintingChain() public {
         EncryptedInput memory e = encryptValues(asUint32(7), address(this), makeAddr("alice"));
-        assertEq(LibFhevmHandle.chainIdOf(e.handles[0]), uint64(block.chainid));
+        assertEq(LibFhevmHandle.chainIdOf(e._h[0]), uint64(block.chainid));
     }
 
     /// The core claim: the handle at slot `i` of a batch carries `i`.
@@ -28,14 +28,14 @@ contract LibFhevmHandleTest is Test, StdFhevm {
         EncryptedInput memory e = encryptValues(batch, address(this), makeAddr("alice"));
 
         for (uint8 i = 0; i < 6; i++) {
-            assertEq(LibFhevmHandle.indexOf(e.handles[i]), i);
+            assertEq(LibFhevmHandle.indexOf(e._h[i]), i);
         }
     }
 
     /// A single value is index 0, not an absent field.
     function test_indexOfIsZeroForALoneValue() public {
         EncryptedInput memory e = encryptValues(asUint32(7), address(this), makeAddr("alice"));
-        assertEq(LibFhevmHandle.indexOf(e.handles[0]), 0);
+        assertEq(LibFhevmHandle.indexOf(e._h[0]), 0);
     }
 
     /// The fields are read from disjoint slices: chainId occupies bytes 22..29 and nothing else.

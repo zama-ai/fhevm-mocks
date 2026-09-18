@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {StdFhevm, EncryptedInput} from "../../pkg/src/StdFhevm.sol";
-import {FheType} from "../../pkg/src/_internal/FheType.sol";
+import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
 import {Vault} from "./Vault.sol";
 
 /// THE RAW FORM: `abi.encode(typeId, value, typeId, value, ...)`. It is the escape hatch for a caller
@@ -28,8 +28,8 @@ contract EncryptRawPairsTest is Test, StdFhevm {
         );
 
         vm.startPrank(alice);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof);
-        vault.setEUint64(e.externalEuint64At(1), e.inputProof);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof());
+        vault.setEUint64(e.externalEuint64At(1), e.inputProof());
         vm.stopPrank();
 
         assertEq(decryptPublic(vault.eUint32()), 7);

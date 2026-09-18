@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 /// ----------------------------------------------------------------------------
 ///   ⚠️ Private Library:
+///     - Host-internal, shipped with the forge payload
 ///     - Should not be exposed to the public
 ///     - not maintained
 ///     - can change at any time

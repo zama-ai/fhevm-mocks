@@ -23,7 +23,7 @@ contract EncryptedInputApiTest is Test, StdFhevm {
     /// One handle per cleartext, plus the single proof binding them all.
     function test_lengthCountsTheValuesNotTheProof() public view {
         assertEq(e.length(), 2);
-        assertGt(e.inputProof.length, 0);
+        assertGt(e.inputProof().length, 0);
     }
 
     /// The handle knows its own type — nothing has to be remembered by the caller.
@@ -37,8 +37,8 @@ contract EncryptedInputApiTest is Test, StdFhevm {
     function test_abiEncodedDecodesAsATuple() public view {
         (externalEuint32 a, externalEuint64 b) = abi.decode(e.abiEncoded(), (externalEuint32, externalEuint64));
 
-        assertEq(externalEuint32.unwrap(a), e.handles[0]);
-        assertEq(externalEuint64.unwrap(b), e.handles[1]);
+        assertEq(externalEuint32.unwrap(a), externalEuint32.unwrap(e.externalEuint32At(0)));
+        assertEq(externalEuint64.unwrap(b), externalEuint64.unwrap(e.externalEuint64At(1)));
     }
 
     /// Asking for the wrong width is caught here, not inside the coprocessor.
@@ -63,12 +63,12 @@ contract EncryptedInputApiTest is Test, StdFhevm {
         EncryptedInput memory other = encryptValues(asUint32(1), asUint32(2), address(new Vault()), alice);
 
         EncryptedInput memory stitched;
-        stitched.handles = new bytes32[](2);
-        stitched.handles[0] = other.handles[1]; // minted at slot 1, placed at slot 0
-        stitched.handles[1] = other.handles[0];
-        stitched.inputProof = other.inputProof;
-        stitched.chainId = other.chainId;
-        stitched.version = other.version;
+        stitched._h = new bytes32[](2);
+        stitched._h[0] = other._h[1]; // minted at slot 1, placed at slot 0
+        stitched._h[1] = other._h[0];
+        stitched._ip = other._ip;
+        stitched._cid = other._cid;
+        stitched._ver = other._ver;
 
         vm.expectRevert(abi.encodeWithSelector(LibEncryptedInput.IndexMismatch.selector, 0, 1));
         this.readAsUint32(stitched, 0);
@@ -77,7 +77,7 @@ contract EncryptedInputApiTest is Test, StdFhevm {
     /// The batch records the chain it was minted on; a handle from elsewhere is rejected.
     function test_aHandleFromAnotherChainIsRejected() public {
         EncryptedInput memory forged = e;
-        forged.chainId = block.chainid + 1;
+        forged._cid = block.chainid + 1;
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -90,7 +90,7 @@ contract EncryptedInputApiTest is Test, StdFhevm {
     /// Same for the handle format: an unknown version fails here rather than deep in the coprocessor.
     function test_aHandleOfAnotherVersionIsRejected() public {
         EncryptedInput memory forged = e;
-        forged.version = 1;
+        forged._ver = 1;
 
         vm.expectRevert(abi.encodeWithSelector(LibEncryptedInput.VersionMismatch.selector, 0, 1, 0));
         this.readAsUint32(forged, 0);
@@ -98,8 +98,8 @@ contract EncryptedInputApiTest is Test, StdFhevm {
 
     /// What `encryptValues` records: the chain it ran on, and the format it minted.
     function test_theBatchRecordsItsChainAndVersion() public view {
-        assertEq(e.chainId, block.chainid);
-        assertEq(e.version, 0);
+        assertEq(e.chainId(), block.chainid);
+        assertEq(e.version(), 0);
     }
 
     // -- External so that `vm.expectRevert` has a call frame to catch ------------------

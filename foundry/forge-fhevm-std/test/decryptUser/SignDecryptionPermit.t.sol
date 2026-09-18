@@ -27,15 +27,13 @@ contract SignDecryptionPermitTest is TestFhevm {
         assertEq(p.signature.length, 65, "r || s || v");
     }
 
-    /// The pure helpers on the struct agree with what was signed.
-    function test_thePermitAgreesWithItsOwnHelpers() public view {
+    /// The window and the contract list are recorded as asked for, so a caller can check them.
+    function test_thePermitRecordsItsWindowAndContracts() public view {
         SignedDecryptionPermit memory p = signLegacyDecryptionPermit(aliceKey, keypair, contracts, 1000, 7 days);
 
-        assertEq(p.expiresAt(), 1000 + 7 days);
-        assertTrue(p.isValidAt(1000));
-        assertFalse(p.isValidAt(1000 + 7 days));
-        assertTrue(p.covers(address(0xDA99)));
-        assertFalse(p.covers(address(0xBEEF)));
+        assertEq(p.startTimestamp + p.durationSeconds, 1000 + 7 days, "the window it closes at");
+        assertEq(p.contractAddresses.length, 1);
+        assertEq(p.contractAddresses[0], address(0xDA99));
     }
 
     /// Two different users signing the same request produce different signatures.

@@ -41,7 +41,7 @@ contract DecryptUint8Test is TestFhevm {
 
         EncryptedInput memory e = encryptValues(asUint8(42), address(safe), alice);
         vm.prank(alice);
-        safe.store(e.externalEuint8At(0), e.inputProof, alice);
+        safe.store(e.externalEuint8At(0), e.inputProof(), alice);
     }
 
     function _permit() private view returns (SignedDecryptionPermit memory) {
@@ -68,14 +68,14 @@ contract DecryptUint8Test is TestFhevm {
             signLegacyDecryptionPermit(bobKey, keypair, contracts, block.timestamp, 7 days);
 
         // `safe.secret()` is itself an external call, so read it BEFORE arming `expectRevert`.
-        euint8 handle = safe.secret();
+        euint8 value = safe.secret();
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ICleartextKMSVerifier.CleartextErrorUserNotAuthorizedForDecrypt.selector, euint8.unwrap(handle), bob
+                ICleartextKMSVerifier.CleartextErrorUserNotAuthorizedForDecrypt.selector, euint8.unwrap(value), bob
             )
         );
-        this.decryptExternally(handle, address(safe), keypair, bobsPermit);
+        this.decryptExternally(value, address(safe), keypair, bobsPermit);
     }
 
     /// The permit records the format it was signed in, and only that format is accepted.
@@ -84,20 +84,20 @@ contract DecryptUint8Test is TestFhevm {
         assertEq(permit.version, PERMIT_VERSION_V1, "what this library signs today");
 
         permit.version = 2;
-        euint8 handle = safe.secret();
+        euint8 value = safe.secret();
 
         vm.expectRevert("StdFhevm: unsupported decryption permit version");
-        this.decryptExternally(handle, address(safe), keypair, permit);
+        this.decryptExternally(value, address(safe), keypair, permit);
     }
 
     /// The permit names the key it was signed for; another pair would unmask to garbage, so it fails.
     function test_aMismatchedTransportKeypairIsRefused() public {
         SignedDecryptionPermit memory permit = _permit();
         TransportKeypair memory other = generateTransportKeypair();
-        euint8 handle = safe.secret();
+        euint8 value = safe.secret();
 
         vm.expectRevert("StdFhevm: transport keypair does not match the permit");
-        this.decryptExternally(handle, address(safe), other, permit);
+        this.decryptExternally(value, address(safe), other, permit);
     }
 
     // -- Delegated: BOB signs, ALICE's access is exercised ----------------------------
@@ -121,10 +121,10 @@ contract DecryptUint8Test is TestFhevm {
         (, uint256 bobKey) = makeAddrAndKey("bob");
         SignedDecryptionPermit memory permit =
             signLegacyDecryptionPermit(bobKey, keypair, contracts, block.timestamp, 7 days, alice);
-        euint8 handle = safe.secret();
+        euint8 value = safe.secret();
 
         vm.expectRevert();
-        this.decryptExternally(handle, address(safe), keypair, permit);
+        this.decryptExternally(value, address(safe), keypair, permit);
     }
 
     /// A delegated permit is a DIFFERENT EIP-712 struct, so it does not verify as a plain one.

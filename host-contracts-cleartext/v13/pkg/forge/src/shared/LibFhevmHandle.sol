@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {FheType} from "./FheType.sol";
+import {FheType} from "../../../src/contracts/shared/FheType.sol";
 
 /// ----------------------------------------------------------------------------
 ///   ⚠️ Private Library:
+///     - Host-internal, shipped with the forge payload
 ///     - Should not be exposed to the public
 ///     - not maintained
 ///     - can change at any time

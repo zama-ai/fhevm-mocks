@@ -28,7 +28,7 @@ contract DecryptByWalletTest is TestFhevm {
     function _store(uint32 v) private {
         EncryptedInput memory e = encryptValues(asUint32(v), address(vault), alice.addr);
         vm.prank(alice.addr);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof, alice.addr);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof(), alice.addr);
     }
 
     /// The wallet's two halves, each doing its job: `addr` to store and grant, `privateKey` to read.
@@ -75,10 +75,10 @@ contract DecryptByWalletTest is TestFhevm {
     function test_anotherWalletHasNoAccess() public {
         _store(70_000);
         Vm.Wallet memory bob = vm.createWallet("bob");
-        euint32 handle = vault.eUint32();
+        euint32 value = vault.eUint32();
 
         vm.expectRevert();
-        this.decryptAs(handle, bob.privateKey);
+        this.decryptAs(value, bob.privateKey);
     }
 
     /// External so that `vm.expectRevert` has a call frame to catch.

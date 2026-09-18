@@ -11,69 +11,49 @@ import {
     externalEuint256,
     externalEaddress
 } from "encrypted-types/EncryptedTypes.sol";
-
-import {FhevmCleartextDeploy} from "./_host/FhevmCleartextDeploy.sol";
 import {FhevmCleartextEncrypt} from "./_host/FhevmCleartextEncrypt.sol";
-import {FheType} from "./_internal/FheType.sol";
-import {LibFhevmHandle} from "./_internal/LibFhevmHandle.sol";
+import {FheType} from "./_host/shared/FheType.sol";
+import {LibFhevmHandle} from "./_host/shared/LibFhevmHandle.sol";
 import {EncryptedInput} from "./LibEncryptedInput.sol";
-import {TypedValue} from "./LibTypedValue.sol";
+import {TypedValue} from "./TypedValue.sol";
 
-/// @notice Turning cleartexts into input handles. Inherited by `StdFhevm`.
-abstract contract StdFhevmEncrypt is FhevmCleartextDeploy {
+abstract contract StdFhevmEncrypt {
     // -- Typed Cleartext Constructors -----------------------------------------
 
-    /// @notice Tags a cleartext with the FHE type it must encrypt to.
-    /// @dev Inherited rather than imported: these are plain functions, so a test that inherits
-    ///      `StdFhevm` calls `asUint32(7)` with no import at all. The width is fixed by the parameter
-    ///      type, so `asUint8(300)` is a compile error.
     function asBool(bool b) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Bool, _v: b ? 1 : 0});
+        return TypedValue({_t: uint8(FheType.Bool), _v: b ? 1 : 0});
     }
 
     function asUint8(uint8 x) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint8, _v: x});
+        return TypedValue({_t: uint8(FheType.Uint8), _v: x});
     }
 
     function asUint16(uint16 x) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint16, _v: x});
+        return TypedValue({_t: uint8(FheType.Uint16), _v: x});
     }
 
     function asUint32(uint32 x) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint32, _v: x});
+        return TypedValue({_t: uint8(FheType.Uint32), _v: x});
     }
 
     function asUint64(uint64 x) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint64, _v: x});
+        return TypedValue({_t: uint8(FheType.Uint64), _v: x});
     }
 
     function asUint128(uint128 x) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint128, _v: x});
+        return TypedValue({_t: uint8(FheType.Uint128), _v: x});
     }
 
     function asUint256(uint256 x) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint256, _v: x});
+        return TypedValue({_t: uint8(FheType.Uint256), _v: x});
     }
 
     function asAddress(address a) internal pure returns (TypedValue memory) {
-        return TypedValue({_t: FheType.Uint160, _v: uint160(a)});
+        return TypedValue({_t: uint8(FheType.Uint160), _v: uint160(a)});
     }
 
     // -- Encrypt Several Values -----------------------------------------------
 
-    /**
-     * @notice Encrypts several values under ONE input proof. This is the primitive every other
-     *         `encryptValues` overload delegates to; call it directly for batches longer than five or
-     *         built in a loop.
-     * @param values One `TypedValue` per cleartext (see `asUint8`, `asBool`, ...). The width travels
-     *        with the value: `abi.encode` pads everything to a 32-byte word, so `uint32(7)` and
-     *        `uint64(7)` are the same bytes and the width cannot be recovered from the value alone.
-     * @param contractAddress The only contract allowed to consume the handles.
-     * @param userAddress The only account allowed to submit them.
-     * @return e The handles in the SAME order as `values`, plus the single proof that binds them to the
-     *         contract/user pair. Read them back with `e.externalEuintNAt(i)`, or as a tuple with
-     *         `abi.decode(e.abiEncoded(), (externalEuintN, ...))`.
-     */
     function encryptValues(TypedValue[] memory values, address contractAddress, address userAddress)
         internal
         returns (EncryptedInput memory e)
@@ -82,32 +62,21 @@ abstract contract StdFhevmEncrypt is FhevmCleartextDeploy {
         uint8[] memory typeIds = new uint8[](values.length);
         uint256[] memory clear = new uint256[](values.length);
         for (uint256 i = 0; i < values.length; i++) {
-            typeIds[i] = values[i].fheTypeId();
-            clear[i] = values[i].value();
+            typeIds[i] = values[i]._t;
+            clear[i] = values[i]._v;
         }
-        (e.handles, e.inputProof) = FhevmCleartextEncrypt.encrypt(typeIds, clear, contractAddress, userAddress);
+        (e._h, e._ip) = FhevmCleartextEncrypt.encrypt(typeIds, clear, contractAddress, userAddress);
         _recordBatchOrigin(e);
     }
 
-    /**
-     * @notice Raw form: `abi.encode(typeId, value, typeId, value, ...)`. Prefer the `TypedValue`
-     *         overloads, which get the width checked by the compiler.
-     */
     function encryptValues(bytes memory abiTypeValuePairs, address contractAddress, address userAddress)
         internal
         returns (EncryptedInput memory e)
     {
-        (e.handles, e.inputProof) = FhevmCleartextEncrypt.encrypt(abiTypeValuePairs, contractAddress, userAddress);
+        (e._h, e._ip) = FhevmCleartextEncrypt.encrypt(abiTypeValuePairs, contractAddress, userAddress);
         _recordBatchOrigin(e);
     }
 
-    /**
-     * @notice Fixed-arity forms, one to five values — the same arity ceiling `console.log` lives with,
-     *         for the same reason (no variadics in Solidity). Past five, pass a `TypedValue[]`.
-     *
-     * EncryptedInput memory e = encryptValues(asUint32(7), asUint64(1234567890123), address(dapp), alice);
-     * dapp.set(e.externalEuint32At(0), e.externalEuint64At(1), e.inputProof);
-     */
     function encryptValues(TypedValue memory a, address contractAddress, address userAddress)
         internal
         returns (EncryptedInput memory)
@@ -157,6 +126,7 @@ abstract contract StdFhevmEncrypt is FhevmCleartextDeploy {
         return encryptValues(values, contractAddress, userAddress);
     }
 
+    /// @dev FIVE is the ceiling, and it is solc's, not a taste call. `via_ir = false` here.
     function encryptValues(
         TypedValue memory a,
         TypedValue memory b,
@@ -176,11 +146,6 @@ abstract contract StdFhevmEncrypt is FhevmCleartextDeploy {
     }
 
     // -- Encrypt Single Value -------------------------------------------------
-
-    /// @notice ONE value, one proof: the typed handle comes back directly, with no `EncryptedInput`
-    ///         in between. One per `as*` constructor, same naming — `asUint32` / `encryptUint32`.
-    /// @dev For several values under a SINGLE proof, use `encryptValues` instead. Calling these twice
-    ///      produces two independent proofs, not one covering both.
 
     function encryptBool(bool value, address contractAddress, address userAddress)
         internal
@@ -256,12 +221,9 @@ abstract contract StdFhevmEncrypt is FhevmCleartextDeploy {
 
     // -- PRIVATE HELPER FUNCTIONS ---------------------------------------------
 
-    /// @dev Takes the batch's chain and handle format from the FIRST handle, so the record is read off
-    ///      the handles themselves rather than assumed. `_checked` then holds every other handle to it,
-    ///      which is what catches an `EncryptedInput` stitched from two batches.
     function _recordBatchOrigin(EncryptedInput memory e) private pure {
-        e.chainId = LibFhevmHandle.chainIdOf(e.handles[0]);
-        e.version = LibFhevmHandle.versionOf(e.handles[0]);
+        e._cid = LibFhevmHandle.chainIdOf(e._h[0]);
+        e._ver = LibFhevmHandle.versionOf(e._h[0]);
     }
 
     function _encryptValue(uint256 value, FheType typeId, address contractAddress, address userAddress)

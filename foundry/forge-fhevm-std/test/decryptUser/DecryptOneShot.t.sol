@@ -22,7 +22,7 @@ contract DecryptOneShotTest is TestFhevm {
     function test_oneCallReadsTheValue() public {
         EncryptedInput memory e = encryptValues(asUint32(70_000), address(vault), alice);
         vm.prank(alice);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof, alice);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof(), alice);
 
         assertEq(decrypt(vault.eUint32(), address(vault), aliceKey), 70_000);
     }
@@ -33,9 +33,9 @@ contract DecryptOneShotTest is TestFhevm {
         EncryptedInput memory e = encryptValues(asBool(true), asUint8(255), asAddress(alice), address(vault), alice);
 
         vm.startPrank(alice);
-        vault.setEBool(e.externalEboolAt(0), e.inputProof, alice);
-        vault.setEUint8(e.externalEuint8At(1), e.inputProof, alice);
-        vault.setEAddress(e.externalEaddressAt(2), e.inputProof, alice);
+        vault.setEBool(e.externalEboolAt(0), e.inputProof(), alice);
+        vault.setEUint8(e.externalEuint8At(1), e.inputProof(), alice);
+        vault.setEAddress(e.externalEaddressAt(2), e.inputProof(), alice);
         vm.stopPrank();
 
         assertTrue(decrypt(vault.eBool(), address(vault), aliceKey));
@@ -52,9 +52,9 @@ contract DecryptOneShotTest is TestFhevm {
             abi.decode(e.abiEncoded(), (externalEbool, externalEuint8, externalEaddress));
 
         vm.startPrank(alice);
-        vault.setEBool(extBool, e.inputProof, alice);
-        vault.setEUint8(extUint8, e.inputProof, alice);
-        vault.setEAddress(extAddr, e.inputProof, alice);
+        vault.setEBool(extBool, e.inputProof(), alice);
+        vault.setEUint8(extUint8, e.inputProof(), alice);
+        vault.setEAddress(extAddr, e.inputProof(), alice);
         vm.stopPrank();
 
         assertTrue(decrypt(vault.eBool(), address(vault), aliceKey));
@@ -66,7 +66,7 @@ contract DecryptOneShotTest is TestFhevm {
     function test_eachCallSignsItsOwnPermit() public {
         EncryptedInput memory e = encryptValues(asUint8(42), address(vault), alice);
         vm.prank(alice);
-        vault.setEUint8(e.externalEuint8At(0), e.inputProof, alice);
+        vault.setEUint8(e.externalEuint8At(0), e.inputProof(), alice);
 
         assertEq(decrypt(vault.eUint8(), address(vault), aliceKey), 42);
         assertEq(decrypt(vault.eUint8(), address(vault), aliceKey), 42);
@@ -78,13 +78,13 @@ contract DecryptOneShotTest is TestFhevm {
 
         EncryptedInput memory e = encryptValues(asUint8(42), address(vault), alice);
         vm.prank(alice);
-        vault.setEUint8(e.externalEuint8At(0), e.inputProof, alice);
+        vault.setEUint8(e.externalEuint8At(0), e.inputProof(), alice);
 
         // `vault.eUint8()` is itself an external call, so read it BEFORE arming `expectRevert`.
-        euint8 handle = vault.eUint8();
+        euint8 value = vault.eUint8();
 
         vm.expectRevert();
-        this.decryptAsBob(handle, bobKey);
+        this.decryptAsBob(value, bobKey);
     }
 
     /// External so that `vm.expectRevert` has a call frame to catch.

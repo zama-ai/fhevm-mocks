@@ -23,8 +23,8 @@ contract EncryptTypedValuesTest is Test, StdFhevm {
         EncryptedInput memory e = encryptValues(asUint32(7), asUint64(1234567890123), address(vault), alice);
 
         vm.startPrank(alice);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof);
-        vault.setEUint64(e.externalEuint64At(1), e.inputProof);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof());
+        vault.setEUint64(e.externalEuint64At(1), e.inputProof());
         vm.stopPrank();
 
         assertEq(decryptPublic(vault.eUint32()), 7);
@@ -36,9 +36,9 @@ contract EncryptTypedValuesTest is Test, StdFhevm {
         EncryptedInput memory e = encryptValues(asBool(true), asAddress(alice), asUint128(1e30), address(vault), alice);
 
         vm.startPrank(alice);
-        vault.setEBool(e.externalEboolAt(0), e.inputProof);
-        vault.setEAddress(e.externalEaddressAt(1), e.inputProof);
-        vault.setEUint128(e.externalEuint128At(2), e.inputProof);
+        vault.setEBool(e.externalEboolAt(0), e.inputProof());
+        vault.setEAddress(e.externalEaddressAt(1), e.inputProof());
+        vault.setEUint128(e.externalEuint128At(2), e.inputProof());
         vm.stopPrank();
 
         (bool flag, address who, uint128 big) = abi.decode(

@@ -10,7 +10,7 @@ import {TestFhevm, EncryptedInput, TypedValue} from "../../pkg/src/TestFhevm.sol
 import {console, stdMath} from "forge-std/Test.sol";
 
 contract ReExportsTest is TestFhevm {
-    /// The two types this package owns, named without touching `LibEncryptedInput` / `LibTypedValue`.
+    /// The two types this package owns, named without touching `LibEncryptedInput`.
     function test_ourOwnTypesComeFromTestFhevm() public {
         TypedValue memory t = asUint32(7);
         EncryptedInput memory e = encryptValues(t, address(this), makeAddr("alice"));

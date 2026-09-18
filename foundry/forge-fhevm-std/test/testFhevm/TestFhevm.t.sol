@@ -37,8 +37,8 @@ contract TestFhevmOverriddenSetUpTest is TestFhevm {
         EncryptedInput memory e = encryptValues(asUint32(7), asUint64(9), address(vault), alice);
 
         vm.startPrank(alice);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof);
-        vault.setEUint64(e.externalEuint64At(1), e.inputProof);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof());
+        vault.setEUint64(e.externalEuint64At(1), e.inputProof());
         vm.stopPrank();
 
         assertEq(decryptPublic(vault.eUint32()), 7);

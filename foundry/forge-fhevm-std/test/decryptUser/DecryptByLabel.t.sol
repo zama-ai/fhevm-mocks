@@ -22,7 +22,7 @@ contract DecryptByLabelTest is TestFhevm {
     function _store(uint32 v) private {
         EncryptedInput memory e = encryptValues(asUint32(v), address(vault), alice);
         vm.prank(alice);
-        vault.setEUint32(e.externalEuint32At(0), e.inputProof, alice);
+        vault.setEUint32(e.externalEuint32At(0), e.inputProof(), alice);
     }
 
     function test_aNameReadsTheValue() public {
@@ -50,10 +50,10 @@ contract DecryptByLabelTest is TestFhevm {
     /// with no access. It fails as an authorisation error, not as an unknown name.
     function test_aMistypedNameIsAValidAccountWithNoAccess() public {
         _store(70_000);
-        euint32 handle = vault.eUint32();
+        euint32 value = vault.eUint32();
 
         vm.expectRevert();
-        this.decryptAs(handle, "alicce");
+        this.decryptAs(value, "alicce");
     }
 
     // -- Signing a permit by name ---------------------------------------------

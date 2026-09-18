@@ -6,6 +6,7 @@ import {LibString} from "./LibString.sol";
 
 /// ----------------------------------------------------------------------------
 ///   ⚠️ Private Library:
+///     - Host-internal, shipped with the forge payload
 ///     - Should not be exposed to the public
 ///     - not maintained
 ///     - can change at any time

@@ -12,151 +12,44 @@ import {
     eaddress
 } from "encrypted-types/EncryptedTypes.sol";
 
-import {FhevmCleartextDeploy, KMS_VERIFIER_ADDRESS} from "./_host/FhevmCleartextDeploy.sol";
-import {FORGE_VM_ADDRESS} from "./_host/IForgeVm.sol";
-import {IForgeVmLabel} from "./_internal/IForgeVmLabel.sol";
+import {KMS_VERIFIER_ADDRESS} from "./_host/FhevmCleartextDeploy.sol";
+import {ForgeVmBase} from "./_host/ForgeVmBase.sol";
+import {FORGE_VM_ADDRESS, IForgeVm} from "./_host/IForgeVm.sol";
 import {FhevmCleartextDecrypt, UserDecryptRequestV1} from "./_host/FhevmCleartextDecrypt.sol";
 import {ICleartextKMSVerifier} from "./_host/_internal/interfaces/ICleartextKMSVerifier.sol";
+import {Plaintexts} from "./LibPlaintexts.sol";
 
-/// ----------------------------------------------------------------------------
-///   NAMING
-///
-///   "Permit" in the ERC-2612 sense: an off-chain signature that authorizes
-///   something on-chain, rather than a transaction that does it. Here the user
-///   signs ONCE and the signature then stands for any `userDecrypt` call within
-///   its window and contract set.
-///
-///   The signed fields are exactly the `UserDecryptRequestVerification` struct
-///   the KMS verifier declares — see `FhevmCleartextDecrypt.userDecryptDigestV1`,
-///   which turns this into the EIP-712 digest to sign.
-/// ----------------------------------------------------------------------------
+interface IForgeVmLabel {
+    /// @dev Declared `view` where forge-std declares it mutating, so callers can stay `view`. The
+    ///      cheatcode is reached by STATICCALL and still works — verified, labelling included — because
+    ///      what it touches is forge's own bookkeeping, not EVM state.
+    function createWallet(string calldata walletLabel) external view returns (IForgeVm.Wallet memory wallet);
+}
 
-using LibSignedDecryptionPermit for SignedDecryptionPermit global;
-
-/// @notice What a user signs to authorize `userDecrypt`, plus the signature itself.
-///
-/// @dev `userDecrypt` takes these as loose arguments; they are one thing, so they travel as one
-///      struct. The first four fields are what the EIP-712 digest is built over — change any of them
-///      after signing and `signature` no longer verifies.
 struct SignedDecryptionPermit {
-    /// @dev Which permit format this is — `PERMIT_VERSION_V1` today.
-    ///
-    ///      The version decides the EIP-712 structs the signature was made over, so a consumer cannot
-    ///      treat an unknown one as "probably like the last": it must refuse. Mirrors the js-sdk's
-    ///      `SignedDecryptionPermit.version`, which is likewise `1 | 2` and rejected outside that set.
     uint8 version;
-    /// @dev The transport key the payload is masked with — `TransportKeypair.publicKey`. The mask is
-    ///      its first 32 bytes. Named for the transport pair, not the signer's key, because both are
-    ///      "the public key" in a user decryption and only this one goes into the digest.
     bytes transportPublicKey;
-    /// @dev The contracts the permit covers.
     address[] contractAddresses;
-    /// @dev When the permit becomes valid, and how long it stays valid for.
     uint256 startTimestamp;
-    /// @dev Seconds — but the signed request measures the window in DAYS (`durationDays` in
-    ///      `UserDecryptRequestVerification`), so a value that is not a whole number of days cannot be
-    ///      expressed in the digest and will not round-trip.
     uint256 durationSeconds;
-    /// @dev The signer's EIP-712 signature over the fields above, and the account that made it.
-    ///
-    ///      `signerAddress` is stored rather than recovered per call: it is what the verifier must be
-    ///      told the request comes from, so every consumer would otherwise recover the same value from
-    ///      the same signature. For a delegated permit this is the DELEGATE — the delegator is
-    ///      `delegatorAddress` below.
     bytes signature;
     address signerAddress;
-    /// @dev The account whose access this permit exercises, or `address(0)` when there is none.
-    ///
-    ///      Not a flag but a discriminator: a delegated permit is signed over
-    ///      `DelegatedUserDecryptRequestVerification`, which carries this address, while a plain one is
-    ///      signed over `UserDecryptRequestVerification`, which has no such field. They are different
-    ///      EIP-712 structs, so a signature made for one never verifies as the other — which is why
-    ///      this must travel with the signature rather than be supplied at call time.
     address delegatorAddress;
 }
 
-/// @dev The permit format `signLegacyDecryptionPermit` produces: `UserDecryptRequestVerification`, or
-///      `DelegatedUserDecryptRequestVerification` when delegated.
 uint8 constant PERMIT_VERSION_V1 = 1;
 
-/// @notice Reading a `SignedDecryptionPermit`. Pure: nothing here talks to the host.
-///
-/// @dev These mirror checks the KMS verifier makes, so a test can assert WHY a permit would be
-///      rejected instead of only that it was.
-library LibSignedDecryptionPermit {
-    /// @notice When the permit stops being valid.
-    function expiresAt(SignedDecryptionPermit memory self) internal pure returns (uint256) {
-        return self.startTimestamp + self.durationSeconds;
-    }
-
-    /// @notice Whether `timestamp` falls inside the permit's window.
-    /// @dev Half-open: the start instant is inside, the expiry instant is not.
-    function isValidAt(SignedDecryptionPermit memory self, uint256 timestamp) internal pure returns (bool) {
-        return timestamp >= self.startTimestamp && timestamp < expiresAt(self);
-    }
-
-    /// @notice Whether the permit names `contractAddress`.
-    function covers(SignedDecryptionPermit memory self, address contractAddress) internal pure returns (bool) {
-        for (uint256 i = 0; i < self.contractAddresses.length; i++) {
-            if (self.contractAddresses[i] == contractAddress) return true;
-        }
-        return false;
-    }
-}
-
-/// ----------------------------------------------------------------------------
-///   NAMING
-///
-///   After the js-sdk's `TransportKeyPair` (`core/kms/TransportKeyPair-p.ts`):
-///   the ephemeral keypair a user decryption is encrypted TO, as opposed to the
-///   account key that signs the permit. The two are easy to confuse, which is
-///   why this one carries the word "transport".
-/// ----------------------------------------------------------------------------
-
-/// @notice The ephemeral secp256k1 keypair a `userDecrypt` payload is masked with.
-///
-/// @dev Built by `generateTransportKeypair`. The two fields are one thing — the public key is derived
-///      from the private one — so they travel together rather than as a loose pair a caller could
-///      mismatch.
 struct TransportKeypair {
-    /// @dev UNCOMPRESSED secp256k1: 65 bytes, `0x04 || X || Y`.
-    ///
-    ///      The encoding is load-bearing: the mask is the FIRST 32 BYTES of these bytes, so it is
-    ///      `0x04` followed by the first 31 bytes of X, NOT X. The 64-byte `X || Y` form, or the
-    ///      compressed one, would mask with different bytes and decrypt to garbage rather than fail.
-    ///      `StdFhevmDecrypt._mask` is the one place that reads it.
     bytes publicKey;
-    /// @dev The key `publicKey` is derived from.
-    ///
-    ///      `bytes`, not `uint256`, because that is what a transport private key is in general — the
-    ///      js-sdk holds it as `BytesHex`, and a real TKMS key is not a scalar at all. It happens to be
-    ///      a 32-byte secp256k1 scalar HERE, because that is what the cleartext mock generates
-    ///      (`FhevmCleartextDecrypt.generateTransportKeypair`), and `generateTransportKeypair` checks
-    ///      that length — but the type does not promise it.
     bytes privateKey;
 }
 
-/// @notice User decryption: the transport keypair, the permit a user signs, and the calls it authorizes.
-/// @dev The forge counterpart of the js-sdk's `core/kms/TransportKeyPair-p.ts` and
-///      `core/kms/SignedDecryptionPermit-p.ts`.
-abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
-    /// @dev The window the KMS verifier accepts, mirroring `MAX_USER_DECRYPT_DURATION_DAYS` in the
-    ///      js-sdk's `SignedDecryptionPermitV1-p.ts`.
+abstract contract StdFhevmDecrypt is ForgeVmBase {
     uint256 internal constant MAX_USER_DECRYPT_DURATION_DAYS = 365;
 
-    /**
-     * @notice A fresh, RANDOM transport keypair.
-     * @return keypair The pair. Hand it to `signLegacyDecryptionPermit`.
-     *
-     * @dev The generation itself lives in `FhevmCleartextDecrypt`, beside the `decryptAndReconstruct`
-     *      that consumes it — the encoding and the unmasking have to agree, so they stay together.
-     *      That library is the payload copied into every consumer and cannot name `TransportKeypair`,
-     *      so it returns two loose `bytes` and this wraps them.
-     */
     function generateTransportKeypair() internal returns (TransportKeypair memory keypair) {
         (bytes memory publicKey, bytes memory privateKey) = FhevmCleartextDecrypt.generateTransportKeypair();
-        // The cleartext mock mints a 32-byte secp256k1 scalar. Checked rather than assumed, because a
-        // test that reads this back as a scalar would otherwise get a silently wrong one.
+        // The cleartext mock mints a 32-byte secp256k1 scalar.
         require(privateKey.length == 32, "StdFhevm: transport private key must be 32 bytes");
 
         keypair.publicKey = publicKey;
@@ -189,10 +82,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         });
     }
 
-    /// @dev A zero `delegatorAddress` is NOT "delegated to nobody" — the two digests are different
-    ///      EIP-712 structs, so a permit must be signed under one or the other. Zero means the plain
-    ///      one, which is what the no-delegator overload above produces.
-
     function signLegacyDecryptionPermit(
         uint256 privateKey,
         TransportKeypair memory transportKeypair,
@@ -220,19 +109,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         });
     }
 
-    /**
-     * @notice Signs a permit as the account named `walletLabel`.
-     * @param walletLabel The signer's name — the SAME account `makeAddrAndKey(walletLabel)` names,
-     *        since both derive the key from the name.
-     * @param transportKeypair The pair the payload will be masked with.
-     * @param contractAddresses The contracts the permit covers.
-     * @param startTimestamp When the permit becomes valid.
-     * @param durationSeconds How long it stays valid. Must be a whole number of days.
-     * @return signedPermit The signed permit.
-     *
-     * @dev The name is derived, never looked up, so a mistyped one is a valid account with access to
-     *      nothing — see the `decrypt` overloads for the same caveat.
-     */
     function signLegacyDecryptionPermit(
         string memory walletLabel,
         TransportKeypair memory transportKeypair,
@@ -245,9 +121,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         );
     }
 
-    /// @notice The delegated form, signed as the account named `walletLabel`.
-    /// @dev The NAMED account is the delegate — the one that signs — and `delegatorAddress` is whose
-    ///      access it exercises.
     function signLegacyDecryptionPermit(
         string memory walletLabel,
         TransportKeypair memory transportKeypair,
@@ -266,7 +139,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         );
     }
 
-    /// @dev The permit the digest is built over, in the host's own shape.
     function _request(
         TransportKeypair memory transportKeypair,
         address[] memory contractAddresses,
@@ -281,7 +153,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         });
     }
 
-    /// @dev The three duration rules, shared by every `signLegacyDecryptionPermit` overload.
     function _requireWholeDays(uint256 durationSeconds) private pure returns (uint256 durationDays) {
         require(durationSeconds % 1 days == 0, "StdFhevm: durationSeconds must be a whole number of days");
         durationDays = durationSeconds / 1 days;
@@ -291,26 +162,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         );
     }
 
-    /**
-     * @notice Decrypts ONE handle as the account named `walletLabel`.
-     * @param value The handle to decrypt.
-     * @param contractAddress The contract holding it.
-     * @param walletLabel The reader's name — the SAME account `makeAddrAndKey(walletLabel)` names,
-     *        since both derive the key from the name.
-     * @return clear The cleartext.
-     *
-     * @dev The shortest form there is: `decrypt(dapp.value(), address(dapp), "alice")`.
-     *
-     *      The name is DERIVED, not looked up: `vm.createWallet(name)` is `keccak256(name)`, a pure
-     *      function, so it always resolves and never fails. Two consequences worth knowing. The good
-     *      one: the same name means the same account everywhere, including in `makeAddrAndKey`, with
-     *      no setup and nothing to register. The sharp one: a MISTYPED name is still a valid account —
-     *      one with access to nothing — so it surfaces as an authorisation error rather than as a
-     *      typo. If a read fails for an account that should have access, check the spelling first.
-     *
-     *      This is the WALLET label, the account that signs the permit and holds the ACL access. It has
-     *      nothing to do with the transport keypair, which is minted fresh per call and never named.
-     */
     function decrypt(ebool value, address contractAddress, string memory walletLabel) internal returns (bool clear) {
         clear = decrypt(value, contractAddress, _walletPrivateKey(walletLabel));
     }
@@ -361,24 +212,6 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         clear = decrypt(value, contractAddress, _walletPrivateKey(walletLabel));
     }
 
-    /**
-     * @notice Decrypts ONE handle as the owner of `userPrivateKey`, with no permit to build first.
-     * @param value The handle to decrypt.
-     * @param contractAddress The contract holding it — the handle must be ACL-allowed for both this
-     *        contract and the key's account.
-     * @param userPrivateKey The reader's signing key. Pair it with `makeAddrAndKey`.
-     * @return clear The cleartext.
-     *
-     * @dev The whole read in one call: a throwaway transport keypair, a permit covering just
-     *      `contractAddress` for the shortest window the verifier accepts, then the decryption. Use it
-     *      when the permit is not what the test is about.
-     *
-     *      Reach for the four-argument `decrypt*` instead when the permit matters — to reuse one across
-     *      several reads, cover more than one contract, choose the window, or exercise a delegation.
-     *      Every call here signs a fresh permit, which is wasted work if you are making many.
-     *
-     *      NOT `view`: minting the transport keypair is a cheatcode that writes.
-     */
     function decrypt(ebool value, address contractAddress, uint256 userPrivateKey) internal returns (bool clear) {
         (TransportKeypair memory keypair, SignedDecryptionPermit memory permit) =
             _oneShotPermit(contractAddress, userPrivateKey);
@@ -427,20 +260,50 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         clear = address(uint160(_decryptValue(eaddress.unwrap(value), contractAddress, keypair, permit)));
     }
 
-    /**
-     * @notice Decrypts ONE handle for `userAddress`, under a permit they already signed.
-     * @param value The handle to decrypt.
-     * @param contractAddress The contract holding it — the handle must be ACL-allowed for both this
-     *        contract and the reader.
-     * @param transportKeypair The pair the permit was signed for. Its PRIVATE half is what makes the
-     *        payload readable, so holding the permit is not enough — this is the client's own key.
-     * @param permit The signed permit; it supplies the transport key, the covered contracts and the
-     *        validity window, so none of them is passed again.
-     * @return clear The cleartext.
-     *
-     * @dev One per encrypted type, each narrowing what `_decryptValue` returns — see there for what
-     *      the call actually does and, as importantly, what it deliberately does not.
-     */
+    function decrypt(
+        bytes memory abiEncryptedValues,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) internal view returns (Plaintexts memory decrypted) {
+        decrypted._h = _toBatchHandles(abiEncryptedValues);
+        decrypted._p = _decryptValues(decrypted._h, contractAddress, transportKeypair, permit);
+    }
+
+    function decrypt(bytes memory abiEncryptedValues, address contractAddress, uint256 userPrivateKey)
+        internal
+        returns (Plaintexts memory decrypted)
+    {
+        (TransportKeypair memory keypair, SignedDecryptionPermit memory permit) =
+            _oneShotPermit(contractAddress, userPrivateKey);
+        decrypted = decrypt(abiEncryptedValues, contractAddress, keypair, permit);
+    }
+
+    function decrypt(bytes memory abiEncryptedValues, address contractAddress, string memory walletLabel)
+        internal
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(abiEncryptedValues, contractAddress, _walletPrivateKey(walletLabel));
+    }
+
+    function _toBatchHandles(bytes memory abiEncryptedValues) private pure returns (bytes32[] memory handles) {
+        require(abiEncryptedValues.length != 0, "StdFhevm: no encrypted value to decrypt");
+        require(
+            abiEncryptedValues.length % 32 == 0, "StdFhevm: abiEncryptedValues is not a whole number of 32-byte handles"
+        );
+
+        uint256 count = abiEncryptedValues.length / 32;
+        handles = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) {
+            bytes32 handle;
+            // solhint-disable-next-line no-inline-assembly
+            assembly {
+                handle := mload(add(add(abiEncryptedValues, 0x20), mul(i, 0x20)))
+            }
+            handles[i] = handle;
+        }
+    }
+
     function decrypt(
         ebool value,
         address contractAddress,
@@ -513,21 +376,10 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         clear = address(uint160(_decryptValue(eaddress.unwrap(value), contractAddress, transportKeypair, permit)));
     }
 
-    /// @dev The signing key of the account named `walletLabel`.
-    ///
-    ///      Through the cheatcode rather than recomputing `keccak256(label)`, so this library and
-    ///      forge-std can never disagree about which account a name means — and so the account is
-    ///      labelled, making traces print the name instead of the address. Despite the name,
-    ///      `createWallet` creates nothing: it is a pure derivation, safe to call per read.
     function _walletPrivateKey(string memory walletLabel) private view returns (uint256) {
         return IForgeVmLabel(FORGE_VM_ADDRESS).createWallet(walletLabel).privateKey;
     }
 
-    /**
-     * @dev A transport keypair and a permit good for exactly one contract, from now, for the shortest
-     *      window `signLegacyDecryptionPermit` allows — one day, since the signed request counts in
-     *      days and zero is refused.
-     */
     function _oneShotPermit(address contractAddress, uint256 userPrivateKey)
         private
         returns (TransportKeypair memory keypair, SignedDecryptionPermit memory permit)
@@ -540,49 +392,16 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
         permit = signLegacyDecryptionPermit(userPrivateKey, keypair, contractAddresses, block.timestamp, 1 days);
     }
 
-    /**
-     * @notice The one user decryption every `decrypt*` above performs, before narrowing.
-     * @param handle The handle to decrypt, already unwrapped.
-     * @param contractAddress The contract holding it.
-     * @param transportKeypair The pair the permit was signed for; the mask comes off with its key.
-     * @param permit The signed permit. It names its own signer, so no reader address is passed.
-     * @return clear The cleartext, still `uint256`-wide.
-     *
-     * @dev Only what runs ON-CHAIN. The permit signature, every ACL check, the pair authorisation and
-     *      the masking all happen inside the KMS verifier, so a rejected request reverts there with the
-     *      contract's own error. The mask is then undone by hand, one XOR.
-     *
-     *      What is deliberately NOT done is the off-chain KMS emulation: `FhevmCleartextDecrypt`
-     *      forges threshold node signatures and `decryptAndReconstruct` verifies them again. In
-     *      cleartext mode that is a closed loop — this library signing shares to itself and checking
-     *      its own work — so it proves nothing about the dApp under test while costing the gas and the
-     *      indirection. The host library proves that loop in its own tests; see `_userDecrypt` vs
-     *      `_userDecryptFull` in `FhevmCleartextEncryptDecrypt.t.sol`, which draws the same line.
-     *
-     *      Which request is sent follows `permit.delegatorAddress`, because the permit was signed over
-     *      one of two different EIP-712 structs and only the matching request will verify.
-     *
-     *      Only `PERMIT_VERSION_V1` is understood; anything else is refused up front.
-     */
-    function _decryptValue(
-        bytes32 handle,
-        address contractAddress,
+    function _decryptValues(
+        ICleartextKMSVerifier.HandleContractPair[] memory pairs,
         TransportKeypair memory transportKeypair,
         SignedDecryptionPermit memory permit
-    ) private view returns (uint256 clear) {
-        // The version decides which EIP-712 structs `permit.signature` was made over, so a permit this
-        // library does not know how to send is refused here rather than rejected by the verifier as a
-        // bad signature — which would point at the key, not the format.
+    ) private view returns (uint256[] memory clears) {
         require(permit.version == PERMIT_VERSION_V1, "StdFhevm: unsupported decryption permit version");
-        // The permit names the key it was signed for; a different pair would unmask to garbage rather
-        // than fail, so the mismatch is caught here instead of surfacing as a wrong value.
         require(
             keccak256(transportKeypair.publicKey) == keccak256(permit.transportPublicKey),
             "StdFhevm: transport keypair does not match the permit"
         );
-
-        ICleartextKMSVerifier.HandleContractPair[] memory pairs = new ICleartextKMSVerifier.HandleContractPair[](1);
-        pairs[0] = ICleartextKMSVerifier.HandleContractPair({handle: handle, contractAddress: contractAddress});
 
         bytes memory payload;
         if (permit.delegatorAddress == address(0)) {
@@ -610,36 +429,36 @@ abstract contract StdFhevmDecrypt is FhevmCleartextDeploy {
                 );
         }
 
-        clear = _unmask(payload, transportKeypair)[0];
+        clears = _unmask(payload, transportKeypair);
     }
 
-    /**
-     * @notice The client half of a cleartext user decryption: the values the verifier returned, with
-     *         the transport mask taken off.
-     * @param payload The verifier's `abi.encode(uint256[] masked, bytes extraData)`.
-     * @param transportKeypair The client's own pair; its key carries the mask.
-     * @return cleartexts One per handle, in the order the handles were sent, still `uint256`-wide.
-     *
-     * @dev XOR is its own inverse, so masking and unmasking are the same operation — the verifier
-     *      applied this exact mask on the way out.
-     *
-     *      Returns every value rather than just the first: the payload carries one per handle, and a
-     *      single-value helper would quietly drop the rest of a batch.
-     */
-    /**
-     * @notice The 32 bytes each cleartext is XOR-masked with.
-     * @dev The FIRST 32 bytes of the permit's transport key — for the uncompressed encoding that is
-     *      `0x04` followed by the first 31 bytes of X, NOT X.
-     *
-     *      Taken from the CALLER's keypair, not from the permit's copy — the client unmasks with its
-     *      own key, exactly as the js-sdk mock does, and `_decryptValue` has already checked the two
-     *      agree.
-     *
-     *      Private, and here rather than on `TransportKeypair`: XOR-masking is what the CLEARTEXT host
-     *      does. A real deployment encrypts each share to the transport key, so a mask is not a
-     *      property the pair has — it is a property of this mock, and belongs beside the code that
-     *      undoes it.
-     */
+    function _decryptValues(
+        bytes32[] memory handles,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) private view returns (uint256[] memory clears) {
+        ICleartextKMSVerifier.HandleContractPair[] memory pairs =
+            new ICleartextKMSVerifier.HandleContractPair[](handles.length);
+        for (uint256 i = 0; i < handles.length; i++) {
+            pairs[i] = ICleartextKMSVerifier.HandleContractPair({handle: handles[i], contractAddress: contractAddress});
+        }
+
+        clears = _decryptValues(pairs, transportKeypair, permit);
+    }
+
+    function _decryptValue(
+        bytes32 handle,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) private view returns (uint256 clear) {
+        bytes32[] memory handles = new bytes32[](1);
+        handles[0] = handle;
+
+        clear = _decryptValues(handles, contractAddress, transportKeypair, permit)[0];
+    }
+
     function _mask(TransportKeypair memory transportKeypair) private pure returns (bytes32 m) {
         bytes memory key = transportKeypair.publicKey;
         require(key.length >= 32, "StdFhevm: transport public key must be at least 32 bytes");

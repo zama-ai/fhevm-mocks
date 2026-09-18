@@ -11,12 +11,9 @@ import {
     euint256,
     eaddress
 } from "encrypted-types/EncryptedTypes.sol";
-
-import {FhevmCleartextDeploy} from "./_host/FhevmCleartextDeploy.sol";
 import {FhevmCleartextDecryptPublic} from "./_host/FhevmCleartextDecryptPublic.sol";
 
-/// @notice Reading cleartexts back out of publicly decryptable handles. Inherited by `StdFhevm`.
-abstract contract StdFhevmDecryptPublic is FhevmCleartextDeploy {
+abstract contract StdFhevmDecryptPublic {
     // -- Decrypt Public Values ------------------------------------------------
 
     function decryptPublicWithSignatures(ebool value) internal view returns (bool clear, bytes memory decryptionProof) {
@@ -95,16 +92,6 @@ abstract contract StdFhevmDecryptPublic is FhevmCleartextDeploy {
         clear = abi.decode(abiClearValues, (address));
     }
 
-    /**
-     * @notice Publicly decrypts several handles at once, and returns the KMS proof over them.
-     * @param abiEncryptedValues `abi.encode(eA, eB, ...)` — every handle type is a `bytes32`, so this
-     *        is simply the handles laid end to end.
-     * @return abiClearValues `abi.encode(clearA, clearB, ...)`, in the SAME order.
-     * @return decryptionProof The KMS proof over that payload, for an on-chain `checkSignatures`.
-     *
-     * (uint128 clearA, uint256 clearB) =
-     *     abi.decode(decryptPublicWithSignatures(abi.encode(eA, eB)), (uint128, uint256));
-     */
     function decryptPublicWithSignatures(bytes memory abiEncryptedValues)
         internal
         view
@@ -116,15 +103,6 @@ abstract contract StdFhevmDecryptPublic is FhevmCleartextDeploy {
 
     // -- Decrypt Single Public Value ------------------------------------------
 
-    /**
-     * @notice Publicly decrypts several handles at once.
-     * @param abiEncryptedValues `abi.encode(eA, eB, ...)` — every handle type is a `bytes32`, so this
-     *        is simply the handles laid end to end.
-     * @return abiClearValues `abi.encode(clearA, clearB, ...)`, in the SAME order.
-     *
-     * (address clearAddr, uint128 clearUint128, uint256 clearUint256) =
-     *     abi.decode(decryptPublic(abi.encode(eAddr, eUint128, eUint256)), (address, uint128, uint256));
-     */
     function decryptPublic(bytes memory abiEncryptedValues) internal view returns (bytes memory abiClearValues) {
         (abiClearValues,) = FhevmCleartextDecryptPublic.decryptPublicWithProof(_toHandles(abiEncryptedValues));
     }
@@ -195,13 +173,6 @@ abstract contract StdFhevmDecryptPublic is FhevmCleartextDeploy {
         return eaddress.unwrap(value);
     }
 
-    /**
-     * @dev Splits `abi.encode(eA, eB, ...)` back into its handles. Every encrypted type is a
-     *      user-defined value type over `bytes32`, so each occupies exactly one static 32-byte word
-     *      with no offsets or length prefix — which is what makes this a plain slice. Passing a
-     *      dynamic type (a `bytes`, a `string`, an array) would encode an offset instead, so the
-     *      length check below is the guard that catches it.
-     */
     function _toHandles(bytes memory abiEncryptedValues) private pure returns (bytes32[] memory handles) {
         require(abiEncryptedValues.length != 0, "StdFhevm: no encrypted value to decrypt");
         require(

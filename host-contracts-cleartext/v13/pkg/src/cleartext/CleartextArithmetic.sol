@@ -86,7 +86,11 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
     function _authorizeUpgrade(address _newImplementation) internal virtual override onlyACLOwner {}
 
     /// @inheritdoc ICleartextArithmetic
+    /// @dev Guarded like every `record*` above: a handle minted on another chain names a slot in THIS
+    ///      chain's DB, which is either empty or — worse — some unrelated handle's value. Reading it
+    ///      would answer a question nobody asked, so it reverts instead.
     function plaintexts(bytes32 handle) external view override returns (uint256) {
+        CleartextHandle.checkChainId(handle);
         return ICleartextDB(cleartextDbAdd).get(handle);
     }
 

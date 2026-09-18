@@ -9,7 +9,7 @@ import {euint32, euint64, externalEuint32, externalEuint64} from "encrypted-type
 
 import {StdFhevm, EncryptedInput, TypedValue} from "../../pkg/src/StdFhevm.sol";
 import {LibEncryptedInput} from "../../pkg/src/LibEncryptedInput.sol";
-import {FheType} from "../../pkg/src/_internal/FheType.sol";
+import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
 
 /// Holds two publicly decryptable handles of DIFFERENT widths, so the batch has to keep their order.
 contract TwoValuesDapp is ZamaEthereumConfig {
@@ -60,9 +60,9 @@ contract DecryptPublicBatchTest is Test, StdFhevm {
         (externalEuint32 a, externalEuint64 b) = abi.decode(e.abiEncoded(), (externalEuint32, externalEuint64));
 
         vm.prank(alice);
-        dapp.storeSmall(a, e.inputProof);
+        dapp.storeSmall(a, e.inputProof());
         vm.prank(alice);
-        dapp.storeBig(b, e.inputProof);
+        dapp.storeBig(b, e.inputProof());
 
         (uint32 clearSmall, uint64 clearBig) =
             abi.decode(decryptPublic(abi.encode(dapp.small(), dapp.big())), (uint32, uint64));
@@ -80,9 +80,9 @@ contract DecryptPublicBatchTest is Test, StdFhevm {
         assertEq(e.typeNameAt(1), "euint64");
 
         vm.prank(alice);
-        dapp.storeSmall(e.externalEuint32At(0), e.inputProof);
+        dapp.storeSmall(e.externalEuint32At(0), e.inputProof());
         vm.prank(alice);
-        dapp.storeBig(e.externalEuint64At(1), e.inputProof);
+        dapp.storeBig(e.externalEuint64At(1), e.inputProof());
 
         (uint32 clearSmall, uint64 clearBig) =
             abi.decode(decryptPublic(abi.encode(dapp.small(), dapp.big())), (uint32, uint64));
@@ -98,9 +98,9 @@ contract DecryptPublicBatchTest is Test, StdFhevm {
         EncryptedInput memory e = encryptValues(batch, address(dapp), alice);
 
         vm.prank(alice);
-        dapp.storeSmall(e.externalEuint32At(0), e.inputProof);
+        dapp.storeSmall(e.externalEuint32At(0), e.inputProof());
         vm.prank(alice);
-        dapp.storeBig(e.externalEuint64At(1), e.inputProof);
+        dapp.storeBig(e.externalEuint64At(1), e.inputProof());
 
         (uint32 clearSmall, uint64 clearBig) =
             abi.decode(decryptPublic(abi.encode(dapp.small(), dapp.big())), (uint32, uint64));

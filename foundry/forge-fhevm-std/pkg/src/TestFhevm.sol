@@ -6,9 +6,10 @@ import {StdFhevm} from "./StdFhevm.sol";
 
 // forge-lint: disable-start(unused-import)
 import {EncryptedInput} from "./LibEncryptedInput.sol";
+import {Plaintexts} from "./LibPlaintexts.sol";
 import {SignedDecryptionPermit} from "./StdFhevmDecrypt.sol";
 import {TransportKeypair} from "./StdFhevmDecrypt.sol";
-import {TypedValue} from "./LibTypedValue.sol";
+import {TypedValue} from "./TypedValue.sol";
 
 abstract contract TestFhevm is Test, StdFhevm {
     function setUp() public virtual {
