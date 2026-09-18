@@ -10,7 +10,7 @@ import {ACL_ADDRESS} from "../../pkg/src/_host/FhevmCleartextDeploy.sol";
 import {ICleartextKMSVerifier} from "../../pkg/src/_host/_internal/interfaces/ICleartextKMSVerifier.sol";
 
 import {TestFhevm, SignedDecryptionPermit, TransportKeypair, EncryptedInput} from "../../pkg/src/TestFhevm.sol";
-import {PERMIT_VERSION_V1} from "../../pkg/src/LibSignedDecryptionPermit.sol";
+import {PERMIT_VERSION_V1} from "../../pkg/src/StdFhevmDecrypt.sol";
 
 /// Holds an `euint8` readable by ONE user — `allow`, not `makePubliclyDecryptable`, which is the
 /// whole difference between user decryption and public decryption.

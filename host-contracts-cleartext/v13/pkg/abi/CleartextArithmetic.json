@@ -432,6 +432,33 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorNotABoolean",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorPlaintextTooWide",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "fheType",
+        "type": "uint8",
+        "internalType": "enum FheType"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorUnsupportedBinaryOp",
     "inputs": [
       {

@@ -13,6 +13,8 @@ library FHEVMExecutor {
 interface ICleartextArithmetic {
     error AddressEmptyCode(address target);
     error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
+    error CleartextErrorNotABoolean(uint256 value);
+    error CleartextErrorPlaintextTooWide(uint256 value, FheType fheType);
     error CleartextErrorUnsupportedBinaryOp(FHEVMExecutor.Operators op);
     error CleartextErrorUnsupportedNaryOp(FHEVMExecutor.Operators op);
     error CleartextErrorUnsupportedTernaryOp(FHEVMExecutor.Operators op);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {euint8} from "encrypted-types/EncryptedTypes.sol";
+import {euint8, externalEbool, externalEuint8, externalEaddress} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm, EncryptedInput} from "../../pkg/src/TestFhevm.sol";
 
@@ -27,14 +27,34 @@ contract DecryptOneShotTest is TestFhevm {
         assertEq(decrypt(vault.eUint32(), address(vault), aliceKey), 70_000);
     }
 
-    /// Every encrypted type has the same three-argument form.
-    function test_everyTypeHasTheShortForm() public {
+    /// Every encrypted type has the same three-argument form. Handles come from the typed accessors,
+    /// which check each one against the type the handle itself carries.
+    function test_everyTypeHasTheShortFormViaTypedAccessors() public {
         EncryptedInput memory e = encryptValues(asBool(true), asUint8(255), asAddress(alice), address(vault), alice);
 
         vm.startPrank(alice);
         vault.setEBool(e.externalEboolAt(0), e.inputProof, alice);
         vault.setEUint8(e.externalEuint8At(1), e.inputProof, alice);
         vault.setEAddress(e.externalEaddressAt(2), e.inputProof, alice);
+        vm.stopPrank();
+
+        assertTrue(decrypt(vault.eBool(), address(vault), aliceKey));
+        assertEq(decrypt(vault.eUint8(), address(vault), aliceKey), 255);
+        assertEq(decrypt(vault.eAddress(), address(vault), aliceKey), alice);
+    }
+
+    /// The same three reads, with the handles taken from the ABI blob instead — `abi.decode` restates
+    /// the types rather than checking them, so this is the unchecked route to the same values. Both
+    /// ways of unpacking an `EncryptedInput` feed the short form identically.
+    function test_everyTypeHasTheShortFormViaTheAbiBlob() public {
+        EncryptedInput memory e = encryptValues(asBool(true), asUint8(255), asAddress(alice), address(vault), alice);
+        (externalEbool extBool, externalEuint8 extUint8, externalEaddress extAddr) =
+            abi.decode(e.abiEncoded(), (externalEbool, externalEuint8, externalEaddress));
+
+        vm.startPrank(alice);
+        vault.setEBool(extBool, e.inputProof, alice);
+        vault.setEUint8(extUint8, e.inputProof, alice);
+        vault.setEAddress(extAddr, e.inputProof, alice);
         vm.stopPrank();
 
         assertTrue(decrypt(vault.eBool(), address(vault), aliceKey));

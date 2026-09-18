@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {SignedDecryptionPermit} from "../../pkg/src/LibSignedDecryptionPermit.sol";
+import {SignedDecryptionPermit} from "../../pkg/src/StdFhevmDecrypt.sol";
 
 /// The pure half of a permit: its window and its contract set.
 contract LibSignedDecryptionPermitTest is Test {

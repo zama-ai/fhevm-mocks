@@ -12,8 +12,8 @@ import {StdFhevmDecrypt} from "./StdFhevmDecrypt.sol";
 // 🧩 HELPERS - re-export — load-bearing, do not remove as "unused".
 // forge-lint: disable-start(unused-import)
 import {EncryptedInput} from "./LibEncryptedInput.sol";
-import {SignedDecryptionPermit} from "./LibSignedDecryptionPermit.sol";
-import {TransportKeypair} from "./LibTransportKeypair.sol";
+import {SignedDecryptionPermit} from "./StdFhevmDecrypt.sol";
+import {TransportKeypair} from "./StdFhevmDecrypt.sol";
 import {TypedValue} from "./LibTypedValue.sol";
 
 abstract contract StdFhevm is StdFhevmEncrypt, StdFhevmDecryptPublic, StdFhevmDecrypt {

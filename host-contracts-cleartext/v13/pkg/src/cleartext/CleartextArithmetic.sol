@@ -32,6 +32,8 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
     error CleartextErrorUnsupportedUnaryOp(FHEVMExecutor.Operators op);
     error CleartextErrorUnsupportedTernaryOp(FHEVMExecutor.Operators op);
     error CleartextErrorUnsupportedNaryOp(FHEVMExecutor.Operators op);
+    error CleartextErrorNotABoolean(uint256 value);
+    error CleartextErrorPlaintextTooWide(uint256 value, FheType fheType);
 
     /// @dev Name of the contract, used in `getVersion`.
     string private constant CONTRACT_NAME = "CleartextArithmetic";
@@ -283,10 +285,31 @@ contract CleartextArithmetic is ICleartextArithmetic, UUPSUpgradeableEmptyProxy,
     /// @dev Bool matches `trivial_encrypt_be_bytes`: only the least-significant byte matters.
     function _normalizePlaintextToType(uint256 value, FheType fheType) internal pure returns (uint256) {
         if (fheType == FheType.Bool) {
-            // forge-lint: disable-next-line(unsafe-typecast)
-            return uint8(value) > 0 ? 1 : 0;
+            // An `ebool` plaintext is 0 or 1 and nothing else. Both callers — `recordTrivialEncrypt`
+            // and `recordVerifyInput` — receive a value that claims to BE a boolean, so anything wider
+            // is a malformed input rather than a value to coerce. Refusing it is the whole point of a
+            // mock: silently folding 2 to `true` would let a test pass on a payload the real stack
+            // would never have produced.
+            //
+            // `normalizeScalarToType` is the deliberate exception: a scalar operand is not declared
+            // boolean, and there the coprocessor's own `arr_non_zero` rule applies.
+            if (value > 1) revert CleartextErrorNotABoolean(value);
+            return value;
         }
-        return clamp(value, FheTypeBitWidth.bitWidthForType(fheType));
+
+        // Out of range for the declared type, so REFUSED rather than clamped.
+        //
+        // This is the one place that rejects rather than wraps, and the distinction is deliberate.
+        // Arithmetic is modular because real TFHE arithmetic is modular: `euint8(200) + euint8(100)`
+        // genuinely is 44 on the coprocessor, and a mock that reverted would fail programs the real
+        // stack accepts. A PLAINTEXT is different — it is an input asserting "this value is a uint8",
+        // so a value that is not one is a caller mistake, and clamping would hide it behind a number
+        // the test never wrote.
+        uint256 bitWidth = FheTypeBitWidth.bitWidthForType(fheType);
+        if (bitWidth < 256 && value >= (uint256(1) << bitWidth)) {
+            revert CleartextErrorPlaintextTooWide(value, fheType);
+        }
+        return value;
     }
 
     /// @dev While the host contracts disable casting to Bool (prefer using FheNe instead), the

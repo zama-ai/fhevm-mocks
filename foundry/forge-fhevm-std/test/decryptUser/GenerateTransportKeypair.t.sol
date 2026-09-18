@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {VmSafe} from "forge-std/Vm.sol";
 
 import {TestFhevm, SignedDecryptionPermit, TransportKeypair} from "../../pkg/src/TestFhevm.sol";
-import {LibTransportKeypair} from "../../pkg/src/LibTransportKeypair.sol";
 
 /// The transport keypair a test hands to `signLegacyDecryptionPermit` and `userDecrypt`.
 ///
@@ -35,39 +34,42 @@ contract GenerateTransportKeypairTest is TestFhevm {
     /// LINK 2: whatever key it draws, `generateTransportKeypair` emits exactly that encoding.
     function test_theKeypairUsesThatSameEncoding() public {
         TransportKeypair memory kp = generateTransportKeypair();
-        assertEq(kp.publicKey, _uncompressed(kp.privateKey));
+        assertEq(kp.publicKey, _uncompressed(_scalar(kp.privateKey)));
     }
 
     /// The mask is the FIRST 32 bytes — `0x04` then 31 bytes of X, not X itself. Getting the encoding
     /// wrong would still mask, just with different bytes, so this is pinned explicitly.
     function test_theMaskIsThePrefixByteThenPartOfX() public {
-        TransportKeypair memory kp =
-            TransportKeypair({publicKey: _uncompressed(REF_PRIVATE_KEY), privateKey: REF_PRIVATE_KEY});
-
-        assertEq(kp.mask(), REF_MASK);
+        assertEq(_firstWord(_uncompressed(REF_PRIVATE_KEY)), REF_MASK);
     }
 
-    /// `mask()` is the first 32 bytes of the public key, whatever the key.
-    function test_maskIsTheFirst32BytesOfThePublicKey() public {
+    /// The mask is the prefix byte plus 31 bytes of X for ANY key, not just the reference one.
+    function test_theMaskIsNeverX() public {
         TransportKeypair memory kp = generateTransportKeypair();
 
+        bytes32 mask = _firstWord(kp.publicKey);
+        assertEq(uint8(mask[0]), 0x04, "the mask starts with the prefix byte");
+
+        bytes32 x;
         bytes memory publicKey = kp.publicKey;
-        bytes32 expected;
         assembly {
-            expected := mload(add(publicKey, 32))
+            x := mload(add(publicKey, 33))
         }
-        assertEq(kp.mask(), expected);
+        assertNotEq(mask, x, "so it is not X");
     }
 
-    /// A key too short to mask with is rejected rather than read out of bounds.
-    function test_maskRejectsAShortPublicKey() public {
-        vm.expectRevert(abi.encodeWithSelector(LibTransportKeypair.PublicKeyTooShort.selector, 4));
-        this.maskOf(TransportKeypair({publicKey: hex"01020304", privateKey: 1}));
+    /// The transport private key as a secp256k1 scalar. The struct holds it as `bytes` because that
+    /// is what a transport key is in general; in cleartext it is exactly these 32 bytes.
+    function _scalar(bytes memory privateKey) private pure returns (uint256) {
+        assertEq(privateKey.length, 32, "the cleartext mock mints a 32-byte key");
+        return uint256(_firstWord(privateKey));
     }
 
-    /// External so that `vm.expectRevert` has a call frame to catch.
-    function maskOf(TransportKeypair memory kp) external pure returns (bytes32) {
-        return kp.mask();
+    /// The first 32 bytes of `data` — the mask, as `StdFhevmDecrypt._mask` reads it.
+    function _firstWord(bytes memory data) private pure returns (bytes32 w) {
+        assembly {
+            w := mload(add(data, 32))
+        }
     }
 
     /// The uncompressed secp256k1 public key for `privateKey`, derived independently of the library.
@@ -91,7 +93,7 @@ contract GenerateTransportKeypairTest is TestFhevm {
         TransportKeypair memory a = generateTransportKeypair();
         TransportKeypair memory b = generateTransportKeypair();
 
-        assertNotEq(a.privateKey, b.privateKey);
+        assertNotEq(keccak256(a.privateKey), keccak256(b.privateKey));
         assertNotEq(keccak256(a.publicKey), keccak256(b.publicKey));
     }
 
@@ -100,8 +102,8 @@ contract GenerateTransportKeypairTest is TestFhevm {
     function test_theKeyIsAlwaysAValidScalar() public {
         for (uint256 i = 0; i < 64; i++) {
             TransportKeypair memory kp = generateTransportKeypair();
-            assertGt(kp.privateKey, 0);
-            assertLt(kp.privateKey, SECP256K1_N);
+            assertGt(_scalar(kp.privateKey), 0);
+            assertLt(_scalar(kp.privateKey), SECP256K1_N);
         }
     }
 
@@ -122,7 +124,7 @@ contract GenerateTransportKeypairTest is TestFhevm {
         for (uint256 i = 0; i < 64; i++) {
             xy[i] = kp.publicKey[i + 1];
         }
-        assertEq(address(uint160(uint256(keccak256(xy)))), vm.addr(kp.privateKey));
+        assertEq(address(uint160(uint256(keccak256(xy)))), vm.addr(_scalar(kp.privateKey)));
     }
 
     /// It drops straight into `signLegacyDecryptionPermit`, which is the point.
