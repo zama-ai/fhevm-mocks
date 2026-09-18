@@ -49,5 +49,5 @@ remappings = ["forge-fhevm-std/=dependencies/forge-fhevm-std-0.13.0/src/"]
 ```solidity
 import {Test} from "forge-std/Test.sol";
 import {euint64} from "encrypted-types/EncryptedTypes.sol";
-import {FhevmStd} from "forge-fhevm-std/FhevmStd.sol";
+import {StdFhevm} from "forge-fhevm-std/StdFhevm.sol";
 ```

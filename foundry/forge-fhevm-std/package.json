@@ -14,7 +14,7 @@
     "clean": "npm run clean:forge",
     "clean:forge": "rm -rf cache out broadcast",
     "clean:generate:forge-payload": "rm -rf pkg/src/_host",
-    "clean:generate:version": "rm -rf pkg/src/FhevmStdVersion.sol",
+    "clean:generate:version": "rm -rf pkg/src/StdFhevmVersion.sol",
     "clean:generated": "npm run clean:generate:forge-payload && npm run clean:generate:version",
     "compile": "npm run compile:forge",
     "compile:forge": "forge build --skip test",

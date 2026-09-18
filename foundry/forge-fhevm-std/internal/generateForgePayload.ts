@@ -36,10 +36,16 @@ const DEST_DIR = join(ROOT, 'pkg', 'src', '_host');
 const PAYLOAD_REL = join('pkg', 'forge', 'src');
 const FHE_TYPE_REL = join('pkg', 'src', 'contracts', 'shared', 'FheType.sol');
 
-/** The payload's only out-of-tree import, and where it is repointed. */
+/**
+ * The payload's only out-of-tree import, and where it is repointed.
+ *
+ * FheType is copied OUTSIDE _host, to pkg/src/_internal, because the top-level libraries need it too
+ * and two copies would be two distinct enum types that do not convert. _host is wiped on every run;
+ * this one file is the single exception, so it is written after the wipe and never removed by it.
+ */
 const FHE_TYPE_IMPORT_FROM = '../../../../src/contracts/shared/FheType.sol';
-const FHE_TYPE_IMPORT_TO = '../../shared/FheType.sol';
-const FHE_TYPE_DEST_REL = join('shared', 'FheType.sol');
+const FHE_TYPE_IMPORT_TO = '../../../_internal/FheType.sol';
+const FHE_TYPE_DEST = join(ROOT, 'pkg', 'src', '_internal', 'FheType.sol');
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -117,9 +123,8 @@ export function writeForgePayload(): PayloadResult {
   mkdirSync(DEST_DIR, { recursive: true });
   cpSync(payloadDir, DEST_DIR, { recursive: true });
 
-  const fheTypeDest = join(DEST_DIR, FHE_TYPE_DEST_REL);
-  mkdirSync(dirname(fheTypeDest), { recursive: true });
-  cpSync(fheTypePath, fheTypeDest);
+  mkdirSync(dirname(FHE_TYPE_DEST), { recursive: true });
+  cpSync(fheTypePath, FHE_TYPE_DEST);
 
   const rewritten = _rewriteFheTypeImports();
   return { generationDir, files: _solFiles(DEST_DIR).length, rewritten };

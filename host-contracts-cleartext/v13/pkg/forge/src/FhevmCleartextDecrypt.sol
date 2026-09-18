@@ -2,11 +2,37 @@
 pragma solidity ^0.8.24;
 
 import {KMS_VERIFIER_ADDRESS} from "./_internal/LocalHostAddresses.sol";
+import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 import {ICleartextKMSVerifier} from "./_internal/interfaces/ICleartextKMSVerifier.sol";
 import {FhevmCleartextSigners} from "./FhevmCleartextSigners.sol";
 
+/// @notice The permit itself: everything both request shapes share.
+///
+/// @dev Exactly the fields the EIP-712 digest is built over, and nothing else. The accounts are not
+///      in here — a plain request names one, a delegated one names two — and neither is the signature,
+///      which is the authorisation OVER these fields rather than one of them. Both stay explicit
+///      parameters, so what is signed and what does the signing never blur together.
+///
+///      Grouping them is also what keeps `delegatedUserDecryptV1` compiling: with the accounts loose
+///      it would carry eight parameters, and solc's legacy codegen runs out of stack at that point
+///      because parameters stay live for the whole body. Neither consuming project enables `via_ir`.
+struct UserDecryptRequestV1 {
+    /// @dev The client's transport key; the stack XOR-masks each value with its FIRST 32 BYTES.
+    bytes transportPublicKey;
+    /// @dev The contracts the permit covers, at most ten.
+    address[] contractAddresses;
+    /// @dev When the permit becomes valid, and for how many DAYS after that.
+    uint256 startTimestamp;
+    uint256 durationDays;
+}
+
 library FhevmCleartextDecrypt {
+    IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);
+
+    /// @dev The order of the secp256k1 curve: a private key is any scalar in `[1, N-1]`.
+    uint256 private constant SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+
     error NoShares();
     error InvalidKmsExtraData(uint256 length);
     error InvalidShareSignature(uint256 index);
@@ -43,10 +69,7 @@ library FhevmCleartextDecrypt {
 
     /**
      * @notice The digest a user must sign to authorize a `userDecrypt` request.
-     * @param publicKey The key the payload will be masked with.
-     * @param contractAddresses The contracts the permit covers, at most ten.
-     * @param startTimestamp When the permit becomes valid.
-     * @param durationDays How long it stays valid.
+     * @param request The permit to sign: transport key, covered contracts, window.
      * @return digest The EIP-712 digest. Sign it with the user's key and pass the signature to
      *         `userDecrypt`.
      * @return extraData The bytes the digest was hashed over, returned so the two cannot disagree.
@@ -64,20 +87,19 @@ library FhevmCleartextDecrypt {
      *      `_domainHashWithHostChainId` for this request while other paths use the gateway chain id from
      *      `eip712Domain()`, so the value in the domain struct is deliberately overridden below.
      */
-    function userDecryptDigest(
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays
-    ) internal view returns (bytes32 digest, bytes memory extraData) {
+    function userDecryptDigestV1(UserDecryptRequestV1 memory request)
+        internal
+        view
+        returns (bytes32 digest, bytes memory extraData)
+    {
         extraData = currentExtraData();
         bytes32 structHash = keccak256(
             abi.encode(
                 USER_DECRYPT_REQUEST_TYPEHASH,
-                keccak256(publicKey),
-                keccak256(abi.encodePacked(contractAddresses)),
-                startTimestamp,
-                durationDays,
+                keccak256(request.transportPublicKey),
+                keccak256(abi.encodePacked(request.contractAddresses)),
+                request.startTimestamp,
+                request.durationDays,
                 keccak256(extraData)
             )
         );
@@ -86,11 +108,8 @@ library FhevmCleartextDecrypt {
 
     /**
      * @notice The digest a DELEGATE must sign to authorize a `delegatedUserDecrypt` request.
-     * @param publicKey The key the payload will be masked with.
-     * @param contractAddresses The contracts the permit covers, at most ten.
+     * @param request The permit to sign: transport key, covered contracts, window.
      * @param delegatorAddress The account whose access is being exercised.
-     * @param startTimestamp When the permit becomes valid.
-     * @param durationDays How long it stays valid.
      * @return digest The EIP-712 digest. Sign it with the DELEGATE's key, not the delegator's.
      * @return extraData The bytes the digest was hashed over, returned so the two cannot disagree.
      *
@@ -100,24 +119,22 @@ library FhevmCleartextDecrypt {
      *      the DELEGATOR inside the signed struct but recovers the signature against the DELEGATE. So the
      *      address that appears here as a parameter is precisely the one that must NOT have signed.
      *
-     *      `extraData` and the host chain id behave exactly as in `userDecryptDigest`; see there.
+     *      `extraData` and the host chain id behave exactly as in `userDecryptDigestV1`; see there.
      */
-    function delegatedUserDecryptDigest(
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        address delegatorAddress,
-        uint256 startTimestamp,
-        uint256 durationDays
-    ) internal view returns (bytes32 digest, bytes memory extraData) {
+    function delegatedUserDecryptDigestV1(UserDecryptRequestV1 memory request, address delegatorAddress)
+        internal
+        view
+        returns (bytes32 digest, bytes memory extraData)
+    {
         extraData = currentExtraData();
         bytes32 structHash = keccak256(
             abi.encode(
                 DELEGATED_USER_DECRYPT_REQUEST_TYPEHASH,
-                keccak256(publicKey),
-                keccak256(abi.encodePacked(contractAddresses)),
+                keccak256(request.transportPublicKey),
+                keccak256(abi.encodePacked(request.contractAddresses)),
                 delegatorAddress,
-                startTimestamp,
-                durationDays,
+                request.startTimestamp,
+                request.durationDays,
                 keccak256(extraData)
             )
         );
@@ -128,12 +145,9 @@ library FhevmCleartextDecrypt {
      * @notice The user-decryption round trip the relayer performs for a signed permit: the masked payload
      *         the stack computes, plus the KMS shares a client reconstructs the values from.
      * @param pairs The handles to decrypt, each with the contract it was allowed for.
+     * @param request The permit: transport key, covered contracts, window.
      * @param userAddress The permit's signer, who must hold persistent access to every handle.
-     * @param publicKey The client's transport key; the stack XOR-masks each value with its first 32 bytes.
-     * @param contractAddresses The contracts the permit covers, at most ten.
-     * @param startTimestamp When the permit becomes valid.
-     * @param durationDays How long it stays valid.
-     * @param userSignature The user's signature over `userDecryptDigest(...)`, 65 bytes `r || s || v`.
+     * @param userSignature The signer's 65-byte `r || s || v` over `userDecryptDigestV1(request)`.
      * @return payload `abi.encode(uint256[] masked, bytes extraData)`, common to every share.
      * @return signatures One 65-byte `r || s || v` per share, from a random threshold-sized subset of the
      *         registered KMS signers.
@@ -161,24 +175,111 @@ library FhevmCleartextDecrypt {
      *      same way, so its check passes for any content. That verification loop is commented out in
      *      `fetchKmsSigncryptedSharesV1`. This library follows the protocol rather than the mock's bug.
      */
-    function userDecrypt(
+    function userDecryptV1(
         ICleartextKMSVerifier.HandleContractPair[] memory pairs,
+        UserDecryptRequestV1 memory request,
         address userAddress,
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays,
         bytes memory userSignature
     ) internal view returns (bytes memory payload, bytes[] memory signatures, bytes memory extraData) {
         address[] memory signers;
         uint256 threshold;
         (payload, signers, threshold, extraData) = ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS)
-            .userDecrypt(pairs, userAddress, publicKey, contractAddresses, startTimestamp, durationDays, userSignature);
+            .userDecrypt(
+                pairs,
+                userAddress,
+                request.transportPublicKey,
+                request.contractAddresses,
+                request.startTimestamp,
+                request.durationDays,
+                userSignature
+            );
 
-        bytes32 digest = _shareDigest(publicKey, _handlesOf(pairs), payload, extraData);
+        bytes32 digest = _shareDigest(request.transportPublicKey, _handlesOf(pairs), payload, extraData);
 
         // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
         signatures = FhevmCleartextSigners.randomKmsNodeSignatures(digest, signers, threshold);
+    }
+
+    /**
+     * @notice `userDecryptV1` for a DELEGATED permit: the delegate signed it, the delegator owns the
+     *         handles.
+     * @param pairs The handles to decrypt, each with the contract it was allowed for.
+     * @param request The permit: the delegate's transport key, covered contracts, window.
+     * @param delegator The account whose access is being exercised, and who holds it on every handle.
+     * @param delegate The account that signed the permit and receives the masked values — it is the
+     *        DELEGATE who signs, not the delegator.
+     * @param delegateSignature The delegate's 65-byte `r || s || v` over
+     *        `delegatedUserDecryptDigestV1(request, delegator)`. The two digests are different EIP-712
+     *        structs, so a signature made for the plain request never verifies here.
+     * @return payload `abi.encode(uint256[] masked, bytes extraData)`, common to every share.
+     * @return signatures One 65-byte `r || s || v` per share, from a random threshold-sized subset of the
+     *         registered KMS signers.
+     * @return extraData The KMS context the stack answered under, common to every share.
+     *
+     * @dev Identical to `userDecryptV1` once the request is through the verifier: the response shares
+     *      are built and signed the same way, over the same
+     *      `UserDecryptResponseVerification(publicKey, ctHandles, userDecryptedShare, extraData)`. Only
+     *      the authorisation differs, and that happens entirely inside
+     *      `ICleartextKMSVerifier.delegatedUserDecrypt` — which additionally checks the delegation
+     *      itself, reverting `CleartextErrorHandleNotDelegatedForUserDecryption` when it is missing.
+     *
+     *      The digest the delegate signs is the one carrying `delegatorAddress`, so a signature made
+     *      for the plain request will not verify here and vice versa.
+     */
+    function delegatedUserDecryptV1(
+        ICleartextKMSVerifier.HandleContractPair[] memory pairs,
+        UserDecryptRequestV1 memory request,
+        address delegator,
+        address delegate,
+        bytes memory delegateSignature
+    ) internal view returns (bytes memory, bytes[] memory, bytes memory) {
+        // Split across two private frames purely to stay inside solc's stack limit. Parameters are
+        // stacked in declaration order, so with `request` second its FIELDS sit deep, and unpacking
+        // them for an eight-argument call while three more parameters and the returns are live goes
+        // over. Neither consuming project enables `via_ir`.
+        (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData) =
+            _delegatedVerify(pairs, request, delegator, delegate, delegateSignature);
+
+        return _delegatedShares(pairs, request.transportPublicKey, payload, extraData, signers, threshold);
+    }
+
+    /// @dev The verifier call of `delegatedUserDecryptV1`, in its own frame so unpacking `request` is
+    ///      not competing for stack with that function's other parameters.
+    function _delegatedVerify(
+        ICleartextKMSVerifier.HandleContractPair[] memory pairs,
+        UserDecryptRequestV1 memory request,
+        address delegator,
+        address delegate,
+        bytes memory delegateSignature
+    ) private view returns (bytes memory, address[] memory, uint256, bytes memory) {
+        return ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS)
+            .delegatedUserDecrypt(
+                pairs,
+                delegator,
+                delegate,
+                request.transportPublicKey,
+                request.contractAddresses,
+                request.startTimestamp,
+                request.durationDays,
+                delegateSignature
+            );
+    }
+
+    /// @dev The tail of `delegatedUserDecryptV1`, for the same reason. Identical to what
+    ///      `userDecryptV1` does inline.
+    function _delegatedShares(
+        ICleartextKMSVerifier.HandleContractPair[] memory pairs,
+        bytes memory transportPublicKey,
+        bytes memory payload,
+        bytes memory extraData,
+        address[] memory signers,
+        uint256 threshold
+    ) private view returns (bytes memory, bytes[] memory, bytes memory) {
+        // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
+        bytes[] memory signatures = FhevmCleartextSigners.randomKmsNodeSignatures(
+            _shareDigest(transportPublicKey, _handlesOf(pairs), payload, extraData), signers, threshold
+        );
+        return (payload, signatures, extraData);
     }
 
     /**
@@ -379,5 +480,37 @@ library FhevmCleartextDecrypt {
             mstore(add(ptr, 0x22), structHash)
             typedDataHash := keccak256(ptr, 0x42)
         }
+    }
+
+    /**
+     * @notice A fresh, RANDOM transport keypair — the pair a `userDecrypt` payload is masked with.
+     * @return publicKey The UNCOMPRESSED secp256k1 public key: 65 bytes, `0x04 || X || Y`.
+     * @return privateKey The 32 bytes `publicKey` is derived from.
+     *
+     * @dev Mirrors the js-sdk cleartext mock (`core/modules/decrypt/mock.ts`) step for step:
+     *
+     *      1. `generateTkmsPrivateKey` -> `generatePrivateKey()`, i.e.
+     *         `toHex(secp256k1.utils.randomPrivateKey())`, a random scalar in `[1, N-1]`. Forced into
+     *         range branchlessly: `>> 1` puts it below `2**255 < N`, `| 1` keeps it non-zero. That
+     *         spends two bits, so 254 of entropy remain — every key it yields is one
+     *         `randomPrivateKey()` could have yielded, which is what compatibility needs.
+     *      2. `getTkmsPublicKeyHex` -> `getPublicKey({privateKey})`, which is
+     *         `SigningKey.computePublicKey(pk, false)` in the ethers build and `account.publicKey` in
+     *         the viem one. Both return the UNCOMPRESSED form.
+     *
+     *      The uncompressed encoding is not cosmetic: the mask is the FIRST 32 BYTES of `publicKey`
+     *      (see `decryptAndReconstruct` below, and `_xorUnmaskWithPublicKey` in the mock), so it is
+     *      `0x04` followed by the first 31 bytes of X, NOT X. The 64-byte `X || Y` form, or the
+     *      compressed one, would mask with different bytes and decrypt to garbage rather than fail.
+     *
+     *      Two loose `bytes` rather than a struct: this library is the payload copied into every
+     *      consumer, so it must stay a leaf and cannot name a type defined above it.
+     */
+    function generateTransportKeypair() internal returns (bytes memory publicKey, bytes memory privateKey) {
+        uint256 scalar = (fvm.randomUint() >> 1) | 1;
+        IForgeVm.Wallet memory wallet = fvm.createWallet(scalar);
+
+        publicKey = abi.encodePacked(bytes1(0x04), wallet.publicKeyX, wallet.publicKeyY);
+        privateKey = abi.encodePacked(scalar);
     }
 }

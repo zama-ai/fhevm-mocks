@@ -28,6 +28,17 @@ interface IForgeVm {
     /// @notice A pseudo-random word. `view` in forge-std even though it advances forge's own state, which
     ///         is what lets a `view` caller use it.
     function randomUint() external view returns (uint256);
+
+    /// @dev Layout must match forge-std's `VmSafe.Wallet`.
+    struct Wallet {
+        address addr;
+        uint256 publicKeyX;
+        uint256 publicKeyY;
+        uint256 privateKey;
+    }
+
+    /// @dev The only way to reach a secp256k1 PUBLIC key from Solidity: `addr` is a one-way hash of it.
+    function createWallet(uint256 privateKey) external returns (Wallet memory wallet);
     /// @notice Raw storage `slot` of `target`, used to read the ERC-1967 implementation pointer.
     function load(address target, bytes32 slot) external view returns (bytes32 data);
 

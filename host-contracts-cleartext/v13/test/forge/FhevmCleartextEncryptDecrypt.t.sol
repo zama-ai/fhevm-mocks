@@ -8,7 +8,7 @@ import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../../p
 import {ICleartextACL, ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
 import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
-import {FhevmCleartextDecrypt} from "../../pkg/forge/src/FhevmCleartextDecrypt.sol";
+import {FhevmCleartextDecrypt, UserDecryptRequestV1} from "../../pkg/forge/src/FhevmCleartextDecrypt.sol";
 import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
 
 /**
@@ -111,9 +111,8 @@ contract FhevmCleartextEncryptDecryptTest is Test, FhevmCleartextDeploy {
         ICleartextKMSVerifier.HandleContractPair[] memory pairs = new ICleartextKMSVerifier.HandleContractPair[](1);
         pairs[0] = ICleartextKMSVerifier.HandleContractPair({handle: handle, contractAddress: address(dapp)});
 
-        (bytes memory payload, bytes[] memory signatures, bytes memory extraData) = FhevmCleartextDecrypt.userDecrypt(
-            pairs, alice, publicKey, contractAddresses, block.timestamp, 1, _permitSignature()
-        );
+        (bytes memory payload, bytes[] memory signatures, bytes memory extraData) =
+            FhevmCleartextDecrypt.userDecryptV1(pairs, _request(), alice, _permitSignature());
 
         bytes32[] memory handles = new bytes32[](1);
         handles[0] = handle;
@@ -143,10 +142,90 @@ contract FhevmCleartextEncryptDecryptTest is Test, FhevmCleartextDeploy {
         vm.resumeGasMetering();
     }
 
+    /// @dev The permit every call here uses. Built once so the digest that gets signed and the request
+    ///      that gets sent can never drift apart.
+    function _request() private view returns (UserDecryptRequestV1 memory) {
+        return UserDecryptRequestV1({
+            transportPublicKey: publicKey,
+            contractAddresses: contractAddresses,
+            startTimestamp: block.timestamp,
+            durationDays: 1
+        });
+    }
+
     /// @dev Alice's signature over the permit digest, 65 bytes `r || s || v` as the verifier decodes it.
     function _permitSignature() private view returns (bytes memory) {
-        (bytes32 digest,) = FhevmCleartextDecrypt.userDecryptDigest(publicKey, contractAddresses, block.timestamp, 1);
+        (bytes32 digest,) = FhevmCleartextDecrypt.userDecryptDigestV1(_request());
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ALICE_PK, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Delegated user decryption: BOB signs the permit, ALICE's access is what is exercised.
+    // ---------------------------------------------------------------------------------------------
+
+    uint256 private constant BOB_PK = 0xB0B;
+
+    /// @dev The same 3 + 4 the main test stores, without the gas bookkeeping. Returns the sum handle.
+    function _storeSumAsAlice() private returns (bytes32) {
+        uint8[] memory typeIds = new uint8[](2);
+        uint256[] memory values = new uint256[](2);
+        typeIds[0] = uint8(FheType.Uint8);
+        values[0] = 3;
+        typeIds[1] = uint8(FheType.Uint8);
+        values[1] = 4;
+        (bytes32[] memory handles, bytes memory proof) =
+            FhevmCleartextEncrypt.encrypt(typeIds, values, address(dapp), alice);
+
+        vm.prank(alice);
+        dapp.submit(handles[0], handles[1], proof);
+        return dapp.sum();
+    }
+
+    /// Alice delegates her read of the dApp to bob, and bob reads her value with his own permit.
+    function test_aDelegateReadsTheDelegatorsValue() public {
+        bytes32 sumHandle = _storeSumAsAlice();
+        address bob = vm.addr(BOB_PK);
+
+        vm.prank(alice);
+        ICleartextACL(ACL_ADDRESS).delegateForUserDecryption(bob, address(dapp), uint64(block.timestamp + 1 days));
+
+        assertEq(_delegatedUserDecrypt(sumHandle, bob), 7, "bob must read alice's sum");
+    }
+
+    /// Without the delegation the same request is refused: signing a permit is not authorisation.
+    function test_withoutADelegationTheDelegateIsRefused() public {
+        bytes32 sumHandle = _storeSumAsAlice();
+        address bob = vm.addr(BOB_PK);
+
+        vm.expectRevert();
+        this.delegatedUserDecrypt(sumHandle, bob);
+    }
+
+    /// External so that `vm.expectRevert` has a call frame to catch.
+    function delegatedUserDecrypt(bytes32 handle, address delegate) external view returns (uint256) {
+        return _delegatedUserDecrypt(handle, delegate);
+    }
+
+    function _delegatedUserDecrypt(bytes32 handle, address delegate) private view returns (uint256) {
+        ICleartextKMSVerifier.HandleContractPair[] memory pairs = new ICleartextKMSVerifier.HandleContractPair[](1);
+        pairs[0] = ICleartextKMSVerifier.HandleContractPair({handle: handle, contractAddress: address(dapp)});
+
+        (bytes memory payload, bytes[] memory signatures, bytes memory extraData) = FhevmCleartextDecrypt.delegatedUserDecryptV1(
+            pairs, _request(), alice, delegate, _delegatedPermitSignature()
+        );
+
+        bytes32[] memory handles = new bytes32[](1);
+        handles[0] = handle;
+        uint256[] memory cleartexts =
+            FhevmCleartextDecrypt.decryptAndReconstruct(payload, signatures, extraData, handles, publicKey);
+        return cleartexts[0];
+    }
+
+    /// @dev The DELEGATE signs, over the digest carrying the delegator's address.
+    function _delegatedPermitSignature() private view returns (bytes memory) {
+        (bytes32 digest,) = FhevmCleartextDecrypt.delegatedUserDecryptDigestV1(_request(), alice);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(BOB_PK, digest);
         return abi.encodePacked(r, s, v);
     }
 }
