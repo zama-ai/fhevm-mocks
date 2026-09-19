@@ -443,11 +443,11 @@ void test('generated interfaces cover every target and share one FheType', () =>
     // The generator rewrites it to the shared enum; if that ever stops firing the types stop unifying.
     assert.doesNotMatch(source, /type FheType is uint8;/, `${path}: local FheType must be rewritten`);
     if (/\bFheType\b/.test(source)) {
-      assert.match(
-        source,
-        /import \{FheType\} from "\.\.\/\.\.\/\.\.\/\.\.\/src\/contracts\/shared\/FheType\.sol";/,
-        `${path}: import`,
-      );
+      // The PAYLOAD's copy, reached through LibFheType, not the vendored original. pkg/forge/src ships
+      // self-contained — generate:forge-shared puts FheType under shared/ — so an interface importing
+      // the vendored file would put a SECOND declaration in the same compilation, and two FheType
+      // enums do not convert. Every payload-facing test fails loudly when that happens.
+      assert.match(source, /import \{FheType\} from "\.\.\/\.\.\/shared\/LibFheType\.sol";/, `${path}: import`);
     }
   }
 
