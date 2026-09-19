@@ -9,7 +9,7 @@ import {ICleartextACL, ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmC
 import {ICleartextKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
 import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
 import {FhevmCleartextDecrypt, UserDecryptRequestV1} from "../../pkg/forge/src/FhevmCleartextDecrypt.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
  * The smallest dApp that takes two encrypted inputs, adds them and keeps the sum, written against the

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {FheType} from "../contracts/shared/FheType.sol";
-import {FHEVMExecutor} from "../contracts/FHEVMExecutor.sol";
+import {FheType} from "../LibFheType.sol";
+import {Operators} from "../FhevmOperators.sol";
 
 /**
  * @title ICleartextArithmetic
@@ -16,6 +16,9 @@ interface ICleartextArithmetic {
     /// @notice Reads the cleartext value stored for `handle` from `CleartextDB` (compat accessor
     ///         mirroring the executor's former public `plaintexts` mapping).
     function plaintexts(bytes32 handle) external view returns (uint256);
+
+    /// @notice Whether the store holds a cleartext for `handle`, telling zero apart from absent.
+    function hasPlaintext(bytes32 handle) external view returns (bool);
 
     /// @notice Records `fheCast(ct)` into `result`.
     function recordCast(bytes32 result, bytes32 ct, FheType toType) external;
@@ -33,33 +36,21 @@ interface ICleartextArithmetic {
     function recordRandBounded(bytes32 result, uint256 upperBound, bytes16 seed) external;
 
     /// @notice Computes a binary op over the operands' cleartexts and records it into `result`.
-    function recordBinaryOp(
-        FHEVMExecutor.Operators op,
-        bytes32 result,
-        bytes32 lhs,
-        bytes32 rhs,
-        bytes1 scalarByte,
-        FheType fheType
-    ) external;
+    function recordBinaryOp(Operators op, bytes32 result, bytes32 lhs, bytes32 rhs, bytes1 scalarByte, FheType fheType)
+        external;
 
     /// @notice Computes a unary op (`fheNeg` / `fheNot`) over `ct`'s cleartext and records it.
-    function recordUnaryOp(FHEVMExecutor.Operators op, bytes32 result, bytes32 ct, FheType fheType) external;
+    function recordUnaryOp(Operators op, bytes32 result, bytes32 ct, FheType fheType) external;
 
     /// @notice Computes a ternary op over the operands' cleartexts and records it into `result`.
     ///         The only ternary op is `fheIfThenElse(lhs, middle, rhs)`.
-    function recordTernaryOp(FHEVMExecutor.Operators op, bytes32 result, bytes32 lhs, bytes32 middle, bytes32 rhs)
-        external;
+    function recordTernaryOp(Operators op, bytes32 result, bytes32 lhs, bytes32 middle, bytes32 rhs) external;
 
     /// @notice Computes an nary op over the operands' cleartexts and records it into `result`.
     ///         For `fheSum`, `value` is unused (pass bytes32(0)) and `values` are the summands. For
     ///         `fheIsIn`, `value` is the needle and `values` are the set. v13 operators — their presence
     ///         is what forces a v12->v13 `CleartextArithmetic` upgrade, since the v12 arithmetic has no
     ///         such selector.
-    function recordNaryOp(
-        FHEVMExecutor.Operators op,
-        bytes32 result,
-        bytes32 value,
-        bytes32[] calldata values,
-        FheType fheType
-    ) external;
+    function recordNaryOp(Operators op, bytes32 result, bytes32 value, bytes32[] memory values, FheType fheType)
+        external;
 }

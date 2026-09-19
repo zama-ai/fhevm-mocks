@@ -30,10 +30,9 @@ import {IPauserSet} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {IProtocolConfig} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
 import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions.sol";
-import {CleartextHandle} from "../../pkg/src/cleartext/CleartextHandle.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {LibFhevmHandle} from "../../pkg/src/cleartext/shared/LibFhevmHandle.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {FHEVMExecutor as HostExecutor} from "../../pkg/src/contracts/FHEVMExecutor.sol";
-import {FHEVMExecutor as OperatorsLib} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 
 /**
  * The Foundry half of the suite: `FhevmCleartextDeploy` is the one artifact a TS test cannot exercise, because it
@@ -120,9 +119,7 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         bytes32 local = _handleWithChainId(here);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
-            )
+            abi.encodeWithSelector(LibFhevmHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here)
         );
         ICleartextACL(ACL_ADDRESS).allow(foreign, address(this));
 
@@ -130,9 +127,7 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         ICleartextACL(ACL_ADDRESS).allow(local, address(this));
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
-            )
+            abi.encodeWithSelector(LibFhevmHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here)
         );
         ICleartextACL(ACL_ADDRESS).allowTransient(foreign, address(this));
 
@@ -140,15 +135,13 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         list[0] = local;
         list[1] = foreign;
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
-            )
+            abi.encodeWithSelector(LibFhevmHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here)
         );
         ICleartextACL(ACL_ADDRESS).allowForDecryption(list);
 
         // Read paths reject the foreign handle too, and answer normally for the local one.
         bytes memory mismatch = abi.encodeWithSelector(
-            CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+            LibFhevmHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
         );
         vm.expectRevert(mismatch);
         ICleartextACL(ACL_ADDRESS).isAllowed(foreign, address(this));
@@ -170,7 +163,7 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         bytes32 foreign = _handleWithChainId(here + 1);
         bytes32 local = _handleWithChainId(here);
         bytes memory mismatch = abi.encodeWithSelector(
-            CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
+            LibFhevmHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, here + 1, here
         );
         ICleartextArithmetic arithmetic = ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS);
 
@@ -190,8 +183,8 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
     }
 
     /// The generated interface types operators as a bare `uint8` wrapper; bridge from the real enum.
-    function _op(HostExecutor.Operators op) private pure returns (OperatorsLib.Operators) {
-        return OperatorsLib.Operators.wrap(uint8(op));
+    function _op(HostExecutor.Operators op) private pure returns (ICleartextArithmetic.Operators) {
+        return ICleartextArithmetic.Operators.wrap(uint8(op));
     }
 
     /// A handle shaped like `FHEVMExecutor._appendMetadataToPrehandle` output, with the given chain id.

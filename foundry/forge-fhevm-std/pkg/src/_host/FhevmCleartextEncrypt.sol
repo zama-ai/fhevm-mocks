@@ -5,6 +5,7 @@ import {ACL_ADDRESS, INPUT_VERIFIER_ADDRESS} from "./_internal/LocalHostAddresse
 import {ICleartextInputVerifier} from "./_internal/interfaces/ICleartextInputVerifier.sol";
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
 import {FhevmCleartextSigners} from "./FhevmCleartextSigners.sol";
+import {LibInputProofDigest} from "./shared/LibInputProofDigest.sol";
 
 /**
  * @title CleartextEncrypt
@@ -116,9 +117,9 @@ library FhevmCleartextEncrypt {
             handles[i] = _inputHandle(blobHash, i, typeIds[i]);
         }
 
-        // The stack says what to sign and who may sign it, so the EIP-712 domain is never rebuilt here.
-        (bytes32 digest, address[] memory signers, uint256 threshold) = ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS)
-            .inputProof(handles, userAddress, contractAddress, cleartextExtraData);
+        // What to sign, who may sign it, and how many must.
+        (bytes32 digest, address[] memory signers, uint256 threshold) =
+            _inputProof(handles, userAddress, contractAddress, cleartextExtraData);
 
         // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
         bytes memory signatures = FhevmCleartextSigners.packSignatures(
@@ -127,6 +128,33 @@ library FhevmCleartextEncrypt {
 
         // <len(handles)><len(signatures)><handles: 32 each><signatures: 65 each><cleartextExtraData>
         inputProof = abi.encodePacked(uint8(n), uint8(threshold), _packHandles(handles), signatures, cleartextExtraData);
+    }
+
+    /**
+     * @dev The digest to sign, and the signer set it will be checked against.
+     *
+     *      A CLEARTEXT verifier hands all three over itself — it exists to be driven from a test, so the
+     *      EIP-712 domain is never rebuilt here and cannot drift from the contract that will check it.
+     *
+     *      A PRODUCTION verifier has no such function: on a forked chain the stack is the real one and
+     *      is left entirely intact, so the same three values are assembled from what it already exposes
+     *      (`eip712Domain`, the typehash, the signer set). `LibInputProofDigest` does that, and
+     *      `IS_CLEARTEXT` picks between them, so neither path needs configuring.
+     *
+     *      Note that signing is the ONE thing this cannot arrange by itself: the proof must carry
+     *      signatures from addresses the verifier has registered. Against a real verifier that means its
+     *      coprocessor signer set has to be one this stack holds keys for.
+     */
+    function _inputProof(bytes32[] memory handles, address userAddress, address contractAddress, bytes memory extraData)
+        private
+        view
+        returns (bytes32 digest, address[] memory signers, uint256 threshold)
+    {
+        if (LibInputProofDigest.isCleartextVerifier(INPUT_VERIFIER_ADDRESS)) {
+            return ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS)
+                .inputProof(handles, userAddress, contractAddress, extraData);
+        }
+        return LibInputProofDigest.inputProof(INPUT_VERIFIER_ADDRESS, handles, userAddress, contractAddress, extraData);
     }
 
     /**

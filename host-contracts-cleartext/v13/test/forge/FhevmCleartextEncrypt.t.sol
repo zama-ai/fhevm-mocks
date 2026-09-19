@@ -8,7 +8,7 @@ import {FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.s
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextInputVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextInputVerifier.sol";
 import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {Bits} from "../utils/Bits.sol";
 
 /**

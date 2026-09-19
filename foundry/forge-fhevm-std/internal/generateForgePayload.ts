@@ -15,13 +15,15 @@
 // for its origin rather than _internal, because the payload already carries an _internal/ of its own
 // and nesting one inside the other read as _internal/_internal.
 //
-// One import is rewritten, and only one. The payload's interfaces reach out of the payload for
-// FheType with "../../../../src/contracts/shared/FheType.sol", which resolves to the host package's
-// pkg/src/contracts/shared. That path does not exist here, so FheType is copied to _host/shared and
-// the three imports are repointed at it. Everything else is byte-identical to the origin.
+// NOTHING is rewritten: the copy is byte-identical to its origin. The payload ships self-contained
+// because the host's own `generate:forge-shared` duplicates `src/cleartext/shared` — the handle
+// layout, the FheType facts, the operator and event declarations, the arithmetic — into
+// `pkg/forge/src/shared` first, FheType included. So no file here climbs out of its own tree, and this
+// generator is a plain directory copy. When that stops being true the build says so immediately, since
+// the climbing import simply will not resolve.
 
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,23 +34,20 @@ const MANIFEST_PATH = join(WORKSPACE_ROOT, 'npm-manifest.json');
 
 const DEST_DIR = join(ROOT, 'pkg', 'src', '_host');
 
+/**
+ * Payload files that stay behind in the host package.
+ *
+ * Empty, and worth keeping so: a payload file may only reach out of its own tree to `src/cleartext/
+ * shared` or to FheType, both of which are copied in below. Anything reaching further — into the
+ * vendored `src/contracts`, or into `src/cleartext` outside `shared` — arrives with imports that
+ * cannot resolve, because forge-fhevm-std has no such directories. Listing it here is the escape
+ * hatch; making it depend only on `shared` is the fix.
+ */
+const HOST_ONLY = new Set<string>();
+
 /** Relative to the host generation's package root. */
 const PAYLOAD_REL = join('pkg', 'forge', 'src');
-const FHE_TYPE_REL = join('pkg', 'src', 'contracts', 'shared', 'FheType.sol');
 
-/**
- * The payload's only out-of-tree import, and where it lands.
- *
- * FheType is not part of the payload directory — it belongs to the host CONTRACTS, which the forge
- * sources reach by climbing out of their own tree. It is copied in beside them, under `shared/`, so
- * the shipped payload is self-contained and there is exactly one FheType: two copies would be two
- * distinct enum types that do not convert.
- *
- * The climb is matched rather than hardcoded because the payload has files at more than one depth
- * (`shared/` and `_internal/interfaces/`), so the number of `../` differs per file.
- */
-const FHE_TYPE_IMPORT_FROM = /(?:\.\.\/)+src\/contracts\/shared\/FheType\.sol/g;
-const FHE_TYPE_DEST_REL = join('shared', 'FheType.sol');
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -86,44 +85,20 @@ function _solFiles(dir: string): string[] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- * Repoints the payload's out-of-tree FheType import at the copy under `shared/`, one file at a time so
- * each gets a path relative to ITSELF. Returns the files it touched.
- */
-function _rewriteFheTypeImports(): string[] {
-  const touched: string[] = [];
-  const fheTypeDest = join(DEST_DIR, FHE_TYPE_DEST_REL);
-
-  for (const rel of _solFiles(DEST_DIR)) {
-    const path = join(DEST_DIR, rel);
-    const before = readFileSync(path, 'utf8');
-
-    let to = relative(dirname(path), fheTypeDest).split(sep).join('/');
-    if (!to.startsWith('.')) to = `./${to}`;
-
-    const after = before.replace(FHE_TYPE_IMPORT_FROM, to);
-    if (after === before) continue;
-    writeFileSync(path, after, 'utf8');
-    touched.push(rel);
-  }
-  return touched;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
+
 
 export interface PayloadResult {
   readonly generationDir: string;
   readonly files: number;
-  readonly rewritten: readonly string[];
 }
 
 /** Wipes and rewrites pkg/src/_host. The only thing here that touches disk. */
 export function writeForgePayload(): PayloadResult {
   const generationDir = currentGenerationDir();
   const payloadDir = join(generationDir, PAYLOAD_REL);
-  const fheTypePath = join(generationDir, FHE_TYPE_REL);
 
-  for (const path of [payloadDir, fheTypePath]) {
+  for (const path of [payloadDir]) {
     try {
       statSync(path);
     } catch {
@@ -135,10 +110,9 @@ export function writeForgePayload(): PayloadResult {
   mkdirSync(DEST_DIR, { recursive: true });
   cpSync(payloadDir, DEST_DIR, { recursive: true });
 
-  const fheTypeDest = join(DEST_DIR, FHE_TYPE_DEST_REL);
-  mkdirSync(dirname(fheTypeDest), { recursive: true });
-  cpSync(fheTypePath, fheTypeDest);
+  for (const name of HOST_ONLY) {
+    rmSync(join(DEST_DIR, name), { force: true });
+  }
 
-  const rewritten = _rewriteFheTypeImports();
-  return { generationDir, files: _solFiles(DEST_DIR).length, rewritten };
+  return { generationDir, files: _solFiles(DEST_DIR).length };
 }

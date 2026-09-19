@@ -7,7 +7,7 @@ import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol
 import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
  * The v13 nary operators, `fheSum` and `fheIsIn`, end to end: executor -> CleartextArithmetic ->

@@ -7,8 +7,8 @@ import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol
 import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
-import {CleartextArithmetic} from "../../pkg/src/cleartext/CleartextArithmetic.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
+import {CleartextArithmeticBase} from "../../pkg/src/cleartext/shared/CleartextArithmeticBase.sol";
 
 /**
  * A PLAINTEXT asserts its own type: `trivialEncrypt(v, Uint8)` says "this is a uint8", and
@@ -38,19 +38,19 @@ contract CleartextPlaintextRangeTest is Test, FhevmCleartextDeploy {
     }
 
     function test_twoIsRefused() public {
-        vm.expectRevert(abi.encodeWithSelector(CleartextArithmetic.CleartextErrorNotABoolean.selector, 2));
+        vm.expectRevert(abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorNotABoolean.selector, 2));
         executor.trivialEncrypt(2, FheType.Bool);
     }
 
     /// The old rule truncated to the low byte first, so 256 read as `false`. Now it is refused.
     function test_aValueWhoseLowByteIsZeroIsAlsoRefused() public {
-        vm.expectRevert(abi.encodeWithSelector(CleartextArithmetic.CleartextErrorNotABoolean.selector, 256));
+        vm.expectRevert(abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorNotABoolean.selector, 256));
         executor.trivialEncrypt(256, FheType.Bool);
     }
 
     function test_theMaximumIsRefused() public {
         vm.expectRevert(
-            abi.encodeWithSelector(CleartextArithmetic.CleartextErrorNotABoolean.selector, type(uint256).max)
+            abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorNotABoolean.selector, type(uint256).max)
         );
         executor.trivialEncrypt(type(uint256).max, FheType.Bool);
     }
@@ -67,14 +67,14 @@ contract CleartextPlaintextRangeTest is Test, FhevmCleartextDeploy {
     /// One over is not. It used to be clamped to 44, a number the caller never wrote.
     function test_oneOverTheTypeIsRefused() public {
         vm.expectRevert(
-            abi.encodeWithSelector(CleartextArithmetic.CleartextErrorPlaintextTooWide.selector, 256, FheType.Uint8)
+            abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorPlaintextTooWide.selector, 256, FheType.Uint8)
         );
         executor.trivialEncrypt(256, FheType.Uint8);
     }
 
     function test_aWideValueForANarrowTypeIsRefused() public {
         vm.expectRevert(
-            abi.encodeWithSelector(CleartextArithmetic.CleartextErrorPlaintextTooWide.selector, 300, FheType.Uint8)
+            abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorPlaintextTooWide.selector, 300, FheType.Uint8)
         );
         executor.trivialEncrypt(300, FheType.Uint8);
     }
@@ -86,7 +86,7 @@ contract CleartextPlaintextRangeTest is Test, FhevmCleartextDeploy {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                CleartextArithmetic.CleartextErrorPlaintextTooWide.selector, max160 + 1, FheType.Uint160
+                CleartextArithmeticBase.CleartextErrorPlaintextTooWide.selector, max160 + 1, FheType.Uint160
             )
         );
         executor.trivialEncrypt(max160 + 1, FheType.Uint160);

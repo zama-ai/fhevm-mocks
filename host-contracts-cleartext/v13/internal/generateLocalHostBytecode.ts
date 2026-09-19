@@ -159,7 +159,9 @@ const FORGE_VARIANTS: ReadonlyArray<{
 /** `FheType` reaches generated interfaces as `type FheType is uint8;`, local to each interface and so
  * incompatible across them. Rewritten to import the one shared enum instead (generate.py does the same). */
 const FHE_TYPE_DECLARATION = '    type FheType is uint8;';
-const FHE_TYPE_IMPORT = 'import {FheType} from "../../../../src/contracts/shared/FheType.sol";';
+// The payload's own copy, NOT the vendored original: `pkg/forge/src` ships self-contained, and two
+// FheType declarations in one compilation are two distinct enum types that do not convert.
+const FHE_TYPE_IMPORT = 'import {FheType} from "../../shared/LibFheType.sol";';
 
 type CodeKind = 'creation' | 'runtime';
 

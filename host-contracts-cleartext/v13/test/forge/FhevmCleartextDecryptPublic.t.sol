@@ -10,7 +10,7 @@ import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.
 import {ICleartextKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
 import {FhevmCleartextEncrypt} from "../../pkg/forge/src/FhevmCleartextEncrypt.sol";
 import {FhevmCleartextDecryptPublic} from "../../pkg/forge/src/FhevmCleartextDecryptPublic.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {Bits} from "../utils/Bits.sol";
 
 /**

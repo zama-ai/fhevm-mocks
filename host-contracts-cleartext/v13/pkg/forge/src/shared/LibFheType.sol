@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {FheType} from "../../../src/contracts/shared/FheType.sol";
+import {FheType} from "./FheType.sol";
 import {LibString} from "./LibString.sol";
 
 /// ----------------------------------------------------------------------------
@@ -13,6 +13,26 @@ import {LibString} from "./LibString.sol";
 /// ----------------------------------------------------------------------------
 
 library LibFheType {
+    /// @notice A type outside the set this stack implements.
+    error CleartextErrorUnsupportedType();
+
+    /// @notice How many bits a value of this type occupies — the modulus every cleartext operation
+    ///         wraps at, and the width every result is clamped to.
+    /// @dev    Reverts rather than defaulting: a width guessed for an unsupported type would silently
+    ///         produce arithmetic the coprocessor never performs.
+    function bitWidthForType(FheType fheType) internal pure returns (uint256) {
+        if (fheType == FheType.Bool) return 1;
+        if (fheType == FheType.Uint8) return 8;
+        if (fheType == FheType.Uint16) return 16;
+        if (fheType == FheType.Uint32) return 32;
+        if (fheType == FheType.Uint64) return 64;
+        if (fheType == FheType.Uint128) return 128;
+        if (fheType == FheType.Uint160) return 160;
+        if (fheType == FheType.Uint256) return 256;
+
+        revert CleartextErrorUnsupportedType();
+    }
+
     /// @notice The name of an FHE type, like "euint32" or "eaddress".
     /// @dev Unknown types come back as "FheType(12)".
     function toString(FheType t) internal pure returns (string memory) {

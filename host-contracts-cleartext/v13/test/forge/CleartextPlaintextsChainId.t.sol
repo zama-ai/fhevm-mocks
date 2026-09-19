@@ -7,8 +7,8 @@ import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol
 import {CLEARTEXT_ARITHMETIC_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
-import {CleartextHandle} from "../../pkg/src/cleartext/CleartextHandle.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
+import {LibFhevmHandle} from "../../pkg/src/cleartext/shared/LibFhevmHandle.sol";
 
 /**
  * `plaintexts` reads the DB by handle, and now checks the handle belongs to THIS chain — the same
@@ -32,7 +32,7 @@ contract CleartextPlaintextsChainIdTest is Test, FhevmCleartextDeploy {
     function test_aLocalHandleReadsBack() public {
         bytes32 handle = executor.trivialEncrypt(42, FheType.Uint32);
 
-        assertEq(CleartextHandle.chainIdOf(handle), uint64(block.chainid), "minted here");
+        assertEq(LibFhevmHandle.chainIdOf(handle), uint64(block.chainid), "minted here");
         assertEq(arithmetic.plaintexts(handle), 42);
     }
 
@@ -45,7 +45,7 @@ contract CleartextPlaintextsChainIdTest is Test, FhevmCleartextDeploy {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                CleartextHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, otherChain, uint64(block.chainid)
+                LibFhevmHandle.CleartextErrorHandleChainIdMismatch.selector, foreign, otherChain, uint64(block.chainid)
             )
         );
         arithmetic.plaintexts(foreign);

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {KMSVerifier} from "../contracts/KMSVerifier.sol";
-import {FheType} from "../contracts/shared/FheType.sol";
+import {FheType} from "./shared/LibFheType.sol";
 import {aclAdd, fhevmExecutorAdd} from "../addresses/FHEVMHostAddresses.sol";
 
 interface IACL {

@@ -23,6 +23,11 @@ interface ICleartextDB {
     /// @notice Returns the cleartext value stored for `handle` (0 if unset).
     function get(bytes32 handle) external view returns (uint256);
 
+    /// @notice Whether anything has ever been stored for `handle`.
+    /// @dev    `get` returns 0 for an unwritten handle exactly as it does for one worth zero, so this
+    ///         is the only way to tell them apart — which a reader on a fork must be able to do.
+    function has(bytes32 handle) external view returns (bool);
+
     /// @notice Stores `value` for `handle`. Callable only by a registered writer.
     function set(bytes32 handle, uint256 value) external;
 

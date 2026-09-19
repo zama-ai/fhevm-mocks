@@ -16,6 +16,21 @@ import {CLEARTEXT_DB_ADDRESS} from "./_host/FhevmCleartextDeploy.sol";
 import {ICleartextDB} from "./_host/_internal/interfaces/ICleartextDB.sol";
 
 abstract contract StdFhevmDebug {
+    /**
+     * @notice The store `read` looks handles up in.
+     *
+     * @dev `virtual`, and the only place the store is decided. The default is the local cleartext
+     *      stack's, which is right whenever `setUpFhevm()` deployed one.
+     *
+     *      It is overridable because a FORKED chain has no such stack: there the values come from
+     *      replaying the real executor's events into a store of the replayer's own, at an address this
+     *      package cannot know. Overriding this one getter is all it takes to point `read` at it —
+     *      every accessor below goes through it.
+     */
+    function cleartextDbAddress() public view virtual returns (address) {
+        return CLEARTEXT_DB_ADDRESS;
+    }
+
     function read(ebool value) internal view returns (bool clear) {
         clear = _read(ebool.unwrap(value)) != 0;
     }
@@ -48,8 +63,8 @@ abstract contract StdFhevmDebug {
         clear = address(uint160(_read(eaddress.unwrap(value))));
     }
 
-    /// @dev The mock keeps every handle's cleartext keyed by handle; this is a plain lookup.
+    /// @dev The store keeps every handle's cleartext keyed by handle; this is a plain lookup.
     function _read(bytes32 handle) private view returns (uint256) {
-        return ICleartextDB(CLEARTEXT_DB_ADDRESS).get(handle);
+        return ICleartextDB(cleartextDbAddress()).get(handle);
     }
 }
