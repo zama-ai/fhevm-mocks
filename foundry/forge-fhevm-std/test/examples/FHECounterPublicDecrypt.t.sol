@@ -109,7 +109,7 @@ contract FHECounterPublicDecryptTest is TestFhevm {
     }
 
     /// External so that `vm.expectRevert` has a call frame to catch.
-    function decryptPublicExternally(euint32 value) external view returns (uint32) {
+    function decryptPublicExternally(euint32 value) external returns (uint32) {
         return decryptPublic(value);
     }
 }

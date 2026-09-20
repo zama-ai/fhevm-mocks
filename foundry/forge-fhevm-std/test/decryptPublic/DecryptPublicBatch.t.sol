@@ -43,7 +43,6 @@ contract DecryptPublicBatchTest is Test, StdFhevm {
     address internal alice;
 
     function setUp() public {
-        setUpFhevm();
         dapp = new TwoValuesDapp();
         alice = makeAddr("alice");
     }

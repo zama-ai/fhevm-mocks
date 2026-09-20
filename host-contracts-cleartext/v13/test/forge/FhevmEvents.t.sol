@@ -40,7 +40,7 @@ import {
 /// `cleartext/shared/FhevmEvents.sol` re-declares the vendored executor's events so a log reader need
 /// not inherit the executor. The two are the same event only while their topic0 agree, and topic0 is
 /// `keccak256` of the full signature — so a renamed parameter TYPE, a reordered argument or a changed
-/// `indexed` all break the match. Nothing would fail to compile: `FhevmCleartextEventProcessor` would
+/// `indexed` all break the match. Nothing would fail to compile: `ForgeFhevmEventProcessor` would
 /// simply recognise none of the stream and replay nothing, which looks exactly like a test that did no
 /// FHE work. This suite is what turns that into a red build.
 contract FhevmEventsTest is Test {

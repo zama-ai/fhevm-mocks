@@ -65,7 +65,6 @@ contract DecryptPublicTest is Test, StdFhevm {
     address internal alice;
 
     function setUp() public {
-        setUpFhevm();
         dapp = new AddOneDapp();
         alice = makeAddr("alice");
     }

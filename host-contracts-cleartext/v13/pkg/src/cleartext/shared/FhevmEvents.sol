@@ -9,13 +9,13 @@ import {FheType} from "./LibFheType.sol";
  * @dev WHY A SECOND DECLARATION. These belong to `contracts/FHEEvents.sol`, which is VENDORED — synced
  *      from upstream, never edited here. A log READER needs only the signatures, but inheriting the
  *      contract to reach them drags the vendored tree into anything that wants to recognise an event.
- *      `FhevmCleartextEventProcessor` is exactly that reader, and being free of `contracts/` is what
+ *      `ForgeFhevmEventProcessor` is exactly that reader, and being free of `contracts/` is what
  *      makes it portable.
  *
  * @dev FILE-LEVEL, NOT A CONTRACT. Solidity 0.8.22 allows events at file scope, so a reader imports the
  *      ones it wants instead of inheriting all of them — and there is no second `FHEEvents` type to be
  *      mistaken for the vendored one. The EVENT NAMES must match exactly, unlike
- *      `shared/FhevmOperators.sol` where only the order mattered: an event's topic0 is
+ *      `shared/FhevmOperatorsEnum.sol` where only the order mattered: an event's topic0 is
  *      `keccak256("FheAdd(address,bytes32,bytes32,bytes1,bytes32)")`, so the name and every parameter
  *      type are part of its identity.
  *

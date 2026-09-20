@@ -24,7 +24,6 @@ contract EncryptSingleValueTest is Test, StdFhevm {
     address internal alice;
 
     function setUp() public {
-        setUpFhevm();
         vault = new Vault();
         alice = makeAddr("alice");
     }

@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ForgeFhevmDeploy} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextDB} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {CleartextArithmeticBase} from "../../pkg/src/cleartext/shared/CleartextArithmeticBase.sol";
 
@@ -22,7 +22,7 @@ import {CleartextArithmeticBase} from "../../pkg/src/cleartext/shared/CleartextA
  * Scalar operands are the other exception and are not covered here: they are not declared boolean, so
  * `normalizeScalarToType` follows the coprocessor's own `arr_non_zero` rule instead.
  */
-contract CleartextPlaintextRangeTest is Test, FhevmCleartextDeploy {
+contract CleartextPlaintextRangeTest is Test, ForgeFhevmDeploy {
     ICleartextFHEVMExecutor internal executor;
     ICleartextDB internal db;
 

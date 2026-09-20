@@ -48,7 +48,7 @@ test('renders the TypeScript face: order, formula comments, literal shapes, quot
       outputs.map((output) => output.path),
       [
         join(workspace, 'common-vendored', 'src', 'cleartext-config-v13.ts'),
-        join(workspace, 'host-contracts-cleartext', 'v13', 'pkg', 'forge', 'src', 'FhevmCleartextConfig.sol'),
+        join(workspace, 'host-contracts-cleartext', 'v13', 'pkg', 'src', 'cleartext', 'shared', 'LibFhevmCleartextConfig.sol'),
         join(workspace, 'host-contracts-cleartext', 'v13', 'scripts', 'cleartext-config.sh'),
       ],
     );
@@ -92,7 +92,7 @@ test('renders the Solidity face: declared types, bare addresses, quoted strings,
     const sol = renderCleartextConfigFaces(workspace)[1]?.content ?? '';
     assert.match(sol, /^\/\/ SPDX-License-Identifier: BSD-3-Clause-Clear\npragma solidity \^0\.8\.24;\n/);
     const expected = [
-      'library FhevmCleartextConfig {',
+      'library LibFhevmCleartextConfig {',
       // The one-line summary always; the formula line only where the JSON records one.
       '    /// The chain id.',
       '    // uint48(uint256(keccak256("fhevm.cheat.chainId cleartext gateway")))',
@@ -118,7 +118,7 @@ test('renders the Solidity face: declared types, bare addresses, quoted strings,
       '}',
       '',
     ].join('\n');
-    assert.equal(sol.slice(sol.indexOf('library FhevmCleartextConfig {')), expected);
+    assert.equal(sol.slice(sol.indexOf('library LibFhevmCleartextConfig {')), expected);
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
@@ -190,10 +190,10 @@ test('a constant scoped by `generations` reaches only those generations, and eve
       outputs.map((o) => rel(o.path)),
       [
         join(...tsFacePath('v13')),
-        'host-contracts-cleartext/v13/pkg/forge/src/FhevmCleartextConfig.sol',
+        'host-contracts-cleartext/v13/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol',
         'host-contracts-cleartext/v13/scripts/cleartext-config.sh',
         join(...tsFacePath('v14')),
-        'host-contracts-cleartext/v14/pkg/forge/src/FhevmCleartextConfig.sol',
+        'host-contracts-cleartext/v14/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol',
         'host-contracts-cleartext/v14/scripts/cleartext-config.sh',
       ],
     );
@@ -206,14 +206,14 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     const v13Expected = [...Object.keys(CONSTANTS), 'BOTH_EXPLICIT'];
     assert.deepEqual(names(byPath.get(join(...tsFacePath('v13'))) ?? ''), v13Expected);
     assert.deepEqual(
-      names(byPath.get('host-contracts-cleartext/v13/pkg/forge/src/FhevmCleartextConfig.sol') ?? ''),
+      names(byPath.get('host-contracts-cleartext/v13/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol') ?? ''),
       v13Expected,
     );
     const v13Sh = byPath.get('host-contracts-cleartext/v13/scripts/cleartext-config.sh') ?? '';
     assert.match(v13Sh, /^BOTH_EXPLICIT="7"$/m);
     for (const face of [
       join(...tsFacePath('v13')),
-      'host-contracts-cleartext/v13/pkg/forge/src/FhevmCleartextConfig.sol',
+      'host-contracts-cleartext/v13/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol',
       'host-contracts-cleartext/v13/scripts/cleartext-config.sh',
     ]) {
       assert.doesNotMatch(byPath.get(face) ?? '', /V14_ONLY|NARROW_ALIAS/, face);
@@ -227,7 +227,7 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     assert.doesNotMatch(v14Ts, /^import /m);
     assert.match(v14Ts, /^export const V14_ONLY_ALIAS = V14_ONLY;$/m);
     assert.match(v14Ts, /^export const NARROW_ALIAS = URL;$/m);
-    const v14Sol = byPath.get('host-contracts-cleartext/v14/pkg/forge/src/FhevmCleartextConfig.sol') ?? '';
+    const v14Sol = byPath.get('host-contracts-cleartext/v14/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol') ?? '';
     assert.deepEqual(names(v14Sol), v14Expected);
     assert.match(v14Sol, /string internal constant V14_ONLY_ALIAS = V14_ONLY;/);
     assert.match(

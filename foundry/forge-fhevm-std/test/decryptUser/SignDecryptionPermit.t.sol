@@ -17,7 +17,7 @@ contract SignDecryptionPermitTest is TestFhevm {
         keypair = generateTransportKeypair();
     }
 
-    function test_thePermitCarriesWhatWasSigned() public view {
+    function test_thePermitCarriesWhatWasSigned() public {
         SignedDecryptionPermit memory p = signLegacyDecryptionPermit(aliceKey, keypair, contracts, 1000, 7 days);
 
         assertEq(p.transportPublicKey, keypair.publicKey);
@@ -28,7 +28,7 @@ contract SignDecryptionPermitTest is TestFhevm {
     }
 
     /// The window and the contract list are recorded as asked for, so a caller can check them.
-    function test_thePermitRecordsItsWindowAndContracts() public view {
+    function test_thePermitRecordsItsWindowAndContracts() public {
         SignedDecryptionPermit memory p = signLegacyDecryptionPermit(aliceKey, keypair, contracts, 1000, 7 days);
 
         assertEq(p.startTimestamp + p.durationSeconds, 1000 + 7 days, "the window it closes at");
@@ -63,14 +63,14 @@ contract SignDecryptionPermitTest is TestFhevm {
         this.sign((MAX_USER_DECRYPT_DURATION_DAYS + 1) * 1 days);
     }
 
-    function test_theMaximumItselfIsAccepted() public view {
+    function test_theMaximumItselfIsAccepted() public {
         SignedDecryptionPermit memory p =
             signLegacyDecryptionPermit(aliceKey, keypair, contracts, 1000, MAX_USER_DECRYPT_DURATION_DAYS * 1 days);
         assertEq(p.durationSeconds, 365 days);
     }
 
     /// External so that `vm.expectRevert` has a call frame to catch.
-    function sign(uint256 durationSeconds) external view returns (SignedDecryptionPermit memory) {
+    function sign(uint256 durationSeconds) external returns (SignedDecryptionPermit memory) {
         return signLegacyDecryptionPermit(aliceKey, keypair, contracts, 1000, durationSeconds);
     }
 }

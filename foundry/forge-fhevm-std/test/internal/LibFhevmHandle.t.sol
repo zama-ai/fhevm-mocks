@@ -9,9 +9,7 @@ import {LibFhevmHandle} from "../../pkg/src/_host/shared/LibFhevmHandle.sol";
 
 /// Field extraction from the handle layout `LibFhevmHandle` owns.
 contract LibFhevmHandleTest is Test, StdFhevm {
-    function setUp() public {
-        setUpFhevm();
-    }
+    function setUp() public {}
 
     /// The chain id a real handle carries is the one it was minted on.
     function test_chainIdOfReadsBackTheMintingChain() public {

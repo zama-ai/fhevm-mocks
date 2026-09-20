@@ -1,6 +1,6 @@
 {
   "name": "@fhevm/forge-fhevm-std",
-  "version": "0.13.0-0",
+  "version": "0.13.0-1",
   "description": "FHEVM standard library for Forge. Companion to forge-std: encrypt inputs and decrypt handles from Foundry tests and scripts.",
   "license": "BSD-3-Clause-Clear",
   "type": "module",

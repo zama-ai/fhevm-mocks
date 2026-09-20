@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import {FHEVMExecutor} from "../contracts/FHEVMExecutor.sol";
 import {FheType} from "./shared/LibFheType.sol";
 import {ICleartextArithmetic} from "./shared/interfaces/ICleartextArithmetic.sol";
-import {Operators as CleartextOperators} from "./shared/FhevmOperators.sol";
+import {IPlaintexts} from "./shared/interfaces/IPlaintexts.sol";
+import {Operators as CleartextOperators} from "./shared/FhevmOperatorsEnum.sol";
 import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
 
 /// @notice FHEVMExecutor variant that mirrors every operation's cleartext into the cleartext layer.
@@ -12,14 +13,14 @@ import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
 ///      to the external `CleartextArithmetic` contract, which computes the result and persists it in
 ///      `CleartextDB`. The executor never touches the DB — keeping the arithmetic + storage bytecode
 ///      out of this contract preserves EIP-170 headroom and lets multiple executors share one DB.
-contract CleartextFHEVMExecutor is FHEVMExecutor {
+contract CleartextFHEVMExecutor is FHEVMExecutor, IPlaintexts {
     /// @notice Marks a cleartext (mock) implementation. Real host contracts have no such selector, so a
     ///         consumer can probe it to tell a cleartext stack from a production deployment.
     bool public constant IS_CLEARTEXT = true;
 
     /// @dev Handle to cleartext value mapping for local testing.
     //mapping(bytes32 => uint256) public plaintexts;
-    function plaintexts(bytes32 result) public view returns (uint256) {
+    function plaintexts(bytes32 result) public view override returns (uint256) {
         return _cleartext().plaintexts(result);
     }
 

@@ -3,12 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {
-    FhevmCleartextEventProcessor,
-    FhevmCleartextEventProcessorDB
-} from "../../pkg/forge/src/FhevmCleartextEventProcessor.sol";
+import {ForgeFhevmEventProcessor, ForgeFhevmEventProcessorDB} from "../../pkg/forge/src/ForgeFhevmEventProcessor.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
-import {Operators} from "../../pkg/forge/src/shared/FhevmOperators.sol";
+import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
+import {Operators} from "../../pkg/forge/src/shared/FhevmOperatorsEnum.sol";
 
 /// The bits of the deployed `FHETest` this test touches. Its handles live in
 /// `mapping(address => mapping(FheType => bytes32)) _etypeMap` at slot 0, per CALLER — which is why
@@ -34,6 +32,12 @@ interface IFHETest {
  *
  *          SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com forge test --match-contract Sepolia
  */
+/// Answers `IS_CLEARTEXT` like the real cleartext stack does. Deployed onto the fork, it stands in for
+/// a cleartext stack deployed REMOTELY — on anvil, a devnet, or here.
+contract RemoteCleartextExecutor {
+    bool public constant IS_CLEARTEXT = true;
+}
+
 contract SepoliaForkEventProcessorTest is Test {
     /// @dev A deployed `FHETest` (sdk/js-sdk/contracts/src/FHETest.sol).
     address internal constant FHE_TEST = 0x94B9d3aF050687D1F76251aD7D09a1F216a19845;
@@ -49,7 +53,7 @@ contract SepoliaForkEventProcessorTest is Test {
 
     uint64 internal constant SEPOLIA_CHAIN_ID = 11_155_111;
 
-    FhevmCleartextEventProcessor internal processor;
+    ForgeFhevmEventProcessor internal processor;
     address internal alice;
     bool internal forked;
 
@@ -60,7 +64,8 @@ contract SepoliaForkEventProcessorTest is Test {
         vm.createSelectFork(rpc);
         forked = true;
         alice = makeAddr("alice");
-        processor = new FhevmCleartextEventProcessor(SEPOLIA_COPROCESSOR);
+        processor = new ForgeFhevmEventProcessor();
+        processor.addExecutor(SEPOLIA_COPROCESSOR);
     }
 
     modifier onlyForked() {
@@ -152,9 +157,7 @@ contract SepoliaForkEventProcessorTest is Test {
     function test_aForkedHandleIsRefusedByDefault() public onlyForked {
         bytes32 handle = _realHandle(FheType.Uint64);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(FhevmCleartextEventProcessorDB.CleartextEventUnknownHandle.selector, handle)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ForgeFhevmEventProcessorDB.CleartextEventUnknownHandle.selector, handle));
         processor.plaintexts(handle);
     }
 
@@ -192,7 +195,7 @@ contract SepoliaForkEventProcessorTest is Test {
         processor.recordBinaryOp(Operators.fheAdd, total, balanceA, balanceB, 0x00, FheType.Uint64);
 
         assertEq(processor.plaintexts(total), uint64(a + b), "modular at the LHS width");
-        assertTrue(processor.statusOf(total) == FhevmCleartextEventProcessorDB.Status.Known);
+        assertTrue(processor.statusOf(total) == ForgeFhevmEventProcessorDB.Status.Known);
     }
 
     // -- Shadowing the REAL executor ------------------------------------------------
@@ -239,6 +242,19 @@ contract SepoliaForkEventProcessorTest is Test {
         assertEq(processor.plaintexts(total), 1337, "a value no one on Sepolia can read");
     }
 
+    /// RULE 1: a cleartext stack is fine to replay when it is deployed REMOTELY. Only the local
+    /// in-memory one is refused, and the difference is whether a fork is selected — which it is here.
+    /// The same construction reverts in the offline suite, where no fork is.
+    function test_aRemotelyDeployedCleartextExecutorIsAccepted() public onlyForked {
+        address remote = address(new RemoteCleartextExecutor());
+
+        ForgeFhevmEventProcessor p = new ForgeFhevmEventProcessor();
+        p.addExecutor(remote);
+
+        assertTrue(p.isExecutor(remote), "accepted because a fork is selected");
+        assertTrue(LibCleartextProbe.isCleartext(remote), "and it really is a cleartext stack");
+    }
+
     /// A value the developer knows beats the policy — the escape hatch when a balance IS known.
     function test_aKnownBalanceCanBeSeeded() public onlyForked {
         processor.useDeterministicUnknownHandles();
@@ -247,6 +263,6 @@ contract SepoliaForkEventProcessorTest is Test {
         processor.seedCleartext(balance, 5_000_000);
 
         assertEq(processor.plaintexts(balance), 5_000_000);
-        assertTrue(processor.statusOf(balance) == FhevmCleartextEventProcessorDB.Status.Known);
+        assertTrue(processor.statusOf(balance) == ForgeFhevmEventProcessorDB.Status.Known);
     }
 }

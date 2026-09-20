@@ -9,7 +9,7 @@ import {FHECounterPublicDecrypt} from "./contracts/FHECounterPublicDecrypt.sol";
 
 /// Port of hardhat/v3/e2e/test/internal/FHECounterDebugger.ts.
 ///
-///   fhevm.cleartextDb.readUint32({euint32}) -> read(euint32)
+///   fhevm.cleartextDb.readUint32({euint32}) -> plaintextOf(euint32)
 ///
 /// The count is stored WITHOUT `makePubliclyDecryptable`, so `decryptPublic` is refused — and `read`
 /// still returns it, because it is a debug view into the mock's DB and consults nothing.
@@ -35,11 +35,11 @@ contract FHECounterDebuggerTest is TestFhevm {
         vm.expectRevert();
         this.decryptPublicExternally(count);
 
-        assertEq(read(count), 5);
+        assertEq(plaintextOf(count), 5);
     }
 
     /// External so that `vm.expectRevert` has a call frame to catch.
-    function decryptPublicExternally(euint32 value) external view returns (uint32) {
+    function decryptPublicExternally(euint32 value) external returns (uint32) {
         return decryptPublic(value);
     }
 }

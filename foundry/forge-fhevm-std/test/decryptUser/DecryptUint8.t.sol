@@ -5,8 +5,8 @@ import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHE} from "@fhevm/solidity/lib/FHE.sol";
 import {euint8, externalEuint8} from "encrypted-types/EncryptedTypes.sol";
 
-import {ICleartextACL} from "../../pkg/src/_host/FhevmCleartextDeploy.sol";
-import {ACL_ADDRESS} from "../../pkg/src/_host/FhevmCleartextDeploy.sol";
+import {ICleartextACL} from "../../pkg/src/_host/ForgeFhevmDeploy.sol";
+import {ACL_ADDRESS} from "../../pkg/src/_host/ForgeFhevmDeploy.sol";
 import {ICleartextKMSVerifier} from "../../pkg/src/_host/_internal/interfaces/ICleartextKMSVerifier.sol";
 
 import {TestFhevm, SignedDecryptionPermit, TransportKeypair, EncryptedInput} from "../../pkg/src/TestFhevm.sol";
@@ -44,17 +44,17 @@ contract DecryptUint8Test is TestFhevm {
         safe.store(e.externalEuint8At(0), e.inputProof(), alice);
     }
 
-    function _permit() private view returns (SignedDecryptionPermit memory) {
+    function _permit() private returns (SignedDecryptionPermit memory) {
         return signLegacyDecryptionPermit(aliceKey, keypair, contracts, block.timestamp, 7 days);
     }
 
     /// The value goes in encrypted and comes back out under the permit.
-    function test_theUserReadsTheirOwnValue() public view {
+    function test_theUserReadsTheirOwnValue() public {
         assertEq(decrypt(safe.secret(), address(safe), keypair, _permit()), 42);
     }
 
     /// The same permit serves more than one call — that is the point of signing one.
-    function test_onePermitServesRepeatedReads() public view {
+    function test_onePermitServesRepeatedReads() public {
         SignedDecryptionPermit memory permit = _permit();
 
         assertEq(decrypt(safe.secret(), address(safe), keypair, permit), 42);
@@ -128,7 +128,7 @@ contract DecryptUint8Test is TestFhevm {
     }
 
     /// A delegated permit is a DIFFERENT EIP-712 struct, so it does not verify as a plain one.
-    function test_aDelegatedPermitIsNotAPlainPermit() public view {
+    function test_aDelegatedPermitIsNotAPlainPermit() public {
         SignedDecryptionPermit memory delegated =
             signLegacyDecryptionPermit(aliceKey, keypair, contracts, block.timestamp, 7 days, address(0xD00D));
         SignedDecryptionPermit memory plain = _permit();
@@ -142,7 +142,7 @@ contract DecryptUint8Test is TestFhevm {
         address contractAddress,
         TransportKeypair memory kp,
         SignedDecryptionPermit memory permit
-    ) external view returns (uint8) {
+    ) external returns (uint8) {
         return decrypt(v, contractAddress, kp, permit);
     }
 }

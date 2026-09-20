@@ -13,7 +13,7 @@ import {FheType} from "./LibFheType.sol";
 
 /// @notice The internal binary format of an FHEVM handle.
 ///
-/// @dev Handle layout (see `FhevmCleartextEncrypt._inputHandle`):
+/// @dev Handle layout (see `LibForgeFhevmEncrypt._inputHandle`):
 ///      `hash21[0:20] || index[21] || chainId[22:29] || fheTypeId[30] || version[31]`
 ///
 ///      TODO: isExternal(), toString().

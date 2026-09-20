@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ForgeFhevmDeploy} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextDB} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
@@ -38,7 +38,7 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  * (library-solidity/lib/FHE.sol). So the equivalent fixture here is an explicit encryption of 0, and
  * "uninitialized is 0" is a library guarantee rather than something this contract implements.
  */
-contract CleartextNaryOpsTest is Test, FhevmCleartextDeploy {
+contract CleartextNaryOpsTest is Test, ForgeFhevmDeploy {
     ICleartextFHEVMExecutor internal executor;
     ICleartextDB internal db;
 

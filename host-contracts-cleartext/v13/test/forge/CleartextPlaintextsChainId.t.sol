@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {CLEARTEXT_ARITHMETIC_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ForgeFhevmDeploy} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {CLEARTEXT_ARITHMETIC_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
-import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {LibFhevmHandle} from "../../pkg/src/cleartext/shared/LibFhevmHandle.sol";
 
@@ -18,7 +18,7 @@ import {LibFhevmHandle} from "../../pkg/src/cleartext/shared/LibFhevmHandle.sol"
  * that is either empty or some unrelated handle's value, so reading it would answer a question nobody
  * asked.
  */
-contract CleartextPlaintextsChainIdTest is Test, FhevmCleartextDeploy {
+contract CleartextPlaintextsChainIdTest is Test, ForgeFhevmDeploy {
     ICleartextArithmetic internal arithmetic;
     ICleartextFHEVMExecutor internal executor;
 

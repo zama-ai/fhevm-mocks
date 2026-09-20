@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {FheType} from "../LibFheType.sol";
-import {Operators} from "../FhevmOperators.sol";
+import {Operators} from "../FhevmOperatorsEnum.sol";
+import {IPlaintexts} from "./IPlaintexts.sol";
 
 /**
  * @title ICleartextArithmetic
@@ -12,11 +13,7 @@ import {Operators} from "../FhevmOperators.sol";
  * @dev The executor never touches `CleartextDB` directly — this contract is the DB's sole writer,
  *      which keeps the arithmetic + storage bytecode out of the executor (EIP-170 headroom).
  */
-interface ICleartextArithmetic {
-    /// @notice Reads the cleartext value stored for `handle` from `CleartextDB` (compat accessor
-    ///         mirroring the executor's former public `plaintexts` mapping).
-    function plaintexts(bytes32 handle) external view returns (uint256);
-
+interface ICleartextArithmetic is IPlaintexts {
     /// @notice Whether the store holds a cleartext for `handle`, telling zero apart from absent.
     function hasPlaintext(bytes32 handle) external view returns (bool);
 

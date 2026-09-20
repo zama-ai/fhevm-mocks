@@ -22,7 +22,7 @@ contract DecryptUserTypesTest is TestFhevm {
         contracts.push(address(vault));
     }
 
-    function _permit() private view returns (SignedDecryptionPermit memory) {
+    function _permit() private returns (SignedDecryptionPermit memory) {
         return signLegacyDecryptionPermit(aliceKey, keypair, contracts, block.timestamp, 7 days);
     }
 

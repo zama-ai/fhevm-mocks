@@ -15,7 +15,6 @@ contract EncryptedInputApiTest is Test, StdFhevm {
     address internal alice;
 
     function setUp() public {
-        setUpFhevm();
         alice = makeAddr("alice");
         e = encryptValues(asUint32(7), asUint64(1234567890123), address(new Vault()), alice);
     }

@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import {FheType, LibFheType} from "./LibFheType.sol";
-import {Operators} from "./FhevmOperators.sol";
+import {Operators} from "./FhevmOperatorsEnum.sol";
 import {LibFhevmHandle} from "./LibFhevmHandle.sol";
 import {ICleartextArithmetic} from "./interfaces/ICleartextArithmetic.sol";
+import {IPlaintexts} from "./interfaces/IPlaintexts.sol";
 import {ICleartextDB} from "./interfaces/ICleartextDB.sol";
 
 /**
@@ -38,7 +39,7 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
     error CleartextErrorNotABoolean(uint256 value);
     error CleartextErrorPlaintextTooWide(uint256 value, FheType fheType);
 
-    /// @inheritdoc ICleartextArithmetic
+    /// @inheritdoc IPlaintexts
     /// @dev Guarded like every `record*` above: a handle minted on another chain names a slot in THIS
     ///      chain's DB, which is either empty or — worse — some unrelated handle's value. Reading it
     ///      would answer a question nobody asked, so it reverts instead.
@@ -61,7 +62,7 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
      *      Leaving it abstract is what keeps this file free of `addresses/` — the semantics do not
      *      depend on any particular deployment, and a contract that does not know its own store has no
      *      business being deployable. `CleartextArithmetic` answers `cleartextDbAdd`;
-     *      `FhevmCleartextEventProcessor` answers a store it created itself.
+     *      `ForgeFhevmEventProcessor` answers a store it created itself.
      */
     function getCleartextDBAddress() public view virtual returns (address);
 
@@ -87,7 +88,7 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
     // record* entry points (see ICleartextArithmetic) — compute + persist
     //
     // `public`, not `external`, so a contract that inherits this one can drive them directly instead
-    // of paying for an `this.record*(...)` call back into itself. `FhevmCleartextEventProcessor` does
+    // of paying for an `this.record*(...)` call back into itself. `ForgeFhevmEventProcessor` does
     // exactly that: it decodes an executor event and forwards it to the matching entry point.
     // -----------------------------------------------------------------------
 

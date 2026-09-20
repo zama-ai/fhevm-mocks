@@ -11,13 +11,21 @@ optimizer = true
 optimizer_runs = 800
 via_ir = false
 bytecode_hash = "none"
+# The operator vector tests (test/ops) read their tfhe-rs-verified cases from the repository's shared
+# `operators-data/data`, kept once at the root so every package tests against the same vectors.
+fs_permissions = [{ access = "read", path = "../../operators-data/data" }]
 
 [profile.ci]
 deny = "warnings"
 
 [lint]
-ignore = ["pkg/src/_host/**/*.sol", "test/**/contracts/**/*.sol"]
+# test/ops/fixtures is GENERATED upstream (gen-op-dapp.py): one wrapper per FHE.sol overload, named
+# `<op>_e<L>_e<R>` so the vector tests can compute the name from operand widths — snake_case by design.
+ignore = ["pkg/src/_host/**/*.sol", "test/**/contracts/**/*.sol", "test/ops/fixtures/**/*.sol"]
 exclude_lints = ["unsafe-cheatcode"]
 
 [dependencies]
 forge-std = "1.11.0"
+
+[rpc_endpoints]
+sepolia = "https://ethereum-sepolia-rpc.publicnode.com"

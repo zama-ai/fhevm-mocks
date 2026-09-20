@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {FHEVMExecutor} from "../contracts/FHEVMExecutor.sol";
 import {FheType} from "./shared/LibFheType.sol";
 import {ICleartextArithmetic} from "./shared/interfaces/ICleartextArithmetic.sol";
-import {Operators as CleartextOperators} from "./shared/FhevmOperators.sol";
+import {Operators as CleartextOperators} from "./shared/FhevmOperatorsEnum.sol";
 import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
