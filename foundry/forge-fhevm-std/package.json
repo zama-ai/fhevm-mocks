@@ -1,7 +1,7 @@
 {
-  "name": "@fhevm/forge-fhevm-std-dev",
+  "name": "@fhevm/forge-std-dev",
   "version": "0.0.0",
-  "description": "Dev package for forge-fhevm-std. Never published. The published package is ./pkg.",
+  "description": "Dev package for @fhevm/forge-std. Never published. The published package is ./pkg.",
   "private": true,
   "type": "module",
   "engines": {
@@ -33,10 +33,10 @@
     "prettier:check": "prettier --check \"**/*.{js,json,md,mjs,ts,yml}\"",
     "prettier:write": "prettier --write \"**/*.{js,json,md,mjs,ts,yml}\"",
     "test": "npm run test:forge",
-    "test:fork": "forge test --threads 2 --match-path 'test/fork/*'",
-    "test:fork-url": "node internal/cli/testForkUrl.ts",
     "test:anvil": "sh -c 'anvil --silent --port 8546 & P=$!; sleep 1; ANVIL_RPC_URL=http://127.0.0.1:8546 forge test --match-path \"test/anvil/*\"; S=$?; kill $P; exit $S'",
-    "test:forge": "forge test"
+    "test:forge": "forge test",
+    "test:fork": "forge test --threads 2 --match-path 'test/fork/*'",
+    "test:fork-url": "node internal/cli/testForkUrl.ts"
   },
   "devDependencies": {
     "@fhevm/solidity": "0.13.3",

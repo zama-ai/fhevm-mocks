@@ -114,7 +114,7 @@ run-fhevm-npm = $(FHEVM_NPM_CLI) $(FHEVM_NPM_ARGS) $(1)
 # Aggregates
 ########################################################################################################
 
-.PHONY: help graph build compile rebuild ci build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli
+.PHONY: help graph build compile rebuild ci ci-fast build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -147,6 +147,8 @@ build: ## fmt-check, then lint, then compile — everything, gated
 lint: lint-shared lint-cleartext lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
 
 test: test-cleartext-v-prev test-cleartext-v-cur test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## Run package tests only; this is not the full validation workflow (use: 'make ci' instead)
+
+test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
 
 check: check-npm-cli ## Run pre-build checks, build, then post-build checks
 
@@ -331,6 +333,23 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 	$(MAKE) build-ci
 	$(MAKE) test
 	$(MAKE) test-consumer-ci
+
+# The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
+# rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
+#   - `clean` and the spotless-worktree guard — you have uncommitted work, that is the point;
+#   - `check-generated` — it deletes and regenerates every generated file (a full `generate`, forge
+#     included) and needs a spotless tree to judge the result;
+#   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e`, `test:upgrade`'s second half) —
+#     ~4 minutes each of `forge script` recompiles, replaced by `test:upgrade:fast` (see that target);
+#   - `test-consumer-ci` — installs every registered consumer from scratch.
+# What stays catches everything the dropped gates have caught so far, in a few minutes instead of many.
+# Run `ci` before you push.
+ci-fast: ## Every ci gate that reads the tree as it is: checks, build, check-post, fast tests — no clean, no create2, no consumers
+	$(MAKE) check-pre
+	$(MAKE) check-vendored-origin
+	$(MAKE) build
+	$(MAKE) check-post
+	$(MAKE) test-fast
 
 # Two sub-makes rather than `rebuild: clean build`: prerequisites of one target may run in any order
 # under `-j`, which would race the clean against the build.
@@ -616,7 +635,7 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 # silently rebuilds hides what it costs. `make ci` is the one-liner that orders the whole thing.
 ########################################################################################################
 
-.PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-upgrade test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
+.PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
 .PHONY: test-hh-v2-e2e test-hh-v2-e2e-anvil test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
 
 # `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
@@ -631,8 +650,21 @@ test-cleartext-v-cur: compile-cleartext-v-cur ## Current cleartext generation, V
 	$(call run,$(W_CLEARTEXT_V_CUR),test)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
 
+# V(N-1)'s `test` is already the fast shape (no create2 e2e: a retired generation deploys nothing new).
+test-cleartext-v-cur-fast: compile-cleartext-v-cur ## Current cleartext generation, V(N): unit + forge + harness, then the upgrade's fast lane
+	$(call run,$(W_CLEARTEXT_V_CUR),test:fast)
+	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
+
 test-cleartext-upgrade: compile-cleartext-v-cur ## V(N) only: the upgrade from V(N-1), on its own
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
+
+# The same upgrade, minus the create2 coordinator: the full lane spends ~4 of its 5 minutes recompiling
+# inside `forge script` (placeholder patching defeats the cache, by design). What is left here — the
+# init-data tables, the deploy order across every notation, the bytecode/reinitializer table, and the
+# library upgrade on a fresh anvil — is where every upgrade failure so far has actually surfaced, in
+# well under a minute. Local iteration runs this; CI and the final check before a bump run the full lane.
+test-cleartext-upgrade-fast: compile-cleartext-v-cur ## V(N) only: the upgrade's fast lane (no create2 coordinator, <1 min)
+	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
 
 test-hh-v2-plugin: compile-hh-v2-plugin ## Hardhat v2 plugin tests
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),test)

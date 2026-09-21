@@ -330,7 +330,19 @@ Verify
 npm run lint
 npm run test                 # includes the forge-vs-template equivalence test
 ./scripts/anvil.sh           # deploys, then checks the stack matches ZamaConfig.sol
+npm run test:upgrade:fast    # the v(N-1) → v(N) upgrade, fast lane: < 1 min, see below
+npm run test:upgrade         # the same through the create2 coordinator: ~5 min, the final word
 ```
+
+THE UPGRADE HAS TWO LANES. `test:upgrade` deploys v(N-1) with its own create2 coordinator and upgrades it
+with this generation's, rehearsal on a fork included; it spends most of its five minutes recompiling
+inside `forge script`, because placeholder patching defeats forge's cache by design. `test:upgrade:fast`
+keeps everything that has actually caught an upgrade regression and drops the coordinator: the
+`Create2UpgradeOrdinals` forge test (the init-data table), `stack-order.test.ts` (the deploy order across
+every notation), `list:upgrade-ops` (the bytecode/reinitializer table — add `--strict` to fail on a ⚠),
+and the library upgrade e2e on a fresh anvil (`updateV12ToV13`, versions, ownership, cleartext survival).
+Iterate on the fast lane; run the full one before committing a bump. `make test-cleartext-upgrade-fast`
+and `make test-cleartext-upgrade` are the workspace-level names.
 
 The rule 6 gate — vendored sources byte-identical to the declared commit:
 
