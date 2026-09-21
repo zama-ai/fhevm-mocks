@@ -72,6 +72,54 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         clear = address(uint160(fhevm.plaintextOf(eaddress.unwrap(value))));
     }
 
+    // -- Has plaintext? ------------------------------------------------------------
+
+    /**
+     * @notice Whether the stack under test knows what `value` is worth — the question to ask BEFORE
+     *         `plaintextOf`, which refuses by name when the answer is no.
+     *
+     * @dev TWO QUESTIONS, NOT ONE. "Is this value initialized" is a property of the handle — the zero word
+     *      is what an encrypted value reads as before anything wrote to it — and the FHE library's
+     *      `FHE.isInitialized` answers it with no stack involved. THIS answers the stack's question: was the
+     *      value computed here, replayed here, or stated here (`forkUnknown`). It is false for the zero
+     *      word too, so it is the one predicate a fuzz handler needs, but a test that MEANS "never
+     *      credited" says `assertFalse(FHE.isInitialized(x))`, which is what a dApp can check on chain.
+     *
+     * @dev Never reverts, and never invents a value: there is deliberately no `plaintextOfOrZero`. Reading
+     *      zero for a value the stack does not hold is how a test passes on the mock and fails on chain.
+     */
+    function hasPlaintext(ebool value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(ebool.unwrap(value));
+    }
+
+    function hasPlaintext(euint8 value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(euint8.unwrap(value));
+    }
+
+    function hasPlaintext(euint16 value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(euint16.unwrap(value));
+    }
+
+    function hasPlaintext(euint32 value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(euint32.unwrap(value));
+    }
+
+    function hasPlaintext(euint64 value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(euint64.unwrap(value));
+    }
+
+    function hasPlaintext(euint128 value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(euint128.unwrap(value));
+    }
+
+    function hasPlaintext(euint256 value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(euint256.unwrap(value));
+    }
+
+    function hasPlaintext(eaddress value) internal unmetered returns (bool) {
+        return fhevm.hasPlaintext(eaddress.unwrap(value));
+    }
+
     /**
      * @notice On a FORK, state what an encrypted value is worth, because nothing can know it.
      *

@@ -14,9 +14,6 @@ import {IPlaintexts} from "./IPlaintexts.sol";
  *      which keeps the arithmetic + storage bytecode out of the executor (EIP-170 headroom).
  */
 interface ICleartextArithmetic is IPlaintexts {
-    /// @notice Whether the store holds a cleartext for `handle`, telling zero apart from absent.
-    function hasPlaintext(bytes32 handle) external view returns (bool);
-
     /// @notice Records `fheCast(ct)` into `result`.
     function recordCast(bytes32 result, bytes32 ct, FheType toType) external;
 

@@ -25,6 +25,10 @@ library LibFhevmHandle {
      * @param blockChainId The current `block.chainid`.
      */
     error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
+    /// @notice The zero word is not a handle: it is what an encrypted value reads as before anything was
+    ///         ever written to it — `FHE.isInitialized` is false, and no ciphertext, no cleartext and no
+    ///         ACL entry exist for it. Reading it is a mistake in the caller, named as such.
+    error CleartextErrorHandleUninitialized(bytes32 handle);
 
     /// @notice The FHE type `handle` was minted for.
     /// @dev Byte 30 of the layout.
@@ -65,6 +69,11 @@ library LibFhevmHandle {
      *      chain's database that is either empty or some unrelated handle's value.
      */
     function checkChainId(bytes32 handle) internal view {
+        // FIRST, before any field is read out of it: the zero word carries chain id 0, so without this it
+        // would fail below as a "chain mismatch" — a message that sends the reader to forks when the
+        // real story is an uninitialized value, typically a confidential balance nothing ever credited.
+        // Uninitialized-ness is what `FHE.isInitialized` reports, and the fix is to check that first.
+        if (handle == bytes32(0)) revert CleartextErrorHandleUninitialized(handle);
         uint64 handleChainId = chainIdOf(handle);
         if (handleChainId != uint64(block.chainid)) {
             revert CleartextErrorHandleChainIdMismatch(handle, handleChainId, uint64(block.chainid));

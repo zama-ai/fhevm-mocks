@@ -11,6 +11,7 @@ interface ICleartextArithmetic {
 
     error AddressEmptyCode(address target);
     error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
+    error CleartextErrorHandleUninitialized(bytes32 handle);
     error CleartextErrorNotABoolean(uint256 value);
     error CleartextErrorPlaintextTooWide(uint256 value, FheType fheType);
     error CleartextErrorUnsupportedBinaryOp(Operators op);

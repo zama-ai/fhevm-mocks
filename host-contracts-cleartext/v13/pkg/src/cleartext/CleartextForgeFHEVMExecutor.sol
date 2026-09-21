@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {FHEVMExecutor} from "../contracts/FHEVMExecutor.sol";
 import {FheType} from "./shared/LibFheType.sol";
 import {ICleartextArithmetic} from "./shared/interfaces/ICleartextArithmetic.sol";
+import {IPlaintexts} from "./shared/interfaces/IPlaintexts.sol";
 import {Operators as CleartextOperators} from "./shared/FhevmOperatorsEnum.sol";
 import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
 import {VmSafe} from "forge-std/Vm.sol";
@@ -13,7 +14,7 @@ import {VmSafe} from "forge-std/Vm.sol";
 ///      to the external `CleartextArithmetic` contract, which computes the result and persists it in
 ///      `CleartextDB`. The executor never touches the DB — keeping the arithmetic + storage bytecode
 ///      out of this contract preserves EIP-170 headroom and lets multiple executors share one DB.
-contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
+contract CleartextForgeFHEVMExecutor is FHEVMExecutor, IPlaintexts {
     VmSafe private constant vmSafe = VmSafe(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     /// @notice Marks the Forge-only variant, mirroring forge-std's `IS_TEST`. A constant rather than a
@@ -29,6 +30,12 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
     //mapping(bytes32 => uint256) public plaintexts;
     function plaintexts(bytes32 result) public view returns (uint256) {
         return _cleartext().plaintexts(result);
+    }
+
+    /// @dev Lets a reader tell a handle worth zero from one this stack never minted — the same `IPlaintexts`
+    ///      face as `CleartextFHEVMExecutor`, so whatever reads plaintexts through the executor can ask.
+    function hasPlaintext(bytes32 result) public view returns (bool) {
+        return _cleartext().hasPlaintext(result);
     }
 
     function cast(bytes32 ct, FheType toType) public override returns (bytes32 result) {

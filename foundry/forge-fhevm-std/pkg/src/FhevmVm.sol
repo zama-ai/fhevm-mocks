@@ -134,7 +134,7 @@ struct FhevmStack {
  *      | `hasRpcUrlFor(alias)`                       | did the run configure a URL for this alias (`foundry.toml` or `<ALIAS>_RPC_URL`)? — the opt-in a fork test checks |
  *      | `eventProcessor()`                          | the ACTIVE context's replay (one per context, created when a stack is pointed there) |
  *      | `ensureForkPrepared(dApp)`, `drainFheEvents()`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `disableHCUDepthLimit()`, `disableHCULimits()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
- *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
+ *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `hasPlaintext(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
  */
 interface IFhevmVm {
     // Setup failures — fork drift, an unsupported protocol version, a fork registered while inactive, an
@@ -473,6 +473,11 @@ interface IFhevmVm {
     /// @notice What `handle` is worth, read from whatever holds cleartexts for the current stack — the
     ///         cleartext executor locally, the context's replay on a fork — after draining what is pending.
     function plaintextOf(bytes32 handle) external returns (uint256 clear);
+
+    /// @notice Whether the current stack holds a cleartext for `handle` — the predicate to `plaintextOf`,
+    ///         after the same draining. Never reverts: false for the zero word, a foreign-chain handle
+    ///         and a handle this stack never computed or was told about.
+    function hasPlaintext(bytes32 handle) external returns (bool);
 
     // - Sign ------------------------------------------------------------------
 
@@ -1152,6 +1157,10 @@ contract FhevmVm is IFhevmVm {
 
     function plaintextOf(bytes32 handle) external returns (uint256 clear) {
         return IPlaintexts(_resolveForReading(address(0)).plaintexts).plaintexts(handle);
+    }
+
+    function hasPlaintext(bytes32 handle) external returns (bool) {
+        return IPlaintexts(_resolveForReading(address(0)).plaintexts).hasPlaintext(handle);
     }
 
     // - Sign ------------------------------------------------------------------

@@ -451,6 +451,17 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorHandleUninitialized",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorNotABoolean",
     "inputs": [
       {
