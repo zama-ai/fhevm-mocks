@@ -17,7 +17,7 @@ import {
   precomputeAddresses as precomputeV12,
   type BootstrapConfig as BootstrapConfigV12,
 } from '@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts';
-import { updateV12ToV13 } from '../../../pkg/ts/index.ts';
+import { CONTRACT_VERSIONS, updateV12ToV13 } from '../../../pkg/ts/index.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -561,8 +561,10 @@ test('e2e: deploy a v12 cleartext stack, then upgrade it to v13 — cleartext su
       const impl = await publicClient.getStorageAt({ address: proxy as Address, slot: IMPL_SLOT });
       expect(BigInt(impl ?? '0x0')).not.toBe(0n);
     }
-    // Every re-pointed proxy now reports its v13 version; the two new proxies report their initial
-    // version; InputVerifier is intentionally left at v0.2.0 (its v13 bytecode is unchanged).
+    // Every re-pointed proxy now reports the version THIS package ships, read from the generated
+    // `CONTRACT_VERSIONS` rather than restated here — a patch bump upstream (0.13.6 moved FHEVMExecutor to
+    // v0.5.0) then changes the expectation and the contracts together. The two new proxies report their
+    // initial version; InputVerifier is intentionally left at v0.2.0 (its v13 bytecode is unchanged).
     expect({
       acl: await version(v12.fhevmAddresses.aclAddress),
       fhevmExecutor: await version(v12.fhevmAddresses.fhevmExecutorAddress),
@@ -573,14 +575,14 @@ test('e2e: deploy a v12 cleartext stack, then upgrade it to v13 — cleartext su
       protocolConfig: await version(migrated.protocolConfigAddress),
       kmsGeneration: await version(migrated.kmsGenerationAddress),
     }).toEqual({
-      acl: 'ACL v0.4.0',
-      fhevmExecutor: 'FHEVMExecutor v0.4.0',
-      kmsVerifier: 'KMSVerifier v0.3.0',
-      inputVerifier: 'InputVerifier v0.2.0',
-      hcuLimit: 'HCULimit v0.3.0',
-      cleartextArithmetic: 'CleartextArithmetic v0.4.0',
-      protocolConfig: 'ProtocolConfig v0.1.0',
-      kmsGeneration: 'KMSGeneration v0.1.0',
+      acl: CONTRACT_VERSIONS.acl,
+      fhevmExecutor: CONTRACT_VERSIONS.fhevmExecutor,
+      kmsVerifier: CONTRACT_VERSIONS.kmsVerifier,
+      inputVerifier: CONTRACT_VERSIONS.inputVerifier,
+      hcuLimit: CONTRACT_VERSIONS.hcuLimit,
+      cleartextArithmetic: CONTRACT_VERSIONS.cleartextArithmetic,
+      protocolConfig: CONTRACT_VERSIONS.protocolConfig,
+      kmsGeneration: CONTRACT_VERSIONS.kmsGeneration,
     });
 
     // The ACL still advertises itself as cleartext after the migration, and now reports v13. A consumer
