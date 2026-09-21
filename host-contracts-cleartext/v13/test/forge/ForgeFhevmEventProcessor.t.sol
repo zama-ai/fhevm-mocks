@@ -530,11 +530,11 @@ contract ForgeFhevmEventProcessorTest is Test, ForgeFhevmDeploy {
     /// And it becomes usable the moment one is added — the first added is the selected one.
     function test_anExecutorCanBeAddedAfterConstruction() public {
         ForgeFhevmEventProcessor empty = new ForgeFhevmEventProcessor();
-        address executor = address(new OtherChainExecutor());
+        address executorAddr = address(new OtherChainExecutor());
 
-        empty.addExecutor(executor);
+        empty.addExecutor(executorAddr);
 
-        assertEq(empty.selectedExecutor(), executor);
+        assertEq(empty.selectedExecutor(), executorAddr);
         assertTrue(address(empty.db()) != address(0), "a store of its own");
     }
 }

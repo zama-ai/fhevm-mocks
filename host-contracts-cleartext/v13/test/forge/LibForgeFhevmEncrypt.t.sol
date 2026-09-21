@@ -85,7 +85,7 @@ contract LibForgeFhevmEncryptTest is Test, ForgeFhevmDeploy {
 
     /// The blob carries a random nonce per value, so the same input twice must not collide. Reusing a
     /// handle would silently alias two distinct inputs in the DB.
-    function test_theSameValueTwiceYieldsDifferentHandles() public {
+    function test_theSameValueTwiceYieldsDifferentHandles() public view {
         (uint8[] memory typeIds, uint256[] memory values) = _one(uint8(FheType.Uint32), 4242);
         (bytes32[] memory first,) = LibForgeFhevmEncrypt.encrypt(typeIds, values, address(this), alice);
         (bytes32[] memory second,) = LibForgeFhevmEncrypt.encrypt(typeIds, values, address(this), alice);
@@ -247,7 +247,7 @@ contract LibForgeFhevmEncryptTest is Test, ForgeFhevmDeploy {
         }
     }
 
-    function _proof() private returns (bytes32 handle, bytes memory proof) {
+    function _proof() private view returns (bytes32 handle, bytes memory proof) {
         (uint8[] memory typeIds, uint256[] memory values) = _one(uint8(FheType.Uint32), 4242);
         bytes32[] memory handles;
         (handles, proof) = LibForgeFhevmEncrypt.encrypt(typeIds, values, address(this), alice);
@@ -291,11 +291,11 @@ contract LibForgeFhevmEncryptTest is Test, ForgeFhevmDeploy {
         ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).verifyInput(handle, user, proof, fheType);
     }
 
-    function callEncrypt(uint8[] calldata typeIds, uint256[] calldata values) external {
+    function callEncrypt(uint8[] calldata typeIds, uint256[] calldata values) external view {
         LibForgeFhevmEncrypt.encrypt(typeIds, values, address(this), alice);
     }
 
-    function callEncryptPairs(bytes calldata pairs) external {
+    function callEncryptPairs(bytes calldata pairs) external view {
         LibForgeFhevmEncrypt.encrypt(pairs, address(this), alice);
     }
 

@@ -156,7 +156,7 @@ contract LibForgeFhevmPublicDecryptTest is Test, ForgeFhevmDeploy {
     // Helpers. The `call*` ones are external so `vm.expectRevert` sees a call boundary.
     // ---------------------------------------------------------------------------------------------
 
-    function callDecryptPublic(bytes32[] calldata handles) external {
+    function callDecryptPublic(bytes32[] calldata handles) external view {
         LibForgeFhevmPublicDecrypt.decryptPublicWithProof(handles);
     }
 
