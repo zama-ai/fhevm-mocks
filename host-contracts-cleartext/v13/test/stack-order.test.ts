@@ -124,12 +124,7 @@ const LAYERS: ReadonlyArray<{ readonly label: string; readonly order: () => stri
     label: 'pkg/forge/src/ForgeFhevmDeploy.sol',
     order: () =>
       matchAll(
-        section(
-          read('pkg/forge/src/ForgeFhevmDeploy.sol'),
-          'implementations[0] =',
-          '\n    }',
-          'ForgeFhevmDeploy.sol',
-        ),
+        section(read('pkg/forge/src/ForgeFhevmDeploy.sol'), 'implementations[0] =', '\n    }', 'ForgeFhevmDeploy.sol'),
         /_create\(([A-Z0-9_]+)_CREATION_CODE/g,
         'pkg/forge/src/ForgeFhevmDeploy.sol',
       ),
