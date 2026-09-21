@@ -20,7 +20,7 @@ contract DecryptByLabelTest is TestFhevm {
     }
 
     function _store(uint32 v) private {
-        EncryptedInput memory e = encryptValues(asUint32(v), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint32(v), address(vault), alice);
         vm.prank(alice);
         vault.setEUint32(e.externalEuint32At(0), e.inputProof(), alice);
     }

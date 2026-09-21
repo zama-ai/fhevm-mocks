@@ -35,12 +35,12 @@ contract EncryptRawPairsTest is Test, StdFhevm {
         assertEq(decryptPublic(vault.eUint64()), 1234567890123);
     }
 
-    /// The raw form and the typed form describe the same thing — `asUint32(7)` IS `(Uint32, 7)`.
+    /// The raw form and the typed form describe the same thing — `tvUint32(7)` IS `(Uint32, 7)`.
     function test_rawPairsDescribeTheSameHandlesAsTheTypedForm() public {
         EncryptedInput memory raw = encryptValues(
             abi.encode(uint8(FheType.Uint32), uint256(7), uint8(FheType.Uint64), uint256(9)), address(vault), alice
         );
-        EncryptedInput memory typed = encryptValues(asUint32(7), asUint64(9), address(vault), alice);
+        EncryptedInput memory typed = encryptValues(tvUint32(7), tvUint64(9), address(vault), alice);
 
         assertEq(raw.length(), typed.length());
         assertEq(raw.typeNameAt(0), typed.typeNameAt(0));

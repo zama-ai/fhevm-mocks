@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {euint8, euint32} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm, EncryptedInput, Plaintexts} from "../../pkg/src/TestFhevm.sol";
+import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
 import {LibPlaintexts} from "../../pkg/src/LibPlaintexts.sol";
 
 import {UserVault} from "./UserVault.sol";
@@ -21,7 +22,7 @@ contract PlaintextsApiTest is TestFhevm {
         (alice, aliceKey) = makeAddrAndKey("alice");
 
         EncryptedInput memory e =
-            encryptValues(asBool(true), asUint8(255), asUint16(65_535), asUint32(70_000), address(vault), alice);
+            encryptValues(tvBool(true), tvUint8(255), tvUint16(65_535), tvUint32(70_000), address(vault), alice);
         vm.startPrank(alice);
         vault.setEBool(e.externalEboolAt(0), e.inputProof(), alice);
         vault.setEUint8(e.externalEuint8At(1), e.inputProof(), alice);
@@ -30,7 +31,7 @@ contract PlaintextsApiTest is TestFhevm {
         vm.stopPrank();
 
         EncryptedInput memory w = encryptValues(
-            asUint64(1 << 40), asUint128(1e30), asUint256(type(uint256).max), asAddress(alice), address(vault), alice
+            tvUint64(1 << 40), tvUint128(1e30), tvUint256(type(uint256).max), tvAddress(alice), address(vault), alice
         );
         vm.startPrank(alice);
         vault.setEUint64(w.externalEuint64At(0), w.inputProof(), alice);
@@ -102,7 +103,9 @@ contract PlaintextsApiTest is TestFhevm {
     function test_theWrongAccessorReverts() public {
         Plaintexts memory d = _all();
 
-        vm.expectRevert(abi.encodeWithSelector(LibPlaintexts.TypeMismatch.selector, 3, "euint8", "euint32"));
+        vm.expectRevert(
+            abi.encodeWithSelector(LibPlaintexts.TypeMismatch.selector, 3, uint8(FheType.Uint8), uint8(FheType.Uint32))
+        );
         this.readAsUint8(d, 3);
     }
 
@@ -170,7 +173,9 @@ contract PlaintextsApiTest is TestFhevm {
         Plaintexts memory d = _all();
         euint8 lying = euint8.wrap(euint32.unwrap(vault.eUint32()));
 
-        vm.expectRevert(abi.encodeWithSelector(LibPlaintexts.TypeMismatch.selector, 3, "euint8", "euint32"));
+        vm.expectRevert(
+            abi.encodeWithSelector(LibPlaintexts.TypeMismatch.selector, 3, uint8(FheType.Uint8), uint8(FheType.Uint32))
+        );
         this.readAsUint8ByHandle(d, lying);
     }
 

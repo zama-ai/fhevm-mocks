@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
+import {VmSafe} from "forge-std/Vm.sol";
+
 import {StdFhevmVersion} from "./StdFhevmVersion.sol";
 
 /**
@@ -19,6 +21,9 @@ import {StdFhevmVersion} from "./StdFhevmVersion.sol";
  *      ASCII only: solc refuses non-ASCII in plain string literals, and terminals disagree on box-drawing.
  */
 library LibFhevmFail {
+    // forge-lint: disable-next-line(screaming-snake-case-const)
+    VmSafe private constant vm = VmSafe(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     // -- The renderer -----------------------------------------------------------------------------------
 
     string private constant RULE = "+==============================================================================";
@@ -70,7 +75,13 @@ library LibFhevmFail {
     function ambiguousGroup(uint256 chainId, string[] memory groups) internal pure returns (string memory) {
         string[] memory what = new string[](3);
         what[0] = string.concat(
-            "Chain ", _uint(chainId), " carries ", _uint(groups.length), " FHEVM stacks: ", _join(groups), "."
+            "Chain ",
+            vm.toString(chainId),
+            " carries ",
+            vm.toString(groups.length),
+            " FHEVM stacks: ",
+            _join(groups),
+            "."
         );
         what[1] = "The fork was entered with a URL only, and the first SDK call named no dApp,";
         what[2] = "so nothing says which stack this test is on.";
@@ -86,7 +97,8 @@ library LibFhevmFail {
     /// @notice The chain is not in the chain table and no dApp was named.
     function unknownChain(uint256 chainId) internal pure returns (string memory) {
         string[] memory what = new string[](2);
-        what[0] = string.concat("Chain ", _uint(chainId), " is not in the FHEVM chain table, and no dApp was named.");
+        what[0] =
+            string.concat("Chain ", vm.toString(chainId), " is not in the FHEVM chain table, and no dApp was named.");
         what[1] = "The SDK has no addresses to prepare this fork with.";
         string[] memory fix = new string[](3);
         fix[0] =
@@ -138,7 +150,7 @@ library LibFhevmFail {
         what[0] = string.concat("The FhevmChain for ", fhevmGroup, "/", chainAlias, " has an empty rpcUrl.");
         what[1] = "getFhevmChain(...) always fills one in; a struct built by hand may not.";
         string[] memory fix = new string[](3);
-        fix[0] = string.concat("set  ", _upper(chainAlias), "_RPC_URL=https://...  in the environment, or");
+        fix[0] = string.concat("set  ", vm.toUppercase(chainAlias), "_RPC_URL=https://...  in the environment, or");
         fix[1] = string.concat("add  [rpc_endpoints] ", chainAlias, " = \"https://...\"  to foundry.toml, or");
         fix[2] = "pass a chain from getFhevmChain(group, alias) rather than a hand-built one";
         return render("NO RPC URL", what, fix);
@@ -148,7 +160,7 @@ library LibFhevmFail {
     function notAFork(address executor) internal pure returns (string memory) {
         string[] memory what = new string[](3);
         what[0] = string.concat(
-            "forkUnknown / forkUnknownDefault was called against the cleartext executor ", _addr(executor), "."
+            "forkUnknown / forkUnknownDefault was called against the cleartext executor ", vm.toString(executor), "."
         );
         what[1] = "On a cleartext stack every value is known; there is nothing to state,";
         what[2] = "and stating one would hide a test that is confused about which stack it is on.";
@@ -166,10 +178,14 @@ library LibFhevmFail {
     {
         string[] memory what = new string[](3);
         what[0] = string.concat(
-            "The local cleartext stack deploys from ", _addr(deployer), " at nonce ", _uint(expectedNonce), ","
+            "The local cleartext stack deploys from ",
+            vm.toString(deployer),
+            " at nonce ",
+            vm.toString(expectedNonce),
+            ","
         );
         what[1] = string.concat(
-            "because every address is derived from that sequence; its nonce here is ", _uint(actualNonce), "."
+            "because every address is derived from that sequence; its nonce here is ", vm.toString(actualNonce), "."
         );
         what[2] = "This EVM already used that account: a reused anvil, or a chain with history.";
         string[] memory fix = new string[](3);
@@ -187,7 +203,7 @@ library LibFhevmFail {
     {
         string[] memory what = new string[](3);
         what[0] = string.concat(
-            "No FHEVM stack at ", fhevmGroup, "/", chainAlias, ": the executor ", _addr(executor), " has no code."
+            "No FHEVM stack at ", fhevmGroup, "/", chainAlias, ": the executor ", vm.toString(executor), " has no code."
         );
         what[1] = "On an anvil node the SDK deploys the cleartext stack itself; this node did not answer";
         what[2] = "anvil_nodeInfo, so it is not anvil, and the SDK cannot put a stack on a chain it does not own.";
@@ -203,7 +219,7 @@ library LibFhevmFail {
     function anvilMirrorFailed(address acl) internal pure returns (string memory) {
         string[] memory what = new string[](3);
         what[0] = string.concat(
-            "The cleartext stack was deployed into the fork, but the node still has no code at ", _addr(acl), "."
+            "The cleartext stack was deployed into the fork, but the node still has no code at ", vm.toString(acl), "."
         );
         what[1] = "The SDK writes the stack onto an anvil node with anvil_setCode / anvil_setStorageAt /";
         what[2] = "anvil_setNonce; one of them was refused, or the node is not anvil after all.";
@@ -212,6 +228,42 @@ library LibFhevmFail {
         fix[1] = "or keep the stack in the fork only:  fhevm.setAnvilMirror(false)  before forking,";
         fix[2] = "or deploy onto the node yourself:  host-contracts-cleartext/v13/scripts/anvil.sh";
         return render("ANVIL MIRROR FAILED", what, fix);
+    }
+
+    /// @notice `fhevm.revertToState` was given a snapshot `fhevm.snapshotState` did not take.
+    function unknownSnapshot(uint256 snapshotId) internal pure returns (string memory) {
+        string[] memory what = new string[](3);
+        what[0] = string.concat("Snapshot ", vm.toString(snapshotId), " was not taken by fhevm.snapshotState().");
+        what[1] = "Reverting a snapshot moves the test between execution contexts, and the SDK has to know";
+        what[2] = "which one it lands in: forge's own fork pointer goes stale across such a revert.";
+        string[] memory fix = new string[](2);
+        fix[0] = "take it with  uint256 id = fhevm.snapshotState();  and revert with  fhevm.revertToState(id)";
+        fix[1] = "(vm.snapshotState() / vm.revertToState() are the raw pair, and leave the SDK guessing)";
+        return render("UNKNOWN SNAPSHOT", what, fix);
+    }
+
+    /**
+     * @notice A revert would have taken the test back across the start of a fork, to the in-memory chain.
+     *         Forge cannot restore that, so the SDK stops before the revert rather than after it.
+     * @dev    Measured against raw forge, with none of this SDK involved: a revert to a pre-fork snapshot
+     *         restores only the storage SLOTS the test happened to read before taking it. Everything
+     *         else -- a contract deployed in a constructor, an implementation behind a proxy, a signer
+     *         set nobody read -- comes back EMPTY, while `vm.activeFork()` still names the old fork and
+     *         any fork created afterwards holds none of its chain's state. There is nothing to reconcile:
+     *         the chain that comes back is not the one that was captured.
+     */
+    function cannotRevertPastFork(uint256 snapshotId) internal pure returns (string memory) {
+        string[] memory what = new string[](4);
+        what[0] =
+            string.concat("Snapshot ", vm.toString(snapshotId), " was taken before this test forked, so reverting to");
+        what[1] = "it would mean going back to the in-memory chain. Forge does not restore that: the local";
+        what[2] = "stack would come back missing most of itself, and the tests that followed would run";
+        what[3] = "against a chain that only looks right.";
+        string[] memory fix = new string[](3);
+        fix[0] = "put the in-memory work and the fork work in SEPARATE tests -- each starts fresh,";
+        fix[1] = "and the local stack is there again at the top of the next one;";
+        fix[2] = "snapshots taken ON a fork are restored correctly, including from another fork";
+        return render("CANNOT REVERT PAST A FORK", what, fix);
     }
 
     /// @notice A stack was asked for and none is current.
@@ -227,6 +279,18 @@ library LibFhevmFail {
         return render("NO CURRENT STACK", what, fix);
     }
 
+    /// @notice A decryption was asked of a stack that holds no cleartexts and has no replay yet.
+    function noPlaintextsSource(address executor) internal pure returns (string memory) {
+        string[] memory what = new string[](3);
+        what[0] = string.concat("The executor ", vm.toString(executor), " is not a cleartext one, so it holds no");
+        what[1] = "cleartexts, and this context has no replay to rebuild them from: nothing can say what a";
+        what[2] = "handle is worth here.";
+        string[] memory fix = new string[](2);
+        fix[0] = "point at the stack through fhevm:  fhevm.createSelectFork(getFhevmChain(group, alias), block)";
+        fix[1] = "or  fhevm.useStack(chain)  for the active context";
+        return render("NO PLAINTEXT SOURCE", what, fix);
+    }
+
     /// @notice Nothing is etched at the `fhevm` address.
     function handleMissing() internal pure returns (string memory) {
         string[] memory what = new string[](2);
@@ -238,47 +302,14 @@ library LibFhevmFail {
         return render("FHEVM HANDLE MISSING", what, fix);
     }
 
-    // -- Formatting helpers (no forge cheat here: this must render from any context, `pure`) ---------------
+    // -- Formatting, through forge's own cheats ------------------------------------------------------------
+    //
+    // `toString` and `toUppercase` are `pure` in forge-std's declarations, so a `pure` renderer may call
+    // them: no hand-rolled digit loops, and an address comes out checksummed, the way every other tool
+    // prints it.
 
     function _forkId(uint256 id) private pure returns (string memory) {
-        return id == type(uint256).max ? "NO_FORK" : _uint(id);
-    }
-
-    function _uint(uint256 v) private pure returns (string memory) {
-        if (v == 0) return "0";
-        uint256 n = v;
-        uint256 len;
-        while (n != 0) {
-            len++;
-            n /= 10;
-        }
-        bytes memory b = new bytes(len);
-        while (v != 0) {
-            b[--len] = bytes1(uint8(48 + (v % 10)));
-            v /= 10;
-        }
-        return string(b);
-    }
-
-    function _addr(address a) private pure returns (string memory) {
-        bytes16 hexChars = "0123456789abcdef";
-        bytes memory b = new bytes(42);
-        b[0] = "0";
-        b[1] = "x";
-        uint160 v = uint160(a);
-        for (uint256 i = 41; i > 1; i--) {
-            b[i] = hexChars[v & 0xf];
-            v >>= 4;
-        }
-        return string(b);
-    }
-
-    function _upper(string memory str) private pure returns (string memory) {
-        bytes memory b = bytes(str);
-        for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] >= 0x61 && b[i] <= 0x7A) b[i] = bytes1(uint8(b[i]) - 32);
-        }
-        return string(b);
+        return id == type(uint256).max ? "NO_FORK" : vm.toString(id);
     }
 
     function _join(string[] memory parts) private pure returns (string memory out) {

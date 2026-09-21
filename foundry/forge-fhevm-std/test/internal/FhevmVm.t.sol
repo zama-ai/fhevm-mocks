@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
 import {FHEVM_VM_ADDRESS, fhevm} from "../../pkg/src/FhevmVm.sol";
-import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
 
@@ -77,7 +76,7 @@ contract FhevmVmTest is TestFhevm {
         fhevm.setForceProductionPath(false);
         assertTrue(fhevm.useCleartextVerifier(), "and back");
 
-        LibFhevmProtocol.setProtocol(makeAddr("acl"), makeAddr("production-executor"), makeAddr("kms"));
+        fhevm.setProtocol(makeAddr("acl"), makeAddr("production-executor"), makeAddr("kms"));
         assertFalse(fhevm.useCleartextVerifier(), "a stack that is not cleartext is never asked directly");
     }
 

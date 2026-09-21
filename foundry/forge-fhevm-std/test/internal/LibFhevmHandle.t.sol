@@ -13,7 +13,7 @@ contract LibFhevmHandleTest is Test, StdFhevm {
 
     /// The chain id a real handle carries is the one it was minted on.
     function test_chainIdOfReadsBackTheMintingChain() public {
-        EncryptedInput memory e = encryptValues(asUint32(7), address(this), makeAddr("alice"));
+        EncryptedInput memory e = encryptValues(tvUint32(7), address(this), makeAddr("alice"));
         assertEq(LibFhevmHandle.chainIdOf(e._h[0]), uint64(block.chainid));
     }
 
@@ -21,7 +21,7 @@ contract LibFhevmHandleTest is Test, StdFhevm {
     function test_indexOfMatchesThePositionInTheBatch() public {
         TypedValue[] memory batch = new TypedValue[](6);
         for (uint32 i = 0; i < 6; i++) {
-            batch[i] = asUint32(i + 1);
+            batch[i] = tvUint32(i + 1);
         }
         EncryptedInput memory e = encryptValues(batch, address(this), makeAddr("alice"));
 
@@ -32,7 +32,7 @@ contract LibFhevmHandleTest is Test, StdFhevm {
 
     /// A single value is index 0, not an absent field.
     function test_indexOfIsZeroForALoneValue() public {
-        EncryptedInput memory e = encryptValues(asUint32(7), address(this), makeAddr("alice"));
+        EncryptedInput memory e = encryptValues(tvUint32(7), address(this), makeAddr("alice"));
         assertEq(LibFhevmHandle.indexOf(e._h[0]), 0);
     }
 

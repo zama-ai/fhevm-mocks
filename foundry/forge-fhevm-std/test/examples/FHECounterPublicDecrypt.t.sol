@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {euint32, externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 
-import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
+import {TestFhevm, Plaintexts} from "../../pkg/src/TestFhevm.sol";
 
 import {FHECounterPublicDecrypt} from "./contracts/FHECounterPublicDecrypt.sol";
 
@@ -42,12 +42,10 @@ contract FHECounterPublicDecryptTest is TestFhevm {
         counter.increment(v, proof);
 
         euint32 count = counter.getCount();
-        (bytes memory cleartexts, bytes memory decryptionProof) = decryptPublicWithSignatures(abi.encode(count));
-        assertEq(abi.decode(cleartexts, (uint32)), 123);
+        (Plaintexts memory clear, bytes memory decryptionProof) = decryptPublicWithSignatures(abi.encode(count));
+        assertEq(clear.plaintext(count), 123);
 
-        bytes32[] memory handles = new bytes32[](1);
-        handles[0] = euint32.unwrap(count);
-        counter.verify(handles, cleartexts, decryptionProof);
+        counter.verify(clear.handles(), clear.abiEncoded(), decryptionProof);
     }
 
     /// hardhat: 'increment the counter by 1'
@@ -76,9 +74,10 @@ contract FHECounterPublicDecryptTest is TestFhevm {
         euint32 after2 = counter.getCount();
 
         // Two handles at once; the answer is positional, one per handle in the order passed.
-        (uint32 c1, uint32 c2) = abi.decode(decryptPublic(abi.encode(after1, after2)), (uint32, uint32));
-        assertEq(c1, 1);
-        assertEq(c2, 2);
+        Plaintexts memory clear = decryptPublic(abi.encode(after1, after2));
+        assertEq(clear.uint32At(0), 1);
+        assertEq(clear.uint32At(1), 2);
+        assertEq(clear.plaintext(after2), 2, "or by value");
     }
 
     /// hardhat: 'decrement the counter by 1'

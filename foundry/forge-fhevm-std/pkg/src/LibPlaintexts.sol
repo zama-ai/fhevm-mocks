@@ -26,7 +26,7 @@ struct Plaintexts {
 
 library LibPlaintexts {
     error IndexOutOfBounds(uint256 index, uint256 length);
-    error TypeMismatch(uint256 index, string expected, string actual);
+    error TypeMismatch(uint256 index, uint8 expected, uint8 actual);
     error LengthMismatch(uint256 handles, uint256 plaintexts);
     error HandleNotFound(bytes32 handle);
 
@@ -109,6 +109,14 @@ library LibPlaintexts {
         return LibFheType.toString(LibFhevmHandle.typeOf(self._h[index]));
     }
 
+    /// @notice The handles, in the order they were decrypted — the first argument of `FHE.checkSignatures`.
+    function handles(Plaintexts memory self) internal pure returns (bytes32[] memory) {
+        return self._h;
+    }
+
+    /// @notice One 32-byte word per value, each clamped to its FHE type — the `abi.encode` of the clear
+    ///         values, and the bytes a KMS public-decryption signature covers: the second argument of
+    ///         `FHE.checkSignatures`.
     function abiEncoded(Plaintexts memory self) internal pure returns (bytes memory) {
         return abi.encodePacked(self._p);
     }
@@ -130,7 +138,7 @@ library LibPlaintexts {
 
         FheType actual = LibFhevmHandle.typeOf(self._h[index]);
         if (actual != expected) {
-            revert TypeMismatch(index, LibFheType.toString(expected), LibFheType.toString(actual));
+            revert TypeMismatch(index, uint8(expected), uint8(actual));
         }
         value = self._p[index];
     }

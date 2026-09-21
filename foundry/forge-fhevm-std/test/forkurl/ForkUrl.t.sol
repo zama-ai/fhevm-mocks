@@ -7,6 +7,7 @@ import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
+import {SignedDecryptionPermit, TransportKeypair} from "../../pkg/src/StdFhevmDecrypt.sol";
 import {DEPLOYER_ADDRESS} from "../../pkg/src/_host/_internal/LocalHostAddresses.sol";
 
 interface IFHETest {
@@ -53,6 +54,22 @@ contract ForkUrlTest is TestFhevm {
         assertFalse(LibFhevmProtocol.hasProtocol(), "nothing pointed: unknown until an entry resolves it");
         assertEq(fhevm.eventProcessor(), address(0), "no processor created: no stack was pointed here");
         assertTrue(vm.getNonce(DEPLOYER_ADDRESS) != 0, "a real chain with history at the deployer account");
+    }
+
+    /// A permit signed as the FIRST entry resolves the stack too — from the permit's own contract list — so
+    /// its digest is bound to the verifier the later decryption is checked by, and nothing has to come first.
+    function test_aPermitSignedFirstResolvesTheStack() public onlyForkUrl {
+        FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
+        assertFalse(LibFhevmProtocol.hasProtocol(), "nothing pointed yet");
+
+        TransportKeypair memory keypair = generateTransportKeypair();
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(FHE_TEST);
+        SignedDecryptionPermit memory permit =
+            signLegacyDecryptionPermit("alice", keypair, contracts, block.timestamp, 1 days);
+
+        assertEq(LibFhevmProtocol.currentConfig().kmsVerifier, sepolia.kmsVerifier, "resolved from the permit");
+        assertEq(permit.signerAddress, vm.createWallet("alice").addr);
     }
 
     /// The first entry names the dApp, the dApp's config picks Sepolia's testnet stack, and the whole flow

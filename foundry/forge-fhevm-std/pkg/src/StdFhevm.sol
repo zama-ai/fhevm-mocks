@@ -17,7 +17,6 @@ import {StdFhevmEncrypt} from "./StdFhevmEncrypt.sol";
 import {StdFhevmDecryptPublic} from "./StdFhevmDecryptPublic.sol";
 import {StdFhevmCheatsSafe} from "./StdFhevmCheats.sol";
 import {StdFhevmDecrypt} from "./StdFhevmDecrypt.sol";
-import {LibFhevmProtocol} from "./LibFhevmProtocol.sol";
 
 // 🧩 HELPERS - re-export — load-bearing, do not remove as "unused".
 // forge-lint: disable-start(unused-import)
@@ -78,7 +77,7 @@ abstract contract StdFhevm is
             revert(LibFhevmFail.localStackCannotDeploy(DEPLOYER_ADDRESS, DEPLOYER_START_NONCE, nonce));
         }
         deployLocalFhevm();
-        LibFhevmProtocol.setProtocol(ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS);
+        fhevm.setProtocol(ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS);
     }
 
     /// @dev Keeps `fhevm`'s copy of the table in step with an override.

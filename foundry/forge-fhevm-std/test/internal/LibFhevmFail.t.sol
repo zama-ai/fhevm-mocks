@@ -26,6 +26,7 @@ contract LibFhevmFailTest is Test {
         _check(LibFhevmFail.notAFork(address(0xBEEF)), "NOT A FORK", "plaintextOf(value)");
         _check(LibFhevmFail.localStackCannotDeploy(address(0xD0), 0, 7), "LOCAL STACK CANNOT DEPLOY HERE", "anvil");
         _check(LibFhevmFail.noCurrentStack(), "NO CURRENT STACK", "fhevm.createSelectFork(");
+        _check(LibFhevmFail.noPlaintextsSource(address(0xE1)), "NO PLAINTEXT SOURCE", "fhevm.useStack(chain)");
         _check(LibFhevmFail.stackMissing("local", "anvil", address(0xE0)), "NO FHEVM STACK ON THIS CHAIN", "anvil");
         _check(LibFhevmFail.anvilMirrorFailed(address(0xAC)), "ANVIL MIRROR FAILED", "setAnvilMirror(false)");
         _check(LibFhevmFail.handleMissing(), "FHEVM HANDLE MISSING", "inherit TestFhevm");
@@ -51,8 +52,10 @@ contract LibFhevmFailTest is Test {
         string memory m = LibFhevmFail.forkDrift(12345, NO_FORK);
         assertTrue(_contains(m, "(id 12345)"), "decimal fork id");
         assertTrue(_contains(m, "switched to NO_FORK"), "NO_FORK spelled out");
+        // CHECKSUMMED, because the renderer uses forge's own `toString`: the same spelling `cast`, the
+        // traces and every explorer show, so a user can paste it straight back.
         string memory n = LibFhevmFail.notAFork(0xdEAD000000000000000042069420694206942069);
-        assertTrue(_contains(n, "0xdead000000000000000042069420694206942069"), "lowercase hex address");
+        assertTrue(_contains(n, "0xdEAD000000000000000042069420694206942069"), "checksummed address");
     }
 
     function _check(string memory message, string memory title, string memory fixFragment) private pure {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {StdFhevmBase} from "./StdFhevmBase.sol";
-import {fhevm} from "./FhevmVm.sol";
+import {fhevm, FhevmStack} from "./FhevmVm.sol";
 import {
     ebool,
     euint8,
@@ -13,7 +13,8 @@ import {
     euint256,
     eaddress
 } from "encrypted-types/EncryptedTypes.sol";
-import {FORGE_VM_ADDRESS, IForgeVm} from "./_host/IForgeVm.sol";
+import {Vm} from "forge-std/Vm.sol";
+import {FORGE_VM_ADDRESS} from "./_host/IForgeVm.sol";
 import {LibForgeFhevmSigners} from "./_host/LibForgeFhevmSigners.sol";
 import {
     HandleContractPair,
@@ -21,15 +22,8 @@ import {
     SignerSignaturePair,
     UserDecryptRequestV1
 } from "./_host/shared/LibKmsVerifier.sol";
+import {LibEncryptedTypes} from "./LibEncryptedTypes.sol";
 import {Plaintexts} from "./LibPlaintexts.sol";
-import {FhevmProtocol, LibFhevmProtocol} from "./LibFhevmProtocol.sol";
-
-interface IForgeVmLabel {
-    /// @dev Declared `view` where forge-std declares it mutating, so callers can stay `view`. The
-    ///      cheatcode is reached by STATICCALL and still works — verified, labelling included — because
-    ///      what it touches is forge's own bookkeeping, not EVM state.
-    function createWallet(string calldata walletLabel) external view returns (IForgeVm.Wallet memory wallet);
-}
 
 struct SignedDecryptionPermit {
     uint8 version;
@@ -102,8 +96,8 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
     ) internal unmetered returns (SignedDecryptionPermit memory signedPermit) {
         uint256 durationDays = _requireWholeDays(durationSeconds);
 
-        (bytes32 digest,) = LibKmsVerifier.userDecryptDigestV1OnStack(
-            _kmsVerifier(), _request(transportKeypair, contractAddresses, startTimestamp, durationDays)
+        bytes32 digest = fhevm.userDecryptDigestV1(
+            _request(transportKeypair, contractAddresses, startTimestamp, durationDays), address(0)
         );
         (uint8 v, bytes32 r, bytes32 s) = fvm.sign(privateKey, digest);
 
@@ -129,10 +123,8 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
     ) internal unmetered returns (SignedDecryptionPermit memory signedPermit) {
         uint256 durationDays = _requireWholeDays(durationSeconds);
 
-        (bytes32 digest,) = LibKmsVerifier.delegatedUserDecryptDigestV1OnStack(
-            _kmsVerifier(),
-            _request(transportKeypair, contractAddresses, startTimestamp, durationDays),
-            delegatorAddress
+        bytes32 digest = fhevm.userDecryptDigestV1(
+            _request(transportKeypair, contractAddresses, startTimestamp, durationDays), delegatorAddress
         );
         (uint8 v, bytes32 r, bytes32 s) = fvm.sign(privateKey, digest);
 
@@ -178,7 +170,7 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         );
     }
 
-    // -- Decrypt single value functions ---------------------------------------
+    // -- Decrypt single (euintN -> clear) - wallet label ----------------------
 
     function decrypt(ebool value, address contractAddress, string memory walletLabel)
         internal
@@ -243,6 +235,8 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
     {
         clear = decrypt(value, contractAddress, _walletPrivateKey(walletLabel));
     }
+
+    // -- Decrypt single (euintN -> clear) - private key -----------------------
 
     function decrypt(ebool value, address contractAddress, uint256 userPrivateKey)
         internal
@@ -324,6 +318,8 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         clear = address(uint160(_decryptValue(eaddress.unwrap(value), contractAddress, keypair, permit)));
     }
 
+    // -- Decrypt single (euintN -> clear) - permit ----------------------------
+
     function decrypt(
         ebool value,
         address contractAddress,
@@ -396,7 +392,185 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         clear = address(uint160(_decryptValue(eaddress.unwrap(value), contractAddress, transportKeypair, permit)));
     }
 
-    // -- Decrypt multiple values functions ------------------------------------
+    // -- Decrypt multiple (bytes32 a..e -> Plaintexts) - wallet label ---------
+
+    function decrypt(bytes32 a, bytes32 b, address contractAddress, string memory walletLabel)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b), contractAddress, walletLabel);
+    }
+
+    function decrypt(bytes32 a, bytes32 b, bytes32 c, address contractAddress, string memory walletLabel)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c), contractAddress, walletLabel);
+    }
+
+    function decrypt(bytes32 a, bytes32 b, bytes32 c, bytes32 d, address contractAddress, string memory walletLabel)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c, d), contractAddress, walletLabel);
+    }
+
+    function decrypt(
+        bytes32 a,
+        bytes32 b,
+        bytes32 c,
+        bytes32 d,
+        bytes32 e,
+        address contractAddress,
+        string memory walletLabel
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c, d, e), contractAddress, walletLabel);
+    }
+
+    // -- Decrypt multiple (bytes32 a..e -> Plaintexts) - private key ----------
+
+    function decrypt(bytes32 a, bytes32 b, address contractAddress, uint256 userPrivateKey)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b), contractAddress, userPrivateKey);
+    }
+
+    function decrypt(bytes32 a, bytes32 b, bytes32 c, address contractAddress, uint256 userPrivateKey)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c), contractAddress, userPrivateKey);
+    }
+
+    function decrypt(bytes32 a, bytes32 b, bytes32 c, bytes32 d, address contractAddress, uint256 userPrivateKey)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c, d), contractAddress, userPrivateKey);
+    }
+
+    function decrypt(
+        bytes32 a,
+        bytes32 b,
+        bytes32 c,
+        bytes32 d,
+        bytes32 e,
+        address contractAddress,
+        uint256 userPrivateKey
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c, d, e), contractAddress, userPrivateKey);
+    }
+
+    // -- Decrypt multiple (bytes32 a..e -> Plaintexts) - permit ---------------
+
+    function decrypt(
+        bytes32 a,
+        bytes32 b,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b), contractAddress, transportKeypair, permit);
+    }
+
+    function decrypt(
+        bytes32 a,
+        bytes32 b,
+        bytes32 c,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c), contractAddress, transportKeypair, permit);
+    }
+
+    function decrypt(
+        bytes32 a,
+        bytes32 b,
+        bytes32 c,
+        bytes32 d,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c, d), contractAddress, transportKeypair, permit);
+    }
+
+    function decrypt(
+        bytes32 a,
+        bytes32 b,
+        bytes32 c,
+        bytes32 d,
+        bytes32 e,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decrypt(LibEncryptedTypes.handles(a, b, c, d, e), contractAddress, transportKeypair, permit);
+    }
+
+    // -- Decrypt multiple (bytes32[] -> Plaintexts) - wallet label ------------
+
+    function decrypt(bytes32[] memory handles, address contractAddress, string memory walletLabel)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(handles, contractAddress, _walletPrivateKey(walletLabel));
+    }
+
+    // -- Decrypt multiple (bytes32[] -> Plaintexts) - private key -------------
+
+    function decrypt(bytes32[] memory handles, address contractAddress, uint256 userPrivateKey)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        (TransportKeypair memory keypair, SignedDecryptionPermit memory permit) =
+            _oneShotPermit(contractAddress, userPrivateKey);
+        decrypted = decrypt(handles, contractAddress, keypair, permit);
+    }
+
+    // -- Decrypt multiple (bytes32[] -> Plaintexts) - permit ------------------
+
+    function decrypt(
+        bytes32[] memory handles,
+        address contractAddress,
+        TransportKeypair memory transportKeypair,
+        SignedDecryptionPermit memory permit
+    ) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted._h = handles;
+        decrypted._p = _decryptValues(handles, contractAddress, transportKeypair, permit);
+    }
+
+    // -- Decrypt multiple (bytes abi -> Plaintexts) - wallet label ------------
+
+    function decrypt(bytes memory abiEncryptedValues, address contractAddress, string memory walletLabel)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(abiEncryptedValues), contractAddress, walletLabel);
+    }
+
+    // -- Decrypt multiple (bytes abi -> Plaintexts) - private key -------------
+
+    function decrypt(bytes memory abiEncryptedValues, address contractAddress, uint256 userPrivateKey)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decrypt(LibEncryptedTypes.handles(abiEncryptedValues), contractAddress, userPrivateKey);
+    }
+
+    // -- Decrypt multiple (bytes abi -> Plaintexts) - permit ------------------
 
     function decrypt(
         bytes memory abiEncryptedValues,
@@ -404,26 +578,7 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         TransportKeypair memory transportKeypair,
         SignedDecryptionPermit memory permit
     ) internal unmetered returns (Plaintexts memory decrypted) {
-        decrypted._h = _toBatchHandles(abiEncryptedValues);
-        decrypted._p = _decryptValues(decrypted._h, contractAddress, transportKeypair, permit);
-    }
-
-    function decrypt(bytes memory abiEncryptedValues, address contractAddress, uint256 userPrivateKey)
-        internal
-        unmetered
-        returns (Plaintexts memory decrypted)
-    {
-        (TransportKeypair memory keypair, SignedDecryptionPermit memory permit) =
-            _oneShotPermit(contractAddress, userPrivateKey);
-        decrypted = decrypt(abiEncryptedValues, contractAddress, keypair, permit);
-    }
-
-    function decrypt(bytes memory abiEncryptedValues, address contractAddress, string memory walletLabel)
-        internal
-        unmetered
-        returns (Plaintexts memory decrypted)
-    {
-        decrypted = decrypt(abiEncryptedValues, contractAddress, _walletPrivateKey(walletLabel));
+        decrypted = decrypt(LibEncryptedTypes.handles(abiEncryptedValues), contractAddress, transportKeypair, permit);
     }
 
     // -- PRIVATE HELPER FUNCTIONS ---------------------------------------------
@@ -451,26 +606,8 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         );
     }
 
-    function _toBatchHandles(bytes memory abiEncryptedValues) private pure returns (bytes32[] memory handles) {
-        require(abiEncryptedValues.length != 0, "StdFhevm: no encrypted value to decrypt");
-        require(
-            abiEncryptedValues.length % 32 == 0, "StdFhevm: abiEncryptedValues is not a whole number of 32-byte handles"
-        );
-
-        uint256 count = abiEncryptedValues.length / 32;
-        handles = new bytes32[](count);
-        for (uint256 i = 0; i < count; i++) {
-            bytes32 handle;
-            // solhint-disable-next-line no-inline-assembly
-            assembly {
-                handle := mload(add(add(abiEncryptedValues, 0x20), mul(i, 0x20)))
-            }
-            handles[i] = handle;
-        }
-    }
-
-    function _walletPrivateKey(string memory walletLabel) private view returns (uint256) {
-        return IForgeVmLabel(FORGE_VM_ADDRESS).createWallet(walletLabel).privateKey;
+    function _walletPrivateKey(string memory walletLabel) private returns (uint256) {
+        return Vm(FORGE_VM_ADDRESS).createWallet(walletLabel).privateKey;
     }
 
     function _oneShotPermit(address contractAddress, uint256 userPrivateKey)
@@ -485,14 +622,6 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         permit = signLegacyDecryptionPermit(userPrivateKey, keypair, contractAddresses, block.timestamp, 1 days);
     }
 
-    /**
-     * @notice The decryption, asked of a verifier that holds its own ACL and values.
-     *
-     * @dev A cleartext verifier reaches its ACL and plaintext store through compile-time constants and
-     *      exposes no getter for either, so it takes neither from us. Passing them would be passing
-     *      arguments that are silently discarded — which is why this is a separate call rather than a
-     *      branch inside one.
-     */
     function _onCleartextStack(
         address kmsVerifier,
         HandleContractPair[] memory pairs,
@@ -508,9 +637,8 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         }
     }
 
-    /// @notice The same, against a stack that must be told where its ACL and values live.
     function _onForkStack(
-        FhevmProtocol memory protocol,
+        FhevmStack memory stack,
         HandleContractPair[] memory pairs,
         UserDecryptRequestV1 memory request,
         address delegator,
@@ -518,11 +646,11 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
     ) private view returns (bytes memory payload) {
         if (delegator == address(0)) {
             (payload,,,) = LibKmsVerifier.userDecryptV1OnForkStack(
-                protocol.kmsVerifier, protocol.acl, protocol.plaintexts, pairs, request, signer
+                stack.kmsVerifier, stack.acl, stack.plaintexts, pairs, request, signer
             );
         } else {
             (payload,,,) = LibKmsVerifier.delegatedUserDecryptV1OnForkStack(
-                protocol.kmsVerifier, protocol.acl, protocol.plaintexts, pairs, request, delegator, signer
+                stack.kmsVerifier, stack.acl, stack.plaintexts, pairs, request, delegator, signer
             );
         }
     }
@@ -532,8 +660,9 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         TransportKeypair memory transportKeypair,
         SignedDecryptionPermit memory permit
     ) private returns (uint256[] memory clears) {
-        fhevm.ensureForkPrepared(pairs.length != 0 ? pairs[0].contractAddress : address(0));
-        fhevm.drainFheEvents();
+        // THE KERNEL'S STEP, then this mixin's checks. Prepared, drained and resolved in one frame, with a
+        // plaintext source guaranteed; what follows is policy about the caller's arguments, which stays here.
+        FhevmStack memory stack = fhevm.resolveStack(pairs.length != 0 ? pairs[0].contractAddress : address(0));
 
         require(permit.version == PERMIT_VERSION_V1, "StdFhevm: unsupported decryption permit version");
         require(
@@ -550,16 +679,15 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
             durationDays: permit.durationSeconds / 1 days
         });
 
-        FhevmProtocol memory protocol = LibFhevmProtocol.currentConfigWithPlaintexts();
         SignerSignaturePair memory signer =
             SignerSignaturePair({signer: permit.signerAddress, signature: permit.signature});
 
         // LOCAL cleartext only. A cleartext stack deployed on a testnet is the same contract, but every
         // call into it is a remote round trip and a user decryption is not a cheap one — on a fork the
         // answer is rebuilt locally instead, from the ACL and plaintext source this config names.
-        bytes memory payload = protocol.isCleartext && !fhevm.isForked()
-            ? _onCleartextStack(protocol.kmsVerifier, pairs, request, permit.delegatorAddress, signer)
-            : _onForkStack(protocol, pairs, request, permit.delegatorAddress, signer);
+        bytes memory payload = stack.isCleartext && !fhevm.isForked()
+            ? _onCleartextStack(stack.kmsVerifier, pairs, request, permit.delegatorAddress, signer)
+            : _onForkStack(stack, pairs, request, permit.delegatorAddress, signer);
 
         clears = _unmask(payload, transportKeypair);
     }
@@ -611,16 +739,5 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
         for (uint256 i = 0; i < masked.length; i++) {
             cleartexts[i] = masked[i] ^ m;
         }
-    }
-
-    /**
-     * @notice The KMS verifier of the stack this test is pointed at.
-     *
-     * @dev RESOLVED, NOT NAMED. A permit must be signed under the domain and KMS context of the
-     *      verifier that will check it, so this and the decryption below both read the same config —
-     *      they cannot end up aimed at different stacks.
-     */
-    function _kmsVerifier() private view returns (address) {
-        return LibFhevmProtocol.currentConfig().kmsVerifier;
     }
 }

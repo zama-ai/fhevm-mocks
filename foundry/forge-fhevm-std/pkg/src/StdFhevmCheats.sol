@@ -14,10 +14,7 @@ import {
     eaddress
 } from "encrypted-types/EncryptedTypes.sol";
 import {CoprocessorConfig} from "./_host/shared/LibFhevmCoprocessorConfig.sol";
-import {IPlaintexts} from "./_host/shared/interfaces/IPlaintexts.sol";
 import {LibForgeFhevmConfig} from "./_host/LibForgeFhevmConfig.sol";
-import {FhevmProtocol, LibFhevmProtocol} from "./LibFhevmProtocol.sol";
-import {LibFhevmFail} from "./LibFhevmFail.sol";
 
 /**
  * @title StdFhevmCheatsSafe
@@ -44,35 +41,35 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
     }
 
     function plaintextOf(ebool value) internal unmetered returns (bool clear) {
-        clear = _plaintextOf(ebool.unwrap(value)) != 0;
+        clear = fhevm.plaintextOf(ebool.unwrap(value)) != 0;
     }
 
     function plaintextOf(euint8 value) internal unmetered returns (uint8 clear) {
-        clear = uint8(_plaintextOf(euint8.unwrap(value)));
+        clear = uint8(fhevm.plaintextOf(euint8.unwrap(value)));
     }
 
     function plaintextOf(euint16 value) internal unmetered returns (uint16 clear) {
-        clear = uint16(_plaintextOf(euint16.unwrap(value)));
+        clear = uint16(fhevm.plaintextOf(euint16.unwrap(value)));
     }
 
     function plaintextOf(euint32 value) internal unmetered returns (uint32 clear) {
-        clear = uint32(_plaintextOf(euint32.unwrap(value)));
+        clear = uint32(fhevm.plaintextOf(euint32.unwrap(value)));
     }
 
     function plaintextOf(euint64 value) internal unmetered returns (uint64 clear) {
-        clear = uint64(_plaintextOf(euint64.unwrap(value)));
+        clear = uint64(fhevm.plaintextOf(euint64.unwrap(value)));
     }
 
     function plaintextOf(euint128 value) internal unmetered returns (uint128 clear) {
-        clear = uint128(_plaintextOf(euint128.unwrap(value)));
+        clear = uint128(fhevm.plaintextOf(euint128.unwrap(value)));
     }
 
     function plaintextOf(euint256 value) internal unmetered returns (uint256 clear) {
-        clear = _plaintextOf(euint256.unwrap(value));
+        clear = fhevm.plaintextOf(euint256.unwrap(value));
     }
 
     function plaintextOf(eaddress value) internal unmetered returns (address clear) {
-        clear = address(uint160(_plaintextOf(eaddress.unwrap(value))));
+        clear = address(uint160(fhevm.plaintextOf(eaddress.unwrap(value))));
     }
 
     /**
@@ -90,35 +87,35 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
      *      Sepolia in fact computed as something else proves nothing about the dApp.
      */
     function forkUnknown(ebool value, bool clear) internal unmetered {
-        _forkUnknown(ebool.unwrap(value), clear ? 1 : 0);
+        fhevm.seedCleartext(ebool.unwrap(value), clear ? 1 : 0);
     }
 
     function forkUnknown(euint8 value, uint8 clear) internal unmetered {
-        _forkUnknown(euint8.unwrap(value), clear);
+        fhevm.seedCleartext(euint8.unwrap(value), clear);
     }
 
     function forkUnknown(euint16 value, uint16 clear) internal unmetered {
-        _forkUnknown(euint16.unwrap(value), clear);
+        fhevm.seedCleartext(euint16.unwrap(value), clear);
     }
 
     function forkUnknown(euint32 value, uint32 clear) internal unmetered {
-        _forkUnknown(euint32.unwrap(value), clear);
+        fhevm.seedCleartext(euint32.unwrap(value), clear);
     }
 
     function forkUnknown(euint64 value, uint64 clear) internal unmetered {
-        _forkUnknown(euint64.unwrap(value), clear);
+        fhevm.seedCleartext(euint64.unwrap(value), clear);
     }
 
     function forkUnknown(euint128 value, uint128 clear) internal unmetered {
-        _forkUnknown(euint128.unwrap(value), clear);
+        fhevm.seedCleartext(euint128.unwrap(value), clear);
     }
 
     function forkUnknown(euint256 value, uint256 clear) internal unmetered {
-        _forkUnknown(euint256.unwrap(value), clear);
+        fhevm.seedCleartext(euint256.unwrap(value), clear);
     }
 
     function forkUnknown(eaddress value, address clear) internal unmetered {
-        _forkUnknown(eaddress.unwrap(value), uint256(uint160(clear)));
+        fhevm.seedCleartext(eaddress.unwrap(value), uint256(uint160(clear)));
     }
 
     /**
@@ -135,15 +132,15 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
      *      restores it before each one.
      */
     function forkUnknownDefault(uint256 clear) internal unmetered {
-        _forkUnknownDefault(clear);
+        fhevm.useFixedUnknownHandles(clear);
     }
 
     function forkUnknownDefault(bool clear) internal unmetered {
-        _forkUnknownDefault(clear ? 1 : 0);
+        fhevm.useFixedUnknownHandles(clear ? 1 : 0);
     }
 
     function forkUnknownDefault(address clear) internal unmetered {
-        _forkUnknownDefault(uint256(uint160(clear)));
+        fhevm.useFixedUnknownHandles(uint256(uint160(clear)));
     }
 
     /**
@@ -154,38 +151,6 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
      *      on. Refused on a cleartext stack, like the other two.
      */
     function forkUnknownDeterministic() internal unmetered {
-        _requireForkStack();
         fhevm.useDeterministicUnknownHandles();
-    }
-
-    /**
-     * @dev Reads the value from whatever holds cleartexts for the stack under test — the cleartext
-     *      executor locally, the event processor on a fork — after replaying anything emitted since
-     *      the last read. Resolved, never named: an override point here was correct for one deployment
-     *      and silently wrong everywhere else.
-     */
-    function _plaintextOf(bytes32 handle) private returns (uint256) {
-        fhevm.ensureForkPrepared(address(0));
-        fhevm.drainFheEvents();
-        return IPlaintexts(LibFhevmProtocol.currentConfigWithPlaintexts().plaintexts).plaintexts(handle);
-    }
-
-    /// @dev Into the active context's replay, through `fhevm` — so this needs no other setup on a fork.
-    function _forkUnknown(bytes32 handle, uint256 clear) private {
-        _requireForkStack();
-        fhevm.seedCleartext(handle, clear);
-    }
-
-    function _forkUnknownDefault(uint256 clear) private {
-        _requireForkStack();
-        fhevm.useFixedUnknownHandles(clear);
-    }
-
-    /// @dev The guard both forms share: on a cleartext stack every value is known, and a call here means
-    ///      the test is confused about which stack it is on.
-    function _requireForkStack() private {
-        fhevm.ensureForkPrepared(address(0));
-        FhevmProtocol memory protocol = LibFhevmProtocol.currentConfig();
-        if (protocol.isCleartext) revert(LibFhevmFail.notAFork(protocol.executor));
     }
 }

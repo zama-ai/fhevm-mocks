@@ -8,6 +8,8 @@ import {
     TransportKeypair,
     SignedDecryptionPermit
 } from "../../pkg/src/TestFhevm.sol";
+import {euint8, euint32, eaddress} from "encrypted-types/EncryptedTypes.sol";
+import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
 import {LibPlaintexts} from "../../pkg/src/LibPlaintexts.sol";
 
 import {UserVault} from "./UserVault.sol";
@@ -23,7 +25,7 @@ contract DecryptBatchTest is TestFhevm {
         vault = new UserVault();
         (alice, aliceKey) = makeAddrAndKey("alice");
 
-        EncryptedInput memory e = encryptValues(asUint8(255), asUint32(70_000), asAddress(alice), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(255), tvUint32(70_000), tvAddress(alice), address(vault), alice);
         vm.startPrank(alice);
         vault.setEUint8(e.externalEuint8At(0), e.inputProof(), alice);
         vault.setEUint32(e.externalEuint32At(1), e.inputProof(), alice);
@@ -43,6 +45,71 @@ contract DecryptBatchTest is TestFhevm {
         assertEq(d.uint8At(0), 255);
         assertEq(d.uint32At(1), 70_000);
         assertEq(d.addressAt(2), alice);
+    }
+
+    // -- Positional / array forms: the handles as the caller holds them, no `abi.encode` ------------------
+
+    function _h8() private view returns (bytes32) {
+        return euint8.unwrap(vault.eUint8());
+    }
+
+    function _h32() private view returns (bytes32) {
+        return euint32.unwrap(vault.eUint32());
+    }
+
+    function _hA() private view returns (bytes32) {
+        return eaddress.unwrap(vault.eAddress());
+    }
+
+    /// Answered in the order given — and by value, whatever the position.
+    function test_positionalByLabelDecryptsInOrder() public {
+        Plaintexts memory two = decrypt(_hA(), _h8(), address(vault), "alice");
+        assertEq(two.length(), 2);
+        assertEq(two.addressAt(0), alice, "a first");
+        assertEq(two.uint8At(1), 255, "b second");
+
+        Plaintexts memory three = decrypt(_h8(), _h32(), _hA(), address(vault), "alice");
+        assertEq(three.uint32At(1), 70_000);
+        assertEq(three.plaintext(vault.eAddress()), alice, "by value");
+
+        Plaintexts memory five = decrypt(_h8(), _h32(), _hA(), _h8(), _h32(), address(vault), "alice");
+        assertEq(five.length(), 5);
+        assertEq(five.uint32At(4), 70_000, "e last");
+    }
+
+    function test_positionalByPrivateKey() public {
+        Plaintexts memory byKey = decrypt(_h32(), _hA(), _h8(), address(vault), aliceKey);
+        assertEq(byKey.uint8At(2), 255);
+    }
+
+    function test_positionalByPermit() public {
+        (TransportKeypair memory keypair, SignedDecryptionPermit memory permit) = _permitFor("alice");
+
+        Plaintexts memory two = decrypt(_h32(), _hA(), address(vault), keypair, permit);
+        assertEq(two.uint32At(0), 70_000);
+        assertEq(two.addressAt(1), alice);
+
+        Plaintexts memory five = decrypt(_hA(), _h8(), _h32(), _h8(), _hA(), address(vault), keypair, permit);
+        assertEq(five.length(), 5);
+        assertEq(five.uint32At(2), 70_000, "c in the middle");
+        assertEq(five.addressAt(4), alice, "e last");
+    }
+
+    function test_arrayForm() public {
+        bytes32[] memory arr = new bytes32[](2);
+        (arr[0], arr[1]) = (_hA(), _h32());
+        Plaintexts memory asArray = decrypt(arr, address(vault), "alice");
+        assertEq(asArray.uint32At(1), 70_000);
+    }
+
+    function _permitFor(string memory label)
+        private
+        returns (TransportKeypair memory keypair, SignedDecryptionPermit memory permit)
+    {
+        keypair = generateTransportKeypair();
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(vault);
+        permit = signLegacyDecryptionPermit(label, keypair, contracts, block.timestamp, 1 days);
     }
 
     /// The handles travel back, so each value can name its own type.
@@ -68,7 +135,9 @@ contract DecryptBatchTest is TestFhevm {
     function test_theWrongAccessorReverts() public {
         Plaintexts memory d = decrypt(_handles(), address(vault), aliceKey);
 
-        vm.expectRevert(abi.encodeWithSelector(LibPlaintexts.TypeMismatch.selector, 1, "euint8", "euint32"));
+        vm.expectRevert(
+            abi.encodeWithSelector(LibPlaintexts.TypeMismatch.selector, 1, uint8(FheType.Uint8), uint8(FheType.Uint32))
+        );
         this.readAsUint8(d, 1);
     }
 

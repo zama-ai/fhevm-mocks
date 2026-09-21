@@ -43,7 +43,7 @@ wins. Write to the source directory and let the sync carry it.
 **2.1 — `shared/` never touches the forge VM.** No `IForgeVm`, no `FORGE_VM_ADDRESS`, no cheatcodes.
 Those files are compiled into the *deployed* contracts; a cheatcode there is a contract that cannot
 exist on chain. Anything needing the VM goes in `pkg/forge/src/` (payload) or `pkg/src/` (this
-package), and carries `Forge` in its name — see §5.
+package), and carries `Forge` in its name — see §5. Which of the two may import `forge-std` is rule 2.16.
 
 **2.2 — symmetry, wherever it costs nothing.** The three decryption paths, the two user paths, the
 `Args` structs, the `OnForkStack` / `OnCleartextStack` pairs: if two things do the same job they take
@@ -181,6 +181,25 @@ messages go through one helper so they look alike; tests match them with the sam
 message is a one-line change. (Errors that are NOT setup issues — a permit the ACL refuses, a handle the
 replay never saw — stay typed custom errors: they are what a test asserts on.)
 
+**2.16 — forge-std stops at `pkg/src/`; `_host/` speaks only `IForgeVm`.** Two layers, two rules,
+and the boundary is the directory:
+
+- `pkg/src/_host/**` — the payload and its shared libraries — imports NOTHING from `forge-std`. The forge
+  VM is reached through the vendored `IForgeVm` / `FORGE_VM_ADDRESS` (`_host/IForgeVm.sol`) and nothing
+  else. The payload is copied into other packages and consumed by projects whose `lib/forge-std` wins the
+  remapping; a `forge-std` import there would pin every consumer to one forge-std version for a file that
+  is declarations only.
+- `pkg/src/*.sol` — `StdFhevm*`, `TestFhevm`, `FhevmVm`, the `Lib*` this package owns — MAY and, where
+  forge-std has the type, MUST use `forge-std`: `Vm`, `VmSafe`, `Test`, `Vm.Log`. This package IS a
+  forge-std extension; `TestFhevm is Test, StdFhevm` is its whole reason to exist, and a test that
+  inherits it already depends on `forge-std`. Hiding that behind the vendored interface would give the
+  same code two spellings of one VM and two `Log` types to convert between at every boundary.
+
+The original goal was "no forge-std dependency anywhere". It is not reachable: `TestFhevm` must inherit
+forge-std's `Test`, so the dependency exists the moment a test is written. The rule is therefore about
+WHERE it lives, not whether. Mechanical check: `grep -rl forge-std pkg/src/_host` must list only comment
+mentions (`IForgeVm.sol`, `ForgeVmBase.sol` explain their own vendoring), never an `import`.
+
 ---
 
 ## 3. Fork and no-fork
@@ -314,7 +333,7 @@ overloads rather than `…Uint8`/`…Uint16` suffix soup where the type can carr
 `require` strings; cheats grouped in a `…Cheats` mixin.
 
 **6.2 — the public API takes no addresses.** A test names a stack once — the constructor's local stack by default, `fhevm.createSelectFork(chain, …)` on a fork, or
-`LibFhevmProtocol.setProtocol(...)` on a fork — and every helper resolves from there. Address-taking
+`fhevm.setProtocol(...)` for a manual declaration — and every helper resolves from there. Address-taking
 overloads belong to the libraries, not to `StdFhevm*`.
 
 **6.3 — pausing is invisible to the caller.** Every public entry is `unmetered`, so a test's gas
@@ -368,11 +387,17 @@ MAINNET_RPC_URL=… forge test --match-contract Fork
 
 # this package (the consumer)
 cd foundry/forge-fhevm-std
-npm run generate && forge fmt && forge test
-SEPOLIA_RPC_URL=… MAINNET_RPC_URL=… forge test --match-path 'test/fork/*'
+npm run generate && forge fmt && forge lint && forge test
+SEPOLIA_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork
+SEPOLIA_RPC_URL=… npm run test:fork-url  # the born-on-a-fork suite, under `forge test --fork-url`
 MAINNET_RPC_URL=… forge test --match-contract EventProcessorReplay
 npm run test:anvil                       # starts a throwaway anvil on 8546, runs test/anvil, stops it
 ```
+
+Use v13's npm scripts, not bare `forge fmt` / `forge lint`: v13 keeps the payload under a second profile
+(`src = pkg/forge/src`), so a bare command formats and lints only `pkg/src` and reports a clean payload it
+never looked at. `forge:fmt` and `forge:lint` run all three profiles. The gap is invisible in v13 and
+surfaces here, on the generated copy.
 
 A test that says "No tests found in project!" right after a file was restored or renamed is forge's
 incremental cache, not the test: `forge build --force`, then run again.

@@ -19,12 +19,12 @@ contract EncryptValuesArrayTest is Test, StdFhevm {
     /// Six values — one more than the inline forms can express — still one proof.
     function test_sixValuesInOneProof() public {
         TypedValue[] memory batch = new TypedValue[](6);
-        batch[0] = asUint8(255);
-        batch[1] = asUint16(65_535);
-        batch[2] = asUint32(70_000);
-        batch[3] = asUint64(1 << 40);
-        batch[4] = asUint128(1e30);
-        batch[5] = asUint256(type(uint256).max);
+        batch[0] = tvUint8(255);
+        batch[1] = tvUint16(65_535);
+        batch[2] = tvUint32(70_000);
+        batch[3] = tvUint64(1 << 40);
+        batch[4] = tvUint128(1e30);
+        batch[5] = tvUint256(type(uint256).max);
 
         EncryptedInput memory e = encryptValues(batch, address(vault), alice);
         assertEq(e.length(), 6);
@@ -34,15 +34,15 @@ contract EncryptValuesArrayTest is Test, StdFhevm {
         vault.setEUint256(e.externalEuint256At(5), e.inputProof());
         vm.stopPrank();
 
-        assertEq(decryptPublic(abi.encode(vault.eUint8())), abi.encode(uint8(255)));
-        assertEq(decryptPublic(abi.encode(vault.eUint256())), abi.encode(type(uint256).max));
+        assertEq(decryptPublic(vault.eUint8()), uint8(255));
+        assertEq(decryptPublic(vault.eUint256()), type(uint256).max);
     }
 
     /// Built in a loop, which is the case the inline overloads cannot cover at all.
     function test_batchBuiltInALoop() public {
         TypedValue[] memory batch = new TypedValue[](4);
         for (uint32 i = 0; i < 4; i++) {
-            batch[i] = asUint32(i + 1);
+            batch[i] = tvUint32(i + 1);
         }
 
         EncryptedInput memory e = encryptValues(batch, address(vault), alice);
@@ -56,7 +56,7 @@ contract EncryptValuesArrayTest is Test, StdFhevm {
     /// An array of one is legal — it is the same primitive, not a special case.
     function test_arrayOfOne() public {
         TypedValue[] memory batch = new TypedValue[](1);
-        batch[0] = asUint32(7);
+        batch[0] = tvUint32(7);
 
         EncryptedInput memory e = encryptValues(batch, address(vault), alice);
 

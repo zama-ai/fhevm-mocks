@@ -39,7 +39,7 @@ contract DecryptUint8Test is TestFhevm {
         keypair = generateTransportKeypair();
         contracts.push(address(safe));
 
-        EncryptedInput memory e = encryptValues(asUint8(42), address(safe), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(42), address(safe), alice);
         vm.prank(alice);
         safe.store(e.externalEuint8At(0), e.inputProof(), alice);
     }

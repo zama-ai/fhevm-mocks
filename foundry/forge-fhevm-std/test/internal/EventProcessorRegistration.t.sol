@@ -25,7 +25,7 @@ contract EventProcessorRegistrationTest is TestFhevm {
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
         address processorBefore = address(ForgeFhevmEventProcessor(fhevm.eventProcessor()));
 
-        LibFhevmProtocol.setProtocol(sepolia.acl, sepolia.fhevmExecutor, sepolia.kmsVerifier);
+        fhevm.setProtocol(sepolia.acl, sepolia.fhevmExecutor, sepolia.kmsVerifier);
         assertEq(
             address(ForgeFhevmEventProcessor(fhevm.eventProcessor())), processorBefore, "same context, same processor"
         );
@@ -37,7 +37,7 @@ contract EventProcessorRegistrationTest is TestFhevm {
             ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(), sepolia.fhevmExecutor, "and selected"
         );
 
-        LibFhevmProtocol.setProtocol(address(0), FHEVM_EXECUTOR_ADDRESS, address(0));
+        fhevm.setProtocol(address(0), FHEVM_EXECUTOR_ADDRESS, address(0));
         assertEq(
             ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(), FHEVM_EXECUTOR_ADDRESS, "re-selected"
         );
@@ -62,7 +62,7 @@ contract EventProcessorRegistrationTest is TestFhevm {
     /// this context's processor the plaintext source — exactly as on a fork.
     function test_aNonCleartextStackInMemoryReadsThisContextsProcessor() public {
         address executorWithoutCode = makeAddr("production-executor-stub");
-        LibFhevmProtocol.setProtocol(makeAddr("acl"), executorWithoutCode, makeAddr("kms"));
+        fhevm.setProtocol(makeAddr("acl"), executorWithoutCode, makeAddr("kms"));
 
         assertFalse(LibFhevmProtocol.currentConfig().isCleartext, "not cleartext");
         assertEq(LibFhevmProtocol.currentConfig().plaintexts, fhevm.eventProcessor(), "read from the replay");

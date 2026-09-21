@@ -31,7 +31,7 @@ struct EncryptedInput {
 
 library LibEncryptedInput {
     error IndexOutOfBounds(uint256 index, uint256 length);
-    error TypeMismatch(uint256 index, string expected, string actual);
+    error TypeMismatch(uint256 index, uint8 expected, uint8 actual);
     error IndexMismatch(uint256 index, uint8 handleIndex);
     error ChainIdMismatch(uint256 index, uint256 expected, uint64 actual);
     error VersionMismatch(uint256 index, uint8 expected, uint8 actual);
@@ -78,7 +78,6 @@ library LibEncryptedInput {
         return self._ip;
     }
 
-    /// @notice The chain the handles were minted for.
     function chainId(EncryptedInput memory self) internal pure returns (uint256) {
         return self._cid;
     }
@@ -109,7 +108,7 @@ library LibEncryptedInput {
         h = self._h[index];
         FheType actual = LibFhevmHandle.typeOf(h);
         if (actual != expected) {
-            revert TypeMismatch(index, LibFheType.toString(expected), LibFheType.toString(actual));
+            revert TypeMismatch(index, uint8(expected), uint8(actual));
         }
         uint8 handleIndex = LibFhevmHandle.indexOf(h);
         if (handleIndex != index) revert IndexMismatch(index, handleIndex);

@@ -9,7 +9,7 @@ import {FHEVMPublicDecryptTestSuite4} from "./contracts/FHEVMPublicDecryptTestSu
 
 /// Port of hardhat/v3/e2e/test/operators-public-decrypt/fhevmOperations54.ts.
 ///
-///   fhevm.client.encryptValues({values:[a, b], ...})  -> encryptValues(asUint64(a), asUint16(b), ...)
+///   fhevm.client.encryptValues({values:[a, b], ...})  -> encryptValues(tvUint64(a), tvUint16(b), ...)
 ///   fhevm.helpers.encryptUint16({value, ...})         -> encryptUint16(value, ...)
 ///   encrypted.encryptedValues[i]                      -> e.externalEuint16At(i), which checks the type
 ///   fhevm.helpers.decryptPublicUint64({euint64})      -> decryptPublic(euint64)
@@ -28,7 +28,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "max" overload (euint64, euint16) => euint64 test 1 (18446307955039574325, 45271)'
     function test_max_euint64_euint16_1() public {
-        EncryptedInput memory e = encryptValues(asUint64(18446307955039574325), asUint16(45271), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint64(18446307955039574325), tvUint16(45271), address(suite), alice);
 
         vm.prank(alice);
         suite.max_euint64_euint16(e.externalEuint64At(0), e.externalEuint16At(1), e.inputProof());
@@ -38,7 +38,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "max" overload (euint64, euint16) => euint64 test 2 (45267, 45271)'
     function test_max_euint64_euint16_2() public {
-        EncryptedInput memory e = encryptValues(asUint64(45267), asUint16(45271), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint64(45267), tvUint16(45271), address(suite), alice);
 
         vm.prank(alice);
         suite.max_euint64_euint16(e.externalEuint64At(0), e.externalEuint16At(1), e.inputProof());
@@ -48,7 +48,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "max" overload (euint64, euint16) => euint64 test 3 (45271, 45271)'
     function test_max_euint64_euint16_3() public {
-        EncryptedInput memory e = encryptValues(asUint64(45271), asUint16(45271), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint64(45271), tvUint16(45271), address(suite), alice);
 
         vm.prank(alice);
         suite.max_euint64_euint16(e.externalEuint64At(0), e.externalEuint16At(1), e.inputProof());
@@ -58,7 +58,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "max" overload (euint64, euint16) => euint64 test 4 (45271, 45267)'
     function test_max_euint64_euint16_4() public {
-        EncryptedInput memory e = encryptValues(asUint64(45271), asUint16(45267), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint64(45271), tvUint16(45267), address(suite), alice);
 
         vm.prank(alice);
         suite.max_euint64_euint16(e.externalEuint64At(0), e.externalEuint16At(1), e.inputProof());
@@ -68,7 +68,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "or" overload (euint8, euint8) => euint8 test 1 (213, 26)'
     function test_or_euint8_euint8_1() public {
-        EncryptedInput memory e = encryptValues(asUint8(213), asUint8(26), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(213), tvUint8(26), address(suite), alice);
 
         vm.prank(alice);
         suite.or_euint8_euint8(e.externalEuint8At(0), e.externalEuint8At(1), e.inputProof());
@@ -78,7 +78,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "or" overload (euint8, euint8) => euint8 test 2 (22, 26)'
     function test_or_euint8_euint8_2() public {
-        EncryptedInput memory e = encryptValues(asUint8(22), asUint8(26), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(22), tvUint8(26), address(suite), alice);
 
         vm.prank(alice);
         suite.or_euint8_euint8(e.externalEuint8At(0), e.externalEuint8At(1), e.inputProof());
@@ -88,7 +88,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "or" overload (euint8, euint8) => euint8 test 3 (26, 26)'
     function test_or_euint8_euint8_3() public {
-        EncryptedInput memory e = encryptValues(asUint8(26), asUint8(26), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(26), tvUint8(26), address(suite), alice);
 
         vm.prank(alice);
         suite.or_euint8_euint8(e.externalEuint8At(0), e.externalEuint8At(1), e.inputProof());
@@ -98,7 +98,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "or" overload (euint8, euint8) => euint8 test 4 (26, 22)'
     function test_or_euint8_euint8_4() public {
-        EncryptedInput memory e = encryptValues(asUint8(26), asUint8(22), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(26), tvUint8(22), address(suite), alice);
 
         vm.prank(alice);
         suite.or_euint8_euint8(e.externalEuint8At(0), e.externalEuint8At(1), e.inputProof());
@@ -189,8 +189,8 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
     /// hardhat: 'test operator "eq" overload (euint8, euint256) => ebool test 1 (34, 115792089237316195423570985008687907853269984665640564039457577752723022763875)'
     function test_eq_euint8_euint256_1() public {
         EncryptedInput memory e = encryptValues(
-            asUint8(34),
-            asUint256(115792089237316195423570985008687907853269984665640564039457577752723022763875),
+            tvUint8(34),
+            tvUint256(115792089237316195423570985008687907853269984665640564039457577752723022763875),
             address(suite),
             alice
         );
@@ -203,7 +203,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "eq" overload (euint8, euint256) => ebool test 2 (30, 34)'
     function test_eq_euint8_euint256_2() public {
-        EncryptedInput memory e = encryptValues(asUint8(30), asUint256(34), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(30), tvUint256(34), address(suite), alice);
 
         vm.prank(alice);
         suite.eq_euint8_euint256(e.externalEuint8At(0), e.externalEuint256At(1), e.inputProof());
@@ -213,7 +213,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "eq" overload (euint8, euint256) => ebool test 3 (34, 34)'
     function test_eq_euint8_euint256_3() public {
-        EncryptedInput memory e = encryptValues(asUint8(34), asUint256(34), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(34), tvUint256(34), address(suite), alice);
 
         vm.prank(alice);
         suite.eq_euint8_euint256(e.externalEuint8At(0), e.externalEuint256At(1), e.inputProof());
@@ -223,7 +223,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "eq" overload (euint8, euint256) => ebool test 4 (34, 30)'
     function test_eq_euint8_euint256_4() public {
-        EncryptedInput memory e = encryptValues(asUint8(34), asUint256(30), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(34), tvUint256(30), address(suite), alice);
 
         vm.prank(alice);
         suite.eq_euint8_euint256(e.externalEuint8At(0), e.externalEuint256At(1), e.inputProof());
@@ -233,7 +233,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "mul" overload (euint16, euint8) => euint16 test 1 (91, 2)'
     function test_mul_euint16_euint8_1() public {
-        EncryptedInput memory e = encryptValues(asUint16(91), asUint8(2), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint16(91), tvUint8(2), address(suite), alice);
 
         vm.prank(alice);
         suite.mul_euint16_euint8(e.externalEuint16At(0), e.externalEuint8At(1), e.inputProof());
@@ -243,7 +243,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "mul" overload (euint16, euint8) => euint16 test 2 (14, 16)'
     function test_mul_euint16_euint8_2() public {
-        EncryptedInput memory e = encryptValues(asUint16(14), asUint8(16), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint16(14), tvUint8(16), address(suite), alice);
 
         vm.prank(alice);
         suite.mul_euint16_euint8(e.externalEuint16At(0), e.externalEuint8At(1), e.inputProof());
@@ -253,7 +253,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "mul" overload (euint16, euint8) => euint16 test 3 (9, 9)'
     function test_mul_euint16_euint8_3() public {
-        EncryptedInput memory e = encryptValues(asUint16(9), asUint8(9), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint16(9), tvUint8(9), address(suite), alice);
 
         vm.prank(alice);
         suite.mul_euint16_euint8(e.externalEuint16At(0), e.externalEuint8At(1), e.inputProof());
@@ -263,7 +263,7 @@ contract FHEVMPublicDecrypt54Test is TestFhevm {
 
     /// hardhat: 'test operator "mul" overload (euint16, euint8) => euint16 test 4 (16, 14)'
     function test_mul_euint16_euint8_4() public {
-        EncryptedInput memory e = encryptValues(asUint16(16), asUint8(14), address(suite), alice);
+        EncryptedInput memory e = encryptValues(tvUint16(16), tvUint8(14), address(suite), alice);
 
         vm.prank(alice);
         suite.mul_euint16_euint8(e.externalEuint16At(0), e.externalEuint8At(1), e.inputProof());

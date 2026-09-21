@@ -156,8 +156,9 @@ library LibForgeFhevmEncrypt {
         }
 
         // What to sign, who may sign it, and how many must.
-        (bytes32 digest, address[] memory signers, uint256 threshold) =
-            _inputProof(handles, userAddress, contractAddress, cleartextExtraData, stack.inputVerifier, stack.cleartextVerifier);
+        (bytes32 digest, address[] memory signers, uint256 threshold) = _inputProof(
+            handles, userAddress, contractAddress, cleartextExtraData, stack.inputVerifier, stack.cleartextVerifier
+        );
 
         // A random threshold-sized subset of the signers the stack named, exactly as the SDK chooses one.
         bytes memory signatures = LibForgeFhevmSigners.packSignatures(

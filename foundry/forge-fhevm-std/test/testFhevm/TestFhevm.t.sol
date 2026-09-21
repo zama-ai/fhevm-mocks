@@ -34,7 +34,7 @@ contract TestFhevmOverriddenSetUpTest is TestFhevm {
     }
 
     function test_fixturesAndHostAreBothReady() public {
-        EncryptedInput memory e = encryptValues(asUint32(7), asUint64(9), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint32(7), tvUint64(9), address(vault), alice);
 
         vm.startPrank(alice);
         vault.setEUint32(e.externalEuint32At(0), e.inputProof());

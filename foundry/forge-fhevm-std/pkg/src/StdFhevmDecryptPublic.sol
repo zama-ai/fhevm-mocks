@@ -13,54 +13,54 @@ import {
     euint256,
     eaddress
 } from "encrypted-types/EncryptedTypes.sol";
-import {LibForgeFhevmPublicDecrypt} from "./_host/LibForgeFhevmPublicDecrypt.sol";
-import {FhevmProtocol, LibFhevmProtocol} from "./LibFhevmProtocol.sol";
+import {LibEncryptedTypes} from "./LibEncryptedTypes.sol";
+import {Plaintexts} from "./LibPlaintexts.sol";
 
 abstract contract StdFhevmDecryptPublic is StdFhevmBase {
-    // -- Decrypt Single Public Value ------------------------------------------
+    // -- Decrypt single (euintN -> clear) -------------------------------------
 
     function decryptPublic(ebool value) internal unmetered returns (bool clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (bool));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(euint8 value) internal unmetered returns (uint8 clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (uint8));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(euint16 value) internal unmetered returns (uint16 clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (uint16));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(euint32 value) internal unmetered returns (uint32 clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (uint32));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(euint64 value) internal unmetered returns (uint64 clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (uint64));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(euint128 value) internal unmetered returns (uint128 clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (uint128));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(euint256 value) internal unmetered returns (uint256 clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (uint256));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
     function decryptPublic(eaddress value) internal unmetered returns (address clear) {
-        clear = abi.decode(_decryptPublicHandle(_toBytes32(value)), (address));
+        clear = _decryptPublicOne(LibEncryptedTypes.toBytes32(value)).plaintext(value);
     }
 
-    // -- Decrypt Single Value With Signatures ---------------------------------
+    // -- Decrypt single (euintN -> clear, proof) ------------------------------
 
     function decryptPublicWithSignatures(ebool value)
         internal
         unmetered
         returns (bool clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (bool));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(euint8 value)
@@ -68,9 +68,9 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (uint8 clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (uint8));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(euint16 value)
@@ -78,9 +78,9 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (uint16 clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (uint16));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(euint32 value)
@@ -88,9 +88,9 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (uint32 clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (uint32));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(euint64 value)
@@ -98,9 +98,9 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (uint64 clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (uint64));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(euint128 value)
@@ -108,9 +108,9 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (uint128 clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (uint128));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(euint256 value)
@@ -118,9 +118,9 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (uint256 clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (uint256));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
     function decryptPublicWithSignatures(eaddress value)
@@ -128,110 +128,152 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         unmetered
         returns (address clear, bytes memory decryptionProof)
     {
-        bytes memory abiClearValues;
-        (abiClearValues, decryptionProof) = _decryptPublicHandleWithSignatures(_toBytes32(value));
-        clear = abi.decode(abiClearValues, (address));
+        Plaintexts memory decrypted;
+        (decrypted, decryptionProof) = _decryptPublicOneWithProof(LibEncryptedTypes.toBytes32(value));
+        clear = decrypted.plaintext(value);
     }
 
-    // -- Decrypt Multiple Values ----------------------------------------------
+    // Multiple values come back as a `Plaintexts`, as for a user decryption — read by `decrypted.uint32At(i)`
+    // or by the value itself. Three input shapes: POSITIONAL, like `encryptValues(a, b, ...)`, answered in
+    // the same order; an ARRAY of handles; and the ABI blob a dApp's multi-value getter returns.
 
-    function decryptPublic(bytes memory abiEncryptedValues) internal unmetered returns (bytes memory abiClearValues) {
-        (abiClearValues,) = _decryptPublicWithProof(_toHandles(abiEncryptedValues));
+    // -- Decrypt multiple (bytes32 a..e -> Plaintexts) ------------------------
+
+    function decryptPublic(bytes32 a, bytes32 b) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decryptPublic(LibEncryptedTypes.handles(a, b));
     }
 
-    // -- Decrypt Multiple Values With Signatures ------------------------------
+    function decryptPublic(bytes32 a, bytes32 b, bytes32 c) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decryptPublic(LibEncryptedTypes.handles(a, b, c));
+    }
+
+    function decryptPublic(bytes32 a, bytes32 b, bytes32 c, bytes32 d)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decryptPublic(LibEncryptedTypes.handles(a, b, c, d));
+    }
+
+    function decryptPublic(bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted)
+    {
+        decrypted = decryptPublic(LibEncryptedTypes.handles(a, b, c, d, e));
+    }
+
+    // -- Decrypt multiple (bytes32[] -> Plaintexts) ---------------------------
+
+    function decryptPublic(bytes32[] memory handles) internal unmetered returns (Plaintexts memory decrypted) {
+        (decrypted,) = _decryptPublicWithProof(handles);
+    }
+
+    // -- Decrypt multiple (bytes abi -> Plaintexts) ---------------------------
+
+    /// @notice Public decryption of `abi.encode(a, b, ...)`, as `decrypt(bytes, ...)` answers a user one.
+    function decryptPublic(bytes memory abiEncryptedValues) internal unmetered returns (Plaintexts memory decrypted) {
+        decrypted = decryptPublic(LibEncryptedTypes.handles(abiEncryptedValues));
+    }
+
+    // -- Decrypt multiple (bytes32 a..e -> Plaintexts, proof) -----------------
+
+    function decryptPublicWithSignatures(bytes32 a, bytes32 b)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
+    {
+        (decrypted, decryptionProof) = decryptPublicWithSignatures(LibEncryptedTypes.handles(a, b));
+    }
+
+    function decryptPublicWithSignatures(bytes32 a, bytes32 b, bytes32 c)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
+    {
+        (decrypted, decryptionProof) = decryptPublicWithSignatures(LibEncryptedTypes.handles(a, b, c));
+    }
+
+    function decryptPublicWithSignatures(bytes32 a, bytes32 b, bytes32 c, bytes32 d)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
+    {
+        (decrypted, decryptionProof) = decryptPublicWithSignatures(LibEncryptedTypes.handles(a, b, c, d));
+    }
+
+    function decryptPublicWithSignatures(bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
+    {
+        (decrypted, decryptionProof) = decryptPublicWithSignatures(LibEncryptedTypes.handles(a, b, c, d, e));
+    }
+
+    // -- Decrypt multiple (bytes32[] -> Plaintexts, proof) --------------------
+
+    /**
+     * @notice The same, with the proof a dApp's `FHE.checkSignatures` accepts. The three arguments that
+     *         call takes are `decrypted.handles()`, `decrypted.abiEncoded()` and `decryptionProof`.
+     * @dev `abiEncoded()` reproduces the signed bytes exactly: the plaintexts are read off those very
+     *      bytes, one word each, rather than re-read from the store.
+     */
+    function decryptPublicWithSignatures(bytes32[] memory handles)
+        internal
+        unmetered
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
+    {
+        (decrypted, decryptionProof) = _decryptPublicWithProof(handles);
+    }
+
+    // -- Decrypt multiple (bytes abi -> Plaintexts, proof) --------------------
 
     function decryptPublicWithSignatures(bytes memory abiEncryptedValues)
         internal
         unmetered
-        returns (bytes memory abiClearValues, bytes memory decryptionProof)
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
     {
-        (abiClearValues, decryptionProof) = _decryptPublicWithProof(_toHandles(abiEncryptedValues));
+        (decrypted, decryptionProof) = decryptPublicWithSignatures(LibEncryptedTypes.handles(abiEncryptedValues));
     }
 
     // -- PRIVATE HELPER FUNCTIONS ---------------------------------------------
 
-    function _toBytes32(ebool value) private pure returns (bytes32 handle) {
-        return ebool.unwrap(value);
+    function _decryptPublicOne(bytes32 handle) private returns (Plaintexts memory decrypted) {
+        (decrypted,) = _decryptPublicOneWithProof(handle);
     }
 
-    function _toBytes32(euint8 value) private pure returns (bytes32 handle) {
-        return euint8.unwrap(value);
-    }
-
-    function _toBytes32(euint16 value) private pure returns (bytes32 handle) {
-        return euint16.unwrap(value);
-    }
-
-    function _toBytes32(euint32 value) private pure returns (bytes32 handle) {
-        return euint32.unwrap(value);
-    }
-
-    function _toBytes32(euint64 value) private pure returns (bytes32 handle) {
-        return euint64.unwrap(value);
-    }
-
-    function _toBytes32(euint128 value) private pure returns (bytes32 handle) {
-        return euint128.unwrap(value);
-    }
-
-    function _toBytes32(euint256 value) private pure returns (bytes32 handle) {
-        return euint256.unwrap(value);
-    }
-
-    function _toBytes32(eaddress value) private pure returns (bytes32 handle) {
-        return eaddress.unwrap(value);
-    }
-
-    function _toHandles(bytes memory abiEncryptedValues) private pure returns (bytes32[] memory handles) {
-        require(abiEncryptedValues.length != 0, "StdFhevm: no encrypted value to decrypt");
-        require(
-            abiEncryptedValues.length % 32 == 0, "StdFhevm: abiEncryptedValues is not a whole number of 32-byte handles"
-        );
-
-        uint256 count = abiEncryptedValues.length / 32;
-        handles = new bytes32[](count);
-        for (uint256 i = 0; i < count; i++) {
-            bytes32 handle;
-            // solhint-disable-next-line no-inline-assembly
-            assembly {
-                handle := mload(add(add(abiEncryptedValues, 0x20), mul(i, 0x20)))
-            }
-            handles[i] = handle;
-        }
-    }
-
-    function _decryptPublicHandle(bytes32 handle) private returns (bytes memory abiClearValues) {
-        bytes32[] memory handles = new bytes32[](1);
-        handles[0] = handle;
-        (abiClearValues,) = _decryptPublicWithProof(handles);
-    }
-
-    function _decryptPublicHandleWithSignatures(bytes32 handle)
+    function _decryptPublicOneWithProof(bytes32 handle)
         private
-        returns (bytes memory abiClearValues, bytes memory decryptionProof)
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
     {
         bytes32[] memory handles = new bytes32[](1);
         handles[0] = handle;
-        (abiClearValues, decryptionProof) = _decryptPublicWithProof(handles);
+        (decrypted, decryptionProof) = _decryptPublicWithProof(handles);
     }
 
-    /**
-     * @notice Public decryption against the stack this test is pointed at.
-     *
-     * @dev RESOLVED, NOT NAMED, for the same reason as in `StdFhevmDecrypt`: the local cleartext
-     *      verifier answers for itself, and a forked production one is served from the ACL and the
-     *      plaintext source this config names.
-     */
+    /// @dev One kernel step (rules.md 2.10). The signed clear-value bytes are one 32-byte word per handle,
+    ///      so they are split into the `Plaintexts` as they are: what `abiEncoded()` gives back is what
+    ///      the KMS signed.
     function _decryptPublicWithProof(bytes32[] memory handles)
         private
-        returns (bytes memory abiClearValues, bytes memory decryptionProof)
+        returns (Plaintexts memory decrypted, bytes memory decryptionProof)
     {
-        fhevm.ensureForkPrepared(address(0));
-        fhevm.drainFheEvents();
-        FhevmProtocol memory protocol = LibFhevmProtocol.currentConfigWithPlaintexts();
-        return LibForgeFhevmPublicDecrypt.decryptPublicWithProof(
-            handles, protocol.kmsVerifier, protocol.acl, protocol.plaintexts, fhevm.useCleartextVerifier()
-        );
+        bytes memory abiClearValues;
+        (abiClearValues, decryptionProof) = fhevm.decryptPublicWithProof(handles);
+        decrypted._h = handles;
+        decrypted._p = _words(abiClearValues);
+    }
+
+    function _words(bytes memory encoded) private pure returns (uint256[] memory words) {
+        require(encoded.length % 32 == 0, "StdFhevm: clear values are not whole words");
+        words = new uint256[](encoded.length / 32);
+        for (uint256 i = 0; i < words.length; i++) {
+            uint256 w;
+            // solhint-disable-next-line no-inline-assembly
+            assembly ("memory-safe") {
+                w := mload(add(add(encoded, 32), mul(i, 32)))
+            }
+            words[i] = w;
+        }
     }
 }

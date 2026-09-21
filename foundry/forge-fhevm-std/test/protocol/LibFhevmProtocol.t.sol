@@ -69,7 +69,7 @@ contract LibFhevmProtocolTest is TestFhevm {
 
     /// Pointing the harness elsewhere is a declaration, and a non-cleartext stack resolves no store.
     function test_theStackCanBeRedeclared() public {
-        LibFhevmProtocol.setProtocol(makeAddr("acl"), makeAddr("executor"), makeAddr("kms"));
+        fhevm.setProtocol(makeAddr("acl"), makeAddr("executor"), makeAddr("kms"));
 
         assertEq(LibFhevmProtocol.currentConfig().executor, makeAddr("executor"));
         assertFalse(LibFhevmProtocol.currentConfig().isCleartext, "an address with no IS_CLEARTEXT");

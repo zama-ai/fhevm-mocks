@@ -55,18 +55,6 @@ library LibFhevmProtocol {
     // "No stack is current" and "nothing is at the fhevm address" are SETUP failures and revert with a
     // rendered `LibFhevmFail` message (rules.md 2.11), not a custom error.
 
-    /// @notice A decryption was asked for on a stack that holds no cleartexts, before any replay exists.
-    /// @dev Raised in place of reading `plaintexts(handle)` off an executor that has no such function —
-    ///      a production one — when `fhevm` holds no event processor yet, i.e. no stack was ever pointed in this context.
-    error FhevmPlaintextsSourceNotConfigured(address executor);
-
-    /// @notice Points this test at a stack. The addresses a dApp would be configured with — held by `fhevm`,
-    ///         where they configure the HARNESS and not the test contract's FHE identity. The local run
-    ///         calls this with the local addresses; a fork operation on `fhevm` does the equivalent itself.
-    function setProtocol(address acl, address executor, address kmsVerifier) internal {
-        fhevm.setProtocol(acl, executor, kmsVerifier);
-    }
-
     /// @dev The declared stack, or all zero — including when `fhevm` itself is not there yet (a contract
     ///      that inherits no mixin and asks before anything etched it).
     function _declared() private view returns (FhevmProtocolConfig memory) {
@@ -87,14 +75,6 @@ library LibFhevmProtocol {
         (bool ok, bytes memory ret) =
             executor.staticcall(abi.encodeCall(ICleartextFHEVMExecutor.getInputVerifierAddress, ()));
         return (ok && ret.length == 32) ? abi.decode(ret, (address)) : address(0);
-    }
-
-    /// @notice `currentConfig()`, with the plaintext source guaranteed present.
-    /// @dev For the decryption paths, which cannot do anything useful without one and should say so
-    ///      rather than calling `plaintexts(handle)` on a contract that has no such function.
-    function currentConfigWithPlaintexts() internal view returns (FhevmProtocol memory protocol) {
-        protocol = currentConfig();
-        if (protocol.plaintexts == address(0)) revert FhevmPlaintextsSourceNotConfigured(protocol.executor);
     }
 
     function currentConfig() internal view returns (FhevmProtocol memory protocol) {

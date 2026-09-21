@@ -68,6 +68,80 @@ interface IForgeVm {
 
     /// @notice Installs `newRuntimeBytecode` at `target` without running a constructor.
     function etch(address target, bytes calldata newRuntimeBytecode) external;
+
+    // Forks and nodes, for `LibForgeFhevmAnvil`. `rpc` speaks to the endpoint behind the active fork.
+
+    // Text, for building JSON-RPC parameters. `pure` here because forge-std declares them `pure`.
+
+    function toString(address value) external pure returns (string memory stringifiedValue);
+    function toString(bytes32 value) external pure returns (string memory stringifiedValue);
+    function toString(bytes calldata value) external pure returns (string memory stringifiedValue);
+
+    /// @notice Sets `block.number`. Used to move a fresh anvil off block 0, which the executor's
+    ///         `blockhash(block.number - 1)` cannot survive.
+    function roll(uint256 newHeight) external;
+
+    /// @notice A raw JSON-RPC call to the active fork's provider. The result is the cheat's encoding of the
+    ///         JSON value, so a bare `true` arrives as one word rather than as ABI `bytes` — call it
+    ///         low-level and decode by what the method is known to answer.
+    function rpc(string calldata method, string calldata params) external returns (bytes memory data);
+
+    // -- State diffs, for mirroring a deploy onto a node ------------------------------------------------
+    //
+    // Layout must match forge-std's `VmSafe` field for field: the cheatcode ABI-encodes these, so a
+    // divergence decodes into silent nonsense rather than a revert. Copied verbatim.
+
+    enum AccountAccessKind {
+        Call,
+        DelegateCall,
+        CallCode,
+        StaticCall,
+        Create,
+        SelfDestruct,
+        Resume,
+        Balance,
+        Extcodesize,
+        Extcodehash,
+        Extcodecopy
+    }
+
+    struct ChainInfo {
+        uint256 forkId;
+        uint256 chainId;
+    }
+
+    struct StorageAccess {
+        address account;
+        bytes32 slot;
+        bool isWrite;
+        bytes32 previousValue;
+        bytes32 newValue;
+        bool reverted;
+    }
+
+    struct AccountAccess {
+        ChainInfo chainInfo;
+        AccountAccessKind kind;
+        address account;
+        address accessor;
+        bool initialized;
+        uint256 oldBalance;
+        uint256 newBalance;
+        bytes deployedCode;
+        uint256 value;
+        bytes data;
+        bool reverted;
+        StorageAccess[] storageAccesses;
+        uint64 depth;
+        uint64 oldNonce;
+        uint64 newNonce;
+    }
+
+    /// @notice Starts recording every account and storage access, so a deploy can be replayed elsewhere.
+    function startStateDiffRecording() external;
+
+    /// @notice Everything accessed since `startStateDiffRecording`, in order.
+    function stopAndReturnStateDiff() external returns (AccountAccess[] memory accountAccesses);
     /// @notice Sets `account`'s nonce, so a deploy sequence lands on its canonical addresses.
     function setNonce(address account, uint64 newNonce) external;
     /// @notice Sets `msg.sender` for the next call only.

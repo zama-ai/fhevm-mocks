@@ -1,23 +1,27 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {Vm, VmSafe} from "forge-std/Vm.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 import {FORGE_VM_ADDRESS} from "./_host/IForgeVm.sol";
 import {ForgeFhevmEventProcessor, IForgeVmLogs} from "./_host/ForgeFhevmEventProcessor.sol";
-import {LibForgeFhevmContexts} from "./_host/LibForgeFhevmContexts.sol";
+import {LibForgeFhevmAnvil} from "./_host/LibForgeFhevmAnvil.sol";
+import {LibForgeFhevmStack} from "./_host/LibForgeFhevmStack.sol";
 import {LibForgeFhevmConfig} from "./_host/LibForgeFhevmConfig.sol";
+import {EncryptStack, LibForgeFhevmEncrypt} from "./_host/LibForgeFhevmEncrypt.sol";
+import {LibForgeFhevmPublicDecrypt} from "./_host/LibForgeFhevmPublicDecrypt.sol";
+import {IPlaintexts} from "./_host/shared/interfaces/IPlaintexts.sol";
+import {LibKmsVerifier, UserDecryptRequestV1} from "./_host/shared/LibKmsVerifier.sol";
+import {ICleartextFHEVMExecutor} from "./_host/_internal/interfaces/ICleartextFHEVMExecutor.sol";
+import {LibFhevmHandle} from "./_host/shared/LibFhevmHandle.sol";
 import {LibCleartextProbe} from "./_host/shared/LibCleartextProbe.sol";
 import {LocalHostVersions} from "./_host/_internal/LocalHostVersions.sol";
-import {ForgeFhevmDeploy} from "./_host/ForgeFhevmDeploy.sol";
 import {
     ACL_ADDRESS,
     FHEVM_EXECUTOR_ADDRESS,
     DEPLOYER_ADDRESS,
-    DEPLOYER_START_NONCE,
-    PAUSER_SET_ADDRESS
+    DEPLOYER_START_NONCE
 } from "./_host/_internal/LocalHostAddresses.sol";
-import {PAUSER_SET_RUNTIME_CODE} from "./_host/_internal/LocalHostBytecode.sol";
 import {StdFhevmChains} from "./StdFhevmChains.sol";
 import {LibFhevmFail} from "./LibFhevmFail.sol";
 
@@ -33,6 +37,26 @@ struct FhevmProtocolConfig {
     address acl;
     address executor;
     address kmsVerifier;
+}
+
+/**
+ * @notice The stack this test is pointed at, RESOLVED: the three declared addresses plus everything the
+ *         kernel discovers about them, in the one order that is right (prepare, drain, then read).
+ *
+ * @dev The kernel's own vocabulary, filled by its one resolver and fed to every kernel operation. Nothing
+ *      here is configured: `inputVerifier` is read off the executor, `isCleartext` is asked of it, and
+ *      `plaintexts` is WHATEVER IMPLEMENTS `IPlaintexts` for this stack — the executor itself when it is a
+ *      cleartext one, else the active context's replay, or zero when neither exists. `cleartextVerifier` is
+ *      `isCleartext` minus the `FHEVM_FORCE_FORK_STACK` override (rules.md 3.1).
+ */
+struct FhevmStack {
+    address acl;
+    address executor;
+    address kmsVerifier;
+    address inputVerifier;
+    address plaintexts;
+    bool isCleartext;
+    bool cleartextVerifier;
 }
 
 /**
@@ -91,6 +115,7 @@ struct FhevmProtocolConfig {
  *      | `useStack(chain)`                           | point the ACTIVE context (in memory or a fork) at a described stack, fully prepared — what `createSelectFork(chain, …)` does after forking |
  *      | `activeFork()`                              | forwarded |
  *      | `getRecordedLogs()`                         | `vm.getRecordedLogs()`, with the FHE events fed to the replay first — USE THIS, never `vm.getRecordedLogs()` (rules.md §2.3, §7.4) |
+ *      | `snapshotState()`, `revertToState(id)`      | `vm.snapshotState` / `vm.revertToState`, with the replay and the SDK's context put back — forge's fork pointer goes stale across a revert and these are what reconcile it |
  *      | `setAnvilMirror(bool)`, `anvilMirror()`     | whether a stack the SDK deploys on an anvil fork is also written onto the NODE (default: yes) |
  *
  * @dev ANVIL IS A FIRST-CLASS TARGET (rules.md 2.14). A fork of a running anvil is a fork with nothing on
@@ -108,12 +133,13 @@ struct FhevmProtocolConfig {
  *      | `hasRpcUrlFor(alias)`                       | did the run configure a URL for this alias (`foundry.toml` or `<ALIAS>_RPC_URL`)? — the opt-in a fork test checks |
  *      | `eventProcessor()`                          | the ACTIVE context's replay (one per context, created when a stack is pointed there) |
  *      | `ensureForkPrepared(dApp)`, `drainFheEvents()`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
+ *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
  */
 interface IFhevmVm {
     // Setup failures — fork drift, an unsupported protocol version, a fork registered while inactive, an
     // empty RPC URL — revert with a rendered `LibFhevmFail` message, not a custom error (rules.md 2.11).
 
-    // -- Plumbing ---------------------------------------------------------------------------------------
+    // -- Lifecycle ------------------------------------------------------------
 
     /// @notice Whether `initialize()` has run. False at a bare etch, and false in a fork the account was
     ///         not carried into — which is how a missing `makePersistent` shows up.
@@ -123,6 +149,8 @@ interface IFhevmVm {
     ///         to protect in a test EVM, and an owner check would only get in the way of a test that
     ///         re-etches.
     function initialize() external;
+
+    // -- Gas metering ---------------------------------------------------------
 
     /**
      * @notice One scope deeper into "not charged to the test".
@@ -137,20 +165,18 @@ interface IFhevmVm {
     /// @notice One scope out. True when this was the outermost, i.e. the caller must resume metering.
     function exitUnmetered() external returns (bool wasOutermost);
 
-    /**
-     * @notice The event processor of the ACTIVE execution context — the in-memory chain or the active
-     *         fork — or zero before a stack was pointed there.
-     * @dev ONE PER CONTEXT, NEVER PERSISTENT (rules.md §2.3). A processor is the reconstruction of one
-     *      chain's state, so it is created INSIDE the context whose chain it mirrors, by `setProtocol`, and
-     *      lives and dies with that context: switch fork and it is gone with the chain, switch back and it
-     *      is there as left, roll and it is discarded with the rest of the fork's local state. Whether it
-     *      is READ is the stack's property, not the context's: `LibFhevmProtocol` resolves the plaintext
-     *      source to the executor when the stack is cleartext, to this processor otherwise — in memory
-     *      exactly as on a fork.
-     */
-    function eventProcessor() external view returns (address);
+    // -- The current stack ----------------------------------------------------
 
-    // -- The current stack --------------------------------------------------------------------------------
+    /// @notice The stack this test is pointed at: the local cleartext one by default, the fork's after a
+    ///         fork operation on this handle. All zero before `StdFhevm`'s constructor ran.
+    function protocol() external view returns (FhevmProtocolConfig memory);
+
+    /// @notice Points the test at a stack, and the replay at that stack's executor. The local run calls it
+    ///         with the local addresses; a fork operation calls it with the fork's; a test may call it to
+    ///         declare a stack the chain table does not know.
+    function setProtocol(address acl, address executor, address kmsVerifier) external;
+
+    // - Cleartext verifier policy (rules.md 3.1) ------------------------------
 
     /**
      * @notice Whether the current stack's verifiers may be ASKED directly — a cleartext verifier answers
@@ -168,16 +194,9 @@ interface IFhevmVm {
     ///         forge runs in parallel (rules.md 7.5).
     function setForceProductionPath(bool force) external;
 
-    /// @notice The stack this test is pointed at: the local cleartext one by default, the fork's after a
-    ///         fork operation on this handle. All zero before `StdFhevm`'s constructor ran.
-    function protocol() external view returns (FhevmProtocolConfig memory);
+    // -- Forks ----------------------------------------------------------------
 
-    /// @notice Points the test at a stack, and the replay at that stack's executor. The local run calls it
-    ///         with the local addresses; a fork operation calls it with the fork's; a test may call it to
-    ///         declare a stack the chain table does not know.
-    function setProtocol(address acl, address executor, address kmsVerifier) external;
-
-    // -- Forks ----------------------------------------------------------------------------------------------
+    // - Create, select, roll --------------------------------------------------
 
     /**
      * @notice `vm.createSelectFork`, the FHEVM way, with the stack named: pending FHE events are drained,
@@ -214,6 +233,16 @@ interface IFhevmVm {
     function createFork(string calldata urlOrAlias, uint256 blockNumber) external returns (uint256 forkId);
 
     /**
+     * @notice `vm.selectFork`, the FHEVM way: the FHE events emitted on the fork being LEFT are replayed
+     *         into the store first, then the switch happens, then the protocol is pointed at the selected
+     *         fork's stack. Use this, never `vm.selectFork`, in a test that decrypts.
+     * @dev WHY THE DRAIN MUST COME FIRST. The recorded-log buffer is one per test across forks, and a
+     *      store answers a handle it never saw by asking its upstream ON THE ACTIVE FORK — so fork A's
+     *      events replayed after moving to fork B would look A's operands up on B's chain.
+     */
+    function selectFork(uint256 forkId) external;
+
+    /**
      * @notice `vm.rollFork`, the FHEVM way: drain the FHE events first, roll, then treat the fork as a FRESH
      *         fork at that block — because that is what a roll is. Forge resets the fork's local state, and
      *         with it this SDK's signer swap AND the fork's replay (a contract created inside the fork, not
@@ -233,35 +262,15 @@ interface IFhevmVm {
      */
     function useStack(StdFhevmChains.FhevmChain calldata chain) external;
 
-    /// @notice `vm.activeFork()`, forwarded — here so a fork test never needs `vm` for the fork family.
-    function activeFork() external view returns (uint256 forkId);
-
-    /**
-     * @notice `vm.getRecordedLogs()`, the FHEVM way: drains the buffer ONCE, feeds the FHE events to the
-     *         replay, and hands back everything — the dApp's events and the FHE ones alike.
-     * @dev WHY THERE IS A REPLACEMENT AT ALL. The recorded-logs buffer is one per test and reading it
-     *      EMPTIES it, for everyone. A test that calls `vm.getRecordedLogs()` to inspect its own events
-     *      swallows every FHE event with them, and the next decryption fails on a handle the replay never
-     *      saw. The reverse is just as bad and quieter: decrypt first, and the test's own log assertions
-     *      run against an empty array. This drains once and serves both readers. For asserting on a dApp's
-     *      own events, `vm.expectEmit` needs no such care and is the better tool.
-     */
-    function getRecordedLogs() external returns (Vm.Log[] memory logs);
-
-    /**
-     * @notice `vm.selectFork`, the FHEVM way: the FHE events emitted on the fork being LEFT are replayed
-     *         into the store first, then the switch happens, then the protocol is pointed at the selected
-     *         fork's stack. Use this, never `vm.selectFork`, in a test that decrypts.
-     * @dev WHY THE DRAIN MUST COME FIRST. The recorded-log buffer is one per test across forks, and a
-     *      store answers a handle it never saw by asking its upstream ON THE ACTIVE FORK — so fork A's
-     *      events replayed after moving to fork B would look A's operands up on B's chain.
-     */
-    function selectFork(uint256 forkId) external;
-
     /// @notice Names the stack of the ACTIVE fork `forkId`, entered with a URL only; prepares and points at
     ///         it as `createSelectFork(chain, …)` would have. `StdFhevmFork` calls this with what it
     ///         resolved; a test may call it to name a stack the resolution could not.
     function registerFork(uint256 forkId, StdFhevmChains.FhevmChain calldata chain) external;
+
+    // - Queries ---------------------------------------------------------------
+
+    /// @notice `vm.activeFork()`, forwarded — here so a fork test never needs `vm` for the fork family.
+    function activeFork() external view returns (uint256 forkId);
 
     /// @notice Whether the test executes on a fork — created by `fhevm.createSelectFork`, or by forge itself
     ///         under `forge test --fork-url` — rather than on the in-memory chain. The question a test asks;
@@ -290,6 +299,44 @@ interface IFhevmVm {
      */
     function hasRpcUrlFor(string calldata chainAlias) external view returns (bool);
 
+    // - Snapshots -------------------------------------------------------------
+
+    /**
+     * @notice `vm.snapshotState`, the FHEVM way: the FHE events emitted so far are replayed into the store
+     *         FIRST, so the snapshot captures them, and the context this snapshot belongs to is recorded.
+     *         Use this, never `vm.snapshotState`, in a test that also forks.
+     */
+    function snapshotState() external returns (uint256 snapshotId);
+
+    /**
+     * @notice `vm.revertToState`, the FHEVM way: reverts, then puts the SDK back in the execution context
+     *         the snapshot was taken in — WHICH FORGE DOES NOT DO ON ITS OWN.
+     *
+     * @dev WHAT FORGE DOES, MEASURED. Reverting restores the EVM state, persistent accounts included, and
+     *      for a snapshot taken ON a fork it restores the fork selection too. For one taken BEFORE any
+     *      fork it restores the in-memory chain but leaves `vm.activeFork()` reporting the fork you were
+     *      on: the pointer is not part of the snapshot. Left alone that reads as FORK DRIFT at the next
+     *      SDK call, because the SDK's own bookkeeping WAS reverted and the two no longer agree.
+     *
+     * @dev SO THIS RECONCILES. It remembers the snapshot's context across the revert in a local variable —
+     *      storage and transient storage are both reverted, so neither could carry it — and afterwards
+     *      answers `currentForkId()` from that rather than from forge's stale pointer.
+     *
+     * @dev AND IT DISCARDS PENDING FHE EVENTS. Events emitted after the snapshot describe work the revert
+     *      undid; replaying them later would put values in the store that the chain no longer produced.
+     *      Events from before it are already in the store, and the store is inside the snapshot.
+     */
+    function revertToState(uint256 snapshotId) external returns (bool success);
+
+    // - Anvil -----------------------------------------------------------------
+
+    /// @notice Whether a stack the SDK deploys on an anvil fork is also written onto the node. Default true.
+    ///         Off, the stack exists in the fork only and the node is left untouched.
+    function setAnvilMirror(bool enabled) external;
+    function anvilMirror() external view returns (bool);
+
+    // -- Preparation of a URL-only fork ---------------------------------------
+
     /**
      * @notice THE ONE CALL EVERY SDK ENTRY MAKES FIRST. The drift check (reverts loudly on a fork entered
      *         through `vm`), then — for a fork entered with a URL only — the resolution of its stack: from
@@ -305,11 +352,42 @@ interface IFhevmVm {
     ///         every `setFhevmChain`, so the test's table stays the source of truth and this is its copy.
     function setChainTable(StdFhevmChains.FhevmChain[] calldata chains) external;
 
+    // -- The replay -----------------------------------------------------------
+
+    /**
+     * @notice The event processor of the ACTIVE execution context — the in-memory chain or the active
+     *         fork — or zero before a stack was pointed there.
+     * @dev ONE PER CONTEXT, NEVER PERSISTENT (rules.md §2.3). A processor is the reconstruction of one
+     *      chain's state, so it is created INSIDE the context whose chain it mirrors, by `setProtocol`, and
+     *      lives and dies with that context: switch fork and it is gone with the chain, switch back and it
+     *      is there as left, roll and it is discarded with the rest of the fork's local state. Whether it
+     *      is READ is the stack's property, not the context's: `LibFhevmProtocol` resolves the plaintext
+     *      source to the executor when the stack is cleartext, to this processor otherwise — in memory
+     *      exactly as on a fork.
+     */
+    function eventProcessor() external view returns (address);
+
     /// @notice Replays everything emitted since the last replay into the active context's store. Every
     ///         value-reading entry calls it before answering (rules.md §2.9); a test never needs to.
     function drainFheEvents() external;
 
-    // -- The active context's replay, for the cheats -------------------------------------------------------
+    /**
+     * @notice `vm.getRecordedLogs()`, the FHEVM way: drains the buffer ONCE, feeds the FHE events to the
+     *         replay, and hands back everything — the dApp's events and the FHE ones alike.
+     * @dev WHY THERE IS A REPLACEMENT AT ALL. The recorded-logs buffer is one per test and reading it
+     *      EMPTIES it, for everyone. A test that calls `vm.getRecordedLogs()` to inspect its own events
+     *      swallows every FHE event with them, and the next decryption fails on a handle the replay never
+     *      saw. The reverse is just as bad and quieter: decrypt first, and the test's own log assertions
+     *      run against an empty array. This drains once and serves both readers. For asserting on a dApp's
+     *      own events, `vm.expectEmit` needs no such care and is the better tool.
+     */
+    function getRecordedLogs() external returns (Vm.Log[] memory logs);
+
+    // - Cheats, on the active context's store ---------------------------------
+    //
+    // FORK ONLY, and each one says so by name: on a cleartext stack every value is known, so there is
+    // nothing to state, and a call here means the test is confused about which stack it is on. Each
+    // prepares the fork and drains first, so the statement lands in the replay the next read consults.
 
     /// @notice States a handle's cleartext in the active context's store (`forkUnknown`).
     function seedCleartext(bytes32 handle, uint256 value) external;
@@ -318,12 +396,79 @@ interface IFhevmVm {
     /// @notice Every unknown handle in the active context reads from its hash (`forkUnknownDeterministic`).
     function useDeterministicUnknownHandles() external;
 
-    // -- anvil ----------------------------------------------------------------------------------------------
+    // -- The protocol steps, for the mixins -----------------------------------
+    //
+    // ONE ENTRY, IN ONE ORDER, for each. Preparing the fork is what decides which stack is current, and
+    // the stack is what every step computes against, so the two cannot be separate calls at the call
+    // site: an argument list is evaluated before the call it belongs to, and a caller that read the
+    // stack itself would be reading it one step too early. Each step prepares, drains, resolves and acts
+    // here, and the caller names none of it. Handle-shaped (`bytes32`), which is kernel vocabulary; the
+    // typed public API is the mixins' (rules.md 2.8).
 
-    /// @notice Whether a stack the SDK deploys on an anvil fork is also written onto the node. Default true.
-    ///         Off, the stack exists in the fork only and the node is left untouched.
-    function setAnvilMirror(bool enabled) external;
-    function anvilMirror() external view returns (bool);
+    // - The resolver ----------------------------------------------------------
+
+    /**
+     * @notice The stack this test is pointed at, RESOLVED and READY TO READ: prepared, drained, and with
+     *         a plaintext source guaranteed present.
+     *
+     * @dev For the one decryption path whose argument checks keep it in its mixin (`StdFhevmDecrypt`):
+     *      it takes the resolved stack from here instead of assembling it from three calls. Every caller
+     *      outside the kernel decrypts, and a decryption without a plaintext source has nothing to say,
+     *      so the guard is part of the answer — loudly (rules.md 2.11), not a call on address zero.
+     * @param dAppOrZero the contract the entry targets, or zero — what a URL-only fork resolves from.
+     */
+    function resolveStack(address dAppOrZero) external returns (FhevmStack memory stack);
+
+    // - Encrypt ---------------------------------------------------------------
+
+    /**
+     * @notice Mints a batch of encrypted inputs for `contractAddress`, as `userAddress`, and returns
+     *         everything an `EncryptedInput` is made of.
+     *
+     * @return handles     The external handles, in the order the values were given.
+     * @return inputProof  The proof the whole batch shares.
+     * @return chainId     The chain the handles were minted for, read back off the first of them.
+     * @return version     The handle format version, likewise.
+     */
+    function encrypt(uint8[] calldata typeIds, uint256[] calldata values, address contractAddress, address userAddress)
+        external
+        returns (bytes32[] memory handles, bytes memory inputProof, uint256 chainId, uint8 version);
+
+    /// @notice The same, from `abi.encode(typeId, value, typeId, value, ...)`.
+    function encrypt(bytes calldata abiTypeValuePairs, address contractAddress, address userAddress)
+        external
+        returns (bytes32[] memory handles, bytes memory inputProof, uint256 chainId, uint8 version);
+
+    // - Read ------------------------------------------------------------------
+
+    /**
+     * @notice Public decryption of `handles` against the current stack: the values and the proof a dApp's
+     *         `checkSignatures` accepts.
+     * @dev The local cleartext verifier is asked directly (unless the production path is forced); a
+     *      production one is served from the ACL and the plaintext source the resolved stack names.
+     */
+    function decryptPublicWithProof(bytes32[] calldata handles)
+        external
+        returns (bytes memory abiEncodedClearValues, bytes memory decryptionProof);
+
+    /// @notice What `handle` is worth, read from whatever holds cleartexts for the current stack — the
+    ///         cleartext executor locally, the context's replay on a fork — after draining what is pending.
+    function plaintextOf(bytes32 handle) external returns (uint256 clear);
+
+    // - Sign ------------------------------------------------------------------
+
+    /**
+     * @notice The digest a user signs to request a decryption from the CURRENT stack's KMS verifier, with
+     *         `delegatorOrZero` naming a delegator for the delegated form.
+     * @dev A permit is bound to one verifier's domain and KMS context, so the verifier it is built against
+     *      must be the one the decryption will be checked by. Resolving here, after preparing the fork from
+     *      the permit's own first contract address, is what makes that so: a permit signed as the FIRST
+     *      entry on a URL-only fork resolves the stack exactly as an encryption would, and a later decrypt
+     *      finds the same stack. The mixin signs the digest with the caller's key; the key never comes here.
+     */
+    function userDecryptDigestV1(UserDecryptRequestV1 calldata request, address delegatorOrZero)
+        external
+        returns (bytes32 digest);
 }
 
 /// @dev The handle. Declared here so one import brings the constant and its interface. Lowercase like
@@ -333,7 +478,9 @@ IFhevmVm constant fhevm = IFhevmVm(FHEVM_VM_ADDRESS);
 
 /// The runtime behind `fhevm`. Never deployed with `new`: `StdFhevmBase`'s constructor etches
 /// `type(FhevmVm).runtimeCode` at `FHEVM_VM_ADDRESS`.
-contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
+contract FhevmVm is IFhevmVm {
+    // -- Storage --------------------------------------------------------------
+
     bool private _initialized;
     FhevmProtocolConfig private _protocol;
     /// @dev Tri-state override of `FHEVM_FORCE_FORK_STACK`: unset → the environment decides.
@@ -352,7 +499,16 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
     /// @dev The fork this handle last switched to — the only fork that is not drift.
     uint256 private _lastSwitchedForkId;
 
-    // -- Plumbing ---------------------------------------------------------------------------------------
+    /// @dev The context each `snapshotState()` was taken in. Two mappings rather than a plus-one encoding
+    ///      because "no fork" is spelled `type(uint256).max`, which has no room for the plus one.
+    mapping(uint256 snapshotId => bool) private _snapshotIsOurs;
+    mapping(uint256 snapshotId => uint256) private _snapshotContext;
+
+    /// @dev Transient, not storage: a cold `SSTORE` is ~20k and would itself be charged to the test if the
+    ///      pause ever came after it; `TSTORE` is ~100 and clears with the transaction, i.e. the test.
+    bytes32 private constant UNMETERED_DEPTH_SLOT = keccak256("fhevm.FhevmVm.unmeteredDepth");
+
+    // -- Lifecycle ------------------------------------------------------------
 
     function initialized() external view returns (bool) {
         return _initialized;
@@ -371,9 +527,7 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         Vm(FORGE_VM_ADDRESS).recordLogs();
     }
 
-    /// @dev Transient, not storage: a cold `SSTORE` is ~20k and would itself be charged to the test if the
-    ///      pause ever came after it; `TSTORE` is ~100 and clears with the transaction, i.e. the test.
-    bytes32 private constant UNMETERED_DEPTH_SLOT = keccak256("fhevm.FhevmVm.unmeteredDepth");
+    // -- Gas metering ---------------------------------------------------------
 
     function enterUnmetered() external {
         bytes32 slot = UNMETERED_DEPTH_SLOT;
@@ -392,28 +546,10 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         return remaining == 0;
     }
 
-    function eventProcessor() external view returns (address) {
-        return _processorOf[_activeFork()];
-    }
-
-    // -- The current stack --------------------------------------------------------------------------------
+    // -- The current stack ----------------------------------------------------
 
     function protocol() external view returns (FhevmProtocolConfig memory) {
         return _protocol;
-    }
-
-    function useCleartextVerifier() external view returns (bool) {
-        return !_forceProductionPath() && LibCleartextProbe.isCleartext(_protocol.executor);
-    }
-
-    function setForceProductionPath(bool force) external {
-        _forceOverrideSet = true;
-        _forceOverride = force;
-    }
-
-    function _forceProductionPath() private view returns (bool) {
-        if (_forceOverrideSet) return _forceOverride;
-        return Vm(FORGE_VM_ADDRESS).envOr("FHEVM_FORCE_FORK_STACK", false);
     }
 
     function setProtocol(address acl, address executor, address kmsVerifier) external {
@@ -442,7 +578,25 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         replay.selectExecutor(executor);
     }
 
-    // -- Forks ----------------------------------------------------------------------------------------------
+    // - Cleartext verifier policy (rules.md 3.1) ------------------------------
+
+    function useCleartextVerifier() external view returns (bool) {
+        return !_forceProductionPath() && LibCleartextProbe.isCleartext(_protocol.executor);
+    }
+
+    function setForceProductionPath(bool force) external {
+        _forceOverrideSet = true;
+        _forceOverride = force;
+    }
+
+    function _forceProductionPath() private view returns (bool) {
+        if (_forceOverrideSet) return _forceOverride;
+        return Vm(FORGE_VM_ADDRESS).envOr("FHEVM_FORCE_FORK_STACK", false);
+    }
+
+    // -- Forks ----------------------------------------------------------------
+
+    // - Create, select, roll --------------------------------------------------
 
     function createSelectFork(StdFhevmChains.FhevmChain calldata chain) external returns (uint256 forkId) {
         _requireRpcUrl(chain);
@@ -496,6 +650,17 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         return Vm(FORGE_VM_ADDRESS).createFork(urlOrAlias, blockNumber);
     }
 
+    function selectFork(uint256 forkId) external {
+        _drainFheEvents();
+        Vm(FORGE_VM_ADDRESS).selectFork(forkId);
+        if (_forkRegistered[forkId]) {
+            _lastSwitchedForkId = forkId;
+            _pointAt(forkId);
+        } else {
+            _enterUnresolvedFork(forkId);
+        }
+    }
+
     function rollFork(uint256 blockNumber) external {
         _drainFheEvents();
         Vm(FORGE_VM_ADDRESS).rollFork(blockNumber);
@@ -510,13 +675,6 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         if (forkId == _activeFork() && _forkRegistered[forkId]) _pointAt(forkId);
     }
 
-    /// @dev The roll reset the fork's local state: our signer swap is gone, and so is the fork's processor
-    ///      (created inside the fork, never persistent). Forget both, so the next contact prepares afresh.
-    function _forgetForkState(uint256 forkId) private {
-        _forkPrepared[forkId] = false;
-        _processorOf[forkId] = address(0);
-    }
-
     function useStack(StdFhevmChains.FhevmChain calldata chain) external {
         uint256 context = _activeFork();
         _remember(context, chain);
@@ -524,46 +682,16 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         _pointAt(context);
     }
 
-    function activeFork() external view returns (uint256 forkId) {
-        return Vm(FORGE_VM_ADDRESS).activeFork();
-    }
-
-    function getRecordedLogs() external returns (Vm.Log[] memory logs) {
-        logs = Vm(FORGE_VM_ADDRESS).getRecordedLogs();
-        address processor = _processorOf[_activeFork()];
-        if (processor == address(0)) return logs;
-
-        // Same three fields in the same order, but nominally distinct types: the payload declares its own
-        // `Log` so it never depends on forge-std.
-        IForgeVmLogs.Log[] memory forwarded = new IForgeVmLogs.Log[](logs.length);
-        for (uint256 i = 0; i < logs.length; i++) {
-            forwarded[i] = IForgeVmLogs.Log({topics: logs[i].topics, data: logs[i].data, emitter: logs[i].emitter});
-        }
-        ForgeFhevmEventProcessor(processor).processFheEvents(forwarded);
-    }
-
-    function selectFork(uint256 forkId) external {
-        _drainFheEvents();
-        Vm(FORGE_VM_ADDRESS).selectFork(forkId);
-        if (_forkRegistered[forkId]) {
-            _lastSwitchedForkId = forkId;
-            _pointAt(forkId);
-        } else {
-            _enterUnresolvedFork(forkId);
-        }
-    }
-
-    /// @dev The active fork changed and its stack is not known yet: the current stack is CLEARED, never
-    ///      left pointing at wherever the test came from. The first SDK entry resolves and points.
-    function _enterUnresolvedFork(uint256 forkId) private {
-        _lastSwitchedForkId = forkId;
-        _protocol = FhevmProtocolConfig({acl: address(0), executor: address(0), kmsVerifier: address(0)});
-    }
-
     function registerFork(uint256 forkId, StdFhevmChains.FhevmChain calldata chain) external {
         uint256 active = _activeFork();
         if (active != forkId) revert(LibFhevmFail.registeredForkNotActive(forkId, active));
         _enterFork(forkId, chain);
+    }
+
+    // - Queries ---------------------------------------------------------------
+
+    function activeFork() external view returns (uint256 forkId) {
+        return Vm(FORGE_VM_ADDRESS).activeFork();
     }
 
     function isForked() external view returns (bool) {
@@ -587,23 +715,187 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         try Vm(FORGE_VM_ADDRESS).rpcUrl(chainAlias) returns (string memory configured) {
             if (bytes(configured).length != 0) return true;
         } catch {}
-        string memory envName = string.concat(_toUpper(chainAlias), "_RPC_URL");
+        string memory envName = string.concat(Vm(FORGE_VM_ADDRESS).toUppercase(chainAlias), "_RPC_URL");
         return bytes(Vm(FORGE_VM_ADDRESS).envOr(envName, string(""))).length != 0;
     }
 
-    function _toUpper(string memory str) private pure returns (string memory) {
-        bytes memory b = bytes(str);
-        for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] >= 0x61 && b[i] <= 0x7A) b[i] = bytes1(uint8(b[i]) - 32);
-        }
-        return string(b);
+    // - Snapshots -------------------------------------------------------------
+
+    function snapshotState() external returns (uint256 snapshotId) {
+        // Drained BEFORE the snapshot, so what the events produced is part of what is captured.
+        _drainFheEvents();
+        snapshotId = Vm(FORGE_VM_ADDRESS).snapshotState();
+        // Written AFTER, so it is not in the snapshot — which is fine: it is read before the revert undoes
+        // it, and a local variable carries the value across.
+        _snapshotIsOurs[snapshotId] = true;
+        _snapshotContext[snapshotId] = _activeFork();
     }
 
+    function revertToState(uint256 snapshotId) external returns (bool success) {
+        if (!_snapshotIsOurs[snapshotId]) revert(LibFhevmFail.unknownSnapshot(snapshotId));
+        // a LOCAL: storage and transient storage are both about to revert
+        uint256 context = _snapshotContext[snapshotId];
+        uint256 active = _activeFork();
+
+        // The one direction forge cannot do. Refused BEFORE the revert, so nothing is disturbed.
+        if (context == NO_FORK && active != NO_FORK) revert(LibFhevmFail.cannotRevertPastFork(snapshotId));
+
+        success = Vm(FORGE_VM_ADDRESS).revertToState(snapshotId);
+
+        // Everything emitted since the snapshot describes work the revert undid. Drop it, or the next
+        // replay would write values into a store the chain no longer agrees with.
+        Vm(FORGE_VM_ADDRESS).getRecordedLogs();
+
+        // Nothing to put back. Forge restores its own fork pointer correctly in every direction that is
+        // left, and this handle's bookkeeping -- the stack it points at, the drift guard's memory, each
+        // context's replay -- is storage, so it came back with the state. `context` is read only to
+        // decide, above, whether the revert is one forge can do at all.
+    }
+
+    // - Bookkeeping -----------------------------------------------------------
+
+    /// @dev The active fork `forkId` now has a named stack: remember it, prepare it once, point at it.
+    function _enterFork(uint256 forkId, StdFhevmChains.FhevmChain memory chain) private {
+        _remember(forkId, chain);
+        _lastSwitchedForkId = forkId;
+        _pointAt(forkId);
+    }
+
+    /// @dev The active fork changed and its stack is not known yet: the current stack is CLEARED, never
+    ///      left pointing at wherever the test came from. The first SDK entry resolves and points.
+    function _enterUnresolvedFork(uint256 forkId) private {
+        _lastSwitchedForkId = forkId;
+        _protocol = FhevmProtocolConfig({acl: address(0), executor: address(0), kmsVerifier: address(0)});
+    }
+
+    /// @dev Names `forkId`'s stack without touching it — for a fork that is not active (`createFork`).
+    ///      A re-registration names a (possibly different) stack: prepare again on next contact.
+    function _remember(uint256 forkId, StdFhevmChains.FhevmChain memory chain) private {
+        _forkChain[forkId] = chain;
+        _forkRegistered[forkId] = true;
+        _forkPrepared[forkId] = false;
+    }
+
+    /// @dev The roll reset the fork's local state: our signer swap is gone, and so is the fork's processor
+    ///      (created inside the fork, never persistent). Forget both, so the next contact prepares afresh.
+    function _forgetForkState(uint256 forkId) private {
+        _forkPrepared[forkId] = false;
+        _processorOf[forkId] = address(0);
+    }
+
+    /// @dev Prepare on first contact, point on every contact. Runs with `forkId` ACTIVE.
+    function _pointAt(uint256 forkId) private {
+        StdFhevmChains.FhevmChain memory chain = _forkChain[forkId];
+        if (!_forkPrepared[forkId]) {
+            // Nothing at the executor: an anvil node the SDK can put the stack on, or a mistake it names.
+            if (chain.fhevmExecutor.code.length == 0) _provisionLocalStack(chain);
+
+            if (!LibCleartextProbe.isCleartext(chain.fhevmExecutor)) {
+                _requireSupportedVersions(chain);
+                // The fork's verifiers are registered against signers nobody here holds a key for;
+                // re-register the cleartext ones, so the input proofs and decryption proofs built here are
+                // accepted. Fork state persists across switches, so once per fork. The pranks are this
+                // contract's: it has cheatcode access (`allowCheatcodes`) precisely for this.
+                LibForgeFhevmStack.defineCleartextContexts(chain.inputVerifier, chain.protocolConfig, chain.acl);
+            }
+            // A cleartext stack is this package's own code: no version to check, and it registers the
+            // cleartext signers itself.
+            _forkPrepared[forkId] = true;
+        }
+        _setProtocol(chain.acl, chain.fhevmExecutor, chain.kmsVerifier);
+    }
+
+    function _requireRpcUrl(StdFhevmChains.FhevmChain calldata chain) private pure {
+        if (bytes(chain.rpcUrl).length == 0) revert(LibFhevmFail.noRpcUrl(chain.fhevmGroup, chain.chainAlias));
+    }
+
+    /// @dev The context the test is REALLY in. Forge's pointer, except right after a revert that left it
+    ///      stale, where `revertToState` recorded the truth (see there).
+    function _activeFork() private view returns (uint256) {
+        return _reportedFork();
+    }
+
+    /// @dev What forge says, with "no fork" spelled as `NO_FORK` rather than as a revert.
+    function _reportedFork() private view returns (uint256) {
+        try Vm(FORGE_VM_ADDRESS).activeFork() returns (uint256 forkId) {
+            return forkId;
+        } catch {
+            return NO_FORK;
+        }
+    }
+
+    // - Version gate ----------------------------------------------------------
+
+    function _requireSupportedVersions(StdFhevmChains.FhevmChain memory chain) private view {
+        if (LibCleartextProbe.isCleartext(chain.fhevmExecutor)) return;
+        _requireVersion(chain, "ACL", chain.acl, LocalHostVersions.ACL);
+        _requireVersion(chain, "FHEVMExecutor", chain.fhevmExecutor, LocalHostVersions.FHEVM_EXECUTOR);
+        _requireVersion(chain, "InputVerifier", chain.inputVerifier, LocalHostVersions.INPUT_VERIFIER);
+        _requireVersion(chain, "KMSVerifier", chain.kmsVerifier, LocalHostVersions.KMS_VERIFIER);
+        _requireVersion(chain, "ProtocolConfig", chain.protocolConfig, LocalHostVersions.PROTOCOL_CONFIG);
+    }
+
+    function _requireVersion(
+        StdFhevmChains.FhevmChain memory chain,
+        string memory contractName,
+        address target,
+        string memory expected
+    ) private view {
+        (bool ok, bytes memory ret) = target.staticcall(abi.encodeWithSignature("getVersion()"));
+        string memory actual = (ok && ret.length >= 64) ? abi.decode(ret, (string)) : "";
+        if (keccak256(bytes(actual)) != keccak256(bytes(expected))) {
+            revert(LibFhevmFail.versionMismatch(chain.fhevmGroup, chain.chainAlias, contractName, expected, actual));
+        }
+    }
+
+    // - Anvil -----------------------------------------------------------------
+
+    function setAnvilMirror(bool enabled) external {
+        _anvilMirrorOff = !enabled;
+    }
+
+    function anvilMirror() external view returns (bool) {
+        return !_anvilMirrorOff;
+    }
+
+    /// @dev The executor has no code. On anvil, the SDK can put the stack there itself; anywhere else it
+    ///      cannot, and says so. THE DECISIONS ARE HERE and the mechanism is the payload's
+    ///      (`LibForgeFhevmAnvil`): what is canonical, what the deployer's nonce allows, whether to mirror,
+    ///      and what to tell the user are this package's to answer — the payload cannot render a boxed
+    ///      message, because `LibFhevmFail` carries this package's own version.
+    function _provisionLocalStack(StdFhevmChains.FhevmChain memory chain) private {
+        bool canonical = chain.acl == ACL_ADDRESS && chain.fhevmExecutor == FHEVM_EXECUTOR_ADDRESS;
+        if (!canonical || !LibForgeFhevmAnvil.isAnvilNode()) {
+            revert(LibFhevmFail.stackMissing(chain.fhevmGroup, chain.chainAlias, chain.fhevmExecutor));
+        }
+        uint64 nonce = Vm(FORGE_VM_ADDRESS).getNonce(DEPLOYER_ADDRESS);
+        if (nonce != DEPLOYER_START_NONCE) {
+            revert(LibFhevmFail.localStackCannotDeploy(DEPLOYER_ADDRESS, DEPLOYER_START_NONCE, nonce));
+        }
+
+        if (!LibForgeFhevmAnvil.provision(!_anvilMirrorOff)) {
+            revert(LibFhevmFail.anvilMirrorFailed(ACL_ADDRESS));
+        }
+    }
+
+    // -- Preparation of a URL-only fork ---------------------------------------
+
     function ensureForkPrepared(address dAppOrZero) external {
+        _ensureForkPrepared(dAppOrZero);
+    }
+
+    function _ensureForkPrepared(address dAppOrZero) private {
         uint256 active = _activeFork();
         if (active != _lastSwitchedForkId) revert(LibFhevmFail.forkDrift(active, _lastSwitchedForkId));
         if (active == NO_FORK || _forkRegistered[active]) return;
         _enterFork(active, _resolveStack(dAppOrZero));
+    }
+
+    function setChainTable(StdFhevmChains.FhevmChain[] calldata chains) external {
+        delete _chainTable;
+        for (uint256 i = 0; i < chains.length; i++) {
+            _chainTable.push(chains[i]);
+        }
     }
 
     /// @dev Which table entry the active chain is. The dApp's ACL first — it is the address the dApp
@@ -640,221 +932,14 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
         }
     }
 
-    function setChainTable(StdFhevmChains.FhevmChain[] calldata chains) external {
-        delete _chainTable;
-        for (uint256 i = 0; i < chains.length; i++) {
-            _chainTable.push(chains[i]);
-        }
+    // -- The replay -----------------------------------------------------------
+
+    function eventProcessor() external view returns (address) {
+        return _processorOf[_activeFork()];
     }
 
     function drainFheEvents() external {
         _drainFheEvents();
-    }
-
-    // -- The active context's replay, for the cheats -------------------------------------------------------
-
-    function seedCleartext(bytes32 handle, uint256 value) external {
-        _activeProcessor().seedCleartext(handle, value);
-    }
-
-    function useFixedUnknownHandles(uint256 value) external {
-        _activeProcessor().useFixedUnknownHandles(value);
-    }
-
-    function useDeterministicUnknownHandles() external {
-        _activeProcessor().useDeterministicUnknownHandles();
-    }
-
-    /// @dev The active context's processor, or the NO CURRENT STACK box: no stack, no replay.
-    function _activeProcessor() private view returns (ForgeFhevmEventProcessor) {
-        address processor = _processorOf[_activeFork()];
-        if (processor == address(0)) revert(LibFhevmFail.noCurrentStack());
-        return ForgeFhevmEventProcessor(processor);
-    }
-
-    function setAnvilMirror(bool enabled) external {
-        _anvilMirrorOff = !enabled;
-    }
-
-    function anvilMirror() external view returns (bool) {
-        return !_anvilMirrorOff;
-    }
-
-    /// @dev The active fork `forkId` now has a named stack: remember it, prepare it once, point at it.
-    function _enterFork(uint256 forkId, StdFhevmChains.FhevmChain memory chain) private {
-        _remember(forkId, chain);
-        _lastSwitchedForkId = forkId;
-        _pointAt(forkId);
-    }
-
-    /// @dev Names `forkId`'s stack without touching it — for a fork that is not active (`createFork`).
-    ///      A re-registration names a (possibly different) stack: prepare again on next contact.
-    function _remember(uint256 forkId, StdFhevmChains.FhevmChain memory chain) private {
-        _forkChain[forkId] = chain;
-        _forkRegistered[forkId] = true;
-        _forkPrepared[forkId] = false;
-    }
-
-    /// @dev Prepare on first contact, point on every contact. Runs with `forkId` ACTIVE.
-    function _pointAt(uint256 forkId) private {
-        StdFhevmChains.FhevmChain memory chain = _forkChain[forkId];
-        if (!_forkPrepared[forkId]) {
-            // Nothing at the executor: an anvil node the SDK can put the stack on, or a mistake it names.
-            if (chain.fhevmExecutor.code.length == 0) _provisionLocalStack(chain);
-
-            if (!LibCleartextProbe.isCleartext(chain.fhevmExecutor)) {
-                _requireSupportedVersions(chain);
-                // The fork's verifiers are registered against signers nobody here holds a key for;
-                // re-register the cleartext ones, so the input proofs and decryption proofs built here are
-                // accepted. Fork state persists across switches, so once per fork. The pranks are this
-                // contract's: it has cheatcode access (`allowCheatcodes`) precisely for this.
-                LibForgeFhevmContexts.defineCleartextContexts(chain.inputVerifier, chain.protocolConfig, chain.acl);
-            }
-            // A cleartext stack is this package's own code: no version to check, and it registers the
-            // cleartext signers itself.
-            _forkPrepared[forkId] = true;
-        }
-        _setProtocol(chain.acl, chain.fhevmExecutor, chain.kmsVerifier);
-    }
-
-    // -- anvil ----------------------------------------------------------------------------------------------
-
-    /// @dev The executor has no code. On anvil, deploy the canonical local stack into the fork — and onto
-    ///      the node, unless told not to. Anywhere else, say so: the SDK does not put stacks on chains it
-    ///      does not own.
-    function _provisionLocalStack(StdFhevmChains.FhevmChain memory chain) private {
-        bool canonical = chain.acl == ACL_ADDRESS && chain.fhevmExecutor == FHEVM_EXECUTOR_ADDRESS;
-        if (!canonical || !_isAnvilNode()) {
-            revert(LibFhevmFail.stackMissing(chain.fhevmGroup, chain.chainAlias, chain.fhevmExecutor));
-        }
-        uint64 nonce = fvm.getNonce(DEPLOYER_ADDRESS);
-        if (nonce != DEPLOYER_START_NONCE) {
-            revert(LibFhevmFail.localStackCannotDeploy(DEPLOYER_ADDRESS, DEPLOYER_START_NONCE, nonce));
-        }
-
-        Vm forgeVm = Vm(FORGE_VM_ADDRESS);
-        forgeVm.startStateDiffRecording();
-        deployLocalFhevm(); // the local run's deploy, verbatim: same deployer, same sequence, same addresses
-        VmSafe.AccountAccess[] memory diff = forgeVm.stopAndReturnStateDiff();
-        if (!_anvilMirrorOff) _mirrorOntoNode(diff);
-
-        // A FRESH ANVIL IS AT BLOCK 0, and the executor derives every handle from `blockhash(block.number - 1)`:
-        // the first FHE operation on it panics with an arithmetic underflow, far from here. Forge's own
-        // in-memory chain starts at block 1 for the same reason. So the fork moves to block 1 now, and the
-        // node is asked to mine one block too (in `_mirrorOntoNode`), so a client that is not this test
-        // does not hit the same wall.
-        if (block.number == 0) forgeVm.roll(1);
-    }
-
-    /// @dev Does the node behind the active fork answer anvil's own RPC namespace?
-    function _isAnvilNode() private returns (bool ok) {
-        (ok,) = _rpcRaw("anvil_nodeInfo", "[]");
-    }
-
-    /// @dev Everything the deploy created or wrote, pushed onto the node with anvil's setters: byte-identical
-    ///      to what the fork computed, no deployer key, no gas. Storage writes are replayed in order, so the
-    ///      last write to a slot wins as it did in the fork. `PauserSet` was etched, not created, so the
-    ///      diff does not list it; it is set explicitly. The deployer's nonce is set last, to what it is in
-    ///      the fork, so a later deploy on this node is refused the same way a reused local EVM is.
-    function _mirrorOntoNode(VmSafe.AccountAccess[] memory diff) private {
-        for (uint256 i = 0; i < diff.length; i++) {
-            VmSafe.AccountAccess memory access = diff[i];
-            if (access.reverted) continue;
-            if (access.kind == VmSafe.AccountAccessKind.Create && access.deployedCode.length != 0) {
-                _anvilSetCode(access.account, access.deployedCode);
-                _anvilSetNonce(access.account, 1);
-            }
-            for (uint256 j = 0; j < access.storageAccesses.length; j++) {
-                VmSafe.StorageAccess memory write = access.storageAccesses[j];
-                if (!write.isWrite || write.reverted) continue;
-                _anvilRpc(
-                    "anvil_setStorageAt",
-                    string.concat(
-                        "[\"", _hex(write.account), "\",\"", _hex(write.slot), "\",\"", _hex(write.newValue), "\"]"
-                    )
-                );
-            }
-        }
-        _anvilSetCode(PAUSER_SET_ADDRESS, PAUSER_SET_RUNTIME_CODE);
-        _anvilSetNonce(DEPLOYER_ADDRESS, fvm.getNonce(DEPLOYER_ADDRESS));
-        // Off block 0, for the executor's `blockhash(block.number - 1)` (see `_provisionLocalStack`).
-        if (block.number == 0) _anvilRpc("anvil_mine", "[\"0x1\"]");
-
-        // READ BACK: the node must now hold code at the ACL, or the mirror did not take, and say so.
-        // (`eth_getCode` answers a hex string, which the cheat encodes as ABI `bytes`: decodable.)
-        (bool ok, bytes memory ret) = _rpcRaw("eth_getCode", string.concat("[\"", _hex(ACL_ADDRESS), "\",\"latest\"]"));
-        if (!ok || ret.length < 64 || abi.decode(ret, (bytes)).length == 0) {
-            revert(LibFhevmFail.anvilMirrorFailed(ACL_ADDRESS));
-        }
-    }
-
-    function _anvilSetCode(address account, bytes memory code) private {
-        _anvilRpc(
-            "anvil_setCode", string.concat("[\"", _hex(account), "\",\"", Vm(FORGE_VM_ADDRESS).toString(code), "\"]")
-        );
-    }
-
-    function _anvilSetNonce(address account, uint64 nonce) private {
-        _anvilRpc("anvil_setNonce", string.concat("[\"", _hex(account), "\",\"", _hex(bytes32(uint256(nonce))), "\"]"));
-    }
-
-    /// @dev A setter's success is the call succeeding; its JSON result is not looked at. The cheat encodes a
-    ///      bare `true` (what `anvil_setStorageAt` answers) as one 32-byte word, which is not a valid ABI
-    ///      `bytes` — so a typed `vm.rpc` call REVERTS on decoding a result that meant success, and Solidity
-    ///      cannot `catch` a return-data decoding failure. Hence the raw call, return data ignored.
-    function _anvilRpc(string memory method, string memory params) private {
-        (bool ok,) = _rpcRaw(method, params);
-        if (!ok) revert(LibFhevmFail.anvilMirrorFailed(ACL_ADDRESS));
-    }
-
-    /// @dev `vm.rpc(method, params)` as a low-level call: `ok` is whether the node answered, `ret` is the
-    ///      cheat's encoding of the JSON result, to be decoded by a caller that knows its shape.
-    function _rpcRaw(string memory method, string memory params) private returns (bool ok, bytes memory ret) {
-        (ok, ret) = FORGE_VM_ADDRESS.call(abi.encodeWithSignature("rpc(string,string)", method, params));
-    }
-
-    function _hex(address a) private pure returns (string memory) {
-        return Vm(FORGE_VM_ADDRESS).toString(a);
-    }
-
-    function _hex(bytes32 b) private pure returns (string memory) {
-        return Vm(FORGE_VM_ADDRESS).toString(b);
-    }
-
-    /// @dev Five `staticcall`s, once per fork. Skipped for a cleartext stack: that is this package's own
-    ///      code, at the vendored version by construction.
-    function _requireSupportedVersions(StdFhevmChains.FhevmChain memory chain) private view {
-        if (LibCleartextProbe.isCleartext(chain.fhevmExecutor)) return;
-        _requireVersion(chain, "ACL", chain.acl, LocalHostVersions.ACL);
-        _requireVersion(chain, "FHEVMExecutor", chain.fhevmExecutor, LocalHostVersions.FHEVM_EXECUTOR);
-        _requireVersion(chain, "InputVerifier", chain.inputVerifier, LocalHostVersions.INPUT_VERIFIER);
-        _requireVersion(chain, "KMSVerifier", chain.kmsVerifier, LocalHostVersions.KMS_VERIFIER);
-        _requireVersion(chain, "ProtocolConfig", chain.protocolConfig, LocalHostVersions.PROTOCOL_CONFIG);
-    }
-
-    function _requireVersion(
-        StdFhevmChains.FhevmChain memory chain,
-        string memory contractName,
-        address target,
-        string memory expected
-    ) private view {
-        (bool ok, bytes memory ret) = target.staticcall(abi.encodeWithSignature("getVersion()"));
-        string memory actual = (ok && ret.length >= 64) ? abi.decode(ret, (string)) : "";
-        if (keccak256(bytes(actual)) != keccak256(bytes(expected))) {
-            revert(LibFhevmFail.versionMismatch(chain.fhevmGroup, chain.chainAlias, contractName, expected, actual));
-        }
-    }
-
-    function _requireRpcUrl(StdFhevmChains.FhevmChain calldata chain) private pure {
-        if (bytes(chain.rpcUrl).length == 0) revert(LibFhevmFail.noRpcUrl(chain.fhevmGroup, chain.chainAlias));
-    }
-
-    function _activeFork() private view returns (uint256) {
-        try Vm(FORGE_VM_ADDRESS).activeFork() returns (uint256 forkId) {
-            return forkId;
-        } catch {
-            return NO_FORK;
-        }
     }
 
     /// @dev Everything emitted since the last replay, into the ACTIVE context's store, while the context
@@ -864,5 +949,157 @@ contract FhevmVm is IFhevmVm, ForgeFhevmDeploy {
     function _drainFheEvents() private {
         address processor = _processorOf[_activeFork()];
         if (processor != address(0)) ForgeFhevmEventProcessor(processor).processFheEvents();
+    }
+
+    function getRecordedLogs() external returns (Vm.Log[] memory logs) {
+        logs = Vm(FORGE_VM_ADDRESS).getRecordedLogs();
+        address processor = _processorOf[_activeFork()];
+        if (processor == address(0)) return logs;
+
+        // Same three fields in the same order, but nominally distinct types: the payload declares its own
+        // `Log` so it never depends on forge-std.
+        IForgeVmLogs.Log[] memory forwarded = new IForgeVmLogs.Log[](logs.length);
+        for (uint256 i = 0; i < logs.length; i++) {
+            forwarded[i] = IForgeVmLogs.Log({topics: logs[i].topics, data: logs[i].data, emitter: logs[i].emitter});
+        }
+        ForgeFhevmEventProcessor(processor).processFheEvents(forwarded);
+    }
+
+    // - Cheats, on the active context's store ---------------------------------
+
+    function seedCleartext(bytes32 handle, uint256 value) external {
+        _forkReplay().seedCleartext(handle, value);
+    }
+
+    function useFixedUnknownHandles(uint256 value) external {
+        _forkReplay().useFixedUnknownHandles(value);
+    }
+
+    function useDeterministicUnknownHandles() external {
+        _forkReplay().useDeterministicUnknownHandles();
+    }
+
+    /// @dev The replay a fork-only cheat writes to: the resolved stack's plaintext source, which on a
+    ///      non-cleartext stack IS the active context's processor. Refused by name on a cleartext stack.
+    function _forkReplay() private returns (ForgeFhevmEventProcessor) {
+        FhevmStack memory stack = _resolveForReading(address(0));
+        if (stack.isCleartext) revert(LibFhevmFail.notAFork(stack.executor));
+        return ForgeFhevmEventProcessor(stack.plaintexts);
+    }
+
+    // -- The protocol steps, for the mixins -----------------------------------
+
+    // - The resolver ----------------------------------------------------------
+
+    function resolveStack(address dAppOrZero) external returns (FhevmStack memory stack) {
+        return _resolveForReading(dAppOrZero);
+    }
+
+    /**
+     * @dev THE ONE RESOLVER, feeding every kernel operation. Prepares the fork, drains the replay, and only
+     *      THEN reads the stack — in that order, because preparing is what decides which stack is current
+     *      and draining is what makes its replay complete. Inside one function the three cannot get out
+     *      of order, which is why the mixins call an operation here rather than assembling this themselves.
+     *
+     * RESOLVED, NOT NAMED. The input verifier is read off the executor, which names its own, cleartext or
+     * production alike; a `staticcall` rather than a typed one so an executor that does not answer leaves
+     * it zero instead of reverting. The plaintext source is zero when there is none — a production stack
+     * with no replay yet — and it is the OPERATION that needs one that says so, loudly.
+     */
+    function _resolve(address dAppOrZero) private returns (FhevmStack memory stack) {
+        _ensureForkPrepared(dAppOrZero);
+        _drainFheEvents();
+
+        address executor = _protocol.executor;
+        if (executor == address(0)) revert(LibFhevmFail.noCurrentStack());
+
+        (bool ok, bytes memory ret) =
+            executor.staticcall(abi.encodeCall(ICleartextFHEVMExecutor.getInputVerifierAddress, ()));
+        bool isCleartext = LibCleartextProbe.isCleartext(executor);
+
+        stack.acl = _protocol.acl;
+        stack.executor = executor;
+        stack.kmsVerifier = _protocol.kmsVerifier;
+        stack.inputVerifier = (ok && ret.length == 32) ? abi.decode(ret, (address)) : address(0);
+        stack.plaintexts = isCleartext ? executor : _processorOf[_activeFork()];
+        stack.isCleartext = isCleartext;
+        stack.cleartextVerifier = !_forceProductionPath() && isCleartext;
+    }
+
+    /// @dev `_resolve`, for a step that READS values: a stack with no plaintext source cannot answer, and
+    ///      says so by name rather than calling `plaintexts(handle)` on address zero.
+    function _resolveForReading(address dAppOrZero) private returns (FhevmStack memory stack) {
+        stack = _resolve(dAppOrZero);
+        if (stack.plaintexts == address(0)) revert(LibFhevmFail.noPlaintextsSource(stack.executor));
+    }
+
+    // - Encrypt ---------------------------------------------------------------
+
+    function encrypt(uint8[] calldata typeIds, uint256[] calldata values, address contractAddress, address userAddress)
+        external
+        returns (bytes32[] memory handles, bytes memory inputProof, uint256 chainId, uint8 version)
+    {
+        EncryptStack memory stack = _encryptStackOf(_resolve(contractAddress));
+        (handles, inputProof) = LibForgeFhevmEncrypt.encrypt(typeIds, values, contractAddress, userAddress, stack);
+        (chainId, version) = _originOf(handles);
+    }
+
+    function encrypt(bytes calldata abiTypeValuePairs, address contractAddress, address userAddress)
+        external
+        returns (bytes32[] memory handles, bytes memory inputProof, uint256 chainId, uint8 version)
+    {
+        EncryptStack memory stack = _encryptStackOf(_resolve(contractAddress));
+        (handles, inputProof) = LibForgeFhevmEncrypt.encrypt(abiTypeValuePairs, contractAddress, userAddress, stack);
+        (chainId, version) = _originOf(handles);
+    }
+
+    /// @dev The slice of the resolved stack an encryption is computed against. The ACL address goes into
+    ///      the blob hash and into every handle, so a constant here would produce handles a forked chain
+    ///      has never heard of, and nothing would say so until the dApp call failed.
+    function _encryptStackOf(FhevmStack memory stack) private pure returns (EncryptStack memory) {
+        return
+            EncryptStack({
+                inputVerifier: stack.inputVerifier, acl: stack.acl, cleartextVerifier: stack.cleartextVerifier
+            });
+    }
+
+    /// @dev Where a batch was minted, read back off its own first handle. One `encrypt` mints one batch on
+    ///      one chain in one format, and the typed accessors check every other handle against this.
+    function _originOf(bytes32[] memory handles) private pure returns (uint256 chainId, uint8 version) {
+        chainId = LibFhevmHandle.chainIdOf(handles[0]);
+        version = LibFhevmHandle.versionOf(handles[0]);
+    }
+
+    // - Read ------------------------------------------------------------------
+
+    function decryptPublicWithProof(bytes32[] calldata handles)
+        external
+        returns (bytes memory abiEncodedClearValues, bytes memory decryptionProof)
+    {
+        FhevmStack memory stack = _resolveForReading(address(0));
+        return LibForgeFhevmPublicDecrypt.decryptPublicWithProof(
+            handles, stack.kmsVerifier, stack.acl, stack.plaintexts, stack.cleartextVerifier
+        );
+    }
+
+    function plaintextOf(bytes32 handle) external returns (uint256 clear) {
+        return IPlaintexts(_resolveForReading(address(0)).plaintexts).plaintexts(handle);
+    }
+
+    // - Sign ------------------------------------------------------------------
+
+    function userDecryptDigestV1(UserDecryptRequestV1 calldata request, address delegatorOrZero)
+        external
+        returns (bytes32 digest)
+    {
+        // The permit's first contract is the dApp hint, as the first pair is for a decryption. No plaintext
+        // source is needed to sign, so the bare resolver.
+        address hint = request.contractAddresses.length != 0 ? request.contractAddresses[0] : address(0);
+        address kmsVerifier = _resolve(hint).kmsVerifier;
+        if (delegatorOrZero == address(0)) {
+            (digest,) = LibKmsVerifier.userDecryptDigestV1OnStack(kmsVerifier, request);
+        } else {
+            (digest,) = LibKmsVerifier.delegatedUserDecryptDigestV1OnStack(kmsVerifier, request, delegatorOrZero);
+        }
     }
 }

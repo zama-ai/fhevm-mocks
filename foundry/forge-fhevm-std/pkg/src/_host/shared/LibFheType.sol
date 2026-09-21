@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {FheType} from "./FheType.sol";
-import {LibString} from "./LibString.sol";
 
 /// ----------------------------------------------------------------------------
 ///   ⚠️ Private Library:
@@ -34,7 +33,12 @@ library LibFheType {
     }
 
     /// @notice The name of an FHE type, like "euint32" or "eaddress".
-    /// @dev Unknown types come back as "FheType(12)".
+    /// @dev A type this stack does not implement comes back as "FheType(unsupported)" — not as its enum
+    ///      index. `FheType` has 84 members and this stack implements 8, so a numeric fallback would need
+    ///      an integer-to-string routine, and THIS FILE IS COMPILED INTO THE DEPLOYED CONTRACTS (rules.md
+    ///      2.1): it cannot reach for `vm.toString`, and hand-rolling one on chain to decorate an error
+    ///      message is not worth its bytecode. The caller knows the handle; the name of a type it cannot
+    ///      use adds nothing the error does not already say.
     function toString(FheType t) internal pure returns (string memory) {
         if (t == FheType.Bool) return "ebool";
         if (t == FheType.Uint8) return "euint8";
@@ -44,6 +48,6 @@ library LibFheType {
         if (t == FheType.Uint128) return "euint128";
         if (t == FheType.Uint160) return "eaddress";
         if (t == FheType.Uint256) return "euint256";
-        return string.concat("FheType(", LibString.toString(uint8(t)), ")");
+        return "FheType(unsupported)";
     }
 }

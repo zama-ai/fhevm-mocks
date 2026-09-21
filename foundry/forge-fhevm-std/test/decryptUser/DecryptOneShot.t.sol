@@ -20,7 +20,7 @@ contract DecryptOneShotTest is TestFhevm {
     }
 
     function test_oneCallReadsTheValue() public {
-        EncryptedInput memory e = encryptValues(asUint32(70_000), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint32(70_000), address(vault), alice);
         vm.prank(alice);
         vault.setEUint32(e.externalEuint32At(0), e.inputProof(), alice);
 
@@ -30,7 +30,7 @@ contract DecryptOneShotTest is TestFhevm {
     /// Every encrypted type has the same three-argument form. Handles come from the typed accessors,
     /// which check each one against the type the handle itself carries.
     function test_everyTypeHasTheShortFormViaTypedAccessors() public {
-        EncryptedInput memory e = encryptValues(asBool(true), asUint8(255), asAddress(alice), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvBool(true), tvUint8(255), tvAddress(alice), address(vault), alice);
 
         vm.startPrank(alice);
         vault.setEBool(e.externalEboolAt(0), e.inputProof(), alice);
@@ -47,7 +47,7 @@ contract DecryptOneShotTest is TestFhevm {
     /// the types rather than checking them, so this is the unchecked route to the same values. Both
     /// ways of unpacking an `EncryptedInput` feed the short form identically.
     function test_everyTypeHasTheShortFormViaTheAbiBlob() public {
-        EncryptedInput memory e = encryptValues(asBool(true), asUint8(255), asAddress(alice), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvBool(true), tvUint8(255), tvAddress(alice), address(vault), alice);
         (externalEbool extBool, externalEuint8 extUint8, externalEaddress extAddr) =
             abi.decode(e.abiEncoded(), (externalEbool, externalEuint8, externalEaddress));
 
@@ -64,7 +64,7 @@ contract DecryptOneShotTest is TestFhevm {
 
     /// Each call mints its own permit, so repeated reads are independent rather than shared.
     function test_eachCallSignsItsOwnPermit() public {
-        EncryptedInput memory e = encryptValues(asUint8(42), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(42), address(vault), alice);
         vm.prank(alice);
         vault.setEUint8(e.externalEuint8At(0), e.inputProof(), alice);
 
@@ -76,7 +76,7 @@ contract DecryptOneShotTest is TestFhevm {
     function test_theReaderMustOwnTheAccess() public {
         (, uint256 bobKey) = makeAddrAndKey("bob");
 
-        EncryptedInput memory e = encryptValues(asUint8(42), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(42), address(vault), alice);
         vm.prank(alice);
         vault.setEUint8(e.externalEuint8At(0), e.inputProof(), alice);
 

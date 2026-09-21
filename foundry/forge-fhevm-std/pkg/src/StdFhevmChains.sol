@@ -249,8 +249,6 @@ abstract contract StdFhevmChains {
         );
     }
 
-    // Named apart from forge-std's `StdChains._toUpper`: two private functions of the same name in two
-    // bases are still a clash for the contract that inherits both.
     /**
      * @notice Every chain the table knows — defaults and `setFhevmChain` overrides — in insertion order.
      * @dev AS STORED: `rpcUrl` is NOT resolved here (no `foundry.toml` or environment lookup), because the
@@ -280,20 +278,6 @@ abstract contract StdFhevmChains {
         }
     }
 
-    function _toUpperFhevmAlias(string memory str) private pure returns (string memory) {
-        bytes memory strb = bytes(str);
-        bytes memory copy = new bytes(strb.length);
-        for (uint256 i = 0; i < strb.length; i++) {
-            bytes1 b = strb[i];
-            if (b >= 0x61 && b <= 0x7A) {
-                copy[i] = bytes1(uint8(b) - 32);
-            } else {
-                copy[i] = b;
-            }
-        }
-        return string(copy);
-    }
-
     // lookup rpcUrl, in descending order of priority:
     // current -> config (foundry.toml) -> environment variable -> default
     function getFhevmChainWithUpdatedRpcUrl(string memory chainAlias, FhevmChain memory chain)
@@ -305,7 +289,7 @@ abstract contract StdFhevmChains {
             try vm.rpcUrl(chainAlias) returns (string memory configRpcUrl) {
                 chain.rpcUrl = configRpcUrl;
             } catch (bytes memory err) {
-                string memory envName = string(abi.encodePacked(_toUpperFhevmAlias(chainAlias), "_RPC_URL"));
+                string memory envName = string(abi.encodePacked(vm.toUppercase(chainAlias), "_RPC_URL"));
                 if (fallbackToDefaultRpcUrls) {
                     chain.rpcUrl = vm.envOr(envName, defaultRpcUrls[chainAlias]);
                 } else {

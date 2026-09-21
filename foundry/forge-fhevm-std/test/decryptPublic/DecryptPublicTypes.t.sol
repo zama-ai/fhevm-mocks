@@ -18,7 +18,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_bool() public {
-        EncryptedInput memory e = encryptValues(asBool(true), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvBool(true), address(vault), alice);
         vm.prank(alice);
         vault.setEBool(e.externalEboolAt(0), e.inputProof());
 
@@ -29,7 +29,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_uint8() public {
-        EncryptedInput memory e = encryptValues(asUint8(255), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint8(255), address(vault), alice);
         vm.prank(alice);
         vault.setEUint8(e.externalEuint8At(0), e.inputProof());
 
@@ -39,7 +39,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_uint16() public {
-        EncryptedInput memory e = encryptValues(asUint16(65_535), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint16(65_535), address(vault), alice);
         vm.prank(alice);
         vault.setEUint16(e.externalEuint16At(0), e.inputProof());
 
@@ -49,7 +49,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_uint32() public {
-        EncryptedInput memory e = encryptValues(asUint32(70_000), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint32(70_000), address(vault), alice);
         vm.prank(alice);
         vault.setEUint32(e.externalEuint32At(0), e.inputProof());
 
@@ -59,7 +59,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_uint64() public {
-        EncryptedInput memory e = encryptValues(asUint64(1 << 40), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint64(1 << 40), address(vault), alice);
         vm.prank(alice);
         vault.setEUint64(e.externalEuint64At(0), e.inputProof());
 
@@ -69,7 +69,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_uint128() public {
-        EncryptedInput memory e = encryptValues(asUint128(1e30), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint128(1e30), address(vault), alice);
         vm.prank(alice);
         vault.setEUint128(e.externalEuint128At(0), e.inputProof());
 
@@ -79,7 +79,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_uint256() public {
-        EncryptedInput memory e = encryptValues(asUint256(type(uint256).max), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvUint256(type(uint256).max), address(vault), alice);
         vm.prank(alice);
         vault.setEUint256(e.externalEuint256At(0), e.inputProof());
 
@@ -89,7 +89,7 @@ contract DecryptPublicTypesTest is TestFhevm {
     }
 
     function test_address() public {
-        EncryptedInput memory e = encryptValues(asAddress(alice), address(vault), alice);
+        EncryptedInput memory e = encryptValues(tvAddress(alice), address(vault), alice);
         vm.prank(alice);
         vault.setEAddress(e.externalEaddressAt(0), e.inputProof());
 

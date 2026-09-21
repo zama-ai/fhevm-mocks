@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {externalEuint32, externalEuint64} from "encrypted-types/EncryptedTypes.sol";
 
 import {StdFhevm, EncryptedInput} from "../../pkg/src/StdFhevm.sol";
+import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
 import {LibEncryptedInput} from "../../pkg/src/LibEncryptedInput.sol";
 import {Vault} from "./Vault.sol";
 
@@ -16,7 +17,7 @@ contract EncryptedInputApiTest is Test, StdFhevm {
 
     function setUp() public {
         alice = makeAddr("alice");
-        e = encryptValues(asUint32(7), asUint64(1234567890123), address(new Vault()), alice);
+        e = encryptValues(tvUint32(7), tvUint64(1234567890123), address(new Vault()), alice);
     }
 
     /// One handle per cleartext, plus the single proof binding them all.
@@ -42,7 +43,11 @@ contract EncryptedInputApiTest is Test, StdFhevm {
 
     /// Asking for the wrong width is caught here, not inside the coprocessor.
     function test_theWrongAccessorReverts() public {
-        vm.expectRevert(abi.encodeWithSelector(LibEncryptedInput.TypeMismatch.selector, 0, "euint64", "euint32"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibEncryptedInput.TypeMismatch.selector, 0, uint8(FheType.Uint64), uint8(FheType.Uint32)
+            )
+        );
         this.readAsUint64(e, 0);
     }
 
@@ -59,7 +64,7 @@ contract EncryptedInputApiTest is Test, StdFhevm {
     /// A handle carries the slot it was minted at, so an `EncryptedInput` stitched together from
     /// two different batches is caught rather than silently mismatching the proof.
     function test_aHandleFromAnotherBatchIsRejected() public {
-        EncryptedInput memory other = encryptValues(asUint32(1), asUint32(2), address(new Vault()), alice);
+        EncryptedInput memory other = encryptValues(tvUint32(1), tvUint32(2), address(new Vault()), alice);
 
         EncryptedInput memory stitched;
         stitched._h = new bytes32[](2);

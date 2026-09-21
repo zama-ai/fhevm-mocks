@@ -50,42 +50,42 @@ contract EncryptSingleValueTest is Test, StdFhevm {
         (externalEbool handle, bytes memory proof) = encryptBool(true, address(vault), alice);
         vm.prank(alice);
         vault.setEBool(handle, proof);
-        assertEq(decryptPublic(abi.encode(vault.eBool())), abi.encode(true));
+        assertEq(decryptPublic(vault.eBool()), true);
     }
 
     function test_encryptUint8() public {
         (externalEuint8 handle, bytes memory proof) = encryptUint8(255, address(vault), alice);
         vm.prank(alice);
         vault.setEUint8(handle, proof);
-        assertEq(decryptPublic(abi.encode(vault.eUint8())), abi.encode(uint8(255)));
+        assertEq(decryptPublic(vault.eUint8()), uint8(255));
     }
 
     function test_encryptUint16() public {
         (externalEuint16 handle, bytes memory proof) = encryptUint16(65_535, address(vault), alice);
         vm.prank(alice);
         vault.setEUint16(handle, proof);
-        assertEq(decryptPublic(abi.encode(vault.eUint16())), abi.encode(uint16(65_535)));
+        assertEq(decryptPublic(vault.eUint16()), uint16(65_535));
     }
 
     function test_encryptUint128() public {
         (externalEuint128 handle, bytes memory proof) = encryptUint128(1e30, address(vault), alice);
         vm.prank(alice);
         vault.setEUint128(handle, proof);
-        assertEq(decryptPublic(abi.encode(vault.eUint128())), abi.encode(uint128(1e30)));
+        assertEq(decryptPublic(vault.eUint128()), uint128(1e30));
     }
 
     function test_encryptUint256() public {
         (externalEuint256 handle, bytes memory proof) = encryptUint256(type(uint256).max, address(vault), alice);
         vm.prank(alice);
         vault.setEUint256(handle, proof);
-        assertEq(decryptPublic(abi.encode(vault.eUint256())), abi.encode(type(uint256).max));
+        assertEq(decryptPublic(vault.eUint256()), type(uint256).max);
     }
 
     function test_encryptAddress() public {
         (externalEaddress handle, bytes memory proof) = encryptAddress(alice, address(vault), alice);
         vm.prank(alice);
         vault.setEAddress(handle, proof);
-        assertEq(decryptPublic(abi.encode(vault.eAddress())), abi.encode(alice));
+        assertEq(decryptPublic(vault.eAddress()), alice);
     }
 
     /// The proof is bound to ONE contract/user pair: nobody else may submit it.
