@@ -153,4 +153,14 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
     function forkUnknownDeterministic() internal unmetered {
         fhevm.useDeterministicUnknownHandles();
     }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function disableHCUDepthLimit() internal unmetered {
+        fhevm.disableHCUDepthLimit();
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function disableHCULimits() internal unmetered {
+        fhevm.disableHCULimits();
+    }
 }

@@ -12,6 +12,7 @@ import {EncryptStack, LibForgeFhevmEncrypt} from "./_host/LibForgeFhevmEncrypt.s
 import {LibForgeFhevmPublicDecrypt} from "./_host/LibForgeFhevmPublicDecrypt.sol";
 import {IPlaintexts} from "./_host/shared/interfaces/IPlaintexts.sol";
 import {LibKmsVerifier, UserDecryptRequestV1} from "./_host/shared/LibKmsVerifier.sol";
+import {LibForgeFhevmHCU} from "./_host/LibForgeFhevmHCU.sol";
 import {ICleartextFHEVMExecutor} from "./_host/_internal/interfaces/ICleartextFHEVMExecutor.sol";
 import {LibFhevmHandle} from "./_host/shared/LibFhevmHandle.sol";
 import {LibCleartextProbe} from "./_host/shared/LibCleartextProbe.sol";
@@ -132,7 +133,7 @@ struct FhevmStack {
  *      | `isForked()`, `currentForkId()`, `activeForkChecked()` | on a fork at all; `vm.activeFork()` or `NO_FORK`; the checked form reverts loudly on drift |
  *      | `hasRpcUrlFor(alias)`                       | did the run configure a URL for this alias (`foundry.toml` or `<ALIAS>_RPC_URL`)? — the opt-in a fork test checks |
  *      | `eventProcessor()`                          | the ACTIVE context's replay (one per context, created when a stack is pointed there) |
- *      | `ensureForkPrepared(dApp)`, `drainFheEvents()`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
+ *      | `ensureForkPrepared(dApp)`, `drainFheEvents()`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `disableHCUDepthLimit()`, `disableHCULimits()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
  *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
  */
 interface IFhevmVm {
@@ -395,6 +396,24 @@ interface IFhevmVm {
     function useFixedUnknownHandles(uint256 value) external;
     /// @notice Every unknown handle in the active context reads from its hash (`forkUnknownDeterministic`).
     function useDeterministicUnknownHandles() external;
+
+    // - Cheats, on the current stack's HCULimit -------------------------------
+
+    /**
+     * @notice Lifts ONLY the CURRENT stack's HCU depth cap, as that stack's ACL owner: the depth cap
+     *         becomes the per-transaction cap, past which it cannot bind on its own; the per-transaction
+     *         and per-block caps keep metering (`disableHCUDepthLimit`).
+     * @dev Prepares and resolves first, like every step: the `HCULimit` is the one the resolved executor
+     *      names, and the owner is read off the resolved ACL, so this works on the local stack and on a
+     *      fork alike. Not fork-only: a heavy local fuzz is exactly who asks for it.
+     */
+    // forge-lint: disable-next-line(mixed-case-function)
+    function disableHCUDepthLimit() external;
+
+    /// @notice Lifts EVERY HCU cap of the current stack — block, transaction and depth — to the ceiling,
+    ///         as its ACL owner (`disableHCULimits`). Metering still runs; nothing is measured against.
+    // forge-lint: disable-next-line(mixed-case-function)
+    function disableHCULimits() external;
 
     // -- The protocol steps, for the mixins -----------------------------------
     //
@@ -1016,6 +1035,24 @@ contract FhevmVm is IFhevmVm {
         FhevmStack memory stack = _resolveForReading(address(0));
         if (stack.isCleartext) revert(LibFhevmFail.notAFork(stack.executor));
         return ForgeFhevmEventProcessor(stack.plaintexts);
+    }
+
+    // - Cheats, on the current stack's HCULimit -------------------------------
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function disableHCUDepthLimit() external {
+        // The bare resolver: lifting a cap reads no plaintext. The executor names its own HCULimit, so
+        // nothing here is configured — a forked stack's is found the same way as the local one's.
+        FhevmStack memory stack = _resolve(address(0));
+        address hcuLimit = ICleartextFHEVMExecutor(stack.executor).getHCULimitAddress();
+        LibForgeFhevmHCU.disableHCUDepthLimit(hcuLimit, stack.acl);
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function disableHCULimits() external {
+        FhevmStack memory stack = _resolve(address(0));
+        address hcuLimit = ICleartextFHEVMExecutor(stack.executor).getHCULimitAddress();
+        LibForgeFhevmHCU.disableHCULimits(hcuLimit, stack.acl);
     }
 
     // -- The protocol steps, for the mixins -----------------------------------
