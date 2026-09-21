@@ -17,7 +17,7 @@ contract LibFhevmFailTest is Test {
         _check(LibFhevmFail.ambiguousGroup(11155111, groups), "AMBIGUOUS FHEVM GROUP", "getFhevmChain(\"testnet\"");
         _check(LibFhevmFail.unknownChain(424242), "UNKNOWN FHEVM CHAIN", "setFhevmChain(");
         _check(
-            LibFhevmFail.versionMismatch("devnet", "sepolia", "ACL", "ACL v0.4.0", "ACL v0.5.0"),
+            LibFhevmFail.versionMismatch("devnet", "sepolia", "ACL", "ACL v0.4.0", "ACL v0.4.0", "ACL v0.5.0"),
             "UNSUPPORTED PROTOCOL VERSION",
             "upgrade forge-fhevm-std"
         );

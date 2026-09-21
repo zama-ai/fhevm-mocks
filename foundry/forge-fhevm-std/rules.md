@@ -162,11 +162,16 @@ anvil's setters are called raw and the mirror is verified by reading the node ba
 at block 0 while the executor derives handles from `blockhash(block.number - 1)`, so the SDK rolls the
 fork to block 1 and mines one on the node.
 
-**2.15 — a wrong protocol version fails by name, before anything else.** On first contact with a fork,
-every host contract's `getVersion()` is compared with the vendored `LocalHostVersions`; a mismatch is the
-UNSUPPORTED PROTOCOL VERSION box, expected against actual per contract, never an attempt that dies in an
-ABI mismatch with an empty revert (devnet Sepolia: `ACL v0.5.0` against vendored `v0.4.0`). New vendored
-version → regenerate `LocalHostVersions` (v13 `generate:contract-versions`), nothing else to update.
+**2.15 — a wrong protocol LINE fails by name, before anything else; any release of the vendored line is
+accepted.** On first contact with a fork, every host contract's `getVersion()` must fall within the line
+this SDK vendors: from what the line first shipped (`LibFhevmVersion.*_FLOOR`, hand-written from the
+v0.13.0 tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
+upgrade the same day — Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored 0.13.6's `v0.5.0` — and
+every release of a line speaks the ABI this SDK speaks, so an exact match would refuse stacks that work.
+Outside the line it is the UNSUPPORTED PROTOCOL VERSION box, floor and ceiling against actual per
+contract, never an attempt that dies in an ABI mismatch with an empty revert (devnet Sepolia: `ACL v0.5.0`
+against the 0.13 line's `v0.4.0`). New vendored release → regenerate `LocalHostVersions` (v13
+`generate:contract-versions`); new LINE → move the floors too, and `LibFhevmVersion.t.sol` pins both.
 
 **2.11 — a setup failure tells the user how to fix it, loudly.** Everything that can go wrong because a
 test is SET UP wrong — the `fhevm` handle missing, a fork entered through `vm` instead of `fhevm` (drift),

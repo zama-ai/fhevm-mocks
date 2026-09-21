@@ -100,46 +100,38 @@ stale file fails the suite.
 The obvious path for any new version. Exceptions are the norm — treat this as the checklist you start
 from, not one you can follow blindly.
 
-## 1. Pick the upstream tag and resolve it to a commit
+## 1. Move the pin
 
-Pick the upstream tag and resolve it to a commit
-
-This package lives _inside_ the fhevm repo, so plain `git` here already targets the right repository.
+One command, run from the workspace root, moves every pin THIS generation takes from upstream — its
+contracts and its config together, and nothing of the previous generation's:
 
 ```sh
-# stable tags on the 0.13 line (the [0-9] pattern skips prereleases like v0.13.2-1)
-git tag --list 'v0.13.[0-9]'
-#   v0.13.0  v0.13.1  v0.13.2  v0.13.3
-
-# resolve the chosen tag to the commit it points at
-git rev-list -n 1 v0.13.2
-#   07fb05fb75f0aa6cea934088640ddb4539d0b1b9
+make bump-vendored PKG=./host-contracts-cleartext/v13 TAG=v0.13.6
+# = fhevm-npm bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6
 ```
 
-Both values go into `pkg/package.json` → `fhevm.vendoredFrom` (step 8). The commit matters because a
-tag can be moved or re-pointed later, so the commit is what makes the record verifiable (rule 7).
+It resolves the tag to its commit (a tag can be moved later; the commit is what makes the record
+verifiable, rule 7), downloads `host-contracts/contracts` and `library-solidity/config` at that commit,
+computes the digest each implies, and writes all of it: `npm-manifest.json` (tag, commit, digest, for
+both pins), the copies under `pkg/src/contracts` and `internal/zama-config` (formatted by `forge fmt`
+on the way in, upstream-only files adopted, dropped files removed), and `fhevm.vendoredFrom` in both
+`package.json` files. Add `--check` to see what would move without writing.
 
-Choosing _which_ tag is a manual decision: numbering on a line is not reliably monotonic — `v0.13.3` is
-an **ancestor** of `v0.13.2`, so the highest patch number is not necessarily the newest code (rule 6).
-Confirm with:
+Choosing _which_ tag is still a manual decision: numbering on a line is not reliably monotonic — a
+higher patch number can be an **ancestor** of a lower one (rule 6). List and compare before you pick:
 
 ```sh
+git tag --list 'v0.13.[0-9]*'
 git merge-base --is-ancestor v0.13.3 v0.13.2 && echo "v0.13.3 is behind v0.13.2"
 ```
 
-## 2. Sync the vendored sources
+## 2. Read what changed
 
-Sync the vendored sources
-
-Copy `host-contracts/contracts` into `pkg/src/contracts` — but only the files already vendored here.
-Cleartext may carry a **subset**, so adopting a new upstream file is a decision, not a side effect of the
-copy (rule 6).
-
-On the 0.13 line there is nothing to leave out: upstream and vendored are both 21 files and byte-identical
-(confirmed against `release/0.13.x`, whose 4 commits since `v0.13.2` touch nothing under
-`host-contracts/contracts`). The first real judgment call arrives with 0.14 — `contracts/bridge/` exists
-on `main` and on no 0.11/0.12/0.13 tag, so that sync is where `npm run check:vendored-origin -- --verbose` will start
-listing upstream-only files for you to accept or decline.
+The command's report says, per pin, whether any copy was rewritten. `copies unchanged` for
+`pkg/src/contracts` means steps 3, 4 and 7 are no-ops for this bump; `CHECK=1` gives that answer before
+anything is written. Otherwise `git diff pkg/src/contracts`
+is the list of upstream changes the rest of this checklist responds to. Cleartext may carry a **subset**
+of upstream, so a newly adopted file is a decision to review, not a side effect to accept (rule 6).
 
 ## 3. Update the cleartext variants
 
@@ -303,7 +295,7 @@ Two things that trip people up:
 Version and provenance
 
 - `pkg/package.json` `version`: major.minor must equal the fhevm line, patch is free (rule 5).
-- `pkg/package.json` `fhevm.vendoredFrom`: update `tag` and `commit` to step 1 (rule 7).
+- `pkg/package.json` `fhevm.vendoredFrom`: written by step 1; verify with `make check-vendored-origin` (rule 7).
 
 ## 9. Rebuild, then refresh the baseline
 

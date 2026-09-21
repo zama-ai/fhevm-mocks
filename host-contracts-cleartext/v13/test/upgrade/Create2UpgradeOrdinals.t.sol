@@ -63,7 +63,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(bytes4(UpgradeInitData.initData(0, hex"12345678")), bytes4(hex"12345678"));
         assertEq(bytes4(UpgradeInitData.initData(1, "")), bytes4(keccak256("initializeFromEmptyProxy()")));
         assertEq(bytes4(UpgradeInitData.initData(2, "")), bytes4(keccak256("reinitializeV4()")));
-        assertEq(bytes4(UpgradeInitData.initData(3, "")), bytes4(keccak256("reinitializeV4()")));
+        assertEq(bytes4(UpgradeInitData.initData(3, "")), bytes4(keccak256("reinitializeV5()")));
         assertEq(bytes4(UpgradeInitData.initData(4, "")), bytes4(keccak256("reinitializeV3()")));
         assertEq(bytes4(UpgradeInitData.initData(5, "")), bytes4(keccak256("reinitializeV3()")));
         assertEq(bytes4(UpgradeInitData.initData(6, "")), bytes4(keccak256("reinitializeV2()")));

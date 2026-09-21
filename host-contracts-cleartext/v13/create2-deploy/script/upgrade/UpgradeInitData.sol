@@ -16,7 +16,7 @@ library UpgradeInitData {
         if (i == 0) return protocolConfigInit;
         if (i == 1) return abi.encodeCall(KMSGeneration.initializeFromEmptyProxy, ());
         if (i == 2) return abi.encodeCall(ACL.reinitializeV4, ());
-        if (i == 3) return abi.encodeCall(FHEVMExecutor.reinitializeV4, ());
+        if (i == 3) return abi.encodeCall(FHEVMExecutor.reinitializeV5, ());
         if (i == 4) return abi.encodeCall(HCULimit.reinitializeV3, ());
         if (i == 5) return abi.encodeCall(KMSVerifier.reinitializeV3, ());
         if (i == 6) return abi.encodeCall(CleartextArithmetic.reinitializeV2, ());
@@ -30,7 +30,7 @@ library UpgradeInitData {
         }
         if (i == 1) return "KMSGeneration.initializeFromEmptyProxy()";
         if (i == 2) return "ACL.reinitializeV4()";
-        if (i == 3) return "FHEVMExecutor.reinitializeV4()";
+        if (i == 3) return "FHEVMExecutor.reinitializeV5()";
         if (i == 4) return "HCULimit.reinitializeV3()";
         if (i == 5) return "KMSVerifier.reinitializeV3()";
         if (i == 6) return "CleartextArithmetic.reinitializeV2()";

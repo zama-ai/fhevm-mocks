@@ -52,9 +52,9 @@ export function withPinnedTree<T>(
   source: PinnedSource,
   body: (tree: string) => T,
   download: Downloader = curl,
-  cacheRoot: string = pinnedTreeCacheRoot(),
+  cacheRoot: string | undefined = undefined,
 ): T {
-  return body(cachedPinnedTree(source, cacheRoot, download));
+  return body(cachedPinnedTree(source, cacheRoot ?? pinnedTreeCacheRoot(), download));
 }
 
 /** The directory holding `source.from` at `source.commit`, downloading once per commit into `cacheRoot`. */

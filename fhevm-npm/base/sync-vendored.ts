@@ -27,7 +27,7 @@ import {
 } from './checks/vendored.ts';
 import type { Violation } from './diagnostics.ts';
 import { vendoredDigest } from './vendored-digest.ts';
-import { pinnedTreeCacheRoot, withPinnedTree } from './vendored-download.ts';
+import { type Downloader, type PinnedSource, pinnedTreeCacheRoot, withPinnedTree } from './vendored-download.ts';
 
 /** Progress sink. Supplied only in verbose mode, so a quiet run stays silent until its report. */
 export type ProgressLogger = (message: string) => void;
@@ -40,7 +40,15 @@ export type SyncVendoredOptions = {
   readonly digest?: boolean;
   readonly onProgress?: ProgressLogger;
 };
-export type SyncPinnedOptions = SyncVendoredOptions;
+export type SyncPinnedOptions = SyncVendoredOptions & {
+  /** Restricts the run to the pinned targets this accepts. `bump vendored` passes "same repository". */
+  readonly only?: (target: PinnedVendoredTarget) => boolean;
+  /** How a pinned tree is fetched. Tests serve archives from disk; the default is codeload over HTTPS. */
+  readonly download?: Downloader;
+  /** Where fetched trees are kept. Tests MUST pass their own: the cache is keyed by repository and
+   *  commit alone, so a test serving a fake tree under a real commit would poison every later real run. */
+  readonly cacheRoot?: string;
+};
 
 export type SyncVendoredResult = {
   readonly inspected: number;
@@ -166,7 +174,9 @@ function describeDifference(actual: string, expected: string, sourceLabel: strin
  * precisely because this is what produces them.
  */
 export function syncPinnedVendored(options: SyncPinnedOptions): SyncVendoredResult {
-  const targets = pinnedVendoredTargets(options.workspaceRoot, options.manifest);
+  const targets = pinnedVendoredTargets(options.workspaceRoot, options.manifest).filter(
+    (target) => options.only?.(target) ?? true,
+  );
   const written: string[] = [];
   const violations: Violation[] = [];
   let inspected = 0;
@@ -174,7 +184,7 @@ export function syncPinnedVendored(options: SyncPinnedOptions): SyncVendoredResu
   for (const target of targets) {
     // The digest mode answers what upstream implies, so it does not care what is on disk.
     if (options.digest === true) {
-      inspected += reportUpstreamDigest(target, violations);
+      inspected += reportUpstreamDigest(target, violations, options.download, options.cacheRoot);
       continue;
     }
     if (!existsSync(target.directory)) {
@@ -203,13 +213,14 @@ export function digestInstruction(target: PinnedVendoredTarget, digest: string):
 }
 
 /**
- * Downloads the pinned tree, formats it, and prints the digest it implies — computed from upstream, not
- * from the copies on disk, so it says what the manifest SHOULD record rather than what it currently does.
+ * The digest a pinned tree implies: downloaded, formatted the way the copies are stored, and hashed —
+ * computed from upstream, not from the copies on disk, so it says what the manifest SHOULD record rather
+ * than what it currently does. `sync vendored --digest` prints it; `bump vendored` writes it.
  */
-function reportUpstreamDigest(target: PinnedVendoredTarget, violations: Violation[]): number {
-  let digest: string;
-  try {
-    digest = withPinnedTree(target.source, (tree) => {
+export function upstreamDigest(source: PinnedSource, download?: Downloader, cacheRoot?: string): string {
+  return withPinnedTree(
+    source,
+    (tree) => {
       const scratch = mkdtempSync(join(tmpdir(), 'fhevm-npm-digest-'));
       try {
         for (const file of solidityFilesUnder(tree)) {
@@ -221,7 +232,21 @@ function reportUpstreamDigest(target: PinnedVendoredTarget, violations: Violatio
       } finally {
         rmSync(scratch, { recursive: true, force: true });
       }
-    });
+    },
+    download,
+    cacheRoot,
+  );
+}
+
+function reportUpstreamDigest(
+  target: PinnedVendoredTarget,
+  violations: Violation[],
+  download?: Downloader,
+  cacheRoot?: string,
+): number {
+  let digest: string;
+  try {
+    digest = upstreamDigest(target.source, download, cacheRoot);
   } catch (error) {
     violations.push({
       rule: RULE,
@@ -286,25 +311,30 @@ function syncPinnedTarget(
 ): number {
   let files: readonly string[];
   try {
-    files = withPinnedTree(target.source, (tree) => {
-      const upstream = solidityFilesUnder(tree);
-      if (upstream.length === 0) throw new Error(`${target.source.from} holds no Solidity files`);
-      for (const file of upstream) {
-        const destinationFile = join(target.directory, file);
-        // Formatted on the way in, so the committed copy is what forge would produce and the digest is
-        // stable against upstream whitespace.
-        const expected = formatSolidity(readFileSync(join(tree, file), 'utf8'));
-        if (existsSync(destinationFile) && readFileSync(destinationFile, 'utf8') === expected) {
-          options.onProgress?.(`   ✅ ${targetLabel(target)}/${file}`);
-          continue;
+    files = withPinnedTree(
+      target.source,
+      (tree) => {
+        const upstream = solidityFilesUnder(tree);
+        if (upstream.length === 0) throw new Error(`${target.source.from} holds no Solidity files`);
+        for (const file of upstream) {
+          const destinationFile = join(target.directory, file);
+          // Formatted on the way in, so the committed copy is what forge would produce and the digest is
+          // stable against upstream whitespace.
+          const expected = formatSolidity(readFileSync(join(tree, file), 'utf8'));
+          if (existsSync(destinationFile) && readFileSync(destinationFile, 'utf8') === expected) {
+            options.onProgress?.(`   ✅ ${targetLabel(target)}/${file}`);
+            continue;
+          }
+          mkdirSync(dirname(destinationFile), { recursive: true });
+          writeFileSync(destinationFile, expected);
+          written.push(`${target.relPath}/${file}`);
+          options.onProgress?.(`   ↻ ${targetLabel(target)}/${file}`);
         }
-        mkdirSync(dirname(destinationFile), { recursive: true });
-        writeFileSync(destinationFile, expected);
-        written.push(`${target.relPath}/${file}`);
-        options.onProgress?.(`   ↻ ${targetLabel(target)}/${file}`);
-      }
-      return upstream;
-    });
+        return upstream;
+      },
+      options.download,
+      options.cacheRoot,
+    );
   } catch (error) {
     violations.push({
       rule: RULE,

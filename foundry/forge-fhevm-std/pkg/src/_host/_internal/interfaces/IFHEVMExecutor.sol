@@ -23,6 +23,7 @@ interface IFHEVMExecutor {
     error NotInitializingFromEmptyProxy();
     error NotPowerOfTwo();
     error ScalarByteIsNotBoolean();
+    error ScalarOutOfRange();
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
     error UnsupportedType();
@@ -70,6 +71,7 @@ interface IFHEVMExecutor {
 
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function cast(bytes32 ct, FheType toType) external returns (bytes32 result);
+    function checkHandleType(bytes32 handle, FheType expectedType) external view;
     function fheAdd(bytes32 lhs, bytes32 rhs, bytes1 scalarByte) external returns (bytes32 result);
     function fheBitAnd(bytes32 lhs, bytes32 rhs, bytes1 scalarByte) external returns (bytes32 result);
     function fheBitOr(bytes32 lhs, bytes32 rhs, bytes1 scalarByte) external returns (bytes32 result);
@@ -104,7 +106,7 @@ interface IFHEVMExecutor {
     function getVersion() external pure returns (string memory);
     function initializeFromEmptyProxy() external;
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV4() external;
+    function reinitializeV5() external;
     function trivialEncrypt(uint256 pt, FheType toType) external returns (bytes32 result);
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function verifyInput(bytes32 inputHandle, address userAddress, bytes memory inputProof, FheType inputType)

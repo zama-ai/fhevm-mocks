@@ -6,6 +6,7 @@ import {euint32} from "encrypted-types/EncryptedTypes.sol";
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
+import {LibFhevmVersion} from "../../pkg/src/LibFhevmVersion.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 
@@ -74,14 +75,20 @@ contract ForkResolutionTest is TestFhevm {
         assertEq(LibFhevmProtocol.currentConfig().acl, mainnet.acl, "mainnet, from the table");
     }
 
-    /// THE VERSION GATE. Devnet Sepolia runs `ACL v0.5.0`; this SDK vendors `v0.4.0`. Refused by name by
-    /// `createSelectFork` itself — not by an empty revert inside the signer swap, which is what happened
-    /// before.
+    /// THE VERSION GATE. Devnet Sepolia runs `ACL v0.5.0`, the NEXT line; this SDK accepts the 0.13 line,
+    /// `ACL v0.4.0` from its first release to the vendored one. Refused by name by `createSelectFork`
+    /// itself — not by an empty revert inside the signer swap, which is what happened before.
     function test_RevertIf_TheStackRunsAnotherProtocolVersion() public {
         vm.skip(!forked);
         FhevmChain memory devnet = getFhevmChain("devnet", "sepolia");
 
-        vm.expectRevert(bytes(LibFhevmFail.versionMismatch("devnet", "sepolia", "ACL", "ACL v0.4.0", "ACL v0.5.0")));
+        vm.expectRevert(
+            bytes(
+                LibFhevmFail.versionMismatch(
+                    "devnet", "sepolia", "ACL", LibFhevmVersion.ACL_FLOOR, LibFhevmVersion.aclCeiling(), "ACL v0.5.0"
+                )
+            )
+        );
         fhevm.createSelectFork(devnet, 11_743_572);
     }
 

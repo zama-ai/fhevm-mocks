@@ -15,7 +15,7 @@ import {LibKmsVerifier, UserDecryptRequestV1} from "./_host/shared/LibKmsVerifie
 import {ICleartextFHEVMExecutor} from "./_host/_internal/interfaces/ICleartextFHEVMExecutor.sol";
 import {LibFhevmHandle} from "./_host/shared/LibFhevmHandle.sol";
 import {LibCleartextProbe} from "./_host/shared/LibCleartextProbe.sol";
-import {LocalHostVersions} from "./_host/_internal/LocalHostVersions.sol";
+import {LibFhevmVersion} from "./LibFhevmVersion.sol";
 import {
     ACL_ADDRESS,
     FHEVM_EXECUTOR_ADDRESS,
@@ -826,25 +826,56 @@ contract FhevmVm is IFhevmVm {
 
     // - Version gate ----------------------------------------------------------
 
+    /// @dev ANY RELEASE OF THE VENDORED LINE is accepted (rules.md 2.15): each contract's `getVersion()`
+    ///      must fall between what the line first shipped (`LibFhevmVersion.*_FLOOR`, fhevm v0.13.0) and
+    ///      what this SDK vendors (`LocalHostVersions`, the ceiling). Another line — older or newer — is
+    ///      refused by name before anything else is attempted.
     function _requireSupportedVersions(StdFhevmChains.FhevmChain memory chain) private view {
         if (LibCleartextProbe.isCleartext(chain.fhevmExecutor)) return;
-        _requireVersion(chain, "ACL", chain.acl, LocalHostVersions.ACL);
-        _requireVersion(chain, "FHEVMExecutor", chain.fhevmExecutor, LocalHostVersions.FHEVM_EXECUTOR);
-        _requireVersion(chain, "InputVerifier", chain.inputVerifier, LocalHostVersions.INPUT_VERIFIER);
-        _requireVersion(chain, "KMSVerifier", chain.kmsVerifier, LocalHostVersions.KMS_VERIFIER);
-        _requireVersion(chain, "ProtocolConfig", chain.protocolConfig, LocalHostVersions.PROTOCOL_CONFIG);
+        _requireVersion(chain, "ACL", chain.acl, LibFhevmVersion.ACL_FLOOR, LibFhevmVersion.aclCeiling());
+        _requireVersion(
+            chain,
+            "FHEVMExecutor",
+            chain.fhevmExecutor,
+            LibFhevmVersion.FHEVM_EXECUTOR_FLOOR,
+            LibFhevmVersion.fhevmExecutorCeiling()
+        );
+        _requireVersion(
+            chain,
+            "InputVerifier",
+            chain.inputVerifier,
+            LibFhevmVersion.INPUT_VERIFIER_FLOOR,
+            LibFhevmVersion.inputVerifierCeiling()
+        );
+        _requireVersion(
+            chain,
+            "KMSVerifier",
+            chain.kmsVerifier,
+            LibFhevmVersion.KMS_VERIFIER_FLOOR,
+            LibFhevmVersion.kmsVerifierCeiling()
+        );
+        _requireVersion(
+            chain,
+            "ProtocolConfig",
+            chain.protocolConfig,
+            LibFhevmVersion.PROTOCOL_CONFIG_FLOOR,
+            LibFhevmVersion.protocolConfigCeiling()
+        );
     }
 
     function _requireVersion(
         StdFhevmChains.FhevmChain memory chain,
         string memory contractName,
         address target,
-        string memory expected
+        string memory floor,
+        string memory ceiling
     ) private view {
         (bool ok, bytes memory ret) = target.staticcall(abi.encodeWithSignature("getVersion()"));
         string memory actual = (ok && ret.length >= 64) ? abi.decode(ret, (string)) : "";
-        if (keccak256(bytes(actual)) != keccak256(bytes(expected))) {
-            revert(LibFhevmFail.versionMismatch(chain.fhevmGroup, chain.chainAlias, contractName, expected, actual));
+        if (!LibFhevmVersion.accepts(actual, floor, ceiling)) {
+            revert(
+                LibFhevmFail.versionMismatch(chain.fhevmGroup, chain.chainAlias, contractName, floor, ceiling, actual)
+            );
         }
     }
 

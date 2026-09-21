@@ -741,7 +741,7 @@ check-generated: ## Delete every generated file, regenerate, and fail unless the
 # Vendored sources
 ########################################################################################################
 
-.PHONY: sync-common-vendored check-vendored-origin check-vendored check-cleartext-config sync-fhevm-chains check-fhevm-chains
+.PHONY: sync-common-vendored bump-vendored check-vendored-origin check-vendored check-cleartext-config sync-fhevm-chains check-fhevm-chains
 .PHONY: version-list version-check version-plan version-apply publish-order publish-render publish-pack publish-pack-all publish-check
 
 ########################################################################################################
@@ -792,6 +792,16 @@ publish-pack-all: build ## Build, then pack every npm-distributed payload into .
 
 sync-common-vendored: ## Write every vendored destination from its source of truth
 	$(call run-fhevm-npm,sync vendored)
+
+# The one way a pin moves. Everything derived from it follows in the same run: the manifest's commit and
+# digest, the copies, each owning package.json. Read the diff it leaves, then the generation's checklist.
+#
+#   make bump-vendored PKG=./host-contracts-cleartext/v13 TAG=v0.13.6
+#   make bump-vendored PKG=… TAG=… COMMIT=<sha>          # a commit no tag names yet
+#   make bump-vendored PKG=… TAG=… CHECK=1               # say what would move, write nothing
+bump-vendored: ## Move every vendored pin under PKG to TAG (manifest, digests, copies, package.json)
+	@test -n "$(PKG)" -a -n "$(TAG)" || { echo "usage: make bump-vendored PKG=<package key> TAG=<tag> [COMMIT=<sha>] [CHECK=1]"; exit 2; }
+	$(call run-fhevm-npm,bump vendored $(PKG) --tag $(TAG) $(if $(COMMIT),--commit $(COMMIT),) $(if $(CHECK),--check,))
 
 # Read-only: re-renders every face of sdk/cleartext-config.json in memory and fails if a committed one
 # differs. The direct guard for the faces nothing else reads back — scripts/cleartext-config.sh above all.

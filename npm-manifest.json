@@ -197,9 +197,9 @@
           "relPath": "./internal/zama-config",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.13.2",
-            "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
-            "digest": "sha256-4g0KsXAHNRkHbMgqXdkdMTnjs5Fxufgw6C1oaS/Ez9s=",
+            "tag": "v0.13.6",
+            "commit": "096ad11a3ac3aff466f2a5cf03788eae655311ca",
+            "digest": "sha256-0ftNPGsVZmP5VLHmlACenc2Pi7/vl88A/XalaEyDR7k=",
             "from": "library-solidity/config"
           },
           "reason": "The localhost address set is upstream's, and the check must read it at the same commit this generation vendors its contracts from. Reformatted by `forge fmt` on the way in, like every pinned copy."
@@ -226,9 +226,9 @@
           "relPath": "./src/contracts",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.13.2",
-            "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
-            "digest": "sha256-EpFak6LRnINzOAHQLrMJUUIMh2qGsCJfYX0myZt9h7s=",
+            "tag": "v0.13.6",
+            "commit": "096ad11a3ac3aff466f2a5cf03788eae655311ca",
+            "digest": "sha256-aQURVY4Y+ZvyrLleG7VGL7pSYEn7cG+Lxef3NVqKXD0=",
             "from": "host-contracts/contracts"
           },
           "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation."

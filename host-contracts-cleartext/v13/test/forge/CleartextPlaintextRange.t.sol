@@ -8,13 +8,19 @@ import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/
 import {ICleartextDB} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
-import {CleartextArithmeticBase} from "../../pkg/src/cleartext/shared/CleartextArithmeticBase.sol";
+import {FHEVMExecutor} from "../../pkg/src/contracts/FHEVMExecutor.sol";
 
 /**
  * A PLAINTEXT asserts its own type: `trivialEncrypt(v, Uint8)` says "this is a uint8", and
- * `verifyInput` says the same of a proof's cleartext. `_normalizePlaintextToType` refuses one that is
- * not — an `ebool` outside {0,1}, or a value too wide for its type — rather than silently narrowing it
- * to a number the caller never wrote.
+ * `verifyInput` says the same of a proof's cleartext. One that is not — an `ebool` outside {0,1}, or a
+ * value too wide for its type — is REFUSED rather than silently narrowed to a number the caller never
+ * wrote.
+ *
+ * WHOSE REFUSAL. Since fhevm v0.13.6 the vendored `FHEVMExecutor.trivialEncrypt` checks the range
+ * itself (`_checkScalarRange`) and reverts `ScalarOutOfRange()` before the cleartext layer runs, so
+ * that is the error a caller sees — here exactly as on a real chain, which is what a mock is for. The
+ * cleartext layer's own `_normalizePlaintextToType` still guards `verifyInput`, which upstream does
+ * not gate, and would catch a regression upstream; it is simply no longer first on this path.
  *
  * ARITHMETIC is the opposite and stays modular: `euint8(200) + euint8(100)` really is 44 on the
  * coprocessor, so a mock that reverted would reject programs the real stack accepts.
@@ -38,20 +44,18 @@ contract CleartextPlaintextRangeTest is Test, ForgeFhevmDeploy {
     }
 
     function test_twoIsRefused() public {
-        vm.expectRevert(abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorNotABoolean.selector, 2));
+        vm.expectRevert(FHEVMExecutor.ScalarOutOfRange.selector);
         executor.trivialEncrypt(2, FheType.Bool);
     }
 
     /// The old rule truncated to the low byte first, so 256 read as `false`. Now it is refused.
     function test_aValueWhoseLowByteIsZeroIsAlsoRefused() public {
-        vm.expectRevert(abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorNotABoolean.selector, 256));
+        vm.expectRevert(FHEVMExecutor.ScalarOutOfRange.selector);
         executor.trivialEncrypt(256, FheType.Bool);
     }
 
     function test_theMaximumIsRefused() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorNotABoolean.selector, type(uint256).max)
-        );
+        vm.expectRevert(FHEVMExecutor.ScalarOutOfRange.selector);
         executor.trivialEncrypt(type(uint256).max, FheType.Bool);
     }
 
@@ -66,16 +70,12 @@ contract CleartextPlaintextRangeTest is Test, ForgeFhevmDeploy {
 
     /// One over is not. It used to be clamped to 44, a number the caller never wrote.
     function test_oneOverTheTypeIsRefused() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorPlaintextTooWide.selector, 256, FheType.Uint8)
-        );
+        vm.expectRevert(FHEVMExecutor.ScalarOutOfRange.selector);
         executor.trivialEncrypt(256, FheType.Uint8);
     }
 
     function test_aWideValueForANarrowTypeIsRefused() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(CleartextArithmeticBase.CleartextErrorPlaintextTooWide.selector, 300, FheType.Uint8)
-        );
+        vm.expectRevert(FHEVMExecutor.ScalarOutOfRange.selector);
         executor.trivialEncrypt(300, FheType.Uint8);
     }
 
@@ -84,11 +84,7 @@ contract CleartextPlaintextRangeTest is Test, ForgeFhevmDeploy {
         uint256 max160 = (uint256(1) << 160) - 1;
         assertEq(db.get(executor.trivialEncrypt(max160, FheType.Uint160)), max160);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                CleartextArithmeticBase.CleartextErrorPlaintextTooWide.selector, max160 + 1, FheType.Uint160
-            )
-        );
+        vm.expectRevert(FHEVMExecutor.ScalarOutOfRange.selector);
         executor.trivialEncrypt(max160 + 1, FheType.Uint160);
     }
 

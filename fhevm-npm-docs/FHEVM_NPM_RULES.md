@@ -786,9 +786,15 @@ git, a network call, or the upstream repository being present anywhere. That las
 exists: reading the commit itself only ever worked in this repository, because the sdk vendors from the repository it
 lives in. Copied out — which is how a mocks workspace is made — every pinned entry failed.
 
-The digest is printed, never written. `npm-manifest.json` is hand-edited, and a value that gates every build belongs
-in a diff somebody read. `sync vendored --digest` downloads each pinned tree and prints the digest it implies;
-`--check` prints the one the local copies produce.
+The digest is never typed by hand, and `sync vendored` never writes it: a value that gates every build belongs in a
+diff somebody read, and the sync's job is to make the copies match the manifest, not the other way round.
+`sync vendored --digest` downloads each pinned tree and prints the digest it implies; `--check` prints the one the
+local copies produce. THE ONE WRITER is `bump vendored <package> --tag <tag>`: it moves every pin under that package
+key (a generation and its nested `pkg`) to the tag — commit resolved from the tag, digest computed from upstream,
+copies rewritten, each owning `package.json#fhevm.vendoredFrom` regenerated — as ONE change, which is the diff to
+read. Scoped by package on purpose, and all of a package's pins together: a generation's contracts and config must
+sit at one commit (two pins from one upstream at two commits is the drift a hand edit produces), while two
+GENERATIONS pin that same upstream at deliberately different tags, so "every pin from this repository" would be wrong.
 
 Two consequences worth knowing. The digest proves the copies match what was RECORDED, not what upstream holds — the
 provenance check is `sync vendored` itself, the only command that reaches the network, so a release should run it and

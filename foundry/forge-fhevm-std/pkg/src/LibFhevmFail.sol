@@ -113,13 +113,14 @@ library LibFhevmFail {
         string memory fhevmGroup,
         string memory chainAlias,
         string memory contractName,
-        string memory expected,
+        string memory floor,
+        string memory ceiling,
         string memory actual
     ) internal pure returns (string memory) {
         string[] memory what = new string[](3);
         what[0] =
             string.concat("The ", fhevmGroup, "/", chainAlias, " stack's ", contractName, " reports  \"", actual, "\"");
-        what[1] = string.concat("this forge-fhevm-std is built against  \"", expected, "\"");
+        what[1] = string.concat("this forge-fhevm-std accepts  \"", floor, "\"  up to  \"", ceiling, "\"");
         what[2] = "Proofs and digests would be built for the wrong ABI and fail far from here.";
         string[] memory fix = new string[](2);
         fix[0] = "upgrade forge-fhevm-std to a release that vendors this protocol version,";
