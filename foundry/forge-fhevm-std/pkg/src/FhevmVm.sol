@@ -134,7 +134,7 @@ struct FhevmStack {
  *      | `hasRpcUrlFor(alias)`                       | did the run configure a URL for this alias (`foundry.toml` or `<ALIAS>_RPC_URL`)? — the opt-in a fork test checks |
  *      | `eventProcessor()`                          | the ACTIVE context's replay (one per context, created when a stack is pointed there) |
  *      | `ensureForkPrepared(dApp)`, `drainFheEvents()`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `disableHCUDepthLimit()`, `disableHCULimits()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
- *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `hasPlaintext(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
+ *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `hasPlaintext(handle)`, `tryPlaintextOf(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
  */
 interface IFhevmVm {
     // Setup failures — fork drift, an unsupported protocol version, a fork registered while inactive, an
@@ -478,6 +478,11 @@ interface IFhevmVm {
     ///         after the same draining. Never reverts: false for the zero word, a foreign-chain handle
     ///         and a handle this stack never computed or was told about.
     function hasPlaintext(bytes32 handle) external returns (bool);
+
+    /// @notice `hasPlaintext` and `plaintextOf` in one frame: `exists` is what `hasPlaintext` answers, and
+    ///         `clear` is the value when it does, zero otherwise. The zero on a miss is a PLACEHOLDER, not a
+    ///         reading — callers branch on `exists`.
+    function tryPlaintextOf(bytes32 handle) external returns (bool exists, uint256 clear);
 
     // - Sign ------------------------------------------------------------------
 
@@ -1161,6 +1166,12 @@ contract FhevmVm is IFhevmVm {
 
     function hasPlaintext(bytes32 handle) external returns (bool) {
         return IPlaintexts(_resolveForReading(address(0)).plaintexts).hasPlaintext(handle);
+    }
+
+    function tryPlaintextOf(bytes32 handle) external returns (bool exists, uint256 clear) {
+        IPlaintexts source = IPlaintexts(_resolveForReading(address(0)).plaintexts);
+        exists = source.hasPlaintext(handle);
+        if (exists) clear = source.plaintexts(handle);
     }
 
     // - Sign ------------------------------------------------------------------

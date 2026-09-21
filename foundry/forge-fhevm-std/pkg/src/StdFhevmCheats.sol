@@ -87,6 +87,8 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
      *
      * @dev Never reverts, and never invents a value: there is deliberately no `plaintextOfOrZero`. Reading
      *      zero for a value the stack does not hold is how a test passes on the mock and fails on chain.
+     *      When one call must both ask and read — a balance sweep over accounts that may never have acted —
+     *      `tryPlaintextOf` returns the answer AND the value, and keeps the two apart.
      */
     function hasPlaintext(ebool value) internal unmetered returns (bool) {
         return fhevm.hasPlaintext(ebool.unwrap(value));
@@ -119,6 +121,76 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
     function hasPlaintext(eaddress value) internal unmetered returns (bool) {
         return fhevm.hasPlaintext(eaddress.unwrap(value));
     }
+
+    // -- Try plaintext of ----------------------------------------------------------
+
+    /**
+     * @notice `hasPlaintext` and `plaintextOf` as one question: `(exists, clear)`, where `clear` is the
+     *         value only when `exists` is true and a placeholder zero otherwise. Never reverts for a value
+     *         the stack does not hold.
+     *
+     * @dev THE `try` SHAPE, NOT AN `orZero`. Solidity's convention for a non-reverting twin is `tryAdd`,
+     *      `tryRecover`, `tryIncrease`: the caller gets the failure as a flag, not folded into the value.
+     *      That is what keeps "the value is 0" and "there is no value" distinct — the difference between
+     *      a balance that was spent down and one that was never credited. A helper that wants the folded
+     *      form writes it in one line, `(, uint64 v) = tryPlaintextOf(x);`, and says so at the site.
+     *
+     * @dev `exists` is exactly `hasPlaintext(value)`: false for the zero word, a foreign-chain handle and a
+     *      handle this stack never computed or was told about. A stack with no plaintexts source is still
+     *      a setup error and still reverts — the `try` covers the value, not the configuration.
+     */
+    // The narrowing casts are exact: the plaintexts source stores each value at its handle's width, the same
+    // way `plaintextOf` narrows its result (where the linter does not see the cast because it wraps a call).
+    // forge-lint: disable-start(unsafe-typecast)
+    function tryPlaintextOf(ebool value) internal unmetered returns (bool exists, bool clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(ebool.unwrap(value));
+        exists = found;
+        clear = word != 0;
+    }
+
+    function tryPlaintextOf(euint8 value) internal unmetered returns (bool exists, uint8 clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(euint8.unwrap(value));
+        exists = found;
+        clear = uint8(word);
+    }
+
+    function tryPlaintextOf(euint16 value) internal unmetered returns (bool exists, uint16 clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(euint16.unwrap(value));
+        exists = found;
+        clear = uint16(word);
+    }
+
+    function tryPlaintextOf(euint32 value) internal unmetered returns (bool exists, uint32 clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(euint32.unwrap(value));
+        exists = found;
+        clear = uint32(word);
+    }
+
+    function tryPlaintextOf(euint64 value) internal unmetered returns (bool exists, uint64 clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(euint64.unwrap(value));
+        exists = found;
+        clear = uint64(word);
+    }
+
+    function tryPlaintextOf(euint128 value) internal unmetered returns (bool exists, uint128 clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(euint128.unwrap(value));
+        exists = found;
+        clear = uint128(word);
+    }
+
+    function tryPlaintextOf(euint256 value) internal unmetered returns (bool exists, uint256 clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(euint256.unwrap(value));
+        exists = found;
+        clear = word;
+    }
+
+    function tryPlaintextOf(eaddress value) internal unmetered returns (bool exists, address clear) {
+        (bool found, uint256 word) = fhevm.tryPlaintextOf(eaddress.unwrap(value));
+        exists = found;
+        clear = address(uint160(word));
+    }
+
+    // forge-lint: disable-end(unsafe-typecast)
 
     /**
      * @notice On a FORK, state what an encrypted value is worth, because nothing can know it.
