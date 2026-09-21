@@ -9,7 +9,7 @@
   "scripts": {
     "forge:fmt": "forge fmt",
     "forge:fmt:check": "forge fmt --check",
-    "forge:lint": "forge lint",
+    "forge:lint": "forge lint --no-cache",
     "test": "forge build && forge test",
     "test:file": "forge test --match-path"
   },

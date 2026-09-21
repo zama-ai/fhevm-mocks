@@ -23,7 +23,7 @@
     "fmt:check": "npm run prettier:check && npm run forge:fmt:check",
     "forge:fmt": "forge fmt",
     "forge:fmt:check": "forge fmt --check",
-    "forge:lint": "forge lint",
+    "forge:lint": "forge lint --no-cache",
     "generate": "npm run generate:pre && npm run compile:forge",
     "generate:forge-payload": "node internal/cli/generateForgePayload.ts",
     "generate:pre": "npm run generate:forge-payload && npm run generate:version",
