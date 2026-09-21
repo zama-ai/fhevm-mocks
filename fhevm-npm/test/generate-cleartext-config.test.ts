@@ -48,7 +48,16 @@ test('renders the TypeScript face: order, formula comments, literal shapes, quot
       outputs.map((output) => output.path),
       [
         join(workspace, 'common-vendored', 'src', 'cleartext-config-v13.ts'),
-        join(workspace, 'host-contracts-cleartext', 'v13', 'pkg', 'src', 'cleartext', 'shared', 'LibFhevmCleartextConfig.sol'),
+        join(
+          workspace,
+          'host-contracts-cleartext',
+          'v13',
+          'pkg',
+          'src',
+          'cleartext',
+          'shared',
+          'LibFhevmCleartextConfig.sol',
+        ),
         join(workspace, 'host-contracts-cleartext', 'v13', 'scripts', 'cleartext-config.sh'),
       ],
     );
@@ -227,7 +236,8 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     assert.doesNotMatch(v14Ts, /^import /m);
     assert.match(v14Ts, /^export const V14_ONLY_ALIAS = V14_ONLY;$/m);
     assert.match(v14Ts, /^export const NARROW_ALIAS = URL;$/m);
-    const v14Sol = byPath.get('host-contracts-cleartext/v14/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol') ?? '';
+    const v14Sol =
+      byPath.get('host-contracts-cleartext/v14/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol') ?? '';
     assert.deepEqual(names(v14Sol), v14Expected);
     assert.match(v14Sol, /string internal constant V14_ONLY_ALIAS = V14_ONLY;/);
     assert.match(
