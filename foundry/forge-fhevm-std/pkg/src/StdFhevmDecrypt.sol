@@ -721,7 +721,6 @@ abstract contract StdFhevmDecrypt is StdFhevmBase {
     function _mask(TransportKeypair memory transportKeypair) private pure returns (bytes32 m) {
         bytes memory key = transportKeypair.publicKey;
         require(key.length >= 32, "StdFhevm: transport public key must be at least 32 bytes");
-        // solhint-disable-next-line no-inline-assembly
         assembly {
             m := mload(add(key, 32))
         }

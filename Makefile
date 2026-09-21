@@ -66,6 +66,9 @@ DIR_HH_V3_PLUGIN     := hardhat/v3/plugin
 DIR_HH_V3_E2E        := hardhat/v3/e2e
 DIR_HH_V3_TEMPLATE   := hardhat/v3/fhevm-hardhat-template
 DIR_FHEVM_NPM        := fhevm-npm
+# The Forge companion to forge-std. A member of the sdk root; its pkg/src/_host is generated from V(N)'s
+# forge payload, so every verb on it depends on V(N) having been generated and compiled first.
+DIR_FORGE_STD        := foundry/forge-fhevm-std
 FHEVM_NPM_CLI        := ./fhevm-npm-cli
 
 # Global flags spliced in BEFORE the subcommand, for any target that calls the CLI. Mainly verbosity,
@@ -87,6 +90,10 @@ W_CLEARTEXT_V_PREV   := $(call package-name,$(DIR_CLEARTEXT_V_PREV))
 W_CLEARTEXT_V_CUR    := $(call package-name,$(DIR_CLEARTEXT_V_CUR))
 ifneq ($(words $(W_CLEARTEXT_V_PREV) $(W_CLEARTEXT_V_CUR)),2)
 $(error a cleartext generation named by npm-manifest.json#generations has no readable package.json name ($(DIR_CLEARTEXT_V_PREV), $(DIR_CLEARTEXT_V_CUR)))
+endif
+W_FORGE_STD          := $(call package-name,$(DIR_FORGE_STD))
+ifeq ($(W_FORGE_STD),)
+$(error $(DIR_FORGE_STD) has no readable package.json name)
 endif
 W_HH_V2_PLUGIN       := @fhevm/hardhat-plugin-v2-dev
 W_HH_V2_E2E          := @fhevm/hardhat-plugin-v2-e2e-dev
@@ -135,7 +142,7 @@ help: ## List the targets
 	      printf "  \033[36m%-25s\033[0m %s\n", $$2, $$3; \
 	    }'
 
-compile: compile-hh-v2-e2e compile-hh-v2-template compile-hh-v3-e2e compile-hh-v3-template ## Compile every package, in dependency order
+compile: compile-forge-std compile-hh-v2-e2e compile-hh-v2-template compile-hh-v3-e2e compile-hh-v3-template ## Compile every package, in dependency order
 
 # The everyday sweep, in lifecycle order. ONE sub-make with three goals, deliberately: goals run left
 # to right in a single invocation, so the compiles `lint` triggers are not re-run by `compile`.
@@ -144,11 +151,11 @@ compile: compile-hh-v2-e2e compile-hh-v2-template compile-hh-v3-e2e compile-hh-v
 build: ## fmt-check, then lint, then compile — everything, gated
 	$(MAKE) fmt-check lint compile
 
-lint: lint-shared lint-cleartext lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
+lint: lint-shared lint-cleartext lint-forge-std lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
 
-test: test-cleartext-v-prev test-cleartext-v-cur test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## Run package tests only; this is not the full validation workflow (use: 'make ci' instead)
+test: test-cleartext-v-prev test-cleartext-v-cur test-forge-std test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## Run package tests only; this is not the full validation workflow (use: 'make ci' instead)
 
-test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
+test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast test-forge-std test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
 
 check: check-npm-cli ## Run pre-build checks, build, then post-build checks
 
@@ -163,6 +170,7 @@ generate: ## Write every generated file (then commit the result)
 	$(MAKE) sync-common-vendored
 	$(call run,$(W_CLEARTEXT_V_PREV),generate)
 	$(call run,$(W_CLEARTEXT_V_CUR),generate)
+	$(call run,$(W_FORGE_STD),generate)
 
 # Each package's `fmt` owns what formatting means there (prettier, plus forge fmt where it has
 # Solidity). fhevm-npm is a non-member `-w` cannot reach — the one named workspace-level exception.
@@ -172,6 +180,7 @@ fmt: ## Rewrite formatting everywhere
 	$(call run,$(W_VENDORED),fmt)
 	$(call run,$(W_CLEARTEXT_V_PREV),fmt)
 	$(call run,$(W_CLEARTEXT_V_CUR),fmt)
+	$(call run,$(W_FORGE_STD),fmt)
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),fmt)
 	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),fmt)
 	$(call run-hh-v2,$(W_HH_V2_E2E),fmt)
@@ -185,6 +194,7 @@ fmt-check: ## Verify formatting everywhere
 	$(call run,$(W_VENDORED),fmt:check)
 	$(call run,$(W_CLEARTEXT_V_PREV),fmt:check)
 	$(call run,$(W_CLEARTEXT_V_CUR),fmt:check)
+	$(call run,$(W_FORGE_STD),fmt:check)
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),fmt:check)
 	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),fmt:check)
 	$(call run-hh-v2,$(W_HH_V2_E2E),fmt:check)
@@ -378,6 +388,7 @@ clean: clean-scratch ## Remove every package's build output and the tooling's sc
 	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),clean)
 	$(call run-hh-v2,$(W_HH_V2_E2E),clean)
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),clean)
+	$(call run,$(W_FORGE_STD),clean)
 	$(call run,$(W_CLEARTEXT_V_CUR),clean)
 	$(call run,$(W_CLEARTEXT_V_PREV),clean)
 	$(call run,$(W_VENDORED),clean)
@@ -429,6 +440,7 @@ clean-generated: ## Delete every regenerable file, to prove `make generate` repr
 	$(call run,$(W_VENDORED),clean:generated)
 	$(call run,$(W_CLEARTEXT_V_PREV),clean:generated)
 	$(call run,$(W_CLEARTEXT_V_CUR),clean:generated)
+	$(call run,$(W_FORGE_STD),clean:generated)
 	@echo "Deleted. Run 'make generate' - a spotless 'git status' proves the generators reproduce everything."
 
 # `make graph` answers "what would this build, and why", without running anything.
@@ -447,7 +459,7 @@ graph: ## Print the dependency graph for TARGET (default: compile)
 # both @fhevm/hardhat-plugin (= plugin/pkg) and @fhevm/host-contracts-cleartext.
 ########################################################################################################
 
-.PHONY: compile-package compile-cleartext-v-prev compile-cleartext-v-cur compile-hh-v2-plugin compile-hh-v2-template
+.PHONY: compile-package compile-cleartext-v-prev compile-cleartext-v-cur compile-forge-std compile-hh-v2-plugin compile-hh-v2-template
 .PHONY: compile-hh-v2-e2e compile-hh-v3-plugin compile-hh-v3-template compile-hh-v3-e2e
 
 # Public bridge for tools that discover a package by manifest path while keeping this file authoritative
@@ -456,6 +468,7 @@ compile-package: ## Compile PACKAGE and its prerequisites
 	+@case "$(PACKAGE)" in \
 	  "./$(DIR_CLEARTEXT_V_PREV)") target=compile-cleartext-v-prev ;; \
 	  "./$(DIR_CLEARTEXT_V_CUR)") target=compile-cleartext-v-cur ;; \
+	  "./$(DIR_FORGE_STD)") target=compile-forge-std ;; \
 	  "./$(DIR_HH_V2_PLUGIN)") target=compile-hh-v2-plugin ;; \
 	  "./$(DIR_HH_V2_TEMPLATE)") target=compile-hh-v2-template ;; \
 	  "./$(DIR_HH_V2_E2E)") target=compile-hh-v2-e2e ;; \
@@ -473,6 +486,10 @@ compile-cleartext-v-prev: check-npm-cli-pre-build ## Compile the previous cleart
 compile-cleartext-v-cur: compile-cleartext-v-prev ## Compile the current cleartext generation, V(N)
 	@echo "==> compile $(DIR_CLEARTEXT_V_CUR)"
 	$(call run,$(W_CLEARTEXT_V_CUR),compile)
+
+compile-forge-std: compile-cleartext-v-cur ## Compile forge-fhevm-std (its _host payload is generated from V(N))
+	@echo "==> compile $(DIR_FORGE_STD)"
+	$(call run,$(W_FORGE_STD),compile)
 
 compile-hh-v2-plugin: compile-cleartext-v-cur ## Compile the Hardhat v2 plugin
 	@echo "==> compile $(DIR_HH_V2_PLUGIN)"
@@ -571,6 +588,7 @@ check-npm-cli-post-build: compile # Internal: check generated paths
 check-post: check-npm-cli-post-build ## Checks that require a generated and built tree
 	$(call run,$(W_CLEARTEXT_V_PREV),check)
 	$(call run,$(W_CLEARTEXT_V_CUR),check)
+	$(call run,$(W_FORGE_STD),check)
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),check)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),check)
 
@@ -582,7 +600,7 @@ check-post: check-npm-cli-post-build ## Checks that require a generated and buil
 ########################################################################################################
 
 .PHONY: lint-shared lint-cleartext lint-hh-v2
-.PHONY: lint-common lint-common-vendored lint-cleartext-v-prev lint-cleartext-v-cur
+.PHONY: lint-common lint-common-vendored lint-cleartext-v-prev lint-cleartext-v-cur lint-forge-std
 .PHONY: lint-hh-v2-plugin lint-hh-v2-template lint-hh-v2-e2e lint-hh-v3 lint-hh-v3-plugin lint-hh-v3-template lint-hh-v3-e2e lint-npm-cli
 
 lint-shared: lint-common lint-common-vendored
@@ -604,6 +622,9 @@ lint-cleartext-v-prev: compile-cleartext-v-prev ## Lint the previous cleartext g
 
 lint-cleartext-v-cur: compile-cleartext-v-cur ## Lint the current cleartext generation, V(N)
 	$(call run,$(W_CLEARTEXT_V_CUR),lint)
+
+lint-forge-std: compile-forge-std ## Lint forge-fhevm-std: eslint + tsc over internal/, then forge lint
+	$(call run,$(W_FORGE_STD),lint)
 
 lint-hh-v2-plugin: compile-cleartext-v-cur ## Lint the Hardhat v2 plugin (its types resolve through V(N)'s pkg)
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),lint)
@@ -637,6 +658,7 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 
 .PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
 .PHONY: test-hh-v2-e2e test-hh-v2-e2e-anvil test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
+.PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil
 
 # `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
 # and only V(N) has a V(N-1) to prove it against. Which generation that is comes from the manifest, so the
@@ -665,6 +687,21 @@ test-cleartext-upgrade: compile-cleartext-v-cur ## V(N) only: the upgrade from V
 # well under a minute. Local iteration runs this; CI and the final check before a bump run the full lane.
 test-cleartext-upgrade-fast: compile-cleartext-v-cur ## V(N) only: the upgrade's fast lane (no create2 coordinator, <1 min)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
+
+# The offline suite is the one `test` and `ci` run. The three below need the outside world — a Sepolia RPC
+# (`SEPOLIA_RPC_URL`, else `[rpc_endpoints] sepolia` in its foundry.toml) or a local anvil the target starts
+# itself — so they are opt-in, like the hardhat `-anvil` variants, and never enter an aggregate.
+test-forge-std: compile-forge-std ## forge-fhevm-std offline forge tests
+	$(call run,$(W_FORGE_STD),test)
+
+test-forge-std-fork: compile-forge-std ## forge-fhevm-std fork tests against Sepolia (needs SEPOLIA_RPC_URL or foundry.toml rpc_endpoints)
+	$(call run,$(W_FORGE_STD),test:fork)
+
+test-forge-std-fork-url: compile-forge-std ## forge-fhevm-std born-on-a-fork suite under `forge test --fork-url` (same RPC opt-in)
+	$(call run,$(W_FORGE_STD),test:fork-url)
+
+test-forge-std-anvil: compile-forge-std ## forge-fhevm-std anvil suite (starts and stops its own anvil on port 8546)
+	$(call run,$(W_FORGE_STD),test:anvil)
 
 test-hh-v2-plugin: compile-hh-v2-plugin ## Hardhat v2 plugin tests
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),test)

@@ -10,7 +10,9 @@
     "common-vendored",
     "host-contracts-cleartext/v12",
     "host-contracts-cleartext/v13",
-    "host-contracts-cleartext/v13/pkg"
+    "host-contracts-cleartext/v13/pkg",
+    "foundry/forge-fhevm-std",
+    "foundry/forge-fhevm-std/pkg"
   ],
   "scripts": {
     "build": "make build",

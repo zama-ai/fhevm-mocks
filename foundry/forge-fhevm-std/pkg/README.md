@@ -25,12 +25,12 @@ No remapping to add: Forge maps `forge-fhevm-std/` to `lib/forge-fhevm-std/src/`
 ### npm
 
 ```sh
-npm install @fhevm/forge-fhevm-std
+npm install @fhevm/forge-std
 ```
 
 ```toml
 # foundry.toml
-remappings = ["forge-fhevm-std/=node_modules/@fhevm/forge-fhevm-std/src/"]
+remappings = ["@fhevm/forge-std/=node_modules/@fhevm/forge-std/src/"]
 ```
 
 ### soldeer

@@ -571,6 +571,11 @@ script has a `foundry.toml` in the same directory. Every `foundry.toml` declares
 `sdk/foundry.base.toml`; `check-foundry` verifies that ownership and compares every project's effective `[fmt]`
 values with the shared file. Package-specific `[fmt].ignore` values are exempt.
 
+The one exception to `extends` is a `standalone` project: the consumer runner copies it out of the workspace and
+installs it on its own, so where it runs there is no shared file to extend (forge treats a missing `extends`
+target as a hard error). It restates the `[fmt]` policy inline instead, and `check-foundry` still compares its
+effective values with the shared file — the exemption is from the mechanism, never from the policy.
+
 ```toml
 # ✅ Package-local paths and compiler settings remain local; formatting policy is inherited.
 [profile.default]

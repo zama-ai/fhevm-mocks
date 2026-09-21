@@ -174,7 +174,7 @@ published; `pkg/` is the published artifact. It is deliberately **not** wired in
 the root `package.json` workspaces, `npm-manifest.json`, `versions.json` and the `Makefile`.
 
 ```
-package.json         @fhevm/forge-fhevm-std-dev, private, workspace verbs (build check clean compile fmt lint test)
+package.json         @fhevm/forge-std-dev, private, workspace verbs (build check clean compile fmt lint test)
 foundry.toml         extends ../../foundry.base.toml, src = "pkg/src", [dependencies] forge-std (soldeer)
 remappings.txt       soldeer-generated forge-std-1.11.0/ line + the forge-std/ alias used by test/
 prettier.config.js   re-export of ../../prettier.base.mjs

@@ -106,7 +106,6 @@ library LibEncryptedTypes {
         decoded = new bytes32[](count);
         for (uint256 i = 0; i < count; i++) {
             bytes32 handle;
-            // solhint-disable-next-line no-inline-assembly
             assembly {
                 handle := mload(add(add(abiEncryptedValues, 0x20), mul(i, 0x20)))
             }

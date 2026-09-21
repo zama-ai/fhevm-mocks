@@ -36,6 +36,22 @@ wins. Write to the source directory and let the sync carry it.
 
 **1.3 — v12 is frozen.** Touch it only when a shared generator forces it, and say so.
 
+**1.4 — this package is a workspace member, driven from the root.** `foundry/forge-fhevm-std` and its `pkg/` are
+in the sdk root's `workspaces` and in `npm-manifest.json` (`@fhevm/forge-std-dev` / `@fhevm/forge-std`), so
+`node_modules` is the root's — `libs` and `remappings.txt` point at `../../node_modules`, never at a local
+copy — and every verb has a `make` name: `compile-forge-std` (after `compile-cleartext-v-cur`, because the
+payload is copied from V(N)), `lint-forge-std`, `test-forge-std`, and the opt-in `test-forge-std-fork`,
+`-fork-url`, `-anvil`. `make generate` and `make clean-generated` run this package AFTER V(N), so
+`check-generated` proves the whole chain in §1's diagram, and `make check-pre` grades the package.json,
+scripts, lockfile and lint policy by the workspace rules (`fhevm-npm-docs/FHEVM_NPM_RULES.md`). The published
+payload has a consumer test (`test-consumer/esm`, rule 5.3.1 there), and it is A FOUNDRY PROJECT, not a Node
+script: `package.json` installs `@fhevm/forge-std` by name next to `forge-std` (a git dependency, pinned to the
+tag this package vendors), `@fhevm/solidity` and `encrypted-types`; `remappings.txt` points every prefix into
+`node_modules`; `src/AplusB.sol` is the dApp and `test/AplusB.t.sol` inherits `TestFhevm` to encrypt, run and
+decrypt against it. `npm test` there is `forge build && forge test`. Its `foundry.toml` restates the `[fmt]`
+policy inline rather than extending `foundry.base.toml` (a standalone project is copied out of the tree —
+rule 4.1.3's one exception), so `forge lint` and `forge test` work only after `npm install` in the copy.
+
 ---
 
 ## 2. Golden rules
@@ -390,9 +406,11 @@ cd host-contracts-cleartext/v13
 npm run generate && npm run forge:fmt && npm run forge:lint && forge test
 MAINNET_RPC_URL=… forge test --match-contract Fork
 
-# this package (the consumer)
+# this package (the consumer) — from the workspace root, the same through make:
+#   make compile-forge-std lint-forge-std test-forge-std     # or everything: make ci-fast
 cd foundry/forge-fhevm-std
-npm run generate && forge fmt && forge lint && forge test
+npm run generate && npm run lint && forge test
+npm run test:consumer                    # the installed @fhevm/forge-std, by name (rule 1.4)
 SEPOLIA_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork
 SEPOLIA_RPC_URL=… npm run test:fork-url  # the born-on-a-fork suite, under `forge test --fork-url`
 MAINNET_RPC_URL=… forge test --match-contract EventProcessorReplay

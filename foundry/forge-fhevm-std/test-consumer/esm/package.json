@@ -1,0 +1,22 @@
+{
+  "name": "forge-fhevm-std-consumer-esm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "forge:fmt": "forge fmt",
+    "forge:fmt:check": "forge fmt --check",
+    "forge:lint": "forge lint",
+    "test": "forge build && forge test",
+    "test:file": "forge test --match-path"
+  },
+  "dependencies": {
+    "@fhevm/forge-std": "file:../../pkg",
+    "@fhevm/solidity": "^0.13.3",
+    "encrypted-types": "^0.0.4",
+    "forge-std": "git+https://github.com/foundry-rs/forge-std.git#v1.11.0"
+  }
+}

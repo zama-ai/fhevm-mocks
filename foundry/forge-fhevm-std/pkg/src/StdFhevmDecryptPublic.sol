@@ -269,7 +269,6 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         words = new uint256[](encoded.length / 32);
         for (uint256 i = 0; i < words.length; i++) {
             uint256 w;
-            // solhint-disable-next-line no-inline-assembly
             assembly ("memory-safe") {
                 w := mload(add(add(encoded, 32), mul(i, 32)))
             }

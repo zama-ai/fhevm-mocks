@@ -57,7 +57,7 @@ const PAYLOAD_REL = join('pkg', 'forge', 'src');
  */
 export function currentGenerationDir(): string {
   const manifest: unknown = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
-  const current = (manifest as { generations?: Record<string, { current?: unknown }> })?.generations?.[
+  const current = (manifest as { generations?: Record<string, { current?: unknown }> }).generations?.[
     'host-contracts-cleartext'
   ]?.current;
   if (typeof current !== 'string' || current.length === 0) {

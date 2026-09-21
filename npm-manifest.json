@@ -1,13 +1,7 @@
 {
   "$schema": "./fhevm-npm/schemas/npm-manifest.schema.json",
   "inventory": {
-    "exclude": [
-      "./js-sdk",
-      "./cli-js-sdk",
-      "./host-contracts-cleartext/v14",
-      "./host-contracts-cleartext/v15",
-      "./foundry"
-    ]
+    "exclude": ["./js-sdk", "./cli-js-sdk", "./host-contracts-cleartext/v14", "./host-contracts-cleartext/v15"]
   },
   "dependencies": {
     "forbidden": ["solhint"],
@@ -274,6 +268,37 @@
       "member": false,
       "dependencyGroup": "host-contracts-cleartext/v13",
       "note": "A standard external ESM TypeScript consumer copied to a temporary directory by the owning dev package's test:consumer script."
+    },
+    "./foundry/forge-fhevm-std": {
+      "kind": "dev",
+      "type": "esm",
+      "browser": false,
+      "name": "@fhevm/forge-std-dev",
+      "private": true,
+      "member": true,
+      "publishedRelPath": "./foundry/forge-fhevm-std/pkg",
+      "dependencyGroup": "forge-fhevm-std",
+      "note": "Forge companion to forge-std. Its pkg/src/_host is GENERATED from V(N)'s pkg/forge/src (generate:forge-payload), so it generates and compiles after the current cleartext generation."
+    },
+    "./foundry/forge-fhevm-std/pkg": {
+      "kind": "published",
+      "type": "esm",
+      "browser": false,
+      "name": "@fhevm/forge-std",
+      "member": true,
+      "dependencyGroup": "forge-fhevm-std",
+      "consumerTests": { "esm": ["./foundry/forge-fhevm-std/test-consumer/esm"] },
+      "note": "Solidity-only payload: `exports` maps ./src/* and ./package.json and nothing else. Its consumer proves the installed package compiles by resolution: every shipped .sol resolves every import by package name."
+    },
+    "./foundry/forge-fhevm-std/test-consumer/esm": {
+      "kind": "standalone",
+      "type": "esm",
+      "browser": false,
+      "name": "forge-fhevm-std-consumer-esm",
+      "private": true,
+      "member": false,
+      "dependencyGroup": "forge-fhevm-std",
+      "note": "A standard external ESM consumer copied to a temporary directory by the owning dev package's test:consumer script. Solidity-only payload, so it checks the installed sources resolve rather than loading JavaScript."
     },
     "./hardhat/v2": {
       "kind": "workspace-root",
