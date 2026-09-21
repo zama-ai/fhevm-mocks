@@ -4,38 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {FHEEvents} from "../../pkg/src/contracts/FHEEvents.sol";
-import {
-    FheAdd as SharedFheAdd,
-    FheSub as SharedFheSub,
-    FheMul as SharedFheMul,
-    FheDiv as SharedFheDiv,
-    FheRem as SharedFheRem,
-    FheBitAnd as SharedFheBitAnd,
-    FheBitOr as SharedFheBitOr,
-    FheBitXor as SharedFheBitXor,
-    FheShl as SharedFheShl,
-    FheShr as SharedFheShr,
-    FheRotl as SharedFheRotl,
-    FheRotr as SharedFheRotr,
-    FheEq as SharedFheEq,
-    FheNe as SharedFheNe,
-    FheGe as SharedFheGe,
-    FheGt as SharedFheGt,
-    FheLe as SharedFheLe,
-    FheLt as SharedFheLt,
-    FheMin as SharedFheMin,
-    FheMax as SharedFheMax,
-    FheNeg as SharedFheNeg,
-    FheNot as SharedFheNot,
-    VerifyInput as SharedVerifyInput,
-    Cast as SharedCast,
-    TrivialEncrypt as SharedTrivialEncrypt,
-    FheIfThenElse as SharedFheIfThenElse,
-    FheRand as SharedFheRand,
-    FheRandBounded as SharedFheRandBounded,
-    FheSum as SharedFheSum,
-    FheIsIn as SharedFheIsIn
-} from "../../pkg/src/cleartext/shared/FhevmEvents.sol";
+import {LibFhevmEvents} from "../../pkg/src/cleartext/shared/FhevmEvents.sol";
 
 /// `cleartext/shared/FhevmEvents.sol` re-declares the vendored executor's events so a log reader need
 /// not inherit the executor. The two are the same event only while their topic0 agree, and topic0 is
@@ -45,35 +14,35 @@ import {
 /// FHE work. This suite is what turns that into a red build.
 contract FhevmEventsTest is Test {
     function test_everyEventHasTheSameTopic() public pure {
-        assertEq(SharedFheAdd.selector, FHEEvents.FheAdd.selector, "FheAdd");
-        assertEq(SharedFheSub.selector, FHEEvents.FheSub.selector, "FheSub");
-        assertEq(SharedFheMul.selector, FHEEvents.FheMul.selector, "FheMul");
-        assertEq(SharedFheDiv.selector, FHEEvents.FheDiv.selector, "FheDiv");
-        assertEq(SharedFheRem.selector, FHEEvents.FheRem.selector, "FheRem");
-        assertEq(SharedFheBitAnd.selector, FHEEvents.FheBitAnd.selector, "FheBitAnd");
-        assertEq(SharedFheBitOr.selector, FHEEvents.FheBitOr.selector, "FheBitOr");
-        assertEq(SharedFheBitXor.selector, FHEEvents.FheBitXor.selector, "FheBitXor");
-        assertEq(SharedFheShl.selector, FHEEvents.FheShl.selector, "FheShl");
-        assertEq(SharedFheShr.selector, FHEEvents.FheShr.selector, "FheShr");
-        assertEq(SharedFheRotl.selector, FHEEvents.FheRotl.selector, "FheRotl");
-        assertEq(SharedFheRotr.selector, FHEEvents.FheRotr.selector, "FheRotr");
-        assertEq(SharedFheEq.selector, FHEEvents.FheEq.selector, "FheEq");
-        assertEq(SharedFheNe.selector, FHEEvents.FheNe.selector, "FheNe");
-        assertEq(SharedFheGe.selector, FHEEvents.FheGe.selector, "FheGe");
-        assertEq(SharedFheGt.selector, FHEEvents.FheGt.selector, "FheGt");
-        assertEq(SharedFheLe.selector, FHEEvents.FheLe.selector, "FheLe");
-        assertEq(SharedFheLt.selector, FHEEvents.FheLt.selector, "FheLt");
-        assertEq(SharedFheMin.selector, FHEEvents.FheMin.selector, "FheMin");
-        assertEq(SharedFheMax.selector, FHEEvents.FheMax.selector, "FheMax");
-        assertEq(SharedFheNeg.selector, FHEEvents.FheNeg.selector, "FheNeg");
-        assertEq(SharedFheNot.selector, FHEEvents.FheNot.selector, "FheNot");
-        assertEq(SharedVerifyInput.selector, FHEEvents.VerifyInput.selector, "VerifyInput");
-        assertEq(SharedCast.selector, FHEEvents.Cast.selector, "Cast");
-        assertEq(SharedTrivialEncrypt.selector, FHEEvents.TrivialEncrypt.selector, "TrivialEncrypt");
-        assertEq(SharedFheIfThenElse.selector, FHEEvents.FheIfThenElse.selector, "FheIfThenElse");
-        assertEq(SharedFheRand.selector, FHEEvents.FheRand.selector, "FheRand");
-        assertEq(SharedFheRandBounded.selector, FHEEvents.FheRandBounded.selector, "FheRandBounded");
-        assertEq(SharedFheSum.selector, FHEEvents.FheSum.selector, "FheSum");
-        assertEq(SharedFheIsIn.selector, FHEEvents.FheIsIn.selector, "FheIsIn");
+        assertEq(LibFhevmEvents.FheAdd.selector, FHEEvents.FheAdd.selector, "FheAdd");
+        assertEq(LibFhevmEvents.FheSub.selector, FHEEvents.FheSub.selector, "FheSub");
+        assertEq(LibFhevmEvents.FheMul.selector, FHEEvents.FheMul.selector, "FheMul");
+        assertEq(LibFhevmEvents.FheDiv.selector, FHEEvents.FheDiv.selector, "FheDiv");
+        assertEq(LibFhevmEvents.FheRem.selector, FHEEvents.FheRem.selector, "FheRem");
+        assertEq(LibFhevmEvents.FheBitAnd.selector, FHEEvents.FheBitAnd.selector, "FheBitAnd");
+        assertEq(LibFhevmEvents.FheBitOr.selector, FHEEvents.FheBitOr.selector, "FheBitOr");
+        assertEq(LibFhevmEvents.FheBitXor.selector, FHEEvents.FheBitXor.selector, "FheBitXor");
+        assertEq(LibFhevmEvents.FheShl.selector, FHEEvents.FheShl.selector, "FheShl");
+        assertEq(LibFhevmEvents.FheShr.selector, FHEEvents.FheShr.selector, "FheShr");
+        assertEq(LibFhevmEvents.FheRotl.selector, FHEEvents.FheRotl.selector, "FheRotl");
+        assertEq(LibFhevmEvents.FheRotr.selector, FHEEvents.FheRotr.selector, "FheRotr");
+        assertEq(LibFhevmEvents.FheEq.selector, FHEEvents.FheEq.selector, "FheEq");
+        assertEq(LibFhevmEvents.FheNe.selector, FHEEvents.FheNe.selector, "FheNe");
+        assertEq(LibFhevmEvents.FheGe.selector, FHEEvents.FheGe.selector, "FheGe");
+        assertEq(LibFhevmEvents.FheGt.selector, FHEEvents.FheGt.selector, "FheGt");
+        assertEq(LibFhevmEvents.FheLe.selector, FHEEvents.FheLe.selector, "FheLe");
+        assertEq(LibFhevmEvents.FheLt.selector, FHEEvents.FheLt.selector, "FheLt");
+        assertEq(LibFhevmEvents.FheMin.selector, FHEEvents.FheMin.selector, "FheMin");
+        assertEq(LibFhevmEvents.FheMax.selector, FHEEvents.FheMax.selector, "FheMax");
+        assertEq(LibFhevmEvents.FheNeg.selector, FHEEvents.FheNeg.selector, "FheNeg");
+        assertEq(LibFhevmEvents.FheNot.selector, FHEEvents.FheNot.selector, "FheNot");
+        assertEq(LibFhevmEvents.VerifyInput.selector, FHEEvents.VerifyInput.selector, "VerifyInput");
+        assertEq(LibFhevmEvents.Cast.selector, FHEEvents.Cast.selector, "Cast");
+        assertEq(LibFhevmEvents.TrivialEncrypt.selector, FHEEvents.TrivialEncrypt.selector, "TrivialEncrypt");
+        assertEq(LibFhevmEvents.FheIfThenElse.selector, FHEEvents.FheIfThenElse.selector, "FheIfThenElse");
+        assertEq(LibFhevmEvents.FheRand.selector, FHEEvents.FheRand.selector, "FheRand");
+        assertEq(LibFhevmEvents.FheRandBounded.selector, FHEEvents.FheRandBounded.selector, "FheRandBounded");
+        assertEq(LibFhevmEvents.FheSum.selector, FHEEvents.FheSum.selector, "FheSum");
+        assertEq(LibFhevmEvents.FheIsIn.selector, FHEEvents.FheIsIn.selector, "FheIsIn");
     }
 }

@@ -3,38 +3,7 @@ pragma solidity ^0.8.24;
 
 import {FheType, LibFheType} from "./shared/LibFheType.sol";
 import {Operators} from "./shared/FhevmOperatorsEnum.sol";
-import {
-    Cast,
-    FheAdd,
-    FheBitAnd,
-    FheBitOr,
-    FheBitXor,
-    FheDiv,
-    FheEq,
-    FheGe,
-    FheGt,
-    FheIfThenElse,
-    FheIsIn,
-    FheLe,
-    FheLt,
-    FheMax,
-    FheMin,
-    FheMul,
-    FheNe,
-    FheNeg,
-    FheNot,
-    FheRand,
-    FheRandBounded,
-    FheRem,
-    FheRotl,
-    FheRotr,
-    FheShl,
-    FheShr,
-    FheSub,
-    FheSum,
-    TrivialEncrypt,
-    VerifyInput
-} from "./shared/FhevmEvents.sol";
+import {LibFhevmEvents} from "./shared/FhevmEvents.sol";
 import {ICleartextDB} from "./shared/interfaces/ICleartextDB.sol";
 import {CleartextArithmeticBase} from "./shared/CleartextArithmeticBase.sol";
 import {LibFhevmHandle} from "./shared/LibFhevmHandle.sol";
@@ -573,26 +542,26 @@ contract ForgeFhevmEventProcessor is CleartextArithmeticBase {
         Operators op;
         bool isBinary = true;
 
-        if (topic == FheAdd.selector) op = Operators.fheAdd;
-        else if (topic == FheSub.selector) op = Operators.fheSub;
-        else if (topic == FheMul.selector) op = Operators.fheMul;
-        else if (topic == FheDiv.selector) op = Operators.fheDiv;
-        else if (topic == FheRem.selector) op = Operators.fheRem;
-        else if (topic == FheBitAnd.selector) op = Operators.fheBitAnd;
-        else if (topic == FheBitOr.selector) op = Operators.fheBitOr;
-        else if (topic == FheBitXor.selector) op = Operators.fheBitXor;
-        else if (topic == FheShl.selector) op = Operators.fheShl;
-        else if (topic == FheShr.selector) op = Operators.fheShr;
-        else if (topic == FheRotl.selector) op = Operators.fheRotl;
-        else if (topic == FheRotr.selector) op = Operators.fheRotr;
-        else if (topic == FheEq.selector) op = Operators.fheEq;
-        else if (topic == FheNe.selector) op = Operators.fheNe;
-        else if (topic == FheGe.selector) op = Operators.fheGe;
-        else if (topic == FheGt.selector) op = Operators.fheGt;
-        else if (topic == FheLe.selector) op = Operators.fheLe;
-        else if (topic == FheLt.selector) op = Operators.fheLt;
-        else if (topic == FheMin.selector) op = Operators.fheMin;
-        else if (topic == FheMax.selector) op = Operators.fheMax;
+        if (topic == LibFhevmEvents.FheAdd.selector) op = Operators.fheAdd;
+        else if (topic == LibFhevmEvents.FheSub.selector) op = Operators.fheSub;
+        else if (topic == LibFhevmEvents.FheMul.selector) op = Operators.fheMul;
+        else if (topic == LibFhevmEvents.FheDiv.selector) op = Operators.fheDiv;
+        else if (topic == LibFhevmEvents.FheRem.selector) op = Operators.fheRem;
+        else if (topic == LibFhevmEvents.FheBitAnd.selector) op = Operators.fheBitAnd;
+        else if (topic == LibFhevmEvents.FheBitOr.selector) op = Operators.fheBitOr;
+        else if (topic == LibFhevmEvents.FheBitXor.selector) op = Operators.fheBitXor;
+        else if (topic == LibFhevmEvents.FheShl.selector) op = Operators.fheShl;
+        else if (topic == LibFhevmEvents.FheShr.selector) op = Operators.fheShr;
+        else if (topic == LibFhevmEvents.FheRotl.selector) op = Operators.fheRotl;
+        else if (topic == LibFhevmEvents.FheRotr.selector) op = Operators.fheRotr;
+        else if (topic == LibFhevmEvents.FheEq.selector) op = Operators.fheEq;
+        else if (topic == LibFhevmEvents.FheNe.selector) op = Operators.fheNe;
+        else if (topic == LibFhevmEvents.FheGe.selector) op = Operators.fheGe;
+        else if (topic == LibFhevmEvents.FheGt.selector) op = Operators.fheGt;
+        else if (topic == LibFhevmEvents.FheLe.selector) op = Operators.fheLe;
+        else if (topic == LibFhevmEvents.FheLt.selector) op = Operators.fheLt;
+        else if (topic == LibFhevmEvents.FheMin.selector) op = Operators.fheMin;
+        else if (topic == LibFhevmEvents.FheMax.selector) op = Operators.fheMax;
         else isBinary = false;
 
         if (isBinary) {
@@ -600,16 +569,16 @@ contract ForgeFhevmEventProcessor is CleartextArithmeticBase {
             return true;
         }
 
-        if (topic == FheNeg.selector) return _applyUnary(Operators.fheNeg, data);
-        if (topic == FheNot.selector) return _applyUnary(Operators.fheNot, data);
-        if (topic == FheSum.selector) return _applySum(data);
-        if (topic == FheIsIn.selector) return _applyIsIn(data);
-        if (topic == FheIfThenElse.selector) return _applyIfThenElse(data);
-        if (topic == Cast.selector) return _applyCast(data);
-        if (topic == TrivialEncrypt.selector) return _applyTrivialEncrypt(data);
-        if (topic == FheRand.selector) return _applyRand(data);
-        if (topic == FheRandBounded.selector) return _applyRandBounded(data);
-        if (topic == VerifyInput.selector) return _applyVerifyInput(data);
+        if (topic == LibFhevmEvents.FheNeg.selector) return _applyUnary(Operators.fheNeg, data);
+        if (topic == LibFhevmEvents.FheNot.selector) return _applyUnary(Operators.fheNot, data);
+        if (topic == LibFhevmEvents.FheSum.selector) return _applySum(data);
+        if (topic == LibFhevmEvents.FheIsIn.selector) return _applyIsIn(data);
+        if (topic == LibFhevmEvents.FheIfThenElse.selector) return _applyIfThenElse(data);
+        if (topic == LibFhevmEvents.Cast.selector) return _applyCast(data);
+        if (topic == LibFhevmEvents.TrivialEncrypt.selector) return _applyTrivialEncrypt(data);
+        if (topic == LibFhevmEvents.FheRand.selector) return _applyRand(data);
+        if (topic == LibFhevmEvents.FheRandBounded.selector) return _applyRandBounded(data);
+        if (topic == LibFhevmEvents.VerifyInput.selector) return _applyVerifyInput(data);
 
         return false;
     }

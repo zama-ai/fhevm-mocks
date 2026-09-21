@@ -11,17 +11,17 @@ import {ForgeFhevmEventProcessor, ForgeFhevmEventProcessorDB} from "../../pkg/fo
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {ICleartextDB} from "../../pkg/forge/src/shared/interfaces/ICleartextDB.sol";
 import {Operators} from "../../pkg/forge/src/shared/FhevmOperatorsEnum.sol";
-import {FheRand, TrivialEncrypt} from "../../pkg/forge/src/shared/FhevmEvents.sol";
+import {LibFhevmEvents} from "../../pkg/forge/src/shared/FhevmEvents.sol";
 
 /// Stands in for a SECOND chain's executor: it emits the same events at a different address, which is
 /// all the processor cares about. Cheaper and more pointed than a second fork.
 contract OtherChainExecutor {
     function trivialEncrypt(uint256 pt, FheType toType, bytes32 result) external {
-        emit TrivialEncrypt(msg.sender, pt, toType, result);
+        emit LibFhevmEvents.TrivialEncrypt(msg.sender, pt, toType, result);
     }
 
     function rand(FheType randType, bytes16 seed, bytes32 result) external {
-        emit FheRand(msg.sender, randType, seed, result);
+        emit LibFhevmEvents.FheRand(msg.sender, randType, seed, result);
     }
 }
 
