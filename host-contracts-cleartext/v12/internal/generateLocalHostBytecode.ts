@@ -455,7 +455,7 @@ function _constantFor(contractName: ContractName): string {
   // this it was a silent `undefined_CREATION_CODE` in the emitted Solidity, which compiles as a valid
   // identifier and only fails at the layer that reaches for the real name.
   const constantName: string | undefined = CONSTANT_NAMES[contractName];
-  if (constantName === undefined) {
+  if ((constantName as unknown) === undefined) {
     throw new Error(`No CONSTANT_NAMES entry for '${contractName}'; add one in internal/constants.ts`);
   }
   return constantName;
