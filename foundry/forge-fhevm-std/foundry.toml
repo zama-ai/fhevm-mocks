@@ -36,6 +36,20 @@ exclude_lints = ["unsafe-cheatcode"]
 [dependencies]
 forge-std = "1.11.0"
 
+# `remappings.txt` is COMMITTED and hand-maintained: it carries entries soldeer knows nothing about
+# (`@fhevm/solidity/`, and `@fhevm/solidity-upstream/`, a second name for the same directory that the
+# fhevm-debug profile's remapping deliberately does not match). Left to itself soldeer REWRITES the whole
+# file, byte-sorted, on every `soldeer install` — which `forge build` triggers whenever `dependencies/` is
+# missing. Any order but its own then came back as a diff, in every branch, for a file nobody edited.
+#
+# `remappings_generate = false` is what stops it; `remappings_regenerate = false` does NOT — that one was
+# tried first and soldeer still re-sorted the file (measured, both with and without a real install).
+#
+# The cost: a soldeer dependency added later needs its line added here by hand. The build says so loudly,
+# and this file has exactly one such dependency.
+[soldeer]
+remappings_generate = false
+
 [rpc_endpoints]
 sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
 # Declared on purpose with a variable nothing sets: test/internal/DebugZamaConfig.t.sol proves that a declared
