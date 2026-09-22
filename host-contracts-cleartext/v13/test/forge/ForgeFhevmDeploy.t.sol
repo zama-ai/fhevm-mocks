@@ -146,7 +146,7 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
 
     /// The generation, where a consumer looks for it: the ACL every `ZamaConfig` already holds. It is the one
     /// contract that carries it — the other substitutions answer `IS_CLEARTEXT` and nothing more.
-    function test_theCleartextGenerationIsThirteen() public view {
+    function test_theCleartextGenerationIsThirteen() public pure {
         assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 13, "acl");
     }
 
