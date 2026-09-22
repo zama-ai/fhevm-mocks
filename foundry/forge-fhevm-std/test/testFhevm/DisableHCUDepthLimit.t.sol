@@ -2,7 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
-import {FHEVM_EXECUTOR_ADDRESS, ICleartextFHEVMExecutor, IHCULimit} from "../../pkg/src/_host/ForgeFhevmDeploy.sol";
+import {
+    FHEVM_EXECUTOR_ADDRESS,
+    ICleartextFHEVMExecutor,
+    ICleartextHCULimit
+} from "../../pkg/src/_host/ForgeFhevmDeploy.sol";
 import {FheType} from "../../pkg/src/_host/shared/FheType.sol";
 
 /// A dApp that builds one long dependency chain in ONE call: `n` euint64 additions, each on the previous
@@ -27,12 +31,12 @@ contract DisableHCUDepthLimitTest is TestFhevm {
     uint256 internal constant TOO_DEEP = 40;
 
     DeepChain internal chain;
-    IHCULimit internal limit;
+    ICleartextHCULimit internal limit;
 
     function setUp() public override {
         super.setUp();
         chain = new DeepChain();
-        limit = IHCULimit(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getHCULimitAddress());
+        limit = ICleartextHCULimit(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getHCULimitAddress());
     }
 
     function test_theLocalStackCapsDepth() public {

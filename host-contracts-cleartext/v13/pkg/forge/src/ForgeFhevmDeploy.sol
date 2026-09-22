@@ -35,7 +35,7 @@ import {
     EMPTY_UUPS_PROXY_ACL_CREATION_CODE,
     EMPTY_UUPS_PROXY_CREATION_CODE,
     ERC1967_PROXY_CREATION_CODE,
-    HCU_LIMIT_CREATION_CODE,
+    CLEARTEXT_FORGE_HCU_LIMIT_CREATION_CODE,
     KMS_GENERATION_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
     PROTOCOL_CONFIG_CREATION_CODE
@@ -52,7 +52,7 @@ import {ICleartextInputVerifier} from "./_internal/interfaces/ICleartextInputVer
 import {ICleartextKMSVerifier} from "./_internal/interfaces/ICleartextKMSVerifier.sol";
 import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "./_internal/interfaces/IEmptyUUPSProxyACL.sol";
-import {IHCULimit} from "./_internal/interfaces/IHCULimit.sol";
+import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
 import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";

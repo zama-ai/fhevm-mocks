@@ -56,15 +56,18 @@ function canonicalRole(name: string): string {
   // not, every layer would appear to disagree with FhevmCleartextDeploy about three positions that never moved.
   const deforged = snake.replace(/^CLEARTEXT_FORGE_/, 'CLEARTEXT_');
   // The cleartext variants sit behind the stock proxies; CleartextArithmetic and CleartextDB are their
-  // own roles, so only the four substitutions are rewritten. `CleartextACL` exists but no deploy layer
+  // own roles, so only the five substitutions are rewritten. `CleartextACL` exists but no deploy layer
   // names it, so ACL reaches this scan only through its Forge variant, which the line above has just
   // reduced to CLEARTEXT_ACL.
-  return deforged.replace(/^CLEARTEXT_(ACL|FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER)$/, '$1');
+  return deforged.replace(/^CLEARTEXT_(ACL|FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER|HCU_LIMIT)$/, '$1');
 }
 
-/** Every layer that chooses an ACL implementation, for the guard below. */
+/** Every layer that chooses an implementation, for the guard below. */
 const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path: string }> = [
   { label: 'pkg/ts/deploy.ts', path: 'pkg/ts/deploy.ts' },
+  // Not a deploy layer, but it names the same artifacts to CHECK a deployed stack: pointed at the plain
+  // contract it would verify the wrong ABI and pass.
+  { label: 'pkg/ts/verify.ts', path: 'pkg/ts/verify.ts' },
   { label: 'pkg/forge/src/FhevmCleartextDeploy.sol', path: 'pkg/forge/src/FhevmCleartextDeploy.sol' },
   { label: 'pkg/forge/script/FhevmDeployScript.s.sol', path: 'pkg/forge/script/FhevmDeployScript.s.sol' },
   { label: 'pkg/forge/script/DeployLocalStack.s.sol', path: 'pkg/forge/script/DeployLocalStack.s.sol' },
@@ -207,31 +210,50 @@ void test('the create2 role table agrees with the deploy order', () => {
 });
 
 /**
- * `ACL.sol` is the upstream contract and this package must never deploy it. A cleartext stack has to
- * advertise itself, and the ACL is the one address every consumer already holds through `ZamaConfig`, so
- * an unmarked ACL there is indistinguishable from a production deployment. Only `CleartextACL` (every
- * broadcast path) or `CleartextForgeACL` (the in-process forge stack) may sit behind the ACL proxy.
+ * `ACL.sol` and `HCULimit.sol` are the upstream contracts, and this package must never deploy either. A
+ * cleartext stack has to advertise itself, and every address a consumer holds through `ZamaConfig` must
+ * answer the marker, so an unmarked implementation behind one of these proxies is indistinguishable from a
+ * production deployment. Only the `Cleartext*` contract (every broadcast path) or its `CleartextForge*`
+ * variant (the in-process forge stack) may sit behind them.
  *
  * A text scan for the same reason the order comparison above is one: these layers are four languages and
- * no compiler sees them together.
+ * no compiler sees them together. Each pattern is a way a layer could name the plain contract; the
+ * lookbehinds keep the CLEARTEXT_* blobs and EMPTY_UUPS_PROXY_ACL_CREATION_CODE out of it.
  */
-void test('no deploy layer deploys the plain ACL', () => {
-  // Each pattern is a way a layer could name the plain contract. The lookbehind keeps
-  // CLEARTEXT_ACL_CREATION_CODE and EMPTY_UUPS_PROXY_ACL_CREATION_CODE out of it.
-  const forbidden: ReadonlyArray<{ readonly pattern: RegExp; readonly what: string }> = [
-    { pattern: /(?<![A-Za-z_])ACL_CREATION_CODE/, what: 'the plain ACL bytecode blob' },
-    { pattern: /new ACL\(\)/, what: 'a direct `new ACL()`' },
-    { pattern: /contracts\/ACL\.sol:ACL\b/, what: 'the ACL.sol forge artifact' },
-    { pattern: /artifacts\/ACL\.(?:js|ts)\b/, what: 'the ACL TypeScript artifact' },
-  ];
+const PLAIN_CONTRACTS: ReadonlyArray<{
+  readonly role: string;
+  readonly forbidden: ReadonlyArray<{ readonly pattern: RegExp; readonly what: string }>;
+}> = [
+  {
+    role: 'ACL',
+    forbidden: [
+      { pattern: /(?<![A-Za-z_])ACL_CREATION_CODE/, what: 'the plain ACL bytecode blob' },
+      { pattern: /new ACL\(\)/, what: 'a direct `new ACL()`' },
+      { pattern: /contracts\/ACL\.sol:ACL\b/, what: 'the ACL.sol forge artifact' },
+      { pattern: /artifacts\/ACL\.(?:js|ts)\b/, what: 'the ACL TypeScript artifact' },
+    ],
+  },
+  {
+    role: 'HCULimit',
+    forbidden: [
+      { pattern: /(?<![A-Za-z_])HCU_LIMIT_CREATION_CODE/, what: 'the plain HCULimit bytecode blob' },
+      { pattern: /new HCULimit\(\)/, what: 'a direct `new HCULimit()`' },
+      { pattern: /contracts\/HCULimit\.sol:HCULimit\b/, what: 'the HCULimit.sol forge artifact' },
+      { pattern: /artifacts\/HCULimit\.(?:js|ts)\b/, what: 'the HCULimit TypeScript artifact' },
+    ],
+  },
+];
 
+void test('no deploy layer deploys a plain upstream contract', () => {
   const offences: string[] = [];
   for (const { label, path } of DEPLOY_LAYER_FILES) {
     const source = read(path);
-    for (const { pattern, what } of forbidden) {
-      if (pattern.test(source)) offences.push(`${label} reaches for ${what}`);
+    for (const { role, forbidden } of PLAIN_CONTRACTS) {
+      for (const { pattern, what } of forbidden) {
+        if (pattern.test(source)) offences.push(`${label} reaches for ${what} (role ${role})`);
+      }
     }
   }
 
-  assert.deepEqual(offences, [], 'a deploy layer still names the plain ACL');
+  assert.deepEqual(offences, [], 'a deploy layer still names a plain upstream contract');
 });

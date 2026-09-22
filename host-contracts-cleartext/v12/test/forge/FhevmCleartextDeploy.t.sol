@@ -22,7 +22,7 @@ import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextInputVerifier} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {ICleartextKMSVerifier} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {IHCULimit} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
+import {ICleartextHCULimit} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {IPauserSet} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
 import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
 import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions.sol";
@@ -69,7 +69,7 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getVersion(), LocalHostVersions.FHEVM_EXECUTOR);
         assertEq(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).getVersion(), LocalHostVersions.KMS_VERIFIER);
         assertEq(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).getVersion(), LocalHostVersions.INPUT_VERIFIER);
-        assertEq(IHCULimit(HCU_LIMIT_ADDRESS).getVersion(), LocalHostVersions.HCU_LIMIT);
+        assertEq(ICleartextHCULimit(HCU_LIMIT_ADDRESS).getVersion(), LocalHostVersions.HCU_LIMIT);
         assertEq(
             ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).getVersion(), LocalHostVersions.CLEARTEXT_ARITHMETIC
         );
@@ -87,18 +87,45 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         assertTrue(
             IForgeMarker(CLEARTEXT_ARITHMETIC_ADDRESS).IS_FORGE(), "arithmetic proxy must sit over the Forge variant"
         );
+        // Without this the in-process stack could fall back to `CleartextHCULimit` and silently lose the
+        // meter, which is the only reason the Forge variant exists.
+        assertTrue(IForgeMarker(HCU_LIMIT_ADDRESS).IS_FORGE(), "HCU limit proxy must sit over the Forge variant");
     }
 
-    /// Every cleartext substitution advertises itself, so a consumer can tell this stack from a real one.
-    function test_cleartextContractsAdvertiseTheMarker() public view {
-        assertTrue(IForgeMarker(ACL_ADDRESS).IS_CLEARTEXT(), "acl");
-        // Inherited from `CleartextACL`, so this also proves the forge ACL actually extends it.
-        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 12, "protocol version");
-        assertTrue(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).IS_CLEARTEXT(), "executor");
-        assertTrue(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).IS_CLEARTEXT(), "kms verifier");
-        assertTrue(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).IS_CLEARTEXT(), "input verifier");
-        assertTrue(ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).IS_CLEARTEXT(), "arithmetic");
-        assertTrue(ICleartextDB(CLEARTEXT_DB_ADDRESS).IS_CLEARTEXT(), "db");
+    /**
+     * Every cleartext substitution advertises itself, so a consumer can tell this stack from a real one —
+     * and the list is EXHAUSTIVE on purpose. A per-contract list of assertions cannot notice a proxy that
+     * was added later and never marked; this walks every proxy the stack materializes and demands the
+     * marker from each. A new role must be added here, and a role that loses its cleartext implementation
+     * fails at the address that lost it.
+     *
+     * This generation has no exemptions: every proxy it materializes has a cleartext variant. (V13 adds
+     * `ProtocolConfig` and `KMSGeneration`, vendored contracts with none, and carries a named exemption
+     * list for them.) `PauserSet` and `ACLOwner` are not proxies, so they are outside this sweep.
+     */
+    function test_everyProxyAdvertisesTheCleartextMarker() public view {
+        address[7] memory proxies = [
+            ACL_ADDRESS,
+            FHEVM_EXECUTOR_ADDRESS,
+            KMS_VERIFIER_ADDRESS,
+            INPUT_VERIFIER_ADDRESS,
+            HCU_LIMIT_ADDRESS,
+            CLEARTEXT_ARITHMETIC_ADDRESS,
+            CLEARTEXT_DB_ADDRESS
+        ];
+
+        for (uint256 i = 0; i < proxies.length; i++) {
+            (bool answered, bytes memory ret) =
+                proxies[i].staticcall(abi.encodeWithSelector(IForgeMarker.IS_CLEARTEXT.selector));
+            bool marked = answered && ret.length == 32 && abi.decode(ret, (bool));
+            assertTrue(marked, string.concat("proxy is not a cleartext implementation: ", vm.toString(proxies[i])));
+        }
+    }
+
+    /// The generation, where a consumer looks for it: the ACL every `ZamaConfig` already holds. It is the one
+    /// contract that carries it — the other substitutions answer `IS_CLEARTEXT` and nothing more.
+    function test_theCleartextGenerationIsTwelve() public view {
+        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 12, "acl");
     }
 
     /**
@@ -205,7 +232,7 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getACLAddress(), ACL_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getHCULimitAddress(), HCU_LIMIT_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getInputVerifierAddress(), INPUT_VERIFIER_ADDRESS);
-        assertEq(IHCULimit(HCU_LIMIT_ADDRESS).getFHEVMExecutorAddress(), FHEVM_EXECUTOR_ADDRESS);
+        assertEq(ICleartextHCULimit(HCU_LIMIT_ADDRESS).getFHEVMExecutorAddress(), FHEVM_EXECUTOR_ADDRESS);
     }
 
     /// Phase 3: ACLOwner holds ACL ownership and is a registered pauser, in that order.
@@ -288,7 +315,7 @@ contract FhevmDeployTest is Test, FhevmCleartextDeploy {
 
     /// The HCU limits. There is no override path: the bootstrap values are the only ones.
     function test_defaultHcuLimitsAreTheBootstrapValues() public view {
-        IHCULimit limit = IHCULimit(HCU_LIMIT_ADDRESS);
+        ICleartextHCULimit limit = ICleartextHCULimit(HCU_LIMIT_ADDRESS);
         assertEq(limit.getGlobalHCUCapPerBlock(), LocalHostBootstrap.HCU_CAP_PER_BLOCK, "cap per block");
         assertEq(limit.getMaxHCUDepthPerTx(), LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX, "max depth per tx");
         assertEq(limit.getMaxHCUPerTx(), LocalHostBootstrap.MAX_HCU_PER_TX, "max HCU per tx");

@@ -106,12 +106,12 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
   CleartextArithmetic: 'creation',
   CleartextDB: 'creation',
   CleartextFHEVMExecutor: 'creation',
+  CleartextHCULimit: 'creation',
   CleartextInputVerifier: 'creation',
   CleartextKMSVerifier: 'creation',
   EmptyUUPSProxy: 'creation',
   EmptyUUPSProxyACL: 'creation',
   ERC1967Proxy: 'creation',
-  HCULimit: 'creation',
   PauserSet: 'runtime',
 };
 
@@ -148,6 +148,11 @@ const FORGE_VARIANTS: ReadonlyArray<{
     constantName: 'CLEARTEXT_FORGE_ACL',
     contractName: 'CleartextForgeACL',
     sourcePath: 'src/cleartext/CleartextForgeACL.sol',
+  },
+  {
+    constantName: 'CLEARTEXT_FORGE_HCU_LIMIT',
+    contractName: 'CleartextForgeHCULimit',
+    sourcePath: 'src/cleartext/CleartextForgeHCULimit.sol',
   },
 ];
 
@@ -446,7 +451,14 @@ ${stringFn('kmsStorageUrls', urls)}
 ////////////////////////////////////////////////////////////////////////////////
 
 function _constantFor(contractName: ContractName): string {
-  return CONSTANT_NAMES[contractName];
+  // The header of CONSTANT_NAMES promises a missing entry is a generator ERROR, not a guessed name. Without
+  // this it was a silent `undefined_CREATION_CODE` in the emitted Solidity, which compiles as a valid
+  // identifier and only fails at the layer that reaches for the real name.
+  const constantName: string | undefined = CONSTANT_NAMES[contractName];
+  if (constantName === undefined) {
+    throw new Error(`No CONSTANT_NAMES entry for '${contractName}'; add one in internal/constants.ts`);
+  }
+  return constantName;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

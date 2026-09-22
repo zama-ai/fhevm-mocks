@@ -144,6 +144,62 @@ FIRST library call must be one that names the dApp (`encryptUint32(…, address(
 as ambiguous; `fhevm.useStack(getFhevmChain("testnet", "sepolia"))` names the stack explicitly instead. And
 tests written for the in-memory stack are not meant to run this way: pick them out with `--match-path`.
 
+## Test on a chain that has no FHEVM protocol
+
+Arbitrum, Base, or mainnet as it was before the deployment: a fork of a chain the SDK's chain table lists under
+no network group. There is no live stack to point at, so the SDK brings its own — the cleartext stack, deployed
+INTO THE FORK on first contact, at the canonical local addresses, with the fork's real chain id untouched.
+Mainnet and Sepolia are refused here on purpose: a chain that has the protocol gets the live stack, never the
+mock.
+
+**1. Name the chain.** One alias, the one forge already knows — `[rpc_endpoints] arbitrum` in `foundry.toml`, or
+`ARBITRUM_RPC_URL`. There is no default endpoint for a foreign chain.
+
+```solidity
+fhevm.createSelectFork(cleartextChain("arbitrum"));
+```
+
+**2. Build the dApp against the debug config.** A production dApp resolves its coprocessor addresses from
+`block.chainid` in its constructor, through `@fhevm/solidity/config/ZamaConfig.sol`, and that table has no
+entry for 42161. The dApp source is not touched; instead a dedicated build profile remaps that ONE file to this
+package's `DebugZamaConfig.sol`, which resolves to the cleartext stack under the SDK — and reverts at
+construction, on every chain, wherever the SDK's kernel is absent.
+
+```toml
+# foundry.toml — NEVER deploy from this profile
+[profile.fhevm-debug]
+out = "out-fhevm-debug"
+cache_path = "cache-fhevm-debug"
+remappings = ["@fhevm/solidity/config/ZamaConfig.sol=node_modules/@fhevm/forge-std/src/config/DebugZamaConfig.sol"]
+```
+
+```sh
+ARBITRUM_RPC_URL=https://... FOUNDRY_PROFILE=fhevm-debug forge test --match-path "test/fork/*"
+```
+
+Then the test is the usual five lines: fork, `new`, encrypt, call, decrypt. The constructor runs under the real
+chain id, so an `immutable` that copies `block.chainid` is right, and a handle minted in a constructor carries
+42161 and reads back normally.
+
+The debug build guards itself with forge alone, not with this package's kernel, so a dApp constructs the same
+from `setUp`, from a test contract's field initializer, or from a factory the test deployed. And it is usable ONLY
+where it was meant to be reached: under forge AND with `FOUNDRY_PROFILE=fhevm-debug`; a default build that imports
+the file directly reverts at construction too.
+
+**3. Keep the debug build out of production.** Its bytecode differs from the production build by the config
+library and nothing else, and it defends itself: outside forge every constructor reverts with
+`DebugConfigOnProductionChain`, under forge in any other profile with `DebugConfigOutsideDebugProfile`, and
+every contract compiled against it carries the marker
+`forge-fhevm-std DEBUG config: never deploy` in its bytecode. Add the check to the step that publishes
+artifacts, against the `out/` a deploy script reads:
+
+```sh
+! grep -rl "$(printf 'forge-fhevm-std DEBUG config' | xxd -p | tr -d '\n')" out/ || { echo "debug config in production artifacts"; exit 1; }
+```
+
+On a chain the upstream table knows, the debug build resolves the same addresses as upstream, so a suite that
+forks mainnet passes under either profile.
+
 ## Public RPC endpoints and forge's parallelism
 
 Forge runs test contracts in parallel, and each forking test fetches the slots it touches over JSON-RPC as

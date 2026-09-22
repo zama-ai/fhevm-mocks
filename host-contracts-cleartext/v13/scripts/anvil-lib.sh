@@ -454,7 +454,7 @@ deploy_real_implementations() {
     IMPL_EXECUTOR="$(deploy_contract "0x$(read_blob CLEARTEXT_FHEVM_EXECUTOR_CREATION_CODE)" "CleartextFHEVMExecutor impl")"
     IMPL_KMS_VERIFIER="$(deploy_contract "0x$(read_blob CLEARTEXT_KMS_VERIFIER_CREATION_CODE)" "CleartextKMSVerifier impl")"
     IMPL_INPUT_VERIFIER="$(deploy_contract "0x$(read_blob CLEARTEXT_INPUT_VERIFIER_CREATION_CODE)" "CleartextInputVerifier impl")"
-    IMPL_HCU_LIMIT="$(deploy_contract "0x$(read_blob HCU_LIMIT_CREATION_CODE)" "HCULimit impl")"
+    IMPL_HCU_LIMIT="$(deploy_contract "0x$(read_blob CLEARTEXT_HCU_LIMIT_CREATION_CODE)" "CleartextHCULimit impl")"
     IMPL_PROTOCOL_CONFIG="$(deploy_contract "0x$(read_blob PROTOCOL_CONFIG_CREATION_CODE)" "ProtocolConfig impl")"
     IMPL_KMS_GENERATION="$(deploy_contract "0x$(read_blob KMS_GENERATION_CREATION_CODE)" "KMSGeneration impl")"
     IMPL_ARITHMETIC="$(deploy_contract "0x$(read_blob CLEARTEXT_ARITHMETIC_CREATION_CODE)" "CleartextArithmetic impl")"
@@ -601,6 +601,11 @@ _smoke_expect_uint() {
     fi
 }
 
+# A `bool` return, which cast renders as "true" / "false".
+_smoke_expect_bool() {
+    _smoke_expect_uint "$@"
+}
+
 # Element count of an `address[]` return, which cast renders as "[0xa, 0xb, …]".
 _smoke_expect_array_len() {
     local label="$1" target="$2" sig="$3" expected="$4" raw count
@@ -721,6 +726,9 @@ smoke_check() {
         'getKmsSigners()(address[])' "$KMS_NODE_COUNT"
     _smoke_expect_uint "ProtocolConfig.getPublicDecryptionThreshold()" "$PROTOCOL_CONFIG_ADDRESS" \
         'getPublicDecryptionThreshold()(uint256)' "$KMS_NODE_COUNT"
+    # The cleartext marker, on the one contract that was an upstream implementation until it was not: this
+    # broadcast path picks its own blobs, so nothing the forge suites assert reaches it.
+    _smoke_expect_bool "HCULimit.IS_CLEARTEXT()" "$HCU_LIMIT_ADDRESS" 'IS_CLEARTEXT()(bool)' true
     _smoke_expect_uint "HCULimit.getGlobalHCUCapPerBlock()" "$HCU_LIMIT_ADDRESS" \
         'getGlobalHCUCapPerBlock()(uint48)' "$HCU_CAP_PER_BLOCK"
     _smoke_expect_uint "HCULimit.getMaxHCUDepthPerTx()" "$HCU_LIMIT_ADDRESS" \

@@ -98,7 +98,7 @@ function surveyTargets(deployed: {
       abiFile: 'CleartextInputVerifier.json',
       address: deployed.fhevmAddresses.inputVerifierAddress as Address,
     },
-    { label: 'HCULimit', abiFile: 'HCULimit.json', address: deployed.fhevmAddresses.hcuLimitAddress as Address },
+    { label: 'HCULimit', abiFile: 'CleartextHCULimit.json', address: deployed.fhevmAddresses.hcuLimitAddress as Address },
     {
       label: 'CleartextArithmetic',
       abiFile: 'CleartextArithmetic.json',
@@ -127,8 +127,9 @@ const MAY_CHANGE = new Set([
   'KMSVerifier.getVersion',
   'HCULimit.getVersion',
   'CleartextArithmetic.getVersion',
-  // The ACL's protocol-version marker: 12 before the upgrade, 13 after, by construction. `IS_CLEARTEXT`
-  // is deliberately NOT here — it reads true on both sides, so it must not move.
+  // The ACL's protocol-version marker: 12 before the upgrade, 13 after, by construction. `IS_CLEARTEXT` is
+  // deliberately NOT here — it reads true on both sides, so it must not move, which is what proves the
+  // upgrade installed cleartext implementations rather than upstream ones.
   'ACL.CLEARTEXT_PROTOCOL_VERSION',
   // Returns `block.number` by construction, so it differs between any two blocks.
   'HCULimit.getBlockMeter',

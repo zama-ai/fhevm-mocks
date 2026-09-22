@@ -221,6 +221,32 @@ forge-std's `Test`, so the dependency exists the moment a test is written. The r
 WHERE it lives, not whether. Mechanical check: `grep -rl forge-std pkg/src/_host` must list only comment
 mentions (`IForgeVm.sol`, `ForgeVmBase.sol` explain their own vendoring), never an `import`.
 
+**2.17 — the mock never shadows a live stack, and never moves the chain id.** The cleartext stack is deployed
+onto a fork only where the chain table lists NO network-group entry (`mainnet`, `testnet`, `devnet`) for
+`block.chainid`: a chain with no FHEVM protocol — Arbitrum, Base, a bare anvil — named with
+`cleartextChain(alias)`. A chain that has the protocol gets the live stack or a refusal
+(`LIVE FHEVM STACK ON THIS CHAIN`), never the mock, whatever the entry's executor holds. And the SDK never
+changes `block.chainid`: handles, input verification, EIP-712 domains and whatever a constructor snapshots all
+read it, and the OLD harness's defect was rewriting it. No test in this package flips it either: a dApp that
+cannot construct on a chain is a finding about the build, answered by the `fhevm-debug` profile (2.18), not by
+a `vm.chainId` around `new`.
+
+**2.18 — a debug build cannot exist on a real chain.** Anything this package ships for a NON-production build
+of a dApp — today `pkg/src/config/DebugZamaConfig.sol`, reached only through a remapping in the `fhevm-debug`
+profile — must (a) revert at construction wherever forge's VM is absent, on EVERY chain, known to upstream or
+not, AND wherever `FOUNDRY_PROFILE` is not the debug profile, so the file constructs only where its remapping
+reaches it; the guard depends on forge alone, never on this package's kernel, so it answers the same from a
+field initializer or a factory-created contract; (b) carry a marker string in the bytecode of every contract compiled against it, so a
+deploy script or a CI step can refuse the artifact; (c) be reachable only through a dedicated profile with its
+own `out` and `cache_path`, never from the default one; and (d) diverge from upstream in RESULTS only where
+upstream refuses — a known chain resolves to the same addresses under either build. The bytecode under test
+is not the bytecode deployed, by exactly the config library and nothing else, and it is a bytecode that
+cannot be deployed. Mechanical check:
+
+```bash
+! grep -rl "$(printf 'forge-fhevm-std DEBUG config' | xxd -p | tr -d '\n')" out/   # production artifacts: no marker
+```
+
 ---
 
 ## 3. Fork and no-fork
@@ -412,6 +438,8 @@ cd foundry/forge-fhevm-std
 npm run generate && npm run lint && forge test
 npm run test:consumer                    # the installed @fhevm/forge-std, by name (rule 1.4)
 SEPOLIA_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork
+ARBITRUM_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork        # + the cleartext-on-a-foreign-chain suite (§2.17)
+ARBITRUM_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork-debug  # the same under the fhevm-debug profile (§2.18)
 SEPOLIA_RPC_URL=… npm run test:fork-url  # the born-on-a-fork suite, under `forge test --fork-url`
 MAINNET_RPC_URL=… forge test --match-contract EventProcessorReplay
 npm run test:anvil                       # starts a throwaway anvil on 8546, runs test/anvil, stops it

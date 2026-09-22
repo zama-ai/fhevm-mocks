@@ -24,7 +24,7 @@ import {ICleartextDB} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextInputVerifier} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextKMSVerifier} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
-import {IHCULimit} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextHCULimit} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {IKMSGeneration} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {IPauserSet} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {IProtocolConfig} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
@@ -74,7 +74,7 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getVersion(), LocalHostVersions.FHEVM_EXECUTOR);
         assertEq(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).getVersion(), LocalHostVersions.KMS_VERIFIER);
         assertEq(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).getVersion(), LocalHostVersions.INPUT_VERIFIER);
-        assertEq(IHCULimit(HCU_LIMIT_ADDRESS).getVersion(), LocalHostVersions.HCU_LIMIT);
+        assertEq(ICleartextHCULimit(HCU_LIMIT_ADDRESS).getVersion(), LocalHostVersions.HCU_LIMIT);
         assertEq(IProtocolConfig(PROTOCOL_CONFIG_ADDRESS).getVersion(), LocalHostVersions.PROTOCOL_CONFIG);
         assertEq(IKMSGeneration(KMS_GENERATION_ADDRESS).getVersion(), LocalHostVersions.KMS_GENERATION);
         assertEq(
@@ -84,7 +84,7 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
     }
 
     /**
-     * Slots 0, 1 and 7 must be the Forge variants, not the plain contracts: `getVersion()` cannot tell them
+     * Slots 0, 1, 4 and 7 must be the Forge variants, not the plain contracts: `getVersion()` cannot tell them
      * apart, so `IS_FORGE` is the only evidence the in-process stack took the CLEARTEXT_FORGE_* blobs
      * rather than the ones `DeployLocalStack.s.sol` broadcasts.
      */
@@ -94,18 +94,60 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
         assertTrue(
             IForgeMarker(CLEARTEXT_ARITHMETIC_ADDRESS).IS_FORGE(), "arithmetic proxy must sit over the Forge variant"
         );
+        // Without this the in-process stack could fall back to `CleartextHCULimit` and silently lose the
+        // meter, which is the only reason the Forge variant exists.
+        assertTrue(IForgeMarker(HCU_LIMIT_ADDRESS).IS_FORGE(), "HCU limit proxy must sit over the Forge variant");
     }
 
-    /// Every cleartext substitution advertises itself, so a consumer can tell this stack from a real one.
-    function test_cleartextContractsAdvertiseTheMarker() public view {
-        assertTrue(IForgeMarker(ACL_ADDRESS).IS_CLEARTEXT(), "acl");
-        // Inherited from `CleartextACL`, so this also proves the forge ACL actually extends it.
-        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 13, "protocol version");
-        assertTrue(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).IS_CLEARTEXT(), "executor");
-        assertTrue(ICleartextKMSVerifier(KMS_VERIFIER_ADDRESS).IS_CLEARTEXT(), "kms verifier");
-        assertTrue(ICleartextInputVerifier(INPUT_VERIFIER_ADDRESS).IS_CLEARTEXT(), "input verifier");
-        assertTrue(ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).IS_CLEARTEXT(), "arithmetic");
-        assertTrue(ICleartextDB(CLEARTEXT_DB_ADDRESS).IS_CLEARTEXT(), "db");
+    /**
+     * Every cleartext substitution advertises itself, so a consumer can tell this stack from a real one —
+     * and the list is EXHAUSTIVE on purpose. A per-contract list of assertions cannot notice a proxy that
+     * was added later and never marked; this walks every proxy the stack materializes and demands that each
+     * one either answers `IS_CLEARTEXT`, or appears by name in `unmarked`. A new role must be classified
+     * here, and a role that loses its cleartext implementation fails at the address that lost it.
+     *
+     * The two exemptions are vendored contracts with no cleartext variant: `ProtocolConfig` and
+     * `KMSGeneration` are deployed as upstream ships them. `PauserSet` and `ACLOwner` are not proxies, so
+     * they are outside this sweep. `CLEARTEXT_PROTOCOL_VERSION` is asserted separately, below: it answers
+     * "which generation", and it is declared where a consumer looks for it rather than on all eight.
+     */
+    function test_everyProxyAdvertisesTheCleartextMarker() public view {
+        address[9] memory proxies = [
+            ACL_ADDRESS,
+            FHEVM_EXECUTOR_ADDRESS,
+            KMS_VERIFIER_ADDRESS,
+            INPUT_VERIFIER_ADDRESS,
+            HCU_LIMIT_ADDRESS,
+            CLEARTEXT_ARITHMETIC_ADDRESS,
+            CLEARTEXT_DB_ADDRESS,
+            PROTOCOL_CONFIG_ADDRESS,
+            KMS_GENERATION_ADDRESS
+        ];
+        address[2] memory unmarked = [PROTOCOL_CONFIG_ADDRESS, KMS_GENERATION_ADDRESS];
+
+        for (uint256 i = 0; i < proxies.length; i++) {
+            bool exempt;
+            for (uint256 j = 0; j < unmarked.length; j++) {
+                if (unmarked[j] == proxies[i]) exempt = true;
+            }
+            (bool answered, bytes memory ret) =
+                proxies[i].staticcall(abi.encodeWithSelector(IForgeMarker.IS_CLEARTEXT.selector));
+            bool marked = answered && ret.length == 32 && abi.decode(ret, (bool));
+            string memory at = vm.toString(proxies[i]);
+            if (exempt) {
+                assertFalse(
+                    marked, string.concat("exempt proxy now answers IS_CLEARTEXT; move it out of `unmarked`: ", at)
+                );
+            } else {
+                assertTrue(marked, string.concat("proxy is not a cleartext implementation: ", at));
+            }
+        }
+    }
+
+    /// The generation, where a consumer looks for it: the ACL every `ZamaConfig` already holds. It is the one
+    /// contract that carries it — the other substitutions answer `IS_CLEARTEXT` and nothing more.
+    function test_theCleartextGenerationIsThirteen() public view {
+        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 13, "acl");
     }
 
     /**
@@ -206,7 +248,7 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getACLAddress(), ACL_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getHCULimitAddress(), HCU_LIMIT_ADDRESS);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).getInputVerifierAddress(), INPUT_VERIFIER_ADDRESS);
-        assertEq(IHCULimit(HCU_LIMIT_ADDRESS).getFHEVMExecutorAddress(), FHEVM_EXECUTOR_ADDRESS);
+        assertEq(ICleartextHCULimit(HCU_LIMIT_ADDRESS).getFHEVMExecutorAddress(), FHEVM_EXECUTOR_ADDRESS);
     }
 
     /// Phase 3: ACLOwner holds ACL ownership and is a registered pauser, in that order.
@@ -305,7 +347,7 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
 
     /// The HCU limits. There is no override path: the bootstrap values are the only ones.
     function test_defaultHcuLimitsAreTheBootstrapValues() public view {
-        IHCULimit limit = IHCULimit(HCU_LIMIT_ADDRESS);
+        ICleartextHCULimit limit = ICleartextHCULimit(HCU_LIMIT_ADDRESS);
         assertEq(limit.getGlobalHCUCapPerBlock(), LocalHostBootstrap.HCU_CAP_PER_BLOCK, "cap per block");
         assertEq(limit.getMaxHCUDepthPerTx(), LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX, "max depth per tx");
         assertEq(limit.getMaxHCUPerTx(), LocalHostBootstrap.MAX_HCU_PER_TX, "max HCU per tx");

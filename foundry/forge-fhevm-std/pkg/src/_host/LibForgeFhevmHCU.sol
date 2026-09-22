@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
-import {IHCULimit} from "./_internal/interfaces/IHCULimit.sol";
+import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {ACL_ADDRESS, HCU_LIMIT_ADDRESS} from "./_internal/LocalHostAddresses.sol";
 import {LibForgeFhevmStack} from "./LibForgeFhevmStack.sol";
 
@@ -74,7 +74,7 @@ library LibForgeFhevmHCU {
      *      transaction cap afterwards and the depth cap must come down with it — use `setCaps` for that.
      */
     function disableHCUDepthLimit(address hcuLimit, address acl) internal {
-        IHCULimit limit = IHCULimit(hcuLimit);
+        ICleartextHCULimit limit = ICleartextHCULimit(hcuLimit);
         // Read BEFORE pranking: a prank applies to the next call, and a view call would consume it.
         uint48 txCap = limit.getMaxHCUPerTx();
         fvm.prank(LibForgeFhevmStack.aclOwner(acl));
@@ -96,7 +96,7 @@ library LibForgeFhevmHCU {
     function setCaps(address hcuLimit, address acl, uint48 hcuPerBlock, uint48 maxHCUPerTx, uint48 maxHCUDepthPerTx)
         internal
     {
-        IHCULimit limit = IHCULimit(hcuLimit);
+        ICleartextHCULimit limit = ICleartextHCULimit(hcuLimit);
         fvm.startPrank(LibForgeFhevmStack.aclOwner(acl));
         limit.setHCUPerBlock(UNBOUNDED);
         limit.setMaxHCUPerTx(UNBOUNDED);
@@ -110,7 +110,7 @@ library LibForgeFhevmHCU {
     /// @notice Exempts `account` from the block cap of `hcuLimit`. Idempotent: the contract refuses a
     ///         second add, so one that is already listed is left alone.
     function whitelistForBlockCap(address hcuLimit, address acl, address account) internal {
-        IHCULimit limit = IHCULimit(hcuLimit);
+        ICleartextHCULimit limit = ICleartextHCULimit(hcuLimit);
         if (limit.isBlockHCUWhitelisted(account)) return;
         fvm.prank(LibForgeFhevmStack.aclOwner(acl));
         limit.addToBlockHCUWhitelist(account);

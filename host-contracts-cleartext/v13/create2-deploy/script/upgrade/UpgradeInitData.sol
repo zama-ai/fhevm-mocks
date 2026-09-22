@@ -17,6 +17,8 @@ library UpgradeInitData {
         if (i == 1) return abi.encodeCall(KMSGeneration.initializeFromEmptyProxy, ());
         if (i == 2) return abi.encodeCall(ACL.reinitializeV4, ());
         if (i == 3) return abi.encodeCall(FHEVMExecutor.reinitializeV5, ());
+        // The implementation deployed here is CleartextHCULimit; the payload is encoded against HCULimit,
+        // which declares the function — solc cannot form a pointer to an inherited member. Same selector.
         if (i == 4) return abi.encodeCall(HCULimit.reinitializeV3, ());
         if (i == 5) return abi.encodeCall(KMSVerifier.reinitializeV3, ());
         if (i == 6) return abi.encodeCall(CleartextArithmetic.reinitializeV2, ());

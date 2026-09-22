@@ -16,29 +16,14 @@ import {
 import {CoprocessorConfig} from "./_host/shared/LibFhevmCoprocessorConfig.sol";
 import {LibForgeFhevmConfig} from "./_host/LibForgeFhevmConfig.sol";
 
-/**
- * @title StdFhevmCheatsSafe
- * @notice The cheats: reading an encrypted value outright, with no permit, no ACL and no KMS.
- *
- * @dev THE `Safe` SUFFIX FOLLOWS forge-std, where `StdCheatsSafe` holds what is safe to inherit
- *      anywhere and `StdCheats is StdCheatsSafe` adds the rest. Nothing here needs the split yet — a
- *      `StdFhevmCheats is StdFhevmCheatsSafe` is where a cheat with a footgun would go, and the name
- *      leaves that door open rather than having to rename this one later.
- *
- * @dev `plaintextOf` is named for what it RETURNS — the same word the rest of the stack uses, from
- *      `IPlaintexts.plaintexts` to the `Plaintexts` struct. What it is remains a cheat, and that is
- *      this contract's job to say: nothing a dApp can do reaches these values, because a real reader
- *      needs a signed permit and an ACL grant. A test calling this steps outside the protocol to look,
- *      exactly as a forge cheatcode steps outside the EVM.
- *
- * @dev SO IT PROVES NOTHING ABOUT ACCESS. That a value is the one expected says nothing about whether
- *      any user could obtain it; `decrypt` is what tests that. Use this for assertions on arithmetic
- *      and for debugging, and reach for `decrypt` when the question is who may read.
- */
 abstract contract StdFhevmCheatsSafe is StdFhevmBase {
+    // -- Read coprocessor config ----------------------------------------------
+
     function getCoprocessorConfig(address contractAddress) internal view returns (CoprocessorConfig memory config) {
         config = LibForgeFhevmConfig.getCoprocessorConfig(contractAddress);
     }
+
+    // -- Get plaintext or revert ----------------------------------------------
 
     function plaintextOf(ebool value) internal unmetered returns (bool clear) {
         clear = fhevm.plaintextOf(ebool.unwrap(value)) != 0;
@@ -72,24 +57,8 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         clear = address(uint160(fhevm.plaintextOf(eaddress.unwrap(value))));
     }
 
-    // -- Has plaintext? ------------------------------------------------------------
+    // -- Has plaintext? -------------------------------------------------------
 
-    /**
-     * @notice Whether the stack under test knows what `value` is worth — the question to ask BEFORE
-     *         `plaintextOf`, which refuses by name when the answer is no.
-     *
-     * @dev TWO QUESTIONS, NOT ONE. "Is this value initialized" is a property of the handle — the zero word
-     *      is what an encrypted value reads as before anything wrote to it — and the FHE library's
-     *      `FHE.isInitialized` answers it with no stack involved. THIS answers the stack's question: was the
-     *      value computed here, replayed here, or stated here (`forkUnknown`). It is false for the zero
-     *      word too, so it is the one predicate a fuzz handler needs, but a test that MEANS "never
-     *      credited" says `assertFalse(FHE.isInitialized(x))`, which is what a dApp can check on chain.
-     *
-     * @dev Never reverts, and never invents a value: there is deliberately no `plaintextOfOrZero`. Reading
-     *      zero for a value the stack does not hold is how a test passes on the mock and fails on chain.
-     *      When one call must both ask and read — a balance sweep over accounts that may never have acted —
-     *      `tryPlaintextOf` returns the answer AND the value, and keeps the two apart.
-     */
     function hasPlaintext(ebool value) internal unmetered returns (bool) {
         return fhevm.hasPlaintext(ebool.unwrap(value));
     }
@@ -122,25 +91,8 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         return fhevm.hasPlaintext(eaddress.unwrap(value));
     }
 
-    // -- Try plaintext of ----------------------------------------------------------
+    // -- Try plaintext of -----------------------------------------------------
 
-    /**
-     * @notice `hasPlaintext` and `plaintextOf` as one question: `(exists, clear)`, where `clear` is the
-     *         value only when `exists` is true and a placeholder zero otherwise. Never reverts for a value
-     *         the stack does not hold.
-     *
-     * @dev THE `try` SHAPE, NOT AN `orZero`. Solidity's convention for a non-reverting twin is `tryAdd`,
-     *      `tryRecover`, `tryIncrease`: the caller gets the failure as a flag, not folded into the value.
-     *      That is what keeps "the value is 0" and "there is no value" distinct — the difference between
-     *      a balance that was spent down and one that was never credited. A helper that wants the folded
-     *      form writes it in one line, `(, uint64 v) = tryPlaintextOf(x);`, and says so at the site.
-     *
-     * @dev `exists` is exactly `hasPlaintext(value)`: false for the zero word, a foreign-chain handle and a
-     *      handle this stack never computed or was told about. A stack with no plaintexts source is still
-     *      a setup error and still reverts — the `try` covers the value, not the configuration.
-     */
-    // The narrowing casts are exact: the plaintexts source stores each value at its handle's width, the same
-    // way `plaintextOf` narrows its result (where the linter does not see the cast because it wraps a call).
     // forge-lint: disable-start(unsafe-typecast)
     function tryPlaintextOf(ebool value) internal unmetered returns (bool exists, bool clear) {
         (bool found, uint256 word) = fhevm.tryPlaintextOf(ebool.unwrap(value));
@@ -189,23 +141,10 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         exists = found;
         clear = address(uint160(word));
     }
-
     // forge-lint: disable-end(unsafe-typecast)
 
-    /**
-     * @notice On a FORK, state what an encrypted value is worth, because nothing can know it.
-     *
-     * @dev FORK ONLY. A value minted before the fork block has no events anywhere, so no replay can
-     *      reconstruct it, and the production stack holds no cleartext to ask. The test says what it
-     *      is, and from then on the simulation carries that value through arithmetic like any other. It
-     *      always wins over an unknown-handle policy.
-     *
-     * @dev REFUSED ON A CLEARTEXT STACK, by name: there every value is known, so there is nothing to
-     *      state, and a call here would mean the test is confused about which stack it is on.
-     *
-     * @dev A CHEAT, like `plaintextOf`: nothing on chain changes, and no dApp can tell. A value that
-     *      Sepolia in fact computed as something else proves nothing about the dApp.
-     */
+    // -- forkUnknown ----------------------------------------------------------
+
     function forkUnknown(ebool value, bool clear) internal unmetered {
         fhevm.seedCleartext(ebool.unwrap(value), clear ? 1 : 0);
     }
@@ -238,19 +177,6 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         fhevm.seedCleartext(eaddress.unwrap(value), uint256(uint160(clear)));
     }
 
-    /**
-     * @notice On a FORK, the blanket form of `forkUnknown`: EVERY value nothing can know is worth `clear`.
-     *
-     * @dev ONE NUMBER FOR EVERY TYPE, clamped to each value's width — the store keeps a single default,
-     *      not one per type. So `forkUnknownDefault(1000)` also makes an unknown `euint8` read 232 and an
-     *      unknown `ebool` read true; `forkUnknownDefault(true)` makes every unknown number read 1; and
-     *      `forkUnknownDefault(address)` makes them read that address's low bits. Reach for it when the
-     *      test asserts on none of the unknown values, and for `forkUnknown` when it asserts on one — an
-     *      explicit `forkUnknown` always wins over this default.
-     *
-     * @dev Called once in `setUp`, it covers every test: forge snapshots what `setUp` produced and
-     *      restores it before each one.
-     */
     function forkUnknownDefault(uint256 clear) internal unmetered {
         fhevm.useFixedUnknownHandles(clear);
     }
@@ -263,16 +189,11 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         fhevm.useFixedUnknownHandles(uint256(uint160(clear)));
     }
 
-    /**
-     * @notice On a FORK, answer every value nothing can know from `keccak256(handle)`, clamped to its
-     *         type: stable run to run, so an assertion can be pinned to a number, and different per value.
-     * @dev The third policy, next to `forkUnknown` (one value, stated) and `forkUnknownDefault` (every
-     *      value, one number). Reach for it when a dApp needs plausible, distinct inputs it never asserts
-     *      on. Refused on a cleartext stack, like the other two.
-     */
     function forkUnknownDeterministic() internal unmetered {
         fhevm.useDeterministicUnknownHandles();
     }
+
+    // -- HCU limit ------------------------------------------------------------
 
     // forge-lint: disable-next-line(mixed-case-function)
     function disableHCUDepthLimit() internal unmetered {

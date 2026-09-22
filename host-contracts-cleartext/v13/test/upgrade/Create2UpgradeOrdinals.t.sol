@@ -46,7 +46,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(_upgradeImplArtifact(1), "pkg/src/contracts/KMSGeneration.sol:KMSGeneration");
         assertEq(_upgradeImplArtifact(2), "pkg/src/cleartext/CleartextACL.sol:CleartextACL");
         assertEq(_upgradeImplArtifact(3), "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor");
-        assertEq(_upgradeImplArtifact(4), "pkg/src/contracts/HCULimit.sol:HCULimit");
+        assertEq(_upgradeImplArtifact(4), "pkg/src/cleartext/CleartextHCULimit.sol:CleartextHCULimit");
         assertEq(_upgradeImplArtifact(5), "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier");
         assertEq(_upgradeImplArtifact(6), "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic");
     }

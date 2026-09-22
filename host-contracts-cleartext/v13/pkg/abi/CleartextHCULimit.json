@@ -1,8 +1,16 @@
 [
   {
-    "type": "constructor",
+    "type": "function",
+    "name": "IS_CLEARTEXT",
     "inputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",

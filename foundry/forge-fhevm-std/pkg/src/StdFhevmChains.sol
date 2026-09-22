@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {VmSafe} from "forge-std/Vm.sol";
 
+import {LibFhevmFail} from "./LibFhevmFail.sol";
+
 import {
     ACL_ADDRESS,
     FHEVM_EXECUTOR_ADDRESS,
@@ -10,6 +12,19 @@ import {
     KMS_VERIFIER_ADDRESS,
     PROTOCOL_CONFIG_ADDRESS
 } from "./_host/_internal/LocalHostAddresses.sol";
+import {LocalHostBootstrap} from "./_host/_internal/LocalHostBootstrap.sol";
+
+// The FHEVM NETWORK GROUPS: one gateway deployment each, with the host chains it serves and one relayer. The
+// closed set of `fhevm-network-groups.config.json` at the root of the repository; a table entry's `fhevmGroup`
+// is always one of these three, or `FHEVM_LOCAL_GROUP`.
+string constant FHEVM_MAINNET_GROUP = "mainnet";
+string constant FHEVM_TESTNET_GROUP = "testnet";
+string constant FHEVM_DEVNET_GROUP = "devnet";
+
+// The FHEVM group of the SDK's own cleartext stack: the local run, anvil, and any chain that has no FHEVM
+// protocol and gets a cleartext stack from the SDK on first contact. Not a network group: no gateway, no
+// relayer, and the one group a live stack is never listed under.
+string constant FHEVM_LOCAL_GROUP = "local";
 
 /**
  * StdFhevmChains provides information about the chains an FHEVM stack is deployed on, that can be
@@ -48,6 +63,12 @@ import {
  *   - If neither of the above conditions is met, the default data is returned.
  *
  * Summarizing the above, the prioritization hierarchy is `setFhevmChain` -> `foundry.toml` -> environment variable -> defaults.
+ *
+ * Two helpers name a chain for `fhevm.createSelectFork`: `getFhevmChain(group, alias)` names a chain that HAS
+ * an FHEVM stack and points at it — `getFhevmChain(alias)` alone resolves in the alias's DECLARED default group,
+ * so `getFhevmChain("sepolia")` is Sepolia's `testnet` stack (`setDefaultFhevmGroup` moves the label);
+ * `cleartextChain(alias)` names a chain that has NONE and gets this package's cleartext stack on first contact
+ * (rules.md 2.17).
  */
 abstract contract StdFhevmChains {
     // forge-lint: disable-next-line(screaming-snake-case-const)
@@ -104,6 +125,9 @@ abstract contract StdFhevmChains {
     mapping(string => mapping(string => FhevmChain)) private chains;
     // Every (group, alias) ever set, in insertion order, so the table can be walked: mappings cannot be.
     FhevmChainKey[] private chainKeys;
+
+    // The DEFAULT group of each alias
+    mapping(string => string) private defaultGroupOfAlias;
     // Maps from the chain's alias to it's default RPC URL.
     mapping(string => string) private defaultRpcUrls;
     // Maps from the FHEVM group, then a chain ID to it's alias.
@@ -111,7 +135,6 @@ abstract contract StdFhevmChains {
 
     bool private fallbackToDefaultRpcUrls = true;
 
-    // The RPC URL will be fetched from config or defaultRpcUrls if possible.
     function getFhevmChain(string memory fhevmGroup, string memory chainAlias)
         internal
         virtual
@@ -142,6 +165,48 @@ abstract contract StdFhevmChains {
         );
 
         chain = getFhevmChainWithUpdatedRpcUrl(chainAlias, chain);
+    }
+
+    function getFhevmChain(string memory chainAlias) internal virtual returns (FhevmChain memory) {
+        require(
+            bytes(chainAlias).length != 0,
+            "StdFhevmChains getFhevmChain(string): Chain alias cannot be the empty string."
+        );
+        initializeStdFhevmChains();
+        string memory group = defaultGroupOfAlias[chainAlias];
+        require(
+            bytes(group).length != 0,
+            string(
+                abi.encodePacked(
+                    "StdFhevmChains getFhevmChain(string): Chain with alias \"",
+                    chainAlias,
+                    "\" not found in any FHEVM group."
+                )
+            )
+        );
+        return getFhevmChain(group, chainAlias);
+    }
+
+    function defaultFhevmGroup(string memory chainAlias) internal virtual returns (string memory) {
+        initializeStdFhevmChains();
+        return defaultGroupOfAlias[chainAlias];
+    }
+
+    function setDefaultFhevmGroup(string memory chainAlias, string memory fhevmGroup) internal virtual {
+        initializeStdFhevmChains();
+        require(
+            chains[fhevmGroup][chainAlias].chainId != 0,
+            string(
+                abi.encodePacked(
+                    "StdFhevmChains setDefaultFhevmGroup(string,string): FHEVM group \"",
+                    fhevmGroup,
+                    "\" does not serve chain alias \"",
+                    chainAlias,
+                    "\"."
+                )
+            )
+        );
+        defaultGroupOfAlias[chainAlias] = fhevmGroup;
     }
 
     function getFhevmChain(string memory fhevmGroup, uint256 chainId)
@@ -211,6 +276,7 @@ abstract contract StdFhevmChains {
         uint256 oldChainId = chains[chain.fhevmGroup][chainAlias].chainId;
         delete idToAlias[chain.fhevmGroup][oldChainId];
         if (oldChainId == 0) chainKeys.push(FhevmChainKey({fhevmGroup: chain.fhevmGroup, chainAlias: chainAlias}));
+        if (bytes(defaultGroupOfAlias[chainAlias]).length == 0) defaultGroupOfAlias[chainAlias] = chain.fhevmGroup;
 
         chains[chain.fhevmGroup][chainAlias] = FhevmChain({
             fhevmGroup: chain.fhevmGroup,
@@ -249,12 +315,6 @@ abstract contract StdFhevmChains {
         );
     }
 
-    /**
-     * @notice Every chain the table knows — defaults and `setFhevmChain` overrides — in insertion order.
-     * @dev AS STORED: `rpcUrl` is NOT resolved here (no `foundry.toml` or environment lookup), because the
-     *      callers of this walk the table for addresses, not to connect. `getFhevmChain` is the resolving
-     *      form. The same holds for `getFhevmChains(uint256)`.
-     */
     function fhevmChains() internal virtual returns (FhevmChain[] memory all) {
         initializeStdFhevmChains();
         all = new FhevmChain[](chainKeys.length);
@@ -263,8 +323,6 @@ abstract contract StdFhevmChains {
         }
     }
 
-    /// @notice Every table entry on `chainId`, one per FHEVM group that serves it. Sepolia answers two
-    ///         (`testnet`, `devnet`); mainnet one; an unknown chain none. `rpcUrl` as stored, see `fhevmChains`.
     function getFhevmChains(uint256 chainId) internal virtual returns (FhevmChain[] memory matching) {
         FhevmChain[] memory all = fhevmChains();
         uint256 n;
@@ -278,8 +336,6 @@ abstract contract StdFhevmChains {
         }
     }
 
-    // lookup rpcUrl, in descending order of priority:
-    // current -> config (foundry.toml) -> environment variable -> default
     function getFhevmChainWithUpdatedRpcUrl(string memory chainAlias, FhevmChain memory chain)
         private
         view
@@ -295,8 +351,11 @@ abstract contract StdFhevmChains {
                 } else {
                     chain.rpcUrl = vm.envString(envName);
                 }
-                // Distinguish 'not found' from 'cannot read'
-                // The upstream error thrown by forge for failing cheats changed so we check both the old and new versions
+                // Distinguish 'not found' from 'cannot read' (forge-std's rule, rendered per rules.md 2.11):
+                // an alias ABSENT from foundry.toml falls back to the environment and the defaults, and fails
+                // only if all three are empty; an alias DECLARED but unreadable (its `${VAR}` unset) is a
+                // misconfiguration and fails whatever the fallbacks hold. Both encodings forge has used for
+                // the 'not found' cheat error are recognised.
                 bytes memory oldNotFoundError =
                     abi.encodeWithSignature("CheatCodeError", string(abi.encodePacked("invalid rpc url ", chainAlias)));
                 bytes memory newNotFoundError = abi.encodeWithSignature(
@@ -304,19 +363,48 @@ abstract contract StdFhevmChains {
                 );
                 // forge-lint: disable-start(asm-keccak256)
                 bytes32 errHash = keccak256(err);
-                if (
-                    (errHash != keccak256(oldNotFoundError) && errHash != keccak256(newNotFoundError))
-                        || bytes(chain.rpcUrl).length == 0
-                ) {
-                    /// @solidity memory-safe-assembly
-                    assembly {
-                        revert(add(32, err), mload(err))
-                    }
-                }
+                bool notDeclared = errHash == keccak256(oldNotFoundError) || errHash == keccak256(newNotFoundError);
                 // forge-lint: disable-end(asm-keccak256)
+                if (!notDeclared) revert(LibFhevmFail.rpcUrlUnreadable(chainAlias, envName, _cheatcodeErrorText(err)));
+                if (bytes(chain.rpcUrl).length == 0) revert(LibFhevmFail.rpcUrlMissing(chainAlias, envName));
             }
         }
         return chain;
+    }
+
+    function cleartextChain(string memory chainAlias) internal virtual returns (FhevmChain memory chain) {
+        require(
+            bytes(chainAlias).length != 0,
+            "StdFhevmChains cleartextChain(string): Chain alias cannot be the empty string."
+        );
+        chain = FhevmChain({
+            fhevmGroup: FHEVM_LOCAL_GROUP,
+            chainId: 0,
+            chainAlias: chainAlias,
+            rpcUrl: "",
+            relayerUrl: "",
+            acl: ACL_ADDRESS,
+            fhevmExecutor: FHEVM_EXECUTOR_ADDRESS,
+            inputVerifier: INPUT_VERIFIER_ADDRESS,
+            kmsVerifier: KMS_VERIFIER_ADDRESS,
+            protocolConfig: PROTOCOL_CONFIG_ADDRESS,
+            decryption: LocalHostBootstrap.DECRYPTION_ADDRESS,
+            inputVerification: LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS
+        });
+        chain = getFhevmChainWithUpdatedRpcUrl(chainAlias, chain);
+    }
+
+    function _cheatcodeErrorText(bytes memory err) private pure returns (string memory) {
+        // The first four bytes ARE the selector: a deliberate truncation, not a value that could be lost.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        if (err.length >= 4 && bytes4(err) == bytes4(keccak256("CheatcodeError(string)"))) {
+            bytes memory payload = new bytes(err.length - 4);
+            for (uint256 i = 0; i < payload.length; i++) {
+                payload[i] = err[i + 4];
+            }
+            return abi.decode(payload, (string));
+        }
+        return vm.toString(err);
     }
 
     function setFallbackToDefaultFhevmRpcUrls(bool useDefault) internal {
@@ -328,20 +416,10 @@ abstract contract StdFhevmChains {
 
         stdFhevmChainsInitialized = true;
 
-        // One entry per (group, host chain) of `fhevm-chains.config.json` (protocol registry commit
-        // ff8137fbf40beeec15abae26fca6cf9172052a8c), relayer URLs from
-        // `fhevm-network-groups.config.json`. Aliases and default RPC URLs are forge-std's `StdChains`
-        // ones for the same chain, so a `foundry.toml` entry serves both.
-        // If adding a chain here, make sure to test the default RPC URL in `test_Rpcs` in `StdFhevmChains.t.sol`
-
-        // local — an SDK-only group, outside the closed set of network groups (mainnet / testnet / devnet):
-        // a running anvil, with the cleartext stack at the canonical local addresses (the ones the FHE
-        // library's config routes chain 31337 to). No relayer, no gateway: `relayerUrl` and the gateway
-        // addresses are empty. The SDK deploys the stack there on first contact if it is missing (§2.6).
         setFhevmChainWithDefaultRpcUrl(
             "anvil",
             FhevmChainData({
-                fhevmGroup: "local",
+                fhevmGroup: FHEVM_LOCAL_GROUP,
                 chainId: 31337,
                 rpcUrl: "http://127.0.0.1:8545",
                 relayerUrl: "",
@@ -350,8 +428,8 @@ abstract contract StdFhevmChains {
                 inputVerifier: INPUT_VERIFIER_ADDRESS,
                 kmsVerifier: KMS_VERIFIER_ADDRESS,
                 protocolConfig: PROTOCOL_CONFIG_ADDRESS,
-                decryption: address(0),
-                inputVerification: address(0)
+                decryption: LocalHostBootstrap.DECRYPTION_ADDRESS,
+                inputVerification: LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS
             })
         );
 
@@ -359,7 +437,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "mainnet",
             FhevmChainData({
-                fhevmGroup: "mainnet",
+                fhevmGroup: FHEVM_MAINNET_GROUP,
                 chainId: 1,
                 rpcUrl: "https://eth.llamarpc.com",
                 relayerUrl: "https://relayer.mainnet.zama.org",
@@ -375,7 +453,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "polygon",
             FhevmChainData({
-                fhevmGroup: "mainnet",
+                fhevmGroup: FHEVM_MAINNET_GROUP,
                 chainId: 137,
                 rpcUrl: "https://polygon-rpc.com",
                 relayerUrl: "https://relayer.mainnet.zama.org",
@@ -393,7 +471,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "sepolia",
             FhevmChainData({
-                fhevmGroup: "testnet",
+                fhevmGroup: FHEVM_TESTNET_GROUP,
                 chainId: 11155111,
                 rpcUrl: "https://sepolia.infura.io/v3/b9794ad1ddf84dfb8c34d6bb5dca2001",
                 relayerUrl: "https://relayer.testnet.zama.org",
@@ -409,7 +487,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "polygon_amoy",
             FhevmChainData({
-                fhevmGroup: "testnet",
+                fhevmGroup: FHEVM_TESTNET_GROUP,
                 chainId: 80002,
                 rpcUrl: "https://rpc-amoy.polygon.technology",
                 relayerUrl: "https://relayer.testnet.zama.org",
@@ -427,7 +505,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "sepolia",
             FhevmChainData({
-                fhevmGroup: "devnet",
+                fhevmGroup: FHEVM_DEVNET_GROUP,
                 chainId: 11155111,
                 rpcUrl: "https://sepolia.infura.io/v3/b9794ad1ddf84dfb8c34d6bb5dca2001",
                 relayerUrl: "https://relayer.dev.zama.cloud",
@@ -443,7 +521,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "polygon_amoy",
             FhevmChainData({
-                fhevmGroup: "devnet",
+                fhevmGroup: FHEVM_DEVNET_GROUP,
                 chainId: 80002,
                 rpcUrl: "https://rpc-amoy.polygon.technology",
                 relayerUrl: "https://relayer.dev.zama.cloud",
@@ -459,7 +537,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "bnb_smart_chain_testnet",
             FhevmChainData({
-                fhevmGroup: "devnet",
+                fhevmGroup: FHEVM_DEVNET_GROUP,
                 chainId: 97,
                 rpcUrl: "https://rpc.ankr.com/bsc_testnet_chapel",
                 relayerUrl: "https://relayer.dev.zama.cloud",
@@ -475,7 +553,7 @@ abstract contract StdFhevmChains {
         setFhevmChainWithDefaultRpcUrl(
             "hoodi",
             FhevmChainData({
-                fhevmGroup: "devnet",
+                fhevmGroup: FHEVM_DEVNET_GROUP,
                 chainId: 560048,
                 rpcUrl: "https://rpc.hoodi.ethpandaops.io",
                 relayerUrl: "https://relayer.dev.zama.cloud",
@@ -488,9 +566,17 @@ abstract contract StdFhevmChains {
                 inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
             })
         );
+
+        // THE DEFAULT GROUP OF EVERY ALIAS
+        setDefaultFhevmGroup("anvil", FHEVM_LOCAL_GROUP);
+        setDefaultFhevmGroup("mainnet", FHEVM_MAINNET_GROUP);
+        setDefaultFhevmGroup("polygon", FHEVM_MAINNET_GROUP);
+        setDefaultFhevmGroup("sepolia", FHEVM_TESTNET_GROUP);
+        setDefaultFhevmGroup("polygon_amoy", FHEVM_TESTNET_GROUP);
+        setDefaultFhevmGroup("bnb_smart_chain_testnet", FHEVM_DEVNET_GROUP);
+        setDefaultFhevmGroup("hoodi", FHEVM_DEVNET_GROUP);
     }
 
-    // set chain info, with priority to chainAlias' rpc url in foundry.toml
     function setFhevmChainWithDefaultRpcUrl(string memory chainAlias, FhevmChainData memory chain) private {
         string memory rpcUrl = chain.rpcUrl;
         defaultRpcUrls[chainAlias] = rpcUrl;

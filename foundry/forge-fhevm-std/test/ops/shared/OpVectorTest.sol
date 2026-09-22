@@ -24,7 +24,7 @@ import {TestFhevm} from "../../../pkg/src/TestFhevm.sol";
 import {EncryptedInput} from "../../../pkg/src/LibEncryptedInput.sol";
 import {FheType} from "../../../pkg/src/_host/shared/FheType.sol";
 import {IACL} from "../../../pkg/src/_host/_internal/interfaces/IACL.sol";
-import {IHCULimit} from "../../../pkg/src/_host/_internal/interfaces/IHCULimit.sol";
+import {ICleartextHCULimit} from "../../../pkg/src/_host/_internal/interfaces/ICleartextHCULimit.sol";
 import {ACL_ADDRESS, HCU_LIMIT_ADDRESS} from "../../../pkg/src/_host/_internal/LocalHostAddresses.sol";
 import {FHEext} from "../utils/FHEext.sol";
 
@@ -87,7 +87,7 @@ abstract contract OpVectorTest is TestFhevm {
     /// owner, for the duration of the test. The per-block cap and the depth limit are left alone.
     function _liftHcuLimit() private {
         vm.prank(fhevmACLOwner());
-        IHCULimit(HCU_LIMIT_ADDRESS).setMaxHCUPerTx(type(uint48).max);
+        ICleartextHCULimit(HCU_LIMIT_ADDRESS).setMaxHCUPerTx(type(uint48).max);
     }
 
     // -- Vector plumbing ----------------------------------------------------------------------------------

@@ -18,6 +18,15 @@ fs_permissions = [{ access = "read", path = "../../operators-data/data" }]
 [profile.ci]
 deny = "warnings"
 
+# The DEBUG build: every dApp compiled under it resolves `@fhevm/solidity/config/ZamaConfig.sol` to this
+# package's `DebugZamaConfig.sol`, which finds the cleartext stack on a fork of a chain that has no FHEVM
+# protocol and reverts at construction anywhere the forge-fhevm-std kernel is absent. Own `out` and
+# `cache_path`, so no deploy script can pick a debug artifact up by accident. NEVER deploy from this profile.
+[profile.fhevm-debug]
+out = "out-fhevm-debug"
+cache_path = "cache-fhevm-debug"
+remappings = ["@fhevm/solidity/config/ZamaConfig.sol=pkg/src/config/DebugZamaConfig.sol"]
+
 [lint]
 # test/ops/fixtures is GENERATED upstream (gen-op-dapp.py): one wrapper per FHE.sol overload, named
 # `<op>_e<L>_e<R>` so the vector tests can compute the name from operand widths — snake_case by design.
@@ -29,3 +38,6 @@ forge-std = "1.11.0"
 
 [rpc_endpoints]
 sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
+# Declared on purpose with a variable nothing sets: test/internal/DebugZamaConfig.t.sol proves that a declared
+# alias forge cannot read fails RENDERED, and is never replaced by a default (forge-std's rule).
+needs_env = "${FORGE_FHEVM_STD_UNSET_FOR_TESTS}"

@@ -23,7 +23,7 @@ import {
     DEPLOYER_ADDRESS,
     DEPLOYER_START_NONCE
 } from "./_host/_internal/LocalHostAddresses.sol";
-import {StdFhevmChains} from "./StdFhevmChains.sol";
+import {FHEVM_LOCAL_GROUP, StdFhevmChains} from "./StdFhevmChains.sol";
 import {LibFhevmFail} from "./LibFhevmFail.sol";
 
 /// @dev `keccak256("fhevm cheat code")`, the same derivation forge uses for `vm`.
@@ -103,6 +103,14 @@ struct FhevmStack {
  *      resolved at the first SDK entry exactly like a URL-only fork's: from the dApp the entry names, else
  *      from the chain table when the chain id is unambiguous; anvil behind `--fork-url` is provisioned
  *      like any anvil fork. `fhevm.createSelectFork` / `selectFork` work from there as usual.
+ *
+ * @dev A CHAIN WITH NO FHEVM PROTOCOL (rules.md 2.17). `fhevm.createSelectFork(cleartextChain("arbitrum"))`
+ *      forks a chain the table lists under no network group and, finding no code at the canonical local
+ *      executor, deploys the cleartext stack INTO THE FORK on first contact — like anvil, minus the mirror,
+ *      since there is no node the SDK owns. The fork keeps its real chain id. A chain that HAS the protocol
+ *      is refused (`LIVE FHEVM STACK ON THIS CHAIN`): the mock never shadows a live stack. The production
+ *      dApp's upstream config knows no such chain, which is what the `fhevm-debug` profile and
+ *      `pkg/src/config/DebugZamaConfig.sol` are for (rules.md 2.18).
  *
  * @dev SURFACE — only what is overridden, plus its fork family:
  *
@@ -814,6 +822,10 @@ contract FhevmVm is IFhevmVm {
 
     /// @dev Prepare on first contact, point on every contact. Runs with `forkId` ACTIVE.
     function _pointAt(uint256 forkId) private {
+        // An entry made by `cleartextChain(alias)` carries no chain id: the fork's own is the truth, and
+        // this is the first moment it can be read. Recorded once, so the table lookup and the messages
+        // below see it.
+        if (_forkChain[forkId].chainId == 0) _forkChain[forkId].chainId = block.chainid;
         StdFhevmChains.FhevmChain memory chain = _forkChain[forkId];
         if (!_forkPrepared[forkId]) {
             // Nothing at the executor: an anvil node the SDK can put the stack on, or a mistake it names.
@@ -918,22 +930,37 @@ contract FhevmVm is IFhevmVm {
         return !_anvilMirrorOff;
     }
 
-    /// @dev The executor has no code. On anvil, the SDK can put the stack there itself; anywhere else it
-    ///      cannot, and says so. THE DECISIONS ARE HERE and the mechanism is the payload's
-    ///      (`LibForgeFhevmAnvil`): what is canonical, what the deployer's nonce allows, whether to mirror,
-    ///      and what to tell the user are this package's to answer — the payload cannot render a boxed
-    ///      message, because `LibFhevmFail` carries this package's own version.
+    /// @dev The executor has no code, so the SDK deploys the cleartext stack itself — into the fork, and onto
+    ///      the node too when the node is anvil. THE DECISIONS ARE HERE and the mechanism is the payload's
+    ///      (`LibForgeFhevmAnvil`): what is canonical, where a live stack forbids it, what the deployer's
+    ///      nonce allows, whether to mirror, and what to tell the user are this package's to answer — the
+    ///      payload cannot render a boxed message, because `LibFhevmFail` carries this package's own version.
+    ///
+    ///      THE MOCK NEVER SHADOWS A LIVE STACK. A chain the table lists under a network group (`mainnet`,
+    ///      `testnet`, `devnet`) HAS the protocol; a fork of it whose executor holds no code is a fork of the
+    ///      wrong thing (a pruned node, an entry with the wrong addresses, a `vm.etch` in a test), never a
+    ///      place to put the cleartext stack. Only a chain no group lists — Arbitrum, Base, a bare anvil —
+    ///      gets one.
     function _provisionLocalStack(StdFhevmChains.FhevmChain memory chain) private {
         bool canonical = chain.acl == ACL_ADDRESS && chain.fhevmExecutor == FHEVM_EXECUTOR_ADDRESS;
-        if (!canonical || !LibForgeFhevmAnvil.isAnvilNode()) {
+        if (!canonical) {
             revert(LibFhevmFail.stackMissing(chain.fhevmGroup, chain.chainAlias, chain.fhevmExecutor));
+        }
+        StdFhevmChains.FhevmChain[] memory candidates = _candidatesFor(block.chainid);
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (keccak256(bytes(candidates[i].fhevmGroup)) != keccak256(bytes(FHEVM_LOCAL_GROUP))) {
+                revert(LibFhevmFail.liveStackExists(block.chainid, candidates[i].fhevmGroup, candidates[i].chainAlias));
+            }
         }
         uint64 nonce = Vm(FORGE_VM_ADDRESS).getNonce(DEPLOYER_ADDRESS);
         if (nonce != DEPLOYER_START_NONCE) {
             revert(LibFhevmFail.localStackCannotDeploy(DEPLOYER_ADDRESS, DEPLOYER_START_NONCE, nonce));
         }
 
-        if (!LibForgeFhevmAnvil.provision(!_anvilMirrorOff)) {
+        // Anvil: deploy and, unless told otherwise, mirror onto the node so the stack survives the test.
+        // Any other fork: deploy into the fork only; there is no node the SDK owns to write to.
+        bool mirror = !_anvilMirrorOff && LibForgeFhevmAnvil.isAnvilNode();
+        if (!LibForgeFhevmAnvil.provision(mirror)) {
             revert(LibFhevmFail.anvilMirrorFailed(ACL_ADDRESS));
         }
     }

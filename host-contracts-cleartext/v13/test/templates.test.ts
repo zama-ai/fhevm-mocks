@@ -366,6 +366,7 @@ const FORGE_BLOBS: ReadonlyArray<{ readonly constantName: string; readonly stand
   { constantName: 'CLEARTEXT_FORGE_ARITHMETIC', standardOf: 'CLEARTEXT_ARITHMETIC' },
   { constantName: 'CLEARTEXT_FORGE_FHEVM_EXECUTOR', standardOf: 'CLEARTEXT_FHEVM_EXECUTOR' },
   { constantName: 'CLEARTEXT_FORGE_ACL', standardOf: 'CLEARTEXT_ACL' },
+  { constantName: 'CLEARTEXT_FORGE_HCU_LIMIT', standardOf: 'CLEARTEXT_HCU_LIMIT' },
 ];
 
 void test('LocalHostBytecode.sol carries the Forge cleartext variants alongside the standard blobs', () => {

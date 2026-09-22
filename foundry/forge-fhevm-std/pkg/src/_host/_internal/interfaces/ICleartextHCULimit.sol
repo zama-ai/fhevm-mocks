@@ -6,7 +6,7 @@ pragma solidity ^0.8.24;
 
 import {FheType} from "../../shared/LibFheType.sol";
 
-interface IHCULimit {
+interface ICleartextHCULimit {
     error AddressEmptyCode(address target);
     error AlreadyBlockHCUWhitelisted(address account);
     error CallerMustBeFHEVMExecutorContract();
@@ -37,6 +37,7 @@ interface IHCULimit {
     event MaxHCUPerTxSet(uint48 maxHCUPerTx);
     event Upgraded(address indexed implementation);
 
+    function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function addToBlockHCUWhitelist(address account) external;
     function checkHCUForCast(FheType resultType, bytes32 ct, bytes32 result, address caller) external;

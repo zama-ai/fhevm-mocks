@@ -60,7 +60,7 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
         a[1] = "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         a[2] = "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
         a[3] = "pkg/src/cleartext/CleartextInputVerifier.sol:CleartextInputVerifier";
-        a[4] = "pkg/src/contracts/HCULimit.sol:HCULimit";
+        a[4] = "pkg/src/cleartext/CleartextHCULimit.sol:CleartextHCULimit";
         a[5] = "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
         a[6] = "pkg/src/cleartext/CleartextDB.sol:CleartextDB";
     }

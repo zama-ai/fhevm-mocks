@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {FheType, LibFheType} from "./shared/LibFheType.sol";
 import {Operators} from "./shared/FhevmOperatorsEnum.sol";
-import {LibFhevmEvents} from "./shared/FhevmEvents.sol";
+import {LibFhevmEvents} from "./shared/LibFhevmEvents.sol";
 import {ICleartextDB} from "./shared/interfaces/ICleartextDB.sol";
 import {CleartextArithmeticBase} from "./shared/CleartextArithmeticBase.sol";
 import {LibFhevmHandle} from "./shared/LibFhevmHandle.sol";

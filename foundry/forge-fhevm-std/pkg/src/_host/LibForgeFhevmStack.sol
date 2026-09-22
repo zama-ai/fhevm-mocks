@@ -31,7 +31,7 @@ import {
     EMPTY_UUPS_PROXY_ACL_CREATION_CODE,
     EMPTY_UUPS_PROXY_CREATION_CODE,
     ERC1967_PROXY_CREATION_CODE,
-    HCU_LIMIT_CREATION_CODE,
+    CLEARTEXT_FORGE_HCU_LIMIT_CREATION_CODE,
     KMS_GENERATION_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
     PROTOCOL_CONFIG_CREATION_CODE
@@ -48,7 +48,7 @@ import {ICleartextInputVerifier} from "./_internal/interfaces/ICleartextInputVer
 import {ICleartextKMSVerifier} from "./_internal/interfaces/ICleartextKMSVerifier.sol";
 import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "./_internal/interfaces/IEmptyUUPSProxyACL.sol";
-import {IHCULimit} from "./_internal/interfaces/IHCULimit.sol";
+import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
 import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 import {IACL} from "./_internal/interfaces/IACL.sol";
@@ -301,7 +301,7 @@ library LibForgeFhevmStack {
         implementations[1] = _create(CLEARTEXT_FORGE_FHEVM_EXECUTOR_CREATION_CODE, "FHEVMExecutor impl (forge)");
         implementations[2] = _create(CLEARTEXT_KMS_VERIFIER_CREATION_CODE, "KMSVerifier impl");
         implementations[3] = _create(CLEARTEXT_INPUT_VERIFIER_CREATION_CODE, "InputVerifier impl");
-        implementations[4] = _create(HCU_LIMIT_CREATION_CODE, "HCULimit impl");
+        implementations[4] = _create(CLEARTEXT_FORGE_HCU_LIMIT_CREATION_CODE, "HCULimit impl (forge)");
         implementations[5] = _create(PROTOCOL_CONFIG_CREATION_CODE, "ProtocolConfig impl");
         implementations[6] = _create(KMS_GENERATION_CREATION_CODE, "KMSGeneration impl");
         implementations[7] = _create(CLEARTEXT_FORGE_ARITHMETIC_CREATION_CODE, "CleartextArithmetic impl (forge)");
@@ -346,7 +346,7 @@ library LibForgeFhevmStack {
         ops[4] = ACLOwner.Op(
             HCU_LIMIT_ADDRESS,
             implementations[4],
-            abi.encodeCall(IHCULimit.initializeFromEmptyProxy, (capPerBlock, maxDepthPerTx, maxPerTx))
+            abi.encodeCall(ICleartextHCULimit.initializeFromEmptyProxy, (capPerBlock, maxDepthPerTx, maxPerTx))
         );
         ops[5] = ACLOwner.Op(PROTOCOL_CONFIG_ADDRESS, implementations[5], _protocolConfigInitData());
         ops[6] = ACLOwner.Op(

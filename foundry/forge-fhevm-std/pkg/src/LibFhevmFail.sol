@@ -157,6 +157,39 @@ library LibFhevmFail {
         return render("NO RPC URL", what, fix);
     }
 
+    /// @notice No RPC URL could be found for an alias: not in `foundry.toml`, not in the environment, and no
+    ///         built-in default (a chain the SDK does not know, or one it deliberately gives no default for).
+    function rpcUrlMissing(string memory chainAlias, string memory envName) internal pure returns (string memory) {
+        string[] memory what = new string[](2);
+        what[0] = string.concat("No RPC URL for chain alias \"", chainAlias, "\".");
+        what[1] =
+            string.concat("Not in [rpc_endpoints] of foundry.toml, ", envName, " is not set, and there is no default.");
+        string[] memory fix = new string[](2);
+        fix[0] = string.concat("add  [rpc_endpoints] ", chainAlias, " = \"https://...\"  to foundry.toml, or");
+        fix[1] = string.concat("set  ", envName, "=https://...  in .env (forge loads it) or in the environment");
+        return render("NO RPC URL FOR ALIAS", what, fix);
+    }
+
+    /// @notice `foundry.toml` declares the alias, but forge could not read it — typically an `${ENV_VAR}` in
+    ///         the entry that is not set. Forge-std's rule, kept: a configured alias that cannot be read is a
+    ///         misconfiguration to fix, never something to paper over with a default endpoint.
+    function rpcUrlUnreadable(string memory chainAlias, string memory envName, string memory forgeError)
+        internal
+        pure
+        returns (string memory)
+    {
+        string[] memory what = new string[](3);
+        what[0] = string.concat("[rpc_endpoints] ", chainAlias, " is declared in foundry.toml but cannot be read:");
+        what[1] = string.concat("  ", forgeError);
+        what[2] = "A declared alias is never replaced by a default: fix the declaration, or drop it.";
+        string[] memory fix = new string[](2);
+        fix[0] = "set the variable the entry names, in .env (forge loads it) or in the environment, or";
+        fix[1] = string.concat(
+            "remove the entry and set  ", envName, "=https://...  (or rely on the SDK default, when there is one)"
+        );
+        return render("RPC ALIAS DECLARED BUT UNREADABLE", what, fix);
+    }
+
     /// @notice `forkUnknown*` on a stack that knows every value.
     function notAFork(address executor) internal pure returns (string memory) {
         string[] memory what = new string[](3);
@@ -196,7 +229,8 @@ library LibFhevmFail {
         return render("LOCAL STACK CANNOT DEPLOY HERE", what, fix);
     }
 
-    /// @notice The fork's executor address holds no code and the node is not anvil, so nothing can be deployed.
+    /// @notice The fork's executor address holds no code and the entry's addresses are not the canonical local
+    ///         ones, so the SDK has nothing to deploy there: the cleartext stack only knows its own addresses.
     function stackMissing(string memory fhevmGroup, string memory chainAlias, address executor)
         internal
         pure
@@ -206,14 +240,35 @@ library LibFhevmFail {
         what[0] = string.concat(
             "No FHEVM stack at ", fhevmGroup, "/", chainAlias, ": the executor ", vm.toString(executor), " has no code."
         );
-        what[1] = "On an anvil node the SDK deploys the cleartext stack itself; this node did not answer";
-        what[2] = "anvil_nodeInfo, so it is not anvil, and the SDK cannot put a stack on a chain it does not own.";
+        what[1] = "The SDK deploys the cleartext stack only at its canonical local addresses; this entry names";
+        what[2] = "others, so either the chain is not what the entry says, or the entry is wrong.";
         string[] memory fix = new string[](3);
-        fix[0] =
-            "start a local node:  anvil        then fork it:  fhevm.createSelectFork(getFhevmChain(\"local\", \"anvil\"))";
+        fix[0] = "check the FhevmChain you passed: its addresses may belong to another chain,";
         fix[1] = "or fork a chain that has the stack (getFhevmChain(\"testnet\", \"sepolia\"), \"mainnet\"),";
-        fix[2] = "or check the FhevmChain you passed: its addresses may belong to another chain";
+        fix[2] = "or, for a chain with no FHEVM protocol, name it with the local entry to get a cleartext stack";
         return render("NO FHEVM STACK ON THIS CHAIN", what, fix);
+    }
+
+    /// @notice The fork's executor holds no code, but the chain table says this chain HAS the protocol: the
+    ///         cleartext stack must not be put where a live one belongs.
+    function liveStackExists(uint256 chainId, string memory fhevmGroup, string memory chainAlias)
+        internal
+        pure
+        returns (string memory)
+    {
+        string[] memory what = new string[](3);
+        what[0] = string.concat(
+            "Chain ", vm.toString(chainId), " carries the FHEVM protocol (", fhevmGroup, "/", chainAlias, "),"
+        );
+        what[1] = "yet the executor of the entry you forked with has no code. The SDK will not deploy the";
+        what[2] = "cleartext stack on a chain that has a live one: the mock must never shadow the protocol.";
+        string[] memory fix = new string[](3);
+        fix[0] = string.concat(
+            "fork the real stack:  fhevm.createSelectFork(getFhevmChain(\"", fhevmGroup, "\", \"", chainAlias, "\"))"
+        );
+        fix[1] = "if the executor is empty there too, the RPC is pruned or points at another chain,";
+        fix[2] = "and for a cleartext stack over real DeFi, use a chain that has no FHEVM protocol, or anvil";
+        return render("LIVE FHEVM STACK ON THIS CHAIN", what, fix);
     }
 
     /// @notice The stack was deployed into the anvil fork but did not appear on the node.

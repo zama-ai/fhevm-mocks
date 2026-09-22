@@ -133,10 +133,6 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         clear = decrypted.plaintext(value);
     }
 
-    // Multiple values come back as a `Plaintexts`, as for a user decryption — read by `decrypted.uint32At(i)`
-    // or by the value itself. Three input shapes: POSITIONAL, like `encryptValues(a, b, ...)`, answered in
-    // the same order; an ARRAY of handles; and the ABI blob a dApp's multi-value getter returns.
-
     // -- Decrypt multiple (bytes32 a..e -> Plaintexts) ------------------------
 
     function decryptPublic(bytes32 a, bytes32 b) internal unmetered returns (Plaintexts memory decrypted) {
@@ -251,9 +247,6 @@ abstract contract StdFhevmDecryptPublic is StdFhevmBase {
         (decrypted, decryptionProof) = _decryptPublicWithProof(handles);
     }
 
-    /// @dev One kernel step (rules.md 2.10). The signed clear-value bytes are one 32-byte word per handle,
-    ///      so they are split into the `Plaintexts` as they are: what `abiEncoded()` gives back is what
-    ///      the KMS signed.
     function _decryptPublicWithProof(bytes32[] memory handles)
         private
         returns (Plaintexts memory decrypted, bytes memory decryptionProof)

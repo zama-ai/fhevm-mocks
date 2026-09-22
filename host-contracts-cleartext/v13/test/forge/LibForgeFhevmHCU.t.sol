@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {ForgeFhevmDeploy} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {FHEVM_EXECUTOR_ADDRESS, HCU_LIMIT_ADDRESS} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
-import {ICleartextFHEVMExecutor, IHCULimit} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextFHEVMExecutor, ICleartextHCULimit} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {LibForgeFhevmHCU} from "../../pkg/forge/src/LibForgeFhevmHCU.sol";
 import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
@@ -27,7 +27,7 @@ contract DeepChain {
 
 /// The HCU caps, moved from a test as the ACL owner, in an order the contract's own invariant accepts.
 contract LibForgeFhevmHCUTest is Test, ForgeFhevmDeploy {
-    IHCULimit internal limit = IHCULimit(HCU_LIMIT_ADDRESS);
+    ICleartextHCULimit internal limit = ICleartextHCULimit(HCU_LIMIT_ADDRESS);
     DeepChain internal chain;
 
     /// Deep enough to exceed the depth cap, shallow enough to stay under the per-transaction cap (~6.9M of 20M).

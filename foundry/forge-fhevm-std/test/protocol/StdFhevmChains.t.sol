@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
+import {LocalHostBootstrap} from "../../pkg/src/_host/_internal/LocalHostBootstrap.sol";
 import {StdFhevmChains} from "../../pkg/src/StdFhevmChains.sol";
 
 /// A `FhevmChainData` with only the fields these cases care about; every address stays zero.
@@ -36,6 +37,14 @@ contract StdFhevmChainsMock is Test, StdFhevmChains {
 
     function exposed_getFhevmChain(string memory fhevmGroup, uint256 chainId) public returns (FhevmChain memory) {
         return getFhevmChain(fhevmGroup, chainId);
+    }
+
+    function exposed_getFhevmChain(string memory chainAlias) public returns (FhevmChain memory) {
+        return getFhevmChain(chainAlias);
+    }
+
+    function exposed_setDefaultFhevmGroup(string memory chainAlias, string memory fhevmGroup) public {
+        setDefaultFhevmGroup(chainAlias, fhevmGroup);
     }
 
     function exposed_setFhevmChain(string memory chainAlias, FhevmChainData memory chainData) public {
@@ -161,6 +170,64 @@ contract StdFhevmChainsTest is Test, StdFhevmChains {
         assertEq(chain.rpcUrl, "https://custom.chain/");
         // The original entry is untouched.
         assertEq(getFhevmChain("mainnet", 1).rpcUrl, getChain(1).rpcUrl);
+    }
+
+    /// The one-argument form: an alias one group serves resolves to the same entry as the two-argument form.
+    function test_getFhevmChain_byAliasAlone() public {
+        FhevmChain memory short_ = getFhevmChain("mainnet");
+        FhevmChain memory full = getFhevmChain("mainnet", "mainnet");
+        assertEq(short_.fhevmGroup, full.fhevmGroup);
+        assertEq(short_.chainId, full.chainId);
+        assertEq(short_.acl, full.acl);
+        assertEq(short_.rpcUrl, full.rpcUrl);
+        assertEq(getFhevmChain("polygon").chainId, 137);
+        assertEq(getFhevmChain("anvil").fhevmGroup, "local");
+        // The local entry names the cleartext gateway contracts its verifiers are initialised against, not zero.
+        assertEq(getFhevmChain("anvil").decryption, LocalHostBootstrap.DECRYPTION_ADDRESS);
+        assertEq(getFhevmChain("anvil").inputVerification, LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS);
+    }
+
+    /// Every alias has a DECLARED default group. Sepolia and Amoy are served by two; the public one is the
+    /// default, and `devnet` is a default only where it is the sole group.
+    function test_getFhevmChain_byAliasAlone_usesTheDeclaredDefaultGroup() public {
+        assertEq(defaultFhevmGroup("mainnet"), "mainnet");
+        assertEq(defaultFhevmGroup("polygon"), "mainnet");
+        assertEq(defaultFhevmGroup("sepolia"), "testnet");
+        assertEq(defaultFhevmGroup("polygon_amoy"), "testnet");
+        assertEq(defaultFhevmGroup("bnb_smart_chain_testnet"), "devnet");
+        assertEq(defaultFhevmGroup("hoodi"), "devnet");
+        assertEq(defaultFhevmGroup("anvil"), "local");
+        assertEq(defaultFhevmGroup("nowhere"), "");
+
+        FhevmChain memory sepolia = getFhevmChain("sepolia");
+        assertEq(sepolia.fhevmGroup, "testnet");
+        assertEq(sepolia.acl, getFhevmChain("testnet", "sepolia").acl);
+        assertTrue(sepolia.acl != getFhevmChain("devnet", "sepolia").acl, "the two stacks differ; testnet is the label");
+    }
+
+    /// The label moves: `setDefaultFhevmGroup` changes what the shortcut means, and refuses a group that does
+    /// not serve the alias. A custom alias is labelled with the group it was first registered under.
+    function test_setDefaultFhevmGroup() public {
+        setDefaultFhevmGroup("sepolia", "devnet");
+        assertEq(getFhevmChain("sepolia").fhevmGroup, "devnet");
+
+        StdFhevmChainsMock mock = new StdFhevmChainsMock();
+        vm.expectRevert(
+            'StdFhevmChains setDefaultFhevmGroup(string,string): FHEVM group "mainnet" does not serve chain alias "sepolia".'
+        );
+        mock.exposed_setDefaultFhevmGroup("sepolia", "mainnet");
+
+        setFhevmChain("custom_chain", _data("devnet", 123456789, "https://custom.chain/"));
+        assertEq(defaultFhevmGroup("custom_chain"), "devnet");
+        assertEq(getFhevmChain("custom_chain").chainId, 123456789);
+    }
+
+    function test_RevertIf_getFhevmChainByAlias_Unknown() public {
+        StdFhevmChainsMock mock = new StdFhevmChainsMock();
+        vm.expectRevert(
+            'StdFhevmChains getFhevmChain(string): Chain with alias "nowhere" not found in any FHEVM group.'
+        );
+        mock.exposed_getFhevmChain("nowhere");
     }
 
     function test_RevertIf_ChainBubbleUp() public {

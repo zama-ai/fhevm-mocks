@@ -36,41 +36,13 @@ struct SignedDecryptionPermit {
     address delegatorAddress;
 }
 
-uint8 constant PERMIT_VERSION_V1 = 1;
-
 struct TransportKeypair {
     bytes publicKey;
     bytes privateKey;
 }
 
-/**
- * @title StdFhevmDecrypt
- * @notice User decryption: reading a handle as the user who was granted it.
- *
- * @dev NO KMS SIGNATURES ARE PRODUCED HERE, and that is deliberate.
- *
- *      A real user decryption ends with the KMS nodes signing each share and the CLIENT verifying
- *      those signatures off chain. On a cleartext stack this project is both halves: it would derive
- *      the node keys, sign with them, then immediately check the signatures it had just written. That
- *      loop can only ever succeed, so it proves nothing about the code under test while costing a
- *      signature per node on every read. What it does test — that a permit is signed by the user, that
- *      the ACL grants the handle, that every pair is covered — all happens before the signing, and all
- *      of it still happens here.
- *
- *      THE OTHER TWO PATHS ARE NOT LIKE THIS, because their proofs are checked by a contract rather
- *      than by us:
- *
- *        - public decryption returns a proof a dApp passes back on chain, where `KMSVerifier` checks it
- *          against the registered signers — so `LibForgeFhevmPublicDecrypt` really does sign;
- *        - an encrypted input carries a proof `InputVerifier` checks on chain — so
- *          `LibForgeFhevmEncrypt` really does sign.
- *
- *      In both of those the signature is consumed by a party that did not create it, which is what
- *      makes producing it worth the gas. A user-decryption share is consumed by its own author.
- *
- * @dev The transport mask is still applied and still undone: that is what the caller's keypair is for,
- *      and it is the part of the response format a client has to get right.
- */
+uint8 constant PERMIT_VERSION_V1 = 1;
+
 abstract contract StdFhevmDecrypt is StdFhevmBase {
     uint256 internal constant MAX_USER_DECRYPT_DURATION_DAYS = 365;
 

@@ -30,6 +30,17 @@ contract LibFhevmFailTest is Test {
         _check(LibFhevmFail.stackMissing("local", "anvil", address(0xE0)), "NO FHEVM STACK ON THIS CHAIN", "anvil");
         _check(LibFhevmFail.anvilMirrorFailed(address(0xAC)), "ANVIL MIRROR FAILED", "setAnvilMirror(false)");
         _check(LibFhevmFail.handleMissing(), "FHEVM HANDLE MISSING", "inherit TestFhevm");
+        _check(
+            LibFhevmFail.liveStackExists(1, "mainnet", "mainnet"),
+            "LIVE FHEVM STACK ON THIS CHAIN",
+            "getFhevmChain(\"mainnet\""
+        );
+        _check(LibFhevmFail.rpcUrlMissing("arbitrum", "ARBITRUM_RPC_URL"), "NO RPC URL FOR ALIAS", "ARBITRUM_RPC_URL=");
+        _check(
+            LibFhevmFail.rpcUrlUnreadable("mainnet", "MAINNET_RPC_URL", "environment variable `X` not found"),
+            "RPC ALIAS DECLARED BUT UNREADABLE",
+            "MAINNET_RPC_URL="
+        );
     }
 
     /// `setupError` reverts with EXACTLY what `render` returns, so tests can expect the rendered string.

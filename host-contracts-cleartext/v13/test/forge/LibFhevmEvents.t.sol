@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {FHEEvents} from "../../pkg/src/contracts/FHEEvents.sol";
-import {LibFhevmEvents} from "../../pkg/src/cleartext/shared/FhevmEvents.sol";
+import {LibFhevmEvents} from "../../pkg/src/cleartext/shared/LibFhevmEvents.sol";
 
-/// `cleartext/shared/FhevmEvents.sol` re-declares the vendored executor's events so a log reader need
+/// `cleartext/shared/LibFhevmEvents.sol` re-declares the vendored executor's events so a log reader need
 /// not inherit the executor. The two are the same event only while their topic0 agree, and topic0 is
 /// `keccak256` of the full signature — so a renamed parameter TYPE, a reordered argument or a changed
 /// `indexed` all break the match. Nothing would fail to compile: `ForgeFhevmEventProcessor` would

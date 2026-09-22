@@ -11,7 +11,7 @@ import {ForgeFhevmEventProcessor, ForgeFhevmEventProcessorDB} from "../../pkg/fo
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {ICleartextDB} from "../../pkg/forge/src/shared/interfaces/ICleartextDB.sol";
 import {Operators} from "../../pkg/forge/src/shared/FhevmOperatorsEnum.sol";
-import {LibFhevmEvents} from "../../pkg/forge/src/shared/FhevmEvents.sol";
+import {LibFhevmEvents} from "../../pkg/forge/src/shared/LibFhevmEvents.sol";
 
 /// Stands in for a SECOND chain's executor: it emits the same events at a different address, which is
 /// all the processor cares about. Cheaper and more pointed than a second fork.
