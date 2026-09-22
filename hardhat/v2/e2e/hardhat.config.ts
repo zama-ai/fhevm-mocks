@@ -13,6 +13,14 @@ import { vars } from 'hardhat/config';
 // Run 'npx hardhat vars setup' to see the list of variables that need to be set
 
 const MNEMONIC: string = vars.get('MNEMONIC', 'test test test test test test test test test test test junk');
+
+// anvil funds the accounts of ITS OWN default mnemonic and no others, so the `anvil` network below is
+// pinned to it rather than following the operator's MNEMONIC var. With the var set — which it is on any
+// machine that has run against a real testnet — deriving from it hands the suite ten unfunded addresses
+// and every deploy fails with "insufficient funds", locally only, while CI stays green on the fallback.
+// The in-process `hardhat` network is different: it funds whatever mnemonic it is given, so it may
+// follow the var. This is the same constant v3's e2e config spells out for the same reason.
+const ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
 const INFURA_API_KEY: string = vars.get('INFURA_API_KEY', 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz');
 
 const config: HardhatUserConfig = {
@@ -26,7 +34,7 @@ const config: HardhatUserConfig = {
     },
     anvil: {
       accounts: {
-        mnemonic: MNEMONIC,
+        mnemonic: ANVIL_MNEMONIC,
         path: "m/44'/60'/0'/0/",
         count: 10,
       },

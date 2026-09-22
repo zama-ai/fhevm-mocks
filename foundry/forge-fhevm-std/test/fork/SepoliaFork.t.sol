@@ -10,6 +10,7 @@ import {ForgeFhevmEventProcessor, ForgeFhevmEventProcessorDB} from "../../pkg/sr
 import {Operators} from "../../pkg/src/_host/shared/FhevmOperatorsEnum.sol";
 import {FheType} from "../../pkg/src/_host/shared/LibFheType.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
+import {ForkBlocks} from "./ForkBlocks.sol";
 
 /// The slice of the deployed `FHETest` this suite drives.
 /// @dev Its handles live in `mapping(address => mapping(FheType => bytes32))` keyed by CALLER, which is
@@ -69,11 +70,10 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
     function setUp() public {
         if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
 
-        uint256 sepoliaBlockNumber = 11743572;
         // Fork and name the stack in one call; the SDK prepares it from there (this suite inherits the
         // cheats mixin alone, so the preparation happens at the first SDK entry below).
         sepolia = getFhevmChain("testnet", "sepolia"); // its rpcUrl is the configured one
-        fhevm.createSelectFork(sepolia, sepoliaBlockNumber);
+        fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         forked = true;
 
         // The policy through the SDK, which prepares the fork first — so it lands on Sepolia's store, not

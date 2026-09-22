@@ -33,7 +33,7 @@
     "prettier:check": "prettier --check \"**/*.{js,json,md,mjs,ts,yml}\"",
     "prettier:write": "prettier --write \"**/*.{js,json,md,mjs,ts,yml}\"",
     "test": "npm run test:forge",
-    "test:anvil": "sh -c 'anvil --silent --port 8546 & P=$!; sleep 1; ANVIL_RPC_URL=http://127.0.0.1:8546 forge test --match-path \"test/anvil/*\"; S=$?; kill $P; exit $S'",
+    "test:anvil": "../../scripts/with-anvil.sh --port 8546 -- forge test --match-path 'test/anvil/*'",
     "test:consumer": "node ../../fhevm-npm/fhevm-npm.ts test-consumer ./foundry/forge-fhevm-std --run --build-linked-dependencies",
     "test:consumer:dev": "node ../../fhevm-npm/fhevm-npm.ts test-consumer ./foundry/forge-fhevm-std/test-consumer/esm --run --ci",
     "test:forge": "forge test",

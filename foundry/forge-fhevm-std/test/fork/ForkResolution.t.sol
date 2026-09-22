@@ -9,6 +9,7 @@ import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {LibFhevmVersion} from "../../pkg/src/LibFhevmVersion.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
+import {ForkBlocks} from "./ForkBlocks.sol";
 
 interface IFHETest {
     function getEuint32Of(address account) external view returns (euint32);
@@ -28,12 +29,14 @@ contract ForkResolutionTest is TestFhevm {
 
     FhevmChain internal sepolia;
     FhevmChain internal mainnet;
+    uint256 internal blockA;
     bool internal forked;
     bool internal mainnetToo;
 
     function setUp() public override {
         if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
         sepolia = getFhevmChain("testnet", "sepolia");
+        blockA = ForkBlocks.recent(sepolia.rpcUrl);
         forked = true;
         if (!fhevm.hasRpcUrlFor("mainnet")) return;
         mainnet = getFhevmChain("mainnet", "mainnet");
@@ -44,7 +47,7 @@ contract ForkResolutionTest is TestFhevm {
     /// coprocessor config says which one — the same address it calls itself, so it cannot be wrong.
     function test_theDappNamedByTheFirstEntryPicksTheStack() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia.rpcUrl, 11_743_572); // URL only
+        fhevm.createSelectFork(sepolia.rpcUrl, blockA); // URL only
 
         encryptUint32(1, address(FHE_TEST), SENDER); // first entry, names the dApp
 
@@ -55,7 +58,7 @@ contract ForkResolutionTest is TestFhevm {
     /// WITHOUT A DAPP, SEPOLIA IS AMBIGUOUS, and the SDK says so rather than picking one.
     function test_RevertIf_TwoGroupsAndNoDapp() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia.rpcUrl, 11_743_572);
+        fhevm.createSelectFork(sepolia.rpcUrl, blockA);
         euint32 current = FHE_TEST.getEuint32Of(SENDER);
 
         string[] memory groups = new string[](2);
@@ -89,7 +92,7 @@ contract ForkResolutionTest is TestFhevm {
                 )
             )
         );
-        fhevm.createSelectFork(devnet, 11_743_572);
+        fhevm.createSelectFork(devnet, blockA);
     }
 
     /// THE CURRENT STACK FOLLOWS EVERY FORK OPERATION. Local cleartext by default; the chain form points at
@@ -99,7 +102,7 @@ contract ForkResolutionTest is TestFhevm {
         vm.skip(!forked);
         assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "the local stack, by default");
 
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "pointed, no SDK entry needed");
         assertFalse(LibFhevmProtocol.currentConfig().isCleartext);
 
@@ -110,7 +113,7 @@ contract ForkResolutionTest is TestFhevm {
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "unchanged by super.setUp()");
         assertFalse(LibFhevmProtocol.currentConfig().isCleartext, "still the fork's stack");
 
-        fhevm.createSelectFork(sepolia.rpcUrl, 11_743_572); // URL only
+        fhevm.createSelectFork(sepolia.rpcUrl, blockA); // URL only
         assertFalse(LibFhevmProtocol.hasProtocol(), "unknown until resolved: not sepolia, not anything");
     }
 

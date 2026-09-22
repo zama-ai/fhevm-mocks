@@ -7,6 +7,7 @@ import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
+import {ForkBlocks} from "./ForkBlocks.sol";
 
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
 
@@ -40,6 +41,8 @@ contract ForkSnapshotTest is TestFhevm {
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
 
     FhevmChain internal sepolia;
+    uint256 internal blockA;
+    uint256 internal blockB;
     address internal alice;
     bool internal forked;
 
@@ -47,6 +50,7 @@ contract ForkSnapshotTest is TestFhevm {
         alice = makeAddr("alice");
         if (!fhevm.hasRpcUrlFor("sepolia")) return;
         sepolia = getFhevmChain("testnet", "sepolia");
+        (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;
     }
 
@@ -120,7 +124,7 @@ contract ForkSnapshotTest is TestFhevm {
     function test_RevertIf_TheSnapshotPredatesTheFork() public {
         vm.skip(!forked);
         uint256 snap = fhevm.snapshotState();
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
 
         vm.expectRevert(bytes(LibFhevmFail.cannotRevertPastFork(snap)));
         this.revertExternally(snap);
@@ -141,7 +145,7 @@ contract ForkSnapshotTest is TestFhevm {
         _increment(counter, 5);
         uint256 snap = fhevm.snapshotState();
 
-        fhevm.createFork(sepolia, 11_743_572); // created, NOT selected
+        fhevm.createFork(sepolia, blockA); // created, NOT selected
         _increment(counter, 6); // 11, still in memory
         assertEq(decryptPublic(counter.getCount()), 11);
 
@@ -155,7 +159,7 @@ contract ForkSnapshotTest is TestFhevm {
     function test_RevertIf_TheRawPairIsUsedAcrossAFork() public {
         vm.skip(!forked);
         uint256 raw = vm.snapshotState();
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         vm.revertToState(raw); // forge's pointer stays on the fork; this handle's bookkeeping reverted
 
         vm.expectRevert(bytes(LibFhevmFail.forkDrift(0, NO_FORK)));
@@ -165,20 +169,20 @@ contract ForkSnapshotTest is TestFhevm {
     /// Snapshot ON a fork, move to a second fork, come back to the first.
     function test_fork_revertToAForkSnapshotFromAnotherFork() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         _add(337);
         euint32 sumA = FHE_TEST.getEuint32Of(SENDER);
         uint256 snap = fhevm.snapshotState();
 
-        uint256 forkB = fhevm.createSelectFork(sepolia, 11_743_000);
+        uint256 forkB = fhevm.createSelectFork(sepolia, blockB);
         assertTrue(forkA != forkB);
-        assertEq(block.number, 11_743_000);
+        assertEq(block.number, blockB);
 
         fhevm.revertToState(snap);
 
         assertEq(fhevm.currentForkId(), forkA, "back on A");
-        assertEq(block.number, 11_743_572, "at A's block");
+        assertEq(block.number, blockA, "at A's block");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl);
         assertEq(decryptPublic(sumA), 1337, "A's replay is intact");
     }
@@ -186,7 +190,7 @@ contract ForkSnapshotTest is TestFhevm {
     /// Snapshot on a fork and revert without leaving it: the work in between is undone, the stack is not.
     function test_fork_revertWithoutLeavingTheFork() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         uint256 snap = fhevm.snapshotState();
 
@@ -205,31 +209,31 @@ contract ForkSnapshotTest is TestFhevm {
     /// a fresh fork, a snapshot on it, a revert to it, from the same fork or another.
     function test_afterAFork_theWholePairStillWorksOnForks() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         uint256 onA = fhevm.snapshotState();
 
-        uint256 forkB = fhevm.createSelectFork(sepolia, 11_743_000);
+        uint256 forkB = fhevm.createSelectFork(sepolia, blockB);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 2000);
         uint256 onB = fhevm.snapshotState();
         _add(5);
         assertEq(decryptPublic(FHE_TEST.getEuint32Of(SENDER)), 2005);
 
         assertTrue(fhevm.revertToState(onB), "a snapshot on B, from B");
-        assertEq(block.number, 11_743_000);
+        assertEq(block.number, blockB);
 
         assertTrue(fhevm.revertToState(onA), "a snapshot on A, from B");
-        assertEq(block.number, 11_743_572);
+        assertEq(block.number, blockA);
         assertTrue(forkB != fhevm.currentForkId());
 
         fhevm.selectFork(forkB);
-        assertEq(block.number, 11_743_000, "and B is still reachable");
+        assertEq(block.number, blockB, "and B is still reachable");
     }
 
     /// Events emitted after a snapshot describe work the revert undid, so they are discarded rather than
     /// replayed into a store that no longer matches the chain.
     function test_fork_eventsAfterTheSnapshotAreDiscarded() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         uint256 snap = fhevm.snapshotState();
 
@@ -248,7 +252,7 @@ contract ForkSnapshotTest is TestFhevm {
     /// the test does not try to leave home again (see the refusal above).
     function test_shake_repeatedSnapshotsOnOneFork() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         for (uint32 i = 1; i <= 4; i++) {
             uint256 snap = fhevm.snapshotState();
@@ -263,24 +267,24 @@ contract ForkSnapshotTest is TestFhevm {
     /// Interleaved: fork A, snapshot, fork B, snapshot, back to A's snapshot, then on to a fresh fork.
     function test_shake_interleavedForksAndSnapshots() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         uint256 atA = fhevm.snapshotState();
 
-        fhevm.createSelectFork(sepolia, 11_743_000);
+        fhevm.createSelectFork(sepolia, blockB);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 2000);
         uint256 atB = fhevm.snapshotState();
         _add(5);
         assertEq(decryptPublic(FHE_TEST.getEuint32Of(SENDER)), 2005, "on B");
 
         fhevm.revertToState(atB);
-        assertEq(block.number, 11_743_000, "still B, before the add");
+        assertEq(block.number, blockB, "still B, before the add");
         _add(7);
         assertEq(decryptPublic(FHE_TEST.getEuint32Of(SENDER)), 2007);
 
         fhevm.revertToState(atA);
         assertEq(fhevm.currentForkId(), forkA, "back on A");
-        assertEq(block.number, 11_743_572);
+        assertEq(block.number, blockA);
         _add(337);
         assertEq(decryptPublic(FHE_TEST.getEuint32Of(SENDER)), 1337, "A's own seed, A's own replay");
     }
@@ -288,14 +292,14 @@ contract ForkSnapshotTest is TestFhevm {
     /// `fhevm.selectFork` after a revert that did NOT leave the pointer stale is ordinary and allowed.
     function test_shake_selectForkStillWorksAfterAForkSnapshot() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         uint256 snap = fhevm.snapshotState();
-        uint256 forkB = fhevm.createSelectFork(sepolia, 11_743_000);
+        uint256 forkB = fhevm.createSelectFork(sepolia, blockB);
         fhevm.revertToState(snap); // back on A, forge agrees, no override
 
         fhevm.selectFork(forkB);
         assertEq(fhevm.currentForkId(), forkB, "B is reachable: nothing was stale");
-        assertEq(block.number, 11_743_000);
+        assertEq(block.number, blockB);
         fhevm.selectFork(forkA);
         assertEq(fhevm.currentForkId(), forkA);
     }

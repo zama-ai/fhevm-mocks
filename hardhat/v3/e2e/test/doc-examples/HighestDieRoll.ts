@@ -179,7 +179,9 @@ describe('HighestDieRoll', function () {
 
     // Let's forward the decrypted payload and its proof to the on-chain contract whose job
     // will simply be to verify the proof and store the final winner of the game
-    await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
+    // Wait for the receipt, as every other transaction here does: the reads below are only correct
+    // once this is mined, and on a real node it is not mined yet when the call returns.
+    await (await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof)).wait();
 
     const isRevealed = await contract.isGameRevealed(gameId);
     const winner = await contract.getWinner(gameId);

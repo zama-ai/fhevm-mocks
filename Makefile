@@ -142,7 +142,14 @@ help: ## List the targets
 	      printf "  \033[36m%-25s\033[0m %s\n", $$2, $$3; \
 	    }'
 
-compile: compile-forge-std compile-hh-v2-e2e compile-hh-v2-template compile-hh-v3-e2e compile-hh-v3-template ## Compile every package, in dependency order
+COMPILE_PACKAGES := \
+  compile-forge-std \
+  compile-hh-v2-e2e \
+  compile-hh-v2-template \
+  compile-hh-v3-e2e \
+  compile-hh-v3-template
+
+compile: $(COMPILE_PACKAGES) ## Compile every package, in dependency order
 
 # The everyday sweep, in lifecycle order. ONE sub-make with three goals, deliberately: goals run left
 # to right in a single invocation, so the compiles `lint` triggers are not re-run by `compile`.
@@ -153,9 +160,22 @@ build: ## fmt-check, then lint, then compile — everything, gated
 
 lint: lint-shared lint-cleartext lint-forge-std lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
 
-test: test-cleartext-v-prev test-cleartext-v-cur test-forge-std test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## Run package tests only; this is not the full validation workflow (use: 'make ci' instead)
+# The suites both test lanes run after V(N), which is the ONE entry they differ in. Hoisted into a
+# variable rather than wrapped with backslashes because `help` greps for a target and its `##` on the
+# same physical line (see its recipe above) — a continued prerequisite list would drop both from
+# `make help` without failing anything, which is the worst way for it to break.
+TEST_SUITES_TAIL := \
+  test-forge-std \
+  test-hh-v2-plugin \
+  test-hh-v2-template \
+  test-hh-v2-e2e \
+  test-hh-v3-plugin \
+  test-hh-v3-template \
+  test-hh-v3-e2e
 
-test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast test-forge-std test-hh-v2-plugin test-hh-v2-template test-hh-v2-e2e test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
+test: test-cleartext-v-prev test-cleartext-v-cur $(TEST_SUITES_TAIL) ## Run package tests only; this is not the full validation workflow (use: 'make ci' instead)
+
+test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast $(TEST_SUITES_TAIL) ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
 
 check: check-npm-cli ## Run pre-build checks, build, then post-build checks
 
@@ -338,11 +358,16 @@ build-ci: ## Every ci gate EXCEPT the tests: clean, check-generated, checks, bui
 # The maximum run: every gate this workspace has. `build-ci` owns the build-and-check phases and the
 # reasoning about their order; this adds the tests on top.
 #
-# Excluded on purpose: `test-hh-v2-e2e-anvil` and `test-hh-v3-e2e-anvil`, which need an anvil node already running.
-ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, tests, consumer rehearsal
+# `test-anvil-ci` runs LAST, and the order is load-bearing: the consumer rehearsals assert that nothing
+# holds port 8545 and fail outright if something does, so any tier that binds a node goes after them.
+#
+# It is a subset of `test-anvil` — see that target for which suites are in and why. The hardhat e2e
+# suites against anvil are therefore still not part of `ci`, in either their own or the wrapped form.
+ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, tests, consumer rehearsal, anvil suite
 	$(MAKE) build-ci
 	$(MAKE) test
 	$(MAKE) test-consumer-ci
+	$(MAKE) test-anvil-ci
 
 # The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
 # rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
@@ -353,13 +378,17 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 #     ~4 minutes each of `forge script` recompiles, replaced by `test:upgrade:fast` (see that target);
 #   - `test-consumer-ci` — installs every registered consumer from scratch.
 # What stays catches everything the dropped gates have caught so far, in a few minutes instead of many.
+# `test-anvil-ci` stays: it is seconds, and it is the only lane here that exercises the SDK against a
+# real node rather than an in-process one. It sits beside `test-fast` rather than inside it for the same
+# reason it sits beside `test` in `ci` — the node-backed suites are their own tier, not part of `test`.
 # Run `ci` before you push.
-ci-fast: ## Every ci gate that reads the tree as it is: checks, build, check-post, fast tests — no clean, no create2, no consumers
+ci-fast: ## Every ci gate that reads the tree as it is: checks, build, check-post, fast tests, anvil suite — no clean, no create2, no consumers
 	$(MAKE) check-pre
 	$(MAKE) check-vendored-origin
 	$(MAKE) build
 	$(MAKE) check-post
 	$(MAKE) test-fast
+	$(MAKE) test-anvil-ci
 
 # Two sub-makes rather than `rebuild: clean build`: prerequisites of one target may run in any order
 # under `-j`, which would race the clean against the build.
@@ -659,6 +688,7 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 .PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
 .PHONY: test-hh-v2-e2e test-hh-v2-e2e-anvil test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
 .PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil
+.PHONY: test-anvil test-anvil-ci test-anvil-hh-v2-e2e test-anvil-hh-v3-e2e
 
 # `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
 # and only V(N) has a V(N-1) to prove it against. Which generation that is comes from the manifest, so the
@@ -688,9 +718,10 @@ test-cleartext-upgrade: compile-cleartext-v-cur ## V(N) only: the upgrade from V
 test-cleartext-upgrade-fast: compile-cleartext-v-cur ## V(N) only: the upgrade's fast lane (no create2 coordinator, <1 min)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
 
-# The offline suite is the one `test` and `ci` run. The three below need the outside world — a Sepolia RPC
-# (`SEPOLIA_RPC_URL`, else `[rpc_endpoints] sepolia` in its foundry.toml) or a local anvil the target starts
-# itself — so they are opt-in, like the hardhat `-anvil` variants, and never enter an aggregate.
+# The offline suite is the one `test` runs. The three below need the outside world. The two fork targets
+# need a Sepolia RPC (`SEPOLIA_RPC_URL`, else `[rpc_endpoints] sepolia` in its foundry.toml), so they stay
+# opt-in and enter no aggregate. `test-forge-std-anvil` needs only a local node and starts its own, so it
+# is part of the `test-anvil` tier — and through it, of `ci`.
 test-forge-std: compile-forge-std ## forge-fhevm-std offline forge tests
 	$(call run,$(W_FORGE_STD),test)
 
@@ -749,6 +780,42 @@ test-consumer: clean-scratch compile-hh-v2-template compile-hh-v3-template ## In
 
 test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ## Install and test every registered consumer (missing fixture lockfile: error)
 	$(call run-fhevm-npm,test-consumer --all --build-linked-dependencies --run --ci)
+
+# Separate tier: the suites that need a local EVM node. Every one of them OWNS its node here —
+# `scripts/with-anvil.sh` starts it, waits until it answers, and stops it however the run ends — so this
+# tier needs nothing running beforehand and leaves nothing running after. That is what makes it CI-safe,
+# and why it can sit in `ci` while the bring-your-own-node targets below cannot.
+#
+# Each suite gets a FRESH node rather than sharing one: the hardhat plugin deploys the cleartext stack on
+# first connection, so a second suite meeting a stack it did not deploy is not the scenario under test.
+#
+# THE PORT MAP, because it is a cross-package invariant and nothing else states it in one place:
+#   8545        hardhat v2/v3 e2e, and the v12/v13 consumer rehearsals — never concurrent, see `ci`
+#   8546        forge-fhevm-std `test:anvil`
+#   8557/8558   v13 create2 e2e (spawned by the suites themselves)
+#   8600-8651   v12/v13 vitest suites; uniqueness enforced by test/anvil-ports.test.ts in each generation
+# Anything added here must claim a port no one else holds.
+#
+# The two targets below are the bring-your-own-node ones with a node provided; they repeat the suite's
+# own invocation rather than recursing into it, so there is no sub-make inside the wrapper script.
+test-anvil-hh-v2-e2e: compile-hh-v2-e2e ## Hardhat v2 e2e against an anvil this target starts and stops
+	./scripts/with-anvil.sh --port 8545 -- $(call run-hh-v2,$(W_HH_V2_E2E),test:anvil)
+
+test-anvil-hh-v3-e2e: compile-hh-v3-e2e ## Hardhat v3 e2e against an anvil this target starts and stops
+	./scripts/with-anvil.sh --port 8545 -- $(call run-hh-v3,$(W_HH_V3_E2E),test:anvil)
+
+# Sequential recipe lines, not prerequisites — the reasoning at `build-ci` applies, and here it is not
+# merely about ordering: two of these three bind the same port, so running them in parallel cannot work.
+test-anvil: ## Every suite that needs a local node, each against a fresh one it starts and stops
+	$(MAKE) test-forge-std-anvil
+	$(MAKE) test-anvil-hh-v2-e2e
+	$(MAKE) test-anvil-hh-v3-e2e
+
+# What `ci` runs, and deliberately a SUBSET of `test-anvil`: the two hardhat e2e suites take ~4 minutes
+# each, which is not yet worth paying on every push. They are not excluded because they fail — all three
+# pass under `make test-anvil` — so promoting one is a single line here when it earns its minutes.
+test-anvil-ci: ## The part of `test-anvil` that ci runs: the forge-fhevm-std anvil suite
+	$(MAKE) test-forge-std-anvil
 
 ########################################################################################################
 # Generated sources

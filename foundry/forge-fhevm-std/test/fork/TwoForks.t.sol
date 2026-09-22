@@ -8,6 +8,7 @@ import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProce
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
+import {ForkBlocks} from "./ForkBlocks.sol";
 
 interface IFHETest {
     function getEuint32Of(address account) external view returns (euint32);
@@ -46,6 +47,8 @@ contract TwoForksTest is TestFhevm {
 
     FhevmChain internal sepolia;
     FhevmChain internal mainnet;
+    uint256 internal blockA;
+    uint256 internal blockB;
     bool internal forked;
     bool internal mainnetToo;
 
@@ -61,6 +64,7 @@ contract TwoForksTest is TestFhevm {
 
         if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
         sepolia = getFhevmChain("testnet", "sepolia");
+        (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;
         if (!fhevm.hasRpcUrlFor("mainnet")) return;
         mainnet = getFhevmChain("mainnet", "mainnet");
@@ -73,9 +77,9 @@ contract TwoForksTest is TestFhevm {
 
         assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "the local stack, before any fork");
 
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         assertEq(fhevm.currentForkId(), forkA, "A is active");
-        assertEq(block.number, 11_743_572, "at A's block");
+        assertEq(block.number, blockA, "at A's block");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "A's stack is current, at once");
         assertEq(
             ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(),
@@ -86,10 +90,10 @@ contract TwoForksTest is TestFhevm {
         _add(337);
         euint32 sumA = FHE_TEST.getEuint32Of(SENDER);
 
-        uint256 forkB = fhevm.createSelectFork(sepolia, 11_743_000);
+        uint256 forkB = fhevm.createSelectFork(sepolia, blockB);
         assertTrue(forkA != forkB, "two forks");
         assertEq(fhevm.currentForkId(), forkB, "B is active");
-        assertEq(block.number, 11_743_000, "at B's block");
+        assertEq(block.number, blockB, "at B's block");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "same stack on B");
         // B has its OWN replay: the pre-existing value seeded on A is not known here, so state it again.
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
@@ -98,7 +102,7 @@ contract TwoForksTest is TestFhevm {
 
         fhevm.selectFork(forkA);
         assertEq(fhevm.currentForkId(), forkA, "back on A");
-        assertEq(block.number, 11_743_572, "at A's block again");
+        assertEq(block.number, blockA, "at A's block again");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "A's stack is current again");
         assertEq(decryptPublic(sumA), 1337, "on A, after B");
         assertEq(
@@ -111,7 +115,7 @@ contract TwoForksTest is TestFhevm {
     function test_switchingStacksRepointsTheProtocol() public {
         vm.skip(!mainnetToo);
 
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         euint32 current = FHE_TEST.getEuint32Of(SENDER);
         forkUnknown(current, 1000);
         _add(337);
@@ -146,7 +150,7 @@ contract TwoForksTest is TestFhevm {
     /// A fork entered through `vm` alone is drift, refused at the first entry.
     function test_RevertIf_ForkEnteredOutsideFhevm() public {
         vm.skip(!forked);
-        uint256 forkId = vm.createSelectFork(sepolia.rpcUrl, 11_743_572);
+        uint256 forkId = vm.createSelectFork(sepolia.rpcUrl, blockA);
         euint32 current = FHE_TEST.getEuint32Of(SENDER);
 
         vm.expectRevert(bytes(LibFhevmFail.forkDrift(forkId, NO_FORK)));
@@ -157,8 +161,8 @@ contract TwoForksTest is TestFhevm {
     /// was not drained, and the SDK will not guess that it was harmless.
     function test_RevertIf_SwitchedOutsideFhevm() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
-        uint256 forkB = fhevm.createSelectFork(sepolia, 11_743_000);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
+        uint256 forkB = fhevm.createSelectFork(sepolia, blockB);
         euint32 current = FHE_TEST.getEuint32Of(SENDER);
 
         vm.selectFork(forkA); // through vm: drift
@@ -172,7 +176,7 @@ contract TwoForksTest is TestFhevm {
     /// `createFork` remembers the stack without touching the fork; the first `selectFork` prepares and points.
     function test_createForkThenSelectFork() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createFork(sepolia, blockA);
         assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "not selected: still on the local stack");
 
         fhevm.selectFork(forkA);
@@ -187,12 +191,12 @@ contract TwoForksTest is TestFhevm {
     /// replay does not know it either: the stores are per context now. Back on A it is 1337.
     function test_aForksHandlesAreUnknownToAnotherFork() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         _add(337);
         euint32 sumA = FHE_TEST.getEuint32Of(SENDER);
 
-        fhevm.createSelectFork(sepolia, 11_743_000);
+        fhevm.createSelectFork(sepolia, blockB);
         vm.expectRevert(); // B's replay never saw sumA: refused by the default unknown-handle policy
         this.plaintextOfExternally(sumA);
 
@@ -208,15 +212,15 @@ contract TwoForksTest is TestFhevm {
     /// the replay is a new one (the pre-roll handle is unknown), and the flow works at the new block.
     function test_rollForkIsAFreshForkAtAnotherBlock() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia, 11_743_572);
+        fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         _add(1);
         euint32 beforeRoll = FHE_TEST.getEuint32Of(SENDER);
         address processorBefore = fhevm.eventProcessor();
 
-        fhevm.rollFork(11_743_000);
+        fhevm.rollFork(blockB);
 
-        assertEq(block.number, 11_743_000, "rolled");
+        assertEq(block.number, blockB, "rolled");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "still pointed");
         assertTrue(fhevm.eventProcessor() != processorBefore, "a new replay for what is a new fork");
         vm.expectRevert(); // the pre-roll handle is unknown to the new replay, as to any fresh fork
@@ -230,7 +234,7 @@ contract TwoForksTest is TestFhevm {
     /// `useStack` is the pointing half of `createSelectFork(chain, …)`, callable on the active context.
     function test_useStackOnAForkIsTheChainFormMinusTheFork() public {
         vm.skip(!forked);
-        fhevm.createSelectFork(sepolia.rpcUrl, 11_743_572); // URL only: no stack yet
+        fhevm.createSelectFork(sepolia.rpcUrl, blockA); // URL only: no stack yet
         assertFalse(LibFhevmProtocol.hasProtocol(), "unknown");
 
         fhevm.useStack(sepolia);
@@ -246,12 +250,12 @@ contract TwoForksTest is TestFhevm {
     /// replayed into B's processor and A could never decrypt its own sum.
     function test_pendingEventsAreDrainedIntoTheForkTheyBelongTo() public {
         vm.skip(!forked);
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         _add(337); // announced on A, NOT decrypted: still in the buffer
         euint32 sumA = FHE_TEST.getEuint32Of(SENDER);
 
-        uint256 forkB = fhevm.createSelectFork(sepolia, 11_743_000); // drains A's events into A's replay first
+        uint256 forkB = fhevm.createSelectFork(sepolia, blockB); // drains A's events into A's replay first
         assertTrue(forkB != forkA);
 
         fhevm.selectFork(forkA);

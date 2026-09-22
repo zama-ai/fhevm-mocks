@@ -5,6 +5,7 @@ import {euint32, externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
+import {ForkBlocks} from "./ForkBlocks.sol";
 
 /// The slice of Sepolia's deployed `FHETest` (fhevm/sdk/js-sdk/contracts/src/FHETest.sol) this test drives.
 interface IFHETest {
@@ -32,7 +33,8 @@ contract SepoliaFHETestAddTest is TestFhevm {
 
         // One line: fork, and name the stack the fork is on. The SDK prepares it (signers, replay,
         // protocol) at the first call below; nothing else to set up.
-        fhevm.createSelectFork(getFhevmChain("testnet", "sepolia"), 11_743_572);
+        FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
+        fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         forked = true;
     }
 
