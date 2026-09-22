@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
+import {FhevmHCUMeter} from "../../pkg/src/FhevmVm.sol";
 import {
     FHEVM_EXECUTOR_ADDRESS,
     ICleartextFHEVMExecutor,
@@ -63,6 +64,42 @@ contract DisableHCUDepthLimitTest is TestFhevm {
         assertEq(limit.getMaxHCUPerTx(), type(uint48).max);
         assertEq(limit.getMaxHCUDepthPerTx(), type(uint48).max);
         assertTrue(chain.run(TOO_DEEP * 3) != bytes32(0), "> 20M in one call, no longer refused");
+    }
+
+    /// The meter reads what the call actually cost. Asserted as a RELATION, not a constant: the exact
+    /// figure is the HCU table's to change, but one handle's chain can never cost more than the whole
+    /// transaction it is part of.
+    function test_lastHCUReadsWhatTheCallCost() public {
+        chain.run(10);
+
+        FhevmHCUMeter memory hcu = lastHCU();
+
+        assertGt(hcu.transaction, 0, "the transaction metered something");
+        assertGt(hcu.maxHandle, 0, "and so did its deepest handle");
+        assertLe(hcu.maxHandle, hcu.transaction, "one chain cannot cost more than the whole transaction");
+    }
+
+    /// `maxHandle` IS the number the depth cap is applied to, shown against the cap this suite already
+    /// proves trips: at `TOO_DEEP` the reading is past 5_000_000, which is why `test_theLocalStackCapsDepth`
+    /// reverts and why lifting the cap is what lets the same chain through.
+    function test_theDepthReadingIsTheNumberTheCapChecks() public {
+        uint48 depthCap = limit.getMaxHCUDepthPerTx();
+        disableHCUDepthLimit(); // the cap would refuse the chain before it could be measured
+
+        chain.run(TOO_DEEP);
+
+        assertGt(lastHCU().maxHandle, depthCap, "TOO_DEEP is over the cap it trips when the cap is in force");
+    }
+
+    /// A shallower chain reads lower, so the number tracks the work rather than being a constant.
+    function test_aShallowerChainReadsLower() public {
+        chain.run(TOO_DEEP / 4);
+        uint256 shallow = lastHCU().maxHandle;
+
+        disableHCUDepthLimit();
+        chain.run(TOO_DEEP);
+
+        assertGt(lastHCU().maxHandle, shallow, "more additions, deeper chain");
     }
 
     /// Idempotent, and it leaves no prank behind: the caller's own pranks still work afterwards.

@@ -61,6 +61,20 @@ struct FhevmStack {
 }
 
 /**
+ * @notice One reading of the HCU meter: what a transaction spent, the way `Vm.Gas` reports gas.
+ *
+ * @dev `transaction` is the total the last metered transaction cost; `maxHandle` is the deepest single
+ *      handle dependency chain inside it, which is the number the DEPTH cap is applied to — so a test
+ *      that trips `HCUTransactionDepthLimitExceeded` reads `maxHandle` to see by how much.
+ */
+// `HCU` stays upper-case, as it is in every other identifier here; the lint wants `Fhevm Hcu Meter`.
+// forge-lint: disable-next-line(pascal-case-struct)
+struct FhevmHCUMeter {
+    uint256 transaction;
+    uint256 maxHandle;
+}
+
+/**
  * @title fhevm — the FHEVM cheatcode handle
  * @notice The second VM handle in a forge-fhevm-std test, next to `vm`.
  *
@@ -417,6 +431,21 @@ interface IFhevmVm {
      */
     // forge-lint: disable-next-line(mixed-case-function)
     function disableHCUDepthLimit() external;
+
+    /**
+     * @notice The HCU meter of the current stack: what the last metered transaction spent in total, and
+     *         the deepest single handle chain within it — a gas-style reading, for asserting on cost.
+     *
+     * @dev ONLY ON A STACK THIS LIBRARY DEPLOYED. The meter lives on the forge variant of `HCULimit`, so
+     *      the in-memory stack has it, and so does one auto-provisioned onto anvil; a cleartext stack that
+     *      came from anywhere else, and every real network, runs the plain implementation and keeps no
+     *      meter. Refused by name there rather than answering zero.
+     *
+     * @dev Both readings clear on the first metered operation of a new transaction, so a fresh reading
+     *      needs an FHE call before it.
+     */
+    // forge-lint: disable-next-line(mixed-case-function)
+    function lastHCU() external returns (FhevmHCUMeter memory);
 
     /// @notice Lifts EVERY HCU cap of the current stack — block, transaction and depth — to the ceiling,
     ///         as its ACL owner (`disableHCULimits`). Metering still runs; nothing is measured against.
@@ -1090,6 +1119,18 @@ contract FhevmVm is IFhevmVm {
         FhevmStack memory stack = _resolve(address(0));
         address hcuLimit = ICleartextFHEVMExecutor(stack.executor).getHCULimitAddress();
         LibForgeFhevmHCU.disableHCULimits(hcuLimit, stack.acl);
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function lastHCU() external returns (FhevmHCUMeter memory meter) {
+        // The same bare resolver the lifts use: reading a meter reads no plaintext, and the executor names
+        // its own HCULimit, so a forked stack's is found exactly like the local one's.
+        FhevmStack memory stack = _resolve(address(0));
+        address hcuLimit = ICleartextFHEVMExecutor(stack.executor).getHCULimitAddress();
+        // The guard belongs HERE, not in the library: only this layer may render a failure (rules.md 2.16),
+        // and without it the plain implementation reverts on a missing function with nothing to say.
+        if (!LibCleartextProbe.isForge(hcuLimit)) revert(LibFhevmFail.noHCUMeter(hcuLimit));
+        (meter.transaction, meter.maxHandle) = LibForgeFhevmHCU.lastHCU(hcuLimit);
     }
 
     // -- The protocol steps, for the mixins -----------------------------------

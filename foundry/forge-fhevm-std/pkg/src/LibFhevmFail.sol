@@ -347,6 +347,20 @@ library LibFhevmFail {
         return render("NO PLAINTEXT SOURCE", what, fix);
     }
 
+    /// @notice The HCU meter was read on a stack whose `HCULimit` keeps none.
+    // forge-lint: disable-next-line(mixed-case-function)
+    function noHCUMeter(address hcuLimit) internal pure returns (string memory) {
+        string[] memory what = new string[](3);
+        what[0] = string.concat("The HCULimit at ", vm.toString(hcuLimit), " keeps no meter: it is the plain");
+        what[1] = "implementation, which records neither the transaction total nor the deepest handle chain.";
+        what[2] = "Only the forge variant does, and only this library's own deploy puts it there.";
+        string[] memory fix = new string[](3);
+        fix[0] = "read it on the in-memory stack, or on one the library auto-provisioned onto anvil (README 5)";
+        fix[1] = "a real network -- and any cleartext stack deployed by broadcast -- has no meter to read;";
+        fix[2] = "assert on the caps instead:  IHCULimitView(hcuLimit).getMaxHCUPerTx()";
+        return render("NO HCU METER", what, fix);
+    }
+
     /// @notice Nothing is etched at the `fhevm` address.
     function handleMissing() internal pure returns (string memory) {
         string[] memory what = new string[](2);

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {StdFhevmBase} from "./StdFhevmBase.sol";
-import {fhevm} from "./FhevmVm.sol";
+import {fhevm, FhevmHCUMeter} from "./FhevmVm.sol";
 import {
     ebool,
     euint8,
@@ -203,5 +203,18 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
     // forge-lint: disable-next-line(mixed-case-function)
     function disableHCULimits() internal unmetered {
         fhevm.disableHCULimits();
+    }
+
+    /**
+     * @notice What the last transaction spent, in HCU: `.transaction` is the total, `.maxHandle` the
+     *         deepest single handle chain within it — the number the depth cap is applied to.
+     *
+     * @dev Reads the stack this library deployed; a stack from anywhere else, and every real network,
+     *      keeps no meter and is refused by name. The readings clear on the first metered operation of a
+     *      new transaction, so make the FHE call first, then read.
+     */
+    // forge-lint: disable-next-line(mixed-case-function)
+    function lastHCU() internal unmetered returns (FhevmHCUMeter memory) {
+        return fhevm.lastHCU();
     }
 }

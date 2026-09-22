@@ -7,8 +7,19 @@ import {ACL_ADDRESS, HCU_LIMIT_ADDRESS} from "./_internal/LocalHostAddresses.sol
 import {LibForgeFhevmStack} from "./LibForgeFhevmStack.sol";
 
 /**
+ * @notice The two readings only the FORGE variant of `HCULimit` keeps.
+ * @dev Declared here rather than in `_internal/interfaces/`: those are generated from the DEPLOYED
+ *      contracts with `cast interface`, and the plain `CleartextHCULimit` has neither function.
+ */
+interface ICleartextForgeHCULimitMeter {
+    function lastTransactionHCU() external view returns (uint256);
+    function maxHandleHCU() external view returns (uint256);
+}
+
+/**
  * @title LibForgeFhevmHCU
- * @notice The HCU caps of a stack's `HCULimit`, moved from a test: raised, lowered, or lifted entirely.
+ * @notice The HCU caps of a stack's `HCULimit`, moved from a test: raised, lowered, or lifted entirely —
+ *         and, on the forge variant, the meter itself: what the last transaction actually spent.
  *
  * @dev WHY. `HCULimit` meters homomorphic complexity three ways — a cap per block, a cap per transaction,
  *      and a cap on the DEPTH of a handle's dependency chain within a transaction. Production values are
@@ -64,6 +75,11 @@ library LibForgeFhevmHCU {
         whitelistForBlockCap(HCU_LIMIT_ADDRESS, ACL_ADDRESS, account);
     }
 
+    /// @notice The local stack's meter; see the address-taking form for what the two readings mean.
+    function lastHCU() internal view returns (uint256 transactionHCU, uint256 maxHandleHCU) {
+        return lastHCU(HCU_LIMIT_ADDRESS);
+    }
+
     // -- Any stack -----------------------------------------------------------
 
     /**
@@ -114,5 +130,27 @@ library LibForgeFhevmHCU {
         if (limit.isBlockHCUWhitelisted(account)) return;
         fvm.prank(LibForgeFhevmStack.aclOwner(acl));
         limit.addToBlockHCUWhitelist(account);
+    }
+
+    /**
+     * @notice What the last metered transaction cost on `hcuLimit` in total, and the deepest single
+     *         handle chain within it — the reading the depth cap is applied to.
+     *
+     * @dev READS, where everything above writes: the caps say what is allowed, this says what was spent,
+     *      so a test can assert on HCU the way it asserts on gas.
+     *
+     * @dev Only the FORGE variant keeps a meter. The plain implementation has neither function and
+     *      reverts with nothing of its own to say, so a caller must establish the variant first —
+     *      `LibCleartextProbe.isForge`. This layer deliberately does not: rendering that refusal needs
+     *      forge-std, which `_host/**` may not import (rules.md 2.16), so the guard and its message live
+     *      in `pkg/src/*.sol` where they can be spelled out.
+     *
+     * @dev Both readings clear on the first metered operation of a NEW transaction, so a fresh reading
+     *      needs an FHE call before it; between calls they hold the last transaction that metered anything.
+     */
+    function lastHCU(address hcuLimit) internal view returns (uint256 transactionHCU, uint256 maxHandleHCU) {
+        ICleartextForgeHCULimitMeter meter = ICleartextForgeHCULimitMeter(hcuLimit);
+        transactionHCU = meter.lastTransactionHCU();
+        maxHandleHCU = meter.maxHandleHCU();
     }
 }

@@ -249,6 +249,11 @@ Two things make this work:
 fhevm.createSelectFork(cleartextChain("arbitrum")); // ARBITRUM_RPC_URL, or [rpc_endpoints] arbitrum
 ```
 
+Why this works where `getFhevmChain("arbitrum")` would not: `cleartextChain` *builds* a stack at the
+canonical cleartext addresses instead of looking one up, so the alias only has to resolve a URL —
+`[rpc_endpoints] arbitrum`, else `ARBITRUM_RPC_URL`, and Arbitrum has neither a chain-table entry nor a
+default.
+
 **2. Build against the debug config.** A production dApp resolves its coprocessor addresses from
 `block.chainid` through `@fhevm/solidity`'s `ZamaConfig`, and that table has no entry for chain 42161. Add a
 build profile that remaps *just that one file* to this library's `DebugZamaConfig.sol`, which knows about the
@@ -281,34 +286,28 @@ Reach for `disableHCUDepthLimit()` first: it is the one that trips on a long dep
 single test (a loop of forty `FHE.add`s, say) and has the smallest blast radius. `disableHCULimits()` is for
 when the test's own setup, not the thing being measured, would otherwise blow a cap.
 
-**Reading the numbers.** Two tiny interfaces, declared once, work against any stack:
+**Reading what it cost.** One cheat, nothing to declare — assert on HCU the way you assert on gas:
 
 ```solidity
-interface IExecutorView {
-    function getHCULimitAddress() external view returns (address);
-}
+import {FhevmHCUMeter} from "@fhevm/forge-std/FhevmVm.sol";
 
-interface IHCULimitView {
-    function getMaxHCUPerTx() external view returns (uint48);      // the current per-transaction cap
-    function getMaxHCUDepthPerTx() external view returns (uint48); // the current depth cap
-    function getGlobalHCUCapPerBlock() external view returns (uint48);
-    function lastTransactionHCU() external view returns (uint256); // total HCU the last tx metered
-    function maxHandleHCU() external view returns (uint256);       // the deepest single handle chain, in this tx
-}
+vm.prank(alice);
+counter.increment(v, proof); // the call under test
 
-IHCULimitView hcuLimit = IHCULimitView(
-    IExecutorView(fhevm.protocol().executor).getHCULimitAddress()
-);
+FhevmHCUMeter memory hcu = lastHCU();
 
-hcuLimit.lastTransactionHCU(); // "how much did that call cost, in total?"
-hcuLimit.maxHandleHCU();       // "what's my deepest dependency chain?" — this is what the depth cap checks
+assertLt(hcu.transaction, 20_000_000); // what the transaction cost in total
+assertLt(hcu.maxHandle, 5_000_000);    // its deepest handle chain — the number the depth cap checks
 ```
 
-`lastTransactionHCU` and `maxHandleHCU` exist only on the variant this library itself deploys — the
-in-memory stack, or one it auto-provisioned onto a node (§5, §6). They reset to zero at the start of a new
-transaction, so a fresh reading needs one FHE call first. A cleartext stack that came from somewhere else,
-running the plain (non-metering) implementation, answers `getMaxHCUPerTx()` and friends the same way, but
-has no `lastTransactionHCU()` or `maxHandleHCU()` to call — exactly like the real network.
+Read *after* the call: both numbers clear on the first metered operation of a new transaction, so a
+reading taken before it is the previous transaction's.
+
+`lastHCU()` needs the meter, which only the variant this library deploys itself carries — the in-memory
+stack, or one it auto-provisioned onto a node (§5, §6). A cleartext stack that came from somewhere else
+runs the plain, non-metering implementation, exactly like the real network; there `lastHCU()` is refused
+by name rather than quietly answering zero. The caps (`getMaxHCUPerTx` and friends) are ordinary getters
+on the `HCULimit` and can be read directly on any stack.
 
 ## 9. Run against mainnet, or any production-ready FHEVM stack
 
