@@ -98,7 +98,11 @@ function surveyTargets(deployed: {
       abiFile: 'CleartextInputVerifier.json',
       address: deployed.fhevmAddresses.inputVerifierAddress as Address,
     },
-    { label: 'HCULimit', abiFile: 'CleartextHCULimit.json', address: deployed.fhevmAddresses.hcuLimitAddress as Address },
+    {
+      label: 'HCULimit',
+      abiFile: 'CleartextHCULimit.json',
+      address: deployed.fhevmAddresses.hcuLimitAddress as Address,
+    },
     {
       label: 'CleartextArithmetic',
       abiFile: 'CleartextArithmetic.json',
