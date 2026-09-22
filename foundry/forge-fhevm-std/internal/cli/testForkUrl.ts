@@ -27,7 +27,11 @@ if (url === '') {
 // SEPOLIA_FORK_BLOCK — when a run wants the cache, and pick a block the endpoint still has.
 const block = process.env.SEPOLIA_FORK_BLOCK;
 const pinned = block === undefined || block === '' ? [] : ['--fork-block-number', block];
-const forge = spawnSync('forge', ['test', '--threads', '2', '--fork-url', url, ...pinned, '--match-path', 'test/forkurl/*'], {
-  stdio: 'inherit',
-});
+const forge = spawnSync(
+  'forge',
+  ['test', '--threads', '2', '--fork-url', url, ...pinned, '--match-path', 'test/forkurl/*'],
+  {
+    stdio: 'inherit',
+  },
+);
 process.exit(forge.status ?? 1);
