@@ -1,83 +1,121 @@
 # forge-fhevm-std
 
-FHEVM standard library for [Forge](https://getfoundry.sh). A companion to `forge-std`: helpers to encrypt inputs and
-decrypt handles from Foundry tests and scripts.
+FHEVM standard library for [Forge](https://getfoundry.sh). A companion to `forge-std`: encrypt inputs, run your
+contract, decrypt the result — in a normal `forge test`, no node to start, no mocks to wire up.
 
-| directory | contents                                                     |
-| --------- | ------------------------------------------------------------ |
-| `src/`    | Solidity sources: the cheat-code helpers and their interfaces |
+| directory | contents                                                       |
+| --------- | --------------------------------------------------------------- |
+| `src/`    | Solidity sources: the cheat-code helpers and their interfaces   |
 
-## Install
+## 1. Setup
 
-The library has one dependency, `encrypted-types`, which holds the `euint*` / `externalE*` type declarations. It must
-resolve to the **same** file that `@fhevm/solidity` resolves, otherwise the encrypted types of the two libraries are
-distinct Solidity types and will not interoperate. Installing `@fhevm/solidity` with npm already puts that file in
-`node_modules/encrypted-types/`, where Forge finds it without configuration.
+### 1.1 Install
 
-### forge install
+Pick one.
 
 ```sh
-forge install zama-ai/forge-fhevm-std
-```
-
-No remapping to add: Forge maps `forge-fhevm-std/` to `lib/forge-fhevm-std/src/` on its own.
-
-### npm
-
-```sh
+# npm
 npm install @fhevm/forge-std
 ```
 
+### 1.2 Remappings
+
 ```toml
-# foundry.toml
+# foundry.toml — npm
 remappings = ["@fhevm/forge-std/=node_modules/@fhevm/forge-std/src/"]
 ```
 
-### soldeer
+### 1.3 Dependencies
 
-```sh
-forge soldeer install forge-fhevm-std~0.13.0
+- **`forge-std`** — remapped exactly as `forge-std/` (not `forge-std-1.11.0/`), matching `import {Vm} from "forge-std/Vm.sol";`.
+- **`@fhevm/solidity`** 
+- **`encrypted-types`** 
+
+## 2. Quickstart: a contract, encrypted, in one minute using npm
+
+Copy these four files into an empty folder and run `forge test`. That's the whole thing.
+
+#### 2.1 `package.json`
+
+```json
+// package.json
+{
+  "name": "hello-fhevm",
+  "private": true,
+  "dependencies": {
+    "@fhevm/forge-std": "^0.13.0",
+    "@fhevm/solidity": "^0.13.3",
+    "encrypted-types": "^0.0.4",
+    "forge-std": "git+https://github.com/foundry-rs/forge-std.git#v1.11.0"
+  }
+}
 ```
+
+#### 2.2 `foundry.toml`
 
 ```toml
 # foundry.toml
-remappings = ["forge-fhevm-std/=dependencies/forge-fhevm-std-0.13.0/src/"]
+[profile.default]
+src = "src"
+test = "test"
+libs = []
+solc_version = "0.8.24"
+evm_version = "cancun"
 ```
 
-## Use
+#### 2.3 `remappings.txt`
+
+```text
+# remappings.txt
+forge-std/=node_modules/forge-std/src/
+@fhevm/forge-std/=node_modules/@fhevm/forge-std/src/
+@fhevm/solidity/=node_modules/@fhevm/solidity/
+encrypted-types/=node_modules/encrypted-types/
+```
+
+#### 2.4 `src/Counter.sol`
 
 ```solidity
-import {Test} from "forge-std/Test.sol";
-import {euint64} from "encrypted-types/EncryptedTypes.sol";
-import {StdFhevm} from "forge-fhevm-std/StdFhevm.sol";
+// src/Counter.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {FHE, euint32, externalEuint32} from "@fhevm/solidity/lib/FHE.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+
+contract Counter is ZamaEthereumConfig {
+    euint32 private _count;
+
+    function getCount() external view returns (euint32) {
+        return _count;
+    }
+
+    function increment(externalEuint32 inputEuint32, bytes calldata inputProof) external {
+        euint32 value = FHE.fromExternal(inputEuint32, inputProof);
+        _count = FHE.add(_count, value);
+        FHE.allowThis(_count);
+        FHE.makePubliclyDecryptable(_count);
+    }
+}
 ```
 
-## Run a test against a fresh anvil
-
-A test can run against a real node instead of the in-memory stack. Anvil is the simplest case: fork it, and the
-cleartext FHEVM stack is there — found if the node already has it, deployed by the library on first contact if not.
-Nothing to deploy by hand, nothing to configure.
-
-**1. Start a node** in one terminal. A plain `anvil` is enough; the default chain id (31337) is the one the FHE
-library's config routes to the local addresses, so a contract compiled against `ZamaEthereumConfig` finds the stack.
-
-```bash
-anvil --port 8546
-```
-
-**2. Fork it from the test.** The only line that differs from an in-memory test is the fork, in `setUp`. The rest —
-encrypt, call the contract, decrypt — is the same five lines as everywhere else.
+#### 2.5 `test/Counter.t.sol`
 
 ```solidity
-import {TestFhevm} from "forge-fhevm-std/TestFhevm.sol";
-import {fhevm} from "forge-fhevm-std/FhevmVm.sol";
+// test/Counter.t.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
 
-contract CounterOnAnvilTest is TestFhevm {
-    Counter counter;
-    address alice = makeAddr("alice");
+import {externalEuint32} from "encrypted-types/EncryptedTypes.sol";
+import {TestFhevm} from "@fhevm/forge-std/TestFhevm.sol";
+import {Counter} from "../src/Counter.sol";
+
+contract CounterTest is TestFhevm {
+    Counter internal counter;
+    address internal alice = makeAddr("alice");
 
     function setUp() public override {
-        fhevm.createSelectFork(getFhevmChain("local", "anvil")); // the stack is ready when this returns
+        super.setUp();
         counter = new Counter();
     }
 
@@ -90,134 +128,347 @@ contract CounterOnAnvilTest is TestFhevm {
 }
 ```
 
-`getFhevmChain("local", "anvil")` resolves the RPC URL like forge-std's `getChain` does: an `[rpc_endpoints] anvil`
-entry in `foundry.toml`, else the `ANVIL_RPC_URL` environment variable, else `http://127.0.0.1:8545`. Calling
-`super.setUp()` is neither required nor harmful: the in-memory stack is deployed by the constructor, before any
-`setUp` runs, and once a fork is selected the fork's stack is the current one — as in forge-std, the in-memory
-chain is simply no longer where the test executes.
+#### 2.6 Install
 
-**3. Run it**, naming the node if it is not on the default port:
-
-```bash
-ANVIL_RPC_URL=http://127.0.0.1:8546 forge test --match-contract CounterOnAnvil
+```sh
+npm install
 ```
 
-**What happens on first contact.** The library sees no code at the stack's addresses on the fork, checks the node
-answers anvil's RPC namespace, deploys the cleartext stack into the fork (the same deploy the in-memory run does,
-same deployer, same addresses), and then writes the result onto the node itself with `anvil_setCode`,
-`anvil_setStorageAt` and `anvil_setNonce`, so the stack outlives the test: a second run, a script, or a relayer
-pointed at the same node finds it and deploys nothing. A fresh anvil sits at block 0, which the executor's handle
-derivation cannot use; the library moves the fork to block 1 and asks the node to mine one.
+#### 2.7 Run the test
 
-**Keeping the node untouched.** `fhevm.setAnvilMirror(false)` before the fork deploys the stack into the fork only.
-The node then never changes, and every test that forks it pays the deploy again.
-
-**A used node.** The stack deploys from one account at nonce 0, because every address derives from that sequence.
-If the node has already used that account for something else, the fork refuses with a message that names the
-account, the nonce it found and the fix: restart anvil, or fork a node that already holds the stack.
-
-**Several tests, one node.** Forge runs the tests of one contract in parallel, and the node is shared between them.
-The stack is deployed at most once per node whichever test gets there first, and every test then finds it; only an
-assertion about the node's *own* state (its code, its nonces) would race, so make those about the fork instead.
-
-Repository checkout only: `npm run test:anvil` starts a throwaway anvil on port 8546, runs the library's own anvil
-suite, and stops it.
-
-## Run the whole suite on a fork: `forge test --fork-url`
-
-Forge can start every test on a fork before any constructor runs. The library handles that mode as a fork
-nobody had to announce: `fhevm` takes the context it is born in as its baseline (no drift refusal), deploys
-no in-memory stack onto the real chain, and resolves the chain's stack at the first call that names a
-contract, exactly as after `fhevm.createSelectFork(url)` with a URL only. Anvil behind `--fork-url` is
-provisioned like any anvil fork.
-
-```bash
-forge test --fork-url https://ethereum-sepolia-rpc.publicnode.com --fork-block-number 11743572 --match-contract MyForkTests
+```sh
+forge test
 ```
 
-Pin the block with `--fork-block-number`: forge then caches every slot it fetches for that block on disk, and
-the second run is served from the cache. `--block-number` is a different flag — it forks at the latest block
-and only overrides the `block.number` the EVM reports, so nothing reusable is cached.
+## 3. Run the tests, locally
 
-Two things follow. On a chain that carries several FHEVM stacks (Sepolia: `testnet` and `devnet`), a test's
-FIRST library call must be one that names the dApp (`encryptUint32(…, address(dapp), …)`), or it is refused
-as ambiguous; `fhevm.useStack(getFhevmChain("testnet", "sepolia"))` names the stack explicitly instead. And
-tests written for the in-memory stack are not meant to run this way: pick them out with `--match-path`.
+```sh
+forge test
+```
 
-## Test on a chain that has no FHEVM protocol
+That's it — no flags, no environment variables. This runs against the **in-memory stack**: the constructor of
+`TestFhevm` deploys the whole cleartext FHEVM stack (ACL, executor, verifiers, KMS) into the test's own EVM
+before `setUp` runs, at the fixed addresses `@fhevm/solidity`'s `ZamaEthereumConfig` already points at
+(chain id `31337`). Nothing to start, nothing to fund, nothing to tear down.
 
-Arbitrum, Base, or mainnet as it was before the deployment: a fork of a chain the SDK's chain table lists under
-no network group. There is no live stack to point at, so the SDK brings its own — the cleartext stack, deployed
-INTO THE FORK on first contact, at the canonical local addresses, with the fork's real chain id untouched.
-Mainnet and Sepolia are refused here on purpose: a chain that has the protocol gets the live stack, never the
-mock.
+```sh
+forge test --match-path "test/Counter.t.sol"     # one file
+forge test --match-test test_increment           # one test
+forge test -vvv                                  # with traces, when something fails
+```
 
-**1. Name the chain.** One alias, the one forge already knows — `[rpc_endpoints] arbitrum` in `foundry.toml`, or
-`ARBITRUM_RPC_URL`. There is no default endpoint for a foreign chain.
+## 5. Run on a fresh `anvil` — works out of the box
+
+Point a test at a real node instead of the in-memory one, and the cleartext stack is simply *there*: found if
+the node already has it, **deployed for you on first contact** if not. Nothing to deploy by hand, nothing to
+configure — this is the one thing that "just works" the moment you fork.
+
+**1. Start a node**, in one terminal:
+
+```sh
+anvil
+```
+
+**2. Fork it in `setUp`.** The only line that differs from the in-memory test above:
 
 ```solidity
-fhevm.createSelectFork(cleartextChain("arbitrum"));
+import {fhevm} from "@fhevm/forge-std/FhevmVm.sol";
+
+function setUp() public override {
+    fhevm.createSelectFork(getFhevmChain("anvil")); // stack is ready when this returns
+    counter = new Counter();
+}
 ```
 
-**2. Build the dApp against the debug config.** A production dApp resolves its coprocessor addresses from
-`block.chainid` in its constructor, through `@fhevm/solidity/config/ZamaConfig.sol`, and that table has no
-entry for 42161. The dApp source is not touched; instead a dedicated build profile remaps that ONE file to this
-package's `DebugZamaConfig.sol`, which resolves to the cleartext stack under the SDK — and reverts at
-construction, on every chain, wherever the SDK's kernel is absent.
+**3. Run it:**
+
+```sh
+forge test --match-path "test/Counter.t.sol"
+```
+
+If anvil is on a different port — `anvil --port 8546` — name it when you run the tests. Nothing in the test
+changes:
+
+```sh
+ANVIL_RPC_URL=http://127.0.0.1:8546 forge test --match-path "test/Counter.t.sol"
+```
+
+Or set it once and keep running plain `forge test`:
+
+```toml
+# foundry.toml
+[rpc_endpoints]
+anvil = "http://127.0.0.1:8546"
+```
+
+What actually happens on first contact: the library sees no code at the stack's addresses, deploys the same
+cleartext stack the in-memory run uses (same deployer, same addresses), then writes it onto the node itself
+(`anvil_setCode` / `anvil_setStorageAt` / `anvil_setNonce`) so it survives — a second test run, a script, or a
+teammate pointed at the same node finds it already there and deploys nothing. Every test that forks the same
+node shares one deployment.
+
+## 6. Run against a remote node that already has the Cleartext stack
+
+Exactly the pattern above, pointed at a URL instead of `localhost` — a shared devnet, a teammate's machine, a
+staging anvil in CI. If the stack is already deployed there **at the canonical addresses** (the same deploy
+used locally and on a fresh anvil), nothing gets redeployed: the library finds it and uses it as-is.
+
+```solidity
+fhevm.createSelectFork(getFhevmChain("anvil")); // ANVIL_RPC_URL=https://your-shared-node:8545
+```
+
+or register your own alias so the URL has a name of its own:
+
+```toml
+# foundry.toml
+[rpc_endpoints]
+staging = "https://staging-node.internal:8545"
+```
+
+```solidity
+fhevm.createSelectFork(cleartextChain("staging"));
+```
+
+If the remote stack is **not** at the canonical addresses (a custom deployment), name it explicitly instead —
+see [§11, `StdFhevmChains`](#11-stdfhevmchains-naming-a-chain).
+
+## 7. Run against a chain with no FHEVM protocol (e.g. Arbitrum)
+
+Arbitrum, Base, or any chain the FHEVM protocol was never deployed to. There is no real stack to fork, so the
+library brings its own cleartext one — deployed straight into the fork, keeping the fork's real chain id.
+
+```sh
+ARBITRUM_RPC_URL=https://arbitrum-one-rpc.publicnode.com FOUNDRY_PROFILE=fhevm-debug forge test --match-path "test/fork/*"
+```
+
+Two things make this work:
+
+**1. Name the chain** by alias, in the fork:
+
+```solidity
+fhevm.createSelectFork(cleartextChain("arbitrum")); // ARBITRUM_RPC_URL, or [rpc_endpoints] arbitrum
+```
+
+**2. Build against the debug config.** A production dApp resolves its coprocessor addresses from
+`block.chainid` through `@fhevm/solidity`'s `ZamaConfig`, and that table has no entry for chain 42161. Add a
+build profile that remaps *just that one file* to this library's `DebugZamaConfig.sol`, which knows about the
+cleartext stack — and refuses to construct anywhere the library isn't present, so it can never be deployed by
+mistake.
 
 ```toml
 # foundry.toml — NEVER deploy from this profile
 [profile.fhevm-debug]
 out = "out-fhevm-debug"
-cache_path = "cache-fhevm-debug"
 remappings = ["@fhevm/solidity/config/ZamaConfig.sol=node_modules/@fhevm/forge-std/src/config/DebugZamaConfig.sol"]
 ```
 
-```sh
-ARBITRUM_RPC_URL=https://... FOUNDRY_PROFILE=fhevm-debug forge test --match-path "test/fork/*"
+Your contract's own source does not change at all. Under this one profile it deploys with a plain `new`;
+under the default profile, on the same chain, it reverts — which is the correct behaviour for real deployments.
+Mainnet and Sepolia always get the *real* stack, never this one: the library refuses to substitute a mock where
+the real protocol exists.
+
+## 8. HCU metering: caps, and reading what a call cost
+
+Every FHE operation costs Homomorphic Complexity Units (HCU), capped per block, per transaction, and per
+sequential handle chain ("depth"). Two cheats, one line each:
+
+```solidity
+disableHCUDepthLimit(); // only the depth cap is lifted, up to the per-tx cap
+disableHCULimits();     // block, per-tx AND depth caps are all lifted — nothing is capped
 ```
 
-Then the test is the usual five lines: fork, `new`, encrypt, call, decrypt. The constructor runs under the real
-chain id, so an `immutable` that copies `block.chainid` is right, and a handle minted in a constructor carries
-42161 and reads back normally.
+Reach for `disableHCUDepthLimit()` first: it is the one that trips on a long dependent chain of FHE calls in a
+single test (a loop of forty `FHE.add`s, say) and has the smallest blast radius. `disableHCULimits()` is for
+when the test's own setup, not the thing being measured, would otherwise blow a cap.
 
-The debug build guards itself with forge alone, not with this package's kernel, so a dApp constructs the same
-from `setUp`, from a test contract's field initializer, or from a factory the test deployed. And it is usable ONLY
-where it was meant to be reached: under forge AND with `FOUNDRY_PROFILE=fhevm-debug`; a default build that imports
-the file directly reverts at construction too.
+**Reading the numbers.** Two tiny interfaces, declared once, work against any stack:
 
-**3. Keep the debug build out of production.** Its bytecode differs from the production build by the config
-library and nothing else, and it defends itself: outside forge every constructor reverts with
-`DebugConfigOnProductionChain`, under forge in any other profile with `DebugConfigOutsideDebugProfile`, and
-every contract compiled against it carries the marker
-`forge-fhevm-std DEBUG config: never deploy` in its bytecode. Add the check to the step that publishes
-artifacts, against the `out/` a deploy script reads:
+```solidity
+interface IExecutorView {
+    function getHCULimitAddress() external view returns (address);
+}
 
-```sh
-! grep -rl "$(printf 'forge-fhevm-std DEBUG config' | xxd -p | tr -d '\n')" out/ || { echo "debug config in production artifacts"; exit 1; }
+interface IHCULimitView {
+    function getMaxHCUPerTx() external view returns (uint48);      // the current per-transaction cap
+    function getMaxHCUDepthPerTx() external view returns (uint48); // the current depth cap
+    function getGlobalHCUCapPerBlock() external view returns (uint48);
+    function lastTransactionHCU() external view returns (uint256); // total HCU the last tx metered
+    function maxHandleHCU() external view returns (uint256);       // the deepest single handle chain, in this tx
+}
+
+IHCULimitView hcuLimit = IHCULimitView(
+    IExecutorView(fhevm.protocol().executor).getHCULimitAddress()
+);
+
+hcuLimit.lastTransactionHCU(); // "how much did that call cost, in total?"
+hcuLimit.maxHandleHCU();       // "what's my deepest dependency chain?" — this is what the depth cap checks
 ```
 
-On a chain the upstream table knows, the debug build resolves the same addresses as upstream, so a suite that
-forks mainnet passes under either profile.
+`lastTransactionHCU` and `maxHandleHCU` exist only on the variant this library itself deploys — the
+in-memory stack, or one it auto-provisioned onto a node (§5, §6). They reset to zero at the start of a new
+transaction, so a fresh reading needs one FHE call first. A cleartext stack that came from somewhere else,
+running the plain (non-metering) implementation, answers `getMaxHCUPerTx()` and friends the same way, but
+has no `lastTransactionHCU()` or `maxHandleHCU()` to call — exactly like the real network.
 
-## Public RPC endpoints and forge's parallelism
+## 9. Run against mainnet, or any production-ready FHEVM stack
 
-Forge runs test contracts in parallel, and each forking test fetches the slots it touches over JSON-RPC as
-it goes, so a suite of fork tests against a public endpoint can hit its rate limit (HTTP 429). Three things
-help, in this order:
+Fork the real chain. The library resolves the real, deployed protocol there — no mock, no substitution — and
+replays the fork's FHE events so your test can still decrypt what it computed.
 
-- **Pin the block** (`--fork-block-number`, or a block in `fhevm.createSelectFork(chain, block)`): after the
-  first run every slot comes from forge's on-disk cache and the endpoint is not asked again.
-- **Throttle forge**: `--threads 2` caps how many test contracts run at once, and so how many forks fetch in
-  parallel; `npm run test:fork` and `npm run test:fork-url` set it. (`--compute-units-per-second`,
-  `--fork-retries` and `--fork-retry-backoff` exist too, but forge accepts them only next to `--fork-url`, so
-  they help the fork-url mode and not forks created by cheatcodes.)
-- **Re-run without the cache**, when you suspect it: `forge test --no-storage-caching …` bypasses it for one
-  run, `forge cache clean sepolia --blocks 11743572` deletes one block's entry, `forge cache clean sepolia`
-  the chain's. A cold run against a public endpoint is where the 429s come from; a cached run never asks.
-- **Use your own endpoint**, the forge-native way: an `[rpc_endpoints]` entry in `foundry.toml`
-  (`sepolia = "https://…"`, or `sepolia = "${SEPOLIA_RPC_URL}"`), or the `SEPOLIA_RPC_URL` variable.
-  `getFhevmChain` reads them in that order, like forge-std's `getChain`, before its built-in default. The
-  library's own fork tests treat either as the opt-in to go online (`fhevm.hasRpcUrlFor("sepolia")`), and skip
-  otherwise — the shared defaults are for a quick experiment, not a suite.
+```sh
+MAINNET_RPC_URL=https://your-endpoint forge test --match-path "test/fork/*"
+```
 
+```solidity
+fhevm.createSelectFork(getFhevmChain("mainnet")); // or getFhevmChain("testnet", "sepolia") for Sepolia
+```
+
+From here, everything is the same five lines as the in-memory test — encrypt, call, decrypt — *except* for
+values the fork's replay never computed (a balance from before your test forked, say): see §10.
+
+**Do not use a public endpoint for a real test suite.** `getFhevmChain(alias)` falls back to a shared public
+RPC only as a convenience for a quick experiment; it rate-limits fast. Set your own:
+
+```toml
+# foundry.toml
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC_URL}"
+```
+
+Pin a block (`fhevm.createSelectFork(chain, blockNumber)`, or `--fork-block-number` in §12) so a re-run is
+served from Forge's on-disk cache instead of asking the RPC again.
+
+## 10. The `forkUnknown` problem: reading a balance the fork never computed
+
+Forking a real chain gives you the real contracts and their real ciphertexts — but the mock's plaintext
+*database* only knows values it watched get computed, replayed from events emitted after the fork was made. A
+value some other user computed before you forked is a real ciphertext with **no known plaintext here**.
+
+In your dApp it looks like this — a real confidential ERC-20, on a real fork:
+
+```solidity
+interface IConfidentialERC20 {
+    function confidentialBalanceOf(address account) external view returns (euint64);
+}
+
+function test_readAnExistingHoldersBalance() public {
+    fhevm.createSelectFork(getFhevmChain("mainnet"));
+    IConfidentialERC20 token = IConfidentialERC20(realTokenAddress);
+
+    euint64 balance = token.confidentialBalanceOf(someExistingHolder);
+    plaintextOf(balance); // reverts — only the real coprocessor ever computed this value
+}
+```
+
+Here it is self-contained and runnable, with a fabricated handle standing in for "a real ciphertext this
+stack never saw computed" — copy it, run it, see the revert become a value:
+
+```solidity
+import {euint64} from "encrypted-types/EncryptedTypes.sol";
+import {TestFhevm} from "@fhevm/forge-std/TestFhevm.sol";
+import {fhevm} from "@fhevm/forge-std/FhevmVm.sol";
+
+contract ForkUnknownTest is TestFhevm {
+    function test_forkUnknown() public {
+        fhevm.createSelectFork(getFhevmChain("mainnet"));
+
+        // Stands in for a real token's `confidentialBalanceOf(...)`: a well-formed handle nothing here
+        // ever computed, exactly what an existing holder's balance looks like right after you fork.
+        euint64 balance = euint64.wrap(bytes32(uint256(1) << 16 | uint256(1)));
+
+        assertFalse(hasPlaintext(balance)); // known, without reverting: nothing here computed this value
+        // plaintextOf(balance); // would revert here — only the real coprocessor ever computed it
+
+        // `forkUnknown` is how you tell the test what you already know to be true (from an explorer, a
+        // prior off-chain decryption, or simply "this is a wallet I just funded, it's zero"). Once
+        // stated, every later read of this exact handle agrees with it.
+        forkUnknown(balance, uint64(1_000_000)); // "trust me, this decrypts to 1_000_000"
+        assertEq(plaintextOf(balance), 1_000_000); // now it does
+    }
+}
+```
+
+Only state what you can actually justify — this is a test doubling as ground truth, not a way to make an
+assertion pass.
+
+## 11. `StdFhevmChains`: naming a chain
+
+Every chain the library forks is named through this one struct, resolved the same way `forge-std`'s
+`getChain` resolves a chain — `foundry.toml`, then an environment variable, then a built-in default:
+
+```solidity
+getFhevmChain("mainnet");                 // one argument: works when exactly one group serves the alias
+getFhevmChain("testnet", "sepolia");      // two arguments: pick the group explicitly (Sepolia has two)
+cleartextChain("arbitrum");               // a chain with NO real FHEVM protocol — the library's own mock
+```
+
+Sepolia is served by two FHEVM groups (`testnet` and `devnet`), so `getFhevmChain("sepolia")` picks one
+default (`testnet`, the public one) — `getFhevmChain("devnet", "sepolia")` for the other, explicitly.
+
+Registering your own chain — a custom devnet, or a remote cleartext deployment at non-canonical addresses
+(§6) — uses the same struct:
+
+```solidity
+setFhevmChain("my-devnet", FhevmChainData({
+    fhevmGroup: "local",
+    chainId: 123456,
+    rpcUrl: "https://my-devnet.internal:8545",
+    relayerUrl: "",
+    acl: 0x0000000000000000000000000000000000000001,
+    fhevmExecutor: 0x0000000000000000000000000000000000000002,
+    inputVerifier: 0x0000000000000000000000000000000000000003,
+    kmsVerifier: 0x0000000000000000000000000000000000000004,
+    protocolConfig: 0x0000000000000000000000000000000000000005,
+    decryption: 0x0000000000000000000000000000000000000006,
+    inputVerification: 0x0000000000000000000000000000000000000007
+}));
+
+fhevm.createSelectFork(getFhevmChain("local", "my-devnet"));
+```
+
+`hasRpcUrlFor("sepolia")` checks whether an alias is actually configured (`[rpc_endpoints]` or
+`<ALIAS>_RPC_URL`) without forking — the right guard for a test that should silently skip when nobody set up
+a network to fork against:
+
+```solidity
+function setUp() public override {
+    if (!fhevm.hasRpcUrlFor("sepolia")) return; // vm.skip(true) the tests instead of failing CI
+    fhevm.createSelectFork(getFhevmChain("testnet", "sepolia"));
+}
+```
+
+## 12. Fork mode with `forge test --fork-url`
+
+Forge can start every test on a fork before any constructor runs, instead of forking from inside `setUp`. The
+library treats that exactly like a fork made with a URL alone: it resolves the stack at the first call that
+names a contract.
+
+```sh
+forge test --fork-url https://ethereum-sepolia-rpc.publicnode.com --fork-block-number 11743572 --match-path "test/fork/*"
+```
+
+`--fork-block-number` pins the block (cached on disk after the first run — cheap re-runs). `--block-number` is
+a different flag: it only overrides what `block.number` reports and forks at the latest block regardless, so
+nothing is cached.
+
+Two things to know:
+
+- On a chain served by several FHEVM groups (Sepolia again), the test's *first* library call must either name
+  the dApp (`encryptUint32(..., address(dapp), ...)`, which reads the dApp's own coprocessor config) or the
+  test must call `fhevm.useStack(getFhevmChain("testnet", "sepolia"))` first — otherwise it's refused as
+  ambiguous.
+- `--fork-url` runs **every** test in the suite against that one fork, so keep in-memory-only tests out with
+  `--match-path`/`--no-match-path`.
+
+## Tips: public RPC endpoints and Forge's parallelism
+
+Forge runs test contracts in parallel, and every forking test fetches over JSON-RPC as it goes — a suite of
+fork tests against a public endpoint can hit its rate limit fast (`429`). In order of effort:
+
+1. **Pin the block** (`--fork-block-number`, or `fhevm.createSelectFork(chain, block)`) — after the first run
+   every slot is served from Forge's on-disk cache and the endpoint is never asked twice.
+2. **Use your own RPC endpoint** — `[rpc_endpoints]` in `foundry.toml`, or `<ALIAS>_RPC_URL` — instead of the
+   shared public default `getFhevmChain` falls back to.
+3. **Throttle Forge**: `--threads 2` caps how many test contracts (and so how many forks) run at once.
+4. **Clear a bad cache**, if you suspect one: `forge cache clean sepolia --blocks 11743572`, or
+   `forge test --no-storage-caching` for one uncached run.
