@@ -10,7 +10,7 @@ import {ForgeFhevmEventProcessor, ForgeFhevmEventProcessorDB} from "../../pkg/sr
 import {Operators} from "../../pkg/src/_host/shared/FhevmOperatorsEnum.sol";
 import {FheType} from "../../pkg/src/_host/shared/LibFheType.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
-import {ForkBlocks} from "./ForkBlocks.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 /// The slice of the deployed `FHETest` this suite drives.
 /// @dev Its handles live in `mapping(address => mapping(FheType => bytes32))` keyed by CALLER, which is
@@ -68,7 +68,7 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
     bool internal forked;
 
     function setUp() public {
-        if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
+        if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
 
         // Fork and name the stack in one call; the SDK prepares it from there (this suite inherits the
         // cheats mixin alone, so the preparation happens at the first SDK entry below).

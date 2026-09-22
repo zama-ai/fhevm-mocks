@@ -187,10 +187,21 @@ jobs:
       #    Every package's unit, forge and harness tests, in dependency order.
       #    The suites that need a local node are NOT here: they are their own tier,
       #    in step 10 below.
+      #
+      #    FHEVM_SKIP_RPC_TESTS keeps this lane OFFLINE. forge-fhevm-std commits an
+      #    `[rpc_endpoints] sepolia` in its foundry.toml, so `hasRpcUrlFor` is always
+      #    true and the per-suite opt-in can never skip on its own; without this the
+      #    default `forge test` calls a public endpoint on every push and goes red for
+      #    reasons unrelated to the change (rate limits, and pruned state under any
+      #    pinned block). The network suites are run deliberately instead, by
+      #    `make test-forge-std-fork` / `test-forge-std-fork-url`.
+      #
       #    The ulimit is the js-sdk workflow's: hardhat and forge open many files
       #    at once under the harness tests.
       # -----------------------------------------------------------------------
       - name: Test everything
+        env:
+          FHEVM_SKIP_RPC_TESTS: 'true'
         run: |
           ulimit -n 65536
           make test

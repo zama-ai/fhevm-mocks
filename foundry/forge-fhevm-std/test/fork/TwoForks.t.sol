@@ -8,7 +8,7 @@ import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProce
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
-import {ForkBlocks} from "./ForkBlocks.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 interface IFHETest {
     function getEuint32Of(address account) external view returns (euint32);
@@ -62,11 +62,11 @@ contract TwoForksTest is TestFhevm {
         assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "and it is the local cleartext one");
         assertGt(LibFhevmProtocol.currentConfig().executor.code.length, 0, "deployed, from the constructor");
 
-        if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
+        if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
         sepolia = getFhevmChain("testnet", "sepolia");
         (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;
-        if (!fhevm.hasRpcUrlFor("mainnet")) return;
+        if (!ForkBlocks.enabled("mainnet")) return;
         mainnet = getFhevmChain("mainnet", "mainnet");
         mainnetToo = true;
     }

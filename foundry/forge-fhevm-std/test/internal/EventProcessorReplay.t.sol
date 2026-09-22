@@ -12,6 +12,7 @@ import {fhevm} from "../../pkg/src/FhevmVm.sol";
 
 import {APlusB} from "../examples/contracts/AplusB.sol";
 import {ConstructorFhe} from "../fork/contracts/ConstructorFhe.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 /**
  * @notice INTERNALS TEST of the event processor, against a FORKED production stack (mainnet): encrypt
@@ -50,7 +51,7 @@ contract EventProcessorReplayTest is TestFhevm {
     bool internal forked;
 
     function setUp() public override {
-        if (!fhevm.hasRpcUrlFor("mainnet")) return; // opt in: [rpc_endpoints] mainnet, or MAINNET_RPC_URL
+        if (!ForkBlocks.enabled("mainnet")) return; // opt in: [rpc_endpoints] mainnet, or MAINNET_RPC_URL
 
         // Fork and name the stack in one call; the SDK prepares it at the first entry — signer sets
         // swapped so the real InputVerifier accepts our proofs, protocol pointed. Nothing else to set up.

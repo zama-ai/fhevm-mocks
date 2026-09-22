@@ -19,6 +19,7 @@ import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {ACL_ADDRESS, DEPLOYER_ADDRESS} from "../../pkg/src/_host/_internal/LocalHostAddresses.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
 
 /// A dApp that does FHE work IN ITS CONSTRUCTOR: the case the debug config exists for, since the chain id
@@ -60,9 +61,9 @@ contract CleartextOnForeignChainTest is TestFhevm {
     function setUp() public override {
         alice = makeAddr("alice");
         debugBuild = keccak256(bytes(vm.envOr("FOUNDRY_PROFILE", string("default")))) == keccak256("fhevm-debug");
-        if (!fhevm.hasRpcUrlFor("arbitrum")) return; // opt in: [rpc_endpoints] arbitrum, or ARBITRUM_RPC_URL
+        if (!ForkBlocks.enabled("arbitrum")) return; // opt in: [rpc_endpoints] arbitrum, or ARBITRUM_RPC_URL
         forked = true;
-        mainnetToo = fhevm.hasRpcUrlFor("mainnet");
+        mainnetToo = ForkBlocks.enabled("mainnet");
     }
 
     // -- §1: the stack appears on first contact -----------------------------------------------------------

@@ -5,7 +5,7 @@ import {euint32, externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
-import {ForkBlocks} from "./ForkBlocks.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 /// The slice of Sepolia's deployed `FHETest` (fhevm/sdk/js-sdk/contracts/src/FHETest.sol) this test drives.
 interface IFHETest {
@@ -29,7 +29,7 @@ contract SepoliaFHETestAddTest is TestFhevm {
         // Opt in, not the URL: `getFhevmChain` always resolves one (an override, `foundry.toml`, this
         // variable, or its default), so the variable's presence is the only signal that a run wants the
         // network. Offline the test skips, per rules.md §7.3.
-        if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
+        if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
 
         // One line: fork, and name the stack the fork is on. The SDK prepares it (signers, replay,
         // protocol) at the first call below; nothing else to set up.

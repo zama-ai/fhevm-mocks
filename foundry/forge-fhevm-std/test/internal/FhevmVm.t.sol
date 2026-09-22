@@ -6,6 +6,7 @@ import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProce
 import {FHEVM_VM_ADDRESS, fhevm} from "../../pkg/src/FhevmVm.sol";
 import {externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 /// The `fhevm` handle is in place after `setUp`, and is one object in every fork.
 contract FhevmVmTest is TestFhevm {
@@ -26,13 +27,15 @@ contract FhevmVmTest is TestFhevm {
     ///          SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com forge test --match-contract FhevmVmTest
     function test_isOneObjectInEveryFork() public {
         // Opt in, not the URL (rules.md §7.3): see SepoliaFHETestAdd.t.sol.
-        vm.skip(!fhevm.hasRpcUrlFor("sepolia"));
+        vm.skip(!ForkBlocks.enabled("sepolia"));
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
 
-        uint256 forkA = vm.createSelectFork(sepolia.rpcUrl, 11_743_572);
+        (uint256 blockA, uint256 blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
+
+        uint256 forkA = vm.createSelectFork(sepolia.rpcUrl, blockA);
         assertTrue(fhevm.initialized(), "carried into fork A");
 
-        uint256 forkB = vm.createSelectFork(sepolia.rpcUrl, 11_743_000);
+        uint256 forkB = vm.createSelectFork(sepolia.rpcUrl, blockB);
         assertTrue(fhevm.initialized(), "carried into fork B");
 
         vm.selectFork(forkA);
@@ -43,19 +46,21 @@ contract FhevmVmTest is TestFhevm {
     /// ONE PROCESSOR PER CONTEXT. Each fork gets its own on first contact, not persistent; switching back
     /// finds the same one, with exactly the executor of the stack pointed there.
     function test_eachContextHasItsOwnProcessor() public {
-        vm.skip(!fhevm.hasRpcUrlFor("sepolia"));
+        vm.skip(!ForkBlocks.enabled("sepolia"));
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
         address inMemory = fhevm.eventProcessor();
         assertTrue(inMemory != address(0), "the in-memory context has one from the constructor");
 
-        uint256 forkA = fhevm.createSelectFork(sepolia, 11_743_572);
+        (uint256 blockA, uint256 blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
+
+        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
         address onA = fhevm.eventProcessor();
         assertTrue(onA != address(0) && onA != inMemory, "A has its own");
         assertFalse(vm.isPersistent(onA), "and it is not persistent");
         assertEq(ForgeFhevmEventProcessor(fhevm.eventProcessor()).executors().length, 1, "exactly Sepolia's executor");
         assertEq(ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(), sepolia.fhevmExecutor);
 
-        fhevm.createSelectFork(sepolia, 11_743_000);
+        fhevm.createSelectFork(sepolia, blockB);
         address onB = fhevm.eventProcessor();
         assertTrue(onB != onA && onB != inMemory, "B has its own");
 

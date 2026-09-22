@@ -9,7 +9,7 @@ import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {LibFhevmVersion} from "../../pkg/src/LibFhevmVersion.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
-import {ForkBlocks} from "./ForkBlocks.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 interface IFHETest {
     function getEuint32Of(address account) external view returns (euint32);
@@ -34,11 +34,11 @@ contract ForkResolutionTest is TestFhevm {
     bool internal mainnetToo;
 
     function setUp() public override {
-        if (!fhevm.hasRpcUrlFor("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
+        if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
         sepolia = getFhevmChain("testnet", "sepolia");
         blockA = ForkBlocks.recent(sepolia.rpcUrl);
         forked = true;
-        if (!fhevm.hasRpcUrlFor("mainnet")) return;
+        if (!ForkBlocks.enabled("mainnet")) return;
         mainnet = getFhevmChain("mainnet", "mainnet");
         mainnetToo = true;
     }

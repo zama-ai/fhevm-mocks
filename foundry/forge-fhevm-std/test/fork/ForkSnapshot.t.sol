@@ -7,7 +7,7 @@ import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
-import {ForkBlocks} from "./ForkBlocks.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
 
@@ -48,7 +48,7 @@ contract ForkSnapshotTest is TestFhevm {
 
     function setUp() public override {
         alice = makeAddr("alice");
-        if (!fhevm.hasRpcUrlFor("sepolia")) return;
+        if (!ForkBlocks.enabled("sepolia")) return;
         sepolia = getFhevmChain("testnet", "sepolia");
         (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;

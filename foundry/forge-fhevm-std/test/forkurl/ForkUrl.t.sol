@@ -9,6 +9,7 @@ import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {SignedDecryptionPermit, TransportKeypair} from "../../pkg/src/StdFhevmDecrypt.sol";
 import {DEPLOYER_ADDRESS} from "../../pkg/src/_host/_internal/LocalHostAddresses.sol";
+import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
 interface IFHETest {
     function getEuint32Of(address account) external view returns (euint32);
@@ -20,11 +21,11 @@ interface IFHETest {
  *         so `fhevm` is born on a fork nobody switched to. This suite runs ONLY in that mode.
  *
  *          SEPOLIA_RPC_URL=… npm run test:fork-url
- *          # = forge test --fork-url $SEPOLIA_RPC_URL --fork-block-number ${SEPOLIA_FORK_BLOCK:-11743572} \
+ *          # = forge test --fork-url $SEPOLIA_RPC_URL [--fork-block-number $SEPOLIA_FORK_BLOCK] \
  *          #              --match-path 'test/forkurl/*'
  *
  *      EXAMPLE:
- *      forge test --fork-url https://ethereum-sepolia-rpc.publicnode.com --match-path 'test/forkurl/*' --fork-block-number 11743572
+ *      forge test --fork-url https://ethereum-sepolia-rpc.publicnode.com --match-path 'test/forkurl/*'
  *
  *      PIN WITH `--fork-block-number`, not `--block-number`. The first forks at that block and caches every
  *      fetched slot under ~/.foundry/cache/rpc/<chain>/<block> (measured: 5.9 s, then 0.4 s from disk). The
@@ -112,11 +113,11 @@ contract ForkUrlTest is TestFhevm {
     ///      default — an Infura key that answers 429 under load. The birth fork's URL is forge's and not
     ///      readable from a test, so this requires the variable (`npm run test:fork-url` sets it) and says so.
     function test_forkOperationsStillWorkFromTheBirthFork() public onlyForkUrl {
-        vm.skip(!fhevm.hasRpcUrlFor("sepolia")); // needs a URL of its own: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
+        vm.skip(!ForkBlocks.enabled("sepolia")); // needs a URL of its own: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
         uint256 birth = fhevm.currentForkId();
         fhevm.useStack(sepolia); // name the birth fork's stack explicitly
-        uint256 other = fhevm.createSelectFork(sepolia, 11_743_572);
+        uint256 other = fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         assertTrue(other != birth);
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl);
         fhevm.selectFork(birth);

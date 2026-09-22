@@ -722,6 +722,11 @@ test-cleartext-upgrade-fast: compile-cleartext-v-cur ## V(N) only: the upgrade's
 # need a Sepolia RPC (`SEPOLIA_RPC_URL`, else `[rpc_endpoints] sepolia` in its foundry.toml), so they stay
 # opt-in and enter no aggregate. `test-forge-std-anvil` needs only a local node and starts its own, so it
 # is part of the `test-anvil` tier — and through it, of `ci`.
+#
+# `FHEVM_SKIP_RPC_TESTS=true` turns every REMOTE-rpc test in `test-forge-std` into a skip, which is how ci
+# keeps that lane offline: the package commits an `[rpc_endpoints] sepolia`, so each suite's own
+# `hasRpcUrlFor` opt-in is always satisfied and can never skip by itself. It does not touch the anvil
+# suite — a local node is not a network.
 test-forge-std: compile-forge-std ## forge-fhevm-std offline forge tests
 	$(call run,$(W_FORGE_STD),test)
 
