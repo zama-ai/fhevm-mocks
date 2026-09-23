@@ -24,7 +24,7 @@ contract FhevmVmTest is TestFhevm {
     /// The whole point of a persistent account: the same instance, with its state, after a fork, after a
     /// second fork, and after switching back.
     ///
-    ///          SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com forge test --match-contract FhevmVmTest
+    /// SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com forge test --match-contract FhevmVmTest
     function test_isOneObjectInEveryFork() public {
         // Opt in, not the URL (rules.md §7.3): see SepoliaFHETestAdd.t.sol.
         vm.skip(!ForkBlocks.enabled("sepolia"));
