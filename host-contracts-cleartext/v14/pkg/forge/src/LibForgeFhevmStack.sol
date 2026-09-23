@@ -521,7 +521,7 @@ library LibForgeFhevmStack {
     function defineCleartextKmsContext(address protocolConfig, address acl) internal {
         IProtocolConfig pc = IProtocolConfig(protocolConfig);
         uint256 previousContextId = pc.getCurrentKmsContextId();
-        (, uint256 activeEpochId) = pc.getCurrentKmsContextAndEpoch();
+        uint256 epochsBefore = epochCounter(protocolConfig);
 
         // 1. Propose.
         fvm.prank(aclOwner(acl));
@@ -554,9 +554,13 @@ library LibForgeFhevmStack {
             previousConfirmed++;
         }
 
-        // 3. Epoch activation: the quorum opened the context's first epoch, the next one after the active
-        //    epoch. Every incoming signer attests, from its tx sender, to the same fixture results.
-        uint256 epochId = activeEpochId + 1;
+        // 3. Epoch activation. The quorum above opened the context's first epoch, and its id is whatever
+        //    the contract's counter had reached — NOT the active epoch plus one. Those two coincide only
+        //    on a chain that has never abandoned an epoch, which is every freshly deployed one and no
+        //    long-lived one: a fork of devnet Sepolia failed here with `InvalidKmsEpoch` because an
+        //    epoch had been created and superseded, leaving the counter ahead of what was active.
+        uint256 epochId = epochCounter(protocolConfig);
+        require(epochId > epochsBefore, "LibForgeFhevmStack: the creation quorum opened no epoch");
         (bytes32 keygenDigest, bytes32 crsgenDigest) = _epochActivationDigests(protocolConfig, contextId, epochId);
         address[] memory signers = LocalHostBootstrap.kmsSigners();
         for (uint256 i = 0; i < signers.length; i++) {
@@ -581,6 +585,34 @@ library LibForgeFhevmStack {
         require(
             pc.getCurrentKmsContextId() == contextId, "LibForgeFhevmStack: the cleartext KMS context did not activate"
         );
+    }
+
+    // -- Reading the epoch counter ---------------------------------------------------------------
+    //
+    // WHY STORAGE AND NOT A GETTER. `confirmKmsContextCreation` mints the new epoch id from a counter of
+    // its own (`epochId = ++$.epochCounter`) and announces it only in the `NewKmsEpoch` event.
+    // `ProtocolConfig` exposes no getter for a PENDING epoch — `isValidEpochForContext` answers for
+    // Active ones only — and the recorded-log buffer has an owner (rule 2.3): draining it here would
+    // starve the FHE replay and break the next decryption. So the counter is read where it lives.
+    //
+    // WHAT MAKES THAT SAFE. The root is `ProtocolConfig`'s own ERC-7201 constant and the offset is the
+    // field's position in `ProtocolConfigStorage`, both copied from the vendored source beside this file.
+    // Neither can drift silently: `ProtocolConfigEpochCounter.t.sol` reads the slot on a freshly deployed
+    // stack and fails if it is not the epoch the contract reports as current.
+
+    /// @dev `keccak256(abi.encode(uint256(keccak256("fhevm.storage.ProtocolConfig")) - 1)) & ~bytes32(uint256(0xff))`,
+    ///      as `PROTOCOL_CONFIG_STORAGE_LOCATION` in `src/contracts/ProtocolConfig.sol`.
+    bytes32 private constant PROTOCOL_CONFIG_STORAGE_ROOT =
+        0x80f3585af86806c5774303b06c1ee640aa83b6ef3e45df49bb26c8524500c200;
+
+    /// @dev `epochCounter` is the thirteenth field of `ProtocolConfigStorage`, so twelve slots past the
+    ///      root. Every field before it is a `uint256` or a mapping, and each takes one whole slot.
+    uint256 internal constant PROTOCOL_CONFIG_EPOCH_COUNTER_SLOT = 12;
+
+    /// @notice The last epoch id `protocolConfig` handed out, pending or active.
+    function epochCounter(address protocolConfig) internal view returns (uint256) {
+        bytes32 slot = bytes32(uint256(PROTOCOL_CONFIG_STORAGE_ROOT) + PROTOCOL_CONFIG_EPOCH_COUNTER_SLOT);
+        return uint256(fvm.load(protocolConfig, slot));
     }
 
     // -- The fixture attestation, `FIXTURE_ATTESTATION` in test/ts/utils/kmsEpochActivators.ts ----------
