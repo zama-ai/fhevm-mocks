@@ -73,7 +73,7 @@ abstract contract FhevmUpgradeBase is FhevmCreate2Base {
         if (i == 1) return "pkg/src/contracts/KMSGeneration.sol:KMSGeneration";
         if (i == 2) return "pkg/src/cleartext/CleartextACL.sol:CleartextACL";
         if (i == 3) return "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
-        if (i == 4) return "pkg/src/contracts/HCULimit.sol:HCULimit";
+        if (i == 4) return "pkg/src/cleartext/CleartextHCULimit.sol:CleartextHCULimit";
         if (i == 5) return "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
         if (i == 6) return "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
         revert("FhevmUpgradeBase: implementation index out of range");

@@ -156,7 +156,10 @@ describe('HeadsOrTails', function () {
 
     // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
     // will simply be to verify the proof and declare the final winner of the game
-    await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
+    // Wait for the receipt, as every other transaction here does: the read below is only correct once
+    // this is mined, and on a real node it is not mined yet when the call returns.
+    const tx = await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
+    await tx.wait();
 
     const winner = await contract.getWinner(gameId);
 

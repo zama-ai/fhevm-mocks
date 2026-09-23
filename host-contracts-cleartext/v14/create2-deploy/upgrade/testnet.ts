@@ -374,7 +374,7 @@ const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly role: str
   { label: 'FHEVMExecutor', role: 'FHEVM_EXECUTOR_ADDRESS', abi: 'CleartextFHEVMExecutor.json' },
   { label: 'KMSVerifier', role: 'KMS_VERIFIER_ADDRESS', abi: 'CleartextKMSVerifier.json' },
   { label: 'InputVerifier', role: 'INPUT_VERIFIER_ADDRESS', abi: 'CleartextInputVerifier.json' },
-  { label: 'HCULimit', role: 'HCU_LIMIT_ADDRESS', abi: 'HCULimit.json' },
+  { label: 'HCULimit', role: 'HCU_LIMIT_ADDRESS', abi: 'CleartextHCULimit.json' },
   { label: 'ProtocolConfig', role: 'PROTOCOL_CONFIG_ADDRESS', abi: 'ProtocolConfig.json' },
   { label: 'KMSGeneration', role: 'KMS_GENERATION_ADDRESS', abi: 'KMSGeneration.json' },
   { label: 'CleartextArithmetic', role: 'CLEARTEXT_ARITHMETIC_ADDRESS', abi: 'CleartextArithmetic.json' },

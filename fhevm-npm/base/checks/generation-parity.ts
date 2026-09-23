@@ -18,6 +18,21 @@
 // reported. Not every generation has one: the practice began partway through, so v12 has no
 // `release/0.12.x` and never will. Failing there would make this file impossible to keep identical
 // across branches — the one thing fhevm-npm must be — for a branch that is not coming back.
+//
+// THE ESCAPE HATCH: `FHEVM_PARITY_REF_<GENERATION>` names a different ref to compare against.
+//
+//   FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity
+//
+// It exists for one situation, and it is a common one: V(N-1) is brought across while the work it
+// comes from is still on a topic branch, unmerged into the release branch that owns it. Until that
+// merge lands the derived ref is genuinely the wrong baseline, and the check has nothing useful to
+// say — the alternative is to disable it, which is worse, because then nothing is compared at all.
+//
+// Two rules keep it from becoming a way to silence the check. It is REPORTED on every run that uses
+// it, as a note rather than a verbose success, because a green run that did not compare against the
+// release branch has not proved what this check exists to prove. And an override that does not
+// resolve FAILS rather than skips: the skip above is for a branch that was never created, whereas a
+// ref someone typed is a ref they expect to exist.
 
 import { execFileSync } from 'node:child_process';
 import { relative, resolve, sep } from 'node:path';
@@ -37,8 +52,27 @@ export type GenerationParityInspection = {
   readonly successes: readonly string[];
   /** Generations whose release branch does not resolve, said out loud so a skip is never silent. */
   readonly skipped: readonly string[];
+  /** Generations compared against an overridden ref, said out loud for the same reason. */
+  readonly overridden: readonly string[];
   readonly violations: readonly Violation[];
 };
+
+/** `FHEVM_PARITY_REF_V13=<ref>` overrides the ref generation `v13` is compared against. */
+export const OVERRIDE_PREFIX = 'FHEVM_PARITY_REF_';
+
+/**
+ * The overrides an environment declares, keyed by generation name (`v13`), lowercased to match the
+ * directory names `npm-manifest.json#generations` holds. An empty value is treated as unset, so
+ * `FHEVM_PARITY_REF_V13= ...` in a shell prefix does not silently mean "compare with nothing".
+ */
+export function parityRefOverrides(env: Readonly<Record<string, string | undefined>>): Record<string, string> {
+  const overrides: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (!key.startsWith(OVERRIDE_PREFIX) || value === undefined || value.trim() === '') continue;
+    overrides[key.slice(OVERRIDE_PREFIX.length).toLowerCase()] = value.trim();
+  }
+  return overrides;
+}
 
 function runGit(args: readonly string[], cwd: string): string {
   return execFileSync('git', [...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -72,12 +106,14 @@ export function inspectGenerationParity(
   workspaceRoot: string,
   manifest: NpmManifest,
   git: GitRunner = runGit,
+  refOverrides: Readonly<Record<string, string>> = {},
 ): GenerationParityInspection {
   const repoRoot = git(['rev-parse', '--show-toplevel'], workspaceRoot).trim();
 
   const checkedKeys: string[] = [];
   const successes: string[] = [];
   const skipped: string[] = [];
+  const overridden: string[] = [];
   const violations: Violation[] = [];
 
   for (const family of generationFamilies(manifest)) {
@@ -87,7 +123,11 @@ export function inspectGenerationParity(
     const key = family.previous;
     const name = key.slice(key.lastIndexOf('/') + 1);
 
-    const branch = releaseBranchOf(name);
+    const override = refOverrides[name];
+    const releaseBranch = releaseBranchOf(name);
+    // An explicit override answers the "which ref" question outright, so the naming rule below — which
+    // exists only to DERIVE that ref — has nothing left to enforce.
+    const branch = override ?? releaseBranch;
     if (branch === undefined) {
       violations.push({
         rule: RULE,
@@ -101,11 +141,30 @@ export function inspectGenerationParity(
 
     const ref = resolveRef(git, repoRoot, branch);
     if (ref === undefined) {
+      // A ref someone typed is a ref they expect to exist; only the DERIVED one may quietly not.
+      if (override !== undefined) {
+        violations.push({
+          rule: RULE,
+          packageKey: './npm-manifest.json',
+          message:
+            `${OVERRIDE_PREFIX}${name.toUpperCase()} names '${override}', but neither it nor ` +
+            `'origin/${override}' resolves; fetch it, or unset the variable to compare with ` +
+            `'${releaseBranch ?? 'the release branch'}'`,
+        });
+        continue;
+      }
       skipped.push(
         `${key}: skipped — neither '${branch}' nor 'origin/${branch}' resolves, so nothing about this ` +
           `generation was verified; 'git fetch origin ${branch}' if the branch exists`,
       );
       continue;
+    }
+    if (override !== undefined) {
+      overridden.push(
+        `${key}: compared with '${ref}' because ${OVERRIDE_PREFIX}${name.toUpperCase()} is set — this run ` +
+          `does NOT prove parity with '${releaseBranch ?? 'the release branch'}', which is what this check ` +
+          `is for; unset it once that branch carries the work`,
+      );
     }
     checkedKeys.push(key);
 
@@ -144,5 +203,5 @@ export function inspectGenerationParity(
     successes.push(`${key}: ${String(tracked.length)} tracked file(s) compared with ${ref}`);
   }
 
-  return { checkedKeys, successes, skipped, violations };
+  return { checkedKeys, successes, skipped, overridden, violations };
 }

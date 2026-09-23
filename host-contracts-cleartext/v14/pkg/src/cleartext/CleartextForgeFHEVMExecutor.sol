@@ -2,8 +2,10 @@
 pragma solidity ^0.8.24;
 
 import {FHEVMExecutor} from "../contracts/FHEVMExecutor.sol";
-import {FheType} from "../contracts/shared/FheType.sol";
-import {ICleartextArithmetic} from "./ICleartextArithmetic.sol";
+import {FheType} from "./shared/LibFheType.sol";
+import {ICleartextArithmetic} from "./shared/interfaces/ICleartextArithmetic.sol";
+import {IPlaintexts} from "./shared/interfaces/IPlaintexts.sol";
+import {Operators as CleartextOperators} from "./shared/FhevmOperatorsEnum.sol";
 import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
@@ -12,7 +14,7 @@ import {VmSafe} from "forge-std/Vm.sol";
 ///      to the external `CleartextArithmetic` contract, which computes the result and persists it in
 ///      `CleartextDB`. The executor never touches the DB — keeping the arithmetic + storage bytecode
 ///      out of this contract preserves EIP-170 headroom and lets multiple executors share one DB.
-contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
+contract CleartextForgeFHEVMExecutor is FHEVMExecutor, IPlaintexts {
     VmSafe private constant vmSafe = VmSafe(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     /// @notice Marks the Forge-only variant, mirroring forge-std's `IS_TEST`. A constant rather than a
@@ -28,6 +30,12 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
     //mapping(bytes32 => uint256) public plaintexts;
     function plaintexts(bytes32 result) public view returns (uint256) {
         return _cleartext().plaintexts(result);
+    }
+
+    /// @dev Lets a reader tell a handle worth zero from one this stack never minted — the same `IPlaintexts`
+    ///      face as `CleartextFHEVMExecutor`, so whatever reads plaintexts through the executor can ask.
+    function hasPlaintext(bytes32 result) public view returns (bool) {
+        return _cleartext().hasPlaintext(result);
     }
 
     function cast(bytes32 ct, FheType toType) public override returns (bytes32 result) {
@@ -91,7 +99,7 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
         result = super._binaryOp(op, lhs, rhs, scalarByte, resultType);
         vmSafe.pauseGasMetering();
         {
-            _cleartext().recordBinaryOp(op, result, lhs, rhs, scalarByte, _typeOf(lhs));
+            _cleartext().recordBinaryOp(_op(op), result, lhs, rhs, scalarByte, _typeOf(lhs));
         }
         vmSafe.resumeGasMetering();
     }
@@ -117,7 +125,7 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
         result = super._unaryOp(op, ct);
         vmSafe.pauseGasMetering();
         {
-            _cleartext().recordUnaryOp(op, result, ct, _typeOf(ct));
+            _cleartext().recordUnaryOp(_op(op), result, ct, _typeOf(ct));
         }
         vmSafe.resumeGasMetering();
     }
@@ -130,7 +138,7 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
         result = super._ternaryOp(op, lhs, middle, rhs);
         vmSafe.pauseGasMetering();
         {
-            _cleartext().recordTernaryOp(op, result, lhs, middle, rhs);
+            _cleartext().recordTernaryOp(_op(op), result, lhs, middle, rhs);
         }
         vmSafe.resumeGasMetering();
     }
@@ -144,7 +152,7 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
         result = super._naryOp(op, values, resultType);
         vmSafe.pauseGasMetering();
         {
-            _cleartext().recordNaryOp(op, result, bytes32(0), values, resultType);
+            _cleartext().recordNaryOp(_op(op), result, bytes32(0), values, resultType);
         }
         vmSafe.resumeGasMetering();
     }
@@ -158,7 +166,7 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
         result = super._naryOp(op, value, values, resultType);
         vmSafe.pauseGasMetering();
         {
-            _cleartext().recordNaryOp(op, result, value, values, _typeOf(value));
+            _cleartext().recordNaryOp(_op(op), result, value, values, _typeOf(value));
         }
         vmSafe.resumeGasMetering();
     }
@@ -172,5 +180,15 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor {
      */
     function getCleartextArithmeticAddress() public view virtual returns (address) {
         return address(cleartextArithmeticAdd);
+    }
+
+    /**
+     * @dev The vendored executor's `Operators` and the cleartext layer's are two DECLARATIONS of the
+     *      same list, so Solidity treats them as two types and a value crosses only through `uint8`.
+     *      That crossing happens here and nowhere else, so the record* calls below read as if there
+     *      were one type — and `FhevmOperators.t.sol` is what guarantees the positions still line up.
+     */
+    function _op(Operators op) private pure returns (CleartextOperators) {
+        return CleartextOperators(uint8(op));
     }
 }

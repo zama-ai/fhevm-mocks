@@ -46,6 +46,7 @@ exclude_lints = [
     "mixed-case-function", 
     "named-struct-fields", 
     "screaming-snake-case-const",
+    "screaming-snake-case-immutable",
     "pascal-case-struct",
     "asm-keccak256",
     "unwrapped-modifier-logic",

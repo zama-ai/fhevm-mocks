@@ -8,6 +8,7 @@ import {
   ADDRESSES_OUTPUT_PATH as LOCAL_HOST_ADDRESSES_PATH,
   OUTPUT_PATH as LOCAL_HOST_BYTECODE_PATH,
   localHostAddresses,
+  AUTHENTIC_CONTRACTS,
 } from '../internal/generateLocalHostBytecode.ts';
 import {
   ADDRESS_NAMES,
@@ -359,7 +360,7 @@ void test('LocalHostBytecode.sol declares the ZamaConfig localhost addresses', (
 
 /**
  * The cheatcode-calling cleartext variants, which LocalHostBytecode.sol carries ALONGSIDE the standard
- * blobs so `FhevmCleartextDeploy.sol` can use them while `DeployLocalStack.s.sol` keeps the plain ones.
+ * blobs so `ForgeFhevmDeploy.sol` can use them while `DeployLocalStack.s.sol` keeps the plain ones.
  *
  * They have no committed template, and should not: `TARGET_CONTRACTS` drives `pkg/ts/artifacts`, and a
  * contract that reverts outside forge has no business shipping to a TypeScript consumer. So they are
@@ -371,6 +372,7 @@ const FORGE_BLOBS: ReadonlyArray<{ readonly constantName: string; readonly stand
   { constantName: 'CLEARTEXT_FORGE_ARITHMETIC', standardOf: 'CLEARTEXT_ARITHMETIC' },
   { constantName: 'CLEARTEXT_FORGE_FHEVM_EXECUTOR', standardOf: 'CLEARTEXT_FHEVM_EXECUTOR' },
   { constantName: 'CLEARTEXT_FORGE_ACL', standardOf: 'CLEARTEXT_ACL' },
+  { constantName: 'CLEARTEXT_FORGE_HCU_LIMIT', standardOf: 'CLEARTEXT_HCU_LIMIT' },
 ];
 
 void test('LocalHostBytecode.sol carries the Forge cleartext variants alongside the standard blobs', () => {
@@ -520,12 +522,12 @@ function occurrences(haystack: string, needle: string): number {
 void test('generated interfaces cover every target and share one FheType', () => {
   const interfaceDir = join(PKG_DIR_ABS_PATH, 'forge', 'src', '_internal', 'interfaces');
 
-  for (const target of TARGET_CONTRACTS) {
+  for (const target of [...TARGET_CONTRACTS, ...AUTHENTIC_CONTRACTS]) {
     const path = join(interfaceDir, `I${target.contractName}.sol`);
     const source = readFileSync(path, 'utf8');
 
     assert.match(source, /^\/\/ SPDX-License-Identifier: BSD-3-Clause-Clear\n/, `${path}: SPDX`);
-    // ^0.8.24: the payload's own floor, and what the harness pins so test/forge/FhevmCleartextDeploy.t.sol can compile
+    // ^0.8.24: the payload's own floor, and what the harness pins so test/forge/ForgeFhevmDeploy.t.sol can compile
     // these files. It also accepts every consumer a ^0.8.27 pragma would.
     assert.match(source, /^pragma solidity \^0\.8\.24;$/m, `${path}: pragma`);
     assert.match(source, new RegExp(`interface I${target.contractName} \\{`), `${path}: interface name`);
@@ -534,17 +536,17 @@ void test('generated interfaces cover every target and share one FheType', () =>
     // The generator rewrites it to the shared enum; if that ever stops firing the types stop unifying.
     assert.doesNotMatch(source, /type FheType is uint8;/, `${path}: local FheType must be rewritten`);
     if (/\bFheType\b/.test(source)) {
-      assert.match(
-        source,
-        /import \{FheType\} from "\.\.\/\.\.\/\.\.\/\.\.\/src\/contracts\/shared\/FheType\.sol";/,
-        `${path}: import`,
-      );
+      // The PAYLOAD's copy, reached through LibFheType, not the vendored original. pkg/forge/src ships
+      // self-contained — generate:forge-shared puts FheType under shared/ — so an interface importing
+      // the vendored file would put a SECOND declaration in the same compilation, and two FheType
+      // enums do not convert. Every payload-facing test fails loudly when that happens.
+      assert.match(source, /import \{FheType\} from "\.\.\/\.\.\/shared\/LibFheType\.sol";/, `${path}: import`);
     }
   }
 
   assert.equal(
     readdirSync(interfaceDir).filter((name) => name.endsWith('.sol')).length,
-    TARGET_CONTRACTS.length,
+    TARGET_CONTRACTS.length + AUTHENTIC_CONTRACTS.length,
     'no stale interfaces left behind',
   );
 });
@@ -552,11 +554,11 @@ void test('generated interfaces cover every target and share one FheType', () =>
 /**
  * The two hand-written files in the forge payload, and the reason it needs no forge-std.
  *
- * Both sit directly under `src/`, beside `FhevmCleartextDeploy.sol`, rather than in `_internal/`: that directory
+ * Both sit directly under `src/`, beside `ForgeFhevmDeploy.sol`, rather than in `_internal/`: that directory
  * is for generated files, and the generator wipes `_internal/interfaces/` on every run. Nothing re-derives
  * either of these, so their shape is checked here.
  */
-void test('the vendored forge cheatcode files are hand-written and cover what FhevmCleartextDeploy calls', () => {
+void test('the vendored forge cheatcode files are hand-written and cover what ForgeFhevmDeploy calls', () => {
   const forgeSrc = join(PKG_DIR_ABS_PATH, 'forge', 'src');
   const iface = readFileSync(join(forgeSrc, 'IForgeVm.sol'), 'utf8');
   const base = readFileSync(join(forgeSrc, 'ForgeVmBase.sol'), 'utf8');
@@ -577,7 +579,7 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fh
   // library can bind it too, and ForgeVmBase pulls it in alongside the interface.
   assert.match(base, /import \{[^}]*\bIForgeVm\b[^}]*\} from "\.\/IForgeVm\.sol";/, 'ForgeVmBase.sol: import');
 
-  // Every cheatcode FhevmCleartextDeploy and the emulation libraries reach for. A missing one is a compile error
+  // Every cheatcode ForgeFhevmDeploy and the emulation libraries reach for. A missing one is a compile error
   // there, but this names them.
   for (const cheatcode of [
     'getNonce',

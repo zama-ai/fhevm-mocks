@@ -46,7 +46,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(_upgradeImplArtifact(1), "pkg/src/contracts/KMSGeneration.sol:KMSGeneration");
         assertEq(_upgradeImplArtifact(2), "pkg/src/cleartext/CleartextACL.sol:CleartextACL");
         assertEq(_upgradeImplArtifact(3), "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor");
-        assertEq(_upgradeImplArtifact(4), "pkg/src/contracts/HCULimit.sol:HCULimit");
+        assertEq(_upgradeImplArtifact(4), "pkg/src/cleartext/CleartextHCULimit.sol:CleartextHCULimit");
         assertEq(_upgradeImplArtifact(5), "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier");
         assertEq(_upgradeImplArtifact(6), "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic");
     }
@@ -77,7 +77,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(bytes4(UpgradeInitData.initData(0, hex"12345678")), bytes4(hex"12345678"));
         assertEq(bytes4(UpgradeInitData.initData(1, "")), bytes4(keccak256("reinitializeV2()")));
         assertEq(bytes4(UpgradeInitData.initData(2, "")), bytes4(keccak256("reinitializeV5()")));
-        assertEq(bytes4(UpgradeInitData.initData(3, "")), bytes4(keccak256("reinitializeV5()")));
+        assertEq(bytes4(UpgradeInitData.initData(3, "")), bytes4(keccak256("reinitializeV6()")));
         assertEq(bytes4(UpgradeInitData.initData(4, "")), bytes4(keccak256("reinitializeV4()")));
         assertEq(bytes4(UpgradeInitData.initData(5, "")), bytes4(keccak256("reinitializeV4()")));
         assertEq(bytes4(UpgradeInitData.initData(6, "")), bytes4(keccak256("reinitializeV3()")));

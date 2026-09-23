@@ -137,7 +137,7 @@ export const EXPECTED_POOLED_SITES: Readonly<Record<string, Readonly<Partial<Rec
   // Two pooled addresses — the one contract in the stack whose table can be reordered.
   CleartextFHEVMExecutor: { ACL_ADDRESS: 1, HCU_LIMIT_ADDRESS: 1 },
   // One pooled address, so its table has nothing to permute.
-  HCULimit: { FHEVM_EXECUTOR_ADDRESS: 1 },
+  CleartextHCULimit: { FHEVM_EXECUTOR_ADDRESS: 1 },
 };
 
 /**
