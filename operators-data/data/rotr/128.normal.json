@@ -1,0 +1,29 @@
+{
+  "op": "rotr",
+  "arity": 2,
+  "semantics": "amount-mod-width",
+  "encoding": "hex-string",
+  "width": 128,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "rotr_128_8_pattern_by_3",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 8, "value": "0x3" },
+      "result": { "bits": 128, "value": "0xb4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4" }
+    },
+    {
+      "id": "rotr_128_8_pattern_by_4",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 8, "value": "0x4" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" }
+    },
+    {
+      "id": "rotr_128_8_pattern_by_half",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 8, "value": "0x40" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+    }
+  ]
+}

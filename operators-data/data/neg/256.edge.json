@@ -1,0 +1,71 @@
+{
+  "op": "neg",
+  "arity": 1,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 256,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "neg_256_zero",
+      "lhs": { "bits": 256, "value": "0x0" },
+      "result": { "bits": 256, "value": "0x0" }
+    },
+    {
+      "id": "neg_256_one",
+      "lhs": { "bits": 256, "value": "0x1" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "neg_256_max",
+      "lhs": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 256, "value": "0x1" }
+    },
+    {
+      "id": "neg_256_max_minus_1",
+      "lhs": { "bits": 256, "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe" },
+      "result": { "bits": 256, "value": "0x2" }
+    },
+    {
+      "id": "neg_256_max_minus_small",
+      "lhs": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff9b" },
+      "result": { "bits": 256, "value": "0x65" }
+    },
+    {
+      "id": "neg_256_top_bit",
+      "lhs": { "bits": 256, "value": "0x8000000000000000000000000000000000000000000000000000000000000000" },
+      "result": { "bits": 256, "value": "0x8000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "id": "neg_256_top_bit_minus_1",
+      "lhs": { "bits": 256, "value": "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 256, "value": "0x8000000000000000000000000000000000000000000000000000000000000001" }
+    },
+    {
+      "id": "neg_256_top_bit_plus_1",
+      "lhs": { "bits": 256, "value": "0x8000000000000000000000000000000000000000000000000000000000000001" },
+      "result": { "bits": 256, "value": "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "neg_256_low_half_max",
+      "lhs": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffff00000000000000000000000000000001" }
+    },
+    {
+      "id": "neg_256_low_half_carry",
+      "lhs": { "bits": 256, "value": "0x100000000000000000000000000000000" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffff00000000000000000000000000000000" }
+    },
+    {
+      "id": "neg_256_low_byte_zero",
+      "lhs": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00" },
+      "result": { "bits": 256, "value": "0x100" }
+    },
+    {
+      "id": "neg_256_only_low_byte",
+      "lhs": { "bits": 256, "value": "0xff" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01" }
+    }
+  ]
+}

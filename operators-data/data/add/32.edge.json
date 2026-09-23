@@ -1,0 +1,341 @@
+{
+  "op": "add",
+  "arity": 2,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "add_32_32_zero_zero",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_32_32_plus_zero",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_32_32_zero_plus",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x64" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_32_32_max_plus_zero",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_32_32_max_minus_1_plus_zero",
+      "lhs": { "bits": 32, "value": "0xfffffffe" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_32_max",
+      "lhs": { "bits": 32, "value": "0xfffffff8" },
+      "rhs": { "bits": 32, "value": "0x7" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_32_32_max_minus_1",
+      "lhs": { "bits": 32, "value": "0xfffffff7" },
+      "rhs": { "bits": 32, "value": "0x7" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_32_both_max",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_32_carry_top_bit",
+      "lhs": { "bits": 32, "value": "0x7fffffff" },
+      "rhs": { "bits": 32, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "add_32_32_wrap_to_0",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 32, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_32_32_wrap_past_0",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 32, "value": "0x7" },
+      "result": { "bits": 32, "value": "0x6" }
+    },
+    {
+      "id": "add_32_16_zero_zero",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_32_16_plus_zero",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_32_16_zero_plus",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x64" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_32_16_max_plus_zero",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_32_16_max_minus_1_plus_zero",
+      "lhs": { "bits": 32, "value": "0xfffffffe" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_16_max",
+      "lhs": { "bits": 32, "value": "0xfffffff8" },
+      "rhs": { "bits": 16, "value": "0x7" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_32_16_max_minus_1",
+      "lhs": { "bits": 32, "value": "0xfffffff7" },
+      "rhs": { "bits": 16, "value": "0x7" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_16_both_max",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 32, "value": "0xfffe" }
+    },
+    {
+      "id": "add_32_16_carry_top_bit",
+      "lhs": { "bits": 32, "value": "0x7fffffff" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "add_32_16_wrap_to_0",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_32_16_wrap_past_0",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 16, "value": "0x7" },
+      "result": { "bits": 32, "value": "0x6" }
+    },
+    {
+      "id": "add_32_8_zero_zero",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_32_8_plus_zero",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_32_8_zero_plus",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x64" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_32_8_max_plus_zero",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_32_8_max_minus_1_plus_zero",
+      "lhs": { "bits": 32, "value": "0xfffffffe" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_8_max",
+      "lhs": { "bits": 32, "value": "0xfffffff8" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_32_8_max_minus_1",
+      "lhs": { "bits": 32, "value": "0xfffffff7" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_32_8_both_max",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 32, "value": "0xfe" }
+    },
+    {
+      "id": "add_32_8_carry_top_bit",
+      "lhs": { "bits": 32, "value": "0x7fffffff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "add_32_8_wrap_to_0",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_32_8_wrap_past_0",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 32, "value": "0x6" }
+    },
+    {
+      "id": "add_16_32_zero_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_16_32_plus_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x64" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_16_32_zero_plus",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_16_32_max_plus_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_16_32_max_minus_1_plus_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0xfffffffe" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_16_32_max",
+      "lhs": { "bits": 16, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0xfffffff8" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_16_32_max_minus_1",
+      "lhs": { "bits": 16, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0xfffffff7" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_16_32_both_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0xfffe" }
+    },
+    {
+      "id": "add_16_32_carry_top_bit",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 32, "value": "0x7fffffff" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "add_16_32_wrap_to_0",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_16_32_wrap_past_0",
+      "lhs": { "bits": 16, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0x6" }
+    },
+    {
+      "id": "add_8_32_zero_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_8_32_plus_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x64" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_8_32_zero_plus",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0x64" }
+    },
+    {
+      "id": "add_8_32_max_plus_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_8_32_max_minus_1_plus_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0xfffffffe" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_8_32_max",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0xfffffff8" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "add_8_32_max_minus_1",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0xfffffff7" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "add_8_32_both_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0xfe" }
+    },
+    {
+      "id": "add_8_32_carry_top_bit",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 32, "value": "0x7fffffff" },
+      "result": { "bits": 32, "value": "0x80000000" }
+    },
+    {
+      "id": "add_8_32_wrap_to_0",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "add_8_32_wrap_past_0",
+      "lhs": { "bits": 8, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0x6" }
+    }
+  ]
+}
