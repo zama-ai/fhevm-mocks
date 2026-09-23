@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmGeneration, HostVersions, LibFhevmVersion} from "../../pkg/src/LibFhevmVersion.sol";
+import {FhevmGeneration, HostVersions, LibFhevmVersion, Version} from "../../pkg/src/LibFhevmVersion.sol";
 import {LocalHostVersions} from "../../pkg/src/_host/_internal/LocalHostVersions.sol";
 
 /// The version gate accepts a LINE, not a release: floor (fhevm v0.14.0) to ceiling (the vendored release).
@@ -13,12 +13,52 @@ contract LibFhevmVersionTest is Test {
     string internal constant CEILING = "FHEVMExecutor v0.5.0";
 
     function test_parsesNameAndThreeNumbers() public pure {
-        LibFhevmVersion.Version memory v = LibFhevmVersion.parse("FHEVMExecutor v0.5.12");
+        Version memory v = LibFhevmVersion.parse("FHEVMExecutor v0.5.12");
         assertTrue(v.ok);
-        assertEq(v.nameHash, keccak256("FHEVMExecutor"));
+        assertEq(v.name, "FHEVMExecutor");
         assertEq(v.major, 0);
         assertEq(v.minor, 5);
         assertEq(v.patch, 12);
+    }
+
+    /**
+     * The shapes the cheatcode parser has to refuse, which a character scanner never met.
+     *
+     * `vm.split` and `vm.parseUint` are doing the work now, and each brings its own way of being too
+     * generous: `replace` would have deleted a stray `v` anywhere in the tag and read what was left as
+     * valid, and `parseUint` accepts things a version number should not contain. Splitting on `v` and
+     * demanding exactly two parts is what closes the first; the second is closed by `parseUint` itself
+     * reverting, which is caught rather than propagated.
+     */
+    function test_theCheatcodeParserRefusesTheseToo() public pure {
+        assertFalse(LibFhevmVersion.parse("ACL vv0.4.0").ok, "a doubled v");
+        assertFalse(LibFhevmVersion.parse("ACL v0.4.0v").ok, "a trailing v");
+        assertFalse(LibFhevmVersion.parse("ACL v0.4v.0").ok, "a v inside the numbers");
+        assertFalse(LibFhevmVersion.parse("ACL v0.4.0 extra").ok, "a third word");
+        assertFalse(LibFhevmVersion.parse("ACL  v0.4.0").ok, "two spaces");
+        assertFalse(LibFhevmVersion.parse("ACL v-1.4.0").ok, "a negative number");
+        assertFalse(LibFhevmVersion.parse("ACL v0x4.4.0").ok, "a hex number");
+        assertFalse(LibFhevmVersion.parse("ACL v0X4.4.0").ok, "an upper-case hex number");
+        assertFalse(LibFhevmVersion.parse("ACL v0.1e3.0").ok, "scientific notation");
+        assertFalse(LibFhevmVersion.parse("ACL v0.4 .0").ok, "a trailing space inside a number");
+        assertFalse(LibFhevmVersion.parse("ACL v0.4.").ok, "a missing patch");
+        assertFalse(LibFhevmVersion.parse("ACL v0..0").ok, "a missing minor");
+    }
+
+    /// A name that CONTAINS a v is ordinary and must still parse — the split is on the tag, not the name.
+    function test_aNameContainingAVStillParses() public pure {
+        Version memory v = LibFhevmVersion.parse("KMSVerifier v0.4.0");
+        assertTrue(v.ok, "parsed");
+        assertEq(v.name, "KMSVerifier", "name kept whole");
+        assertEq(v.minor, 4, "minor");
+    }
+
+    /// Zero padding goes the same way, and for the same reason: `toString(4)` is "4", not "04". Stricter
+    /// than the parser this replaced, which read "04" as four. No release has ever published one —
+    /// upstream renders these from integer constants — and a version gate should not be the lenient one.
+    function test_aZeroPaddedNumberIsRefused() public pure {
+        assertFalse(LibFhevmVersion.parse("ACL v0.04.0").ok, "zero padded");
+        assertTrue(LibFhevmVersion.parse("ACL v0.4.0").ok, "but the canonical form is fine");
     }
 
     function test_anythingElseDoesNotParse() public pure {
