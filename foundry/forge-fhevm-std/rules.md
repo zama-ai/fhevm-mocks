@@ -181,13 +181,25 @@ fork to block 1 and mines one on the node.
 **2.15 — a wrong protocol LINE fails by name, before anything else; any release of the vendored line is
 accepted.** On first contact with a fork, every host contract's `getVersion()` must fall within the line
 this SDK vendors: from what the line first shipped (`LibFhevmVersion.*_FLOOR`, hand-written from the
-v0.13.0 tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
+v0.14.0 tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
 upgrade the same day — Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored 0.13.6's `v0.5.0` — and
 every release of a line speaks the ABI this SDK speaks, so an exact match would refuse stacks that work.
 Outside the line it is the UNSUPPORTED PROTOCOL VERSION box, floor and ceiling against actual per
-contract, never an attempt that dies in an ABI mismatch with an empty revert (devnet Sepolia: `ACL v0.5.0`
-against the 0.13 line's `v0.4.0`). New vendored release → regenerate `LocalHostVersions` (v13
-`generate:contract-versions`); new LINE → move the floors too, and `LibFhevmVersion.t.sol` pins both.
+contract, never an attempt that dies in an ABI mismatch with an empty revert. New vendored release →
+regenerate `LocalHostVersions` (v14 `generate:contract-versions`); new LINE → move the floors too, and
+`LibFhevmVersion.t.sol` pins both.
+
+**2.15.1 — ONE generation back is upgraded on the fork, not refused; this exception is forge-fhevm-std's
+alone.** A stack whose versions are all on the PREVIOUS line — that line's own floors and ceilings,
+hand-written in `LibFhevmVersion` and compared on major.minor only, since a generation is the shape of an
+ABI and not a patch number — is brought forward in memory, on the fork, by
+`LibForgeFhevmUpgrade.upgradeFromPreviousGeneration`: the same implementations and the same reinitializers
+`pkg/ts/upgrade.ts` sends on a real chain, deployed patched for the fork's own addresses (4.1) and pranked
+as `ACL.owner()`. Then rule 2.15's gate runs, unchanged, and an upgrade that half worked is refused by it
+exactly as an unupgraded stack would be. This reaches exactly one generation: v(N-2) is refused, because
+chaining two upgrades would rehearse a path nothing else rehearses. It does NOT loosen 2.15 in the other
+direction — an older SDK on a newer chain stays refused, because it cannot know what the newer line does —
+and no other SDK gets it: a Hardhat test is not on a copy of the chain, and the upgrade would be real.
 
 **2.11 — a setup failure tells the user how to fix it, loudly.** Everything that can go wrong because a
 test is SET UP wrong — the `fhevm` handle missing, a fork entered through `vm` instead of `fhevm` (drift),
@@ -331,9 +343,17 @@ npm run generate
   offsets where they land so the TS deploy can overwrite them at deploy time. Hence the ordering: the
   placeholder file is written *before* `forge build`, or the previous run's markers stay baked in at
   the recorded offsets.
-- **`LocalHostBytecode.sol`** (`generate:local-host-bytecode`) deliberately does NOT patch. It
-  derives the deployer from the mnemonic, precomputes the nonce sequence's addresses, writes them as
-  a real config, rebuilds, and reads the creation bytecode straight out of the artifacts.
+- **`LocalHostBytecode.sol`** (`generate:local-host-bytecode`) deliberately does NOT patch for the
+  local deploy. It derives the deployer from the mnemonic, precomputes the nonce sequence's addresses,
+  writes them as a real config, rebuilds, and reads the creation bytecode straight out of the artifacts.
+  ONE EXCEPTION, and only this one: the upgrade tables it also emits (`*_UPGRADE_CREATION_CODE`,
+  `*_UPGRADE_SITES`) exist so 2.15.1 can deploy those same host implementations beside a REMOTE stack,
+  whose addresses are not known at generation time and cannot be compiled in. That patching is
+  `LibHostUpgradeCode`, it is cheatcode-free and pure, and it is permitted for upgrading an existing
+  deployed remote non-cleartext stack one generation behind — for nothing else. In particular the local
+  deploy still recompiles, and the generator measures every site's offset in the blob it SHIPS rather
+  than reusing the template offsets: solc pools address constants by value, so two builds order them
+  differently (`POOL_REORDER_EXEMPT` is that same fact, from the other side).
 
 **4.2 — `patch-sites.json` is a tripwire, not a build input.** It records how many bytecode sites each
 placeholder is patched at, per contract. A count falling to zero means a deploy would bake in a

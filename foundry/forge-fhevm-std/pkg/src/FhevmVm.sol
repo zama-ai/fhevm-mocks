@@ -16,7 +16,11 @@ import {LibForgeFhevmHCU} from "./_host/LibForgeFhevmHCU.sol";
 import {ICleartextFHEVMExecutor} from "./_host/_internal/interfaces/ICleartextFHEVMExecutor.sol";
 import {LibFhevmHandle} from "./_host/shared/LibFhevmHandle.sol";
 import {LibCleartextProbe} from "./_host/shared/LibCleartextProbe.sol";
-import {LibFhevmVersion} from "./LibFhevmVersion.sol";
+import {LibForgeFhevmUpgrade} from "./_host/LibForgeFhevmUpgrade.sol";
+import {FhevmAddressRole} from "./_host/_internal/LocalHostBytecode.sol";
+import {IACL} from "./_host/_internal/interfaces/IACL.sol";
+import {IFHEVMExecutor} from "./_host/_internal/interfaces/IFHEVMExecutor.sol";
+import {FhevmGeneration, HostVersions, LibFhevmVersion} from "./LibFhevmVersion.sol";
 import {
     ACL_ADDRESS,
     FHEVM_EXECUTOR_ADDRESS,
@@ -861,6 +865,11 @@ contract FhevmVm is IFhevmVm {
             if (chain.fhevmExecutor.code.length == 0) _provisionLocalStack(chain);
 
             if (!LibCleartextProbe.isCleartext(chain.fhevmExecutor)) {
+                // A stack one generation behind is brought forward rather than refused: chains do not
+                // all upgrade on release day, and a fork of one that has not is the common case, not an
+                // edge case. Anything else — older still, or newer — falls through to the gate below and
+                // is refused there, by name.
+                _upgradeIfOneGenerationBehind(chain);
                 _requireSupportedVersions(chain);
                 // The fork's verifiers are registered against signers nobody here holds a key for;
                 // re-register the cleartext ones, so the input proofs and decryption proofs built here are
@@ -892,6 +901,60 @@ contract FhevmVm is IFhevmVm {
         } catch {
             return NO_FORK;
         }
+    }
+
+    // - Upgrading a fork ------------------------------------------------------
+
+    /**
+     * @dev Runs the generation's own upgrade against the forked stack when the chain is exactly one
+     *      generation behind, and does nothing otherwise.
+     *
+     *      IN MEMORY, ON THE FORK, and only there: nothing is broadcast and the real chain is untouched.
+     *      Fork state persists across switches, so like everything else in `_prepareFork` this happens
+     *      once per fork.
+     *
+     *      THE GATE STILL RUNS AFTERWARDS. This does not vouch for the result; it changes what the gate
+     *      is looking at. An upgrade that half worked is then refused by the gate exactly as an
+     *      unupgraded stack would be, with the same message naming the contract that disagrees.
+     */
+    function _upgradeIfOneGenerationBehind(StdFhevmChains.FhevmChain memory chain) private {
+        address hcuLimit = IFHEVMExecutor(chain.fhevmExecutor).getHCULimitAddress();
+        address pauserSet = IACL(chain.acl).getPauserSetAddress();
+
+        HostVersions memory versions = HostVersions({
+            acl: _versionOf(chain.acl),
+            fhevmExecutor: _versionOf(chain.fhevmExecutor),
+            kmsVerifier: _versionOf(chain.kmsVerifier),
+            inputVerifier: _versionOf(chain.inputVerifier),
+            hcuLimit: _versionOf(hcuLimit),
+            protocolConfig: _versionOf(chain.protocolConfig),
+            kmsGeneration: _versionOf(chain.kmsGeneration)
+        });
+        if (LibFhevmVersion.classify(versions) != FhevmGeneration.Previous) return;
+
+        // Indexed by `FhevmAddressRole`, which is what the patcher and the op table both speak. Two of
+        // them are read from the stack rather than the table: no chain entry carries them, and the
+        // contracts do. The cleartext roles stay zero — no host implementation names them, and a real
+        // deployment has no such contract.
+        address[10] memory addresses;
+        addresses[uint8(FhevmAddressRole.ACL)] = chain.acl;
+        addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = chain.fhevmExecutor;
+        addresses[uint8(FhevmAddressRole.KMSVerifier)] = chain.kmsVerifier;
+        addresses[uint8(FhevmAddressRole.InputVerifier)] = chain.inputVerifier;
+        addresses[uint8(FhevmAddressRole.HCULimit)] = hcuLimit;
+        addresses[uint8(FhevmAddressRole.ProtocolConfig)] = chain.protocolConfig;
+        addresses[uint8(FhevmAddressRole.KMSGeneration)] = chain.kmsGeneration;
+        addresses[uint8(FhevmAddressRole.PauserSet)] = pauserSet;
+
+        LibForgeFhevmUpgrade.upgradeFromPreviousGeneration(addresses);
+    }
+
+    /// @dev `getVersion()` or "" — an address with no code, or one that answers something else, reads as
+    ///      absent, which `classify` treats as a reading rather than an error.
+    function _versionOf(address target) private view returns (string memory) {
+        if (target == address(0)) return "";
+        (bool ok, bytes memory ret) = target.staticcall(abi.encodeWithSignature("getVersion()"));
+        return (ok && ret.length >= 64) ? abi.decode(ret, (string)) : "";
     }
 
     // - Version gate ----------------------------------------------------------
