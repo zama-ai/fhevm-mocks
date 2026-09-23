@@ -210,6 +210,87 @@ void test('patched templates match a Forge build compiled with different config 
   }
 });
 
+/**
+ * Order-preserving synthetic addresses: the same RELATIVE order as the localhost set the upgrade blobs
+ * ship holding, so the compiler lays the contracts out the same way for both.
+ *
+ * That constraint is not fussiness, it is the property under test. solc sorts a pooled constant table by
+ * VALUE, so an address set that inverts two pooled addresses makes it emit the table — and the code that
+ * indexes it — differently. Patching cannot reproduce that, and is not meant to: it rewrites values in
+ * place, leaving each where its own value was, so the reads still resolve. Measured on `FHEVMExecutor`,
+ * which pools ACL and HCULimit: against an inverting set the patched blob and a fresh compile differ by
+ * 104 bytes, of which only 40 are addresses. Byte equality is therefore claimable exactly when the
+ * ordering is preserved; for every other set the guarantee is behavioural, and
+ * `test/forge/LibHostUpgradeCode.t.sol` gets it by deploying the patched implementation and asking it
+ * where its siblings are.
+ */
+const ORDER_PRESERVING_ADDRESSES = ((): Record<AddressName, HexString> => {
+  const canonical = localHostAddresses().byName;
+  const ascending = [...ADDRESS_NAMES].sort((left, right) =>
+    BigInt(canonical[left]) < BigInt(canonical[right]) ? -1 : 1,
+  );
+  // 11..20 → two digits each, so twenty repeats is exactly 40 hex digits and the values ascend with the
+  // index. Assigning them in canonical order is what preserves the order.
+  return Object.fromEntries(ascending.map((name, index) => [name, `0x${String(11 + index).repeat(20)}`])) as Record<
+    AddressName,
+    HexString
+  >;
+})();
+
+/** `NAME_UPGRADE_SITES` from the committed generated file. */
+function upgradeSites(source: string, enumMember: string): string {
+  const found = new RegExp(`${enumMember.toUpperCase()}_UPGRADE_SITES =\\s*hex"([0-9a-f]*)"`).exec(source);
+  assert.ok(found !== null, `${enumMember}_UPGRADE_SITES missing from LocalHostBytecode.sol`);
+  return found[1] ?? '';
+}
+
+/** The TS twin of `LibHostUpgradeCode.patch`, kept here so the test does not ask the code under test. */
+function patchUpgradeBlob(hex: string, sites: string, addresses: Record<AddressName, HexString>): string {
+  let patched = hex;
+  for (let at = 0; at < sites.length; at += 10) {
+    const role = Number.parseInt(sites.slice(at, at + 2), 16);
+    const offset = Number.parseInt(sites.slice(at + 2, at + 10), 16);
+    const name = ADDRESS_NAMES[role];
+    assert.ok(name !== undefined, `patch site names role ${String(role)}, which no address has`);
+    const value = normalizeHex(addresses[name], 'address');
+    patched = patched.slice(0, offset * 2) + value + patched.slice(offset * 2 + 40);
+  }
+  return patched;
+}
+
+void test('upgrade blobs patched to an address set match a Forge build compiled with it', () => {
+  // THE test for the patch tables: not self-consistency, but agreement with an independent compile.
+  // Everything else about them — the counts, the readback, the round trip — only proves the table
+  // describes its own bytes. This proves those bytes are the ones solc would have produced.
+  const originalConfig = readFileSync(CONFIG_PATH, 'utf8');
+
+  try {
+    writeFileSync(CONFIG_PATH, addressConfigSource(ORDER_PRESERVING_ADDRESSES));
+    forge(['clean']);
+    forge(['build']);
+
+    const source = readFileSync(LOCAL_HOST_BYTECODE_PATH, 'utf8');
+    const blobs = declaredBlobs(source);
+
+    for (const target of UPGRADE_IMPLEMENTATIONS) {
+      const blob = blobs.get(`${target.enumMember.toUpperCase()}_UPGRADE`);
+      assert.ok(blob !== undefined, `${target.contractName} upgrade blob missing`);
+
+      const artifact = readJson<{ readonly bytecode: { readonly object: HexString } }>(
+        join(PACKAGE_ROOT_ABS_PATH, 'out', basename(target.sourcePath), `${target.contractName}.json`),
+      );
+
+      assert.equal(
+        patchUpgradeBlob(blob.hex, upgradeSites(source, target.enumMember), ORDER_PRESERVING_ADDRESSES),
+        normalizeHex(artifact.bytecode.object, 'bytecode'),
+        `${target.contractName}: patching the shipped blob must reproduce a build compiled with those addresses`,
+      );
+    }
+  } finally {
+    restoreConfigAndGeneratedArtifacts(originalConfig);
+  }
+});
+
 void test('patch-site counts match the committed baseline', () => {
   // A review tripwire (see PATCH_SITES_PATH in internal/generateTemplates.ts). Nothing here knows
   // whether a placeholder *should* be patched — that needs per-contract AST resolution. What this does
