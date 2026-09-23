@@ -38,6 +38,8 @@ contract LocalHostUpgradeTablesTest is Test {
         all[2] = FhevmHostContracts.KMSVerifier;
         all[3] = FhevmHostContracts.InputVerifier;
         all[4] = FhevmHostContracts.HCULimit;
+        all[5] = FhevmHostContracts.ProtocolConfig;
+        all[6] = FhevmHostContracts.KMSGeneration;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -50,6 +52,8 @@ contract LocalHostUpgradeTablesTest is Test {
         assertEq(uint8(FhevmHostContracts.KMSVerifier), 2, "KMSVerifier");
         assertEq(uint8(FhevmHostContracts.InputVerifier), 3, "InputVerifier");
         assertEq(uint8(FhevmHostContracts.HCULimit), 4, "HCULimit");
+        assertEq(uint8(FhevmHostContracts.ProtocolConfig), 5, "ProtocolConfig");
+        assertEq(uint8(FhevmHostContracts.KMSGeneration), 6, "KMSGeneration");
     }
 
     function test_everyAddressRoleHasThePositionThisFileWasWrittenAgainst() public pure {
@@ -67,9 +71,9 @@ contract LocalHostUpgradeTablesTest is Test {
 
     /// Catches an append on either enum, which the per-member checks above cannot see.
     function test_neitherEnumHasGrownAMember() public pure {
-        assertEq(uint8(type(FhevmHostContracts).max), 4, "host contracts");
+        assertEq(uint8(type(FhevmHostContracts).max), 6, "host contracts");
         assertEq(uint8(type(FhevmAddressRole).max), 9, "address roles");
-        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 5, "and the count the tables were built with");
+        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 7, "and the count the tables were built with");
         assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 10, "and the role count");
     }
 

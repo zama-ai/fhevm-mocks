@@ -45,6 +45,8 @@ contract LibHostUpgradeCodeTest is Test {
         all[2] = FhevmHostContracts.KMSVerifier;
         all[3] = FhevmHostContracts.InputVerifier;
         all[4] = FhevmHostContracts.HCULimit;
+        all[5] = FhevmHostContracts.ProtocolConfig;
+        all[6] = FhevmHostContracts.KMSGeneration;
     }
 
     /// The localhost set, which is what every blob ships holding.
@@ -126,6 +128,11 @@ contract LibHostUpgradeCodeTest is Test {
     }
 
     /// Nothing outside a site moved. The check a length comparison cannot make.
+    ///
+    /// @dev Compared as RANGES, not byte by byte. The sites are ascending and non-overlapping, so the
+    ///      untouched parts are the gaps between them plus the tail, and hashing each gap is one
+    ///      `keccak256` over a span instead of a bounds-checked read per byte. The byte-wise version
+    ///      cost about a billion gas once `ProtocolConfig` joined the table, and simply ran out.
     function test_onlyTheSitesChange() public pure {
         FhevmHostContracts[] memory all = _contracts();
 
@@ -134,10 +141,21 @@ contract LibHostUpgradeCodeTest is Test {
             bytes memory patched = LibHostUpgradeCode.creationCodeFor(all[i], _remote());
             bytes memory sites = LocalHostUpgrade.patchSites(all[i]);
 
-            for (uint256 index = 0; index < original.length; index++) {
-                if (_isInsideASite(sites, index)) continue;
-                assertEq(patched[index], original[index], "a byte outside every site was rewritten");
+            uint256 cursor = 0;
+            for (uint256 at = 0; at < sites.length; at += LocalHostUpgrade.SITE_RECORD_BYTES) {
+                (, uint256 offset) = _record(sites, at);
+                assertEq(
+                    _hashRange(patched, cursor, offset - cursor),
+                    _hashRange(original, cursor, offset - cursor),
+                    "a byte before this site was rewritten"
+                );
+                cursor = offset + 20;
             }
+            assertEq(
+                _hashRange(patched, cursor, original.length - cursor),
+                _hashRange(original, cursor, original.length - cursor),
+                "a byte after the last site was rewritten"
+            );
         }
     }
 
@@ -330,12 +348,10 @@ contract LibHostUpgradeCodeTest is Test {
         value = address(uint160(word));
     }
 
-    function _isInsideASite(bytes memory sites, uint256 index) private pure returns (bool) {
-        for (uint256 at = 0; at < sites.length; at += LocalHostUpgrade.SITE_RECORD_BYTES) {
-            (, uint256 offset) = _record(sites, at);
-            if (index >= offset && index < offset + 20) return true;
+    function _hashRange(bytes memory data, uint256 start, uint256 length) private pure returns (bytes32 hashed) {
+        assembly {
+            hashed := keccak256(add(add(data, 0x20), start), length)
         }
-        return false;
     }
 
     /// @dev Every 20-byte window of `code`, against the whole set at once.

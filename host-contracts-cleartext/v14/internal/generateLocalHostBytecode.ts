@@ -186,6 +186,13 @@ export const AUTHENTIC_CONTRACTS = [
  * The PRODUCTION host implementations a FORK UPGRADE deploys, with the offsets of every address baked
  * into them.
  *
+ * WHICH CONTRACTS, AND WHY NOT THE OTHERS. Every implementation the v(N-1) -> v(N) upgrade re-points on
+ * a REAL stack, plus `InputVerifier`, which it does not: that one's bytecode is identical across the
+ * two generations, so it is never re-pointed, and it is here because it is a host implementation like
+ * the rest and a later generation may well move it. `CleartextArithmetic` and `CleartextDB` are
+ * deliberately absent — the TypeScript upgrade re-points the first, but only because it runs against a
+ * CLEARTEXT stack, and a real deployment has neither contract.
+ *
  * WHY THESE ARE DIFFERENT FROM EVERYTHING ELSE IN THIS FILE. Every other blob here is compiled against
  * the localhost address set and deployed as-is: the addresses it points at are the addresses it will be
  * deployed beside, so nothing ever has to move. A fork upgrade breaks that. It re-points a REMOTE
@@ -217,6 +224,12 @@ export const UPGRADE_IMPLEMENTATIONS = [
   { enumMember: 'KMSVerifier', contractName: 'KMSVerifier', sourcePath: 'src/contracts/KMSVerifier.sol' },
   { enumMember: 'InputVerifier', contractName: 'InputVerifier', sourcePath: 'src/contracts/InputVerifier.sol' },
   { enumMember: 'HCULimit', contractName: 'HCULimit', sourcePath: 'src/contracts/HCULimit.sol' },
+  // APPENDED, never inserted: the enum's order is the ABI of every table below it. These two joined
+  // once the upgrade op list was written down — `ProtocolConfig` bakes in the ACL and `KMSGeneration`
+  // bakes in both the ACL and `ProtocolConfig`, so neither can be deployed beside a remote stack
+  // unpatched, and the v(N-1) -> v(N) upgrade re-points both.
+  { enumMember: 'ProtocolConfig', contractName: 'ProtocolConfig', sourcePath: 'src/contracts/ProtocolConfig.sol' },
+  { enumMember: 'KMSGeneration', contractName: 'KMSGeneration', sourcePath: 'src/contracts/KMSGeneration.sol' },
 ] as const;
 
 /**
