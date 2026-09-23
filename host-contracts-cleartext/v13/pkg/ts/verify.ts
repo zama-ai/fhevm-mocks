@@ -5,7 +5,7 @@ import { abi as cleartextDbAbi } from './artifacts/CleartextDB.js';
 import { abi as fhevmExecutorAbi } from './artifacts/CleartextFHEVMExecutor.js';
 import { abi as inputVerifierAbi } from './artifacts/CleartextInputVerifier.js';
 import { abi as kmsVerifierAbi } from './artifacts/CleartextKMSVerifier.js';
-import { abi as hcuLimitAbi } from './artifacts/HCULimit.js';
+import { abi as hcuLimitAbi } from './artifacts/CleartextHCULimit.js';
 import { abi as kmsGenerationAbi } from './artifacts/KMSGeneration.js';
 import { abi as pauserSetAbi } from './artifacts/PauserSet.js';
 import { abi as protocolConfigAbi } from './artifacts/ProtocolConfig.js';

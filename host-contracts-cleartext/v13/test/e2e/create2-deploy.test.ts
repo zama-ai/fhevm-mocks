@@ -284,6 +284,10 @@ void test(
         const acl = view<AclView>(addressOf(manifest, 'ACL_ADDRESS'), ACL_ABI, provider);
         assert.equal(await acl.IS_CLEARTEXT(), true, 'ACL must advertise IS_CLEARTEXT');
         assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 13n, 'ACL must report protocol version 13');
+        // Same for the HCU limit, the last role to stop being an upstream contract. The CREATE2 lane picks
+        // its implementations independently of every forge path, so this is the only place that proves it.
+        const hcuLimit = view<AclView>(addressOf(manifest, 'HCU_LIMIT_ADDRESS'), ACL_ABI, provider);
+        assert.equal(await hcuLimit.IS_CLEARTEXT(), true, 'HCULimit must advertise IS_CLEARTEXT');
       });
 
       await t.test('the admin holds root through ACLOwner, with nothing dangling', async (st) => {

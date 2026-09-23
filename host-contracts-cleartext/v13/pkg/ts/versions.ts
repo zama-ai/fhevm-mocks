@@ -10,7 +10,7 @@ export const CONTRACT_VERSIONS = {
   acl: 'ACL v0.4.0',
   cleartextArithmetic: 'CleartextArithmetic v0.4.0',
   cleartextDB: 'CleartextDB v0.1.0',
-  fhevmExecutor: 'FHEVMExecutor v0.4.0',
+  fhevmExecutor: 'FHEVMExecutor v0.5.0',
   hcuLimit: 'HCULimit v0.3.0',
   inputVerifier: 'InputVerifier v0.2.0',
   kmsGeneration: 'KMSGeneration v0.1.0',

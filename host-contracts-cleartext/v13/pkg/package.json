@@ -65,8 +65,8 @@
   "fhevm": {
     "vendoredFrom": {
       "repository": "https://github.com/zama-ai/fhevm",
-      "tag": "v0.13.2",
-      "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
+      "tag": "v0.13.6",
+      "commit": "096ad11a3ac3aff466f2a5cf03788eae655311ca",
       "from": "host-contracts/contracts",
       "to": "src/contracts"
     }

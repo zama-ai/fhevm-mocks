@@ -106,12 +106,12 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
   CleartextArithmetic: 'creation',
   CleartextDB: 'creation',
   CleartextFHEVMExecutor: 'creation',
+  CleartextHCULimit: 'creation',
   CleartextInputVerifier: 'creation',
   CleartextKMSVerifier: 'creation',
   EmptyUUPSProxy: 'creation',
   EmptyUUPSProxyACL: 'creation',
   ERC1967Proxy: 'creation',
-  HCULimit: 'creation',
   KMSGeneration: 'creation',
   ProtocolConfig: 'creation',
   PauserSet: 'runtime',
@@ -128,11 +128,11 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
  * path import what it needs, with no build mode to get wrong and nothing to remember before
  * committing.
  *
- *   FhevmCleartextDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
+ *   ForgeFhevmDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
  *   DeployLocalStack.s.sol   broadcast to a node    -> CLEARTEXT_*_CREATION_CODE
  *
- * Three contracts have Forge variants. The executor and arithmetic ones call cheatcodes; the ACL one is
- * the hook for forge-only checks and is blank until those land (see CleartextForgeACL.sol).
+ * Four contracts have Forge variants. The executor and arithmetic ones call cheatcodes; the ACL one carries
+ * forge-only checks; the HCU limit one meters what it accounted for, under `pauseGasMetering`.
  */
 const FORGE_VARIANTS: ReadonlyArray<{
   readonly constantName: string;
@@ -154,12 +154,35 @@ const FORGE_VARIANTS: ReadonlyArray<{
     contractName: 'CleartextForgeACL',
     sourcePath: 'src/cleartext/CleartextForgeACL.sol',
   },
+  {
+    constantName: 'CLEARTEXT_FORGE_HCU_LIMIT',
+    contractName: 'CleartextForgeHCULimit',
+    sourcePath: 'src/cleartext/CleartextForgeHCULimit.sol',
+  },
 ];
+
+/**
+ * The PRODUCTION host contracts, interfaces only.
+ *
+ * These are vendored, never deployed by this stack, and have no template or bytecode here — so they are
+ * kept out of TARGET_CONTRACTS, which drives both. But their ABIs are needed all the same: code that
+ * talks to a REAL stack on a forked chain — `LibInputVerifier`, `LibKmsVerifier` — has to name the
+ * functions it reads, and hand-writing those declarations means a second copy of an upstream signature
+ * that nothing checks. Generated from the same artifacts as everything else, they cannot drift.
+ */
+export const AUTHENTIC_CONTRACTS = [
+  { contractName: 'ACL', sourcePath: 'src/contracts/ACL.sol' },
+  { contractName: 'FHEVMExecutor', sourcePath: 'src/contracts/FHEVMExecutor.sol' },
+  { contractName: 'InputVerifier', sourcePath: 'src/contracts/InputVerifier.sol' },
+  { contractName: 'KMSVerifier', sourcePath: 'src/contracts/KMSVerifier.sol' },
+] as const;
 
 /** `FheType` reaches generated interfaces as `type FheType is uint8;`, local to each interface and so
  * incompatible across them. Rewritten to import the one shared enum instead (generate.py does the same). */
 const FHE_TYPE_DECLARATION = '    type FheType is uint8;';
-const FHE_TYPE_IMPORT = 'import {FheType} from "../../../../src/contracts/shared/FheType.sol";';
+// The payload's own copy, NOT the vendored original: `pkg/forge/src` ships self-contained, and two
+// FheType declarations in one compilation are two distinct enum types that do not convert.
+const FHE_TYPE_IMPORT = 'import {FheType} from "../../shared/LibFheType.sol";';
 
 type CodeKind = 'creation' | 'runtime';
 
@@ -301,7 +324,7 @@ function _renderAddresses(stack: LocalHostStack): string {
   const proxyCount = ADDRESS_NAMES.filter((name) => NONCE_LABEL[name].startsWith('ERC1967Proxy')).length;
 
   // ^0.8.24, not the model's ^0.8.27: it is the payload's own floor, it is what the harness
-  // pins so test/forge/FhevmCleartextDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
+  // pins so test/forge/ForgeFhevmDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
   return `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
@@ -451,7 +474,14 @@ ${stringFn('kmsStorageUrls', urls)}
 ////////////////////////////////////////////////////////////////////////////////
 
 function _constantFor(contractName: ContractName): string {
-  return CONSTANT_NAMES[contractName];
+  // The header of CONSTANT_NAMES promises a missing entry is a generator ERROR, not a guessed name. Without
+  // this it was a silent `undefined_CREATION_CODE` in the emitted Solidity, which compiles as a valid
+  // identifier and only fails at the layer that reaches for the real name.
+  const constantName: string | undefined = CONSTANT_NAMES[contractName];
+  if ((constantName as unknown) === undefined) {
+    throw new Error(`No CONSTANT_NAMES entry for '${contractName}'; add one in internal/constants.ts`);
+  }
+  return constantName;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -488,7 +518,7 @@ function _render(
     .join('\n\n');
 
   // ^0.8.24, not the model's ^0.8.27: it is the payload's own floor, it is what the harness
-  // pins so test/forge/FhevmCleartextDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
+  // pins so test/forge/ForgeFhevmDeploy.t.sol can compile these files, and it accepts every consumer 0.8.27 would.
   return `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
@@ -504,7 +534,7 @@ pragma solidity ^0.8.24;
 // RUNTIME_CODE may be etched at its address, being equivalent to constructing the contract.
 //
 // CLEARTEXT_FORGE_* are the forge-only variants of the executor, arithmetic and ACL contracts, and
-// are for pkg/forge/src/FhevmCleartextDeploy.sol ONLY — a forge test that creates the stack in-process.
+// are for pkg/forge/src/ForgeFhevmDeploy.sol ONLY — a forge test that creates the stack in-process.
 // Broadcast to a node, they revert on every FHE operation: cheatcodes live in forge's own EVM, so
 // 0x7109...dD12D has no code anywhere else and Solidity's extcodesize guard turns the call into a
 // revert. DeployLocalStack.s.sol broadcasts, and therefore uses the plain CLEARTEXT_* blobs.
@@ -533,7 +563,7 @@ function _generateInterfaces(tmpOut: string): readonly string[] {
   mkdirSync(interfaceDir, { recursive: true });
 
   const written: string[] = [];
-  for (const target of TARGET_CONTRACTS) {
+  for (const target of [...TARGET_CONTRACTS, ...AUTHENTIC_CONTRACTS]) {
     const artifactPath = join(tmpOut, basename(target.sourcePath), `${target.contractName}.json`);
     const name = `I${target.contractName}`;
     const body = cast(['interface', artifactPath, '--name', name])

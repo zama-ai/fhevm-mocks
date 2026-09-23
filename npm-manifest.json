@@ -98,9 +98,9 @@
           "relPath": "./internal/zama-config",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.13.2",
-            "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
-            "digest": "sha256-4g0KsXAHNRkHbMgqXdkdMTnjs5Fxufgw6C1oaS/Ez9s=",
+            "tag": "v0.13.6",
+            "commit": "096ad11a3ac3aff466f2a5cf03788eae655311ca",
+            "digest": "sha256-0ftNPGsVZmP5VLHmlACenc2Pi7/vl88A/XalaEyDR7k=",
             "from": "library-solidity/config"
           },
           "reason": "The localhost address set is upstream's, and the check must read it at the same commit this generation vendors its contracts from. Reformatted by `forge fmt` on the way in, like every pinned copy."
@@ -127,9 +127,9 @@
           "relPath": "./src/contracts",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.13.2",
-            "commit": "07fb05fb75f0aa6cea934088640ddb4539d0b1b9",
-            "digest": "sha256-EpFak6LRnINzOAHQLrMJUUIMh2qGsCJfYX0myZt9h7s=",
+            "tag": "v0.13.6",
+            "commit": "096ad11a3ac3aff466f2a5cf03788eae655311ca",
+            "digest": "sha256-aQURVY4Y+ZvyrLleG7VGL7pSYEn7cG+Lxef3NVqKXD0=",
             "from": "host-contracts/contracts"
           },
           "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation."
@@ -267,6 +267,37 @@
       "member": false,
       "dependencyGroup": "host-contracts-cleartext/v14",
       "note": "A standard external ESM TypeScript consumer copied to a temporary directory by the owning dev package's test:consumer script."
+    },
+    "./foundry/forge-fhevm-std": {
+      "kind": "dev",
+      "type": "esm",
+      "browser": false,
+      "name": "@fhevm/forge-std-dev",
+      "private": true,
+      "member": true,
+      "publishedRelPath": "./foundry/forge-fhevm-std/pkg",
+      "dependencyGroup": "forge-fhevm-std",
+      "note": "Forge companion to forge-std. Its pkg/src/_host is GENERATED from V(N)'s pkg/forge/src (generate:forge-payload), so it generates and compiles after the current cleartext generation."
+    },
+    "./foundry/forge-fhevm-std/pkg": {
+      "kind": "published",
+      "type": "esm",
+      "browser": false,
+      "name": "@fhevm/forge-std",
+      "member": true,
+      "dependencyGroup": "forge-fhevm-std",
+      "consumerTests": { "esm": ["./foundry/forge-fhevm-std/test-consumer/esm"] },
+      "note": "Solidity-only payload: `exports` maps ./src/* and ./package.json and nothing else. Its consumer proves the installed package compiles by resolution: every shipped .sol resolves every import by package name."
+    },
+    "./foundry/forge-fhevm-std/test-consumer/esm": {
+      "kind": "standalone",
+      "type": "esm",
+      "browser": false,
+      "name": "forge-fhevm-std-consumer-esm",
+      "private": true,
+      "member": false,
+      "dependencyGroup": "forge-fhevm-std",
+      "note": "A standard external ESM consumer copied to a temporary directory by the owning dev package's test:consumer script. Solidity-only payload, so it checks the installed sources resolve rather than loading JavaScript."
     },
     "./hardhat/v2": {
       "kind": "workspace-root",

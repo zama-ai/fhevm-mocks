@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {CleartextACL} from "./CleartextACL.sol";
-import {CleartextHandle} from "./CleartextHandle.sol";
+import {LibFhevmHandle} from "./shared/LibFhevmHandle.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
 /**
  * @title CleartextForgeACL
  * @notice ACL variant for the in-process forge stack, carrying forge-only checks the real ACL cannot afford.
- * @dev Deployed by `pkg/forge/src/FhevmCleartextDeploy.sol` behind the ACL proxy in place of the plain `ACL`.
+ * @dev Deployed by `pkg/forge/src/ForgeFhevmDeploy.sol` behind the ACL proxy in place of the plain `ACL`.
  *      Extends `CleartextACL`, so `IS_CLEARTEXT` and `CLEARTEXT_PROTOCOL_VERSION` come from there rather
  *      than being restated here: a `constant` cannot be overridden, so one declaration is the only option.
  *      `DeployLocalStack.s.sol` broadcasts to a node and keeps `ACL`: anything here that calls a
@@ -31,7 +31,7 @@ contract CleartextForgeACL is CleartextACL {
     function allow(bytes32 handle, address account) public virtual override {
         vmSafe.pauseGasMetering();
         {
-            CleartextHandle.checkChainId(handle);
+            LibFhevmHandle.checkChainId(handle);
         }
         vmSafe.resumeGasMetering();
         super.allow(handle, account);
@@ -41,7 +41,7 @@ contract CleartextForgeACL is CleartextACL {
         vmSafe.pauseGasMetering();
         {
             for (uint256 k = 0; k < handlesList.length; k++) {
-                CleartextHandle.checkChainId(handlesList[k]);
+                LibFhevmHandle.checkChainId(handlesList[k]);
             }
         }
         vmSafe.resumeGasMetering();
@@ -51,7 +51,7 @@ contract CleartextForgeACL is CleartextACL {
     function allowTransient(bytes32 handle, address account) public virtual override {
         vmSafe.pauseGasMetering();
         {
-            CleartextHandle.checkChainId(handle);
+            LibFhevmHandle.checkChainId(handle);
         }
         vmSafe.resumeGasMetering();
         super.allowTransient(handle, account);
@@ -62,17 +62,17 @@ contract CleartextForgeACL is CleartextACL {
     // `persistAllowed`, so it is covered without an override of its own.
 
     function allowedTransient(bytes32 handle, address account) public view virtual override returns (bool) {
-        CleartextHandle.checkChainId(handle);
+        LibFhevmHandle.checkChainId(handle);
         return super.allowedTransient(handle, account);
     }
 
     function persistAllowed(bytes32 handle, address account) public view virtual override returns (bool) {
-        CleartextHandle.checkChainId(handle);
+        LibFhevmHandle.checkChainId(handle);
         return super.persistAllowed(handle, account);
     }
 
     function isAllowedForDecryption(bytes32 handle) public view virtual override returns (bool) {
-        CleartextHandle.checkChainId(handle);
+        LibFhevmHandle.checkChainId(handle);
         return super.isAllowedForDecryption(handle);
     }
 
@@ -82,7 +82,7 @@ contract CleartextForgeACL is CleartextACL {
         address contractAddress,
         bytes32 handle
     ) public view virtual override returns (bool) {
-        CleartextHandle.checkChainId(handle);
+        LibFhevmHandle.checkChainId(handle);
         return super.isHandleDelegatedForUserDecryption(delegator, delegate, contractAddress, handle);
     }
 }

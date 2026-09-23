@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {CleartextArithmetic, FheType} from "./CleartextArithmetic.sol";
+import {CleartextArithmetic} from "./CleartextArithmetic.sol";
+import {FheType} from "./shared/LibFheType.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
 /**

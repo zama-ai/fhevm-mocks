@@ -41,6 +41,7 @@ import { publishOrder } from './commands/publish-order.ts';
 import { publishPack } from './commands/publish-pack.ts';
 import { publishRender } from './commands/publish-render.ts';
 import { syncVendoredCommand } from './commands/sync-vendored.ts';
+import { bumpVendoredCommand } from './commands/bump-vendored.ts';
 import { testConsumerRegeneratePackageLock } from './commands/test-consumer-regenerate-package-lock.ts';
 import { testConsumer } from './commands/test-consumer.ts';
 import { versionApply } from './commands/version-apply.ts';
@@ -97,6 +98,22 @@ async function main(): Promise<void> {
   }
   if (options.command === 'check-fhevm-chains-origin') {
     const report = await checkFhevmChainsOrigin({ workspaceRoot: options.workspaceRoot });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
+  // Reads the manifest itself: it rewrites the file, so the parsed copy would be stale by the end.
+  if (options.command === 'bump-vendored') {
+    const report = await bumpVendoredCommand({
+      workspaceRoot: options.workspaceRoot,
+      manifestFile: options.manifestFile,
+      selector: options.selector,
+      repository: options.repository,
+      tag: options.tag,
+      commit: options.commit,
+      check: options.check,
+      verbose: hasDetailedOutput(options.verbosity),
+    });
     printReport(report, options.verbosity);
     if (report.violations.length > 0) process.exitCode = 1;
     return;

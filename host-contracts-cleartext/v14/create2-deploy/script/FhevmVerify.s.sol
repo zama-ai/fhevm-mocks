@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
 
 import {console} from "forge-std/Script.sol";
 import {FhevmVerifyBase} from "./FhevmVerifyBase.s.sol";
-import {FhevmCleartextConfig as C} from "../../pkg/forge/src/FhevmCleartextConfig.sol";
+import {LibFhevmCleartextConfig as C} from "../../pkg/forge/src/shared/LibFhevmCleartextConfig.sol";
 import {IOwnable2Step, IPauserSet, IACLOwner, IWiredInputVerifier, IWiredProtocolConfig} from "./Interfaces.sol";
 
 /**

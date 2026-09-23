@@ -24,6 +24,10 @@ node ./fhevm-npm.ts check tsc-mode
 node ./fhevm-npm.ts check commit-scope
 node ./fhevm-npm.ts check cleartext-config
 node ./fhevm-npm.ts check generations
+node ./fhevm-npm.ts sync vendored
+node ./fhevm-npm.ts sync vendored --check
+node ./fhevm-npm.ts bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6
+node ./fhevm-npm.ts bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6 --check
 node ./fhevm-npm.ts sync fhevm-chains --latest
 node ./fhevm-npm.ts check fhevm-chains-origin
 node ./fhevm-npm.ts generate chain-constants

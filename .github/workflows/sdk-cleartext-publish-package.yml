@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       build_target:
-        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin'
+        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin compile-forge-std'
         required: true
         type: string
       dry_run:
@@ -65,6 +65,7 @@ jobs:
       #     compile-cleartext-v-cur -> current host-contracts-cleartext version
       #     compile-hh-v2-plugin    -> Hardhat 2 plugin
       #     compile-hh-v3-plugin    -> Hardhat 3 plugin
+      #     compile-forge-std       -> Forge Fhevm
       #     The current contracts directory comes from npm-manifest.json.
       #     The version comes from sdk/versions.json:
       #       X.Y.Z -> latest; X.Y.Z-A -> alpha.
@@ -91,6 +92,9 @@ jobs:
               ;;
             compile-hh-v3-plugin)
               payload='./hardhat/v3/plugin/pkg'
+              ;;
+            compile-forge-std)
+              payload='./foundry/forge-fhevm-std/pkg'
               ;;
             *)
               echo "::error::unsupported build_target '${BUILD_TARGET}'"
