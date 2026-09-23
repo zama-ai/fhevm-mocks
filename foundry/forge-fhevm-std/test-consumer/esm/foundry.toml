@@ -1,0 +1,41 @@
+# A Foundry project that depends on @fhevm/forge-std the way a user would: every library comes from
+# node_modules, installed by npm (forge-std included, as a git dependency), and is reached through
+# remappings.txt. No `libs`, no soldeer, no submodules: what npm installed is all forge may see.
+#
+# Self-contained on purpose: the workspace's test-consumer runner copies this directory out of the
+# tree, so there is no `foundry.base.toml` to extend from here. The [fmt] block below restates the
+# workspace policy verbatim and `fhevm-npm check foundry` compares it with the shared file.
+#
+# In the tree there is no node_modules here, so `forge build`, `forge test` and `forge lint` only work in a
+# copy the runner installed (`npm run test:consumer` from ../../, or `npm install` here); `forge fmt --check`
+# needs nothing.
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = []
+solc_version = "0.8.24"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 800
+bytecode_hash = "none"
+
+[fmt]
+line_length = 120
+tab_width = 4
+style = "space"
+bracket_spacing = false
+int_types = "long"
+multiline_func_header = "attributes_first"
+quote_style = "double"
+number_underscore = "preserve"
+hex_underscore = "remove"
+single_line_statement_blocks = "preserve"
+override_spacing = false
+wrap_comments = false
+docs_style = "preserve"
+contract_new_lines = false
+sort_imports = false
+pow_no_space = false
+prefer_compact = "all"
+single_line_imports = false

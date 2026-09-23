@@ -1,0 +1,4 @@
+forge-std/=node_modules/forge-std/src/
+@fhevm/forge-std/=node_modules/@fhevm/forge-std/src/
+encrypted-types/=node_modules/encrypted-types/
+@fhevm/solidity/=node_modules/@fhevm/solidity/

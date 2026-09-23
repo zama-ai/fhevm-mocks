@@ -1,0 +1,4 @@
+@fhevm/solidity/=../../node_modules/@fhevm/solidity/
+@fhevm/solidity-upstream/=../../node_modules/@fhevm/solidity/
+forge-std-1.11.0/=dependencies/forge-std-1.11.0/
+forge-std/=dependencies/forge-std-1.11.0/src/

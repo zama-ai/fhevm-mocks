@@ -1,0 +1,32 @@
+{
+  "name": "@fhevm/forge-std",
+  "version": "0.14.0-0",
+  "description": "FHEVM standard library for Forge. Companion to forge-std: encrypt inputs and decrypt handles from Foundry tests and scripts.",
+  "license": "BSD-3-Clause-Clear",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zama-ai/fhevm-mocks.git",
+    "directory": "foundry/forge-fhevm-std/pkg"
+  },
+  "keywords": [
+    "fhevm",
+    "foundry",
+    "forge",
+    "forge-std",
+    "solidity",
+    "fhe"
+  ],
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "encrypted-types": "^0.0.4"
+  }
+}
