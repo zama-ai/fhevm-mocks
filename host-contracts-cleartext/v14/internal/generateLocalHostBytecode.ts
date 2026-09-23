@@ -182,6 +182,69 @@ export const AUTHENTIC_CONTRACTS = [
   { contractName: 'KMSVerifier', sourcePath: 'src/contracts/KMSVerifier.sol' },
 ] as const;
 
+/**
+ * The PRODUCTION host implementations a FORK UPGRADE deploys, with the offsets of every address baked
+ * into them.
+ *
+ * WHY THESE ARE DIFFERENT FROM EVERYTHING ELSE IN THIS FILE. Every other blob here is compiled against
+ * the localhost address set and deployed as-is: the addresses it points at are the addresses it will be
+ * deployed beside, so nothing ever has to move. A fork upgrade breaks that. It re-points a REMOTE
+ * stack's proxies, and that stack's contracts live at the chain's own addresses, which no build of ours
+ * can know. The implementations therefore have to be repatched at deploy time, and repatching needs to
+ * know where the addresses sit.
+ *
+ * WHY THE OFFSETS ARE TRUSTWORTHY HERE, AND NOT FOR THE BLOBS ABOVE. These come from the PLACEHOLDER
+ * build — `out/`, the one `generate:templates` reads — where every address is a marker this repository
+ * chose, so its position is findable. The emitted constant is that same build with the markers spliced
+ * to the localhost addresses, so the bytes and the offsets describe each other by construction. The
+ * blobs above are a different compile entirely (see the header of this file), and their constant tables
+ * can come out ordered differently — `internal/pooledAddressSites.ts` records the one contract where
+ * that demonstrably happens. Reusing a template's offsets against them would write one address into
+ * another's slot.
+ *
+ * That risk is why `_upgradeImplementations` does not merely splice and trust: it compares the result
+ * with the independent localhost compile of the same contract, byte for byte, in the same run. A patch
+ * that would have produced different bytecode from a real build fails the generator rather than
+ * shipping.
+ *
+ * CREATION CODE ONLY. All five are proxy implementations, so they are constructed rather than etched,
+ * for the reason `CODE_KIND` gives above. Nothing here needs `deployedBytecode`, so no offsets are
+ * recorded for it.
+ */
+export const UPGRADE_IMPLEMENTATIONS = [
+  { enumMember: 'ACL', contractName: 'ACL', sourcePath: 'src/contracts/ACL.sol' },
+  { enumMember: 'FHEVMExecutor', contractName: 'FHEVMExecutor', sourcePath: 'src/contracts/FHEVMExecutor.sol' },
+  { enumMember: 'KMSVerifier', contractName: 'KMSVerifier', sourcePath: 'src/contracts/KMSVerifier.sol' },
+  { enumMember: 'InputVerifier', contractName: 'InputVerifier', sourcePath: 'src/contracts/InputVerifier.sol' },
+  { enumMember: 'HCULimit', contractName: 'HCULimit', sourcePath: 'src/contracts/HCULimit.sol' },
+] as const;
+
+/**
+ * Enum member name per address role, index-aligned with `ADDRESS_NAMES`.
+ *
+ * Spelled out rather than derived from the constant names, because these become the positions of a
+ * PERMANENT Solidity enum: a derivation that changed its mind about `HCU_LIMIT_ADDRESS` would silently
+ * renumber the table every reader indexes by.
+ */
+const ADDRESS_ROLE_MEMBERS: Readonly<Record<AddressName, string>> = {
+  ACL_ADDRESS: 'ACL',
+  FHEVM_EXECUTOR_ADDRESS: 'FHEVMExecutor',
+  KMS_VERIFIER_ADDRESS: 'KMSVerifier',
+  INPUT_VERIFIER_ADDRESS: 'InputVerifier',
+  HCU_LIMIT_ADDRESS: 'HCULimit',
+  PROTOCOL_CONFIG_ADDRESS: 'ProtocolConfig',
+  KMS_GENERATION_ADDRESS: 'KMSGeneration',
+  PAUSER_SET_ADDRESS: 'PauserSet',
+  CLEARTEXT_ARITHMETIC_ADDRESS: 'CleartextArithmetic',
+  CLEARTEXT_DB_ADDRESS: 'CleartextDB',
+};
+
+/** Bytes per packed patch-site record: one role byte, then a big-endian `uint32` offset. */
+const SITE_RECORD_BYTES = 5;
+
+/** The placeholder build every offset below is measured in: what `npm run compile:forge` leaves behind. */
+const PLACEHOLDER_OUT_DIR = join(PACKAGE_ROOT_ABS_PATH, 'out');
+
 /** `FheType` reaches generated interfaces as `type FheType is uint8;`, local to each interface and so
  * incompatible across them. Rewritten to import the one shared enum instead (generate.py does the same). */
 const FHE_TYPE_DECLARATION = '    type FheType is uint8;';
@@ -560,10 +623,195 @@ function _renderCodeSection(code: ReadonlyMap<ContractName, string>, kind: CodeK
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/** One entry of the upgrade table: the localhost-patched blob, and where its addresses sit. */
+export type UpgradeImplementation = {
+  readonly hex: string;
+  /** Packed `(uint8 role, uint32 offset)` records, ascending by offset. */
+  readonly sites: string;
+  readonly siteCount: number;
+};
+
+/** Every byte offset at which `marker` occurs in `hex`. Throws on a half-byte hit, which cannot be real. */
+function _markerOffsets(hex: string, marker: string): number[] {
+  const offsets: number[] = [];
+  for (let at = hex.indexOf(marker); at !== -1; at = hex.indexOf(marker, at + marker.length)) {
+    if (at % 2 !== 0) {
+      throw new Error(`marker 0x${marker} found at the non-byte-aligned nibble ${String(at)}`);
+    }
+    offsets.push(at / 2);
+  }
+  return offsets;
+}
+
+/**
+ * Reads the five upgrade implementations from the localhost build and records where each address sits.
+ *
+ * THE OFFSETS ARE MEASURED IN THE BLOB THAT SHIPS, by searching it for the localhost addresses
+ * themselves. Nothing here assumes two builds agree about anything, which is the mistake this function
+ * was written the other way round to begin with: the first version took the placeholder build's offsets
+ * and spliced them into the localhost blob, and `FHEVMExecutor` failed immediately, because it pools
+ * `ACL_ADDRESS` and `HCU_LIMIT_ADDRESS` and the compiler emits that pair in the opposite order once the
+ * values change — the same reordering `internal/pooledAddressSites.ts` records for the cleartext
+ * executor. Measured in its own bytes, a blob cannot disagree with its own table, and a contract that
+ * pools two addresses stops being a special case.
+ *
+ * WHAT THE PLACEHOLDER BUILD IS STILL FOR: counting. A 20-byte address could in principle occur in the
+ * bytecode by coincidence, and a scan cannot tell that from a real reference. The placeholder build
+ * puts a value this repository chose at every genuine reference, so its per-role COUNT is authoritative
+ * — the order moves between builds, the number of sites does not. A mismatch fails the generator.
+ *
+ * CREATION CODE ONLY, for the reason `UPGRADE_IMPLEMENTATIONS` gives.
+ */
+function _upgradeImplementations(tmpOut: string, stack: LocalHostStack): Map<string, UpgradeImplementation> {
+  const result = new Map<string, UpgradeImplementation>();
+
+  for (const target of UPGRADE_IMPLEMENTATIONS) {
+    const relPath = join(basename(target.sourcePath), `${target.contractName}.json`);
+    const read = (root: string): string =>
+      readJson<Artifact>(join(root, relPath)).bytecode.object.replace(/^0x/, '').toLowerCase();
+
+    const placeholderHex = read(PLACEHOLDER_OUT_DIR);
+    const localhostHex = read(tmpOut);
+
+    const records: Array<{ readonly role: number; readonly offset: number }> = [];
+
+    for (const [role, name] of ADDRESS_NAMES.entries()) {
+      const expected = _markerOffsets(placeholderHex, placeholderFor(name).slice(2).toLowerCase()).length;
+      const found = _markerOffsets(localhostHex, stack.byName[name].slice(2).toLowerCase());
+
+      if (found.length !== expected) {
+        throw new Error(
+          `${target.contractName}: ${name} occurs ${String(found.length)} time(s) in the localhost build ` +
+            `but ${String(expected)} time(s) in the placeholder build. More means the address was matched ` +
+            `by coincidence; fewer means a reference was optimized away between the two builds. Either ` +
+            `way the table would be wrong. If out/ is stale, rebuild it with 'npm run compile:forge'.`,
+        );
+      }
+      for (const offset of found) records.push({ role, offset });
+    }
+
+    // Belt and braces: a marker in a blob we are about to ship means the localhost config did not reach
+    // this build, and every address in it is a value this repository invented.
+    const survivor = ADDRESS_NAMES.map((name) => placeholderFor(name).slice(2).toLowerCase()).find((marker) =>
+      localhostHex.includes(marker),
+    );
+    if (survivor !== undefined) {
+      throw new Error(`${target.contractName}: placeholder marker 0x${survivor} survived the build.`);
+    }
+
+    records.sort((left, right) => left.offset - right.offset);
+    const sites = records
+      .map(({ role, offset }) => role.toString(16).padStart(2, '0') + offset.toString(16).padStart(8, '0'))
+      .join('');
+
+    result.set(target.enumMember, { hex: localhostHex, sites, siteCount: records.length });
+  }
+
+  return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/** The two permanent enums, the per-contract tables, and the lookups that index them. */
+function _renderUpgradeSection(upgrades: ReadonlyMap<string, UpgradeImplementation>, stack: LocalHostStack): string {
+  const contractMembers = UPGRADE_IMPLEMENTATIONS.map((target) => `    ${target.enumMember}`).join(',\n');
+  const roleMembers = ADDRESS_NAMES.map((name) => `    ${ADDRESS_ROLE_MEMBERS[name]}`).join(',\n');
+
+  const tables = UPGRADE_IMPLEMENTATIONS.map((target) => {
+    const entry = upgrades.get(target.enumMember);
+    if (entry === undefined) throw new Error(`no upgrade implementation for '${target.enumMember}'`);
+    return (
+      `/// @dev ${target.contractName} creation bytecode (${String(entry.hex.length / 2)} bytes), ` +
+      `at the localhost addresses.\n` +
+      `bytes constant ${target.enumMember.toUpperCase()}_UPGRADE_CREATION_CODE =\n    hex"${entry.hex}";\n\n` +
+      `/// @dev ${target.contractName}: ${String(entry.siteCount)} patch site(s), ` +
+      `${String(SITE_RECORD_BYTES)} bytes each.\n` +
+      `bytes constant ${target.enumMember.toUpperCase()}_UPGRADE_SITES =\n    hex"${entry.sites}";`
+    );
+  }).join('\n\n');
+
+  const codeBranches = UPGRADE_IMPLEMENTATIONS.map(
+    (target) =>
+      `        if (contractId == FhevmHostContracts.${target.enumMember}) ` +
+      `return ${target.enumMember.toUpperCase()}_UPGRADE_CREATION_CODE;`,
+  ).join('\n');
+  const siteBranches = UPGRADE_IMPLEMENTATIONS.map(
+    (target) =>
+      `        if (contractId == FhevmHostContracts.${target.enumMember}) ` +
+      `return ${target.enumMember.toUpperCase()}_UPGRADE_SITES;`,
+  ).join('\n');
+  const addressBranches = ADDRESS_NAMES.map(
+    (name) => `        if (role == FhevmAddressRole.${ADDRESS_ROLE_MEMBERS[name]}) return ${stack.byName[name]};`,
+  ).join('\n');
+
+  return `/**
+ * @notice The host implementations a fork upgrade deploys.
+ *
+ * @dev THE ORDER IS THE ABI. Every table below is indexed by this enum's position, so inserting a
+ *      member anywhere but the end pairs one contract's bytecode with another's patch sites — a stack
+ *      that deploys cleanly and points nowhere. \`LocalHostUpgradeTables.t.sol\` pins every position and
+ *      the count, the way \`FhevmOperatorsEnum.t.sol\` pins the operator list.
+ */
+enum FhevmHostContracts {
+${contractMembers}
+}
+
+/**
+ * @notice The addresses baked into those implementations, one member per role.
+ * @dev Same ordering warning: a packed patch-site record names its role by this position.
+ */
+enum FhevmAddressRole {
+${roleMembers}
+}
+
+${tables}
+
+/**
+ * @title LocalHostUpgrade
+ * @notice The tables above, indexed by enum.
+ *
+ * @dev The addresses are restated here rather than imported from \`LocalHostAddresses.sol\`: Solidity
+ *      re-exports named imports, so importing them would put \`ACL_ADDRESS\` and its siblings into the
+ *      scope of every file that imports this one, and those names collide with the
+ *      \`fhevm-config-<version>/addresses.sol\` a consumer compiles \`pkg/src\` against (see README,
+ *      "Consuming pkg/forge from Foundry"). Both are generated in the same run from the same address
+ *      set, so they cannot disagree.
+ */
+library LocalHostUpgrade {
+    uint256 internal constant HOST_CONTRACT_COUNT = ${String(UPGRADE_IMPLEMENTATIONS.length)};
+    uint256 internal constant ADDRESS_ROLE_COUNT = ${String(ADDRESS_NAMES.length)};
+
+    /// @notice Bytes per packed patch-site record: \`uint8 role\`, then a big-endian \`uint32\` offset.
+    uint256 internal constant SITE_RECORD_BYTES = ${String(SITE_RECORD_BYTES)};
+
+    /// @notice \`contractId\`'s creation bytecode, with the localhost addresses in place.
+    function creationCode(FhevmHostContracts contractId) internal pure returns (bytes memory) {
+${codeBranches}
+        revert("LocalHostUpgrade: unknown contract");
+    }
+
+    /// @notice Where \`contractId\`'s creation bytecode holds an address, packed and ascending by offset.
+    function patchSites(FhevmHostContracts contractId) internal pure returns (bytes memory) {
+${siteBranches}
+        revert("LocalHostUpgrade: unknown contract");
+    }
+
+    /// @notice The address \`role\` holds in \`creationCode\` above — what a repatch overwrites.
+    function canonicalAddress(FhevmAddressRole role) internal pure returns (address) {
+${addressBranches}
+        revert("LocalHostUpgrade: unknown role");
+    }
+}
+`;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 function _render(
   stack: LocalHostStack,
   code: ReadonlyMap<ContractName, string>,
   forgeCode: ReadonlyMap<string, string>,
+  upgrades: ReadonlyMap<string, UpgradeImplementation>,
 ): string {
   const addressComment = ADDRESS_NAMES.map((name) => `///   ${name} = ${stack.byName[name]}`).join('\n');
 
@@ -607,7 +855,8 @@ ${_renderCodeSection(code, 'creation')}
 ${forgeSection}
 
 ${_renderCodeSection(code, 'runtime')}
-`;
+
+${_renderUpgradeSection(upgrades, stack)}`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -720,8 +969,12 @@ export function writeLocalHostBytecode(): LocalHostBytecodeResult {
       forgeCode.set(variant.constantName, hex);
     }
 
+    // AFTER the two loops above: it reads the same tmp build they do, and uses it as the oracle for the
+    // placeholder build it patches.
+    const upgrades = _upgradeImplementations(tmpOut, stack);
+
     mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
-    writeFileSync(OUTPUT_PATH, _render(stack, code, forgeCode), 'utf8');
+    writeFileSync(OUTPUT_PATH, _render(stack, code, forgeCode, upgrades), 'utf8');
     writeFileSync(ADDRESSES_OUTPUT_PATH, _renderAddresses(stack), 'utf8');
     writeFileSync(BOOTSTRAP_OUTPUT_PATH, _renderBootstrap(), 'utf8');
     interfaces.push(..._generateInterfaces(tmpOut));
