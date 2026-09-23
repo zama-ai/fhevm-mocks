@@ -20,6 +20,7 @@ function _data(string memory fhevmGroup, uint256 chainId, string memory rpcUrl)
         inputVerifier: address(0),
         kmsVerifier: address(0),
         protocolConfig: address(0),
+        kmsGeneration: address(0),
         decryption: address(0),
         inputVerification: address(0)
     });
@@ -99,7 +100,41 @@ contract StdFhevmChainsTest is Test, StdFhevmChains {
         assertEq(sepolia.inputVerifier, 0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0);
         assertEq(sepolia.kmsVerifier, 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A);
         assertEq(sepolia.protocolConfig, 0x51f9AFBc89Ea792e1a21a12AB802ab58D4dbee83);
+        assertEq(sepolia.kmsGeneration, 0x77389113d7000EcBCfc2bDed57202f5f46109934);
         assertEq(sepolia.relayerUrl, "https://relayer.testnet.zama.org");
+    }
+
+    /**
+     * `kmsGeneration` is carried by the table and by nothing else.
+     *
+     * Every other host address is either in the table or readable from the stack — `hcuLimit` from the
+     * executor, `pauserSet` from the ACL. This one has no getter anywhere, on any contract, so a fork
+     * upgrade that must re-point its proxy can only learn where it is from here. Hence the entry, and
+     * hence this test.
+     *
+     * ZERO WHERE A CHAIN HAS NONE, which is most of them: it arrived with the 0.13 line and only the
+     * three Ethereum stacks carry one. Absence is data, not a gap — a chain without it is one the
+     * version gate would refuse anyway.
+     */
+    function test_theTableCarriesKmsGenerationWhereTheChainHasOne() public {
+        assertEq(
+            getFhevmChain("mainnet", "mainnet").kmsGeneration, 0xf102cC9A9D2174630c394f5b7B7D63104E348daa, "mainnet"
+        );
+        assertEq(
+            getFhevmChain("testnet", "sepolia").kmsGeneration,
+            0x77389113d7000EcBCfc2bDed57202f5f46109934,
+            "testnet sepolia"
+        );
+        assertEq(
+            getFhevmChain("devnet", "sepolia").kmsGeneration,
+            0x55bdE339a01DA46d2d3504b8d9A9F5412C85e5e7,
+            "devnet sepolia"
+        );
+
+        assertEq(getFhevmChain("mainnet", "polygon").kmsGeneration, address(0), "polygon has none");
+        assertEq(getFhevmChain("testnet", "polygon_amoy").kmsGeneration, address(0), "amoy has none");
+        assertEq(getFhevmChain("devnet", "bnb_smart_chain_testnet").kmsGeneration, address(0), "bnb has none");
+        assertEq(getFhevmChain("devnet", "hoodi").kmsGeneration, address(0), "hoodi has none");
     }
 
     /// The table can be walked: the eight defaults, then whatever a test adds, in order.
