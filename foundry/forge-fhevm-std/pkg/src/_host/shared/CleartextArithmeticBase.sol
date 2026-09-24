@@ -45,7 +45,21 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
     ///      would answer a question nobody asked, so it reverts instead.
     function plaintexts(bytes32 handle) external view override returns (uint256) {
         _checkHandleChainId(handle);
-        return _db().get(handle);
+        return _operand(_db(), handle);
+    }
+
+    /**
+     * @dev EVERY READ OF AN OPERAND GOES THROUGH HERE, and that is the only reason it exists. The store
+     *      answers zero for a handle it never saw, which is indistinguishable from a handle worth zero --
+     *      fine on a stack that minted everything it is asked about, and wrong on a FORK, where handles
+     *      predate the cleartext layer entirely.
+     *
+     *      This contract keeps the plain behaviour. `CleartextForgeArithmetic` overrides it to answer for
+     *      handles the store does not know, which is a test concern and stays out of the deployable
+     *      contract: no chain ever runs the override, and the seam costs a virtual dispatch.
+     */
+    function _operand(ICleartextDB db, bytes32 handle) internal view virtual returns (uint256) {
+        return db.get(handle);
     }
 
     /// @notice Whether the store holds a cleartext for `handle`.
@@ -97,7 +111,7 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         _checkHandleChainId(result);
         _checkHandleChainId(ct);
         ICleartextDB db = _db();
-        db.set(result, _fheCast(db.get(ct), toType));
+        db.set(result, _fheCast(_operand(db, ct), toType));
     }
 
     /// @inheritdoc ICleartextArithmetic
@@ -143,8 +157,8 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         // A scalar `rhs` is a plaintext, not a handle; only check it when it is one.
         if (scalarByte != 0x01) _checkHandleChainId(rhs);
         ICleartextDB db = _db();
-        uint256 lhsValue = db.get(lhs);
-        uint256 rhsValue = (scalarByte == 0x01) ? uint256(rhs) : db.get(rhs);
+        uint256 lhsValue = _operand(db, lhs);
+        uint256 rhsValue = (scalarByte == 0x01) ? uint256(rhs) : _operand(db, rhs);
         db.set(result, _computeBinaryOp(op, lhsValue, rhsValue, fheType, scalarByte));
     }
 
@@ -162,10 +176,10 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         // `0x03` marks factor2 as a scalar; only check it when it is a handle.
         if (scalarByte != 0x03) _checkHandleChainId(factor2);
         ICleartextDB db = _db();
-        uint256 a = db.get(factor1);
+        uint256 a = _operand(db, factor1);
         // `0x03` marks factor2 as a scalar (`0x01`: encrypted; the executor admits nothing else). Scalars are
         // read the way `fheDiv`'s are (`_resolveBinaryOperands`): reduced to the operand type.
-        uint256 b = (scalarByte == 0x03) ? normalizeScalarToType(uint256(factor2), fheType) : db.get(factor2);
+        uint256 b = (scalarByte == 0x03) ? normalizeScalarToType(uint256(factor2), fheType) : _operand(db, factor2);
         uint256 d = normalizeScalarToType(uint256(divisor), fheType);
         // Two 64-bit factors fit in 128 bits, so the widened product cannot overflow; `d` is non-zero because
         // the executor's `DivisionByZero` check ran on the same reduced value.
@@ -177,7 +191,7 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         _checkHandleChainId(result);
         _checkHandleChainId(ct);
         ICleartextDB db = _db();
-        db.set(result, _computeUnaryOp(op, db.get(ct), fheType));
+        db.set(result, _computeUnaryOp(op, _operand(db, ct), fheType));
     }
 
     /// @inheritdoc ICleartextArithmetic
@@ -188,9 +202,9 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         _checkHandleChainId(rhs);
         if (op != Operators.fheIfThenElse) revert CleartextErrorUnsupportedTernaryOp(op);
         ICleartextDB db = _db();
-        uint256 control = db.get(lhs);
+        uint256 control = _operand(db, lhs);
         require(control == 0 || control == 1, "Unexpected FheIfThenElse control value");
-        db.set(result, (control == 1) ? db.get(middle) : db.get(rhs));
+        db.set(result, (control == 1) ? _operand(db, middle) : _operand(db, rhs));
     }
 
     /// @inheritdoc ICleartextArithmetic
@@ -208,12 +222,12 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
 
         uint256[] memory operands = new uint256[](values.length);
         for (uint256 i = 0; i < values.length; i++) {
-            operands[i] = db.get(values[i]);
+            operands[i] = _operand(db, values[i]);
         }
 
         // `fheSum` passes bytes32(0) as `value` (see ICleartextArithmetic), which is not a handle the
         // DB knows — so the needle is only read for the op that actually has one.
-        uint256 needle = (op == Operators.fheIsIn) ? db.get(value) : 0;
+        uint256 needle = (op == Operators.fheIsIn) ? _operand(db, value) : 0;
 
         db.set(result, _computeNaryOp(op, needle, operands, fheType));
     }
