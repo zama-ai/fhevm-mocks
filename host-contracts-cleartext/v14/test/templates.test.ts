@@ -684,6 +684,12 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fo
     'stopPrank',
     'pauseGasMetering',
     'resumeGasMetering',
+    // The fork upgrade's four: three to read a `getVersion()` string apart, and the grant without which a
+    // forge-only implementation behind a FORKED proxy is refused its cheatcodes.
+    'split',
+    'parseUint',
+    'toString',
+    'allowCheatcodes',
   ]) {
     assert.match(iface, new RegExp(`function ${cheatcode}\\(`), `IForgeVm.sol declares ${cheatcode}`);
   }

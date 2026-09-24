@@ -40,6 +40,18 @@ contract LocalHostUpgradeTablesTest is Test {
         all[4] = FhevmHostContracts.HCULimit;
         all[5] = FhevmHostContracts.ProtocolConfig;
         all[6] = FhevmHostContracts.KMSGeneration;
+        all[7] = FhevmHostContracts.CleartextFHEVMExecutor;
+        all[8] = FhevmHostContracts.CleartextArithmetic;
+        all[9] = FhevmHostContracts.CleartextDB;
+        all[10] = FhevmHostContracts.CleartextACL;
+        all[11] = FhevmHostContracts.CleartextKMSVerifier;
+        all[12] = FhevmHostContracts.CleartextInputVerifier;
+        all[13] = FhevmHostContracts.CleartextHCULimit;
+        all[14] = FhevmHostContracts.CleartextForgeFHEVMExecutor;
+        all[15] = FhevmHostContracts.CleartextForgeACL;
+        all[16] = FhevmHostContracts.CleartextForgeArithmetic;
+        all[17] = FhevmHostContracts.CleartextForgeHCULimit;
+        all[18] = FhevmHostContracts.EmptyUUPSProxy;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -54,6 +66,18 @@ contract LocalHostUpgradeTablesTest is Test {
         assertEq(uint8(FhevmHostContracts.HCULimit), 4, "HCULimit");
         assertEq(uint8(FhevmHostContracts.ProtocolConfig), 5, "ProtocolConfig");
         assertEq(uint8(FhevmHostContracts.KMSGeneration), 6, "KMSGeneration");
+        assertEq(uint8(FhevmHostContracts.CleartextFHEVMExecutor), 7, "CleartextFHEVMExecutor");
+        assertEq(uint8(FhevmHostContracts.CleartextArithmetic), 8, "CleartextArithmetic");
+        assertEq(uint8(FhevmHostContracts.CleartextDB), 9, "CleartextDB");
+        assertEq(uint8(FhevmHostContracts.CleartextACL), 10, "CleartextACL");
+        assertEq(uint8(FhevmHostContracts.CleartextKMSVerifier), 11, "CleartextKMSVerifier");
+        assertEq(uint8(FhevmHostContracts.CleartextInputVerifier), 12, "CleartextInputVerifier");
+        assertEq(uint8(FhevmHostContracts.CleartextHCULimit), 13, "CleartextHCULimit");
+        assertEq(uint8(FhevmHostContracts.CleartextForgeFHEVMExecutor), 14, "CleartextForgeFHEVMExecutor");
+        assertEq(uint8(FhevmHostContracts.CleartextForgeACL), 15, "CleartextForgeACL");
+        assertEq(uint8(FhevmHostContracts.CleartextForgeArithmetic), 16, "CleartextForgeArithmetic");
+        assertEq(uint8(FhevmHostContracts.CleartextForgeHCULimit), 17, "CleartextForgeHCULimit");
+        assertEq(uint8(FhevmHostContracts.EmptyUUPSProxy), 18, "EmptyUUPSProxy");
     }
 
     function test_everyAddressRoleHasThePositionThisFileWasWrittenAgainst() public pure {
@@ -71,9 +95,9 @@ contract LocalHostUpgradeTablesTest is Test {
 
     /// Catches an append on either enum, which the per-member checks above cannot see.
     function test_neitherEnumHasGrownAMember() public pure {
-        assertEq(uint8(type(FhevmHostContracts).max), 6, "host contracts");
+        assertEq(uint8(type(FhevmHostContracts).max), 18, "host contracts");
         assertEq(uint8(type(FhevmAddressRole).max), 9, "address roles");
-        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 7, "and the count the tables were built with");
+        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 19, "and the count the tables were built with");
         assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 10, "and the role count");
     }
 

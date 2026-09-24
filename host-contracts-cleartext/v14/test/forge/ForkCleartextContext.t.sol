@@ -4,6 +4,15 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {LibForgeFhevmStack} from "../../pkg/forge/src/LibForgeFhevmStack.sol";
+import {LibForgeFhevmUpgrade} from "../../pkg/forge/src/LibForgeFhevmUpgrade.sol";
+import {FhevmAddressRole} from "../../pkg/forge/src/_internal/LocalHostBytecode.sol";
+import {
+    FhevmGeneration,
+    HostVersions,
+    LibForgeFhevmHostVersions
+} from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
+import {IACL} from "../../pkg/forge/src/_internal/interfaces/IACL.sol";
+import {IFHEVMExecutor} from "../../pkg/forge/src/_internal/interfaces/IFHEVMExecutor.sol";
 import {LibForgeFhevmSigners} from "../../pkg/forge/src/LibForgeFhevmSigners.sol";
 import {IInputVerifier} from "../../pkg/forge/src/_internal/interfaces/IInputVerifier.sol";
 import {IKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/IKMSVerifier.sol";
@@ -36,11 +45,57 @@ contract ForkCleartextContextTest is Test {
     ///      argument instead of reading the local `protocolConfigAdd` constant.
     address internal constant SEPOLIA_PROTOCOL_CONFIG = 0x51f9AFBc89Ea792e1a21a12AB802ab58D4dbee83;
 
+    /// @dev No contract exposes the KMSGeneration address, so unlike the executor and the pauser set it
+    ///      cannot be read off the stack and has to be named here.
+    address internal constant MAINNET_KMS_GENERATION = 0xf102cC9A9D2174630c394f5b7B7D63104E348daa;
+    address internal constant SEPOLIA_KMS_GENERATION = 0x77389113d7000EcBCfc2bDed57202f5f46109934;
+
+    address internal kmsGeneration;
+
     address internal acl;
     address internal inputVerifier;
     address internal kmsVerifier;
     address internal protocolConfig;
     bool internal forked;
+
+    /**
+     * @dev THE STACK MUST BE THIS GENERATION BEFORE ANY OF IT IS TOUCHED. Every helper under test speaks
+     *      the vendored ABI, and a chain a generation behind answers a different one: `ProtocolConfig`
+     *      gained an argument to `defineNewKmsContextAndEpoch`, so the call arrives with a selector the
+     *      deployed implementation does not have and reverts having run nothing.
+     *
+     *      ASKED, NOT ASSUMED, and asked of the one thing that knows. Which chains lag is not a fact this
+     *      file may hold -- they upgrade on their own schedule -- and nor is what "a generation" means:
+     *      that is the whole set of host-contract versions, with `InputVerifier` reporting the same string
+     *      in both because its bytecode does not change. `LibForgeFhevmHostVersions` owns that table, so
+     *      anything else here would be a second copy of it, wrong in some corner.
+     */
+    function _bringTheForkToThisGeneration() private {
+        address executor = IACL(acl).getFHEVMExecutorAddress();
+        address hcuLimit = IFHEVMExecutor(executor).getHCULimitAddress();
+
+        HostVersions memory versions = LibForgeFhevmHostVersions.read(
+            acl, executor, kmsVerifier, inputVerifier, hcuLimit, protocolConfig, kmsGeneration
+        );
+        FhevmGeneration generation = LibForgeFhevmHostVersions.classify(versions);
+
+        if (generation == FhevmGeneration.Current) {
+            return; // nothing to do, and the reinitializers would refuse a second run anyway
+        }
+        require(generation == FhevmGeneration.Previous, "ForkCleartextContext: the fork is neither generation");
+
+        address[10] memory addresses;
+        addresses[uint8(FhevmAddressRole.ACL)] = acl;
+        addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = executor;
+        addresses[uint8(FhevmAddressRole.KMSVerifier)] = kmsVerifier;
+        addresses[uint8(FhevmAddressRole.InputVerifier)] = inputVerifier;
+        addresses[uint8(FhevmAddressRole.HCULimit)] = hcuLimit;
+        addresses[uint8(FhevmAddressRole.ProtocolConfig)] = protocolConfig;
+        addresses[uint8(FhevmAddressRole.KMSGeneration)] = kmsGeneration;
+        addresses[uint8(FhevmAddressRole.PauserSet)] = IACL(acl).getPauserSetAddress();
+
+        LibForgeFhevmUpgrade.upgradeFromPreviousGeneration(addresses);
+    }
 
     function setUp() public {
         string memory mainnetRpc = vm.envOr("MAINNET_RPC_URL", string(""));
@@ -50,14 +105,17 @@ contract ForkCleartextContextTest is Test {
             vm.createSelectFork(mainnetRpc);
             (acl, inputVerifier) = (MAINNET_ACL, MAINNET_INPUT_VERIFIER);
             (kmsVerifier, protocolConfig) = (MAINNET_KMS_VERIFIER, MAINNET_PROTOCOL_CONFIG);
+            kmsGeneration = MAINNET_KMS_GENERATION;
         } else if (bytes(sepoliaRpc).length > 0) {
             vm.createSelectFork(sepoliaRpc);
             (acl, inputVerifier) = (SEPOLIA_ACL, SEPOLIA_INPUT_VERIFIER);
             (kmsVerifier, protocolConfig) = (SEPOLIA_KMS_VERIFIER, SEPOLIA_PROTOCOL_CONFIG);
+            kmsGeneration = SEPOLIA_KMS_GENERATION;
         } else {
             return;
         }
         forked = true;
+        _bringTheForkToThisGeneration();
     }
 
     modifier onlyForked() {

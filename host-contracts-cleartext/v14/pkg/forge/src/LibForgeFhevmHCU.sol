@@ -14,6 +14,8 @@ import {LibForgeFhevmStack} from "./LibForgeFhevmStack.sol";
 interface ICleartextForgeHCULimitMeter {
     function lastTransactionHCU() external view returns (uint256);
     function maxHandleHCU() external view returns (uint256);
+    function resetHCUReadings() external;
+    function hcuOf(bytes32 handle) external view returns (uint256);
 }
 
 /**
@@ -78,6 +80,16 @@ library LibForgeFhevmHCU {
     /// @notice The local stack's meter; see the address-taking form for what the two readings mean.
     function lastHCU() internal view returns (uint256 transactionHCU, uint256 maxHandleHCU) {
         return lastHCU(HCU_LIMIT_ADDRESS);
+    }
+
+    /// @notice Zeroes the local stack's meter; see the address-taking form for why it is needed at all.
+    function resetHCU() internal {
+        resetHCU(HCU_LIMIT_ADDRESS, ACL_ADDRESS);
+    }
+
+    /// @notice What one handle cost the local stack; see the address-taking form.
+    function hcuOf(bytes32 handle) internal view returns (uint256) {
+        return hcuOf(HCU_LIMIT_ADDRESS, handle);
     }
 
     // -- Any stack -----------------------------------------------------------
@@ -145,9 +157,41 @@ library LibForgeFhevmHCU {
      *      forge-std, which `_host/**` may not import (rules.md 2.16), so the guard and its message live
      *      in `pkg/src/*.sol` where they can be spelled out.
      *
-     * @dev Both readings clear on the first metered operation of a NEW transaction, so a fresh reading
-     *      needs an FHE call before it; between calls they hold the last transaction that metered anything.
+     * @dev A FORGE TEST IS ONE TRANSACTION, so "clears on a new transaction" fires once and the readings
+     *      then ACCUMULATE across every later call in the test. To measure a single call, `resetHCU()`
+     *      before it. Between calls they hold everything metered since the last reset.
      */
+    /**
+     * @notice Zeroes both readings of `hcuLimit`, as its ACL owner, so the next FHE call is measured alone.
+     *
+     * @dev WITHOUT THIS THE METER ACCUMULATES. Both readings clear on the first metered operation of a new
+     *      TRANSACTION, and a forge test function is ONE transaction -- so the clear happens once and every
+     *      later call adds to the same total. One call per test reads correctly and two do not, which is
+     *      why this is easy to miss.
+     *
+     * @dev The minted-handle record is untouched: that answers a different question, with the lifetime of
+     *      the stack rather than of a measurement.
+     */
+    function resetHCU(address hcuLimit, address acl) internal {
+        fvm.prank(LibForgeFhevmStack.aclOwner(acl));
+        ICleartextForgeHCULimitMeter(hcuLimit).resetHCUReadings();
+    }
+
+    /**
+     * @notice What `handle` cost when this stack computed it, or ZERO if this stack did not compute it.
+     *
+     * @dev PER HANDLE, AND IT OUTLIVES THE TRANSACTION. The two readings above are the base's own, kept
+     *      transiently and gone at the end of the transaction that took them; this is recorded per handle
+     *      in ordinary storage, so a test can ask about a value long after the call that produced it.
+     *
+     * @dev ZERO MEANS "NOT FROM HERE", not "free". Every operation the executor meters costs something --
+     *      upstream's tables are positive throughout -- so a zero reading is the absence of a reading: a
+     *      handle this stack inherited from the chain it forked rather than one it computed.
+     */
+    function hcuOf(address hcuLimit, bytes32 handle) internal view returns (uint256) {
+        return ICleartextForgeHCULimitMeter(hcuLimit).hcuOf(handle);
+    }
+
     function lastHCU(address hcuLimit) internal view returns (uint256 transactionHCU, uint256 maxHandleHCU) {
         ICleartextForgeHCULimitMeter meter = ICleartextForgeHCULimitMeter(hcuLimit);
         transactionHCU = meter.lastTransactionHCU();

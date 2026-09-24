@@ -230,6 +230,64 @@ export const UPGRADE_IMPLEMENTATIONS = [
   // unpatched, and the v(N-1) -> v(N) upgrade re-points both.
   { enumMember: 'ProtocolConfig', contractName: 'ProtocolConfig', sourcePath: 'src/contracts/ProtocolConfig.sol' },
   { enumMember: 'KMSGeneration', contractName: 'KMSGeneration', sourcePath: 'src/contracts/KMSGeneration.sol' },
+  // The cleartext implementations, so a forked REAL stack can
+  // be turned into a cleartext one and answer `plaintexts(handle)` itself. Appended like the two above.
+  {
+    enumMember: 'CleartextFHEVMExecutor',
+    contractName: 'CleartextFHEVMExecutor',
+    sourcePath: 'src/cleartext/CleartextFHEVMExecutor.sol',
+  },
+  {
+    enumMember: 'CleartextArithmetic',
+    contractName: 'CleartextArithmetic',
+    sourcePath: 'src/cleartext/CleartextArithmetic.sol',
+  },
+  { enumMember: 'CleartextDB', contractName: 'CleartextDB', sourcePath: 'src/cleartext/CleartextDB.sol' },
+  // The bootstrap proxy the two above are deployed behind. It bakes in the ACL like everything else, so on
+  // a remote stack it needs patching too, or its `onlyACLOwner` asks an address with no code.
+  { enumMember: 'CleartextACL', contractName: 'CleartextACL', sourcePath: 'src/cleartext/CleartextACL.sol' },
+  {
+    enumMember: 'CleartextKMSVerifier',
+    contractName: 'CleartextKMSVerifier',
+    sourcePath: 'src/cleartext/CleartextKMSVerifier.sol',
+  },
+  {
+    enumMember: 'CleartextInputVerifier',
+    contractName: 'CleartextInputVerifier',
+    sourcePath: 'src/cleartext/CleartextInputVerifier.sol',
+  },
+  {
+    enumMember: 'CleartextHCULimit',
+    contractName: 'CleartextHCULimit',
+    sourcePath: 'src/cleartext/CleartextHCULimit.sol',
+  },
+  // The forge-only twins of four of the above. They call cheatcodes, so they only work where forge
+  // created (or was told to trust) the proxy in front of them -- see the measurement suite.
+  {
+    enumMember: 'CleartextForgeFHEVMExecutor',
+    contractName: 'CleartextForgeFHEVMExecutor',
+    sourcePath: 'src/cleartext/CleartextForgeFHEVMExecutor.sol',
+  },
+  {
+    enumMember: 'CleartextForgeACL',
+    contractName: 'CleartextForgeACL',
+    sourcePath: 'src/cleartext/CleartextForgeACL.sol',
+  },
+  {
+    enumMember: 'CleartextForgeArithmetic',
+    contractName: 'CleartextForgeArithmetic',
+    sourcePath: 'src/cleartext/CleartextForgeArithmetic.sol',
+  },
+  {
+    enumMember: 'CleartextForgeHCULimit',
+    contractName: 'CleartextForgeHCULimit',
+    sourcePath: 'src/cleartext/CleartextForgeHCULimit.sol',
+  },
+  {
+    enumMember: 'EmptyUUPSProxy',
+    contractName: 'EmptyUUPSProxy',
+    sourcePath: 'src/contracts/emptyProxy/EmptyUUPSProxy.sol',
+  },
 ] as const;
 
 /**

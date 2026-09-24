@@ -5,7 +5,11 @@ import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
 import {LibHostUpgradeCode} from "./LibHostUpgradeCode.sol";
 import {LibForgeFhevmStack} from "./LibForgeFhevmStack.sol";
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
-import {FhevmAddressRole, FhevmHostContracts} from "./_internal/LocalHostBytecode.sol";
+import {ERC1967_PROXY_CREATION_CODE, FhevmAddressRole, FhevmHostContracts} from "./_internal/LocalHostBytecode.sol";
+import {ICleartextDB} from "./_internal/interfaces/ICleartextDB.sol";
+import {ICleartextArithmetic} from "./_internal/interfaces/ICleartextArithmetic.sol";
+import {ICleartextFHEVMExecutor} from "./_internal/interfaces/ICleartextFHEVMExecutor.sol";
+import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IACL} from "./_internal/interfaces/IACL.sol";
 import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {IFHEVMExecutor} from "./_internal/interfaces/IFHEVMExecutor.sol";
@@ -151,5 +155,201 @@ library LibForgeFhevmUpgrade {
             deployed := create(0, add(creationCode, 0x20), mload(creationCode))
         }
         if (deployed == address(0)) revert ImplementationDeployFailed(index);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Turning a forked stack into a cleartext one
+    ////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @notice Re-points a forked stack at this package's CLEARTEXT implementations, so it holds the
+     *         plaintexts of everything it computes instead of only announcing handles.
+     *
+     * @param addresses One address per `FhevmAddressRole`, by position: the FORK's. The two cleartext
+     *                  roles are ignored on the way in and reported on the way out, because the contracts
+     *                  they name do not exist on a real chain and are deployed here.
+     * @return arithmetic The `CleartextArithmetic` proxy this call created.
+     * @return db The `CleartextDB` proxy it writes into.
+     *
+     * @dev WHY A FORK WANTS THIS. A production executor keeps no cleartexts, so a reader has to
+     *      reconstruct them from events -- a replay that has to implement every operator, and that cannot
+     *      see a value a dApp computed without emitting. A cleartext executor simply answers. The
+     *      implementations are this package's own, deployed patched for the fork's addresses (4.1's
+     *      exception), behind the chain's own proxies.
+     *
+     * @dev NO REINITIALIZERS. These add no storage of their own -- each is a subclass of the production
+     *      contract it replaces -- so there is nothing to initialize, and a generation upgrade, if one was
+     *      needed, has already run by the time this is called.
+     *
+     * @dev THE FORGE VARIANTS WHERE THEY EXIST, because a fork should behave like a local stack: gas
+     *      metering paused around the mock's own bookkeeping, forge's randomness, and the per-handle
+     *      record that tells a missed computation from a handle older than the fork. They call cheatcodes,
+     *      and forge grants those per address to what IT created -- a forked chain's proxy is not that, so
+     *      each one is granted explicitly. Miss a grant and the stack reverts on its first FHE operation.
+     */
+    function upgradeToCleartext(address[10] memory addresses) internal returns (address arithmetic, address db) {
+        address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
+
+        // The two contracts no real chain has. They must exist before the executor is patched, because it
+        // names the arithmetic as a compile-time constant -- hence empty proxies first, addresses second,
+        // implementations third.
+        address emptyImplementation =
+            _deploy(0, LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses));
+        bytes memory initEmpty = abi.encodeCall(IEmptyUUPSProxy.initialize, ());
+        db = _deploy(1, abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImplementation, initEmpty)));
+        arithmetic =
+            _deploy(2, abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImplementation, initEmpty)));
+
+        addresses[uint8(FhevmAddressRole.CleartextArithmetic)] = arithmetic;
+        addresses[uint8(FhevmAddressRole.CleartextDB)] = db;
+
+        _materialize(
+            owner,
+            db,
+            FhevmHostContracts.CleartextDB,
+            addresses,
+            abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (arithmetic))
+        );
+        _materialize(
+            owner,
+            arithmetic,
+            FhevmHostContracts.CleartextForgeArithmetic,
+            addresses,
+            abi.encodeCall(ICleartextArithmetic.initializeFromEmptyProxy, ())
+        );
+
+        // The chain's own proxies, pointed at this package's code. `InputVerifier` is here even though the
+        // generation upgrade skips it: its bytecode does not change between generations, but its CLEARTEXT
+        // subclass differs from the production one, so the cleartext pass has to visit it.
+        _materialize(owner, addresses[uint8(FhevmAddressRole.ACL)], FhevmHostContracts.CleartextForgeACL, addresses, "");
+        _materialize(
+            owner,
+            addresses[uint8(FhevmAddressRole.FHEVMExecutor)],
+            FhevmHostContracts.CleartextForgeFHEVMExecutor,
+            addresses,
+            ""
+        );
+        _materialize(
+            owner, addresses[uint8(FhevmAddressRole.HCULimit)], FhevmHostContracts.CleartextForgeHCULimit, addresses, ""
+        );
+        _materialize(
+            owner,
+            addresses[uint8(FhevmAddressRole.KMSVerifier)],
+            FhevmHostContracts.CleartextKMSVerifier,
+            addresses,
+            ""
+        );
+        _materialize(
+            owner,
+            addresses[uint8(FhevmAddressRole.InputVerifier)],
+            FhevmHostContracts.CleartextInputVerifier,
+            addresses,
+            ""
+        );
+
+        // Only the four that call cheatcodes; the others need nothing.
+        fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.ACL)]);
+        fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.FHEVMExecutor)]);
+        fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.HCULimit)]);
+        fvm.allowCheatcodes(arithmetic);
+    }
+
+    /// @dev Deploy `implementation` patched for `addresses`, then point `proxy` at it as the ACL owner.
+    function _materialize(
+        address owner,
+        address proxy,
+        FhevmHostContracts implementation,
+        address[10] memory addresses,
+        bytes memory initData
+    ) private {
+        address deployed = _deploy(uint8(implementation), LibHostUpgradeCode.creationCodeFor(implementation, addresses));
+        fvm.prank(owner);
+        IUUPSProxy(proxy).upgradeToAndCall(deployed, initData);
+    }
+
+    /**
+     * @notice Brings a stack that is ALREADY CLEARTEXT forward a generation, keeping its store.
+     *
+     * @param addresses One address per `FhevmAddressRole`, the FORK's. The two cleartext roles are
+     *                  ignored on the way in: they are asked of the stack, which is the point.
+     *
+     * @dev WHY THIS IS NOT `upgradeToCleartext`. That one installs a cleartext layer on a production
+     *      stack and must create the store, because no real chain has one. Here the store EXISTS and
+     *      holds values — a deployed cleartext stack has been computing into it — so it is found rather
+     *      than replaced: the executor names its arithmetic, the arithmetic names its store.
+     *
+     * @dev AND THAT IS WHY A FORK OF ONE HAS NO UNKNOWN-HANDLE PROBLEM. An upgrade re-points proxies;
+     *      it does not touch their storage. Every cleartext this stack recorded before the fork is still
+     *      in the same `CleartextDB` afterwards, so handles minted long ago read back normally and
+     *      nothing has to be stated with `forkUnknown`. On a production fork those same handles are
+     *      unknowable, because nothing ever recorded them.
+     *
+     * @dev THE REINITIALIZERS RUN, unlike in `upgradeToCleartext`: this IS the generation upgrade, so
+     *      each proxy takes the same init data `upgradeFromPreviousGeneration` would send it, and
+     *      `CleartextArithmetic` takes the one only a cleartext stack has -- `reinitializeV3`, which
+     *      upstream added for the operator this generation introduced.
+     */
+    function upgradeCleartextFromPreviousGeneration(address[10] memory addresses)
+        internal
+        returns (address arithmetic, address db)
+    {
+        address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
+        address executor = addresses[uint8(FhevmAddressRole.FHEVMExecutor)];
+
+        // Asked of the stack, so the values it already holds stay reachable.
+        arithmetic = ICleartextFHEVMExecutor(executor).getCleartextArithmeticAddress();
+        db = ICleartextArithmetic(arithmetic).getCleartextDBAddress();
+        addresses[uint8(FhevmAddressRole.CleartextArithmetic)] = arithmetic;
+        addresses[uint8(FhevmAddressRole.CleartextDB)] = db;
+
+        // The generation's own op list, each proxy taking the cleartext implementation rather than the
+        // production one -- the stack is cleartext and must stay so.
+        for (uint256 index = 0; index < OP_COUNT; index++) {
+            FhevmHostContracts implementation = _cleartextCounterpart(opImplementation(index));
+            address deployed = _deploy(index, LibHostUpgradeCode.creationCodeFor(implementation, addresses));
+            fvm.prank(owner);
+            IUUPSProxy(addresses[uint8(opProxyRole(index))]).upgradeToAndCall(deployed, opInitData(index));
+        }
+
+        // Absent from the op list because its bytecode does not change between generations -- but its
+        // CLEARTEXT subclass differs from the production one, so the pass still has to visit it.
+        _materialize(
+            owner,
+            addresses[uint8(FhevmAddressRole.InputVerifier)],
+            FhevmHostContracts.CleartextInputVerifier,
+            addresses,
+            ""
+        );
+
+        // And the one contract only a cleartext stack has. Not a host contract, so no op list mentions it.
+        _materialize(
+            owner,
+            arithmetic,
+            FhevmHostContracts.CleartextForgeArithmetic,
+            addresses,
+            abi.encodeCall(ICleartextArithmetic.reinitializeV3, ())
+        );
+
+        _grantCheatcodes(addresses, arithmetic);
+    }
+
+    /// @dev The cleartext subclass of a host contract, where one exists. `ProtocolConfig` and
+    ///      `KMSGeneration` have none and need none: nothing about them differs between a mock stack and
+    ///      a real one.
+    function _cleartextCounterpart(FhevmHostContracts implementation) private pure returns (FhevmHostContracts) {
+        if (implementation == FhevmHostContracts.FHEVMExecutor) return FhevmHostContracts.CleartextForgeFHEVMExecutor;
+        if (implementation == FhevmHostContracts.ACL) return FhevmHostContracts.CleartextForgeACL;
+        if (implementation == FhevmHostContracts.KMSVerifier) return FhevmHostContracts.CleartextKMSVerifier;
+        if (implementation == FhevmHostContracts.HCULimit) return FhevmHostContracts.CleartextForgeHCULimit;
+        return implementation;
+    }
+
+    /// @dev The four that call cheatcodes. A forked chain's proxy is not something forge created, so it
+    ///      has no access until it is granted -- and without it the stack reverts at its first FHE call.
+    function _grantCheatcodes(address[10] memory addresses, address arithmetic) private {
+        fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.ACL)]);
+        fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.FHEVMExecutor)]);
+        fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.HCULimit)]);
+        fvm.allowCheatcodes(arithmetic);
     }
 }

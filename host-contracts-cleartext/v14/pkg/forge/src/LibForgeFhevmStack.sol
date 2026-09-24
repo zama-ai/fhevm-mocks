@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
+import {FheType} from "./shared/LibFheType.sol";
 
 import {
     ACL_ADDRESS,
@@ -111,6 +112,15 @@ import {LibForgeFhevmSigners} from "./LibForgeFhevmSigners.sol";
  *   4. the real implementations, deployed permissionlessly
  *   5. one atomic `ACLOwner.upgrade` swapping every proxy empty -> real and running its initializer
  */
+/// @notice The forge-only arithmetic's answer for handles its store never saw.
+/// @dev Declared here rather than in `_internal/interfaces/`: those are generated from the DEPLOYED
+///      contracts, and the plain `CleartextArithmetic` has none of these.
+interface ICleartextForgeArithmeticPolicy {
+    function setUnknownHandleDefault(uint8 fheType, uint256 value) external;
+    function setUnknownHandleFromHandle(uint8 fheType) external;
+    function getCleartextDBAddress() external view returns (address);
+}
+
 library LibForgeFhevmStack {
     /// @dev The cheatcode address, bound here because a library cannot inherit `ForgeVmBase`.
     IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);
@@ -752,5 +762,84 @@ library LibForgeFhevmStack {
             if (actual[i] != expected[i]) return false;
         }
         return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Stating what a cleartext stack cannot know
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // A fork is full of handles minted before this package's implementations were installed on it, and
+    // their cleartexts exist nowhere. A test says what they are -- per handle here, or by type through the
+    // policy below. On the local stack the question never arises, which is why these are refused there.
+
+    /// @notice The store a cleartext `executor` reads its operands from.
+    /// @dev Asked of the stack rather than configured: the executor names its arithmetic, and the
+    ///      arithmetic names the store, so a fork's own pair is found the same way the local one's is.
+    function cleartextStoreOf(address executor) internal view returns (address arithmetic, address db) {
+        arithmetic = ICleartextFHEVMExecutor(executor).getCleartextArithmeticAddress();
+        db = ICleartextForgeArithmeticPolicy(arithmetic).getCleartextDBAddress();
+    }
+
+    /**
+     * @notice States the cleartext of one handle on a cleartext stack.
+     * @dev PRANKED AS THE ARITHMETIC, which is the store's registered writer. Granting this contract a
+     *      writer slot would work too and would leave the forked stack permanently changed; a prank
+     *      leaves nothing behind.
+     * @dev A stated value WINS over any policy, and over the derivation, because the store is consulted
+     *      first. That is what makes a seeded fuzz input reliable.
+     */
+    function seedCleartext(address executor, bytes32 handle, uint256 value) internal {
+        (address arithmetic, address db) = cleartextStoreOf(executor);
+        fvm.prank(arithmetic);
+        ICleartextDB(db).set(handle, value);
+    }
+
+    /**
+     * @notice Answers `value` for every unknown handle of every type it fits.
+     * @dev THE TYPES IT DOES NOT FIT ARE LEFT REFUSING, deliberately. The value is one number and the
+     *      types are many widths: 1000 is a `euint32` a test meant and a `euint8` it did not. Upstream's
+     *      own rule is that a plaintext out of range for its type is refused rather than narrowed, so
+     *      narrowing it here would invent a value nobody wrote -- and setting it only where it is
+     *      meaningful is the honest half of the request.
+     */
+    function useFixedUnknownHandles(address executor, uint256 value) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        // THE FORK'S OWNER, asked of the executor. `ACL_ADDRESS` is this package's localhost constant and
+        // is nobody on a forked chain -- pranking as its owner is refused by the fork's own ACL.
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        for (uint8 fheType = 0; fheType <= uint8(type(FheType).max); fheType++) {
+            uint256 bits = _bitWidthOrZero(FheType(fheType));
+            if (bits == 0 || (bits < 256 && value >= (uint256(1) << bits))) continue;
+            fvm.prank(owner);
+            ICleartextForgeArithmeticPolicy(arithmetic).setUnknownHandleDefault(fheType, value);
+        }
+    }
+
+    /// @notice Derives every unknown handle's value from the handle itself, for every type.
+    /// @dev Always applicable, unlike a fixed value: the derivation is cut to each type as it is made.
+    function useDeterministicUnknownHandles(address executor) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        for (uint8 fheType = 0; fheType <= uint8(type(FheType).max); fheType++) {
+            if (_bitWidthOrZero(FheType(fheType)) == 0) continue;
+            fvm.prank(owner);
+            ICleartextForgeArithmeticPolicy(arithmetic).setUnknownHandleFromHandle(fheType);
+        }
+    }
+
+    /// @dev The type's width, or zero for a member the cleartext layer carries no values for.
+    ///      `LibFheType.bitWidthForType` REVERTS on those rather than answering, which is right where a
+    ///      value is being computed and wrong here: this walks every enum member on purpose, so an
+    ///      unsupported one is a member to skip, not a failure.
+    function _bitWidthOrZero(FheType fheType) private pure returns (uint256) {
+        if (fheType == FheType.Bool) return 1;
+        if (fheType == FheType.Uint8) return 8;
+        if (fheType == FheType.Uint16) return 16;
+        if (fheType == FheType.Uint32) return 32;
+        if (fheType == FheType.Uint64) return 64;
+        if (fheType == FheType.Uint128) return 128;
+        if (fheType == FheType.Uint160) return 160;
+        if (fheType == FheType.Uint256) return 256;
+        return 0;
     }
 }
