@@ -18,7 +18,7 @@
     "check:zama-config": "node internal/cli/checkZamaLocalConfig.ts",
     "clean": "rm -rf *.tsbuildinfo && npm run clean:create2-deploy && npm run clean:forge && npm run clean:internal && npm run clean:test && npm run clean:pkg:ts",
     "clean:create2-deploy": "rm -rf create2-deploy/.out-* create2-deploy/.test-*",
-    "clean:forge": "rm -rf cache out broadcast out-forgefhevmcore out-create2 snapshots",
+    "clean:forge": "rm -rf cache out broadcast snapshots out-forgefhevmcore out-create2",
     "clean:generate:compute-addresses": "rm -rf pkg/forge/script/ComputeAddresses.s.sol",
     "clean:generate:contract-versions": "rm -rf pkg/ts/versions.ts pkg/forge/src/_internal/LocalHostVersions.sol",
     "clean:generate:exports": "rm -rf pkg/ts/index.ts test-consumer/esm/src/export.ts test-consumer/cjs/src/export.ts",

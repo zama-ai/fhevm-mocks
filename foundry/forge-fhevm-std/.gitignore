@@ -2,7 +2,10 @@ dependencies
 lib
 node_modules
 out
+out-forgefhevmcore
+out-create2
 cache
 broadcast
 out-fhevm-debug
 cache-fhevm-debug
+snapshots
