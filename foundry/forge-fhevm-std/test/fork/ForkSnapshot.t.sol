@@ -5,6 +5,7 @@ import {euint32, externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
+import {LibFhevmVersion} from "../../pkg/src/LibFhevmVersion.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
 import {ForkBlocks} from "../shared/ForkBlocks.sol";
@@ -14,6 +15,10 @@ import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDec
 interface IFHETest {
     function getEuint32Of(address account) external view returns (euint32);
     function addEuint32(externalEuint32 input, bytes calldata inputProof, uint32 clearValue, bool makePublic) external;
+}
+
+interface IVersioned {
+    function getVersion() external view returns (string memory);
 }
 
 /**
@@ -37,7 +42,7 @@ interface IFHETest {
  *          SEPOLIA_RPC_URL=... forge test --match-contract ForkSnapshot
  */
 contract ForkSnapshotTest is TestFhevm {
-    IFHETest internal constant FHE_TEST = IFHETest(0x94B9d3aF050687D1F76251aD7D09a1F216a19845);
+    IFHETest internal constant FHE_TEST = IFHETest(0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc);
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
 
     FhevmChain internal sepolia;
@@ -203,6 +208,33 @@ contract ForkSnapshotTest is TestFhevm {
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl);
         _add(5); // the add was undone, so from 1000 again
         assertEq(decryptPublic(FHE_TEST.getEuint32Of(SENDER)), 1005, "the add was undone, the seed was not");
+    }
+
+    /**
+     * THE UPGRADE IS PART OF THE FORK, so a revert cannot undo it. Sepolia testnet runs a generation
+     * behind and `createSelectFork` upgrades the forked copy before returning, which puts every one of
+     * those writes BEFORE any snapshot a test can take. The reverts below land after it, not on top of
+     * it — which is what makes this worth stating: an upgrade applied lazily, on first use rather than at
+     * fork time, would be inside the snapshot for some tests and outside it for others, and a revert would
+     * silently take a working stack back to the old implementations.
+     */
+    function test_fork_theUpgradeSurvivesEveryRevert() public {
+        vm.skip(!forked);
+        fhevm.createSelectFork(sepolia, blockA);
+        assertEq(IVersioned(sepolia.acl).getVersion(), LibFhevmVersion.aclCeiling(), "upgraded at fork time");
+
+        uint256 snap = fhevm.snapshotState();
+        forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
+        _add(337);
+
+        fhevm.revertToState(snap);
+        assertEq(IVersioned(sepolia.acl).getVersion(), LibFhevmVersion.aclCeiling(), "and still upgraded after");
+        assertEq(IVersioned(sepolia.protocolConfig).getVersion(), LibFhevmVersion.protocolConfigCeiling(), "all of it");
+
+        // and the stack still works, which no version string on its own proves
+        forkUnknown(FHE_TEST.getEuint32Of(SENDER), 7);
+        _add(5);
+        assertEq(decryptPublic(FHE_TEST.getEuint32Of(SENDER)), 12, "the upgraded stack still computes");
     }
 
     /// Once the test is on a fork it stays on forks, and everything the pair supports still works there:

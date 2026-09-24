@@ -3,13 +3,26 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {ForgeFhevmEventProcessor} from "../../pkg/forge/src/ForgeFhevmEventProcessor.sol";
+import {LibHostUpgradeCode} from "../../pkg/forge/src/LibHostUpgradeCode.sol";
+import {
+    ERC1967_PROXY_CREATION_CODE,
+    FhevmAddressRole,
+    FhevmHostContracts
+} from "../../pkg/forge/src/_internal/LocalHostBytecode.sol";
+import {IACL} from "../../pkg/forge/src/_internal/interfaces/IACL.sol";
+import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
+import {ICleartextDB} from "../../pkg/forge/src/_internal/interfaces/ICleartextDB.sol";
+import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {
     HandleContractPair,
     LibKmsVerifier,
     SignerSignaturePair,
     UserDecryptRequestV1
 } from "../../pkg/forge/src/shared/LibKmsVerifier.sol";
+
+interface IUUPSProxy {
+    function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
+}
 
 interface IFHETest {
     function setClearEuint64(uint64 value, bool makePublic) external returns (bytes32);
@@ -30,14 +43,29 @@ interface IAclView {
     function persistAllowed(bytes32 handle, address account) external view returns (bool);
 }
 
+interface IPlaintextsView {
+    function plaintexts(bytes32 handle) external view returns (uint256);
+}
+
 /**
  * @notice The whole fork story in one test: a value read back through a PRODUCTION KMS verifier that
  *         cannot read anything itself.
  *
- * @dev Nothing on the fork is patched. The real executor computes and announces; the event processor
- *      reconstructs the cleartext from those announcements; the real ACL decides who may see it; and
- *      `LibKmsVerifier.userDecryptV1OnForkStack` assembles the answer the cleartext verifier would
- *      have returned, using the real verifier only for its domain, its context and its signer set.
+ * @dev THE STACK ON THE FORK IS NOT TOUCHED. The real executor computes, the real ACL decides who may
+ *      see the result, and `LibKmsVerifier.userDecryptV1OnForkStack` assembles the answer the cleartext
+ *      verifier would have returned -- using the real verifier only for its domain, its context and its
+ *      signer set.
+ *
+ * @dev WHERE THE CLEARTEXT COMES FROM, AND WHY IT IS STATED RATHER THAN DERIVED. `userDecryptV1OnForkStack`
+ *      takes the plaintext source as a parameter, so this suite hands it a cleartext arithmetic of its
+ *      own -- a store the fork's stack knows nothing about -- and TELLS it what a uint64 handle is worth
+ *      through the unknown-handle policy. The mint above it is real: the real executor mints the handle
+ *      and the real ACL grants it, which is what the permission walk below is about.
+ *
+ *      Deriving the cleartext from the chain instead would mean upgrading the forked stack, which is a
+ *      subject of its own and has its own suites (`ForkCleartextUpgrade`, `ForkForgeVariantUpgrade`).
+ *      Mixing it in here would make this file fail for two unrelated reasons. What is under test is the
+ *      decrypt path: the domain, the permit, the ACL walk and the payload.
  *
  *          MAINNET_RPC_URL=https://ethereum-rpc.publicnode.com forge test --match-contract ForkUserDecrypt
  */
@@ -49,7 +77,8 @@ contract ForkUserDecryptTest is Test {
 
     uint256 internal constant ALICE_PK = uint256(keccak256("fork alice"));
 
-    ForgeFhevmEventProcessor internal processor;
+    address internal arithmetic;
+    address internal dbProxy;
     address internal alice;
     bytes internal publicKey;
     bool internal forked;
@@ -62,8 +91,52 @@ contract ForkUserDecryptTest is Test {
         forked = true;
         alice = vm.addr(ALICE_PK);
         publicKey = abi.encodePacked(keccak256("transport key"));
-        processor = new ForgeFhevmEventProcessor();
-        processor.addExecutor(MAINNET_EXECUTOR);
+        _installPlaintextSource();
+    }
+
+    /// @dev A cleartext store and arithmetic of this suite's own, behind the proxies they expect, wired
+    ///      to nothing on the fork. `allowCheatcodes` on the proxy because the forge variant calls them
+    ///      and forge did not create the code behind it.
+    function _installPlaintextSource() private {
+        address owner = IACL(MAINNET_ACL).owner();
+
+        address emptyImpl = _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, _roles()));
+        bytes memory initEmpty = abi.encodeCall(IEmptyUUPSProxy.initialize, ());
+        dbProxy = _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImpl, initEmpty)));
+        arithmetic = _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImpl, initEmpty)));
+
+        address dbImpl = _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextDB, _roles()));
+        vm.prank(owner);
+        IUUPSProxy(dbProxy)
+            .upgradeToAndCall(dbImpl, abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (arithmetic)));
+
+        address arithmeticImpl =
+            _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextArithmetic, _roles()));
+        vm.prank(owner);
+        IUUPSProxy(arithmetic)
+            .upgradeToAndCall(arithmeticImpl, abi.encodeCall(ICleartextArithmetic.initializeFromEmptyProxy, ()));
+    }
+
+    /// @dev EVERY role, although this suite installs only two contracts: the patcher refuses a role it
+    ///      has no address for, whichever contract happens to reference it. From the chain table.
+    function _roles() private view returns (address[10] memory addresses) {
+        addresses[uint8(FhevmAddressRole.ACL)] = MAINNET_ACL;
+        addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = MAINNET_EXECUTOR;
+        addresses[uint8(FhevmAddressRole.KMSVerifier)] = MAINNET_KMS_VERIFIER;
+        addresses[uint8(FhevmAddressRole.InputVerifier)] = 0xCe0FC2e05CFff1B719EFF7169f7D80Af770c8EA2;
+        addresses[uint8(FhevmAddressRole.HCULimit)] = 0x3b4da65e45Fda2CAa0285A735ab4361a44F171E2;
+        addresses[uint8(FhevmAddressRole.ProtocolConfig)] = 0xD8236B57394f90726b26aB25D38CeAC776E1a7C4;
+        addresses[uint8(FhevmAddressRole.KMSGeneration)] = 0xf102cC9A9D2174630c394f5b7B7D63104E348daa;
+        addresses[uint8(FhevmAddressRole.PauserSet)] = 0xbBfE1680b4a63ED05f7F80CE330BED7C992A586C;
+        addresses[uint8(FhevmAddressRole.CleartextDB)] = dbProxy;
+        addresses[uint8(FhevmAddressRole.CleartextArithmetic)] = arithmetic;
+    }
+
+    function _create(bytes memory creationCode) private returns (address deployed) {
+        assembly {
+            deployed := create(0, add(creationCode, 0x20), mload(creationCode))
+        }
+        require(deployed != address(0), "deploy failed");
     }
 
     modifier onlyForked() {
@@ -71,16 +144,22 @@ contract ForkUserDecryptTest is Test {
         _;
     }
 
-    /// @dev Mints a real handle on the real executor and replays it into the processor.
-    function _mintAndReplay(uint64 value) private returns (bytes32 handle) {
-        processor.useDeterministicUnknownHandles();
-        processor.startRecordingFheEvents();
-
+    /// @dev A REAL mint on the real executor -- which is what grants alice on the real ACL -- and then
+    ///      the value said out loud to a store that could not have derived it.
+    function _mint(uint64 value) private returns (bytes32 handle) {
         vm.prank(alice);
         handle = IFHETest(FHE_TEST).setClearEuint64(value, false);
 
-        processor.processFheEvents();
-        assertEq(processor.plaintexts(handle), value, "the processor knows what it is worth");
+        _declare(handle, value);
+        assertEq(IPlaintextsView(arithmetic).plaintexts(handle), value, "the source answers for it");
+    }
+
+    /// @dev What a handle is worth, as far as this suite's plaintext source is concerned. Written
+    ///      straight into the store, as the arithmetic -- the only account the store takes writes from --
+    ///      because nothing here could have computed it.
+    function _declare(bytes32 handle, uint256 value) private {
+        vm.prank(arithmetic);
+        ICleartextDB(dbProxy).set(handle, value);
     }
 
     function _request() private view returns (UserDecryptRequestV1 memory) {
@@ -112,7 +191,7 @@ contract ForkUserDecryptTest is Test {
         returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData)
     {
         return LibKmsVerifier.userDecryptV1OnForkStack(
-            MAINNET_KMS_VERIFIER, MAINNET_ACL, address(processor), pairs, request, SignerSignaturePair(msg.sender, sig)
+            MAINNET_KMS_VERIFIER, MAINNET_ACL, arithmetic, pairs, request, SignerSignaturePair(msg.sender, sig)
         );
     }
 
@@ -151,15 +230,15 @@ contract ForkUserDecryptTest is Test {
 
     /// The premise: the real ACL really did grant alice, so the permission walk is not a formality.
     function test_theRealAclGrantedTheMinter() public onlyForked {
-        bytes32 handle = _mintAndReplay(1337);
+        bytes32 handle = _mint(1337);
 
         assertTrue(IAclView(MAINNET_ACL).persistAllowed(handle, alice), "alice");
         assertTrue(IAclView(MAINNET_ACL).persistAllowed(handle, FHE_TEST), "the dApp");
     }
 
-    /// THE WHOLE THING. A production verifier, a real ACL, a replayed value, and 1337 comes back.
+    /// THE WHOLE THING. A production verifier, a real ACL, a real mint, and 1337 comes back.
     function test_aValueIsReadBackThroughAProductionVerifier() public onlyForked {
-        bytes32 handle = _mintAndReplay(1337);
+        bytes32 handle = _mint(1337);
         UserDecryptRequestV1 memory request = _request();
 
         // Hoisted: `_permit` and `_pairs` make external calls, and an external call in argument
@@ -171,7 +250,7 @@ contract ForkUserDecryptTest is Test {
         (bytes memory payload, address[] memory signers, uint256 threshold,) = this.userDecrypt(pairs, request, permit);
 
         (uint256[] memory masked,) = abi.decode(payload, (uint256[], bytes));
-        assertEq(masked[0] ^ uint256(bytes32(publicKey)), 1337, "unmasked to the replayed value");
+        assertEq(masked[0] ^ uint256(bytes32(publicKey)), 1337, "unmasked to the value the source holds");
 
         // The KMS metadata is the forked verifier's own, not the cleartext stack's.
         assertEq(signers.length, 13, "mainnet's KMS signer set");
@@ -180,7 +259,7 @@ contract ForkUserDecryptTest is Test {
 
     /// The signature is really checked — a permit signed by somebody else is refused.
     function test_aPermitSignedBySomeoneElseIsRefused() public onlyForked {
-        bytes32 handle = _mintAndReplay(1337);
+        bytes32 handle = _mint(1337);
         UserDecryptRequestV1 memory request = _request();
         HandleContractPair[] memory pairs = _pairs(handle);
         bytes memory wrong = _permit(request, uint256(keccak256("mallory")));
@@ -193,13 +272,11 @@ contract ForkUserDecryptTest is Test {
     /// And the REAL ACL is really consulted — a handle alice was never granted is refused, by the
     /// forked chain's own state rather than by anything this test set up.
     function test_aHandleTheAclNeverGrantedIsRefused() public onlyForked {
-        _mintAndReplay(1337);
+        _mint(1337);
 
         // Someone else's handle, minted in a call alice had nothing to do with.
-        processor.startRecordingFheEvents();
         vm.prank(makeAddr("bob"));
         bytes32 bobs = IFHETest(FHE_TEST).setClearEuint64(999, false);
-        processor.processFheEvents();
 
         UserDecryptRequestV1 memory request = _request();
         HandleContractPair[] memory pairs = _pairs(bobs);
@@ -212,15 +289,12 @@ contract ForkUserDecryptTest is Test {
 
     // -- Public decryption, same story ----------------------------------------------
 
-    /// A publicly decryptable handle, read back through the production verifier: the values come from
-    /// the processor, the permission from mainnet's own ACL, and the digest from the real verifier.
+    /// A publicly decryptable handle, read back through the production verifier: the value from this
+    /// suite's own source, the permission from mainnet's own ACL, and the digest from the real verifier.
     function test_aPublicValueIsReadBackThroughAProductionVerifier() public onlyForked {
-        processor.useDeterministicUnknownHandles();
-        processor.startRecordingFheEvents();
-
         vm.prank(alice);
         bytes32 handle = IFHETest(FHE_TEST).setClearEuint64(4711, true);
-        processor.processFheEvents();
+        _declare(handle, 4711);
 
         assertTrue(IAclPublicView(MAINNET_ACL).isAllowedForDecryption(handle), "made public on chain");
 
@@ -228,9 +302,9 @@ contract ForkUserDecryptTest is Test {
         handles[0] = handle;
 
         (bytes memory values, bytes32 digest, address[] memory signers,) =
-            LibKmsVerifier.publicDecryptV1OnForkStack(MAINNET_KMS_VERIFIER, MAINNET_ACL, address(processor), handles);
+            LibKmsVerifier.publicDecryptV1OnForkStack(MAINNET_KMS_VERIFIER, MAINNET_ACL, arithmetic, handles);
 
-        assertEq(abi.decode(values, (uint64)), 4711, "decoded from the replayed value");
+        assertEq(abi.decode(values, (uint64)), 4711, "decoded from the value the source holds");
         assertEq(signers.length, 13, "mainnet's KMS signer set");
 
         // The digest must be the one the values-supplied path produces for the same values — a
@@ -243,12 +317,9 @@ contract ForkUserDecryptTest is Test {
 
     /// And a handle nobody made public is refused — by mainnet's ACL, not by this test.
     function test_aPrivateHandleIsRefusedForPublicDecryption() public onlyForked {
-        processor.useDeterministicUnknownHandles();
-        processor.startRecordingFheEvents();
-
         vm.prank(alice);
         bytes32 handle = IFHETest(FHE_TEST).setClearEuint64(4711, false);
-        processor.processFheEvents();
+        _declare(handle, 4711);
 
         assertFalse(IAclPublicView(MAINNET_ACL).isAllowedForDecryption(handle), "never made public");
 
@@ -262,7 +333,7 @@ contract ForkUserDecryptTest is Test {
     /// External so `vm.expectRevert` has a call frame to catch.
     function publicDecryptExternally(bytes32[] memory handles) external view returns (bytes memory) {
         (bytes memory values,,,) =
-            LibKmsVerifier.publicDecryptV1OnForkStack(MAINNET_KMS_VERIFIER, MAINNET_ACL, address(processor), handles);
+            LibKmsVerifier.publicDecryptV1OnForkStack(MAINNET_KMS_VERIFIER, MAINNET_ACL, arithmetic, handles);
         return values;
     }
 }

@@ -37,6 +37,28 @@ library ForkBlocks {
     string private constant SKIP_VAR = "FHEVM_SKIP_RPC_TESTS";
 
     /**
+     * @dev `FHEVM_FORK_FIXTURE_FLOOR=<block>` — the block a FIXTURE these suites read was deployed at.
+     *      Unset (the default) is the behaviour that has always been here: blocks come from the head and
+     *      nothing else.
+     *
+     *      WHY IT IS NEEDED AT ALL. The blocks above are counted back from the head, and a fixture
+     *      deployed RECENTLY does not exist at them -- the suites then fail with
+     *      `Contract 0x… does not exist on active fork`, which reads like a bug in the SDK and is not one.
+     *      `recentPair` makes it worse: its older member is a whole STRIDE further back, so a fresh
+     *      fixture takes ~3 hours of chain time to come into range even once `recent()` has cleared it.
+     *
+     *      Setting this floors both members at the fixture instead of waiting. It is a CEILING ON THE
+     *      WAIT, not a pin: once the head has moved far enough that the ordinary blocks clear the floor,
+     *      they are used and this changes nothing.
+     */
+    string private constant FLOOR_VAR = "FHEVM_FORK_FIXTURE_FLOOR";
+
+    /// @dev The grid the floored block snaps up to. Finer than STRIDE on purpose: the whole point is to
+    ///      land just ABOVE the fixture, and a 1024-grid would often have no boundary between the fixture
+    ///      and the head at all. The cache is then colder than usual, which is the price of not waiting.
+    uint256 private constant FLOOR_GRID = 64;
+
+    /**
      * @notice Whether this run may reach `chainAlias` over the network.
      *
      * @dev TWO conditions, and the second is why this exists. A URL must be configured — but this repo
@@ -54,15 +76,67 @@ library ForkBlocks {
 
     /// @notice One recent block, for a suite that forks a single time.
     function recent(string memory rpcUrl) internal returns (uint256) {
+        uint256 newest = head(rpcUrl) - LAG;
         // dividing before multiplying IS the rounding: it snaps the head down to a STRIDE boundary.
         // forge-lint: disable-next-line(divide-before-multiply)
-        return ((head(rpcUrl) - LAG) / STRIDE) * STRIDE;
+        uint256 snapped = (newest / STRIDE) * STRIDE;
+
+        uint256 floorBlock = _floor();
+        if (snapped >= floorBlock) return snapped;
+
+        uint256 raised = _snapUp(floorBlock);
+        // A FLOOR ABOVE THE HEAD IS A BLOCK THAT DOES NOT EXIST. Raising to the fixture is only possible
+        // while the fixture is behind us: set the floor to something deployed minutes ago and this would
+        // otherwise hand back a future block, which forge reports as a missing block with nothing in the
+        // message about the floor that caused it.
+        require(
+            raised <= newest,
+            string.concat(
+                "FHEVM_FORK_FIXTURE_FLOOR=",
+                VM.toString(floorBlock),
+                " is newer than the newest forkable block ",
+                VM.toString(newest),
+                " (the head, less a ",
+                VM.toString(LAG),
+                "-block reorg margin): wait for the chain"
+            )
+        );
+        return raised;
     }
 
     /// @notice Two distinct recent blocks, `newer` and the one a `STRIDE` before it.
     function recentPair(string memory rpcUrl) internal returns (uint256 newer, uint256 older) {
         newer = recent(rpcUrl);
         older = newer - STRIDE;
+
+        uint256 floorBlock = _floor();
+        if (older >= floorBlock) return (newer, older);
+
+        older = _snapUp(floorBlock);
+        // Two forks, and they must be two. When the floor is so close to the head that nothing fits below
+        // it, say so here -- the alternative is two forks at one block and a suite that proves nothing.
+        require(
+            older < newer,
+            string.concat(
+                "FHEVM_FORK_FIXTURE_FLOOR=",
+                VM.toString(floorBlock),
+                " leaves no room for a second fork below ",
+                VM.toString(newer),
+                ": wait for the chain, or lower the floor"
+            )
+        );
+    }
+
+    /// @dev The floor, or zero when unset.
+    function _floor() private view returns (uint256) {
+        return VM.envOr(FLOOR_VAR, uint256(0));
+    }
+
+    /// @dev The first FLOOR_GRID boundary at or above `blockNumber`: at or above the fixture, never below.
+    function _snapUp(uint256 blockNumber) private pure returns (uint256) {
+        // rounding UP, so the division has to come first -- same shape as `recent`, other direction.
+        // forge-lint: disable-next-line(divide-before-multiply)
+        return ((blockNumber + FLOOR_GRID - 1) / FLOOR_GRID) * FLOOR_GRID;
     }
 
     /// @notice `eth_blockNumber`, without creating a fork to read `block.number` from: `vm.rpc` hands back

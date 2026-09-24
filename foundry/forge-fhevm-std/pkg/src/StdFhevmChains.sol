@@ -10,7 +10,8 @@ import {
     FHEVM_EXECUTOR_ADDRESS,
     INPUT_VERIFIER_ADDRESS,
     KMS_VERIFIER_ADDRESS,
-    PROTOCOL_CONFIG_ADDRESS
+    PROTOCOL_CONFIG_ADDRESS,
+    KMS_GENERATION_ADDRESS
 } from "./_host/_internal/LocalHostAddresses.sol";
 import {LocalHostBootstrap} from "./_host/_internal/LocalHostBootstrap.sol";
 
@@ -86,6 +87,7 @@ abstract contract StdFhevmChains {
         address inputVerifier;
         address kmsVerifier;
         address protocolConfig;
+        address kmsGeneration;
         address decryption;
         address inputVerification;
     }
@@ -111,6 +113,10 @@ abstract contract StdFhevmChains {
         address inputVerifier;
         address kmsVerifier;
         address protocolConfig;
+        // Zero where a chain has none: it arrived with the 0.13 line, and only three deployments carry
+        // one today. No contract exposes its address, so unlike `hcuLimit` or `pauserSet` it cannot be
+        // resolved from the chain and has to come from the table.
+        address kmsGeneration;
         // The group's gateway contracts this chain's stack is served by.
         address decryption;
         address inputVerification;
@@ -289,6 +295,7 @@ abstract contract StdFhevmChains {
             inputVerifier: chain.inputVerifier,
             kmsVerifier: chain.kmsVerifier,
             protocolConfig: chain.protocolConfig,
+            kmsGeneration: chain.kmsGeneration,
             decryption: chain.decryption,
             inputVerification: chain.inputVerification
         });
@@ -309,6 +316,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: chain.inputVerifier,
                 kmsVerifier: chain.kmsVerifier,
                 protocolConfig: chain.protocolConfig,
+                kmsGeneration: chain.kmsGeneration,
                 decryption: chain.decryption,
                 inputVerification: chain.inputVerification
             })
@@ -388,6 +396,7 @@ abstract contract StdFhevmChains {
             inputVerifier: INPUT_VERIFIER_ADDRESS,
             kmsVerifier: KMS_VERIFIER_ADDRESS,
             protocolConfig: PROTOCOL_CONFIG_ADDRESS,
+            kmsGeneration: KMS_GENERATION_ADDRESS,
             decryption: LocalHostBootstrap.DECRYPTION_ADDRESS,
             inputVerification: LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS
         });
@@ -428,6 +437,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: INPUT_VERIFIER_ADDRESS,
                 kmsVerifier: KMS_VERIFIER_ADDRESS,
                 protocolConfig: PROTOCOL_CONFIG_ADDRESS,
+                kmsGeneration: KMS_GENERATION_ADDRESS,
                 decryption: LocalHostBootstrap.DECRYPTION_ADDRESS,
                 inputVerification: LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS
             })
@@ -446,6 +456,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0xCe0FC2e05CFff1B719EFF7169f7D80Af770c8EA2,
                 kmsVerifier: 0x77627828a55156b04Ac0DC0eb30467f1a552BB03,
                 protocolConfig: 0xD8236B57394f90726b26aB25D38CeAC776E1a7C4,
+                kmsGeneration: 0xf102cC9A9D2174630c394f5b7B7D63104E348daa,
                 decryption: 0x0f6024a97684f7d90ddb0fAAD79cB15F2C888D24,
                 inputVerification: 0xcB1bB072f38bdAF0F328CdEf1Fc6eDa1DF029287
             })
@@ -462,6 +473,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0xf40BD204B035522EaAc8E5afAdc55113Acac96ca,
                 kmsVerifier: 0x14e609595474874Dd6b6128376E336EfADfdBE37,
                 protocolConfig: 0x17f62Ab3A1Ea519703cD597410147A30Fa1a7f1e,
+                kmsGeneration: address(0),
                 decryption: 0x0f6024a97684f7d90ddb0fAAD79cB15F2C888D24,
                 inputVerification: 0xcB1bB072f38bdAF0F328CdEf1Fc6eDa1DF029287
             })
@@ -480,6 +492,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0,
                 kmsVerifier: 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A,
                 protocolConfig: 0x51f9AFBc89Ea792e1a21a12AB802ab58D4dbee83,
+                kmsGeneration: 0x77389113d7000EcBCfc2bDed57202f5f46109934,
                 decryption: 0x5D8BD78e2ea6bbE41f26dFe9fdaEAa349e077478,
                 inputVerification: 0x483b9dE06E4E4C7D35CCf5837A1668487406D955
             })
@@ -496,6 +509,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0x6e5A7D8b0c645467Cba7e62D6624917085118631,
                 kmsVerifier: 0xCD1D89E311bce4C8DEa9a0857a0c9A4E153D4041,
                 protocolConfig: 0x4CcF009Aba90D04f52b31fc7aDdE240578aFe10F,
+                kmsGeneration: address(0),
                 decryption: 0x5D8BD78e2ea6bbE41f26dFe9fdaEAa349e077478,
                 inputVerification: 0x483b9dE06E4E4C7D35CCf5837A1668487406D955
             })
@@ -514,6 +528,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0x160AaB6199FAEAEA1B27E62999c597E530a3abA9,
                 kmsVerifier: 0xDe8893C04e118431aeC076A39F6aFa951669F720,
                 protocolConfig: 0x257950EbB65A1D2b697f03D08E7D3Dc26CbDB304,
+                kmsGeneration: 0x55bdE339a01DA46d2d3504b8d9A9F5412C85e5e7,
                 decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
                 inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
             })
@@ -530,6 +545,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0x92e65718A1A31388C3D9C45E46121fFd0a099081,
                 kmsVerifier: 0xAE8fd848428e0f332c0169ACC5b97Ac7c0B8696E,
                 protocolConfig: 0x803ec8b1198e6d0261fb96959f6d13CB0879AEef,
+                kmsGeneration: address(0),
                 decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
                 inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
             })
@@ -546,6 +562,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0xe8a9fA7cc4ab46Dfe9EE681f6059145275296891,
                 kmsVerifier: 0x0E2e5A922b9f6bB94245Cc26B30FaCb603d1BD49,
                 protocolConfig: 0xb5ca060165B169b46782044a82D9D043e4D5Fde3,
+                kmsGeneration: address(0),
                 decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
                 inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
             })
@@ -562,6 +579,7 @@ abstract contract StdFhevmChains {
                 inputVerifier: 0x333b25BeBea93293179717e19298AacD876c7e37,
                 kmsVerifier: 0x9a359B9CbeAC4e87bC0A3DbAa96002fa8876754B,
                 protocolConfig: 0x31251B7F1Ce25c0E874121144173B1474555F327,
+                kmsGeneration: address(0),
                 decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
                 inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
             })

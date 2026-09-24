@@ -121,7 +121,7 @@ run-fhevm-npm = $(FHEVM_NPM_CLI) $(FHEVM_NPM_ARGS) $(1)
 # Aggregates
 ########################################################################################################
 
-.PHONY: help graph build compile rebuild ci ci-fast build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli
+.PHONY: help graph build compile rebuild ci ci-fast ci-local build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -319,6 +319,26 @@ regenerate-package-lock: ## Everything 'distclean' removes PLUS the install lock
 	$(MAKE) distclean
 	rm -f ./package-lock.json ./$(DIR_HH_V2)/package-lock.json ./$(DIR_HH_V3)/package-lock.json
 	@echo "🗑  install lockfiles removed — 'make install' will re-resolve and rewrite them; review and commit the diff."
+
+# `ci` WITH THE ENVIRONMENT IT NEEDS LOCALLY. A bare `make ci` here is not the gate GitHub runs: the
+# workflow sets `FHEVM_SKIP_RPC_TESTS=true`, so the network suites skip there and run here, against a
+# real chain. That is MORE coverage, not less -- keep it -- but it only works if those suites can reach
+# the fixture they read, and a freshly deployed one does not exist at the blocks `ForkBlocks` counts
+# back from the head. So the floor is read off the chain first and passed in.
+#
+# The script prints 0 -- the value that means "no floor" -- once the fixture is old enough not to need
+# one, so this keeps working untouched across a redeploy and costs nothing when there is nothing to do.
+# `&&` rather than a second line: if the chain cannot be reached the gate FAILS, rather than quietly
+# running without a floor and blaming the tree for what the network did.
+#
+# NOT `FHEVM_PARITY_REF_V13`. While `release/0.13.x` does not yet carry the 0.13 forge work,
+# `check generation-parity` has nothing there to compare V(N-1) against and every target that runs the
+# pre-build checks needs a ref given to it. That is a fact about one unmerged branch, not about this
+# workspace, so it is exported by whoever needs it and never written down here.
+ci-local: ## `ci` with the fork fixture floor read off the chain, so the network suites run for real
+	@floor=$$($(DIR_FORGE_STD)/test/fheTest/fixture-floor.sh) && \
+	  echo "FHEVM_FORK_FIXTURE_FLOOR=$$floor  (0 means the fixture needs no floor)" && \
+	  FHEVM_FORK_FIXTURE_FLOOR=$$floor $(MAKE) ci
 
 # The strongest proof this workspace has: a brand-new machine could clone, install, and pass every
 # gate. Sub-makes for the same `-j` ordering reason `ci` uses them.

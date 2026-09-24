@@ -52,6 +52,7 @@ remappings_generate = false
 
 [rpc_endpoints]
 sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
+mainnet = "https://ethereum-rpc.publicnode.com"
 # Declared on purpose with a variable nothing sets: test/internal/DebugZamaConfig.t.sol proves that a declared
 # alias forge cannot read fails RENDERED, and is never replaced by a default (forge-std's rule).
 needs_env = "${FORGE_FHEVM_STD_UNSET_FOR_TESTS}"

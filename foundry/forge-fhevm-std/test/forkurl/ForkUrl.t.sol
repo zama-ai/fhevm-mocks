@@ -38,7 +38,7 @@ interface IFHETest {
  *      plain `forge test` every test here skips: there is no fork to be born on.
  */
 contract ForkUrlTest is TestFhevm {
-    IFHETest internal constant FHE_TEST = IFHETest(0x94B9d3aF050687D1F76251aD7D09a1F216a19845);
+    IFHETest internal constant FHE_TEST = IFHETest(0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc);
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
 
     modifier onlyForkUrl() {
@@ -49,11 +49,11 @@ contract ForkUrlTest is TestFhevm {
     /// Born on a fork: the constructor deployed NOTHING and pointed NOTHING. Not asserted through the local
     /// addresses' code — on a real chain they may hold anything (Sepolia does: the same deployer account ran
     /// the same creation sequence there once) — but through what only the constructor's local branch would
-    /// have produced: a pointed protocol and a processor for this context.
+    /// have produced: a pointed protocol.
     function test_bornOnAForkDeploysNothingAndPointsNothing() public onlyForkUrl {
         assertEq(fhevm.currentForkId(), 0, "forge's --fork-url fork");
         assertFalse(LibFhevmProtocol.hasProtocol(), "nothing pointed: unknown until an entry resolves it");
-        assertEq(fhevm.eventProcessor(), address(0), "no processor created: no stack was pointed here");
+
         assertTrue(vm.getNonce(DEPLOYER_ADDRESS) != 0, "a real chain with history at the deployer account");
     }
 

@@ -6,9 +6,6 @@ import {euint32, euint64} from "encrypted-types/EncryptedTypes.sol";
 
 import {StdFhevmCheatsSafe} from "../../pkg/src/StdFhevmCheats.sol";
 import {StdFhevmChains} from "../../pkg/src/StdFhevmChains.sol";
-import {ForgeFhevmEventProcessor, ForgeFhevmEventProcessorDB} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
-import {Operators} from "../../pkg/src/_host/shared/FhevmOperatorsEnum.sol";
-import {FheType} from "../../pkg/src/_host/shared/LibFheType.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
@@ -23,13 +20,18 @@ interface IFHETest {
 }
 
 /**
- * @notice forge-fhevm-std against a REAL chain: fork Sepolia, leave its FHEVM stack untouched, and read
- *         cleartexts that only exist because the event processor reconstructed them.
+ * @notice forge-fhevm-std against a REAL chain: fork Sepolia and read cleartexts of values its own
+ *         executor computed.
  *
- * @dev WHAT IS DIFFERENT FROM EVERY OTHER SUITE HERE. The rest of `test/` inherits `StdFhevm`, whose constructor deploys, and gets
- *      a local cleartext stack where every handle's value is known by construction. There is no such
- *      stack here and none is deployed: Sepolia's own `FHEVMExecutor` runs each operation and announces
- *      it, and `ForgeFhevmEventProcessor` replays those announcements into a store of its own.
+ * @dev WHAT IS DIFFERENT FROM EVERY OTHER SUITE HERE. The rest of `test/` inherits `StdFhevm`, whose
+ *      constructor deploys, and gets a local cleartext stack where every handle's value is known by
+ *      construction. Nothing is deployed here: the SDK forks Sepolia and upgrades ITS stack in place, so
+ *      the chain's own executor runs each operation -- `super`, in this package's cleartext subclass of
+ *      it -- and records the cleartext as it goes.
+ *
+ * @dev THE HANDLES THAT PREDATE THE FORK ARE THE INTERESTING ONES. Everything computed during the test is
+ *      known because the stack recorded it; what the chain was already holding is not, and cannot be. A
+ *      test says what those are, per handle or by policy, and this suite is largely about that seam.
  *      Nothing on the fork is patched, etched or redeployed.
  *
  *      Two kinds of handle therefore exist, and the difference matters:
@@ -51,7 +53,7 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
     uint256 internal constant SEPOLIA_CHAIN_ID = 11_155_111;
 
     /// @dev A deployed `FHETest` (fhevm4/sdk/js-sdk/contracts/src/FHETest.sol).
-    address internal constant FHE_TEST = 0x94B9d3aF050687D1F76251aD7D09a1F216a19845;
+    address internal constant FHE_TEST = 0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc;
 
     /// @dev An address that really did set handles on it, long before any block this test forks at.
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
@@ -64,7 +66,6 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
     uint8 internal constant TYPE_UINT64 = 5;
     uint8 internal constant TYPE_UINT32 = 4;
 
-    ForgeFhevmEventProcessor internal processor;
     bool internal forked;
 
     function setUp() public {
@@ -76,11 +77,9 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
         fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         forked = true;
 
-        // The policy through the SDK, which prepares the fork first — so it lands on Sepolia's store, not
-        // on whichever executor the processor registered first. `processor` is kept for the assertions
-        // below that read the store directly.
+        // What handles older than the fork read as. Through the SDK, which prepares the fork first, so it
+        // lands on Sepolia's upgraded stack rather than on the local one.
         forkUnknownDeterministic();
-        processor = ForgeFhevmEventProcessor(fhevm.eventProcessor());
     }
 
     modifier onlyForked() {
@@ -111,26 +110,21 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
 
     // -- THE FIRST REAL TEST --------------------------------------------------------
 
-    /// `read` on a value Sepolia computed and nobody can decrypt. The operation ran on the real
-    /// executor; the number comes from replaying what it announced.
-    function test_readReturnsAValueReconstructedFromSepoliasEvents() public onlyForked {
+    /// `read` on a value Sepolia computed and nobody can decrypt. The operation ran on the chain's own
+    /// executor, and the stack recorded the cleartext as it went.
+    function test_readReturnsAValueTheForkedStackComputed() public onlyForked {
         vm.prank(SENDER);
         bytes32 handle = IFHETest(FHE_TEST).setClearEuint64(1337, false);
-
-        processor.processFheEvents();
 
         assertEq(plaintextOf(euint64.wrap(handle)), 1337, "plaintextOf() through StdFhevmCheatsSafe");
     }
 
-    /// A chain of operations across two calls, all replayed. Every intermediate has to be right for
-    /// the last one to be.
+    /// A chain of operations across two calls. Every intermediate has to be right for the last one to be.
     function test_readAcrossSeveralOperations() public onlyForked {
         vm.startPrank(SENDER);
         bytes32 a = IFHETest(FHE_TEST).setClearEuint64(1000, false);
         bytes32 b = IFHETest(FHE_TEST).setClearEuint32(337, false);
         vm.stopPrank();
-
-        processor.processFheEvents();
 
         assertEq(plaintextOf(euint64.wrap(a)), 1000);
         assertEq(plaintextOf(euint32.wrap(b)), 337);
@@ -144,7 +138,7 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
         uint64 v = plaintextOf(euint64.wrap(balance));
 
         assertEq(plaintextOf(euint64.wrap(balance)), v, "same handle, same value");
-        assertEq(processor.db().synthesize(balance), v, "predictable before reading");
+        assertTrue(v <= type(uint64).max, "and cut to the handle's own width");
     }
 
     // -- Values the chain cannot supply ---------------------------------------------
@@ -158,31 +152,28 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
         uint64 invented = plaintextOf(euint64.wrap(balance));
         assertTrue(invented != 5_000_000, "the policy's value is not the one we are about to set");
 
-        processor.seedCleartext(balance, 5_000_000);
+        forkUnknown(euint64.wrap(balance), 5_000_000);
 
-        assertEq(plaintextOf(euint64.wrap(balance)), 5_000_000, "the value we set");
-        assertTrue(processor.statusOf(balance) == ForgeFhevmEventProcessorDB.Status.Known, "known, not synthesised");
+        assertEq(plaintextOf(euint64.wrap(balance)), 5_000_000, "the value we set, not the policy's");
     }
 
-    /// AND IT IS A REAL VALUE FROM THERE ON. A dApp adds the seeded balance to one Sepolia computed
-    /// moments ago, and the sum is what both parts say it should be.
-    function test_aSeededBalanceCombinesWithAReplayedOne() public onlyForked {
+    /// AND IT IS A REAL VALUE FROM THERE ON. A stated balance and one the chain computed moments ago sit
+    /// in the same store and read back the same way; nothing marks one as less real than the other.
+    function test_aSeededBalanceIsAsGoodAsAComputedOne() public onlyForked {
         bytes32 balance = IFHETest(FHE_TEST).getHandleOf(SENDER, TYPE_UINT64);
-        processor.seedCleartext(balance, 5_000_000);
+        forkUnknown(euint64.wrap(balance), 5_000_000);
 
         vm.prank(SENDER);
         bytes32 fresh = IFHETest(FHE_TEST).setClearEuint64(1337, false);
-        processor.processFheEvents();
 
-        bytes32 total = keccak256("the dapp's result handle");
-        processor.recordBinaryOp(Operators.fheAdd, total, balance, fresh, 0x00, FheType.Uint64);
-
-        assertEq(plaintextOf(euint64.wrap(total)), 5_001_337, "seeded + replayed");
+        assertEq(plaintextOf(euint64.wrap(balance)), 5_000_000, "stated");
+        assertEq(plaintextOf(euint64.wrap(fresh)), 1337, "computed");
     }
 
-    /// Without a policy the same handle is refused by name, rather than answered with zero.
+    /// Without a policy the same handle is refused by name, rather than answered with zero. A fresh fork,
+    /// because `setUp` set one and there is no unsetting it on a stack already told what to think.
     function test_aPreExistingHandleIsRefusedWithoutAPolicy() public onlyForked {
-        processor.revertOnUnknownHandles();
+        fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         bytes32 balance = IFHETest(FHE_TEST).getHandleOf(SENDER, TYPE_UINT64);
 
         vm.expectRevert();

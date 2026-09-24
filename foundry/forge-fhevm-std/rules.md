@@ -76,28 +76,25 @@ test; two owners is a bug that surfaces far from its cause.
   of the outer scope and nothing reports it (measured: 0 gas before the inner call, 93k after). The
   modifier is depth-counted because entry points call each other, and its counter is in transient
   storage because a cold `SSTORE` is itself charged to the test.
-- **The recorded-log buffer** — owned by `fhevm.getRecordedLogs()`. `vm.getRecordedLogs()` is one
-  buffer per test and reading it EMPTIES it for everyone: a test that reads it directly starves the
-  replay, and the next decryption fails on a handle it never saw. `vm.recordLogs()` is the same hazard
-  from the other end — it RESETS that buffer — so `fhevm.recordLogs()` exists to be the thing ported
-  code calls: IGNORED while a replay owns the buffer, forwarded where none does (a URL-only fork
-  before its first entry, where there is nothing to starve). Arming is not a test's business either
-  way; `initialize()` does it once, before any dApp call can run.
-- **The event processor** — owned by `fhevm`, ONE PER EXECUTION CONTEXT (the in-memory chain, each
-  fork), created INSIDE the context when a stack is pointed there, NEVER persistent. A replay is the
-  reconstruction of one chain's state and must live and die with it: switch context and it is gone with
-  the chain, switch back and it is there, roll and it is discarded — persistence is for what must survive
-  a switch, and a replay must not. Each knows the executors of the stacks pointed in its context, nothing
-  else. Whether it is READ is the stack's property (`IS_CLEARTEXT`), never the context's.
+- **The recorded-log buffer** — NOT THIS SDK'S, and the entry is kept only so the constraint is not
+  reinvented. The replay had to see every FHE event or lose track of a value, so the buffer had two
+  readers: recording was armed in the constructor, `fhevm.getRecordedLogs()` drained it once and served
+  both, and a test reaching for `vm.getRecordedLogs()` starved the replay — the next decryption then
+  failed on a handle it had never seen. A forked stack holds its own plaintexts now (2.15.2), so the SDK
+  neither arms recording nor reads the buffer, and `vm.recordLogs()` means what forge says it means.
+- **The cleartext store** — owned by the STACK, not by this SDK, which is what replaced the event
+  processor. Each execution context has its own because it IS chain state: forge's fork isolation gives
+  the guarantee the processor needed a lifecycle rule to get, and a snapshot revert takes the store back
+  with everything else. Read through `stack.plaintexts`, which is always the executor now.
 - **The current stack** — owned by `fhevm` (`protocol()` / `setProtocol`). The local cleartext stack by
   default, from `StdFhevm`'s constructor; moved by every fork operation on `fhevm` (2.12).
 - **The gas-metering depth counter** — owned by `fhevm` (`enterUnmetered` / `exitUnmetered`), in ITS
   transient storage. `TSTORE` is per address, so a counter per contract is two counters, and the inner
   scope's exit resumes metering inside the outer one. `StdFhevmBase` routes the modifier's hooks there.
-- **Everything fork- and replay-related** — drift check, stack resolution, preparation, pointing, the
-  drain, the cheats' access to the replay — is `fhevm`'s (`ensureForkPrepared`, `drainFheEvents`, …). A
-  `StdFhevm*` mixin inherits `StdFhevmBase` alone and makes ONE `fhevm` call at each entry; there is no
-  mixin that knows the processor. `fhevm` holds a COPY of the chain table's addresses, pushed by
+- **Everything fork-related** — drift check, stack resolution, preparation, the upgrade to cleartext,
+  pointing — is `fhevm`'s (`ensureForkPrepared`, …). A `StdFhevm*` mixin inherits `StdFhevmBase` alone and
+  makes ONE `fhevm` call at each entry; no mixin knows how a fork is prepared. `fhevm` holds a COPY of
+  the chain table's addresses, pushed by
   `StdFhevm` at construction and after every `setFhevmChain`, for resolving a URL-only fork; the table
   itself (RPC URLs, overrides) stays the test's.
 
@@ -127,18 +124,19 @@ keeps hitting.
 a test talks about one: `plaintextOf(euint32)`, `forkUnknown(euint32, uint32)`, `decrypt(euint32, …)`.
 An entry point that takes or returns a `bytes32` is a leak, and the fix is a typed overload, not a doc
 comment — the only exception is a case where the type genuinely cannot be known at the call site, and
-that case says so in its name. `unwrap` in a test is the symptom; `seedCleartext(bytes32, uint256)`
-on the processor is what this rule was written after.
+that case says so in its name. `unwrap` in a test is the symptom; a `seedCleartext(bytes32, uint256)`
+with no typed overload is what this rule was written after.
 
-**2.9 — FHE event processing is automatic at every decryption.** `decrypt`, `decryptPublic` and the
-cheats drain the recorded logs into the event processor before they answer, through
-`_replayPendingFheEvents()`. A test never calls `processFheEvents()` itself: a dApp call, then a
-decryption, is the whole protocol. An entry point that reads a value without replaying first fails on
-a fork with `CleartextEventUnknownHandle`, far from the line that forgot — `decryptPublic` did exactly
-that until this rule was written. New entry point that reads a value: replay first, then answer.
-AND AT EVERY FORK SWITCH: `fhevm.selectFork` / `createSelectFork` / `rollFork` drain before forwarding to
-forge, because a store answers a handle it never saw by asking its upstream ON THE ACTIVE FORK — fork
-A's events replayed after moving to fork B would look A's operands up on B's chain.
+**2.9 — a value is read from the stack that computed it.** `decrypt`, `decryptPublic` and the cheats
+ask the executor, which holds the cleartext of everything it computed — no replay, no draining, no order
+to get wrong. This rule used to say the opposite: every entry drained the recorded logs into an event
+processor first, and an entry point that forgot failed on a fork with `CleartextEventUnknownHandle`, far
+from the line that forgot. That whole hazard is gone with the processor (2.15.2), and with it the
+fork-switch drain — a store cannot replay fork A's events onto fork B if it never replays anything.
+
+WHAT REPLACED THE HAZARD is a smaller one, in the other direction: a handle the stack did NOT compute.
+On a fork those are ordinary — the chain is full of them — and `forkUnknown` states one, or a per-type
+policy answers for all of them. See 2.15.3.
 
 **2.10 — this is an SDK: user friendly, always.** forge-fhevm-std is what a dApp developer types in a
 test, not an internal of the mock stack. Every public entry is judged by the line a user writes: one
@@ -146,14 +144,14 @@ call, typed arguments, the vocabulary of the FHE library they already use (`euin
 `decrypt`), nothing to wire and nothing to know about how the stack works underneath. The measure is
 the fork test that reads as five lines — get, `forkUnknown`, encrypt, call, `decryptPublic` — where the
 same work once took an `eventProcessor()`, an `unwrap`, a manual replay and three hardcoded addresses.
-When a step is needed for the protocol, the SDK does it (the replay, the signer swap, the address
-resolution); when a step is needed from the user, one call with a plain name does it. A helper that is
+When a step is needed for the protocol, the SDK does it (the upgrade to cleartext, the signer swap, the
+address resolution); when a step is needed from the user, one call with a plain name does it. A helper that is
 correct but awkward is not done — 2.8 and 2.9 are this rule applied twice.
 
 **2.12 — forking is automatic, and the default stack is the local cleartext one.** A test forks with
 `fhevm.createSelectFork(getFhevmChain(group, alias), block)` and the SDK does the rest THE MOMENT THE
-CALL RETURNS: version gate, signer sets swapped so proofs built here are accepted, executor selected on
-the replay, protocol pointed. `fhevm.selectFork` re-points on every switch. By default — before any fork,
+CALL RETURNS: version gate, signer sets swapped so proofs built here are accepted, the stack upgraded to
+a cleartext one (2.15.2), protocol pointed. `fhevm.selectFork` re-points on every switch. By default — before any fork,
 from `StdFhevm`'s constructor — the current stack is the local cleartext one; a URL-only fork CLEARS it
 until the first SDK entry resolves the stack from the dApp that entry names or from the chain table. A
 user never writes `setProtocol`, `defineCleartextContexts`, `addExecutor` or `registerFork`; `setUp` on a
@@ -165,7 +163,7 @@ stack is resolved at the first entry like a URL-only fork's. `test/forkurl/` run
 
 **2.13 — two VMs, and which cheat goes through which.** `fhevm` for the cheats this SDK has to stand in
 front of — the fork family (`createSelectFork`, `createFork`, `selectFork`, `rollFork`, `activeFork`, `useStack`) and
-`getRecordedLogs` / `recordLogs` — `vm` for everything else. A fork entered or switched through `vm` is FORK DRIFT and
+`getRecordedLogs` — `vm` for everything else. A fork entered or switched through `vm` is FORK DRIFT and
 is refused loudly at the next SDK entry, never repaired by guessing: forge cannot tell `fhevm` that
 `vm.createSelectFork` ran, so its FHE events were not drained and its stack was never named. A new
 override goes on `fhevm`, never as a free function with a made-up name; `FhevmVm.sol`'s table is the
@@ -185,13 +183,59 @@ fork to block 1 and mines one on the node.
 **2.15 — a wrong protocol LINE fails by name, before anything else; any release of the vendored line is
 accepted.** On first contact with a fork, every host contract's `getVersion()` must fall within the line
 this SDK vendors: from what the line first shipped (`LibFhevmVersion.*_FLOOR`, hand-written from the
-v0.13.0 tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
+v0.14.0 tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
 upgrade the same day — Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored 0.13.6's `v0.5.0` — and
 every release of a line speaks the ABI this SDK speaks, so an exact match would refuse stacks that work.
 Outside the line it is the UNSUPPORTED PROTOCOL VERSION box, floor and ceiling against actual per
-contract, never an attempt that dies in an ABI mismatch with an empty revert (devnet Sepolia: `ACL v0.5.0`
-against the 0.13 line's `v0.4.0`). New vendored release → regenerate `LocalHostVersions` (v13
-`generate:contract-versions`); new LINE → move the floors too, and `LibFhevmVersion.t.sol` pins both.
+contract, never an attempt that dies in an ABI mismatch with an empty revert. New vendored release →
+regenerate `LocalHostVersions` (v14 `generate:contract-versions`); new LINE → move the floors too, and
+`LibFhevmVersion.t.sol` pins both.
+
+**2.15.1 — ONE generation back is upgraded on the fork, not refused; this exception is forge-fhevm-std's
+alone.** A stack whose versions are all on the PREVIOUS line — that line's own floors and ceilings,
+hand-written in `LibFhevmVersion` and compared on major.minor only, since a generation is the shape of an
+ABI and not a patch number — is brought forward in memory, on the fork, by
+`LibForgeFhevmUpgrade.upgradeFromPreviousGeneration`: the same implementations and the same reinitializers
+`pkg/ts/upgrade.ts` sends on a real chain, deployed patched for the fork's own addresses (4.1) and pranked
+as `ACL.owner()`. Then rule 2.15's gate runs, unchanged, and an upgrade that half worked is refused by it
+exactly as an unupgraded stack would be. This reaches exactly one generation: v(N-2) is refused, because
+chaining two upgrades would rehearse a path nothing else rehearses. It does NOT loosen 2.15 in the other
+direction — an older SDK on a newer chain stays refused, because it cannot know what the newer line does —
+and no other SDK gets it: a Hardhat test is not on a copy of the chain, and the upgrade would be real.
+
+**2.15.2 — every forked stack becomes a CLEARTEXT stack, and that is how values are read.** On first
+contact `createSelectFork` re-points the fork's own proxies at this package's cleartext implementations
+(`LibForgeFhevmUpgrade.upgradeToCleartext`), so the chain holds the plaintext of everything it computes
+and `stack.plaintexts` is always the executor. It replaced an event processor that rebuilt those values
+by replaying the executor's announcements — a second implementation of every operator, living in the
+test process, which had to see every event or lose track of a value.
+
+IN MEMORY, ON THE FORK. Nothing is broadcast. The real chain keeps answering its own version, which the
+fork suites assert by taking a second plain fork afterwards.
+
+THE LOGIC IS STILL THE CHAIN'S. Each cleartext contract EXTENDS the production one it replaces —
+`CleartextFHEVMExecutor is FHEVMExecutor` — and every override runs `super` first, so handle derivation,
+ACL checks and HCU accounting are the deployed code's. What is added is the bookkeeping beside it. That
+is also why the swap is layout-safe with no reinitializer: the subclasses declare no state of their own.
+
+THE FORGE VARIANTS WHERE THEY EXIST (ACL, executor, HCULimit, arithmetic), because a fork should behave
+like a local stack: metering paused around the mock's own work, forge's randomness, the per-handle record
+of 2.15.3. They call cheatcodes, and forge grants those per address to what IT created — a forked chain's
+proxy is not that, so each is granted explicitly. Miss one and the stack reverts at its first FHE
+operation.
+
+A STACK THAT IS ALREADY CLEARTEXT keeps its own store, and the upgrade preserves it: only code changes.
+
+**2.15.3 — a handle the stack did not compute is answered by policy, or refused; never invented
+silently.** On a fork most store misses are handles minted before the cleartext layer existed, and a test
+says what they are: `forkUnknown(handle, value)` states one, or a per-type default or `keccak(handle)`
+derivation answers for all of that type (`CleartextForgeArithmetic`). Per TYPE, not globally: one number
+cannot mean an address and a `euint8` at once, and the width would silently truncate it.
+
+A MISS IS NOT ALWAYS AN OLD HANDLE, and the difference must not be guessed. The HCU limit meters every
+handle the executor computes, so a reading there means THIS stack produced it — and a handle it produced
+that the cleartext layer did not record is an operator the mirror does not override, which no policy may
+cover. Checked before any policy, and refused by its own name.
 
 **2.11 — a setup failure tells the user how to fix it, loudly.** Everything that can go wrong because a
 test is SET UP wrong — the `fhevm` handle missing, a fork entered through `vm` instead of `fhevm` (drift),
@@ -272,10 +316,10 @@ like any other, with its own replay; "cleartext" is a property of the STACK poin
 chain by `IS_CLEARTEXT`, and a non-cleartext stack in memory reads its context's replay exactly as a fork
 does (`fhevm.useStack(desc)` is the entry point, not yet wired to any deploy). Nothing on that chain holds a cleartext, and the production verifiers have no
 `userDecrypt` at all, so the `…OnForkStack` entry points rebuild the answer instead: permissions from the
-real ACL, digests from the real verifier's `eip712Domain`, and values from a **replay** —
-`ForgeFhevmEventProcessor` reconstructs each cleartext from the events the real executor emits. The
-plaintext source is RESOLVED, never named: a cleartext executor answers for itself, anything else reads
-the processor `fhevm` holds. Once a fork is selected there is no way back to the in-memory stack — forge
+real ACL, digests from the real verifier's `eip712Domain`, and values from the **stack itself** — the
+fork was upgraded to a cleartext one on first contact (2.15.2), so the executor holds the cleartext of
+everything it computed. `stack.plaintexts` is that executor, always; there is no second source to
+resolve against any more. Once a fork is selected there is no way back to the in-memory stack — forge
 has no "deselect" — so a suite that needs both is two contracts, or forks a local anvil (2.14).
 
 **3.1 — the predicate is "local in-memory cleartext", not "cleartext".** The same cleartext contracts
@@ -335,9 +379,17 @@ npm run generate
   offsets where they land so the TS deploy can overwrite them at deploy time. Hence the ordering: the
   placeholder file is written *before* `forge build`, or the previous run's markers stay baked in at
   the recorded offsets.
-- **`LocalHostBytecode.sol`** (`generate:local-host-bytecode`) deliberately does NOT patch. It
-  derives the deployer from the mnemonic, precomputes the nonce sequence's addresses, writes them as
-  a real config, rebuilds, and reads the creation bytecode straight out of the artifacts.
+- **`LocalHostBytecode.sol`** (`generate:local-host-bytecode`) deliberately does NOT patch for the
+  local deploy. It derives the deployer from the mnemonic, precomputes the nonce sequence's addresses,
+  writes them as a real config, rebuilds, and reads the creation bytecode straight out of the artifacts.
+  ONE EXCEPTION, and only this one: the upgrade tables it also emits (`*_UPGRADE_CREATION_CODE`,
+  `*_UPGRADE_SITES`) exist so 2.15.1 can deploy those same host implementations beside a REMOTE stack,
+  whose addresses are not known at generation time and cannot be compiled in. That patching is
+  `LibHostUpgradeCode`, it is cheatcode-free and pure, and it is permitted for upgrading an existing
+  deployed remote non-cleartext stack one generation behind — for nothing else. In particular the local
+  deploy still recompiles, and the generator measures every site's offset in the blob it SHIPS rather
+  than reusing the template offsets: solc pools address constants by value, so two builds order them
+  differently (`POOL_REORDER_EXEMPT` is that same fact, from the other side).
 
 **4.2 — `patch-sites.json` is a tripwire, not a build input.** It records how many bytecode sites each
 placeholder is patched at, per contract. A count falling to zero means a deploy would bake in a
@@ -359,10 +411,14 @@ Follow forge-std first; where it is silent, follow these.
 | kind | pattern | example |
 |---|---|---|
 | library | `Lib<Name>.sol` | `LibKmsVerifier`, `LibFheType` |
-| library that uses cheatcodes | `LibForgeFhevm<Name>.sol` | `LibForgeFhevmEncrypt`, `LibForgeFhevmSigners` |
-| contract that uses cheatcodes | `ForgeFhevm<Name>.sol` | `ForgeFhevmDeploy`, `ForgeFhevmEventProcessor` |
+| library that uses cheatcodes | `LibForgeFhevm<Name>.sol` | `LibForgeFhevmEncrypt`, `LibForgeFhevmHostVersions` |
+| contract that uses cheatcodes | `ForgeFhevm<Name>.sol` | `ForgeFhevmDeploy` |
 | public API mixin | `StdFhevm<Name>.sol` | `StdFhevmEncrypt`, `StdFhevmDecrypt` |
 | cheats mixin | `…CheatsSafe`, with `…Cheats is …CheatsSafe` once a footgun appears | forge-std's `StdCheatsSafe` |
+
+`Forge` in a name means CHEATCODES, nothing else: `LibHostUpgradeCode` patches bytecode and is pure, so
+it has none. `Host` in place of `Fhevm` means the host contracts rather than the SDK, which is why the
+version tables are `LibForgeFhevmHostVersions` — cheatcodes, and about the hosts.
 | interface | `I<Name>.sol` | `IForgeVm`, `IPlaintexts` |
 | argument bundle | `<Function>ArgsV1` | `UserDecryptPayloadArgsV1` |
 | pinned to an ABI shape | `V1`, last | `userDecryptV1OnForkStack` |
@@ -410,9 +466,10 @@ Otherwise the assertion holds however wrong that function is.
 entry in `foundry.toml` or a `SEPOLIA_RPC_URL` variable, never for the built-in default — plus `vm.skip`, so
 the offline suite stays green and either forge-native way to name a URL opts a suite in. Assert `block.chainid` in `setUp` when the addresses are chain-specific.
 
-**7.4 — assert events with `vm.expectEmit`, not `vm.getRecordedLogs()`.** `expectEmit` consumes
-nothing; reading the buffer takes the FHE events with it. If a test truly needs the array, use
-`fhevm.getRecordedLogs()`, which feeds the replay before handing it over.
+**7.4 — assert events with `vm.expectEmit`.** `expectEmit` consumes nothing and reads better than
+scanning an array. `vm.recordLogs()` / `vm.getRecordedLogs()` are fine where a test genuinely wants the
+array — they are forge's, used as forge documents them. There was once an SDK wrapper to prefer instead,
+because the buffer had a second reader; there is not, because it does not (2.3).
 
 **7.5 — no `vm.setEnv` in a test that asserts on it.** It mutates the process environment and forge
 runs test contracts in parallel, so such a test races every other suite. Test the rule through a
@@ -445,7 +502,6 @@ SEPOLIA_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork
 ARBITRUM_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork        # + the cleartext-on-a-foreign-chain suite (§2.17)
 ARBITRUM_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork-debug  # the same under the fhevm-debug profile (§2.18)
 SEPOLIA_RPC_URL=… npm run test:fork-url  # the born-on-a-fork suite, under `forge test --fork-url`
-MAINNET_RPC_URL=… forge test --match-contract EventProcessorReplay
 npm run test:anvil                       # starts a throwaway anvil on 8546, runs test/anvil, stops it
 ```
 
