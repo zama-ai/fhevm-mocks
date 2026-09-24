@@ -361,6 +361,46 @@ library LibFhevmFail {
         return render("NO HCU METER", what, fix);
     }
 
+    /**
+     * @notice A raw handle was converted to the wrong encrypted type.
+     * @dev THE HANDLE SAYS WHAT IT IS. Byte 30 carries the type the executor minted it for, so a
+     *      mismatch is not an opinion: `toEuint64` on a `euint32` handle would hand the test a value of
+     *      a type the stack never produced, and every later read of it would answer for a different
+     *      width. Refused at the conversion, where the mistake is, rather than at the read.
+     */
+    function handleTypeMismatch(bytes32 handle, string memory wanted, string memory actual)
+        internal
+        pure
+        returns (string memory)
+    {
+        string[] memory what = new string[](2);
+        what[0] = string.concat("Handle ", vm.toString(handle), " was minted as ", actual, ",");
+        what[1] = string.concat("and this conversion asks for ", wanted, ". A handle carries its own type.");
+        // NO FIX LINE. The two lines above already name the type the handle carries, which IS the fix --
+        // `render` emits the section only when there is something in it.
+        return render("HANDLE TYPE MISMATCH", what, new string[](0));
+    }
+
+    /**
+     * @notice A handle was converted as the wrong KIND: computed where an input was given, or the reverse.
+     * @dev BYTE 21 SAYS WHICH. The executor writes `0xff` there for every handle it computes; an input
+     *      handle carries its position in the batch it arrived with, which is `0xff` for nothing. So the
+     *      two are told apart by the handle itself, and converting one as the other would hand a test an
+     *      `externalEuint*` the input verifier will reject, or a value the stack never computed.
+     */
+    function handleWrongKind(bytes32 handle, bool wantedComputed, uint8 index) internal pure returns (string memory) {
+        string[] memory what = new string[](2);
+        what[0] = wantedComputed
+            ? string.concat(
+                "Handle ", vm.toString(handle), " is an INPUT handle: byte 21 is ", vm.toString(uint256(index)), ","
+            )
+            : string.concat("Handle ", vm.toString(handle), " is a COMPUTED handle: byte 21 is 0xff,");
+        what[1] = wantedComputed
+            ? "its position in the batch it arrived with. A computed handle carries 0xff there."
+            : "which the executor writes on everything it computes. An input handle carries its batch position.";
+        return render("HANDLE WRONG KIND", what, new string[](0));
+    }
+
     /// @notice Nothing is etched at the `fhevm` address.
     function handleMissing() internal pure returns (string memory) {
         string[] memory what = new string[](2);
