@@ -137,6 +137,7 @@ struct FhevmHCUMeter {
  *      | `rollFork([id,] block)`                     | DRAIN, `vm.rollFork`, then prepare the fork AGAIN with a fresh replay — a roll is a fresh fork at another block |
  *      | `useStack(chain)`                           | point the ACTIVE context (in memory or a fork) at a described stack, fully prepared — what `createSelectFork(chain, …)` does after forking |
  *      | `activeFork()`                              | forwarded |
+ *      | `recordLogs()`                              | IGNORED while a replay owns the buffer (armed already, from `initialize()`); forwarded where none does — never `vm.recordLogs()` (rules.md §2.3) |
  *      | `getRecordedLogs()`                         | `vm.getRecordedLogs()`, with the FHE events fed to the replay first — USE THIS, never `vm.getRecordedLogs()` (rules.md §2.3, §7.4) |
  *      | `snapshotState()`, `revertToState(id)`      | `vm.snapshotState` / `vm.revertToState`, with the replay and the SDK's context put back — forge's fork pointer goes stale across a revert and these are what reconcile it |
  *      | `setAnvilMirror(bool)`, `anvilMirror()`     | whether a stack the SDK deploys on an anvil fork is also written onto the NODE (default: yes) |
@@ -404,6 +405,28 @@ interface IFhevmVm {
      *      run against an empty array. This drains once and serves both readers. For asserting on a dApp's
      *      own events, `vm.expectEmit` needs no such care and is the better tool.
      */
+    /**
+     * @notice `vm.recordLogs()`, the FHEVM way: forwarded where nothing owns the buffer, IGNORED where the
+     *         replay does — recording is armed from `initialize()` and must stay armed.
+     * @dev WHY IT EXISTS AT ALL, given the SDK arms recording before any dApp call can run. Ported code
+     *      comes in pairs. A test that had `vm.recordLogs()` … `vm.getRecordedLogs()` becomes one where
+     *      the second line moved to `fhevm` and the first vanished, which reads like an omission at
+     *      exactly the spot where the reader is asking what happened to the recording. So `fhevm` answers
+     *      the call rather than leaving a hole, and the pair ports as a pair.
+     * @dev WHY IT IS IGNORED WHERE IT IS. `vm.recordLogs()` RESETS the buffer, and with a replay running
+     *      that buffer is shared (rules.md §2.3): forwarding would discard every FHE event recorded so far
+     *      and the next decryption would fail on a handle the replay never saw. Ignoring loses nothing —
+     *      `fhevm.getRecordedLogs()` still hands the test every log, from a window that opened earlier
+     *      than the one it asked for.
+     * @dev AND WHY IT IS NOT IGNORED EVERYWHERE. A context with no processor — a URL-only fork before its
+     *      first SDK entry — has nobody feeding on the buffer, so there is nothing to starve and no reason
+     *      to refuse: the cheat runs for real and the window is the one the test drew. Ignoring there
+     *      would be the silent kind of wrong, a test reading logs from before its own `recordLogs()`.
+     * @dev NOT FREE, like every `fhevm` call: it is a real frame and consumes a pending `vm.prank` or
+     *      `vm.expectRevert` (rules.md §7.7).
+     */
+    function recordLogs() external;
+
     function getRecordedLogs() external returns (Vm.Log[] memory logs);
 
     // - Cheats, on the active context's store ---------------------------------
@@ -1065,6 +1088,16 @@ contract FhevmVm is IFhevmVm {
     function _drainFheEvents() private {
         address processor = _processorOf[_activeFork()];
         if (processor != address(0)) ForgeFhevmEventProcessor(processor).processFheEvents();
+    }
+
+    /// @dev Two contexts, two answers, and the processor is what tells them apart. WITH one, the buffer is
+    ///      the replay's and a reset would rob it, so the call is ignored — recording is armed already and
+    ///      stays armed. WITHOUT one (a URL-only fork before its first entry), nothing is feeding on the
+    ///      buffer and nothing can be starved, so the real cheat runs and the test gets the fresh window it
+    ///      asked for. A test that forks and then calls this gets the `vm` behaviour exactly.
+    function recordLogs() external {
+        if (_processorOf[_activeFork()] != address(0)) return;
+        Vm(FORGE_VM_ADDRESS).recordLogs();
     }
 
     function getRecordedLogs() external returns (Vm.Log[] memory logs) {

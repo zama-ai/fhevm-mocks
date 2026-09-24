@@ -78,7 +78,11 @@ test; two owners is a bug that surfaces far from its cause.
   storage because a cold `SSTORE` is itself charged to the test.
 - **The recorded-log buffer** — owned by `fhevm.getRecordedLogs()`. `vm.getRecordedLogs()` is one
   buffer per test and reading it EMPTIES it for everyone: a test that reads it directly starves the
-  replay, and the next decryption fails on a handle it never saw.
+  replay, and the next decryption fails on a handle it never saw. `vm.recordLogs()` is the same hazard
+  from the other end — it RESETS that buffer — so `fhevm.recordLogs()` exists to be the thing ported
+  code calls: IGNORED while a replay owns the buffer, forwarded where none does (a URL-only fork
+  before its first entry, where there is nothing to starve). Arming is not a test's business either
+  way; `initialize()` does it once, before any dApp call can run.
 - **The event processor** — owned by `fhevm`, ONE PER EXECUTION CONTEXT (the in-memory chain, each
   fork), created INSIDE the context when a stack is pointed there, NEVER persistent. A replay is the
   reconstruction of one chain's state and must live and die with it: switch context and it is gone with
@@ -161,7 +165,7 @@ stack is resolved at the first entry like a URL-only fork's. `test/forkurl/` run
 
 **2.13 — two VMs, and which cheat goes through which.** `fhevm` for the cheats this SDK has to stand in
 front of — the fork family (`createSelectFork`, `createFork`, `selectFork`, `rollFork`, `activeFork`, `useStack`) and
-`getRecordedLogs` — `vm` for everything else. A fork entered or switched through `vm` is FORK DRIFT and
+`getRecordedLogs` / `recordLogs` — `vm` for everything else. A fork entered or switched through `vm` is FORK DRIFT and
 is refused loudly at the next SDK entry, never repaired by guessing: forge cannot tell `fhevm` that
 `vm.createSelectFork` ran, so its FHE events were not drained and its stack was never named. A new
 override goes on `fhevm`, never as a free function with a made-up name; `FhevmVm.sol`'s table is the
