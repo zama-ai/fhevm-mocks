@@ -15,6 +15,10 @@ out
 out-forgefhevmcore
 out-create2
 tarball
+# Gas snapshots written by `vm.snapshotGas*` (snapshots/<group>.json). Not committed for now: the numbers
+# they hold are mostly the vendored upstream contracts' cost, so they would need a refresh on every
+# upstream sync. Commit them, and run tests with FORGE_SNAPSHOT_CHECK=true, once a figure is worth pinning.
+snapshots
 .vitest-cache/
 test/ts/node_modules
 .deploy-config
@@ -23,5 +27,7 @@ broadcast
 
 # create2-deploy out dirs: one per (chain, deploymentId).
 # The seal inside them IS committed, deliberately and explicitly, with `git add -f` (plan section 9).
+# Test-owned scratch is named .out-test-* (a dir a coordinator writes) or .test-* (any other file).
 .out
 .out-*
+.test-*

@@ -69,7 +69,7 @@ const RPC_URL = `http://127.0.0.1:${PORT}`;
 
 /**
  * A dedicated out-dir per generation, so a run never touches the `.out-anvil` a developer's manual
- * rehearsal uses. `.out-*` is gitignored in both generations; `.test-*` (the file below) in this one.
+ * rehearsal uses. `.out-*` and `.test-*` (the file below) are gitignored in both generations.
  *
  * Passed to `--out-dir` as a BARE name, because the coordinator resolves that flag against `FS_ROOT` —
  * the `create2-deploy/` directory — not against the package root. It has to: `foundry.toml`'s
