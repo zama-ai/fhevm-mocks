@@ -502,7 +502,6 @@ SEPOLIA_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork
 ARBITRUM_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork        # + the cleartext-on-a-foreign-chain suite (§2.17)
 ARBITRUM_RPC_URL=… MAINNET_RPC_URL=… npm run test:fork-debug  # the same under the fhevm-debug profile (§2.18)
 SEPOLIA_RPC_URL=… npm run test:fork-url  # the born-on-a-fork suite, under `forge test --fork-url`
-MAINNET_RPC_URL=… forge test --match-contract EventProcessorReplay
 npm run test:anvil                       # starts a throwaway anvil on 8546, runs test/anvil, stops it
 ```
 
