@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {Vm} from "forge-std/Vm.sol";
 
 import {FORGE_VM_ADDRESS} from "./_host/IForgeVm.sol";
-import {ForgeFhevmEventProcessor, IForgeVmLogs} from "./_host/ForgeFhevmEventProcessor.sol";
 import {LibForgeFhevmAnvil} from "./_host/LibForgeFhevmAnvil.sol";
 import {LibForgeFhevmStack} from "./_host/LibForgeFhevmStack.sol";
 import {LibForgeFhevmConfig} from "./_host/LibForgeFhevmConfig.sol";
@@ -141,7 +140,6 @@ struct FhevmHCUMeter {
  *      | `rollFork([id,] block)`                     | DRAIN, `vm.rollFork`, then prepare the fork AGAIN with a fresh replay — a roll is a fresh fork at another block |
  *      | `useStack(chain)`                           | point the ACTIVE context (in memory or a fork) at a described stack, fully prepared — what `createSelectFork(chain, …)` does after forking |
  *      | `activeFork()`                              | forwarded |
- *      | `getRecordedLogs()`                         | `vm.getRecordedLogs()`, with the FHE events fed to the replay first — USE THIS, never `vm.getRecordedLogs()` (rules.md §2.3, §7.4) |
  *      | `snapshotState()`, `revertToState(id)`      | `vm.snapshotState` / `vm.revertToState`, with the replay and the SDK's context put back — forge's fork pointer goes stale across a revert and these are what reconcile it |
  *      | `setAnvilMirror(bool)`, `anvilMirror()`     | whether a stack the SDK deploys on an anvil fork is also written onto the NODE (default: yes) |
  *
@@ -158,8 +156,7 @@ struct FhevmHCUMeter {
  *      | `useCleartextVerifier()`, `setForceProductionPath(b)` | ask a cleartext verifier directly, or rebuild every answer (rules.md 3.1); the setter overrides `FHEVM_FORCE_FORK_STACK` |
  *      | `isForked()`, `currentForkId()`, `activeForkChecked()` | on a fork at all; `vm.activeFork()` or `NO_FORK`; the checked form reverts loudly on drift |
  *      | `hasRpcUrlFor(alias)`                       | did the run configure a URL for this alias (`foundry.toml` or `<ALIAS>_RPC_URL`)? — the opt-in a fork test checks |
- *      | `eventProcessor()`                          | the ACTIVE context's replay (one per context, created when a stack is pointed there) |
- *      | `ensureForkPrepared(dApp)`, `drainFheEvents()`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `disableHCUDepthLimit()`, `disableHCULimits()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
+ *      | `ensureForkPrepared(dApp)`, `setChainTable(...)`, `seedCleartext(...)`, `useFixedUnknownHandles(...)`, `useDeterministicUnknownHandles()`, `disableHCUDepthLimit()`, `disableHCULimits()`, `resetHCU()`, `initialize()`, `enterUnmetered()` / `exitUnmetered()`, `isForkRegistered(id)` | plumbing for the `StdFhevm*` mixins; not for tests |
  *      | `encrypt(...)`, `decryptPublicWithProof(handles)`, `plaintextOf(handle)`, `hasPlaintext(handle)`, `tryPlaintextOf(handle)`, `userDecryptDigestV1(request, delegator)`, `resolveStack(dApp)` | THE PROTOCOL STEPS, handle-shaped (rules.md 2.10): prepare, drain, resolve and act, in one frame; the `StdFhevm*` mixins call these and speak `euint*` on top |
  */
 interface IFhevmVm {
@@ -379,37 +376,6 @@ interface IFhevmVm {
     ///         every `setFhevmChain`, so the test's table stays the source of truth and this is its copy.
     function setChainTable(StdFhevmChains.FhevmChain[] calldata chains) external;
 
-    // -- The replay -----------------------------------------------------------
-
-    /**
-     * @notice The event processor of the ACTIVE execution context — the in-memory chain or the active
-     *         fork — or zero before a stack was pointed there.
-     * @dev ONE PER CONTEXT, NEVER PERSISTENT (rules.md §2.3). A processor is the reconstruction of one
-     *      chain's state, so it is created INSIDE the context whose chain it mirrors, by `setProtocol`, and
-     *      lives and dies with that context: switch fork and it is gone with the chain, switch back and it
-     *      is there as left, roll and it is discarded with the rest of the fork's local state. Whether it
-     *      is READ is the stack's property, not the context's: `LibFhevmProtocol` resolves the plaintext
-     *      source to the executor when the stack is cleartext, to this processor otherwise — in memory
-     *      exactly as on a fork.
-     */
-    function eventProcessor() external view returns (address);
-
-    /// @notice Replays everything emitted since the last replay into the active context's store. Every
-    ///         value-reading entry calls it before answering (rules.md §2.9); a test never needs to.
-    function drainFheEvents() external;
-
-    /**
-     * @notice `vm.getRecordedLogs()`, the FHEVM way: drains the buffer ONCE, feeds the FHE events to the
-     *         replay, and hands back everything — the dApp's events and the FHE ones alike.
-     * @dev WHY THERE IS A REPLACEMENT AT ALL. The recorded-logs buffer is one per test and reading it
-     *      EMPTIES it, for everyone. A test that calls `vm.getRecordedLogs()` to inspect its own events
-     *      swallows every FHE event with them, and the next decryption fails on a handle the replay never
-     *      saw. The reverse is just as bad and quieter: decrypt first, and the test's own log assertions
-     *      run against an empty array. This drains once and serves both readers. For asserting on a dApp's
-     *      own events, `vm.expectEmit` needs no such care and is the better tool.
-     */
-    function getRecordedLogs() external returns (Vm.Log[] memory logs);
-
     // - Cheats, on the active context's store ---------------------------------
     //
     // FORK ONLY, and each one says so by name: on a cleartext stack every value is known, so there is
@@ -445,11 +411,42 @@ interface IFhevmVm {
      *      came from anywhere else, and every real network, runs the plain implementation and keeps no
      *      meter. Refused by name there rather than answering zero.
      *
-     * @dev Both readings clear on the first metered operation of a new transaction, so a fresh reading
-     *      needs an FHE call before it.
+     * @dev A FORGE TEST IS ONE TRANSACTION, so the readings clear once and then accumulate across the
+     *      test's later calls. To measure a single call, `resetHCU()` before it.
      */
     // forge-lint: disable-next-line(mixed-case-function)
     function lastHCU() external returns (FhevmHCUMeter memory);
+
+    /**
+     * @notice Zeroes the current stack's HCU meter, so the next FHE call is measured on its own.
+     *
+     * @dev WHY A TEST NEEDS THIS. The readings clear on the first metered operation of a new TRANSACTION,
+     *      and a forge test function is one transaction -- so they clear once and then ACCUMULATE across
+     *      every later call. A test with one FHE call reads correctly and a test with two does not, which
+     *      is the failure this exists to remove: reset, call, read.
+     *
+     * @dev Same stack rule as `lastHCU`: only a stack this library deployed keeps a meter, and a plain
+     *      cleartext stack is refused by name rather than silently doing nothing.
+     */
+    // forge-lint: disable-next-line(mixed-case-function)
+    function resetHCU() external;
+
+    /**
+     * @notice What one handle cost this stack, or ZERO if this stack did not compute it.
+     *
+     * @dev A PER-HANDLE READING THAT OUTLIVES ITS TRANSACTION, unlike `lastHCU`'s two, which the host
+     *      contract keeps transiently and drops at the end of the transaction that took them. So a test
+     *      may ask what a value cost long after the call that produced it, and without resetting anything.
+     *
+     * @dev ZERO MEANS "NOT FROM HERE", not "free": every metered operation costs something, so no reading
+     *      is the mark of a handle this stack inherited from the chain it forked rather than computed.
+     *
+     * @dev Same stack rule as `lastHCU`: only a stack this library deployed keeps a meter, and a plain
+     *      cleartext stack is refused by name rather than answering zero -- which here would be a lie
+     *      shaped exactly like a real answer.
+     */
+    // forge-lint: disable-next-line(mixed-case-function)
+    function hcuOf(bytes32 handle) external returns (uint256);
 
     /// @notice Lifts EVERY HCU cap of the current stack — block, transaction and depth — to the ceiling,
     ///         as its ACL owner (`disableHCULimits`). Metering still runs; nothing is measured against.
@@ -557,7 +554,6 @@ contract FhevmVm is IFhevmVm {
     bool private _forceOverrideSet;
     bool private _forceOverride;
     /// @dev The replay of each execution context, keyed by fork id (`NO_FORK` for the in-memory chain).
-    mapping(uint256 contextId => address) private _processorOf;
     /// @dev A copy of the test's chain table, for resolving a URL-only fork's stack. The table itself stays
     ///      the test's (`StdFhevmChains`): it is what resolves RPC URLs and what a test overrides.
     StdFhevmChains.FhevmChain[] private _chainTable;
@@ -591,10 +587,11 @@ contract FhevmVm is IFhevmVm {
         // under `forge test --fork-url`, where forge starts every test on a fork before any constructor
         // runs. Taking it as the baseline is what keeps the drift check honest in both modes.
         _lastSwitchedForkId = _activeFork();
-        // RECORDING IS ARMED ONCE, HERE, before any dApp call can happen. The buffer is one per test across
-        // every context; each drain empties it into the ACTIVE context's processor. No processor arms it
-        // again: re-arming could drop what was emitted between a switch and the next processor's birth.
-        Vm(FORGE_VM_ADDRESS).recordLogs();
+        // RECORDING IS NOT ARMED HERE, deliberately. It used to be: the replay had to see every FHE event,
+        // so the buffer was armed before any dApp call could happen. With the replay gone nothing reads it,
+        // and arming it anyway would silently widen what a test's own `vm.getRecordedLogs()` returns -- to
+        // everything since this constructor, the whole stack deploy included. `vm.recordLogs()` is the
+        // test's to call, and means what forge says it means.
     }
 
     // -- Gas metering ---------------------------------------------------------
@@ -626,26 +623,12 @@ contract FhevmVm is IFhevmVm {
         _setProtocol(acl, executor, kmsVerifier);
     }
 
-    /// @dev Points, and makes the ACTIVE context's replay follow: created here if the context has none —
-    ///      inside the context, cheat-enabled, NOT persistent — with this stack's executor registered and
-    ///      selected. The processor writes each event into its emitter's store but reads from ONE selected
-    ///      store, so pointing at a stack and reading another's store would be a silent mismatch. An
-    ///      executor of zero (a cleared stack, see `_enterUnresolvedFork`) points nothing.
+    /// @dev JUST THE POINTER NOW. It used to create the active context's event processor as well, which
+    ///      is why it exists as a private helper at all; a stack holds its own plaintexts (rules.md
+    ///      §2.15.2), so there is nothing to follow the pointer any more. An executor of zero is a
+    ///      cleared stack (see `_enterUnresolvedFork`) and remains legal.
     function _setProtocol(address acl, address executor, address kmsVerifier) private {
         _protocol = FhevmProtocolConfig({acl: acl, executor: executor, kmsVerifier: kmsVerifier});
-        if (executor == address(0)) return;
-
-        uint256 context = _activeFork();
-        address processor = _processorOf[context];
-        if (processor == address(0)) {
-            processor = address(new ForgeFhevmEventProcessor());
-            // Created by an etched account, not by the test: cheat access does not follow, grant it.
-            Vm(FORGE_VM_ADDRESS).allowCheatcodes(processor);
-            _processorOf[context] = processor;
-        }
-        ForgeFhevmEventProcessor replay = ForgeFhevmEventProcessor(processor);
-        if (!replay.isExecutor(executor)) replay.addExecutor(executor);
-        replay.selectExecutor(executor);
     }
 
     // - Cleartext verifier policy (rules.md 3.1) ------------------------------
@@ -670,7 +653,6 @@ contract FhevmVm is IFhevmVm {
 
     function createSelectFork(StdFhevmChains.FhevmChain calldata chain) external returns (uint256 forkId) {
         _requireRpcUrl(chain);
-        _drainFheEvents();
         forkId = Vm(FORGE_VM_ADDRESS).createSelectFork(chain.rpcUrl);
         _enterFork(forkId, chain);
     }
@@ -680,19 +662,16 @@ contract FhevmVm is IFhevmVm {
         returns (uint256 forkId)
     {
         _requireRpcUrl(chain);
-        _drainFheEvents();
         forkId = Vm(FORGE_VM_ADDRESS).createSelectFork(chain.rpcUrl, blockNumber);
         _enterFork(forkId, chain);
     }
 
     function createSelectFork(string calldata urlOrAlias) external returns (uint256 forkId) {
-        _drainFheEvents();
         forkId = Vm(FORGE_VM_ADDRESS).createSelectFork(urlOrAlias);
         _enterUnresolvedFork(forkId);
     }
 
     function createSelectFork(string calldata urlOrAlias, uint256 blockNumber) external returns (uint256 forkId) {
-        _drainFheEvents();
         forkId = Vm(FORGE_VM_ADDRESS).createSelectFork(urlOrAlias, blockNumber);
         _enterUnresolvedFork(forkId);
     }
@@ -721,7 +700,6 @@ contract FhevmVm is IFhevmVm {
     }
 
     function selectFork(uint256 forkId) external {
-        _drainFheEvents();
         Vm(FORGE_VM_ADDRESS).selectFork(forkId);
         if (_forkRegistered[forkId]) {
             _lastSwitchedForkId = forkId;
@@ -732,14 +710,12 @@ contract FhevmVm is IFhevmVm {
     }
 
     function rollFork(uint256 blockNumber) external {
-        _drainFheEvents();
         Vm(FORGE_VM_ADDRESS).rollFork(blockNumber);
         _forgetForkState(_activeFork());
         if (_forkRegistered[_activeFork()]) _pointAt(_activeFork());
     }
 
     function rollFork(uint256 forkId, uint256 blockNumber) external {
-        _drainFheEvents();
         Vm(FORGE_VM_ADDRESS).rollFork(forkId, blockNumber);
         _forgetForkState(forkId);
         if (forkId == _activeFork() && _forkRegistered[forkId]) _pointAt(forkId);
@@ -793,7 +769,6 @@ contract FhevmVm is IFhevmVm {
 
     function snapshotState() external returns (uint256 snapshotId) {
         // Drained BEFORE the snapshot, so what the events produced is part of what is captured.
-        _drainFheEvents();
         snapshotId = Vm(FORGE_VM_ADDRESS).snapshotState();
         // Written AFTER, so it is not in the snapshot — which is fine: it is read before the revert undoes
         // it, and a local variable carries the value across.
@@ -811,10 +786,6 @@ contract FhevmVm is IFhevmVm {
         if (context == NO_FORK && active != NO_FORK) revert(LibFhevmFail.cannotRevertPastFork(snapshotId));
 
         success = Vm(FORGE_VM_ADDRESS).revertToState(snapshotId);
-
-        // Everything emitted since the snapshot describes work the revert undid. Drop it, or the next
-        // replay would write values into a store the chain no longer agrees with.
-        Vm(FORGE_VM_ADDRESS).getRecordedLogs();
 
         // Nothing to put back. Forge restores its own fork pointer correctly in every direction that is
         // left, and this handle's bookkeeping -- the stack it points at, the drift guard's memory, each
@@ -850,7 +821,6 @@ contract FhevmVm is IFhevmVm {
     ///      (created inside the fork, never persistent). Forget both, so the next contact prepares afresh.
     function _forgetForkState(uint256 forkId) private {
         _forkPrepared[forkId] = false;
-        _processorOf[forkId] = address(0);
     }
 
     /// @dev Prepare on first contact, point on every contact. Runs with `forkId` ACTIVE.
@@ -876,9 +846,26 @@ contract FhevmVm is IFhevmVm {
                 // accepted. Fork state persists across switches, so once per fork. The pranks are this
                 // contract's: it has cheatcode access (`allowCheatcodes`) precisely for this.
                 LibForgeFhevmStack.defineCleartextContexts(chain.inputVerifier, chain.protocolConfig, chain.acl);
+                // AND THEN IT BECOMES A CLEARTEXT STACK. A production executor announces handles and keeps
+                // no values, so reading one means replaying its events and reimplementing every operator.
+                // This package's cleartext implementations hold the values instead, so the fork answers
+                // for itself. The signer work above runs FIRST and survives: it writes storage, and this
+                // only changes code.
+                LibForgeFhevmUpgrade.upgradeToCleartext(_rolesOf(chain));
+            } else {
+                // A CLEARTEXT STACK IS NOT AUTOMATICALLY THIS GENERATION'S. It used to be, when the only
+                // one was the stack this library had just deployed -- so this branch checked nothing. A
+                // fork can be of a cleartext stack someone deployed on a chain, which lags like any
+                // other, and waving it through would run this generation's ABI against the previous
+                // one's contracts.
+                //
+                // NOTHING TO STATE AFTERWARDS, and that is what makes this case the easy one: an upgrade
+                // re-points proxies without touching their storage, so the `CleartextDB` comes through
+                // intact and every value the stack recorded before the fork still reads. Contrast a
+                // production fork, where those handles are unknowable because nothing ever recorded them
+                // (2.15.3).
+                _upgradeCleartextIfOneGenerationBehind(chain);
             }
-            // A cleartext stack is this package's own code: no version to check, and it registers the
-            // cleartext signers itself.
             _forkPrepared[forkId] = true;
         }
         _setProtocol(chain.acl, chain.fhevmExecutor, chain.kmsVerifier);
@@ -917,19 +904,54 @@ contract FhevmVm is IFhevmVm {
      *      is looking at. An upgrade that half worked is then refused by the gate exactly as an
      *      unupgraded stack would be, with the same message naming the contract that disagrees.
      */
+    /// @dev One address per `FhevmAddressRole`, read off the stack itself where the chain table has none:
+    ///      `hcuLimit` from the executor, `pauserSet` from the ACL. The two cleartext roles are left zero
+    ///      -- no real deployment has those contracts, and `upgradeToCleartext` fills them in as it
+    ///      creates them.
+    function _rolesOf(StdFhevmChains.FhevmChain memory chain) private view returns (address[10] memory addresses) {
+        addresses[uint8(FhevmAddressRole.ACL)] = chain.acl;
+        addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = chain.fhevmExecutor;
+        addresses[uint8(FhevmAddressRole.KMSVerifier)] = chain.kmsVerifier;
+        addresses[uint8(FhevmAddressRole.InputVerifier)] = chain.inputVerifier;
+        addresses[uint8(FhevmAddressRole.HCULimit)] = IFHEVMExecutor(chain.fhevmExecutor).getHCULimitAddress();
+        addresses[uint8(FhevmAddressRole.ProtocolConfig)] = chain.protocolConfig;
+        addresses[uint8(FhevmAddressRole.KMSGeneration)] = chain.kmsGeneration;
+        addresses[uint8(FhevmAddressRole.PauserSet)] = IACL(chain.acl).getPauserSetAddress();
+    }
+
+    /// @dev The same question as `_upgradeIfOneGenerationBehind`, asked of a stack that is already
+    ///      cleartext -- and answered by the cleartext op list, which keeps the store rather than
+    ///      creating one. A stack already on this generation is left alone; anything else falls to the
+    ///      gate, which refuses it by name.
+    function _upgradeCleartextIfOneGenerationBehind(StdFhevmChains.FhevmChain memory chain) private {
+        address[10] memory addresses = _rolesOf(chain);
+        HostVersions memory versions = LibFhevmVersion.read(
+            chain.acl,
+            chain.fhevmExecutor,
+            chain.kmsVerifier,
+            chain.inputVerifier,
+            addresses[uint8(FhevmAddressRole.HCULimit)],
+            chain.protocolConfig,
+            chain.kmsGeneration
+        );
+        if (LibFhevmVersion.classify(versions) != FhevmGeneration.Previous) return;
+
+        LibForgeFhevmUpgrade.upgradeCleartextFromPreviousGeneration(addresses);
+    }
+
     function _upgradeIfOneGenerationBehind(StdFhevmChains.FhevmChain memory chain) private {
         address hcuLimit = IFHEVMExecutor(chain.fhevmExecutor).getHCULimitAddress();
         address pauserSet = IACL(chain.acl).getPauserSetAddress();
 
-        HostVersions memory versions = HostVersions({
-            acl: _versionOf(chain.acl),
-            fhevmExecutor: _versionOf(chain.fhevmExecutor),
-            kmsVerifier: _versionOf(chain.kmsVerifier),
-            inputVerifier: _versionOf(chain.inputVerifier),
-            hcuLimit: _versionOf(hcuLimit),
-            protocolConfig: _versionOf(chain.protocolConfig),
-            kmsGeneration: _versionOf(chain.kmsGeneration)
-        });
+        HostVersions memory versions = LibFhevmVersion.read(
+            chain.acl,
+            chain.fhevmExecutor,
+            chain.kmsVerifier,
+            chain.inputVerifier,
+            hcuLimit,
+            chain.protocolConfig,
+            chain.kmsGeneration
+        );
         if (LibFhevmVersion.classify(versions) != FhevmGeneration.Previous) return;
 
         // Indexed by `FhevmAddressRole`, which is what the patcher and the op table both speak. Two of
@@ -947,14 +969,6 @@ contract FhevmVm is IFhevmVm {
         addresses[uint8(FhevmAddressRole.PauserSet)] = pauserSet;
 
         LibForgeFhevmUpgrade.upgradeFromPreviousGeneration(addresses);
-    }
-
-    /// @dev `getVersion()` or "" — an address with no code, or one that answers something else, reads as
-    ///      absent, which `classify` treats as a reading rather than an error.
-    function _versionOf(address target) private view returns (string memory) {
-        if (target == address(0)) return "";
-        (bool ok, bytes memory ret) = target.staticcall(abi.encodeWithSignature("getVersion()"));
-        return (ok && ret.length >= 64) ? abi.decode(ret, (string)) : "";
     }
 
     // - Version gate ----------------------------------------------------------
@@ -1111,59 +1125,35 @@ contract FhevmVm is IFhevmVm {
         }
     }
 
-    // -- The replay -----------------------------------------------------------
-
-    function eventProcessor() external view returns (address) {
-        return _processorOf[_activeFork()];
-    }
-
-    function drainFheEvents() external {
-        _drainFheEvents();
-    }
-
-    /// @dev Everything emitted since the last replay, into the ACTIVE context's store, while the context
-    ///      that emitted it is still the active one. A no-op when that context has no processor yet (a
-    ///      URL-only fork before its first entry): nothing of its own is pending that a later context
-    ///      would want.
-    function _drainFheEvents() private {
-        address processor = _processorOf[_activeFork()];
-        if (processor != address(0)) ForgeFhevmEventProcessor(processor).processFheEvents();
-    }
-
-    function getRecordedLogs() external returns (Vm.Log[] memory logs) {
-        logs = Vm(FORGE_VM_ADDRESS).getRecordedLogs();
-        address processor = _processorOf[_activeFork()];
-        if (processor == address(0)) return logs;
-
-        // Same three fields in the same order, but nominally distinct types: the payload declares its own
-        // `Log` so it never depends on forge-std.
-        IForgeVmLogs.Log[] memory forwarded = new IForgeVmLogs.Log[](logs.length);
-        for (uint256 i = 0; i < logs.length; i++) {
-            forwarded[i] = IForgeVmLogs.Log({topics: logs[i].topics, data: logs[i].data, emitter: logs[i].emitter});
-        }
-        ForgeFhevmEventProcessor(processor).processFheEvents(forwarded);
-    }
-
     // - Cheats, on the active context's store ---------------------------------
 
     function seedCleartext(bytes32 handle, uint256 value) external {
-        _forkReplay().seedCleartext(handle, value);
+        FhevmStack memory stack = _forkStack();
+        LibForgeFhevmStack.seedCleartext(stack.executor, handle, value);
     }
 
     function useFixedUnknownHandles(uint256 value) external {
-        _forkReplay().useFixedUnknownHandles(value);
+        FhevmStack memory stack = _forkStack();
+        LibForgeFhevmStack.useFixedUnknownHandles(stack.executor, value);
     }
 
     function useDeterministicUnknownHandles() external {
-        _forkReplay().useDeterministicUnknownHandles();
+        FhevmStack memory stack = _forkStack();
+        LibForgeFhevmStack.useDeterministicUnknownHandles(stack.executor);
     }
 
-    /// @dev The replay a fork-only cheat writes to: the resolved stack's plaintext source, which on a
-    ///      non-cleartext stack IS the active context's processor. Refused by name on a cleartext stack.
-    function _forkReplay() private returns (ForgeFhevmEventProcessor) {
-        FhevmStack memory stack = _resolveForReading(address(0));
-        if (stack.isCleartext) revert(LibFhevmFail.notAFork(stack.executor));
-        return ForgeFhevmEventProcessor(stack.plaintexts);
+    /**
+     * @dev The stack a fork-only cheat writes to, refused on the IN-MEMORY one.
+     *
+     *      THE QUESTION IS "AM I ON A FORK", not "is this cleartext", and it used to be the latter --
+     *      correctly, while cleartext implied local. It no longer does: a forked stack is UPGRADED to
+     *      cleartext on first contact, and it is exactly the stack full of handles older than the
+     *      cleartext layer, which is what these cheats exist to state. The in-memory stack is the one
+     *      where nothing can be unknown, because it minted everything it holds.
+     */
+    function _forkStack() private returns (FhevmStack memory stack) {
+        stack = _resolveForReading(address(0));
+        if (_activeFork() == NO_FORK) revert(LibFhevmFail.notAFork(stack.executor));
     }
 
     // - Cheats, on the current stack's HCULimit -------------------------------
@@ -1196,6 +1186,24 @@ contract FhevmVm is IFhevmVm {
         (meter.transaction, meter.maxHandle) = LibForgeFhevmHCU.lastHCU(hcuLimit);
     }
 
+    // forge-lint: disable-next-line(mixed-case-function)
+    function resetHCU() external {
+        FhevmStack memory stack = _resolve(address(0));
+        address hcuLimit = ICleartextFHEVMExecutor(stack.executor).getHCULimitAddress();
+        // The same guard, for the same reason: a plain cleartext stack has no meter to zero, and saying so
+        // is better than a call that succeeds and changes nothing.
+        if (!LibCleartextProbe.isForge(hcuLimit)) revert(LibFhevmFail.noHCUMeter(hcuLimit));
+        LibForgeFhevmHCU.resetHCU(hcuLimit, stack.acl);
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function hcuOf(bytes32 handle) external returns (uint256) {
+        FhevmStack memory stack = _resolve(address(0));
+        address hcuLimit = ICleartextFHEVMExecutor(stack.executor).getHCULimitAddress();
+        if (!LibCleartextProbe.isForge(hcuLimit)) revert(LibFhevmFail.noHCUMeter(hcuLimit));
+        return LibForgeFhevmHCU.hcuOf(hcuLimit, handle);
+    }
+
     // -- The protocol steps, for the mixins -----------------------------------
 
     // - The resolver ----------------------------------------------------------
@@ -1217,7 +1225,6 @@ contract FhevmVm is IFhevmVm {
      */
     function _resolve(address dAppOrZero) private returns (FhevmStack memory stack) {
         _ensureForkPrepared(dAppOrZero);
-        _drainFheEvents();
 
         address executor = _protocol.executor;
         if (executor == address(0)) revert(LibFhevmFail.noCurrentStack());
@@ -1230,7 +1237,8 @@ contract FhevmVm is IFhevmVm {
         stack.executor = executor;
         stack.kmsVerifier = _protocol.kmsVerifier;
         stack.inputVerifier = (ok && ret.length == 32) ? abi.decode(ret, (address)) : address(0);
-        stack.plaintexts = isCleartext ? executor : _processorOf[_activeFork()];
+        // Always the executor now: every stack this SDK runs against is a cleartext one, forked or not.
+        stack.plaintexts = executor;
         stack.isCleartext = isCleartext;
         stack.cleartextVerifier = !_forceProductionPath() && isCleartext;
     }

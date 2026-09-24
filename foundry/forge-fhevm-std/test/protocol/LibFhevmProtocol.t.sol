@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {FHE, euint32} from "@fhevm/solidity/lib/FHE.sol";
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
-import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../../pkg/src/_host/ForgeFhevmDeploy.sol";
@@ -50,12 +49,11 @@ contract LibFhevmProtocolTest is TestFhevm {
         assertEq(LibFhevmProtocol.currentConfig().kmsVerifier, KMS_VERIFIER_ADDRESS);
     }
 
-    /// The plaintext source is RESOLVED: a cleartext executor answers for itself, even though the constructor
-    /// created an event processor that could have been named instead. Only a non-cleartext stack reads
-    /// the replay.
+    /// The plaintext source IS the executor, and now always is: a cleartext stack answers for itself, and
+    /// every stack this SDK runs against is one -- the local one by construction, a forked one because it
+    /// is upgraded on first contact. There is no second source left to resolve against.
     function test_aCleartextStackIsItsOwnPlaintextSource() public view {
-        assertTrue(address(ForgeFhevmEventProcessor(fhevm.eventProcessor())) != address(0), "the processor exists");
-        assertEq(LibFhevmProtocol.currentConfig().plaintexts, FHEVM_EXECUTOR_ADDRESS, "and is not read here");
+        assertEq(LibFhevmProtocol.currentConfig().plaintexts, FHEVM_EXECUTOR_ADDRESS, "the executor, directly");
     }
 
     /// The cleartext layer is discovered from the executor, not named by a constant — which is what

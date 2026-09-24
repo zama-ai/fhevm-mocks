@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import {euint32, externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 
+import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
-import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
 import {FHEVM_EXECUTOR_ADDRESS} from "../../pkg/src/_host/_internal/LocalHostAddresses.sol";
 
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
@@ -39,14 +39,14 @@ contract TestIsolationTest is TestFhevm {
         assertEq(euint32.unwrap(counter.getCount()), bytes32(0), "the dApp's state is as constructed");
         assertTrue(fhevm.useCleartextVerifier(), "fhevm's own storage is as constructed (no force flag)");
         assertEq(
-            ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(),
+            LibFhevmProtocol.currentConfig().executor,
             FHEVM_EXECUTOR_ADDRESS,
-            "the replay reads the local store, as constructed"
+            "the SDK still points at the local stack, as constructed"
         );
     }
 
-    /// Touches every layer: the dApp (an FHE op through the cleartext stack), the replay's store (the op's
-    /// events), `fhevm`'s storage (the force flag), and the protocol (a re-declaration).
+    /// Touches every layer: the dApp (an FHE op through the cleartext stack), the stack's own store (the
+    /// op's plaintexts), `fhevm`'s storage (the force flag), and the protocol (a re-declaration).
     function _dirtyEverything(uint32 value) private {
         (externalEuint32 v, bytes memory proof) = encryptUint32(value, address(counter), alice);
         vm.prank(alice);

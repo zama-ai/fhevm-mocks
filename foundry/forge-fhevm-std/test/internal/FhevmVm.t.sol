@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
-import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
+import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {FHEVM_VM_ADDRESS, fhevm} from "../../pkg/src/FhevmVm.sol";
 import {externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
@@ -43,29 +43,35 @@ contract FhevmVmTest is TestFhevm {
         assertTrue(forkA != forkB, "two forks");
     }
 
-    /// ONE PROCESSOR PER CONTEXT. Each fork gets its own on first contact, not persistent; switching back
-    /// finds the same one, with exactly the executor of the stack pointed there.
-    function test_eachContextHasItsOwnProcessor() public {
+    /**
+     * ONE CLEARTEXT STORE PER CONTEXT. Each fork is upgraded on first contact and gets its own
+     * `CleartextDB` then -- not persistent, because it belongs to that chain's state and must come and go
+     * with it. Switching back finds the same one.
+     *
+     * This is the property the per-context event processor used to carry: values reconstructed for fork A
+     * must not answer on fork B, where the handles they describe were never minted. The store keeps it for
+     * a better reason -- it IS chain state now, so forge's own fork isolation does the work.
+     */
+    function test_eachContextHasItsOwnCleartextStore() public {
         vm.skip(!ForkBlocks.enabled("sepolia"));
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
-        address inMemory = fhevm.eventProcessor();
-        assertTrue(inMemory != address(0), "the in-memory context has one from the constructor");
+        address inMemory = LibFhevmProtocol.currentConfig().cleartextDb;
+        assertTrue(inMemory != address(0), "the in-memory stack has one from the constructor");
 
         (uint256 blockA, uint256 blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
 
         uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
-        address onA = fhevm.eventProcessor();
+        address onA = LibFhevmProtocol.currentConfig().cleartextDb;
         assertTrue(onA != address(0) && onA != inMemory, "A has its own");
         assertFalse(vm.isPersistent(onA), "and it is not persistent");
-        assertEq(ForgeFhevmEventProcessor(fhevm.eventProcessor()).executors().length, 1, "exactly Sepolia's executor");
-        assertEq(ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(), sepolia.fhevmExecutor);
+        assertEq(LibFhevmProtocol.currentConfig().executor, sepolia.fhevmExecutor, "reached through Sepolia's stack");
 
         fhevm.createSelectFork(sepolia, blockB);
-        address onB = fhevm.eventProcessor();
+        address onB = LibFhevmProtocol.currentConfig().cleartextDb;
         assertTrue(onB != onA && onB != inMemory, "B has its own");
 
         fhevm.selectFork(forkA);
-        assertEq(fhevm.eventProcessor(), onA, "A's is A's again");
+        assertEq(LibFhevmProtocol.currentConfig().cleartextDb, onA, "A's is A's again");
         assertGt(onA.code.length, 0, "and it has code here");
     }
 

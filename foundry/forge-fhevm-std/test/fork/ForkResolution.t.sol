@@ -4,10 +4,9 @@ pragma solidity ^0.8.24;
 import {euint32} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
-import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {LibFhevmVersion} from "../../pkg/src/LibFhevmVersion.sol";
-import {fhevm} from "../../pkg/src/FhevmVm.sol";
+import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {ForkBlocks} from "../shared/ForkBlocks.sol";
 
@@ -28,7 +27,7 @@ interface IVersioned {
  */
 contract ForkResolutionTest is TestFhevm {
     /// @dev A deployed `FHETest`, configured for Sepolia's `testnet` stack, and an account with a euint32 on it.
-    IFHETest internal constant FHE_TEST = IFHETest(0x94B9d3aF050687D1F76251aD7D09a1F216a19845);
+    IFHETest internal constant FHE_TEST = IFHETest(0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc);
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
 
     FhevmChain internal sepolia;
@@ -56,7 +55,7 @@ contract ForkResolutionTest is TestFhevm {
         encryptUint32(1, address(FHE_TEST), SENDER); // first entry, names the dApp
 
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "testnet, from the dApp's config");
-        assertEq(ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(), sepolia.fhevmExecutor);
+        assertEq(LibFhevmProtocol.currentConfig().executor, sepolia.fhevmExecutor, "and the executor with it");
     }
 
     /// WITHOUT A DAPP, SEPOLIA IS AMBIGUOUS, and the SDK says so rather than picking one.
@@ -139,14 +138,17 @@ contract ForkResolutionTest is TestFhevm {
 
         fhevm.createSelectFork(sepolia, blockA);
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "pointed, no SDK entry needed");
-        assertFalse(LibFhevmProtocol.currentConfig().isCleartext);
+        // Cleartext NOW, where it was the real stack before: a fork is upgraded on first contact, so the
+        // flag no longer distinguishes "forked" from "local" -- only `currentForkId` does.
+        assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "the fork's stack, upgraded");
 
         // `super.setUp()` on a fork is harmless: the in-memory deploy happened in the constructor, and once a
         // fork is selected the fork's stack stays current (forge-std semantics: the in-memory chain is no
         // longer where the test executes). A test that forks in `setUp` may call it or not.
         super.setUp();
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "unchanged by super.setUp()");
-        assertFalse(LibFhevmProtocol.currentConfig().isCleartext, "still the fork's stack");
+        assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "still the fork's stack");
+        assertTrue(fhevm.currentForkId() != NO_FORK, "and still a fork, which is what tells them apart");
 
         fhevm.createSelectFork(sepolia.rpcUrl, blockA); // URL only
         assertFalse(LibFhevmProtocol.hasProtocol(), "unknown until resolved: not sepolia, not anything");

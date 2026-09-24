@@ -92,20 +92,13 @@ library LibFhevmProtocol {
         protocol.isCleartext = LibCleartextProbe.isCleartext(protocol.executor);
 
         // A cleartext executor IS the plaintext source; anything else reads the replay `fhevm` holds.
-        protocol.plaintexts = protocol.isCleartext ? protocol.executor : _eventProcessor();
+        // Always the executor: every stack this SDK runs against holds its own plaintexts.
+        protocol.plaintexts = protocol.executor;
 
         if (!protocol.isCleartext) return protocol;
 
         protocol.arithmetic = ICleartextFHEVMExecutor(protocol.executor).getCleartextArithmeticAddress();
         protocol.cleartextDb = ICleartextArithmetic(protocol.arithmetic).getCleartextDBAddress();
-    }
-
-    /// @dev The processor `fhevm` holds, or zero — including when `fhevm` itself is not there yet. A test
-    ///      that inherits one mixin and declares its stack before its first `unmetered` entry reaches here
-    ///      with nothing etched at that address; that is a legal moment, not an error.
-    function _eventProcessor() private view returns (address) {
-        if (FHEVM_VM_ADDRESS.code.length == 0) return address(0);
-        return fhevm.eventProcessor();
     }
 
     /// @notice Whether a stack has been configured at all, without reverting if none has.

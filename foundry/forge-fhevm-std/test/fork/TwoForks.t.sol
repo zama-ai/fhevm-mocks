@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {euint32, externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
-import {ForgeFhevmEventProcessor} from "../../pkg/src/_host/ForgeFhevmEventProcessor.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {fhevm, NO_FORK} from "../../pkg/src/FhevmVm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
@@ -42,7 +41,7 @@ interface IFHETest {
  *      `ForkResolution.t.sol` for the error that says so.
  */
 contract TwoForksTest is TestFhevm {
-    IFHETest internal constant FHE_TEST = IFHETest(0x94B9d3aF050687D1F76251aD7D09a1F216a19845);
+    IFHETest internal constant FHE_TEST = IFHETest(0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc);
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
 
     FhevmChain internal sepolia;
@@ -82,9 +81,7 @@ contract TwoForksTest is TestFhevm {
         assertEq(block.number, blockA, "at A's block");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "A's stack is current, at once");
         assertEq(
-            ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(),
-            sepolia.fhevmExecutor,
-            "and the replay reads its store"
+            LibFhevmProtocol.currentConfig().plaintexts, sepolia.fhevmExecutor, "and its values come from its own stack"
         );
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         _add(337);
@@ -128,11 +125,7 @@ contract TwoForksTest is TestFhevm {
         assertEq(LibFhevmProtocol.currentConfig().acl, mainnet.acl, "mainnet on C, at once");
         assertEq(LibFhevmProtocol.currentConfig().executor, mainnet.fhevmExecutor);
         assertEq(LibFhevmProtocol.currentConfig().kmsVerifier, mainnet.kmsVerifier);
-        assertEq(
-            ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(),
-            mainnet.fhevmExecutor,
-            "reads routed to mainnet's store"
-        );
+        assertEq(LibFhevmProtocol.currentConfig().plaintexts, mainnet.fhevmExecutor, "values routed to mainnet's stack");
         forkUnknown(current, 1); // an entry on C: fine, nothing more to prepare
 
         fhevm.selectFork(forkA);
@@ -140,9 +133,7 @@ contract TwoForksTest is TestFhevm {
         assertEq(block.chainid, 11155111, "on sepolia");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "sepolia again, at once");
         assertEq(
-            ForgeFhevmEventProcessor(fhevm.eventProcessor()).selectedExecutor(),
-            sepolia.fhevmExecutor,
-            "reads routed back to sepolia's store"
+            LibFhevmProtocol.currentConfig().plaintexts, sepolia.fhevmExecutor, "values routed back to sepolia's stack"
         );
         assertEq(decryptPublic(sumA), 1337, "back on A, sepolia again");
     }
@@ -216,14 +207,14 @@ contract TwoForksTest is TestFhevm {
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);
         _add(1);
         euint32 beforeRoll = FHE_TEST.getEuint32Of(SENDER);
-        address processorBefore = fhevm.eventProcessor();
+        address storeBefore = LibFhevmProtocol.currentConfig().cleartextDb;
 
         fhevm.rollFork(blockB);
 
         assertEq(block.number, blockB, "rolled");
         assertEq(LibFhevmProtocol.currentConfig().acl, sepolia.acl, "still pointed");
-        assertTrue(fhevm.eventProcessor() != processorBefore, "a new replay for what is a new fork");
-        vm.expectRevert(); // the pre-roll handle is unknown to the new replay, as to any fresh fork
+        assertTrue(LibFhevmProtocol.currentConfig().cleartextDb != storeBefore, "a new store for what is a new fork");
+        vm.expectRevert(); // the pre-roll handle is unknown to the new stack, as to any fresh fork
         this.plaintextOfExternally(beforeRoll);
 
         forkUnknown(FHE_TEST.getEuint32Of(SENDER), 1000);

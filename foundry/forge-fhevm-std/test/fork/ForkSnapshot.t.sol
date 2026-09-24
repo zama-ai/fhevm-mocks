@@ -42,7 +42,7 @@ interface IVersioned {
  *          SEPOLIA_RPC_URL=... forge test --match-contract ForkSnapshot
  */
 contract ForkSnapshotTest is TestFhevm {
-    IFHETest internal constant FHE_TEST = IFHETest(0x94B9d3aF050687D1F76251aD7D09a1F216a19845);
+    IFHETest internal constant FHE_TEST = IFHETest(0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc);
     address internal constant SENDER = 0x37AC010c1c566696326813b840319B58Bb5840E4;
 
     FhevmChain internal sepolia;
