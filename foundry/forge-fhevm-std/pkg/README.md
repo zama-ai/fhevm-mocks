@@ -15,14 +15,14 @@ Pick one.
 
 ```sh
 # npm
-npm install @fhevm/forge-std
+npm install @fhevm/forge
 ```
 
 ### 1.2 Remappings
 
 ```toml
 # foundry.toml — npm
-remappings = ["@fhevm/forge-std/=node_modules/@fhevm/forge-std/src/"]
+remappings = ["@fhevm/forge/=node_modules/@fhevm/forge/src/"]
 ```
 
 ### 1.3 Dependencies
@@ -43,7 +43,7 @@ Copy these four files into an empty folder and run `forge test`. That's the whol
   "name": "hello-fhevm",
   "private": true,
   "dependencies": {
-    "@fhevm/forge-std": "^0.13.0",
+    "@fhevm/forge": "^0.13.0",
     "@fhevm/solidity": "^0.13.3",
     "encrypted-types": "^0.0.4",
     "forge-std": "git+https://github.com/foundry-rs/forge-std.git#v1.11.0"
@@ -68,7 +68,7 @@ evm_version = "cancun"
 ```text
 # remappings.txt
 forge-std/=node_modules/forge-std/src/
-@fhevm/forge-std/=node_modules/@fhevm/forge-std/src/
+@fhevm/forge/=node_modules/@fhevm/forge/src/
 @fhevm/solidity/=node_modules/@fhevm/solidity/
 encrypted-types/=node_modules/encrypted-types/
 ```
@@ -107,7 +107,7 @@ contract Counter is ZamaEthereumConfig {
 pragma solidity ^0.8.24;
 
 import {externalEuint32} from "encrypted-types/EncryptedTypes.sol";
-import {TestFhevm} from "@fhevm/forge-std/TestFhevm.sol";
+import {TestFhevm} from "@fhevm/forge/TestFhevm.sol";
 import {Counter} from "../src/Counter.sol";
 
 contract CounterTest is TestFhevm {
@@ -172,7 +172,7 @@ anvil
 **2. Fork it in `setUp`.** The only line that differs from the in-memory test above:
 
 ```solidity
-import {fhevm} from "@fhevm/forge-std/FhevmVm.sol";
+import {fhevm} from "@fhevm/forge/FhevmVm.sol";
 
 function setUp() public override {
     fhevm.createSelectFork(getFhevmChain("anvil")); // stack is ready when this returns
@@ -264,7 +264,7 @@ mistake.
 # foundry.toml — NEVER deploy from this profile
 [profile.fhevm-debug]
 out = "out-fhevm-debug"
-remappings = ["@fhevm/solidity/config/ZamaConfig.sol=node_modules/@fhevm/forge-std/src/config/DebugZamaConfig.sol"]
+remappings = ["@fhevm/solidity/config/ZamaConfig.sol=node_modules/@fhevm/forge/src/config/DebugZamaConfig.sol"]
 ```
 
 Your contract's own source does not change at all. Under this one profile it deploys with a plain `new`;
@@ -289,7 +289,7 @@ when the test's own setup, not the thing being measured, would otherwise blow a 
 **Reading what it cost.** One cheat, nothing to declare — assert on HCU the way you assert on gas:
 
 ```solidity
-import {FhevmHCUMeter} from "@fhevm/forge-std/FhevmVm.sol";
+import {FhevmHCUMeter} from "@fhevm/forge/FhevmVm.sol";
 
 vm.prank(alice);
 counter.increment(v, proof); // the call under test
@@ -364,8 +364,8 @@ stack never saw computed" — copy it, run it, see the revert become a value:
 
 ```solidity
 import {euint64} from "encrypted-types/EncryptedTypes.sol";
-import {TestFhevm} from "@fhevm/forge-std/TestFhevm.sol";
-import {fhevm} from "@fhevm/forge-std/FhevmVm.sol";
+import {TestFhevm} from "@fhevm/forge/TestFhevm.sol";
+import {fhevm} from "@fhevm/forge/FhevmVm.sol";
 
 contract ForkUnknownTest is TestFhevm {
     function test_forkUnknown() public {

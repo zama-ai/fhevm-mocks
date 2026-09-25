@@ -14,7 +14,7 @@
     "test:file": "forge test --match-path"
   },
   "dependencies": {
-    "@fhevm/forge-std": "file:../../pkg",
+    "@fhevm/forge": "file:../../pkg",
     "@fhevm/solidity": "^0.13.3",
     "encrypted-types": "^0.0.4",
     "forge-std": "git+https://github.com/foundry-rs/forge-std.git#v1.11.0"

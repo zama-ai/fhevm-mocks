@@ -1,4 +1,4 @@
-# A Foundry project that depends on @fhevm/forge-std the way a user would: every library comes from
+# A Foundry project that depends on @fhevm/forge the way a user would: every library comes from
 # node_modules, installed by npm (forge-std included, as a git dependency), and is reached through
 # remappings.txt. No `libs`, no soldeer, no submodules: what npm installed is all forge may see.
 #

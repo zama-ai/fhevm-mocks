@@ -284,7 +284,7 @@
       "kind": "published",
       "type": "esm",
       "browser": false,
-      "name": "@fhevm/forge-std",
+      "name": "@fhevm/forge",
       "member": true,
       "dependencyGroup": "forge-fhevm-std",
       "consumerTests": { "esm": ["./foundry/forge-fhevm-std/test-consumer/esm"] },
