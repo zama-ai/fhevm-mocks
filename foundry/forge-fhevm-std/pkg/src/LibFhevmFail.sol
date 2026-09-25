@@ -282,7 +282,10 @@ library LibFhevmFail {
         string[] memory fix = new string[](3);
         fix[0] = "run a plain `anvil` (no --no-storage-caching quirks, no proxy in front of it),";
         fix[1] = "or keep the stack in the fork only:  fhevm.setAnvilMirror(false)  before forking,";
-        fix[2] = "or deploy onto the node yourself:  host-contracts-cleartext/v14/scripts/anvil.sh";
+        // NO PATH HERE. This file is one file across generations, so a path naming one of them is
+        // wrong on the other -- it read `v14` on both lines until now. The cleartext package ships a
+        // script for this; which directory it sits in is the reader's to know, not this message's.
+        fix[2] = "or deploy the stack onto the node yourself, with the cleartext package's anvil script";
         return render("ANVIL MIRROR FAILED", what, fix);
     }
 
