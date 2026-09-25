@@ -329,16 +329,87 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         fhevm.seedCleartext(eaddress.unwrap(value), uint256(uint160(clear)));
     }
 
-    function forkUnknownDefault(uint256 clear) internal unmetered {
-        fhevm.useFixedUnknownHandles(clear);
+    // ONE PER TYPE, and named for it, because a default is a property OF a type. The single
+    // `forkUnknownDefault(value)` this replaces set the default for every type the number happened to
+    // fit and silently skipped the rest, so `forkUnknownDefault(1000)` left `ebool` and `euint8` still
+    // refusing and the failure surfaced far away. Overloads cannot do the job either: with no handle to
+    // key on, `forkUnknownDefault(5)` is ambiguous between the integer widths and will not compile.
+    function forkUnknownDefaultEbool(bool clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Bool), clear ? 1 : 0);
     }
 
-    function forkUnknownDefault(bool clear) internal unmetered {
-        fhevm.useFixedUnknownHandles(clear ? 1 : 0);
+    function forkUnknownDefaultEuint8(uint8 clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint8), clear);
     }
 
-    function forkUnknownDefault(address clear) internal unmetered {
-        fhevm.useFixedUnknownHandles(uint256(uint160(clear)));
+    function forkUnknownDefaultEuint16(uint16 clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint16), clear);
+    }
+
+    function forkUnknownDefaultEuint32(uint32 clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint32), clear);
+    }
+
+    function forkUnknownDefaultEuint64(uint64 clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint64), clear);
+    }
+
+    function forkUnknownDefaultEuint128(uint128 clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint128), clear);
+    }
+
+    function forkUnknownDefaultEuint256(uint256 clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint256), clear);
+    }
+
+    function forkUnknownDefaultEaddress(address clear) internal unmetered {
+        fhevm.useFixedUnknownHandle(uint8(FheType.Uint160), uint256(uint160(clear)));
+    }
+
+    // BACK TO REFUSING, one type at a time -- the third policy, and the only way back to where every
+    // type starts. Named for the state it leaves behind rather than for what it undoes, because a
+    // reader should not have to know whether the type was answering a fixed value or a derived one:
+    // both clear to the same place, and `Revert` is that place.
+    //
+    // IT CLEARS THE POLICY, NOT THE STORE. A value stated with `forkUnknown(value, clear)` still wins,
+    // and a handle this stack minted but failed to record still reports itself -- both are settled
+    // before any policy is consulted.
+    function forkUnknownRefuseEbool() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Bool));
+    }
+
+    function forkUnknownRefuseEuint8() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint8));
+    }
+
+    function forkUnknownRefuseEuint16() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint16));
+    }
+
+    function forkUnknownRefuseEuint32() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint32));
+    }
+
+    function forkUnknownRefuseEuint64() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint64));
+    }
+
+    function forkUnknownRefuseEuint128() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint128));
+    }
+
+    function forkUnknownRefuseEuint256() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint256));
+    }
+
+    function forkUnknownRefuseEaddress() internal unmetered {
+        fhevm.clearUnknownHandlePolicy(uint8(FheType.Uint160));
+    }
+
+    /// Every type at once -- the counterpart of `forkUnknownDeterministic`, and honest for the same
+    /// reason: refusing has no width to fit, so no type is silently skipped.
+    function forkUnknownRefuse() internal unmetered {
+        fhevm.clearAllUnknownHandlePolicies();
     }
 
     function forkUnknownDeterministic() internal unmetered {

@@ -7,7 +7,7 @@ import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
 import {FHEVM_EXECUTOR_ADDRESS} from "../../pkg/src/_host/ForgeFhevmDeploy.sol";
 
-/// `forkUnknown` and `forkUnknownDefault` are fork-only cheats, and the name is enforced: on the local
+/// `forkUnknown` and the `forkUnknownDefaultE*` family are fork-only cheats, and the name is enforced: on the local
 /// cleartext stack every value is known, so the call is refused by name rather than silently accepted.
 contract ForkUnknownTest is TestFhevm {
     function test_RevertIf_ForkUnknownOnCleartextStack() public {
@@ -26,7 +26,7 @@ contract ForkUnknownTest is TestFhevm {
         forkUnknown(value, 1);
     }
 
-    function forkUnknownDefaultExternally(uint256 clear) external {
-        forkUnknownDefault(clear);
+    function forkUnknownDefaultExternally(uint32 clear) external {
+        forkUnknownDefaultEuint32(clear);
     }
 }

@@ -384,8 +384,14 @@ interface IFhevmVm {
 
     /// @notice States a handle's cleartext in the active context's store (`forkUnknown`).
     function seedCleartext(bytes32 handle, uint256 value) external;
-    /// @notice Every unknown handle in the active context reads as `value`, clamped (`forkUnknownDefault`).
-    function useFixedUnknownHandles(uint256 value) external;
+    /// @notice Every unknown handle OF ONE TYPE reads as `value` (`forkUnknownDefaultE*`). Out of range
+    ///         for that type is refused, never narrowed.
+    function useFixedUnknownHandle(uint8 fheType, uint256 value) external;
+    /// @notice One type goes back to refusing an unknown handle (`forkUnknownRefuseE*`). The values
+    ///         already stated are untouched: this clears the POLICY, not the store.
+    function clearUnknownHandlePolicy(uint8 fheType) external;
+    /// @notice Every type goes back to refusing (`forkUnknownRefuse`).
+    function clearAllUnknownHandlePolicies() external;
     /// @notice Every unknown handle in the active context reads from its hash (`forkUnknownDeterministic`).
     function useDeterministicUnknownHandles() external;
 
@@ -1132,9 +1138,19 @@ contract FhevmVm is IFhevmVm {
         LibForgeFhevmStack.seedCleartext(stack.executor, handle, value);
     }
 
-    function useFixedUnknownHandles(uint256 value) external {
+    function useFixedUnknownHandle(uint8 fheType, uint256 value) external {
         FhevmStack memory stack = _forkStack();
-        LibForgeFhevmStack.useFixedUnknownHandles(stack.executor, value);
+        LibForgeFhevmStack.useFixedUnknownHandle(stack.executor, fheType, value);
+    }
+
+    function clearUnknownHandlePolicy(uint8 fheType) external {
+        FhevmStack memory stack = _forkStack();
+        LibForgeFhevmStack.clearUnknownHandlePolicy(stack.executor, fheType);
+    }
+
+    function clearAllUnknownHandlePolicies() external {
+        FhevmStack memory stack = _forkStack();
+        LibForgeFhevmStack.clearAllUnknownHandlePolicies(stack.executor);
     }
 
     function useDeterministicUnknownHandles() external {

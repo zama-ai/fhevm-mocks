@@ -118,6 +118,7 @@ import {LibForgeFhevmSigners} from "./LibForgeFhevmSigners.sol";
 interface ICleartextForgeArithmeticPolicy {
     function setUnknownHandleDefault(uint8 fheType, uint256 value) external;
     function setUnknownHandleFromHandle(uint8 fheType) external;
+    function clearUnknownHandlePolicy(uint8 fheType) external;
     function getCleartextDBAddress() external view returns (address);
 }
 
@@ -795,23 +796,62 @@ library LibForgeFhevmStack {
     }
 
     /**
-     * @notice Answers `value` for every unknown handle of every type it fits.
-     * @dev THE TYPES IT DOES NOT FIT ARE LEFT REFUSING, deliberately. The value is one number and the
-     *      types are many widths: 1000 is a `euint32` a test meant and a `euint8` it did not. Upstream's
-     *      own rule is that a plaintext out of range for its type is refused rather than narrowed, so
-     *      narrowing it here would invent a value nobody wrote -- and setting it only where it is
-     *      meaningful is the honest half of the request.
+     * @notice Every unknown handle OF ONE TYPE answers `value`.
+     *
+     * @dev ONE TYPE, NOT ALL OF THEM, and the distinction is the whole point. This once set the default
+     *      for every type the value happened to fit and silently skipped the rest: `1000` reached
+     *      `euint16` upward and left `ebool`, `euint4` and `euint8` still refusing, so a test that had
+     *      "set a default" met `CleartextErrorUnknownHandle` several lines later, on a type it never
+     *      mentioned. A width is a property of the type, so the caller names the type.
+     *
+     * @dev THE VALUE IS REFUSED, NEVER NARROWED, and the arithmetic is what refuses it: upstream's rule
+     *      is that a plaintext out of range for its type is an error, so clamping here would invent a
+     *      number nobody wrote. Out of range now reverts where the caller can see it, rather than being
+     *      skipped in a loop nobody watched.
      */
-    function useFixedUnknownHandles(address executor, uint256 value) internal {
+    function useFixedUnknownHandle(address executor, uint8 fheType, uint256 value) internal {
         (address arithmetic,) = cleartextStoreOf(executor);
         // THE FORK'S OWNER, asked of the executor. `ACL_ADDRESS` is this package's localhost constant and
         // is nobody on a forked chain -- pranking as its owner is refused by the fork's own ACL.
         address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        fvm.prank(owner);
+        ICleartextForgeArithmeticPolicy(arithmetic).setUnknownHandleDefault(fheType, value);
+    }
+
+    /**
+     * @notice Back to refusing: an unknown handle of `fheType` reverts again.
+     *
+     * @dev THE THIRD POLICY, and the only way back. `Revert` is where every type starts, and until this
+     *      existed a test could leave that state but never return to it -- so a test that seeded a
+     *      default in order to read pre-fork handles could no longer prove that a MISSING computation
+     *      still fails. Per type, because that is the shape of the need: refuse one while another
+     *      answers.
+     *
+     * @dev IT CLEARS THE POLICY, NOT THE VALUES. Anything stated with `seedCleartext` still wins -- the
+     *      store is consulted before any policy -- and `CleartextErrorUnrecordedResult` is unreachable
+     *      from here, being checked before the policy too.
+     */
+    function clearUnknownHandlePolicy(address executor, uint8 fheType) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        fvm.prank(owner);
+        ICleartextForgeArithmeticPolicy(arithmetic).clearUnknownHandlePolicy(fheType);
+    }
+
+    /**
+     * @notice Back to refusing, for every type at once.
+     *
+     * @dev ALL TYPES IS HONEST HERE, where it was not for a fixed value. Refusing has no width to fit,
+     *      so every type can take it and none is silently skipped -- the same property that lets
+     *      `useDeterministicUnknownHandles` apply to all of them.
+     */
+    function clearAllUnknownHandlePolicies(address executor) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
         for (uint8 fheType = 0; fheType <= uint8(type(FheType).max); fheType++) {
-            uint256 bits = _bitWidthOrZero(FheType(fheType));
-            if (bits == 0 || (bits < 256 && value >= (uint256(1) << bits))) continue;
+            if (_bitWidthOrZero(FheType(fheType)) == 0) continue;
             fvm.prank(owner);
-            ICleartextForgeArithmeticPolicy(arithmetic).setUnknownHandleDefault(fheType, value);
+            ICleartextForgeArithmeticPolicy(arithmetic).clearUnknownHandlePolicy(fheType);
         }
     }
 
