@@ -796,6 +796,50 @@ library LibForgeFhevmStack {
     }
 
     /**
+     * @notice Makes one handle unknown again: the store forgets it, and the type's policy answers for it.
+     *
+     * @dev A STORAGE WRITE, BECAUSE THERE IS NO FUNCTION. `CleartextDB.set` marks a handle written and
+     *      nothing clears it; `set(handle, 0)` would mean WORTH ZERO, which is the opposite of unknown
+     *      and silently so. The deployable store has no business being able to forget -- a chain's store
+     *      never should -- so the ability lives here, in the forge payload, where test-only powers belong.
+     *
+     * @dev WHAT IT DOES NOT UNDO. `_operand` consults the store first, then asks the HCU meter whether
+     *      THIS stack minted the handle. So forgetting a handle this stack computed does not send it to
+     *      the policy: it reports `CleartextErrorUnrecordedResult`, which is right -- the stack made that
+     *      value and losing it is a fault, not a question. The cheat is meaningful for the handles
+     *      `forkUnknown` exists for: the ones a fork inherited.
+     */
+    function unsetCleartext(address executor, bytes32 handle) internal {
+        (, address db) = cleartextStoreOf(executor);
+        fvm.store(db, _cleartextDbSlot(handle, DB_FIELD_PLAINTEXTS), bytes32(0));
+        fvm.store(db, _cleartextDbSlot(handle, DB_FIELD_HAS), bytes32(0));
+    }
+
+    /**
+     * @dev DERIVED FROM THE NAMESPACE, not copied as a hash. `CleartextDB` declares
+     *      `erc7201:fhevm.storage.CleartextDB`; the name is what the contract states and the root is a
+     *      consequence of it, so deriving keeps one statement of the truth rather than two. The formula
+     *      is ERC-7201's own.
+     */
+    bytes32 private constant CLEARTEXT_DB_STORAGE_ROOT =
+        keccak256(abi.encode(uint256(keccak256("fhevm.storage.CleartextDB")) - 1)) & ~bytes32(uint256(0xff));
+
+    /**
+     * @dev THE FIELD ORDER IS PART OF THE CONTRACT HERE, and it is the one thing this approach couples
+     *      to: `CleartextDBStorage` is `plaintexts`, then `writers`, then `has`. Field 1 is why that
+     *      matters -- a shift would make an unset zero a WRITER flag instead, and the arithmetic would
+     *      quietly lose its access. `LibForgeFhevmStackUnset.t.sol` pins both the derivation and the
+     *      order against the store's own behaviour, so a layout change fails there rather than here.
+     */
+    uint256 private constant DB_FIELD_PLAINTEXTS = 0;
+    uint256 private constant DB_FIELD_HAS = 2;
+
+    /// @dev A mapping entry's slot, by ERC-7201's layout: `keccak256(key . (root + field))`.
+    function _cleartextDbSlot(bytes32 handle, uint256 field) private pure returns (bytes32) {
+        return keccak256(abi.encode(handle, uint256(CLEARTEXT_DB_STORAGE_ROOT) + field));
+    }
+
+    /**
      * @notice Every unknown handle OF ONE TYPE answers `value`.
      *
      * @dev ONE TYPE, NOT ALL OF THEM, and the distinction is the whole point. This once set the default

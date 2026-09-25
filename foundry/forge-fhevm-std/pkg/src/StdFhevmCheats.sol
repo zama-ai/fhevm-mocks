@@ -329,6 +329,46 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         fhevm.seedCleartext(eaddress.unwrap(value), uint256(uint160(clear)));
     }
 
+    // THE INVERSE OF `forkUnknown`, and overloads work here where they could not for the defaults:
+    // these key on the handle, so the type is never ambiguous. After it, the handle is unknown again and
+    // the TYPE's policy answers for it -- a fixed value, a derived one, or a refusal.
+    //
+    // NOT FOR A HANDLE THIS STACK COMPUTED. The store is consulted first, then the HCU meter: forgetting
+    // something this stack minted reports `CleartextErrorUnrecordedResult` rather than falling through
+    // to the policy, because the stack made that value and losing it is a fault, not a question. These
+    // are for the handles a fork inherited, which is what `forkUnknown` is for too.
+    function resetForkUnknown(ebool value) internal unmetered {
+        fhevm.unsetCleartext(ebool.unwrap(value));
+    }
+
+    function resetForkUnknown(euint8 value) internal unmetered {
+        fhevm.unsetCleartext(euint8.unwrap(value));
+    }
+
+    function resetForkUnknown(euint16 value) internal unmetered {
+        fhevm.unsetCleartext(euint16.unwrap(value));
+    }
+
+    function resetForkUnknown(euint32 value) internal unmetered {
+        fhevm.unsetCleartext(euint32.unwrap(value));
+    }
+
+    function resetForkUnknown(euint64 value) internal unmetered {
+        fhevm.unsetCleartext(euint64.unwrap(value));
+    }
+
+    function resetForkUnknown(euint128 value) internal unmetered {
+        fhevm.unsetCleartext(euint128.unwrap(value));
+    }
+
+    function resetForkUnknown(euint256 value) internal unmetered {
+        fhevm.unsetCleartext(euint256.unwrap(value));
+    }
+
+    function resetForkUnknown(eaddress value) internal unmetered {
+        fhevm.unsetCleartext(eaddress.unwrap(value));
+    }
+
     // ONE PER TYPE, and named for it, because a default is a property OF a type. The single
     // `forkUnknownDefault(value)` this replaces set the default for every type the number happened to
     // fit and silently skipped the rest, so `forkUnknownDefault(1000)` left `ebool` and `euint8` still

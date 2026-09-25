@@ -50,6 +50,13 @@ interface IForgeVm {
     /// @notice Raw storage `slot` of `target`, used to read the ERC-1967 implementation pointer.
     function load(address target, bytes32 slot) external view returns (bytes32 data);
 
+    /// @notice Writes `value` to `target`'s storage `slot`.
+    /// @dev    USED TO UNSET, which the cleartext store has no function for: `CleartextDB.set` marks a
+    ///         handle written and nothing clears it, and `set(handle, 0)` means WORTH ZERO rather than
+    ///         unknown. Making a handle unknown again is therefore a storage write, not a call -- and it
+    ///         stays out of the deployable contract, which has no business being able to forget.
+    function store(address target, bytes32 slot, bytes32 value) external;
+
     // Keys and signatures, for building input proofs. `pure` here because forge-std declares them `pure`,
     // even though `deriveKey` reads the caller's mnemonic — matching it keeps a `view` caller working.
 
