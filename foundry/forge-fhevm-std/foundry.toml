@@ -27,6 +27,15 @@ out = "out-fhevm-debug"
 cache_path = "cache-fhevm-debug"
 remappings = ["@fhevm/solidity/config/ZamaConfig.sol=pkg/src/config/DebugZamaConfig.sol"]
 
+# LINT runs here, and nowhere near the shared artifacts. `forge lint` writes a compilation cache of its
+# own shape, and a `cache/solidity-files-cache.json` left behind by it makes every later `forge test`
+# report "No tests found in project!" -- and exit 0, so a whole test tier passes having run nothing.
+# Own `out` and `cache_path` is the same answer `fhevm-debug` gets, for the same reason: a tool that
+# is not building the package does not get to write the package's build state.
+[profile.lint]
+out = "out-lint"
+cache_path = "cache-lint"
+
 [lint]
 # test/ops/fixtures is GENERATED upstream (gen-op-dapp.py): one wrapper per FHE.sol overload, named
 # `<op>_e<L>_e<R>` so the vector tests can compute the name from operand widths — snake_case by design.
