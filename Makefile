@@ -708,7 +708,7 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 
 .PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
 .PHONY: test-hh-v2-e2e test-hh-v2-e2e-anvil test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
-.PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil
+.PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil test-forge-std-anvil-mirror
 .PHONY: test-anvil test-anvil-ci test-anvil-hh-v2-e2e test-anvil-hh-v3-e2e
 
 # `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
@@ -759,6 +759,11 @@ test-forge-std-fork-url: compile-forge-std ## forge-fhevm-std born-on-a-fork sui
 
 test-forge-std-anvil: compile-forge-std ## forge-fhevm-std anvil suite (starts and stops its own anvil on port 8546)
 	$(call run,$(W_FORGE_STD),test:anvil)
+
+# Its own node, because it RESETS the node mid-test -- the only way to make the SDK mirror a second
+# time -- and doing that to the shared one wipes state the suite beside it relies on.
+test-forge-std-anvil-mirror: compile-forge-std ## forge-fhevm-std mirror suite (own anvil on port 8548)
+	$(call run,$(W_FORGE_STD),test:anvil-mirror)
 
 test-hh-v2-plugin: compile-hh-v2-plugin ## Hardhat v2 plugin tests
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),test)
@@ -818,6 +823,7 @@ test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ##
 # THE PORT MAP, because it is a cross-package invariant and nothing else states it in one place:
 #   8545        hardhat v2/v3 e2e, and the v12/v13 consumer rehearsals — never concurrent, see `ci`
 #   8546        forge-fhevm-std `test:anvil`
+#   8548        forge-fhevm-std `test:anvil-mirror` — resets its node mid-test, so it cannot share one
 #   8557/8558   v13 create2 e2e (spawned by the suites themselves)
 #   8600-8651   v12/v13 vitest suites; uniqueness enforced by test/anvil-ports.test.ts in each generation
 # Anything added here must claim a port no one else holds.
@@ -834,14 +840,16 @@ test-anvil-hh-v3-e2e: compile-hh-v3-e2e ## Hardhat v3 e2e against an anvil this 
 # merely about ordering: two of these three bind the same port, so running them in parallel cannot work.
 test-anvil: ## Every suite that needs a local node, each against a fresh one it starts and stops
 	$(MAKE) test-forge-std-anvil
+	$(MAKE) test-forge-std-anvil-mirror
 	$(MAKE) test-anvil-hh-v2-e2e
 	$(MAKE) test-anvil-hh-v3-e2e
 
 # What `ci` runs, and deliberately a SUBSET of `test-anvil`: the two hardhat e2e suites take ~4 minutes
 # each, which is not yet worth paying on every push. They are not excluded because they fail — all three
 # pass under `make test-anvil` — so promoting one is a single line here when it earns its minutes.
-test-anvil-ci: ## The part of `test-anvil` that ci runs: the forge-fhevm-std anvil suite
+test-anvil-ci: ## The part of `test-anvil` that ci runs: the forge-fhevm-std anvil suites
 	$(MAKE) test-forge-std-anvil
+	$(MAKE) test-forge-std-anvil-mirror
 
 ########################################################################################################
 # Generated sources

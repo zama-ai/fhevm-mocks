@@ -35,6 +35,7 @@
     "prettier:write": "prettier --write \"**/*.{js,json,md,mjs,ts,yml}\"",
     "test": "npm run test:forge",
     "test:anvil": "../../scripts/with-anvil.sh --port 8546 -- forge test --match-path 'test/anvil/*'",
+    "test:anvil-mirror": "../../scripts/with-anvil.sh --port 8548 -- forge test --match-path 'test/anvilMirror/*'",
     "test:consumer": "node ../../fhevm-npm/fhevm-npm.ts test-consumer ./foundry/forge-fhevm-std --run --build-linked-dependencies",
     "test:consumer:dev": "node ../../fhevm-npm/fhevm-npm.ts test-consumer ./foundry/forge-fhevm-std/test-consumer/esm --run --ci",
     "test:forge": "forge test",
