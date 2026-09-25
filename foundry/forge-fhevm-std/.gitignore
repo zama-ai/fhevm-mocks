@@ -8,4 +8,6 @@ cache
 broadcast
 out-fhevm-debug
 cache-fhevm-debug
+out-lint
+cache-lint
 snapshots
