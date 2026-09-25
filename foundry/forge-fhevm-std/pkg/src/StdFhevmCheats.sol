@@ -209,58 +209,6 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
         return string.concat("FheType(", fvm.toString(bytes32(uint256(uint8(fheType)))), ")");
     }
 
-    // -- What did this value cost? --------------------------------------------
-    //
-    // `getHCU(value)` is what one handle cost when this stack computed it -- a per-handle reading that
-    // outlives its transaction, where `lastHCU()` is the running total the host contract keeps transiently
-    // and drops at the end of one. So a test may price a single value after the fact, without resetting
-    // the meter around the call that made it.
-    //
-    // ZERO MEANS "NOT FROM HERE", never "free": every metered operation costs something, so the absence
-    // of a reading marks a handle this stack inherited from the chain it forked rather than computed. On
-    // a fork that is the useful question -- it separates what the test produced from what was already
-    // there.
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(ebool value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(ebool.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(euint8 value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(euint8.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(euint16 value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(euint16.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(euint32 value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(euint32.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(euint64 value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(euint64.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(euint128 value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(euint128.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(euint256 value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(euint256.unwrap(value));
-    }
-
-    // forge-lint: disable-next-line(mixed-case-function)
-    function getHCU(eaddress value) internal unmetered returns (uint256) {
-        return fhevm.hcuOf(eaddress.unwrap(value));
-    }
-
     // -- Has plaintext? -------------------------------------------------------
 
     function hasPlaintext(ebool value) internal unmetered returns (bool) {
@@ -395,6 +343,58 @@ abstract contract StdFhevmCheatsSafe is StdFhevmBase {
 
     function forkUnknownDeterministic() internal unmetered {
         fhevm.useDeterministicUnknownHandles();
+    }
+
+    // -- What did this value cost? --------------------------------------------
+    //
+    // `getHCU(value)` is what one handle cost when this stack computed it -- a per-handle reading that
+    // outlives its transaction, where `lastHCU()` is the running total the host contract keeps transiently
+    // and drops at the end of one. So a test may price a single value after the fact, without resetting
+    // the meter around the call that made it.
+    //
+    // ZERO MEANS "NOT FROM HERE", never "free": every metered operation costs something, so the absence
+    // of a reading marks a handle this stack inherited from the chain it forked rather than computed. On
+    // a fork that is the useful question -- it separates what the test produced from what was already
+    // there.
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(ebool value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(ebool.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(euint8 value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(euint8.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(euint16 value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(euint16.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(euint32 value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(euint32.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(euint64 value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(euint64.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(euint128 value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(euint128.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(euint256 value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(euint256.unwrap(value));
+    }
+
+    // forge-lint: disable-next-line(mixed-case-function)
+    function getHCU(eaddress value) internal unmetered returns (uint256) {
+        return fhevm.hcuOf(eaddress.unwrap(value));
     }
 
     // -- HCU limit ------------------------------------------------------------
