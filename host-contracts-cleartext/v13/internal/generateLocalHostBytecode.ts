@@ -214,7 +214,7 @@ export const AUTHENTIC_CONTRACTS = [
  * are recorded for it.
  */
 export const UPGRADE_IMPLEMENTATIONS = [
-  // THE CLEARTEXT IMPLEMENTATIONS, and that is this generation's whole story. A forked stack on
+  // THE CLEARTEXT IMPLEMENTATIONS ONLY, and that is this generation's whole story. A forked stack on
   // THIS line is turned into a cleartext one so it can answer `plaintexts(handle)` itself; a stack on
   // an older line is not carried forward, and one on a newer line is refused. So nothing here ever
   // needs a PRODUCTION implementation -- those exist only to run a generation's upgrade ops, which
@@ -278,11 +278,6 @@ export const UPGRADE_IMPLEMENTATIONS = [
     contractName: 'EmptyUUPSProxy',
     sourcePath: 'src/contracts/emptyProxy/EmptyUUPSProxy.sol',
   },
-  // THE ONE PRODUCTION IMPLEMENTATION HERE, and not because anything upgrades to it: nothing does. It is
-  // what `CleartextImplementationSwap.t.sol` swaps DOWN to, to show the move is reversible and loses
-  // nothing -- the proxy goes cleartext -> production -> cleartext and the store survives, which is the
-  // property the whole approach rests on. No blob of it exists anywhere else: the localhost stack this
-  // package deploys is cleartext by construction.
   { enumMember: 'FHEVMExecutor', contractName: 'FHEVMExecutor', sourcePath: 'src/contracts/FHEVMExecutor.sol' },
 ] as const;
 
@@ -725,7 +720,7 @@ function _upgradeImplementations(tmpOut: string, stack: LocalHostStack): Map<str
 ////////////////////////////////////////////////////////////////////////////////
 
 /** The two permanent enums, the per-contract tables, and the lookups that index them. */
-function _renderUpgradeSection(upgrades: ReadonlyMap<string, UpgradeImplementation>, stack: LocalHostStack): string {
+function _renderUpgradeSection(upgrades: ReadonlyMap<string, UpgradeImplementation>): string {
   const contractMembers = UPGRADE_IMPLEMENTATIONS.map((target) => `    ${target.enumMember}`).join(',\n');
   const roleMembers = ADDRESS_NAMES.map((name) => `    ${ADDRESS_ROLE_MEMBERS[name]}`).join(',\n');
 
@@ -752,11 +747,22 @@ function _renderUpgradeSection(upgrades: ReadonlyMap<string, UpgradeImplementati
       `        if (contractId == FhevmHostContracts.${target.enumMember}) ` +
       `return ${target.enumMember.toUpperCase()}_UPGRADE_SITES;`,
   ).join('\n');
+  // BY NAME, never the literal. `LocalHostAddresses.sol` already declares this exact set, and two
+  // generated files stating the same address is one of them being able to go stale against the other --
+  // the addresses are re-derived from the deployer and nonces on every run, so a hardcoded copy here
+  // would be a second source of truth that nothing checks. The import below is what links them.
   const addressBranches = ADDRESS_NAMES.map(
-    (name) => `        if (role == FhevmAddressRole.${ADDRESS_ROLE_MEMBERS[name]}) return ${stack.byName[name]};`,
+    (name) => `        if (role == FhevmAddressRole.${ADDRESS_ROLE_MEMBERS[name]}) return LocalHostAddresses.${name};`,
   ).join('\n');
 
-  return `/**
+  return `// A NAMESPACE import, not a named one. Solidity re-exports named imports, so
+// \`import {ACL_ADDRESS, ...}\` would push all ten into the scope of every file that imports this one,
+// where they collide with the \`fhevm-config-<version>/addresses.sol\` a consumer compiles \`pkg/src\`
+// against (README, "Consuming pkg/forge from Foundry"). This binds ONE name instead, and keeps
+// \`canonicalAddress\` reading the addresses rather than restating them.
+import "./LocalHostAddresses.sol" as LocalHostAddresses;
+
+/**
  * @notice The host implementations a fork upgrade deploys.
  *
  * @dev THE ORDER IS THE ABI. Every table below is indexed by this enum's position, so inserting a
@@ -782,12 +788,10 @@ ${tables}
  * @title LocalHostUpgrade
  * @notice The tables above, indexed by enum.
  *
- * @dev The addresses are restated here rather than imported from \`LocalHostAddresses.sol\`: Solidity
- *      re-exports named imports, so importing them would put \`ACL_ADDRESS\` and its siblings into the
- *      scope of every file that imports this one, and those names collide with the
- *      \`fhevm-config-<version>/addresses.sol\` a consumer compiles \`pkg/src\` against (see README,
- *      "Consuming pkg/forge from Foundry"). Both are generated in the same run from the same address
- *      set, so they cannot disagree.
+ * @dev The addresses are READ from \`LocalHostAddresses.sol\`, through the namespace import at the top
+ *      of this file rather than a named one -- see the note there for why the distinction matters.
+ *      Restating them here would make this the second generated file to state the same address, and
+ *      two statements of one truth is one of them going stale.
  */
 library LocalHostUpgrade {
     uint256 internal constant HOST_CONTRACT_COUNT = ${String(UPGRADE_IMPLEMENTATIONS.length)};
@@ -868,7 +872,7 @@ ${forgeSection}
 
 ${_renderCodeSection(code, 'runtime')}
 
-${_renderUpgradeSection(upgrades, stack)}`;
+${_renderUpgradeSection(upgrades)}`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
