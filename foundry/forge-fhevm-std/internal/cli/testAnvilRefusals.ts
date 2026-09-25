@@ -69,8 +69,13 @@ function startProxy(sabotage: Sabotage): Promise<{ url: string; close: () => Pro
         return;
       }
       const forward = httpRequest(
-        { hostname: upstream.hostname, port: upstream.port, path: upstream.pathname, method: 'POST',
-          headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } },
+        {
+          hostname: upstream.hostname,
+          port: upstream.port,
+          path: upstream.pathname,
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+        },
         (answer) => {
           outgoing.writeHead(answer.statusCode ?? 200, { 'content-type': 'application/json' });
           answer.pipe(outgoing);
