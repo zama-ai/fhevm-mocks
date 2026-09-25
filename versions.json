@@ -3,10 +3,10 @@
   "schemaVersion": 1,
   "packages": {
     "./host-contracts-cleartext/v12/pkg": "0.12.0",
-    "./host-contracts-cleartext/v13/pkg": "0.13.0-0",
+    "./host-contracts-cleartext/v13/pkg": "0.13.0-1",
     "./foundry/forge-fhevm-std/pkg": "0.13.0-1",
-    "./hardhat/v2/plugin/pkg": "0.13.0-0",
-    "./hardhat/v2/fhevm-hardhat-template/pkg": "0.13.0-0",
-    "./hardhat/v3/plugin/pkg": "0.13.0-0"
+    "./hardhat/v2/plugin/pkg": "0.13.0-1",
+    "./hardhat/v2/fhevm-hardhat-template/pkg": "0.13.0-1",
+    "./hardhat/v3/plugin/pkg": "0.13.0-1"
   }
 }
