@@ -26,6 +26,7 @@ export const commandNames = [
   'cleartext-config',
   'generations',
   'generation-parity',
+  'forge-fhevm-std-parity',
   'extraneous',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
@@ -286,6 +287,12 @@ Prerequisite:
     .description('Check that the previous generation is byte-identical to its own release branch.')
     .action(() => {
       selected = 'generation-parity';
+    });
+  check
+    .command('forge-fhevm-std-parity')
+    .description("Check that forge-fhevm-std's published package is identical across generations.")
+    .action(() => {
+      selected = 'forge-fhevm-std-parity';
     });
   check
     .command('ownership')
