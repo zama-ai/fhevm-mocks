@@ -218,7 +218,7 @@ export const UPGRADE_IMPLEMENTATIONS = [
   // THIS line is turned into a cleartext one so it can answer `plaintexts(handle)` itself; a stack on
   // an older line is not carried forward, and one on a newer line is refused. So nothing here ever
   // needs a PRODUCTION implementation -- those exist only to run a generation's upgrade ops, which
-  // this line does not have. See `LibForgeFhevmUpgrade`, and the one exception at the end of the list.
+  // this line does not have. See `LibForgeFhevmUpgrade`.
   //
   // APPEND, never insert: the enum's order is the ABI of every table below it.
   {
@@ -278,7 +278,6 @@ export const UPGRADE_IMPLEMENTATIONS = [
     contractName: 'EmptyUUPSProxy',
     sourcePath: 'src/contracts/emptyProxy/EmptyUUPSProxy.sol',
   },
-  { enumMember: 'FHEVMExecutor', contractName: 'FHEVMExecutor', sourcePath: 'src/contracts/FHEVMExecutor.sol' },
 ] as const;
 
 /**

@@ -9,7 +9,8 @@ import {ICleartextDB, ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFh
 import {IACL} from "../../pkg/forge/src/_internal/interfaces/IACL.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
-import {FhevmHostContracts, LocalHostUpgrade} from "../../pkg/forge/src/_internal/LocalHostBytecode.sol";
+import "fhevm-config-0.13.0/addresses.sol" as Placeholders;
+import "../../pkg/forge/src/_internal/LocalHostAddresses.sol" as LocalHost;
 
 interface IUUPSProxy {
     function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
@@ -63,7 +64,7 @@ contract CleartextImplementationSwapTest is Test, ForgeFhevmDeploy {
         assertEq(db.get(before), 7, "and the DB holds it");
 
         // -- 2. down to production: the same proxy, upstream's implementation ------------------------
-        address production = _deploy(LocalHostUpgrade.creationCode(FhevmHostContracts.FHEVMExecutor));
+        address production = _deploy(_productionExecutorCode());
         vm.prank(owner);
         IUUPSProxy(FHEVM_EXECUTOR_ADDRESS).upgradeToAndCall(production, "");
 
@@ -82,6 +83,50 @@ contract CleartextImplementationSwapTest is Test, ForgeFhevmDeploy {
         // -- 4. nothing was lost on the way ----------------------------------------------------------
         assertEq(db.get(before), 7, "the DB kept what it had before the round trip");
         assertFalse(db.has(blind), "and did not invent what was never recorded");
+    }
+
+    /**
+     * @dev The production executor's creation code, patched for the localhost stack, built HERE.
+     *
+     *      NOT FROM THE SHIPPED TABLES. Nothing upgrades TO the production implementation -- the payload
+     *      exists to install cleartext ones -- so a blob of it has no business being carried by this
+     *      package just so one test can reach it. `getCode` takes it from `out/`, which is the
+     *      PLACEHOLDER build (`fhevm-config-0.13.0/` is remapped to `internal/placeholders`), so the
+     *      addresses it names are markers this repository chose. Substituting them for the localhost set
+     *      is the same move `LibHostUpgradeCode` makes at deploy time, done in the test, for the test.
+     */
+    function _productionExecutorCode() private view returns (bytes memory code) {
+        code = vm.getCode("FHEVMExecutor.sol:FHEVMExecutor");
+        _substitute(code, Placeholders.ACL_ADDRESS, LocalHost.ACL_ADDRESS);
+        _substitute(code, Placeholders.HCU_LIMIT_ADDRESS, LocalHost.HCU_LIMIT_ADDRESS);
+        _substitute(code, Placeholders.INPUT_VERIFIER_ADDRESS, LocalHost.INPUT_VERIFIER_ADDRESS);
+        _substitute(code, Placeholders.KMS_VERIFIER_ADDRESS, LocalHost.KMS_VERIFIER_ADDRESS);
+        _substitute(code, Placeholders.FHEVM_EXECUTOR_ADDRESS, LocalHost.FHEVM_EXECUTOR_ADDRESS);
+    }
+
+    /// @dev Every occurrence of `from`'s twenty bytes, overwritten with `to`'s. In place.
+    function _substitute(bytes memory code, address from, address to) private pure {
+        bytes20 needle = bytes20(from);
+        bytes20 replacement = bytes20(to);
+        if (code.length < 20) return;
+
+        for (uint256 at = 0; at <= code.length - 20; at++) {
+            if (code[at] != needle[0]) continue;
+
+            bool hit = true;
+            for (uint256 j = 1; j < 20; j++) {
+                if (code[at + j] != needle[j]) {
+                    hit = false;
+                    break;
+                }
+            }
+            if (!hit) continue;
+
+            for (uint256 j = 0; j < 20; j++) {
+                code[at + j] = replacement[j];
+            }
+            at += 19;
+        }
     }
 
     function _deploy(bytes memory creationCode) private returns (address deployed) {
