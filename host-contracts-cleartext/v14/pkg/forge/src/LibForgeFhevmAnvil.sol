@@ -90,10 +90,98 @@ library LibForgeFhevmAnvil {
         _setNonce(DEPLOYER_ADDRESS, fvm.getNonce(DEPLOYER_ADDRESS));
         if (block.number == 0) _rpc("anvil_mine", "[\"0x1\"]");
 
+        _checkDeployer();
+        _checkCodeLanded(diff);
+
         // `eth_getCode` answers a hex string, which the cheat encodes as ABI `bytes`: decodable.
         (bool answered, bytes memory ret) =
             _rpcRaw("eth_getCode", string.concat("[\"", _hex(ACL_ADDRESS), "\",\"latest\"]"));
         return answered && ret.length >= 64 && abi.decode(ret, (bytes)).length != 0;
+    }
+
+    /**
+     * @dev THE DEPLOYER IS THE FIRST THING TO SUSPECT, so it is the first thing named. A mirror writes the
+     *      deployer's nonce last, to whatever the fork reached; if the node disagrees afterwards, the node
+     *      refused the write or something else is moving that account, and every later deploy against this
+     *      node lands at addresses nothing expects. The balance goes in the message because it is the other
+     *      half of "the deployer is wrong" and costs one call to find out.
+     */
+    function _checkDeployer() private {
+        uint64 want = fvm.getNonce(DEPLOYER_ADDRESS);
+        uint64 got = _nodeNonce(DEPLOYER_ADDRESS);
+        if (got == want) return;
+
+        revert(
+            string.concat(
+                "forge-fhevm anvil mirror FAILED: the node's deployer is not where the fork left it.\n",
+                "  deployer      ",
+                _hex(DEPLOYER_ADDRESS),
+                "\n  nonce wanted  ",
+                fvm.toString(uint256(want)),
+                "\n  nonce on node ",
+                fvm.toString(uint256(got)),
+                "\n  balance       ",
+                fvm.toString(_nodeBalance(DEPLOYER_ADDRESS)),
+                " wei\n",
+                "  A deploy against this node would land at addresses the stack does not use."
+            )
+        );
+    }
+
+    /**
+     * @dev EVERY ACCOUNT THE DEPLOY CREATED, not just the ACL. The readback at the end of `_mirrorOntoNode`
+     *      asks about one address, so a mirror that placed nine contracts out of ten answered true. Naming
+     *      the account that has no code is the difference between "the mirror failed" and a fix.
+     */
+    function _checkCodeLanded(IForgeVm.AccountAccess[] memory diff) private {
+        for (uint256 i = 0; i < diff.length; i++) {
+            IForgeVm.AccountAccess memory access = diff[i];
+            if (access.reverted) continue;
+            if (access.kind != IForgeVm.AccountAccessKind.Create || access.deployedCode.length == 0) continue;
+            if (_nodeCodeLength(access.account) != 0) continue;
+
+            revert(
+                string.concat(
+                    "forge-fhevm anvil mirror FAILED: a contract the deploy created is not on the node.\n",
+                    "  account   ",
+                    _hex(access.account),
+                    "\n  code size ",
+                    fvm.toString(access.deployedCode.length),
+                    " bytes in the fork, 0 on the node\n",
+                    "  `anvil_setCode` was accepted and did not take effect."
+                )
+            );
+        }
+    }
+
+    function _nodeNonce(address account) private returns (uint64) {
+        return uint64(_quantity("eth_getTransactionCount", string.concat("[\"", _hex(account), "\",\"latest\"]")));
+    }
+
+    function _nodeBalance(address account) private returns (uint256) {
+        return _quantity("eth_getBalance", string.concat("[\"", _hex(account), "\",\"latest\"]"));
+    }
+
+    function _nodeCodeLength(address account) private returns (uint256) {
+        (bool ok, bytes memory ret) = _rpcRaw("eth_getCode", string.concat("[\"", _hex(account), "\",\"latest\"]"));
+        if (!ok || ret.length < 64) return 0;
+        return abi.decode(ret, (bytes)).length;
+    }
+
+    /**
+     * @dev `vm.rpc` hands a JSON quantity back as its big-endian bytes, minimally encoded -- but
+     *      `_rpcRaw` returns the CHEATCODE's returndata, which wraps those bytes in an ABI `bytes`.
+     *      Folding the envelope instead of the value is how this first read a live account as nonce 0,
+     *      balance 0, and accused a node that was fine.
+     */
+    function _quantity(string memory method, string memory params) private returns (uint256 value) {
+        (bool ok, bytes memory ret) = _rpcRaw(method, params);
+        if (!ok || ret.length < 64) return 0;
+
+        bytes memory raw = abi.decode(ret, (bytes));
+        for (uint256 i = 0; i < raw.length; i++) {
+            value = (value << 8) | uint8(raw[i]);
+        }
     }
 
     function _setCode(address account, bytes memory code) private {
@@ -104,9 +192,40 @@ library LibForgeFhevmAnvil {
         _rpc("anvil_setNonce", string.concat("[\"", _hex(account), "\",\"", _hex(bytes32(uint256(nonce))), "\"]"));
     }
 
-    /// @dev A setter's success is the call succeeding; its JSON result is not looked at (see the file docs).
+    /**
+     * @dev A SETTER THAT IS REFUSED SAYS SO, HERE. Its JSON result is still not looked at -- anvil answers
+     *      `null` on success and the cheat cannot decode that -- but the CALL failing is a different thing
+     *      entirely: the node rejected the method, or there is no node. Swallowing it turned every such
+     *      failure into one silent `false` several frames later, naming nothing.
+     */
     function _rpc(string memory method, string memory params) private {
-        _rpcRaw(method, params);
+        (bool ok, bytes memory ret) = _rpcRaw(method, params);
+        if (ok) return;
+
+        revert(
+            string.concat(
+                "forge-fhevm anvil mirror FAILED: the node refused ",
+                method,
+                ".\n  params ",
+                params,
+                "\n  node   ",
+                _revertText(ret),
+                "\n  The stack was deployed into the fork; only the copy onto the node failed."
+            )
+        );
+    }
+
+    /// @dev Whatever the cheat came back with, as text -- a revert string when it is one, hex when it is not.
+    function _revertText(bytes memory ret) private pure returns (string memory) {
+        if (ret.length == 0) return "(no reason given)";
+        if (ret.length > 68 && bytes4(ret) == bytes4(0x08c379a0)) {
+            bytes memory body = new bytes(ret.length - 68);
+            for (uint256 i = 0; i < body.length; i++) {
+                body[i] = ret[i + 68];
+            }
+            return string(body);
+        }
+        return fvm.toString(ret);
     }
 
     function _rpcRaw(string memory method, string memory params) private returns (bool ok, bytes memory ret) {
