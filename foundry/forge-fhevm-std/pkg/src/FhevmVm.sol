@@ -384,6 +384,9 @@ interface IFhevmVm {
 
     /// @notice States a handle's cleartext in the active context's store (`forkUnknown`).
     function seedCleartext(bytes32 handle, uint256 value) external;
+    /// @notice Takes it back out, so the type's policy answers for that handle again
+    ///         (`resetForkUnknown`). A handle THIS stack computed is not sent to the policy by it.
+    function unsetCleartext(bytes32 handle) external;
     /// @notice Every unknown handle OF ONE TYPE reads as `value` (`forkUnknownDefaultE*`). Out of range
     ///         for that type is refused, never narrowed.
     function useFixedUnknownHandle(uint8 fheType, uint256 value) external;
@@ -1136,6 +1139,11 @@ contract FhevmVm is IFhevmVm {
     function seedCleartext(bytes32 handle, uint256 value) external {
         FhevmStack memory stack = _forkStack();
         LibForgeFhevmStack.seedCleartext(stack.executor, handle, value);
+    }
+
+    function unsetCleartext(bytes32 handle) external {
+        FhevmStack memory stack = _forkStack();
+        LibForgeFhevmStack.unsetCleartext(stack.executor, handle);
     }
 
     function useFixedUnknownHandle(uint8 fheType, uint256 value) external {
