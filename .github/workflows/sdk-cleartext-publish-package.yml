@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       build_target:
-        description: "compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin"
+        description: "compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin, compile-forge-std"
         required: true
         type: string
       dry_run:
@@ -91,6 +91,9 @@ jobs:
               ;;
             compile-hh-v3-plugin)
               payload='./hardhat/v3/plugin/pkg'
+              ;;
+            compile-forge-std)
+              payload='./foundry/forge-fhevm-std/pkg'
               ;;
             *)
               echo "::error::unsupported build_target '${BUILD_TARGET}'"
