@@ -43,6 +43,10 @@ library LibForgeFhevmUpgrade {
     IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);
 
     error ImplementationDeployFailed(uint256 index);
+
+    /// @dev ERC-7201-style, so it names a slot nothing else could pick. See `_markRefused`.
+    bytes32 private constant REFUSED_SLOT =
+        keccak256(abi.encode(uint256(keccak256("fhevm.forge.upgrade.refused")) - 1)) & ~bytes32(uint256(0xff));
     /// @dev See `upgradeFromPreviousGeneration`: this line has no generation below it to come from.
     error NoPreviousGeneration();
 
@@ -59,10 +63,8 @@ library LibForgeFhevmUpgrade {
      *      previous-line bounds and so never answers `Previous`, which is the only thing that leads here.
      *      If this ever reverts, the floors and this function disagree and one of them is wrong.
      */
-    function upgradeFromPreviousGeneration(address[10] memory addresses) internal {
-        // A REAL READ, and not decoration -- see the mutability note above. It is also what the next
-        // line's implementation does first, so a stack with no ACL fails here the way it would there.
-        IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
+    function upgradeFromPreviousGeneration(address[10] memory) internal {
+        _markRefused();
         revert NoPreviousGeneration();
     }
 
@@ -73,20 +75,31 @@ library LibForgeFhevmUpgrade {
      *      forward a generation, keeping its store. A deployed cleartext stack below this line would
      *      have to exist for that to mean anything here, and none does.
      *
-     * @dev NEITHER STUB IS `pure`, although both only revert. The SDK is ONE package across generations:
-     *      a `pure` refusal here would let solc restrict `FhevmVm`'s callers to `view` on this line and
-     *      not on the next, and the same source would then compile with warnings on one of the two --
-     *      which `[profile.ci] deny = "warnings"` would turn into a failure.
-     *
-     *      THE COST IS ONE WARNING, HERE. solc says both of these could be `view`, and taking that
-     *      advice moves the warning into `FhevmVm` -- the SHARED file, which should read the same and
-     *      compile the same on both lines. Better it lands in this file, which is the one that actually
-     *      differs. A capability constant the SDK branches on would remove it from both; that needs the
-     *      two generations changed together.
+     * @dev NEITHER STUB IS `view`, although both only revert -- see `_markRefused`.
      */
-    function upgradeCleartextFromPreviousGeneration(address[10] memory addresses) internal returns (address, address) {
-        IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
+    function upgradeCleartextFromPreviousGeneration(address[10] memory) internal returns (address, address) {
+        _markRefused();
         revert NoPreviousGeneration();
+    }
+
+    /**
+     * @dev A TRANSIENT WRITE WITH NO READER, and it admits what it is: the two refusals above only
+     *      revert, so without a state-writing opcode solc infers they could be `view` -- and taking that
+     *      advice moves the warning into `FhevmVm`, the file that must read and compile identically on
+     *      both generations. This keeps the noise in the file that genuinely differs, at zero.
+     *
+     *      `tstore`, NOT `sstore`. A library's `internal` function is inlined into its caller and writes
+     *      the CALLER's storage, and `FhevmVm` keeps two dozen variables there; transient storage is
+     *      cleared at the end of the transaction and collides with nothing. The `revert` on the next
+     *      line undoes it either way, but that is a property of today's bodies, not something to rely on.
+     *
+     *      DO NOT DELETE IT AS DEAD CODE. It is load-bearing for the warning, not for the behaviour.
+     */
+    function _markRefused() private {
+        bytes32 slot = REFUSED_SLOT;
+        assembly ("memory-safe") {
+            tstore(slot, 1)
+        }
     }
 
     /// @dev `create` returns the zero address on failure rather than reverting, so it is checked.
