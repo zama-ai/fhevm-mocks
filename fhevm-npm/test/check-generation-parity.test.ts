@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { type GitRunner, inspectGenerationParity, releaseBranchOf } from '../base/checks/generation-parity.ts';
+import {
+  type GitRunner,
+  inspectGenerationParity,
+  parityRefOverrides,
+  releaseBranchOf,
+} from '../base/checks/generation-parity.ts';
 import { printReport } from '../base/diagnostics.ts';
 import { parseTestNpmManifest } from './helpers.ts';
 
@@ -215,4 +220,83 @@ test('a skip is never silent: notes print even at the quietest verbosity, and do
 
   assert.equal(warnings.length, 1);
   assert.match(warnings[0] ?? '', /^⚠️ {2}\.\/host-contracts-cleartext\/v13: skipped/);
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// The override: comparing against a ref the release branch has not merged yet
+////////////////////////////////////////////////////////////////////////////////
+
+const TOPIC = 'devex/alexb/v13/forge-fhevm-std-v2';
+
+test('only FHEVM_PARITY_REF_* is read, and an empty value is not an override', () => {
+  assert.deepEqual(
+    parityRefOverrides({
+      FHEVM_PARITY_REF_V13: TOPIC,
+      FHEVM_PARITY_REF_V9: '  release/0.9.x  ',
+      FHEVM_PARITY_REF_V14: '',
+      FHEVM_PARITY_REF_V15: '   ',
+      FHEVM_SKIP_RPC_TESTS: 'true',
+      PATH: '/usr/bin',
+    }),
+    // Lowercased, because that is how `npm-manifest.json#generations` names the directories.
+    { v13: TOPIC, v9: 'release/0.9.x' },
+  );
+  assert.deepEqual(parityRefOverrides({}), {});
+});
+
+test('an override compares against the named ref instead of the derived release branch', () => {
+  const git = fakeGit({ refs: [TOPIC], tracked: [`${PREFIX}/pkg/ts/index.ts`], diff: [] });
+  const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git, { v13: TOPIC });
+
+  assert.deepEqual(inspection.violations, []);
+  assert.deepEqual(inspection.checkedKeys, [PREVIOUS]);
+  assert.deepEqual(inspection.successes, [`${PREVIOUS}: 1 tracked file(s) compared with ${TOPIC}`]);
+  // The release branch was never consulted: it is not among the refs this git knows.
+  assert.equal(
+    git.calls.some((call) => call.join(' ').includes('release/0.13.x')),
+    false,
+  );
+});
+
+test('an override is reported on every run, so a green result cannot read as parity with the branch', () => {
+  const git = fakeGit({ refs: [TOPIC], diff: [] });
+  const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git, { v13: TOPIC });
+
+  assert.equal(inspection.overridden.length, 1);
+  assert.match(inspection.overridden[0] ?? '', /FHEVM_PARITY_REF_V13 is set/);
+  assert.match(inspection.overridden[0] ?? '', /does NOT prove parity with 'release\/0\.13\.x'/);
+  // A note, never a violation: the run is green, it just proved something narrower.
+  assert.deepEqual(inspection.violations, []);
+  assert.deepEqual(inspection.skipped, []);
+});
+
+test('an override that does not resolve FAILS, unlike a release branch that was never created', () => {
+  const git = fakeGit({ refs: [] });
+  const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git, { v13: 'typo/branch' });
+
+  assert.deepEqual(inspection.skipped, []);
+  assert.deepEqual(inspection.checkedKeys, []);
+  const [violation, ...rest] = inspection.violations;
+  assert.deepEqual(rest, []);
+  assert.equal(violation?.rule, '3.4.6');
+  assert.match(violation?.message ?? '', /FHEVM_PARITY_REF_V13 names 'typo\/branch'/);
+  assert.match(violation?.message ?? '', /unset the variable/);
+});
+
+test('an override also answers for a generation whose name derives no branch', () => {
+  const legacy = manifest({ [FAMILY]: { current: CURRENT, previous: `./${FAMILY}/legacy` } });
+  const git = fakeGit({ refs: [TOPIC], diff: [] });
+  const inspection = inspectGenerationParity(WORKSPACE_ROOT, legacy, git, { legacy: TOPIC });
+
+  assert.deepEqual(inspection.violations, []);
+  assert.deepEqual(inspection.checkedKeys, [`./${FAMILY}/legacy`]);
+  assert.match(inspection.overridden[0] ?? '', /does NOT prove parity with 'the release branch'/);
+});
+
+test('an override for another generation leaves this one on its release branch', () => {
+  const git = fakeGit({ refs: ['release/0.13.x'], diff: [] });
+  const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git, { v12: TOPIC });
+
+  assert.deepEqual(inspection.overridden, []);
+  assert.deepEqual(inspection.successes, [`${PREVIOUS}: 0 tracked file(s) compared with release/0.13.x`]);
 });
