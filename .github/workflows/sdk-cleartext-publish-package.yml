@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       build_target:
-        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin compile-forge-std'
+        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin, compile-forge-std'
         required: true
         type: string
       dry_run:
@@ -212,6 +212,17 @@ jobs:
         env:
           PAYLOAD: ${{ steps.release_meta.outputs.payload }}
         run: ./fhevm-npm-cli publish check "${PAYLOAD}" --check-npmjs
+
+      # -----------------------------------------------------------------------
+      # 7d. Tarball package.json
+      #     Print the package.json inside the .tgz that step 8 publishes.
+      #     npm stores it at package/package.json.
+      #     This is for inspection; step 7c performs the checks.
+      # -----------------------------------------------------------------------
+      - name: Print the tarball package.json
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: tar -xzOf "${TARBALL}" package/package.json
 
       # -----------------------------------------------------------------------
       # 8. Publish to npm
