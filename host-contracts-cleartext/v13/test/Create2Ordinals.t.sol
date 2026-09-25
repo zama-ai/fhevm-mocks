@@ -62,7 +62,7 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
         a[1] = "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         a[2] = "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
         a[3] = "pkg/src/cleartext/CleartextInputVerifier.sol:CleartextInputVerifier";
-        a[4] = "pkg/src/contracts/HCULimit.sol:HCULimit";
+        a[4] = "pkg/src/cleartext/CleartextHCULimit.sol:CleartextHCULimit";
         a[5] = "pkg/src/contracts/ProtocolConfig.sol:ProtocolConfig";
         a[6] = "pkg/src/contracts/KMSGeneration.sol:KMSGeneration";
         a[7] = "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";

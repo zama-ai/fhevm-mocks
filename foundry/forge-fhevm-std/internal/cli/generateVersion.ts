@@ -4,4 +4,4 @@
 
 import { writeVersion } from '../generateVersion.ts';
 
-console.log(`  FhevmStdVersion.VERSION = ${writeVersion()}`);
+console.log(`  StdFhevmVersion.VERSION = ${writeVersion()}`);

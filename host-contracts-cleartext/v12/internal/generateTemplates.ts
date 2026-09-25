@@ -65,7 +65,7 @@ export const TARGET_CONTRACTS: TargetContract[] = [
     kind: 'proxy',
     sourcePath: 'src/cleartext/CleartextInputVerifier.sol',
   },
-  { contractName: 'HCULimit', kind: 'proxy', sourcePath: 'src/contracts/HCULimit.sol' },
+  { contractName: 'CleartextHCULimit', kind: 'proxy', sourcePath: 'src/cleartext/CleartextHCULimit.sol' },
   // Cleartext infrastructure (test-stack only)
   { contractName: 'CleartextArithmetic', kind: 'proxy', sourcePath: 'src/cleartext/CleartextArithmetic.sol' },
   { contractName: 'CleartextDB', kind: 'proxy', sourcePath: 'src/cleartext/CleartextDB.sol' },

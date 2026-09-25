@@ -1,7 +1,7 @@
 import { abi as aclAbi, template as aclTemplate } from './artifacts/CleartextACL.js';
 import { abi as fhevmExecutorAbi, template as fhevmExecutorTemplate } from './artifacts/CleartextFHEVMExecutor.js';
 import { abi as kmsVerifierAbi, template as kmsVerifierTemplate } from './artifacts/CleartextKMSVerifier.js';
-import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/HCULimit.js';
+import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/CleartextHCULimit.js';
 import { abi as protocolConfigAbi, template as protocolConfigTemplate } from './artifacts/ProtocolConfig.js';
 import { abi as kmsGenerationAbi, template as kmsGenerationTemplate } from './artifacts/KMSGeneration.js';
 import {
@@ -33,8 +33,8 @@ import { generateFromExistingDefaultKmsNodes } from './constants.js';
  * lands, since a live v12 stack's layout is fixed — then, in one atomic `ACLOwner.upgrade(...)`:
  *   - materializes `ProtocolConfig` via `initializeFromMigration` (seeding the migrated KMS context),
  *   - materializes `KMSGeneration` via `initializeFromEmptyProxy`,
- *   - re-points + version-bumps the four changed v12 contracts (ACL/FHEVMExecutor `reinitializeV4`,
- *     HCULimit/KMSVerifier `reinitializeV3` — all no-arg).
+ *   - re-points + version-bumps the four changed v12 contracts (ACL `reinitializeV4`, FHEVMExecutor
+ *     `reinitializeV5`, HCULimit/KMSVerifier `reinitializeV3` — all no-arg).
  * `InputVerifier` is untouched (its v13 bytecode is identical and its version did not bump).
  *
  * All v13 implementations are patched with the ACTUAL addresses: the existing v12 proxies + existing
@@ -212,7 +212,7 @@ async function buildUpdateV12ToV13Plan(parameters: {
       proxyAddress: addr.fhevmExecutorAddress,
       template: fhevmExecutorTemplate,
       abi: fhevmExecutorAbi,
-      spec: noArgs('reinitializeV4'),
+      spec: noArgs('reinitializeV5'),
     },
     {
       contractName: 'HCULimit',

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title IForgeVm
- * @notice The subset of forge's cheatcode interface `FhevmCleartextDeploy.sol` calls.
+ * @notice The subset of forge's cheatcode interface `ForgeFhevmDeploy.sol` calls.
  * @dev Vendored so `pkg/forge/src` has NO forge-std dependency, and modeled on forge-fhevm-std's
  *      `src/forge/IForgeVm.sol`. Hand-written and committed, so it sits here rather than under
  *      `_internal/`: nothing generates or re-derives it. Mirrored from `forge-std/Vm.sol`, so re-check it
@@ -25,11 +25,37 @@ interface IForgeVm {
 
     /// @notice Nonce of `account`.
     function getNonce(address account) external view returns (uint64 nonce);
+    /// @notice The identifier of the fork currently selected.
+    /// @dev    REVERTS when none is — which is the point: it is how a test tells an in-memory EVM from
+    ///         a chain it forked. Call it through a low-level `staticcall` and read the success flag.
+    function activeFork() external view returns (uint256 forkId);
+
+    /// @notice `vm.envOr(name, defaultValue)` — the environment variable as a bool, or the default
+    ///         when it is unset. Never reverts on absence, which is the point.
+    function envOr(string calldata name, bool defaultValue) external view returns (bool value);
     /// @notice A pseudo-random word. `view` in forge-std even though it advances forge's own state, which
     ///         is what lets a `view` caller use it.
     function randomUint() external view returns (uint256);
+
+    /// @dev Layout must match forge-std's `VmSafe.Wallet`.
+    struct Wallet {
+        address addr;
+        uint256 publicKeyX;
+        uint256 publicKeyY;
+        uint256 privateKey;
+    }
+
+    /// @dev The only way to reach a secp256k1 PUBLIC key from Solidity: `addr` is a one-way hash of it.
+    function createWallet(uint256 privateKey) external returns (Wallet memory wallet);
     /// @notice Raw storage `slot` of `target`, used to read the ERC-1967 implementation pointer.
     function load(address target, bytes32 slot) external view returns (bytes32 data);
+
+    /// @notice Writes `value` to `target`'s storage `slot`.
+    /// @dev    USED TO UNSET, which the cleartext store has no function for: `CleartextDB.set` marks a
+    ///         handle written and nothing clears it, and `set(handle, 0)` means WORTH ZERO rather than
+    ///         unknown. Making a handle unknown again is therefore a storage write, not a call -- and it
+    ///         stays out of the deployable contract, which has no business being able to forget.
+    function store(address target, bytes32 slot, bytes32 value) external;
 
     // Keys and signatures, for building input proofs. `pure` here because forge-std declares them `pure`,
     // even though `deriveKey` reads the caller's mnemonic — matching it keeps a `view` caller working.
@@ -49,6 +75,108 @@ interface IForgeVm {
 
     /// @notice Installs `newRuntimeBytecode` at `target` without running a constructor.
     function etch(address target, bytes calldata newRuntimeBytecode) external;
+
+    /**
+     * @notice In forking mode, explicitly grant the given address cheatcode access.
+     * @dev    NEEDED BY THE FORK UPGRADE, and measured rather than assumed. The forge-only cleartext
+     *         implementations call `pauseGasMetering` and `randomUint`, and forge grants cheatcodes per
+     *         address to what IT created during the test. A forked chain's proxy is not that, and an
+     *         implementation behind it runs by `delegatecall` -- so the caller arriving at the cheat
+     *         address is the PROXY, and the call is refused. Granting the proxy is what makes a forked
+     *         stack behave like a locally deployed one instead of reverting at its first FHE operation.
+     */
+    function allowCheatcodes(address account) external;
+
+    // Forks and nodes, for `LibForgeFhevmAnvil`. `rpc` speaks to the endpoint behind the active fork.
+
+    // Text, for building JSON-RPC parameters. `pure` here because forge-std declares them `pure`.
+
+    function toString(address value) external pure returns (string memory stringifiedValue);
+    function toString(bytes32 value) external pure returns (string memory stringifiedValue);
+    function toString(bytes calldata value) external pure returns (string memory stringifiedValue);
+
+    // Text, for reading a host contract's `getVersion()` apart. A version string is parsed with these
+    // three rather than with hand-written byte arithmetic, for the reason the whole file exists: the
+    // payload may not import forge-std, so what it needs is declared here.
+
+    /// @notice Converts the given value to a `string`.
+    /// @dev    Round-tripping a parse back through this is how `LibForgeFhevmHostVersions` rejects what
+    ///         `parseUint` accepts too readily -- `0x4`, `1e3`, a leading zero.
+    function toString(uint256 value) external pure returns (string memory stringifiedValue);
+
+    /// @notice Splits the given `string` into an array of strings divided by the `delimiter`.
+    function split(string calldata input, string calldata delimiter) external pure returns (string[] memory outputs);
+
+    /// @notice Parses the given `string` into a `uint256`.
+    /// @dev    REVERTS on anything it cannot read, so it is called inside a `try`. It is also more
+    ///         permissive than a version number wants (see `toString` above).
+    function parseUint(string calldata stringifiedValue) external pure returns (uint256 parsedValue);
+
+    /// @notice Sets `block.number`. Used to move a fresh anvil off block 0, which the executor's
+    ///         `blockhash(block.number - 1)` cannot survive.
+    function roll(uint256 newHeight) external;
+
+    /// @notice A raw JSON-RPC call to the active fork's provider. The result is the cheat's encoding of the
+    ///         JSON value, so a bare `true` arrives as one word rather than as ABI `bytes` — call it
+    ///         low-level and decode by what the method is known to answer.
+    function rpc(string calldata method, string calldata params) external returns (bytes memory data);
+
+    // -- State diffs, for mirroring a deploy onto a node ------------------------------------------------
+    //
+    // Layout must match forge-std's `VmSafe` field for field: the cheatcode ABI-encodes these, so a
+    // divergence decodes into silent nonsense rather than a revert. Copied verbatim.
+
+    enum AccountAccessKind {
+        Call,
+        DelegateCall,
+        CallCode,
+        StaticCall,
+        Create,
+        SelfDestruct,
+        Resume,
+        Balance,
+        Extcodesize,
+        Extcodehash,
+        Extcodecopy
+    }
+
+    struct ChainInfo {
+        uint256 forkId;
+        uint256 chainId;
+    }
+
+    struct StorageAccess {
+        address account;
+        bytes32 slot;
+        bool isWrite;
+        bytes32 previousValue;
+        bytes32 newValue;
+        bool reverted;
+    }
+
+    struct AccountAccess {
+        ChainInfo chainInfo;
+        AccountAccessKind kind;
+        address account;
+        address accessor;
+        bool initialized;
+        uint256 oldBalance;
+        uint256 newBalance;
+        bytes deployedCode;
+        uint256 value;
+        bytes data;
+        bool reverted;
+        StorageAccess[] storageAccesses;
+        uint64 depth;
+        uint64 oldNonce;
+        uint64 newNonce;
+    }
+
+    /// @notice Starts recording every account and storage access, so a deploy can be replayed elsewhere.
+    function startStateDiffRecording() external;
+
+    /// @notice Everything accessed since `startStateDiffRecording`, in order.
+    function stopAndReturnStateDiff() external returns (AccountAccess[] memory accountAccesses);
     /// @notice Sets `account`'s nonce, so a deploy sequence lands on its canonical addresses.
     function setNonce(address account, uint64 newNonce) external;
     /// @notice Sets `msg.sender` for the next call only.

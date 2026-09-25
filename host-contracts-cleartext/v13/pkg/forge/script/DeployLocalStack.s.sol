@@ -33,7 +33,7 @@ import {
     EMPTY_UUPS_PROXY_ACL_CREATION_CODE,
     EMPTY_UUPS_PROXY_CREATION_CODE,
     ERC1967_PROXY_CREATION_CODE,
-    HCU_LIMIT_CREATION_CODE,
+    CLEARTEXT_HCU_LIMIT_CREATION_CODE,
     KMS_GENERATION_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
     PROTOCOL_CONFIG_CREATION_CODE
@@ -50,7 +50,7 @@ import {ICleartextInputVerifier} from "../src/_internal/interfaces/ICleartextInp
 import {ICleartextKMSVerifier} from "../src/_internal/interfaces/ICleartextKMSVerifier.sol";
 import {IEmptyUUPSProxy} from "../src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "../src/_internal/interfaces/IEmptyUUPSProxyACL.sol";
-import {IHCULimit} from "../src/_internal/interfaces/IHCULimit.sol";
+import {ICleartextHCULimit} from "../src/_internal/interfaces/ICleartextHCULimit.sol";
 import {IKMSGeneration} from "../src/_internal/interfaces/IKMSGeneration.sol";
 import {IPauserSet} from "../src/_internal/interfaces/IPauserSet.sol";
 import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
@@ -59,8 +59,8 @@ import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
  * @title DeployLocalStack
  * @notice Deploys the canonical local cleartext stack from the PRE-COMPILED blobs, onto a live node.
  *
- * The broadcast twin of `pkg/forge/src/FhevmCleartextDeploy.sol`: same phases, same order, same blobs from
- * `_internal/LocalHostBytecode.sol`. The difference is only that `FhevmCleartextDeploy` runs inside a forge test
+ * The broadcast twin of `pkg/forge/src/ForgeFhevmDeploy.sol`: same phases, same order, same blobs from
+ * `_internal/LocalHostBytecode.sol`. The difference is only that `ForgeFhevmDeploy` runs inside a forge test
  * with cheatcodes, and this sends real transactions.
  *
  * Why it is faster than scripts/deploy.sh: the addresses are already compiled into these blobs, so there
@@ -72,7 +72,7 @@ import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
  *
  * ## Why PauserSet is CREATEd here rather than `anvil_setCode`d
  *
- * `FhevmCleartextDeploy` installs PauserSet with `vm.etch` and then bumps the nonce by hand, because etch places
+ * `ForgeFhevmDeploy` installs PauserSet with `vm.etch` and then bumps the nonce by hand, because etch places
  * code without consuming one. The obvious translation — `anvil_setCode` plus `anvil_setNonce` over RPC —
  * does not work under `--broadcast`, and it fails quietly:
  *
@@ -229,7 +229,9 @@ contract DeployLocalStack is Script {
             _create(CLEARTEXT_INPUT_VERIFIER_CREATION_CODE, "InputVerifier impl"),
             _inputVerifierInit()
         );
-        ops[4] = ACLOwner.Op(HCU_LIMIT_ADDRESS, _create(HCU_LIMIT_CREATION_CODE, "HCULimit impl"), _hcuLimitInit());
+        ops[4] = ACLOwner.Op(
+            HCU_LIMIT_ADDRESS, _create(CLEARTEXT_HCU_LIMIT_CREATION_CODE, "HCULimit impl"), _hcuLimitInit()
+        );
         ops[5] = ACLOwner.Op(
             PROTOCOL_CONFIG_ADDRESS,
             _create(PROTOCOL_CONFIG_CREATION_CODE, "ProtocolConfig impl"),
@@ -276,7 +278,7 @@ contract DeployLocalStack is Script {
 
     function _hcuLimitInit() private pure returns (bytes memory) {
         return abi.encodeCall(
-            IHCULimit.initializeFromEmptyProxy,
+            ICleartextHCULimit.initializeFromEmptyProxy,
             (
                 LocalHostBootstrap.HCU_CAP_PER_BLOCK,
                 LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,

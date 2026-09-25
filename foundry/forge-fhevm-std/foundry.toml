@@ -1,6 +1,6 @@
 [profile.default]
 extends = "../../foundry.base.toml"
-libs = ["dependencies", "node_modules", "../../node_modules"]
+libs = ["dependencies", "../../node_modules"]
 src = "pkg/src"
 test = "test"
 script = "script"
@@ -11,13 +11,57 @@ optimizer = true
 optimizer_runs = 800
 via_ir = false
 bytecode_hash = "none"
+# The operator vector tests (test/ops) read their tfhe-rs-verified cases from the repository's shared
+# `operators-data/data`, kept once at the root so every package tests against the same vectors.
+fs_permissions = [{ access = "read", path = "../../operators-data/data" }]
 
 [profile.ci]
 deny = "warnings"
 
+# The DEBUG build: every dApp compiled under it resolves `@fhevm/solidity/config/ZamaConfig.sol` to this
+# package's `DebugZamaConfig.sol`, which finds the cleartext stack on a fork of a chain that has no FHEVM
+# protocol and reverts at construction anywhere the forge-fhevm-std kernel is absent. Own `out` and
+# `cache_path`, so no deploy script can pick a debug artifact up by accident. NEVER deploy from this profile.
+[profile.fhevm-debug]
+out = "out-fhevm-debug"
+cache_path = "cache-fhevm-debug"
+remappings = ["@fhevm/solidity/config/ZamaConfig.sol=pkg/src/config/DebugZamaConfig.sol"]
+
+# LINT runs here, and nowhere near the shared artifacts. `forge lint` writes a compilation cache of its
+# own shape, and a `cache/solidity-files-cache.json` left behind by it makes every later `forge test`
+# report "No tests found in project!" -- and exit 0, so a whole test tier passes having run nothing.
+# Own `out` and `cache_path` is the same answer `fhevm-debug` gets, for the same reason: a tool that
+# is not building the package does not get to write the package's build state.
+[profile.lint]
+out = "out-lint"
+cache_path = "cache-lint"
+
 [lint]
-ignore = ["pkg/src/_host/**/*.sol"]
+# test/ops/fixtures is GENERATED upstream (gen-op-dapp.py): one wrapper per FHE.sol overload, named
+# `<op>_e<L>_e<R>` so the vector tests can compute the name from operand widths — snake_case by design.
+ignore = ["pkg/src/_host/**/*.sol", "test/**/contracts/**/*.sol", "test/ops/fixtures/**/*.sol"]
 exclude_lints = ["unsafe-cheatcode"]
 
 [dependencies]
 forge-std = "1.11.0"
+
+# `remappings.txt` is COMMITTED and hand-maintained: it carries entries soldeer knows nothing about
+# (`@fhevm/solidity/`, and `@fhevm/solidity-upstream/`, a second name for the same directory that the
+# fhevm-debug profile's remapping deliberately does not match). Left to itself soldeer REWRITES the whole
+# file, byte-sorted, on every `soldeer install` — which `forge build` triggers whenever `dependencies/` is
+# missing. Any order but its own then came back as a diff, in every branch, for a file nobody edited.
+#
+# `remappings_generate = false` is what stops it; `remappings_regenerate = false` does NOT — that one was
+# tried first and soldeer still re-sorted the file (measured, both with and without a real install).
+#
+# The cost: a soldeer dependency added later needs its line added here by hand. The build says so loudly,
+# and this file has exactly one such dependency.
+[soldeer]
+remappings_generate = false
+
+[rpc_endpoints]
+sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
+mainnet = "https://ethereum-rpc.publicnode.com"
+# Declared on purpose with a variable nothing sets: test/internal/DebugZamaConfig.t.sol proves that a declared
+# alias forge cannot read fails RENDERED, and is never replaced by a default (forge-std's rule).
+needs_env = "${FORGE_FHEVM_STD_UNSET_FOR_TESTS}"

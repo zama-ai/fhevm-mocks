@@ -31,7 +31,7 @@ import {
     EMPTY_UUPS_PROXY_ACL_CREATION_CODE,
     EMPTY_UUPS_PROXY_CREATION_CODE,
     ERC1967_PROXY_CREATION_CODE,
-    HCU_LIMIT_CREATION_CODE,
+    CLEARTEXT_HCU_LIMIT_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE
 } from "../src/_internal/LocalHostBytecode.sol";
 
@@ -46,7 +46,7 @@ import {ICleartextInputVerifier} from "../src/_internal/interfaces/ICleartextInp
 import {ICleartextKMSVerifier} from "../src/_internal/interfaces/ICleartextKMSVerifier.sol";
 import {IEmptyUUPSProxy} from "../src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "../src/_internal/interfaces/IEmptyUUPSProxyACL.sol";
-import {IHCULimit} from "../src/_internal/interfaces/IHCULimit.sol";
+import {ICleartextHCULimit} from "../src/_internal/interfaces/ICleartextHCULimit.sol";
 import {IPauserSet} from "../src/_internal/interfaces/IPauserSet.sol";
 
 /**
@@ -219,7 +219,9 @@ contract DeployLocalStack is Script {
             _create(CLEARTEXT_INPUT_VERIFIER_CREATION_CODE, "InputVerifier impl"),
             _inputVerifierInit()
         );
-        ops[4] = ACLOwner.Op(HCU_LIMIT_ADDRESS, _create(HCU_LIMIT_CREATION_CODE, "HCULimit impl"), _hcuLimitInit());
+        ops[4] = ACLOwner.Op(
+            HCU_LIMIT_ADDRESS, _create(CLEARTEXT_HCU_LIMIT_CREATION_CODE, "HCULimit impl"), _hcuLimitInit()
+        );
         ops[5] = ACLOwner.Op(
             CLEARTEXT_ARITHMETIC_ADDRESS,
             _create(CLEARTEXT_ARITHMETIC_CREATION_CODE, "CleartextArithmetic impl"),
@@ -261,7 +263,7 @@ contract DeployLocalStack is Script {
 
     function _hcuLimitInit() private pure returns (bytes memory) {
         return abi.encodeCall(
-            IHCULimit.initializeFromEmptyProxy,
+            ICleartextHCULimit.initializeFromEmptyProxy,
             (
                 LocalHostBootstrap.HCU_CAP_PER_BLOCK,
                 LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX,

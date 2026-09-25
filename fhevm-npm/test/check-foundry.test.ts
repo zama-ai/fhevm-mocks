@@ -179,6 +179,39 @@ test('requires foundry.toml to explicitly extend the workspace base', () => {
   }
 });
 
+test('a standalone project restates the policy inline instead of extending: copied out of the tree, it has no base', () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'fhevm-npm-foundry-'));
+  try {
+    mkdirSync(join(workspace, 'member'), { recursive: true });
+    writeFileSync(join(workspace, 'foundry.base.toml'), '[fmt]\nline_length = 120\n');
+    writeFileSync(
+      join(workspace, 'member', 'foundry.toml'),
+      '[profile.default]\nsrc = "src"\n[fmt]\nline_length = 120\n',
+    );
+
+    const agreeing = inspectFoundry(
+      workspace,
+      manifest('1.5.1-stable', 'standalone'),
+      () => 'forge Version: 1.5.1-stable\n',
+      () => ({ fmt: { line_length: 120 } }),
+    );
+    assert.deepEqual(agreeing.violations, [], 'no extends demanded of a standalone project');
+
+    // The exemption is from `extends`, not from the policy: a value that drifts is still a violation.
+    const drifting = inspectFoundry(
+      workspace,
+      manifest('1.5.1-stable', 'standalone'),
+      () => 'forge Version: 1.5.1-stable\n',
+      (_directory, configFile) =>
+        configFile === undefined ? { fmt: { line_length: 100 } } : { fmt: { line_length: 120 } },
+    );
+    assert.equal(drifting.violations.length, 1);
+    assert.match(drifting.violations[0]!.message, /line_length/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test('ignores the per-package [fmt].ignore rather than demanding it match the shared file', () => {
   const workspace = mkdtempSync(join(tmpdir(), 'fhevm-foundry-'));
   try {
@@ -201,7 +234,7 @@ test('ignores the per-package [fmt].ignore rather than demanding it match the sh
   }
 });
 
-function manifest(version: string, memberKind: 'shared-helper' | 'published' = 'shared-helper') {
+function manifest(version: string, memberKind: 'shared-helper' | 'published' | 'standalone' = 'shared-helper') {
   return parseTestNpmManifest({
     foundry: { version },
     packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
@@ -210,8 +243,8 @@ function manifest(version: string, memberKind: 'shared-helper' | 'published' = '
       './member': {
         kind: memberKind,
         name: memberKind === 'published' ? 'member' : 'member-dev',
-        ...(memberKind === 'shared-helper' ? { private: true } : {}),
-        member: true,
+        ...(memberKind === 'published' ? {} : { private: true }),
+        member: memberKind !== 'standalone',
       },
     },
   });

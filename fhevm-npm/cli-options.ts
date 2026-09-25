@@ -26,6 +26,7 @@ export const commandNames = [
   'cleartext-config',
   'generations',
   'generation-parity',
+  'forge-fhevm-std-parity',
   'extraneous',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
@@ -52,6 +53,7 @@ export type CliOptions = {
     | 'publish-render'
     | 'sync-fhevm-chains'
     | 'sync-vendored'
+    | 'bump-vendored'
     | 'test-consumer'
     | 'test-consumer-regenerate-package-lock';
   readonly workspaceRoot: string;
@@ -102,6 +104,14 @@ export type CliOptions = {
   | { readonly command: 'check-fhevm-chains-origin' }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
+  | {
+      readonly command: 'bump-vendored';
+      readonly selector: string;
+      readonly repository?: string;
+      readonly tag: string;
+      readonly commit?: string;
+      readonly check: boolean;
+    }
   | { readonly command: 'test-consumer-regenerate-package-lock'; readonly packageSelector?: string }
   | {
       readonly command: 'test-consumer';
@@ -180,6 +190,15 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
       }
     | undefined;
   let syncVendored: { readonly check: boolean; readonly digest: boolean } | undefined;
+  let bumpVendored:
+    | {
+        readonly selector: string;
+        readonly repository?: string;
+        readonly tag: string;
+        readonly commit?: string;
+        readonly check: boolean;
+      }
+    | undefined;
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
   let regenerateConsumerPackageLocks = false;
@@ -268,6 +287,12 @@ Prerequisite:
     .description('Check that the previous generation is byte-identical to its own release branch.')
     .action(() => {
       selected = 'generation-parity';
+    });
+  check
+    .command('forge-fhevm-std-parity')
+    .description("Check that forge-fhevm-std's published package is identical across generations.")
+    .action(() => {
+      selected = 'forge-fhevm-std-parity';
     });
   check
     .command('ownership')
@@ -436,6 +461,30 @@ Why:
     .action((options: { readonly check: boolean; readonly digest: boolean }) => {
       syncVendored = { check: options.check, digest: options.digest };
     });
+  // Distinct from `sync`: this MOVES a pin, then syncs what follows from it.
+  const bump = program.command('bump').description('Move a recorded pin, and everything derived from it.');
+  bump
+    .command('vendored <package>')
+    .description(
+      'Move every pinned vendored source under a package (key or key prefix) to a tag: manifest, digests, copies, package.json.',
+    )
+    .requiredOption('--tag <tag>', 'the upstream tag to pin')
+    .option('--repository <url>', 'which upstream, when the selection pins more than one')
+    .option('--commit <sha>', 'pin this commit instead of resolving the tag (full 40-hex sha)')
+    .option('--check', 'resolve and compare, and fail on any difference, writing nothing', false)
+    .action(
+      (
+        selector: string,
+        options: {
+          readonly tag: string;
+          readonly repository?: string;
+          readonly commit?: string;
+          readonly check: boolean;
+        },
+      ) => {
+        bumpVendored = { selector, ...options };
+      },
+    );
   sync
     .command('fhevm-chains')
     .description('Fetch the latest chain addresses from the protocol registry.')
@@ -647,6 +696,7 @@ Why:
     !regenerateConsumerPackageLocks &&
     testConsumer === undefined &&
     syncVendored === undefined &&
+    bumpVendored === undefined &&
     generateExports === undefined &&
     generateCleartextConfig === undefined &&
     generateChainConstants === undefined &&
@@ -666,6 +716,16 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...syncVendored,
+    };
+  }
+  if (bumpVendored !== undefined) {
+    return {
+      command: 'bump-vendored',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...bumpVendored,
     };
   }
   if (syncFhevmChains !== undefined) {

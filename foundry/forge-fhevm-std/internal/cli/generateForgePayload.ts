@@ -11,6 +11,3 @@ const result = writeForgePayload();
 
 console.log(`  generation  ${relative(process.cwd(), result.generationDir)}`);
 console.log(`  files       ${result.files}`);
-for (const file of result.rewritten) {
-  console.log(`  repointed   ${file}`);
-}

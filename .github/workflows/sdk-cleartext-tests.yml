@@ -185,12 +185,23 @@ jobs:
       # -----------------------------------------------------------------------
       # 8. Test everything
       #    Every package's unit, forge and harness tests, in dependency order.
-      #    The e2e-against-anvil variants are excluded by the Makefile itself
-      #    because they need a node already running.
+      #    The suites that need a local node are NOT here: they are their own tier,
+      #    in step 10 below.
+      #
+      #    FHEVM_SKIP_RPC_TESTS keeps this lane OFFLINE. forge-fhevm-std commits an
+      #    `[rpc_endpoints] sepolia` in its foundry.toml, so `hasRpcUrlFor` is always
+      #    true and the per-suite opt-in can never skip on its own; without this the
+      #    default `forge test` calls a public endpoint on every push and goes red for
+      #    reasons unrelated to the change (rate limits, and pruned state under any
+      #    pinned block). The network suites are run deliberately instead, by
+      #    `make test-forge-std-fork` / `test-forge-std-fork-url`.
+      #
       #    The ulimit is the js-sdk workflow's: hardhat and forge open many files
       #    at once under the harness tests.
       # -----------------------------------------------------------------------
       - name: Test everything
+        env:
+          FHEVM_SKIP_RPC_TESTS: 'true'
         run: |
           ulimit -n 65536
           make test
@@ -201,12 +212,32 @@ jobs:
       #    into an isolated temp directory and runs its suite, replaying each
       #    committed lockfile — the closest thing to a publish rehearsal that
       #    never reaches npmjs.com. Both hardhat templates are workspace members
-      #    with no lockfile by policy and resolve fresh. Steps 7, 8 and 9 are
+      #    with no lockfile by policy and resolve fresh. Steps 7, 8, 9 and 10 are
       #    what `make ci` runs; they are separate steps only so the summary
       #    names the phase that went red.
       # -----------------------------------------------------------------------
       - name: Consumer rehearsal
         run: make test-consumer-ci
+
+      # -----------------------------------------------------------------------
+      # 10. Anvil suite
+      #    forge-fhevm-std's anvil suite, which needs a local EVM node. It starts
+      #    and stops its own through scripts/with-anvil.sh, so there is no service
+      #    to declare here and nothing is left listening afterwards. anvil itself
+      #    comes from the foundry toolchain installed in step 4 — no extra install.
+      #
+      #    `test-anvil-ci` is a SUBSET of the `test-anvil` tier: the two hardhat
+      #    e2e suites against anvil pass but cost ~4 minutes each, so they are not
+      #    yet paid for on every push. The Makefile target says how to promote one.
+      #
+      #    AFTER the consumer rehearsal on purpose: those rehearsals assert that
+      #    nothing holds port 8545 and fail outright if something does, and this
+      #    tier binds a node. `make ci` orders it the same way.
+      # -----------------------------------------------------------------------
+      - name: Anvil suite
+        run: |
+          ulimit -n 65536
+          make test-anvil-ci
 
   # ---------------------------------------------------------------------------
   # Lint the workflows themselves — always, on its own runner.

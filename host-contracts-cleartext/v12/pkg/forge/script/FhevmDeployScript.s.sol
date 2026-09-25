@@ -9,6 +9,7 @@ import {ACL} from "../../src/contracts/ACL.sol";
 import {FHEVMExecutor} from "../../src/contracts/FHEVMExecutor.sol";
 import {KMSVerifier} from "../../src/contracts/KMSVerifier.sol";
 import {InputVerifier} from "../../src/contracts/InputVerifier.sol";
+import {CleartextHCULimit} from "../../src/cleartext/CleartextHCULimit.sol";
 import {HCULimit} from "../../src/contracts/HCULimit.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
 import {CleartextACL} from "../../src/cleartext/CleartextACL.sol";
@@ -278,7 +279,9 @@ contract FhevmDeployScript is Script {
         );
         ops[2] = ACLOwner.Op(kmsVerifierAdd, address(new CleartextKMSVerifier()), _kmsVerifierInit());
         ops[3] = ACLOwner.Op(inputVerifierAdd, address(new CleartextInputVerifier()), _inputVerifierInit());
-        ops[4] = ACLOwner.Op(hcuLimitAdd, address(new HCULimit()), _hcuLimitInit());
+        // Same rule as the ACL above: the implementation is CleartextHCULimit, the initializer is
+        // encoded against HCULimit, which declares it.
+        ops[4] = ACLOwner.Op(hcuLimitAdd, address(new CleartextHCULimit()), _hcuLimitInit());
         ops[5] = ACLOwner.Op(
             cleartextArithmeticAdd,
             address(new CleartextArithmetic()),

@@ -7,8 +7,7 @@ import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHE} from "@fhevm/solidity/lib/FHE.sol";
 import {euint64, externalEuint64} from "encrypted-types/EncryptedTypes.sol";
 
-import {FhevmStd} from "../../pkg/src/FhevmStd.sol";
-import {ACL_ADDRESS, FHEVM_EXECUTOR_ADDRESS, KMS_VERIFIER_ADDRESS} from "../../pkg/src/_host/FhevmCleartextDeploy.sol";
+import {StdFhevm} from "../../pkg/src/StdFhevm.sol";
 
 /**
  * A dApp as a user would write one: against the fhevm Solidity library, knowing nothing about the
@@ -61,12 +60,11 @@ contract AddOneDapp is ZamaEthereumConfig {
  * produced here and consumed by the dApp, and `euint64` travels the other way. Two copies of
  * `encrypted-types` would be two incompatible types and none of this would compile.
  */
-contract DecryptPublicTest is Test, FhevmStd {
+contract DecryptPublicTest is Test, StdFhevm {
     AddOneDapp internal dapp;
     address internal alice;
 
     function setUp() public {
-        setUpFhevm();
         dapp = new AddOneDapp();
         alice = makeAddr("alice");
     }
@@ -79,7 +77,7 @@ contract DecryptPublicTest is Test, FhevmStd {
         vm.prank(alice);
         dapp.addOne(handle, inputProof);
 
-        (uint64 clear, bytes memory decryptionProof) = decryptPublicWithProof(dapp.result());
+        (uint64 clear, bytes memory decryptionProof) = decryptPublicWithSignatures(dapp.result());
         assertEq(clear, 42);
 
         // The dApp re-checks the KMS signatures itself, which is what a contract acting on a revealed
@@ -93,7 +91,7 @@ contract DecryptPublicTest is Test, FhevmStd {
         vm.prank(alice);
         dapp.addOne(handle, inputProof);
 
-        (, bytes memory decryptionProof) = decryptPublicWithProof(dapp.result());
+        (, bytes memory decryptionProof) = decryptPublicWithSignatures(dapp.result());
 
         // Same proof, a different claimed cleartext: the signatures are over the handles AND the
         // values, so they now recover to addresses that are not KMS signers. Only the selector is
