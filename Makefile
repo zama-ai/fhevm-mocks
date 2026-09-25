@@ -927,7 +927,7 @@ check-generated: ## Delete every generated file, regenerate, and fail unless the
 .PHONY: version-list version-check version-plan version-apply publish-order publish-render publish-pack publish-pack-all publish-check
 
 ########################################################################################################
-# Release: versions and publication (plans/RELEASE_PLAN.md). sdk/versions.json is the authority for
+# Release: versions and publication (plans/RELEASE_PLAN.md). versions.json is the authority for
 # every published version; package.json versions and lockfile member lines are derived from it.
 # Nothing here publishes: `publish pack` produces the tarball, `npm publish <tarball>` is CI's.
 ########################################################################################################
@@ -939,13 +939,13 @@ require-payload = $(if $(PAYLOAD),,$(error PAYLOAD is required, e.g. make $(1) P
 version-list: ## Every published payload: central version, package.json version, channels
 	$(call run-fhevm-npm,version list)
 
-version-check: ## Is every derived version equal to sdk/versions.json (also part of check-pre)
+version-check: ## Is every derived version equal to versions.json (also part of check-pre)
 	$(call run-fhevm-npm,version check)
 
-version-plan: ## Preview what `version apply` would reconcile from sdk/versions.json, writing nothing
+version-plan: ## Preview what `version apply` would reconcile from versions.json, writing nothing
 	$(call run-fhevm-npm,version apply --dry-run)
 
-version-apply: ## Reconcile package.json versions and lockfile member lines from sdk/versions.json
+version-apply: ## Reconcile package.json versions and lockfile member lines from versions.json
 	$(call run-fhevm-npm,version apply)
 
 publish-order: ## The npm-distributed payloads in dependency order, one manifest key per line
