@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       build_target:
-        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin compile-forge-std'
+        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin, compile-forge-std'
         required: true
         type: string
       dry_run:
@@ -67,7 +67,7 @@ jobs:
       #     compile-hh-v3-plugin    -> Hardhat 3 plugin
       #     compile-forge-std       -> Forge Fhevm
       #     The current contracts directory comes from npm-manifest.json.
-      #     The version comes from sdk/versions.json:
+      #     The version comes from versions.json:
       #       X.Y.Z -> latest; X.Y.Z-A -> alpha.
       #     Fail before installing or building if the target or version is missing
       #     or the target is unsupported.
@@ -201,9 +201,9 @@ jobs:
       # 7c. Tarball gate
       #     Check that:
       #     - No local `file:` dependencies remain.
-      #     - The package version matches sdk/versions.json.
+      #     - The package version matches versions.json.
       #     - All declared entry points exist in the archive.
-      #     - Converted dependency ranges match sdk/versions.json.
+      #     - Converted dependency ranges match versions.json.
       #     - npmjs.com has a published version matching each converted range.
       #     - This package version is not already published on npmjs.com.
       #     This means contracts must be published before plugins that need them.
@@ -212,6 +212,17 @@ jobs:
         env:
           PAYLOAD: ${{ steps.release_meta.outputs.payload }}
         run: ./fhevm-npm-cli publish check "${PAYLOAD}" --check-npmjs
+
+      # -----------------------------------------------------------------------
+      # 7d. Tarball package.json
+      #     Print the package.json inside the .tgz that step 8 publishes.
+      #     npm stores it at package/package.json.
+      #     This is for inspection; step 7c performs the checks.
+      # -----------------------------------------------------------------------
+      - name: Print the tarball package.json
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: tar -xzOf "${TARBALL}" package/package.json
 
       # -----------------------------------------------------------------------
       # 8. Publish to npm
