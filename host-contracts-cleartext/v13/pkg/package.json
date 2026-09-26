@@ -1,12 +1,13 @@
 {
   "name": "@fhevm/host-contracts-cleartext",
-  "version": "0.13.0-0",
+  "version": "0.13.0-1",
   "description": "FHEVM host contracts cleartext Solidity contracts",
   "license": "BSD-3-Clause-Clear",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zama-ai/fhevm.git"
+    "url": "git+https://github.com/zama-ai/fhevm-mocks.git",
+    "directory": "host-contracts-cleartext/v13/pkg"
   },
   "main": "./ts/_cjs/index.js",
   "module": "./ts/_esm/index.js",
