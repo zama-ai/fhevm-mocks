@@ -53,11 +53,18 @@ abstract contract OpVectorTest is TestFhevm {
 
     struct Case {
         string id;
+        // Zero for sum (the file has no `lhs`: its only operand is `values`).
         uint256 lhsBits;
         uint256 lhs;
         // Zero for unary operators (the file has no `rhs`).
         uint256 rhsBits;
         uint256 rhs;
+        // muldiv only: the clear divisor.
+        uint256 divisorBits;
+        uint256 divisor;
+        // sum and isin only: the collection operand, every element `valuesBits` wide. Empty is a real case.
+        uint256 valuesBits;
+        uint256[] values;
         uint256 resultBits;
         uint256 expected;
     }
@@ -116,14 +123,40 @@ abstract contract OpVectorTest is TestFhevm {
     function _readCase(string memory doc, uint256 i) private view returns (Case memory c) {
         string memory p = string.concat(".cases[", vm.toString(i), "]");
         c.id = vm.parseJsonString(doc, string.concat(p, ".id"));
-        c.lhsBits = vm.parseJsonUint(doc, string.concat(p, ".lhs.bits"));
-        c.lhs = vm.parseJsonUint(doc, string.concat(p, ".lhs.value"));
+        if (vm.keyExistsJson(doc, string.concat(p, ".lhs"))) {
+            c.lhsBits = vm.parseJsonUint(doc, string.concat(p, ".lhs.bits"));
+            c.lhs = vm.parseJsonUint(doc, string.concat(p, ".lhs.value"));
+        }
         if (vm.keyExistsJson(doc, string.concat(p, ".rhs"))) {
             c.rhsBits = vm.parseJsonUint(doc, string.concat(p, ".rhs.bits"));
             c.rhs = vm.parseJsonUint(doc, string.concat(p, ".rhs.value"));
         }
+        if (vm.keyExistsJson(doc, string.concat(p, ".divisor"))) {
+            c.divisorBits = vm.parseJsonUint(doc, string.concat(p, ".divisor.bits"));
+            c.divisor = vm.parseJsonUint(doc, string.concat(p, ".divisor.value"));
+        }
+        if (vm.keyExistsJson(doc, string.concat(p, ".values"))) {
+            (c.valuesBits, c.values) = _readValues(doc, string.concat(p, ".values"));
+        }
         c.resultBits = vm.parseJsonUint(doc, string.concat(p, ".result.bits"));
         c.expected = vm.parseJsonUint(doc, string.concat(p, ".result.value"));
+    }
+
+    /// A collection operand. Walked by index for the same reason as `.cases`, and every element must have
+    /// the same width: the executor rejects a mixed-type collection, so a file that has one is wrong.
+    function _readValues(string memory doc, string memory p) private view returns (uint256 bits, uint256[] memory v) {
+        uint256 n;
+        while (vm.keyExistsJson(doc, string.concat(p, "[", vm.toString(n), "]"))) {
+            n++;
+        }
+        v = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            string memory e = string.concat(p, "[", vm.toString(i), "]");
+            uint256 b = vm.parseJsonUint(doc, string.concat(e, ".bits"));
+            if (i == 0) bits = b;
+            require(b == bits, string.concat(e, ": element width differs from the first element's"));
+            v[i] = vm.parseJsonUint(doc, string.concat(e, ".value"));
+        }
     }
 
     function check(Case memory c, string memory family, bytes32 handle) internal {
@@ -197,6 +230,25 @@ abstract contract OpVectorTest is TestFhevm {
         EncryptedInput memory e = encryptValues(abi.encode(t, v), dappAddress(), alice);
         handle = _handleAt(e, 0, t);
         require(FHEext.isExternalHandle(handle), "input handle not recognised as external");
+        proof = e.inputProof();
+    }
+
+    /// A whole list of `t` values in ONE proof, as a dApp taking an array of inputs receives them. An empty
+    /// list encrypts nothing: the SDK rejects an empty input, and an empty collection needs no proof.
+    function encryptList(FheType t, uint256[] memory values)
+        internal
+        returns (bytes32[] memory handles, bytes memory proof)
+    {
+        handles = new bytes32[](values.length);
+        if (values.length == 0) return (handles, proof);
+        bytes memory pairs;
+        for (uint256 i = 0; i < values.length; i++) {
+            pairs = bytes.concat(pairs, abi.encode(t, values[i]));
+        }
+        EncryptedInput memory e = encryptValues(pairs, dappAddress(), alice);
+        for (uint256 i = 0; i < values.length; i++) {
+            handles[i] = _handleAt(e, i, t);
+        }
         proof = e.inputProof();
     }
 
