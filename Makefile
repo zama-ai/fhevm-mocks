@@ -927,7 +927,7 @@ check-generated: ## Delete every generated file, regenerate, and fail unless the
 .PHONY: version-list version-check version-plan version-apply publish-order publish-render publish-pack publish-pack-all publish-check
 
 ########################################################################################################
-# Release: versions and publication (plans/RELEASE_PLAN.md). ./versions.json is the authority for
+# Release: versions and publication (plans/RELEASE_PLAN.md). versions.json is the authority for
 # every published version; package.json versions and lockfile member lines are derived from it.
 # Nothing here publishes: `publish pack` produces the tarball, `npm publish <tarball>` is CI's.
 ########################################################################################################
