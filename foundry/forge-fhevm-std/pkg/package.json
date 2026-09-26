@@ -1,5 +1,5 @@
 {
-  "name": "@fhevm/forge-std",
+  "name": "@fhevm/forge",
   "version": "0.14.0-0",
   "description": "FHEVM standard library for Forge. Companion to forge-std: encrypt inputs and decrypt handles from Foundry tests and scripts.",
   "license": "BSD-3-Clause-Clear",

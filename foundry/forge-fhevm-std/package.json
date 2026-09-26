@@ -1,7 +1,7 @@
 {
   "name": "@fhevm/forge-std-dev",
   "version": "0.0.0",
-  "description": "Dev package for @fhevm/forge-std. Never published. The published package is ./pkg.",
+  "description": "Dev package for @fhevm/forge. Never published. The published package is ./pkg.",
   "private": true,
   "type": "module",
   "engines": {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {externalEuint8} from "encrypted-types/EncryptedTypes.sol";
 
-import {TestFhevm} from "@fhevm/forge-std/TestFhevm.sol";
+import {TestFhevm} from "@fhevm/forge/TestFhevm.sol";
 
 import {APlusB} from "../src/AplusB.sol";
 
