@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
+import {FheType} from "./shared/LibFheType.sol";
 
 import {
     ACL_ADDRESS,
@@ -107,6 +108,16 @@ import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
  *   4. the real implementations, deployed permissionlessly
  *   5. one atomic `ACLOwner.upgrade` swapping every proxy empty -> real and running its initializer
  */
+/// @notice The forge-only arithmetic's answer for handles its store never saw.
+/// @dev Declared here rather than in `_internal/interfaces/`: those are generated from the DEPLOYED
+///      contracts, and the plain `CleartextArithmetic` has none of these.
+interface ICleartextForgeArithmeticPolicy {
+    function setUnknownHandleDefault(uint8 fheType, uint256 value) external;
+    function setUnknownHandleFromHandle(uint8 fheType) external;
+    function clearUnknownHandlePolicy(uint8 fheType) external;
+    function getCleartextDBAddress() external view returns (address);
+}
+
 library LibForgeFhevmStack {
     /// @dev The cheatcode address, bound here because a library cannot inherit `ForgeVmBase`.
     IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);
@@ -549,5 +560,167 @@ library LibForgeFhevmStack {
             if (actual[i] != expected[i]) return false;
         }
         return true;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Stating what a cleartext stack cannot know
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // A fork is full of handles minted before this package's implementations were installed on it, and
+    // their cleartexts exist nowhere. A test says what they are -- per handle here, or by type through the
+    // policy below. On the local stack the question never arises, which is why these are refused there.
+
+    /// @notice The store a cleartext `executor` reads its operands from.
+    /// @dev Asked of the stack rather than configured: the executor names its arithmetic, and the
+    ///      arithmetic names the store, so a fork's own pair is found the same way the local one's is.
+    function cleartextStoreOf(address executor) internal view returns (address arithmetic, address db) {
+        arithmetic = ICleartextFHEVMExecutor(executor).getCleartextArithmeticAddress();
+        db = ICleartextForgeArithmeticPolicy(arithmetic).getCleartextDBAddress();
+    }
+
+    /**
+     * @notice States the cleartext of one handle on a cleartext stack.
+     * @dev PRANKED AS THE ARITHMETIC, which is the store's registered writer. Granting this contract a
+     *      writer slot would work too and would leave the forked stack permanently changed; a prank
+     *      leaves nothing behind.
+     * @dev A stated value WINS over any policy, and over the derivation, because the store is consulted
+     *      first. That is what makes a seeded fuzz input reliable.
+     */
+    function seedCleartext(address executor, bytes32 handle, uint256 value) internal {
+        (address arithmetic, address db) = cleartextStoreOf(executor);
+        fvm.prank(arithmetic);
+        ICleartextDB(db).set(handle, value);
+    }
+
+    /**
+     * @notice Makes one handle unknown again: the store forgets it, and the type's policy answers for it.
+     *
+     * @dev A STORAGE WRITE, BECAUSE THERE IS NO FUNCTION. `CleartextDB.set` marks a handle written and
+     *      nothing clears it; `set(handle, 0)` would mean WORTH ZERO, which is the opposite of unknown
+     *      and silently so. The deployable store has no business being able to forget -- a chain's store
+     *      never should -- so the ability lives here, in the forge payload, where test-only powers belong.
+     *
+     * @dev WHAT IT DOES NOT UNDO. `_operand` consults the store first, then asks the HCU meter whether
+     *      THIS stack minted the handle. So forgetting a handle this stack computed does not send it to
+     *      the policy: it reports `CleartextErrorUnrecordedResult`, which is right -- the stack made that
+     *      value and losing it is a fault, not a question. The cheat is meaningful for the handles
+     *      `forkUnknown` exists for: the ones a fork inherited.
+     */
+    function unsetCleartext(address executor, bytes32 handle) internal {
+        (, address db) = cleartextStoreOf(executor);
+        fvm.store(db, _cleartextDbSlot(handle, DB_FIELD_PLAINTEXTS), bytes32(0));
+        fvm.store(db, _cleartextDbSlot(handle, DB_FIELD_HAS), bytes32(0));
+    }
+
+    /**
+     * @dev DERIVED FROM THE NAMESPACE, not copied as a hash. `CleartextDB` declares
+     *      `erc7201:fhevm.storage.CleartextDB`; the name is what the contract states and the root is a
+     *      consequence of it, so deriving keeps one statement of the truth rather than two. The formula
+     *      is ERC-7201's own.
+     */
+    bytes32 private constant CLEARTEXT_DB_STORAGE_ROOT =
+        keccak256(abi.encode(uint256(keccak256("fhevm.storage.CleartextDB")) - 1)) & ~bytes32(uint256(0xff));
+
+    /**
+     * @dev THE FIELD ORDER IS PART OF THE CONTRACT HERE, and it is the one thing this approach couples
+     *      to: `CleartextDBStorage` is `plaintexts`, then `writers`, then `has`. Field 1 is why that
+     *      matters -- a shift would make an unset zero a WRITER flag instead, and the arithmetic would
+     *      quietly lose its access. `LibForgeFhevmStackUnset.t.sol` pins both the derivation and the
+     *      order against the store's own behaviour, so a layout change fails there rather than here.
+     */
+    uint256 private constant DB_FIELD_PLAINTEXTS = 0;
+    uint256 private constant DB_FIELD_HAS = 2;
+
+    /// @dev A mapping entry's slot, by ERC-7201's layout: `keccak256(key . (root + field))`.
+    function _cleartextDbSlot(bytes32 handle, uint256 field) private pure returns (bytes32) {
+        return keccak256(abi.encode(handle, uint256(CLEARTEXT_DB_STORAGE_ROOT) + field));
+    }
+
+    /**
+     * @notice Every unknown handle OF ONE TYPE answers `value`.
+     *
+     * @dev ONE TYPE, NOT ALL OF THEM, and the distinction is the whole point. This once set the default
+     *      for every type the value happened to fit and silently skipped the rest: `1000` reached
+     *      `euint16` upward and left `ebool`, `euint4` and `euint8` still refusing, so a test that had
+     *      "set a default" met `CleartextErrorUnknownHandle` several lines later, on a type it never
+     *      mentioned. A width is a property of the type, so the caller names the type.
+     *
+     * @dev THE VALUE IS REFUSED, NEVER NARROWED, and the arithmetic is what refuses it: upstream's rule
+     *      is that a plaintext out of range for its type is an error, so clamping here would invent a
+     *      number nobody wrote. Out of range now reverts where the caller can see it, rather than being
+     *      skipped in a loop nobody watched.
+     */
+    function useFixedUnknownHandle(address executor, uint8 fheType, uint256 value) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        // THE FORK'S OWNER, asked of the executor. `ACL_ADDRESS` is this package's localhost constant and
+        // is nobody on a forked chain -- pranking as its owner is refused by the fork's own ACL.
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        fvm.prank(owner);
+        ICleartextForgeArithmeticPolicy(arithmetic).setUnknownHandleDefault(fheType, value);
+    }
+
+    /**
+     * @notice Back to refusing: an unknown handle of `fheType` reverts again.
+     *
+     * @dev THE THIRD POLICY, and the only way back. `Revert` is where every type starts, and until this
+     *      existed a test could leave that state but never return to it -- so a test that seeded a
+     *      default in order to read pre-fork handles could no longer prove that a MISSING computation
+     *      still fails. Per type, because that is the shape of the need: refuse one while another
+     *      answers.
+     *
+     * @dev IT CLEARS THE POLICY, NOT THE VALUES. Anything stated with `seedCleartext` still wins -- the
+     *      store is consulted before any policy -- and `CleartextErrorUnrecordedResult` is unreachable
+     *      from here, being checked before the policy too.
+     */
+    function clearUnknownHandlePolicy(address executor, uint8 fheType) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        fvm.prank(owner);
+        ICleartextForgeArithmeticPolicy(arithmetic).clearUnknownHandlePolicy(fheType);
+    }
+
+    /**
+     * @notice Back to refusing, for every type at once.
+     *
+     * @dev ALL TYPES IS HONEST HERE, where it was not for a fixed value. Refusing has no width to fit,
+     *      so every type can take it and none is silently skipped -- the same property that lets
+     *      `useDeterministicUnknownHandles` apply to all of them.
+     */
+    function clearAllUnknownHandlePolicies(address executor) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        for (uint8 fheType = 0; fheType <= uint8(type(FheType).max); fheType++) {
+            if (_bitWidthOrZero(FheType(fheType)) == 0) continue;
+            fvm.prank(owner);
+            ICleartextForgeArithmeticPolicy(arithmetic).clearUnknownHandlePolicy(fheType);
+        }
+    }
+
+    /// @notice Derives every unknown handle's value from the handle itself, for every type.
+    /// @dev Always applicable, unlike a fixed value: the derivation is cut to each type as it is made.
+    function useDeterministicUnknownHandles(address executor) internal {
+        (address arithmetic,) = cleartextStoreOf(executor);
+        address owner = aclOwner(ICleartextFHEVMExecutor(executor).getACLAddress());
+        for (uint8 fheType = 0; fheType <= uint8(type(FheType).max); fheType++) {
+            if (_bitWidthOrZero(FheType(fheType)) == 0) continue;
+            fvm.prank(owner);
+            ICleartextForgeArithmeticPolicy(arithmetic).setUnknownHandleFromHandle(fheType);
+        }
+    }
+
+    /// @dev The type's width, or zero for a member the cleartext layer carries no values for.
+    ///      `LibFheType.bitWidthForType` REVERTS on those rather than answering, which is right where a
+    ///      value is being computed and wrong here: this walks every enum member on purpose, so an
+    ///      unsupported one is a member to skip, not a failure.
+    function _bitWidthOrZero(FheType fheType) private pure returns (uint256) {
+        if (fheType == FheType.Bool) return 1;
+        if (fheType == FheType.Uint8) return 8;
+        if (fheType == FheType.Uint16) return 16;
+        if (fheType == FheType.Uint32) return 32;
+        if (fheType == FheType.Uint64) return 64;
+        if (fheType == FheType.Uint128) return 128;
+        if (fheType == FheType.Uint160) return 160;
+        if (fheType == FheType.Uint256) return 256;
+        return 0;
     }
 }

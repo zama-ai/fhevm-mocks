@@ -9,6 +9,7 @@ import {
   OUTPUT_PATH as LOCAL_HOST_BYTECODE_PATH,
   localHostAddresses,
   AUTHENTIC_CONTRACTS,
+  UPGRADE_IMPLEMENTATIONS,
 } from '../internal/generateLocalHostBytecode.ts';
 import {
   ADDRESS_NAMES,
@@ -397,9 +398,20 @@ void test('LocalHostBytecode.sol blobs equal the committed templates patched wit
 
   assert.equal(
     blobs.size,
-    TARGET_CONTRACTS.length + FORGE_BLOBS.length,
-    'one blob per target contract, plus the Forge cleartext variants',
+    TARGET_CONTRACTS.length + FORGE_BLOBS.length + UPGRADE_IMPLEMENTATIONS.length,
+    'one blob per target contract, plus the Forge cleartext variants, plus the upgrade implementations',
   );
+
+  // The upgrade implementations are VENDORED host contracts, deployed only to re-point a remote stack's
+  // proxies. They have no committed template, so the loop below cannot reach them and this file is not
+  // where they are checked: the generator measures their patch sites in the very bytes it emits and
+  // refuses a count the placeholder build disagrees with, and `test/forge/LocalHostUpgradeTables.t.sol`
+  // reads every address back out of the emitted bytecode.
+  for (const target of UPGRADE_IMPLEMENTATIONS) {
+    const blob = blobs.get(`${target.enumMember.toUpperCase()}_UPGRADE`);
+    assert.ok(blob !== undefined, `${target.contractName} missing its upgrade blob in LocalHostBytecode.sol`);
+    assert.equal(blob.suffix, 'CREATION', `${target.contractName} upgrade blob must be creation code`);
+  }
 
   for (const target of TARGET_CONTRACTS) {
     // CONSTANT_NAMES is total over ContractName, so completeness is a compile-time property here.
