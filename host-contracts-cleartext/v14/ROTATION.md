@@ -20,15 +20,20 @@ rm -rf test/e2e/upgrade                # upgrades a real v13 stack through the C
 rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
 ```
 
-## 2. Delete two lines in `package.json`
+## 2. Delete three lines in `package.json`
 
 ```jsonc
-"test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts"
+"test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
+"test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v13 && …"
 "@fhevm/host-contracts-cleartext-v13-dev": "file:../v13",
 ```
 
-`test:upgrade` is the last entry in `scripts`, so drop the comma on the line above it. Nothing else in
-`package.json` changes.
+Both `test:upgrade*` scripts go: `test:upgrade:fast` is the same suite's fast lane, and it runs `test/upgrade/*`,
+`test/ts/upgrade` and `list:upgrade-ops -- ../v13`, all of which are gone after step 1. Delete every script whose
+name starts with `test:upgrade`, not only the one called that.
+
+`test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`. Nothing
+else in `package.json` changes.
 
 ## 3. Keep these
 
