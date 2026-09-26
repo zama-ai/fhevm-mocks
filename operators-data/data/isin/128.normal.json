@@ -1,0 +1,112 @@
+{
+  "op": "isin",
+  "arity": 2,
+  "operands": ["lhs", "values"],
+  "semantics": "membership",
+  "encoding": "hex-string",
+  "width": 128,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "isin_128_e2e_i6",
+      "lhs": { "bits": 128, "value": "0x8ac7230489e80000" },
+      "values": [
+        { "bits": 128, "value": "0x8ac7230489e80000" },
+        { "bits": 128, "value": "0x1158e460913d00000" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_found_middle",
+      "lhs": { "bits": 128, "value": "0x64" },
+      "values": [
+        { "bits": 128, "value": "0x17" },
+        { "bits": 128, "value": "0x64" },
+        { "bits": 128, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_not_found",
+      "lhs": { "bits": 128, "value": "0x1e" },
+      "values": [
+        { "bits": 128, "value": "0x17" },
+        { "bits": 128, "value": "0x64" },
+        { "bits": 128, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_128_mid_found",
+      "lhs": { "bits": 128, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 128, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_mid_not_found",
+      "lhs": { "bits": 128, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_128_pattern_found",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "values": [
+        { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+        { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_pattern_vs_inverse",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "values": [
+        { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_128_sized_8_found",
+      "lhs": { "bits": 128, "value": "0x6b" },
+      "values": [
+        { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 128, "value": "0x6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_sized_16_found",
+      "lhs": { "bits": 128, "value": "0x6b6b" },
+      "values": [
+        { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 128, "value": "0x6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_sized_32_found",
+      "lhs": { "bits": 128, "value": "0x6b6b6b6b" },
+      "values": [
+        { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 128, "value": "0x6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_128_sized_64_found",
+      "lhs": { "bits": 128, "value": "0x6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 128, "value": "0x6b6b6b6b6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    }
+  ]
+}

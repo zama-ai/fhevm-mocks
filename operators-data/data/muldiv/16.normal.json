@@ -1,0 +1,61 @@
+{
+  "op": "muldiv",
+  "arity": 3,
+  "operands": ["lhs", "rhs", "divisor"],
+  "semantics": "wide-product-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 16,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "muldiv_16_e2e_m4",
+      "lhs": { "bits": 16, "value": "0x3e8" },
+      "rhs": { "bits": 16, "value": "0x3" },
+      "divisor": { "bits": 16, "value": "0x5" },
+      "result": { "bits": 16, "value": "0x258" }
+    },
+    {
+      "id": "muldiv_16_plain",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x3" },
+      "divisor": { "bits": 16, "value": "0x5" },
+      "result": { "bits": 16, "value": "0x3c" }
+    },
+    {
+      "id": "muldiv_16_truncating",
+      "lhs": { "bits": 16, "value": "0x7" },
+      "rhs": { "bits": 16, "value": "0x3" },
+      "divisor": { "bits": 16, "value": "0x4" },
+      "result": { "bits": 16, "value": "0x5" }
+    },
+    {
+      "id": "muldiv_16_percent",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x1e" },
+      "divisor": { "bits": 16, "value": "0x64" },
+      "result": { "bits": 16, "value": "0x1e" }
+    },
+    {
+      "id": "muldiv_16_mid",
+      "lhs": { "bits": 16, "value": "0x2d2d" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "divisor": { "bits": 16, "value": "0x6b6b" },
+      "result": { "bits": 16, "value": "0x12ff" }
+    },
+    {
+      "id": "muldiv_16_pattern_by_mid",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "divisor": { "bits": 16, "value": "0x6b6b" },
+      "result": { "bits": 16, "value": "0x45a9" }
+    },
+    {
+      "id": "muldiv_16_sized_8",
+      "lhs": { "bits": 16, "value": "0x6b" },
+      "rhs": { "bits": 16, "value": "0x2d" },
+      "divisor": { "bits": 16, "value": "0x6b" },
+      "result": { "bits": 16, "value": "0x2d" }
+    }
+  ]
+}

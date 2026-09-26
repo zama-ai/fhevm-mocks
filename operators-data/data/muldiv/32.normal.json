@@ -1,0 +1,68 @@
+{
+  "op": "muldiv",
+  "arity": 3,
+  "operands": ["lhs", "rhs", "divisor"],
+  "semantics": "wide-product-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "muldiv_32_e2e_m6",
+      "lhs": { "bits": 32, "value": "0xf4240" },
+      "rhs": { "bits": 32, "value": "0x3" },
+      "divisor": { "bits": 32, "value": "0x5" },
+      "result": { "bits": 32, "value": "0x927c0" }
+    },
+    {
+      "id": "muldiv_32_plain",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x3" },
+      "divisor": { "bits": 32, "value": "0x5" },
+      "result": { "bits": 32, "value": "0x3c" }
+    },
+    {
+      "id": "muldiv_32_truncating",
+      "lhs": { "bits": 32, "value": "0x7" },
+      "rhs": { "bits": 32, "value": "0x3" },
+      "divisor": { "bits": 32, "value": "0x4" },
+      "result": { "bits": 32, "value": "0x5" }
+    },
+    {
+      "id": "muldiv_32_percent",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x1e" },
+      "divisor": { "bits": 32, "value": "0x64" },
+      "result": { "bits": 32, "value": "0x1e" }
+    },
+    {
+      "id": "muldiv_32_mid",
+      "lhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "divisor": { "bits": 32, "value": "0x6b6b6b6b" },
+      "result": { "bits": 32, "value": "0x12ffdbf8" }
+    },
+    {
+      "id": "muldiv_32_pattern_by_mid",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "divisor": { "bits": 32, "value": "0x6b6b6b6b" },
+      "result": { "bits": 32, "value": "0x45aa268f" }
+    },
+    {
+      "id": "muldiv_32_sized_8",
+      "lhs": { "bits": 32, "value": "0x6b" },
+      "rhs": { "bits": 32, "value": "0x2d" },
+      "divisor": { "bits": 32, "value": "0x6b" },
+      "result": { "bits": 32, "value": "0x2d" }
+    },
+    {
+      "id": "muldiv_32_sized_16",
+      "lhs": { "bits": 32, "value": "0x6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d" },
+      "divisor": { "bits": 32, "value": "0x6b6b" },
+      "result": { "bits": 32, "value": "0x2d2d" }
+    }
+  ]
+}

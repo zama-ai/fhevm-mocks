@@ -1,0 +1,93 @@
+{
+  "op": "sum",
+  "arity": 1,
+  "operands": ["values"],
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "sum_64_e2e_s4",
+      "values": [
+        { "bits": 64, "value": "0xf4240" },
+        { "bits": 64, "value": "0x1e8480" }
+      ],
+      "result": { "bits": 64, "value": "0x2dc6c0" }
+    },
+    {
+      "id": "sum_64_plain",
+      "values": [
+        { "bits": 64, "value": "0x64" },
+        { "bits": 64, "value": "0x17" }
+      ],
+      "result": { "bits": 64, "value": "0x7b" }
+    },
+    {
+      "id": "sum_64_small_three",
+      "values": [
+        { "bits": 64, "value": "0x7" },
+        { "bits": 64, "value": "0x17" },
+        { "bits": 64, "value": "0x64" }
+      ],
+      "result": { "bits": 64, "value": "0x82" }
+    },
+    {
+      "id": "sum_64_small_run",
+      "values": [
+        { "bits": 64, "value": "0x1" },
+        { "bits": 64, "value": "0x2" },
+        { "bits": 64, "value": "0x3" },
+        { "bits": 64, "value": "0x4" },
+        { "bits": 64, "value": "0x5" },
+        { "bits": 64, "value": "0x6" },
+        { "bits": 64, "value": "0x7" },
+        { "bits": 64, "value": "0x8" },
+        { "bits": 64, "value": "0x9" },
+        { "bits": 64, "value": "0xa" }
+      ],
+      "result": { "bits": 64, "value": "0x37" }
+    },
+    {
+      "id": "sum_64_mid_pair",
+      "values": [
+        { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+        { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+      ],
+      "result": { "bits": 64, "value": "0x9898989898989898" }
+    },
+    {
+      "id": "sum_64_pattern_vs_inverse",
+      "values": [
+        { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+        { "bits": 64, "value": "0x5a5a5a5a5a5a5a5a" }
+      ],
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "sum_64_sized_8",
+      "values": [
+        { "bits": 64, "value": "0x6b" },
+        { "bits": 64, "value": "0x2d" }
+      ],
+      "result": { "bits": 64, "value": "0x98" }
+    },
+    {
+      "id": "sum_64_sized_16",
+      "values": [
+        { "bits": 64, "value": "0x6b6b" },
+        { "bits": 64, "value": "0x2d2d" }
+      ],
+      "result": { "bits": 64, "value": "0x9898" }
+    },
+    {
+      "id": "sum_64_sized_32",
+      "values": [
+        { "bits": 64, "value": "0x6b6b6b6b" },
+        { "bits": 64, "value": "0x2d2d2d2d" }
+      ],
+      "result": { "bits": 64, "value": "0x98989898" }
+    }
+  ]
+}

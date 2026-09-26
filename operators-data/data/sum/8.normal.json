@@ -1,0 +1,70 @@
+{
+  "op": "sum",
+  "arity": 1,
+  "operands": ["values"],
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "sum_8_e2e_s3",
+      "values": [
+        { "bits": 8, "value": "0xa" },
+        { "bits": 8, "value": "0x14" },
+        { "bits": 8, "value": "0x1e" }
+      ],
+      "result": { "bits": 8, "value": "0x3c" }
+    },
+    {
+      "id": "sum_8_plain",
+      "values": [
+        { "bits": 8, "value": "0x64" },
+        { "bits": 8, "value": "0x17" }
+      ],
+      "result": { "bits": 8, "value": "0x7b" }
+    },
+    {
+      "id": "sum_8_small_three",
+      "values": [
+        { "bits": 8, "value": "0x7" },
+        { "bits": 8, "value": "0x17" },
+        { "bits": 8, "value": "0x64" }
+      ],
+      "result": { "bits": 8, "value": "0x82" }
+    },
+    {
+      "id": "sum_8_small_run",
+      "values": [
+        { "bits": 8, "value": "0x1" },
+        { "bits": 8, "value": "0x2" },
+        { "bits": 8, "value": "0x3" },
+        { "bits": 8, "value": "0x4" },
+        { "bits": 8, "value": "0x5" },
+        { "bits": 8, "value": "0x6" },
+        { "bits": 8, "value": "0x7" },
+        { "bits": 8, "value": "0x8" },
+        { "bits": 8, "value": "0x9" },
+        { "bits": 8, "value": "0xa" }
+      ],
+      "result": { "bits": 8, "value": "0x37" }
+    },
+    {
+      "id": "sum_8_mid_pair",
+      "values": [
+        { "bits": 8, "value": "0x6b" },
+        { "bits": 8, "value": "0x2d" }
+      ],
+      "result": { "bits": 8, "value": "0x98" }
+    },
+    {
+      "id": "sum_8_pattern_vs_inverse",
+      "values": [
+        { "bits": 8, "value": "0xa5" },
+        { "bits": 8, "value": "0x5a" }
+      ],
+      "result": { "bits": 8, "value": "0xff" }
+    }
+  ]
+}

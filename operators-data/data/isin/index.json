@@ -1,0 +1,23 @@
+{
+  "op": "isin",
+  "arity": 2,
+  "operands": ["lhs", "values"],
+  "semantics": "membership",
+  "encoding": "hex-string",
+  "parts": [
+    { "width": 256, "kind": "normal", "file": "256.normal.json", "cases": 13, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 256, "kind": "edge", "file": "256.edge.json", "cases": 40, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 160, "kind": "normal", "file": "160.normal.json", "cases": 13, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 160, "kind": "edge", "file": "160.edge.json", "cases": 40, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 128, "kind": "normal", "file": "128.normal.json", "cases": 11, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 128, "kind": "edge", "file": "128.edge.json", "cases": 39, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 64, "kind": "normal", "file": "64.normal.json", "cases": 10, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 64, "kind": "edge", "file": "64.edge.json", "cases": 38, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 32, "kind": "normal", "file": "32.normal.json", "cases": 9, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 32, "kind": "edge", "file": "32.edge.json", "cases": 37, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 16, "kind": "normal", "file": "16.normal.json", "cases": 8, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 16, "kind": "edge", "file": "16.edge.json", "cases": 35, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 8, "kind": "normal", "file": "8.normal.json", "cases": 8, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] },
+    { "width": 8, "kind": "edge", "file": "8.edge.json", "cases": 39, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}] }
+  ]
+}

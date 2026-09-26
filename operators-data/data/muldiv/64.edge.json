@@ -1,0 +1,215 @@
+{
+  "op": "muldiv",
+  "arity": 3,
+  "operands": ["lhs", "rhs", "divisor"],
+  "semantics": "wide-product-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "muldiv_64_e2e_m7_product_overflows",
+      "lhs": { "bits": 64, "value": "0x2540be400" },
+      "rhs": { "bits": 64, "value": "0x2540be400" },
+      "divisor": { "bits": 64, "value": "0x2540be400" },
+      "result": { "bits": 64, "value": "0x2540be400" }
+    },
+    {
+      "id": "muldiv_64_zero_factor1",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0x64" },
+      "divisor": { "bits": 64, "value": "0x7" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_zero_factor2",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x0" },
+      "divisor": { "bits": 64, "value": "0x7" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_zero_zero",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0x0" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_one_one_by_one",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "muldiv_64_truncates_to_zero",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "divisor": { "bits": 64, "value": "0x2" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_one_one_by_max",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "divisor": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_product_equals_divisor",
+      "lhs": { "bits": 64, "value": "0x17" },
+      "rhs": { "bits": 64, "value": "0x7" },
+      "divisor": { "bits": 64, "value": "0xa1" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "muldiv_64_divisor_above_product",
+      "lhs": { "bits": 64, "value": "0x2" },
+      "rhs": { "bits": 64, "value": "0x3" },
+      "divisor": { "bits": 64, "value": "0x7" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_max_by_one_by_one",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "muldiv_64_one_by_max_by_one",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "muldiv_64_max_by_one_by_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "divisor": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "muldiv_64_max_by_small_by_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x64" },
+      "divisor": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "muldiv_64_max_max_by_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "muldiv_64_max_by_max_minus_1_by_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xfffffffffffffffe" },
+      "divisor": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0xfffffffffffffffe" }
+    },
+    {
+      "id": "muldiv_64_max_by_two_by_two",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x2" },
+      "divisor": { "bits": 64, "value": "0x2" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "muldiv_64_max_by_small_by_small",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "divisor": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "muldiv_64_max_by_half_power_by_half_power",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x100000000" },
+      "divisor": { "bits": 64, "value": "0x100000000" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "muldiv_64_top_bit_by_two_by_two",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x2" },
+      "divisor": { "bits": 64, "value": "0x2" },
+      "result": { "bits": 64, "value": "0x8000000000000000" }
+    },
+    {
+      "id": "muldiv_64_top_bit_squared_by_top_bit",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x8000000000000000" },
+      "divisor": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 64, "value": "0x8000000000000000" }
+    },
+    {
+      "id": "muldiv_64_pattern_squared_by_pattern",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "divisor": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "result": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "muldiv_64_max_max_by_one",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "muldiv_64_max_max_by_two",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0x2" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_max_max_by_small",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x2c8590b21642c859" }
+    },
+    {
+      "id": "muldiv_64_max_max_by_top_bit",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 64, "value": "0xfffffffffffffffc" }
+    },
+    {
+      "id": "muldiv_64_max_max_by_max_minus_1",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0xfffffffffffffffe" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_top_bit_by_two_by_one",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x2" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "muldiv_64_pattern_by_inverse_by_one",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0x5a5a5a5a5a5a5a5a" },
+      "divisor": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0xa76b2ef2b67a3e02" }
+    },
+    {
+      "id": "muldiv_64_inverse_pattern_by_max_by_pattern",
+      "lhs": { "bits": 64, "value": "0x5a5a5a5a5a5a5a5a" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "divisor": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "result": { "bits": 64, "value": "0x8ba2e8ba2e8ba2e8" }
+    }
+  ]
+}
