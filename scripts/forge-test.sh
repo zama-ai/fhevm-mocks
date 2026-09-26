@@ -20,7 +20,16 @@
 
 set -uo pipefail
 
-log_file="$(mktemp -t forge-test)"
+# The TEMPLATE form, not `mktemp -t forge-test`. BSD mktemp accepts a bare prefix and appends the random
+# part itself, so `-t` looked fine on macOS; GNU mktemp REQUIRES the `XXXXXX` and fails on the bare
+# prefix, leaving this variable empty. The guard below then grepped a file named "" and reported "ran NO
+# tests" for a tier whose tests had in fact all passed -- a check that cannot tell its own breakage from
+# the thing it watches for is worse than no check, hence the explicit refusal that follows.
+log_file="$(mktemp "${TMPDIR:-/tmp}/forge-test.XXXXXX")" || log_file=""
+if [[ -z "${log_file}" || ! -w "${log_file}" ]]; then
+  echo "forge-test.sh: could not create a temporary file to capture forge's output; no test was run." >&2
+  exit 1
+fi
 trap 'rm -f "${log_file}"' EXIT
 
 forge test "$@" 2>&1 | tee "${log_file}"
