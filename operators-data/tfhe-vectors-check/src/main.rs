@@ -20,6 +20,8 @@ struct Vectors {
     semantics: String,
     encoding: String,
     #[serde(default)]
+    operands: Option<Vec<String>>,
+    #[serde(default)]
     verified: Vec<Verified>,
     cases: Vec<Case>,
 }
@@ -31,9 +33,18 @@ fn two() -> u32 {
 #[derive(Deserialize)]
 struct Case {
     id: String,
-    lhs: Operand,
+    lhs: Option<Operand>,
     rhs: Option<Operand>,
+    divisor: Option<Operand>,
+    values: Option<Vec<Operand>>,
     result: Operand,
+}
+
+impl Case {
+    // Unary and binary operators always carry `lhs`; `run_part` checks it before anything reads it.
+    fn lhs(&self) -> &Operand {
+        self.lhs.as_ref().expect("lhs presence is checked before use")
+    }
 }
 
 #[derive(Deserialize)]
@@ -104,6 +115,9 @@ fn expected_semantics(op: &str) -> Option<&'static str> {
         "not" => "bitwise-complement",
         "shl" | "shr" => SHIFT_SEMANTICS,
         "rotl" | "rotr" => "amount-mod-width",
+        "sum" => "wrapping",
+        "isin" => "membership",
+        "muldiv" => "wide-product-divisor-nonzero",
         _ => return None,
     })
 }
@@ -111,8 +125,8 @@ fn expected_semantics(op: &str) -> Option<&'static str> {
 fn expected_result_bits(op: &str, case: &Case) -> u32 {
     match op {
         "eq" | "ne" | "lt" | "le" | "gt" | "ge" => 1,
-        "not" | "neg" => case.lhs.bits,
-        _ => case.lhs.bits.max(case.rhs.as_ref().map_or(0, |r| r.bits)),
+        "not" | "neg" => case.lhs().bits,
+        _ => case.lhs().bits.max(case.rhs.as_ref().map_or(0, |r| r.bits)),
     }
 }
 
@@ -249,7 +263,7 @@ fn rhs_big(case: &Case) -> Result<Big, String> {
 // (euintN, euint8), (euintN, uint8) for shifts/rotates; unary for not.
 macro_rules! fhe_check {
     ($T:ty, $S:ty, $D:ty, $op:expr, $case:expr, $a:expr, $expected:expr, $ck:expr) => {{
-        let ea: $T = encrypt($case.lhs.bits, $a, $ck).cast_to();
+        let ea: $T = encrypt($case.lhs().bits, $a, $ck).cast_to();
         let dec = |r: $T| -> Big { <$D as ToBig>::to_big(r.decrypt($ck)) };
         let got: Vec<(&str, Big)> = match $op {
             "not" => vec![("enc", dec(!&ea))],
@@ -372,7 +386,7 @@ fn bool_check(op: &str, case: &Case, a: Big, expected: Big, ck: &ClientKey) -> R
 
 fn fhe_check(op: &str, case: &Case, a: Big, expected: Big, ck: &ClientKey) -> Result<(), String> {
     // Operands are cast to the widest operand width, as FHE.sol does before dispatching.
-    let width = case.lhs.bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
+    let width = case.lhs().bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
     match width {
         1 => bool_check(op, case, a, expected, ck),
         8 => fhe_check!(FheUint8, u8, u128, op, case, a, expected, ck),
@@ -383,6 +397,160 @@ fn fhe_check(op: &str, case: &Case, a: Big, expected: Big, ck: &ClientKey) -> Re
         160 => fhe_check!(FheUint160, U256, U256, op, case, a, expected, ck),
         256 => fhe_check!(FheUint256, U256, U256, op, case, a, expected, ck),
         w => Err(format!("unsupported operand width {w}")),
+    }
+}
+
+// sum, isin, muldiv: a collection operand, or three operands. The header's "operands" names the
+// fields every case carries, and all of a case's operands share one width (the executor rejects
+// mixed types for all three).
+fn nary_operands(op: &str) -> Option<&'static [&'static str]> {
+    Some(match op {
+        "sum" => &["values"],
+        "isin" => &["lhs", "values"],
+        "muldiv" => &["lhs", "rhs", "divisor"],
+        _ => return None,
+    })
+}
+
+// FHEVMExecutor's FHE_COLLECTION_NARROW_MAX_SIZE (8..32 bits) and FHE_COLLECTION_WIDE_MAX_SIZE.
+fn collection_max(bits: u32) -> usize {
+    if bits <= 32 { 100 } else { 60 }
+}
+
+fn nary_widths(op: &str) -> &'static [u32] {
+    match op {
+        "sum" => &[8, 16, 32, 64, 128],
+        "isin" => &[8, 16, 32, 64, 128, 160, 256],
+        _ => &[8, 16, 32, 64],
+    }
+}
+
+struct Nary {
+    width: u32,
+    lhs: Option<Big>,
+    rhs: Option<Big>,
+    divisor: Option<Big>,
+    values: Vec<Big>,
+}
+
+// Structural checks first: which fields are present, one shared width, the executor's size cap and
+// supported widths, and a non-zero divisor.
+fn nary_shape(op: &str, case: &Case) -> Result<Nary, String> {
+    let fields = nary_operands(op).unwrap();
+    let present = |name: &str| match name {
+        "lhs" => case.lhs.is_some(),
+        "rhs" => case.rhs.is_some(),
+        "divisor" => case.divisor.is_some(),
+        _ => case.values.is_some(),
+    };
+    for name in ["lhs", "rhs", "divisor", "values"] {
+        if present(name) != fields.contains(&name) {
+            return Err(format!("{op}: field {name} must {}be present", if present(name) { "not " } else { "" }));
+        }
+    }
+    // An empty collection carries no operand width, so a sum's width comes from its result.
+    let width = match op {
+        "sum" => case.result.bits,
+        _ => case.lhs().bits,
+    };
+    if !nary_widths(op).contains(&width) {
+        return Err(format!("{op}: unsupported width {width}"));
+    }
+    let singles = [&case.lhs, &case.rhs, &case.divisor];
+    let all = singles.iter().filter_map(|o| o.as_ref()).chain(case.values.iter().flatten());
+    if let Some(o) = all.clone().find(|o| o.bits != width) {
+        return Err(format!("{op}: operand of {} bits in a {width}-bit case", o.bits));
+    }
+    let values: Vec<Big> = case.values.iter().flatten().map(Operand::parse).collect::<Result<_, _>>()?;
+    if values.len() > collection_max(width) {
+        return Err(format!("{op}: {} elements, the {width}-bit maximum is {}", values.len(), collection_max(width)));
+    }
+    let want_bits = if op == "isin" { 1 } else { width };
+    if case.result.bits != want_bits {
+        return Err(format!("result.bits {} != {want_bits}", case.result.bits));
+    }
+    let parse = |o: &Option<Operand>| o.as_ref().map(Operand::parse).transpose();
+    let shape = Nary { width, lhs: parse(&case.lhs)?, rhs: parse(&case.rhs)?, divisor: parse(&case.divisor)?, values };
+    if shape.divisor == Some(Big { lo: 0, hi: 0 }) {
+        return Err("zero divisor".into());
+    }
+    Ok(shape)
+}
+
+// Clear reference. isin compares at any width; sum and muldiv stay at or under 128 bits, and a
+// muldiv product of two 64-bit factors fits in a u128.
+fn nary_clear(op: &str, s: &Nary) -> Big {
+    // Only sum and muldiv use the mask, and both stop at 128 bits; isin reaches 256 and ignores it.
+    let mask = if s.width >= 128 { u128::MAX } else { (1u128 << s.width) - 1 };
+    match op {
+        "sum" => s.values.iter().fold(0u128, |acc, v| acc.wrapping_add(v.lo)).to_big_masked(mask),
+        "isin" => Big::from_bool(s.values.contains(&s.lhs.unwrap())),
+        _ => ((s.lhs.unwrap().lo * s.rhs.unwrap().lo) / s.divisor.unwrap().lo).to_big_masked(mask),
+    }
+}
+
+trait Masked {
+    fn to_big_masked(self, mask: u128) -> Big;
+}
+impl Masked for u128 {
+    fn to_big_masked(self, mask: u128) -> Big {
+        Big { lo: self & mask, hi: 0 }
+    }
+}
+
+// The same tfhe-rs calls the coprocessor makes (fhevm-engine-common/src/tfhe_ops.rs):
+// sum = Iterator::sum, isin = FheUint::contains, muldiv = fused_mul_scalar_div for an encrypted
+// second factor and fused_scalar_mul_scalar_div for a clear one. Empty collections go through tfhe-rs
+// too: it returns a trivial zero for an empty sum and a trivial false for an empty contains.
+macro_rules! nary_fhe {
+    ($T:ty, $S:ty, $D:ty, $op:expr, $s:expr, $ck:expr) => {{
+        let enc = |v: Big| -> $T { encrypt($s.width, v, $ck).cast_to() };
+        let dec = |r: $T| -> Big { <$D as ToBig>::to_big(r.decrypt($ck)) };
+        let vals: Vec<$T> = $s.values.iter().map(|v| enc(*v)).collect();
+        match $op {
+            "sum" => vec![("enc[]", dec(vals.iter().sum::<$T>()))],
+            "isin" => {
+                let r = <$T>::contains(&vals, &enc($s.lhs.unwrap()));
+                vec![("enc,enc[]", Big::from_bool(r.decrypt($ck)))]
+            }
+            _ => {
+                let (a, b, d) = ($s.lhs.unwrap(), $s.rhs.unwrap(), $s.divisor.unwrap());
+                let (ea, eb) = (enc(a), enc(b));
+                let (sb, sd) = (<$S>::from_big(b), <$S>::from_big(d));
+                vec![
+                    ("enc,enc,clear", dec((&ea).fused_mul_scalar_div(&eb, sd))),
+                    ("enc,clear,clear", dec((&ea).fused_scalar_mul_scalar_div(sb, sd))),
+                ]
+            }
+        }
+    }};
+}
+
+// Per-type dispatch. Each arm names only the operators tfhe-rs and the executor support at that width.
+fn nary_fhe(op: &str, s: &Nary, ck: &ClientKey) -> Result<Vec<(&'static str, Big)>, String> {
+    Ok(match (s.width, op) {
+        (8, _) => nary_fhe!(FheUint8, u8, u128, op, s, ck),
+        (16, _) => nary_fhe!(FheUint16, u16, u128, op, s, ck),
+        (32, _) => nary_fhe!(FheUint32, u32, u128, op, s, ck),
+        (64, _) => nary_fhe!(FheUint64, u64, u128, op, s, ck),
+        (128, "sum" | "isin") => nary_fhe!(FheUint128, u128, u128, op, s, ck),
+        (160, "isin") => nary_fhe!(FheUint160, U256, U256, op, s, ck),
+        (256, "isin") => nary_fhe!(FheUint256, U256, U256, op, s, ck),
+        (w, _) => return Err(format!("{op}: no tfhe-rs dispatch for width {w}")),
+    })
+}
+
+fn nary_case(op: &str, case: &Case, ck: Option<&ClientKey>) -> Result<(), String> {
+    let shape = nary_shape(op, case)?;
+    let expected = case.result.parse()?;
+    // isin checks at every width; sum and muldiv never exceed 128 bits (nary_widths).
+    let clear = nary_clear(op, &shape);
+    if clear != expected {
+        return Err(format!("clear: got {clear}, json says {expected}"));
+    }
+    match ck {
+        Some(ck) => compare(nary_fhe(op, &shape, ck)?, expected),
+        None => Ok(()),
     }
 }
 
@@ -431,6 +599,8 @@ struct Index {
     #[serde(default = "two")]
     arity: u32,
     semantics: String,
+    #[serde(default)]
+    operands: Option<Vec<String>>,
     parts: Vec<Part>,
 }
 
@@ -488,7 +658,7 @@ fn load(path: &Path) -> Result<Vec<LoadedPart>, String> {
     for part in &index.parts {
         let part_path = path.join(&part.file);
         let v = parse_file(&part_path)?;
-        if v.op != index.op || v.semantics != index.semantics || v.arity != index.arity {
+        if v.op != index.op || v.semantics != index.semantics || v.arity != index.arity || v.operands != index.operands {
             return Err(format!("{}: header differs from index.json", part.file));
         }
         parts.push(LoadedPart { path: part_path, index: Some(index_path.clone()), vectors: v });
@@ -573,7 +743,13 @@ fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, pro
     let mut failures = 0;
     for case in &vectors.cases {
         let outcome = (|| -> Result<(), String> {
-            let a = case.lhs.parse()?;
+            if nary_operands(op).is_some() {
+                return nary_case(op, case, ck);
+            }
+            if case.divisor.is_some() || case.values.is_some() {
+                return Err(format!("{op} takes no divisor or values"));
+            }
+            let a = case.lhs.as_ref().ok_or("missing lhs")?.parse()?;
             let expected = case.result.parse()?;
             let b = match (&case.rhs, arity) {
                 (Some(r), 2) => Some(r.parse()?),
@@ -587,7 +763,7 @@ fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, pro
             if case.result.bits != want_bits {
                 return Err(format!("result.bits {} != {want_bits}", case.result.bits));
             }
-            let width = case.lhs.bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
+            let width = case.lhs().bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
             if width <= 128 {
                 let clear = clear_op(op, a.lo, b.map_or(0, |b| b.lo), width).to_big();
                 if clear != expected {
@@ -628,9 +804,18 @@ fn validate(set: &[LoadedPart]) -> Result<(String, u32), String> {
             first.vectors.semantics, semantics
         ));
     }
-    let expected_arity = if matches!(op.as_str(), "not" | "neg") { 1 } else { 2 };
+    let expected_operands = nary_operands(&op);
+    let expected_arity = match expected_operands {
+        Some(fields) => fields.len() as u32,
+        None if matches!(op.as_str(), "not" | "neg") => 1,
+        None => 2,
+    };
     if arity != expected_arity {
         return Err(format!("{op}: arity {arity} declared, {expected_arity} expected"));
+    }
+    let declared: Option<Vec<&str>> = first.vectors.operands.as_ref().map(|v| v.iter().map(String::as_str).collect());
+    if declared.as_deref() != expected_operands {
+        return Err(format!("{op}: operands {declared:?} declared, {expected_operands:?} expected"));
     }
     Ok((op, arity))
 }
