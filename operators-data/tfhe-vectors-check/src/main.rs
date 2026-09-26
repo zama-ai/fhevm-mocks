@@ -1,8 +1,61 @@
 use std::fmt;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+
+// Every progress note and case result also goes to a log file, each line stamped with the time since
+// the run started. An FHE run always writes one (see `main`), so a long run can be followed with
+// `tail -f` and survives the terminal that started it.
+static LOG: OnceLock<Mutex<fs::File>> = OnceLock::new();
+static RUN_START: OnceLock<Instant> = OnceLock::new();
+
+fn log_line(line: &str) {
+    if let Some(file) = LOG.get() {
+        if let Ok(mut file) = file.lock() {
+            let elapsed = RUN_START.get_or_init(Instant::now).elapsed();
+            let _ = writeln!(file, "[{}] {line}", fmt_duration(elapsed));
+        }
+    }
+}
+
+// Progress notes: stderr and the log.
+macro_rules! note {
+    ($($t:tt)*) => {{
+        let line = format!($($t)*);
+        eprintln!("{line}");
+        log_line(&line);
+    }};
+}
+
+// Case results and summaries: stdout and the log.
+macro_rules! out {
+    ($($t:tt)*) => {{
+        let line = format!($($t)*);
+        println!("{line}");
+        log_line(&line);
+    }};
+}
+
+// The case under FHE right now. One case can run for minutes (a 64-bit muldiv widens to 128-bit
+// products, a 60-element 256-bit isin is 60 wide comparisons), and the progress line only moves when a
+// case ends, so a heartbeat says which case is still running and for how long.
+static CURRENT: Mutex<Option<(String, Instant)>> = Mutex::new(None);
+const HEARTBEAT: Duration = Duration::from_secs(30);
+
+fn start_heartbeat() {
+    std::thread::spawn(|| loop {
+        std::thread::sleep(HEARTBEAT);
+        let current = CURRENT.lock().map(|c| c.clone()).unwrap_or(None);
+        if let Some((id, since)) = current {
+            if since.elapsed() >= HEARTBEAT {
+                note!("      still on {id} ({})", fmt_duration(since.elapsed()));
+            }
+        }
+    });
+}
 
 use serde::Deserialize;
 use tfhe::integer::U256;
@@ -582,7 +635,7 @@ impl Progress {
         self.last = now;
         let elapsed = now.duration_since(self.start);
         let eta = elapsed.mul_f64((self.total - done) as f64 / done as f64);
-        eprintln!(
+        note!(
             "[{:5.1}%] {}/{}  elapsed {}  eta {}",
             100.0 * done as f64 / self.total as f64,
             done,
@@ -742,6 +795,10 @@ fn record_verified(part: &LoadedPart) -> Result<(), String> {
 fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, progress: &mut Progress) -> usize {
     let mut failures = 0;
     for case in &vectors.cases {
+        let started = Instant::now();
+        if ck.is_some() {
+            *CURRENT.lock().unwrap() = Some((case.id.clone(), started));
+        }
         let outcome = (|| -> Result<(), String> {
             if nary_operands(op).is_some() {
                 return nary_case(op, case, ck);
@@ -775,11 +832,17 @@ fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, pro
                 None => Ok(()),
             }
         })();
+        let took = if ck.is_some() {
+            *CURRENT.lock().unwrap() = None;
+            format!("  ({:.1}s)", started.elapsed().as_secs_f64())
+        } else {
+            String::new()
+        };
         match outcome {
-            Ok(()) => println!("ok    {}", case.id),
+            Ok(()) => out!("ok    {}{took}", case.id),
             Err(e) => {
                 failures += 1;
-                println!("FAIL  {}: {e}", case.id);
+                out!("FAIL  {}: {e}{took}", case.id);
             }
         }
         if ck.is_some() {
@@ -825,16 +888,32 @@ fn main() -> ExitCode {
     let no_fhe = args.iter().any(|a| a == "--no-fhe");
     let no_record = args.iter().any(|a| a == "--no-record");
     let force = args.iter().any(|a| a == "--force");
+    let log_arg = args.iter().find_map(|a| a.strip_prefix("--log="));
     let Some(path) = args.iter().find(|a| !a.starts_with("--")) else {
-        eprintln!("usage: tfhe-vectors-check [--no-fhe] [--no-record] [--force] <data-root | op-dir | part.json>");
+        eprintln!(
+            "usage: tfhe-vectors-check [--no-fhe] [--no-record] [--force] [--log=FILE] <data-root | op-dir | part.json>"
+        );
         return ExitCode::from(2);
     };
-    eprintln!("tfhe-rs {} (shl/shr: {SHIFT_SEMANTICS})", env!("TFHE_VERSION"));
+    RUN_START.get_or_init(Instant::now);
+    // An FHE run always logs, to ./tfhe-vectors-check.log unless --log=FILE says otherwise. A --no-fhe
+    // run takes under a second and logs only when asked.
+    if let Some(log_path) = log_arg.or((!no_fhe).then_some("tfhe-vectors-check.log")) {
+        match fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            Ok(file) => {
+                let _ = LOG.set(Mutex::new(file));
+                log_line(&format!("==== {} tfhe-vectors-check {}", today(), args.join(" ")));
+                eprintln!("progress log: {log_path}  (follow with: tail -f {log_path})");
+            }
+            Err(e) => eprintln!("could not open progress log {log_path}: {e}"),
+        }
+    }
+    note!("tfhe-rs {} (shl/shr: {SHIFT_SEMANTICS})", env!("TFHE_VERSION"));
 
     let sets = match load_sets(Path::new(path)) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("{path}: {e}");
+            note!("{path}: {e}");
             return ExitCode::from(2);
         }
     };
@@ -847,12 +926,12 @@ fn main() -> ExitCode {
             Ok((op, arity)) => runnable.push((op, arity, set)),
             Err(e) => {
                 skipped += 1;
-                eprintln!("skipping: {e}");
+                note!("skipping: {e}");
             }
         }
     }
     if runnable.is_empty() {
-        eprintln!("nothing to run");
+        note!("nothing to run");
         return ExitCode::from(2);
     }
 
@@ -871,9 +950,10 @@ fn main() -> ExitCode {
     let ck = if no_fhe || total == 0 {
         None
     } else {
-        eprintln!("generating keys...");
+        note!("generating keys... ({total} cases to check)");
         let (ck, sk) = generate_keys(ConfigBuilder::default().build());
         set_server_key(sk);
+        start_heartbeat();
         Some(ck)
     };
 
@@ -886,25 +966,28 @@ fn main() -> ExitCode {
         for part in set.iter() {
             if already_verified(part) {
                 reused += 1;
-                println!("skip  {} already verified with tfhe-rs {}", part.path.display(), env!("TFHE_VERSION"));
+                out!("skip  {} already verified with tfhe-rs {}", part.path.display(), env!("TFHE_VERSION"));
                 continue;
             }
             op_checked += part.vectors.cases.len();
+            if ck.is_some() {
+                note!("part  {}  ({} cases)", part.path.display(), part.vectors.cases.len());
+            }
             let part_failures = run_part(op, *arity, &part.vectors, ck.as_ref(), &mut progress);
             op_failures += part_failures;
             if ck.is_some() && part_failures == 0 && !no_record {
                 match record_verified(part) {
-                    Ok(()) => eprintln!("recorded tfhe-rs {} in {}", env!("TFHE_VERSION"), part.path.display()),
-                    Err(e) => eprintln!("could not record verification: {e}"),
+                    Ok(()) => note!("recorded tfhe-rs {} in {}", env!("TFHE_VERSION"), part.path.display()),
+                    Err(e) => note!("could not record verification: {e}"),
                 }
             }
         }
-        println!("{op}: {op_checked} cases checked, {op_failures} failed");
+        out!("{op}: {op_checked} cases checked, {op_failures} failed");
         failures += op_failures;
     }
 
     if runnable.len() > 1 || skipped > 0 || reused > 0 {
-        println!(
+        out!(
             "total: {} sets, {total} cases checked, {failures} failed, {skipped} sets skipped, {reused} parts already verified",
             runnable.len()
         );

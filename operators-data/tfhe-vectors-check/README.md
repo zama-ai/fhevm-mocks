@@ -52,6 +52,35 @@ cargo run   --manifest-path tfhe16/Cargo.toml -- ../data/shl.amount-mod-width
 - `--no-record`: do not write verification records.
 - `--force`: re-check parts already verified by this build's tfhe-rs release. Without it an
   FHE run skips them, so re-running the root after an interruption only does what is left.
+- `--log=FILE`: where the progress log goes. An FHE run always writes one, by default to
+  `./tfhe-vectors-check.log` (gitignored). A `--no-fhe` run writes one only with this option.
+
+## Progress log
+
+An FHE run can take a long time: one 64-bit `muldiv` case or one 60-element 256-bit `isin` case
+can take minutes. The log is appended to, never truncated, and every line is stamped with the time
+since the run started. The shape looks like this; the timings are illustrative, not measured:
+
+```text
+[0m00s] ==== 2026-09-26 tfhe-vectors-check ../data/muldiv
+[0m00s] generating keys... (148 cases to check)
+[0m04s] part  ../data/muldiv/64.normal.json  (9 cases)
+[0m34s]       still on muldiv_64_e2e_m8 (0m30s)
+[0m51s] ok    muldiv_64_e2e_m8  (47.2s)
+[0m51s] [  0.7%] 1/148  elapsed 0m51s  eta 124m48s
+[2m16s] recorded tfhe-rs 1.7.1 in ../data/muldiv/64.normal.json
+```
+
+A `part` line marks the start of each part file, and `recorded` marks it verified. Each case line
+carries its duration. A `still on` line appears every 30 s while one case is running.
+
+Follow it from another terminal:
+
+```sh
+tail -f tfhe-vectors-check.log
+```
+
+An interrupted run loses only the part it was in. Parts already recorded are skipped on the next run.
 
 ## Verification records
 
