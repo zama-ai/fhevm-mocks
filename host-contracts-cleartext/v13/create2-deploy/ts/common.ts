@@ -47,8 +47,8 @@ export type Stage = string;
 /**
  * Everything that differs between the deploy and the upgrade.
  *
- * Seven fields, which is the honest measure of how much the two flows actually diverge: the rest of this
- * file is identical for both. Adding a flow means writing one of these plus its stage functions.
+ * A handful of fields, which is the honest measure of how much the two flows actually diverge: the rest
+ * of this file is identical for both. Adding a flow means writing one of these plus its stage functions.
  */
 export type Flow = {
   /** For messages and the journal, e.g. `deploy` or `upgrade`. */
@@ -67,6 +67,8 @@ export type Flow = {
   readonly needsChain: (stage: Stage) => boolean;
   /** Does this stage need the deployer resolved from the keystore, at the cost of a password prompt? */
   readonly needsDeployerKey: (stage: Stage) => boolean;
+  /** The stages that send a transaction FROM THE ADMIN (besides `all`), so preflight checks its funds. */
+  readonly adminSendingStages: readonly Stage[];
 };
 
 export type Options = {
@@ -1489,8 +1491,25 @@ export function preflight(ctx: Ctx): void {
   checkFactory(ctx);
 
   const finalized = probeFinality(ctx);
-  const balanceWei = captureOrFail('cast', ['balance', ctx.deployer, '--rpc-url', ctx.opt.rpcUrl]);
-  const balanceEth = captureOrFail('cast', ['to-unit', balanceWei, 'ether']);
+  const balanceEth = etherBalance(ctx, ctx.deployer);
+
+  // The admin signs a transaction of its own — step F of a deploy, the atomic upgrade — but only at the
+  // END of a run. An empty admin key would surface there, after everything else had been sent and waited
+  // for, so it is checked here. Only when this tooling signs for it (a multisig pays its own gas), and
+  // only for a stage that actually sends as the admin: a read-only look must not fail on it.
+  const adminSigner = ctx.opt.adminSigner;
+  const adminBalanceEth = adminSigner === null ? null : etherBalance(ctx, ctx.opt.admin);
+  if (adminSigner !== null && adminBalanceEth !== null) {
+    const sendsAsAdmin =
+      !ctx.opt.dryRun && (ctx.opt.stage === 'all' || ctx.flow.adminSendingStages.includes(ctx.opt.stage));
+    if (sendsAsAdmin && /^0(\.0*)?$/.test(adminBalanceEth)) {
+      fail(
+        `Error: the admin ${ctx.opt.admin} has no ETH on chain ${ctx.chainId}.`,
+        `       This run sends a transaction as the admin (${ctx.flow.adminSendingStages.join(', ')}), signed by`,
+        `       ${describeSigner(adminSigner)}. Fund it first; nothing has been sent.`,
+      );
+    }
+  }
 
   say(
     `  chain            ${ctx.chainId}`,
@@ -1499,12 +1518,19 @@ export function preflight(ctx: Ctx): void {
     `  deployer         ${ctx.deployer}`,
     `  balance          ${balanceEth} ETH`,
     `  admin            ${ctx.opt.admin}`,
+    ...(adminBalanceEth === null ? [] : [`  admin balance    ${adminBalanceEth} ETH`]),
     `  deploymentId     ${ctx.opt.deploymentId} @ v${FHEVM_VERSION}`,
     `  out dir          ${ctx.outDir}`,
     `  config           ${ctx.opt.configPath ?? '(none - all arguments on the command line)'}`,
     ...previousManifestLines(ctx),
     '',
   );
+}
+
+/** An account's balance in ether, as `cast to-unit` prints it (e.g. `0`, `1.5`). */
+function etherBalance(ctx: Ctx, address: string): string {
+  const wei = captureOrFail('cast', ['balance', address, '--rpc-url', ctx.opt.rpcUrl]);
+  return captureOrFail('cast', ['to-unit', wei, 'ether']);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

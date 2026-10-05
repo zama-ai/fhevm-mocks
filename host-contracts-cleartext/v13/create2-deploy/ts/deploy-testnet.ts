@@ -607,6 +607,7 @@ const DEPLOY_FLOW: Flow = {
   reportSteps: REPORT_STEPS,
   needsChain,
   needsDeployerKey,
+  adminSendingStages: ['accept-admin'],
 };
 
 ////////////////////////////////////////////////////////////////////////////////
