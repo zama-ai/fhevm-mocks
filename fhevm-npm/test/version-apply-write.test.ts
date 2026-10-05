@@ -5,7 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { type NpmRunner, applyPlan, guardNpmjs, planVersionApply, writePackageVersion } from '../base/version-apply.ts';
+import {
+  type NpmRunner,
+  applyPlan,
+  guardNpmjs,
+  planVersionApply,
+  writeGeneratedVersion,
+  writePackageVersion,
+} from '../base/version-apply.ts';
 import { loadedPackage, parseTestNpmManifest } from './helpers.ts';
 
 const manifest = parseTestNpmManifest({
@@ -114,6 +121,36 @@ test('writePackageVersion demands exactly one matching version line', () => {
     );
     writePackageVersion(file, { path: 'package.json', description: 'version', from: '1.0.0', to: '1.0.1' });
     assert.equal(readFileSync(file, 'utf8'), '{\n  "version": "1.0.1"\n}\n');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('writeGeneratedVersion replaces only the captured version and demands exactly one expected match', () => {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-write-generated-'));
+  try {
+    const file = join(root, 'Version.sol');
+    const pattern = /string internal constant VERSION = "([^"]*)";/;
+    const write = (from: string) => ({
+      path: 'Version.sol',
+      description: 'generated version',
+      from,
+      to: '1.0.0',
+      pattern,
+    });
+    const sol = (version: string) =>
+      `// generated from 1.0.0-1\nlibrary V {\n    string internal constant VERSION = "${version}";\n}\n`;
+    writeFileSync(file, sol('1.0.0-1'));
+    assert.throws(() => writeGeneratedVersion(file, write('0.9.0')), /embedding 0\.9\.0, found 1\.0\.0-1/);
+    writeGeneratedVersion(file, write('1.0.0-1'));
+    // The comment carrying the same text is untouched: only the captured span moved.
+    assert.equal(readFileSync(file, 'utf8'), sol('1.0.0'));
+    writeFileSync(file, sol('1.0.0-1') + sol('1.0.0-1'));
+    assert.throws(() => writeGeneratedVersion(file, write('1.0.0-1')), /found 2/);
+    assert.throws(
+      () => writeGeneratedVersion(file, { path: 'Version.sol', description: 'version', from: '1', to: '2' }),
+      /not a generated-file write/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

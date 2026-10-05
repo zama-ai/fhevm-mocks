@@ -6,7 +6,10 @@ import test from 'node:test';
 
 import {
   type InstallationLock,
+  type GeneratedVersionFile,
+  readGeneratedVersions,
   readInstallationLocks,
+  validateGeneratedVersions,
   validateLockfileMemberVersions,
   validatePackageVersions,
 } from '../base/version-check.ts';
@@ -83,6 +86,54 @@ test('readInstallationLocks reads one lockfile per installation root and skips r
       locks.map((lock) => [lock.rootKey, Object.keys(lock.entries)]),
       [['.', ['', 'library/pkg']]],
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+const versionSol: GeneratedVersionFile = {
+  packageKey: './library/pkg',
+  path: 'src/Version.sol',
+  pattern: /VERSION = "([^"]*)";/,
+  regenerate: '`npm run generate:version`',
+};
+
+test('a generated version file must embed the central version; payloads the file lacks are not compared', () => {
+  const central = versions({ './library/pkg': '1.2.3' });
+  assert.deepEqual(
+    validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: '1.2.3' }]),
+    [],
+  );
+  assert.deepEqual(validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: '1.2.3-1' }]), [
+    {
+      rule: 'version-generated',
+      packageKey: './library/pkg/src/Version.sol',
+      message: 'embeds 1.2.3-1; central version is 1.2.3 — run `version apply`',
+    },
+  ]);
+  assert.deepEqual(validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: undefined }]), [
+    {
+      rule: 'version-generated',
+      packageKey: './library/pkg/src/Version.sol',
+      message:
+        'embeds no version matching /VERSION = "([^"]*)";/; central version is 1.2.3 — run `npm run generate:version`',
+    },
+  ]);
+  assert.deepEqual(
+    validateGeneratedVersions([library('1.2.3')], versions({}), [{ file: versionSol, version: '0.0.0' }]),
+    [],
+  );
+});
+
+test('readGeneratedVersions reads each present file and skips missing files and unloaded payloads', () => {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-version-check-'));
+  try {
+    const pkg = { ...library('1.2.3'), directory: join(root, 'library', 'pkg') };
+    const orphan: GeneratedVersionFile = { ...versionSol, packageKey: './elsewhere/pkg' };
+    assert.deepEqual(readGeneratedVersions([pkg], [versionSol, orphan]), []);
+    mkdirSync(join(pkg.directory, 'src'), { recursive: true });
+    writeFileSync(join(pkg.directory, 'src', 'Version.sol'), 'string internal constant VERSION = "1.2.3-1";\n');
+    assert.deepEqual(readGeneratedVersions([pkg], [versionSol, orphan]), [{ file: versionSol, version: '1.2.3-1' }]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

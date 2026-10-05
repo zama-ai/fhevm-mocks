@@ -12,7 +12,7 @@ import {
   formatPlan,
   planDerivedWrites,
 } from '../base/version-apply.ts';
-import type { InstallationLock } from '../base/version-check.ts';
+import type { GeneratedVersionFile, InstallationLock } from '../base/version-check.ts';
 import type { VersionsFile } from '../base/versions.ts';
 import { loadedPackage } from './helpers.ts';
 
@@ -138,6 +138,42 @@ test('the plan names every derived field that disagrees: package.json versions a
   assert.equal(
     formatPlan({ transitions: [], writes: [] }, []),
     'no central edit\nnothing to reconcile: derived files already agree',
+  );
+});
+
+test('the plan rewrites a stale generated version file between package.json and the lockfiles', () => {
+  const library = loadedPackage(
+    './library/pkg',
+    { kind: 'published', name: '@scope/library', member: true },
+    { name: '@scope/library', version: '1.0.0' },
+  );
+  const file: GeneratedVersionFile = {
+    packageKey: './library/pkg',
+    path: 'src/Version.sol',
+    pattern: /VERSION = "([^"]*)";/,
+    regenerate: '`npm run generate:version`',
+  };
+  const locks: InstallationLock[] = [
+    { rootKey: '.', rootDirectory: '/workspace', entries: { 'library/pkg': { version: '1.0.0' } } },
+  ];
+  const central = versions({ './library/pkg': '1.0.1' });
+  assert.deepEqual(planDerivedWrites('/workspace', [library], central, locks, [{ file, version: '1.0.0-1' }]), [
+    { path: 'library/pkg/package.json', description: 'version', from: '1.0.0', to: '1.0.1' },
+    {
+      path: 'library/pkg/src/Version.sol',
+      description: 'generated version',
+      from: '1.0.0-1',
+      to: '1.0.1',
+      pattern: file.pattern,
+    },
+    { path: 'package-lock.json', description: 'library/pkg version', from: '1.0.0', to: '1.0.1' },
+  ]);
+  // Already agreeing: nothing to write for it.
+  assert.deepEqual(planDerivedWrites('/workspace', [library], central, [], [{ file, version: '1.0.1' }]).length, 1);
+  // Unreadable: refused at plan time, before anything is written.
+  assert.throws(
+    () => planDerivedWrites('/workspace', [library], central, [], [{ file, version: undefined }]),
+    /embeds no version matching .* run `npm run generate:version`/,
   );
 });
 
