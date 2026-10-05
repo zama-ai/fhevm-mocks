@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 //
-// Small, dependency-free helpers for deploy-testnet.ts.
+// Small, dependency-free helpers for the two CREATE2 coordinators.
 //
-// Runs on plain `node` (>= 22.6), which strips types at load. That constrains the syntax to the
+// Runs on plain `node` (>= 22.18), which strips types at load. That constrains the syntax to the
 // "erasable" subset: no `enum`, no `namespace`, no parameter properties, and relative imports must
 // carry their `.ts` extension. Union types stand in for enums throughout.
 

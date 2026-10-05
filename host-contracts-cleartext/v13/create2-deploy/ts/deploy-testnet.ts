@@ -3,9 +3,10 @@
 // Deploy a cleartext FHEVM stack to a public EVM testnet via the canonical
 // CREATE2 factory. Coordinator for create2-deploy/script/*.
 //
-//   node create2-deploy/deploy-testnet.ts --help
+//   create2-deploy/deploy-cli --help
 //
-// Plain `node` (>= 22.6) runs this directly — types are stripped at load, no tsx, no build step, no
+// `deploy-cli` is the entry point: it checks the Node version, then runs this file with plain `node`
+// (>= 22.18), which runs it directly — types are stripped at load, no tsx, no build step, no
 // dependencies. That constrains the syntax to the erasable subset: no `enum`, no `namespace`, no
 // parameter properties, and relative imports carry their `.ts` extension.
 //
@@ -133,8 +134,7 @@ const RUN_ORDER: readonly Stage[] = [
 ];
 
 const HELP = `
-Usage: node create2-deploy/deploy-testnet.ts --rpc-url URL --account NAME
-                                                   --admin 0x... --deployment-id ID [options]
+Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID [options]
 
   --rpc-url URL        node to deploy to (required)
   --account NAME       forge keystore account to broadcast from. Required on every chain EXCEPT a
@@ -155,10 +155,10 @@ Usage: node create2-deploy/deploy-testnet.ts --rpc-url URL --account NAME
                        replace --admin, which stays the authoritative address and is sealed in the
                        manifest; this must resolve to the same account. Without it, step F polls
                        until the admin's own transaction lands (the multisig case)
-  --out-dir PATH       where this deployment's seal, generated config and journal are written
-                       (default: .out). Relative to create2-deploy/, and MUST stay inside it:
-                       forge writes only where foundry.toml's fs_permissions allows, which is static
-                       config. ONE PER (chain, deployment-id)
+  --out-dir PATH       where this deployment's seal, generated config and journal are written. Any
+                       folder, inside the repository or not; ONE PER (chain, deployment-id). On the
+                       command line it is relative to the current directory; as "outDir" in a config
+                       file, relative to that file's folder. Default: create2-deploy/.out
   --dry-run            run the chosen stage WITHOUT --broadcast. Same script, same predicates, same
                        preconditions, simulated against the head. Not valid with --stage all
   --min-block N        FHEVM_MIN_BLOCK for a single manual --stage run: steps A-F refuse to start
@@ -180,9 +180,10 @@ Usage: node create2-deploy/deploy-testnet.ts --rpc-url URL --account NAME
                        For throwaway rehearsals. Also settable as "git": false in a config file
   --config PATH        JSON file holding the stable arguments, so they are not retyped every
                        invocation: rpcUrl, account, admin, deploymentId, pauser, adminAccount,
-                       confirmations, outDir, finality. An explicit flag always overrides it.
-                       Without --config, ./create2-deploy/deploy.config.json is used if it
-                       exists. Unknown keys are rejected, and so are stage/dryRun/minBlock/noConfirm —
+                       confirmations, outDir, finality. An explicit flag always overrides it. Its
+                       relative paths are relative to the config file's own folder.
+                       Without --config, ./deploy.config.json in the CURRENT directory is used
+                       if it exists. Unknown keys are rejected, and so are stage/dryRun/minBlock/noConfirm —
                        those are what one invocation DOES, not what the deployment IS
 
   --stage STAGE        one of, in order:
@@ -291,7 +292,7 @@ function stageCompute(ctx: Ctx): void {
       say('  (--no-build: using the artifacts already in the out dir)');
       return;
     }
-    if (run('forge', ['build', '--out', ctx.buildOut, '--skip', 'test'], env) !== 0) {
+    if (run('forge', ['build', '--out', ctx.buildOut, '--skip', 'test', ...ctx.forgeArgs], env) !== 0) {
       fail('Error: forge build failed.');
     }
   };
@@ -302,7 +303,16 @@ function stageCompute(ctx: Ctx): void {
   // chain 31337 whatever it was really for, and preflight's identity check would block the very
   // deployment it had just created, on any chain but that one.
   const pass = (n: number, env: NodeJS.ProcessEnv): void => {
-    const args = ['script', script, '--out', ctx.buildOut, '--rpc-url', ctx.opt.rpcUrl, ...traceArgs(ctx)];
+    const args = [
+      'script',
+      script,
+      '--out',
+      ctx.buildOut,
+      '--rpc-url',
+      ctx.opt.rpcUrl,
+      ...ctx.forgeArgs,
+      ...traceArgs(ctx),
+    ];
     if (run('forge', args, { ...env, FHEVM_PASS: String(n) }) !== 0) {
       fail(`Error: compute pass ${n} failed.`);
     }
@@ -493,6 +503,7 @@ function stageVerify(ctx: Ctx): void {
       ctx.opt.rpcUrl,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       ...traceArgs(ctx),
     ],
     { ...scriptEnv(ctx), ...generatedConfigEnv(ctx) },
@@ -521,6 +532,7 @@ function stageStatus(ctx: Ctx): void {
       ctx.opt.rpcUrl,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       ...traceArgs(ctx),
     ],
     { ...scriptEnv(ctx), ...generatedConfigEnv(ctx) },

@@ -1,7 +1,7 @@
 // Upgrade a LIVE v12 cleartext stack to v13, through the canonical CREATE2 factory.
 //
 //
-// The sibling of deploy-testnet.ts, and everything that is not a stage comes from common.ts: argument
+// Run through `upgrade/upgrade-cli`. The sibling of ts/deploy-testnet.ts, and everything that is not a stage comes from common.ts: argument
 // parsing, the config file, the out-dir identity check, the chain and factory preflight, signer
 // resolution, the reorg/finality waits, the journal, the seal gate and broadcast().
 //
@@ -44,7 +44,7 @@ import {
   startTranscript,
   waitUntil,
   warn,
-} from '../utils.ts';
+} from '../../ts/utils.ts';
 import {
   broadcast,
   buildContext,
@@ -76,7 +76,7 @@ import {
   stageReport,
   traceArgs,
   waitForBlock,
-} from '../common.ts';
+} from '../../ts/common.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Stages
@@ -175,8 +175,8 @@ function needsDeployerKey(stage: string): boolean {
 const HELP = `
 Upgrade a live v12 cleartext stack to v13, via the canonical CREATE2 factory.
 
-Usage: node create2-deploy/upgrade/testnet.ts --rpc-url URL [--account NAME] --admin 0x...
-                             --deployment-id ID --previous-manifest PATH [--handle 0x...]
+Usage: upgrade-cli --rpc-url URL [--account NAME] --admin 0x...
+                   --deployment-id ID --previous-manifest PATH [--handle 0x...]
 
   --rpc-url URL        node to upgrade on (required)
   --account NAME       forge keystore account to broadcast from. Required on every chain EXCEPT a
@@ -225,13 +225,17 @@ THE LIVE STACK — nine addresses, best supplied through --previous-manifest or 
 
   --confirmations N    reorg DEPTH floor for the between-stage waits
   --no-finality        wait only for --confirmations of depth, not for finality
-  --out-dir PATH       where this upgrade's seal, generated config and journal go
+  --out-dir PATH       where this upgrade's seal, generated config and journal go. Any folder, inside
+                       the repository or not; relative to the current directory on the command line
   --dry-run            run the chosen stage WITHOUT --broadcast
   --min-block N        FHEVM_MIN_BLOCK for a single manual --stage run
   --no-confirm         do not ask about the seal before the first transaction
   --no-build           reuse the artifacts already in the out dir
   --no-git             this upgrade needs no git-committed seal
-  --config PATH        JSON file holding the stable arguments (default: ${DEFAULT_CONFIG_NAME})
+  --config PATH        JSON file holding the stable arguments (default: ./${DEFAULT_CONFIG_NAME} in the
+                       current directory, if it exists). Its
+                       relative paths (outDir, previousManifest, migration, previousAbiDir) are
+                       relative to the config file's own folder
   --stage STAGE        one of, in order:
                          compute       2 builds + 2 passes, writes the manifest      (no tx)
                          creates       the CREATE2s through the factory
@@ -780,7 +784,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
       say('  (--no-build: using the artifacts already in the out dir)');
       return;
     }
-    if ((await runLogged('forge', ['build', '--out', ctx.buildOut, '--skip', 'test'], env)) !== 0) {
+    if ((await runLogged('forge', ['build', '--out', ctx.buildOut, '--skip', 'test', ...ctx.forgeArgs], env)) !== 0) {
       fail('Error: forge build failed.');
     }
   };
@@ -792,6 +796,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
       `${script}:FhevmComputeUpgradeAddresses`,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       '--rpc-url',
       ctx.opt.rpcUrl,
       ...traceArgs(ctx),
@@ -1266,7 +1271,16 @@ async function runReadOnly(
   env: NodeJS.ProcessEnv,
 ): Promise<boolean> {
   const script = requireScript(file);
-  const args = ['script', `${script}:${contract}`, '--out', out, '--rpc-url', ctx.opt.rpcUrl, ...traceArgs(ctx)];
+  const args = [
+    'script',
+    `${script}:${contract}`,
+    '--out',
+    out,
+    '--rpc-url',
+    ctx.opt.rpcUrl,
+    ...ctx.forgeArgs,
+    ...traceArgs(ctx),
+  ];
   return (await runLogged('forge', args, env)) === 0;
 }
 
@@ -1321,6 +1335,7 @@ async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; r
       ctx.opt.rpcUrl,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       '--sender',
       ctx.opt.admin,
       ...traceArgs(ctx),

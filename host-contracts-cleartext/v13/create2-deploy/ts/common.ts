@@ -1,4 +1,5 @@
-// Shared machinery for the two CREATE2 coordinators, `deploy-testnet.ts` and `upgrade/testnet.ts`.
+// Shared machinery for the two CREATE2 coordinators, `ts/deploy-testnet.ts` and `upgrade/ts/testnet.ts`,
+// which operators run through the `deploy-cli` and `upgrade/upgrade-cli` launchers.
 //
 // The split is by WHAT VARIES, not by size. Both flows want the same everything-except-the-stages:
 // argument parsing, the config file, the out-dir identity check, the chain and factory preflight, signer
@@ -13,7 +14,7 @@
 //
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
 import {
@@ -21,6 +22,7 @@ import {
   capture,
   captureOrFail,
   confirm,
+  ensureDir,
   fail,
   hexToNumber,
   isInside,
@@ -191,6 +193,11 @@ export type Ctx = {
   /** Block that must FINALIZE before the next stage. 0 = nothing sent yet. */
   finalityTarget: number;
   stageLabel: string;
+  /**
+   * `--root <package> --config-path <generated foundry.toml>`, appended to every forge invocation so
+   * forge may write to the out dir wherever it is. Set by prepareForgeConfig, in preflight.
+   */
+  forgeArgs: readonly string[];
 };
 
 export type JournalEntry = {
@@ -242,15 +249,15 @@ export type Manifest = {
  * from anywhere. main() chdirs to PACKAGE_ROOT before touching forge, because forge resolves script
  * paths, remappings and fs_permissions against the directory holding foundry.toml.
  *
- * One consequence worth knowing: loadConfigFile runs BEFORE that chdir, so a relative --config
- * resolves against the caller's directory — which is what anyone typing it would expect. A relative
- * --out-dir does not: it resolves against FS_ROOT, because it has to land somewhere forge is allowed
- * to write (see resolveOutDir).
+ * Paths are resolved BEFORE that chdir, so they mean what the operator meant: a path typed on the
+ * command line is relative to the caller's directory, and a path written in a config file is relative
+ * to that file's directory. An operator folder can therefore live anywhere — its config says
+ * `"outDir": "out"` and that means the `out` beside it.
  */
+export const INVOCATION_DIR = process.cwd();
 
-////////////////////////////////////////////////////////////////////////////////
-
-export const DRAFT_DIR = import.meta.dirname;
+/** `create2-deploy/`. This file lives in `create2-deploy/ts/`, one level below. */
+export const DRAFT_DIR = dirname(import.meta.dirname);
 export const PACKAGE_ROOT = dirname(DRAFT_DIR);
 /** Relative on purpose: forge resolves script paths against the project root it runs in. */
 export const SCRIPT_DIR = 'create2-deploy/script';
@@ -295,10 +302,76 @@ export const FACTORY_CODEHASH = '0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd
  *
  * This list binds OUR tooling and nobody
  * else's — the address set is replayable onto mainnet by anyone, and no allow-list here can stop it.
+ *
+ * The list lives in `create2-deploy/create2-deploy.config.json`, committed, so adding a testnet is a
+ * reviewed one-line diff rather than a code change. KNOWN_MAINNET_CHAIN_IDS stays in code on purpose:
+ * it is the backstop that keeps an edit to that file from opening a mainnet.
  */
-export const ALLOWED_CHAIN_IDS: readonly string[] = ['11155111', '17000', '84532', '421614'];
+export const CHAINS_CONFIG_PATH = join(DRAFT_DIR, 'create2-deploy.config.json');
 
-/** Where forge may write. Must match foundry.toml's fs_permissions — see resolveOutDir. */
+export type AllowedChain = { readonly chainId: string; readonly name: string };
+
+/** Refused even when listed in create2-deploy.config.json. Not exhaustive: a backstop, not the rule. */
+export const KNOWN_MAINNET_CHAIN_IDS: readonly string[] = [
+  '1', // Ethereum
+  '10', // OP Mainnet
+  '56', // BNB Smart Chain
+  '79', // Zenith mainnet
+  '100', // Gnosis
+  '137', // Polygon PoS
+  '324', // zkSync Era
+  '8453', // Base
+  '42161', // Arbitrum One
+  '42170', // Arbitrum Nova
+  '43114', // Avalanche C-Chain
+  '59144', // Linea
+  '534352', // Scroll
+];
+
+/** Read and validate the allow-list. Any problem with the file is fatal: an unreadable list allows nothing. */
+export function loadAllowedChains(): readonly AllowedChain[] {
+  const path = CHAINS_CONFIG_PATH;
+  if (!existsSync(path)) fail(`Error: no chain allow-list at ${path}.`);
+  let raw: unknown;
+  try {
+    raw = readJson<unknown>(path);
+  } catch {
+    fail(`Error: ${path} is not valid JSON.`);
+  }
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) fail(`Error: ${path} is not a JSON object.`);
+  const obj = raw as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    if (key !== '//' && key !== 'allowedChains') fail(`Error: unknown key '${key}' in ${path}.`);
+  }
+  if (!Array.isArray(obj.allowedChains) || obj.allowedChains.length === 0) {
+    fail(`Error: ${path} needs a non-empty "allowedChains" array.`);
+  }
+
+  const chains = obj.allowedChains.map((entry: unknown, i: number): AllowedChain => {
+    const e = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>;
+    if (typeof e.chainId !== 'number' || !Number.isSafeInteger(e.chainId) || e.chainId <= 0) {
+      fail(`Error: ${path} allowedChains[${String(i)}].chainId must be a positive integer.`);
+    }
+    if (typeof e.name !== 'string' || e.name === '') {
+      fail(`Error: ${path} allowedChains[${String(i)}].name must be a non-empty string.`);
+    }
+    const chainId = String(e.chainId);
+    if (KNOWN_MAINNET_CHAIN_IDS.includes(chainId)) {
+      fail(
+        `Error: ${path} lists chain ${chainId} (${e.name}), which is a MAINNET.`,
+        "       The cleartext stack's signer keys come from a published mnemonic; on a mainnet anyone",
+        '       can sign for it. Remove the entry.',
+      );
+    }
+    return { chainId, name: e.name };
+  });
+
+  const ids = chains.map((c) => c.chainId);
+  if (new Set(ids).size !== ids.length) fail(`Error: ${path} lists a chain id twice.`);
+  return chains;
+}
+
+/** Where the default `.out` dir lives, when neither --out-dir nor a config file names one. */
 export const FS_ROOT = DRAFT_DIR;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -721,7 +794,10 @@ export function loadConfigFile(
   flow: Flow,
   explicitPath: string | null,
 ): { readonly cfg: ConfigFile; readonly path: string | null } {
-  const path = explicitPath ?? join(FS_ROOT, flow.defaultConfigName);
+  // Without --config, the conventional name in the CURRENT directory, and nowhere else: an operator runs
+  // the CLI from their deployment folder. Falling back to a second location would silently pick up a
+  // different deployment's config whenever someone forgot to cd.
+  const path = explicitPath ?? join(INVOCATION_DIR, flow.defaultConfigName);
 
   if (!existsSync(path)) {
     // An explicit --config that is not there is an error; the conventional path simply not existing
@@ -834,11 +910,18 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   if (admin === '') fail(missing('--admin', 'admin'));
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
 
+  // A path typed on the command line is relative to the caller's directory; a path written in a config
+  // file is relative to that FILE's directory, so an operator folder works wherever it is and whatever
+  // directory the command is run from. Resolved here, before main() chdirs to the package root.
+  const configDir = configPath === null ? INVOCATION_DIR : dirname(resolve(configPath));
+  const pathOption = (fromCli: string | null, fromConfig: string | undefined): string | null =>
+    fromCli !== null ? resolve(fromCli) : fromConfig !== undefined ? resolve(configDir, fromConfig) : null;
+
   // The live stack, lowest layer first: a previous manifest, then the config file, then the flags.
   // A flag someone typed must never lose to a file, and the manifest is a convenience over typing nine
   // of them — so it sits at the bottom. existingSource records which layer won each role, because a
   // sealed address is only auditable if the seal says where it came from.
-  const previousManifestPath = cli.previousManifestPath ?? cfg.previousManifest ?? null;
+  const previousManifestPath = pathOption(cli.previousManifestPath, cfg.previousManifest);
   const previousManifest =
     previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId);
 
@@ -876,7 +959,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     pauser: cli.pauser ?? cfg.pauser ?? null,
     confirmations: cli.confirmations ?? cfg.confirmations ?? 3,
     minBlockOverride: cli.minBlockOverride,
-    outDirArg: cli.outDirArg ?? cfg.outDir ?? null,
+    outDirArg: pathOption(cli.outDirArg, cfg.outDir),
     stage,
     dryRun: cli.dryRun,
     useFinality: cli.useFinality ?? cfg.finality ?? true,
@@ -890,8 +973,8 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     existing,
     existingSource,
     previousManifest,
-    migrationPath: cli.migrationPath ?? cfg.migration ?? null,
-    previousAbiDir: cli.previousAbiDir ?? cfg.previousAbiDir ?? null,
+    migrationPath: pathOption(cli.migrationPath, cfg.migration),
+    previousAbiDir: pathOption(cli.previousAbiDir, cfg.previousAbiDir),
     handles: cli.handles.length > 0 ? cli.handles : (cfg.handles ?? []),
   };
 }
@@ -899,42 +982,152 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Resolve --out-dir, and refuse anything forge could not write to.
+ * Resolve the out dir: anywhere on disk, so an operator keeps a deployment in a folder of their own
+ * rather than inside this repository. `outDirArg` is already absolute (see resolveOptions); null is
+ * the developer default, `create2-deploy/.out`.
  *
- * The compute passes write addresses.sol, pass2.json and manifest.json with `vm.writeFile`, and
- * forge rejects any path not granted by `fs_permissions` in foundry.toml:
- *
- *     vm.createDir: the path /... is not allowed to be accessed for write operations
- *
- * That list is static config, so --out-dir can only ever reach inside it. Absolute paths anywhere on
- * disk do work IF foundry.toml grants them — forge accepts entries outside the project root — but
- * granting one per deployment does not scale, so this keeps every out dir under a single root.
- *
- * foundry.toml needs, alongside the nonce path's own entry:
- *
- *     fs_permissions = [
- *         { access = "read-write", path = "./internal/.deploy-config" },   # nonce path
- *         { access = "read-write", path = "./create2-deploy" },      # this path
- *     ]
- *
- * Checked here rather than left to forge, which would only notice midway through pass 1 — after two
- * builds — complaining about a path the operator never typed.
+ * Forge writes there through a generated config (prepareForgeConfig), not through foundry.toml. The one
+ * thing refused is an out dir that CONTAINS the package: forge would be granted write access to the
+ * whole source tree, and `compute` clears paths inside the out dir.
  */
-
-////////////////////////////////////////////////////////////////////////////////
-
 export function resolveOutDir(outDirArg: string | null): string {
-  const outDir = outDirArg === null ? join(FS_ROOT, '.out') : resolve(FS_ROOT, outDirArg);
-
-  if (!isInside(outDir, FS_ROOT)) {
+  const outDir = outDirArg ?? join(FS_ROOT, '.out');
+  if (isInside(PACKAGE_ROOT, outDir)) {
     fail(
-      `Error: --out-dir must be inside ${FS_ROOT}`,
-      `         resolved to: ${outDir}`,
-      "       forge only writes where foundry.toml's fs_permissions allows, and that is",
-      '       static config. To use somewhere else, add it there first.',
+      `Error: the out dir ${outDir} contains the package at ${PACKAGE_ROOT}.`,
+      '       Use a dedicated folder for each deployment, e.g. --out-dir ~/fhevm-deployments/arbsepolia/out',
     );
   }
   return outDir;
+}
+
+/**
+ * Let forge write to the out dir, wherever it is, WITHOUT editing the repository's foundry.toml.
+ *
+ * `fs_permissions` is static config and forge ignores it in the environment, so this writes a complete
+ * config of its own: forge's own fully resolved one (`forge config`, which also flattens the `extends`
+ * chain — forge refuses nested `extends`), plus the out dir in `fs_permissions` and in `allow_paths`
+ * (solc must be allowed to import the generated addresses.sol from there). Every forge call then gets
+ * `--root <package> --config-path <it>`.
+ *
+ * Every path in it is written ABSOLUTE, resolved against the package root. Forge resolves the relative
+ * paths of a `--config-path` file against that file's directory, not against `--root` — so a relative
+ * `libs` or remapping would point into the out dir, and solc would find nothing. Absolute paths are what
+ * forge computes internally from the original file anyway.
+ *
+ * The generated file must change NOTHING else, because every CREATE2 address is a hash of the compiled
+ * bytecode. So it is not trusted: both configs are resolved again, every path made absolute the same
+ * way, and compared — everything but the two permission fields. Any difference stops the run before a
+ * single build.
+ */
+export function prepareForgeConfig(ctx: Ctx): void {
+  const dir = join(ctx.outDir, '.foundry');
+  const path = join(dir, 'foundry.toml');
+  const quoted = JSON.stringify(ctx.outDir);
+
+  const dumped = captureOrFail('forge', ['config', '--root', PACKAGE_ROOT]);
+  // Only [profile.default] and its subtables are rewritten: [fmt], [doc] and the rest have keys of the
+  // same names (`out`, ...) that mean something else.
+  const sectionEnd = dumped.search(/^\[(?!\[?profile\.default[\].])/m);
+  const head = sectionEnd < 0 ? dumped : dumped.slice(0, sectionEnd);
+  const tail = sectionEnd < 0 ? '' : dumped.slice(sectionEnd);
+
+  let profile = head.replace(
+    new RegExp(`^(${FORGE_PATH_KEYS.join('|')}) = "(.*)"$`, 'gm'),
+    (_m, key: string, value: string) => `${key} = ${JSON.stringify(absolutePath(value))}`,
+  );
+  profile = profile.replace(/^(libs|remappings) = \[([\s\S]*?)\]$/gm, (_m, key: string, body: string) => {
+    const entries = [...body.matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? '');
+    const absolute = entries.map((entry) => (key === 'libs' ? absolutePath(entry) : absoluteRemapping(entry)));
+    return `${key} = [${absolute.map((entry) => JSON.stringify(entry)).join(', ')}]`;
+  });
+
+  const allowPaths = /^allow_paths = \[(.*)\]$/m;
+  const inner = allowPaths.exec(profile)?.[1];
+  if (inner === undefined) fail('Error: `forge config` printed no single-line allow_paths; cannot extend it.');
+  profile = profile.replace(allowPaths, `allow_paths = [${inner.trim() === '' ? quoted : `${inner}, ${quoted}`}]`);
+
+  const toml = `${profile}${tail}\n\n[[profile.default.fs_permissions]]\naccess = true\npath = ${quoted}\n`;
+  ensureDir(dir);
+  writeFileSync(path, toml);
+
+  const resolved = (args: readonly string[]): Record<string, unknown> =>
+    normalizeForgePaths(
+      JSON.parse(captureOrFail('forge', ['config', '--json', '--root', PACKAGE_ROOT, ...args])) as Record<
+        string,
+        unknown
+      >,
+    );
+  const want = resolved([]);
+  const got = resolved(['--config-path', path]);
+
+  const differing = [...new Set([...Object.keys(want), ...Object.keys(got)])].filter(
+    (key) => key !== 'fs_permissions' && key !== 'allow_paths' && stableJson(want[key]) !== stableJson(got[key]),
+  );
+  if (differing.length > 0) {
+    fail(
+      `Error: the generated forge config ${path} changes more than the out dir permission:`,
+      ...differing.map((key) => `         ${key}`),
+      '       Every address depends on the compiled bytecode, so nothing else may differ.',
+    );
+  }
+  const granted = JSON.stringify(got.fs_permissions ?? []).includes(quoted.slice(1, -1));
+  if (!granted) fail(`Error: the generated forge config ${path} does not grant write access to ${ctx.outDir}.`);
+
+  ctx.forgeArgs = ['--root', PACKAGE_ROOT, '--config-path', path];
+}
+
+/** The single-path keys of a forge profile. `libs` and `remappings` are handled as lists. */
+const FORGE_PATH_KEYS: readonly string[] = [
+  'src',
+  'test',
+  'script',
+  'out',
+  'cache_path',
+  'snapshots',
+  'broadcast',
+  'test_failures_file',
+];
+
+/** A forge path, absolute, resolved the way forge resolves the repository's own foundry.toml. */
+function absolutePath(value: string): string {
+  return resolve(PACKAGE_ROOT, value);
+}
+
+/** `[context:]prefix=target` with the target made absolute, keeping its trailing slash. */
+function absoluteRemapping(remapping: string): string {
+  const eq = remapping.indexOf('=');
+  if (eq < 0) return remapping;
+  const target = remapping.slice(eq + 1);
+  const slash = target.endsWith('/') ? '/' : '';
+  return `${remapping.slice(0, eq + 1)}${absolutePath(target)}${slash}`;
+}
+
+/** The same rewriting, applied to `forge config --json` output, so two configs compare by MEANING. */
+function normalizeForgePaths(config: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...config };
+  for (const key of FORGE_PATH_KEYS) {
+    const value = out[key];
+    if (typeof value === 'string') out[key] = absolutePath(value);
+  }
+  if (Array.isArray(out.libs)) out.libs = out.libs.map((v: unknown) => (typeof v === 'string' ? absolutePath(v) : v));
+  if (Array.isArray(out.remappings)) {
+    out.remappings = out.remappings.map((v: unknown) => (typeof v === 'string' ? absoluteRemapping(v) : v));
+  }
+  return out;
+}
+
+/** JSON with object keys sorted, so two equal configs always serialize to the same string. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    return `{${Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableJson(obj[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -980,6 +1173,7 @@ export function buildContext(flow: Flow, opt: Options): Ctx {
     nextMinBlock: 0,
     finalityTarget: 0,
     stageLabel: '',
+    forgeArgs: [],
   };
 }
 
@@ -1049,7 +1243,12 @@ export function generatedConfigEnv(ctx: Ctx): NodeJS.ProcessEnv {
 ////////////////////////////////////////////////////////////////////////////////
 
 export function checkChainAllowed(ctx: Ctx): void {
-  if (ALLOWED_CHAIN_IDS.includes(ctx.chainId)) return;
+  const allowed = loadAllowedChains();
+  const match = allowed.find((c) => c.chainId === ctx.chainId);
+  if (match !== undefined) {
+    say(`  chain id ${ctx.chainId} allowed: ${match.name}, listed in ${CHAINS_CONFIG_PATH}`);
+    return;
+  }
 
   // An anvil is exempt whatever chain id it reports, and that is not a hole in the rule — it is the
   // rule read properly. What the allow-list protects against is BROADCASTING a stack whose KMS keys
@@ -1069,7 +1268,8 @@ export function checkChainAllowed(ctx: Ctx): void {
   fail(
     `Error: chain id ${ctx.chainId} is not in the testnet allow-list, and ${ctx.opt.rpcUrl} is not an anvil.`,
     '       This stack derives its KMS/coprocessor keys from a PUBLISHED mnemonic, so it may only be',
-    `       broadcast to a testnet (${ALLOWED_CHAIN_IDS.join(', ')}) or to a local anvil.`,
+    `       broadcast to a testnet listed in ${CHAINS_CONFIG_PATH}`,
+    `       (${allowed.map((c) => `${c.name} ${c.chainId}`).join(', ')}) or to a local anvil.`,
   );
 }
 
@@ -1278,6 +1478,7 @@ function previousManifestLines(ctx: Ctx): string[] {
 export function preflight(ctx: Ctx): void {
   say('🍖 preflight');
 
+  prepareForgeConfig(ctx);
   ctx.chainId = captureOrFail('cast', ['chain-id', '--rpc-url', ctx.opt.rpcUrl]);
   checkChainAllowed(ctx);
   checkPreviousManifest(ctx);
@@ -1699,6 +1900,7 @@ export async function broadcast(
     ctx.opt.rpcUrl,
     '--out',
     ctx.buildOut,
+    ...ctx.forgeArgs,
     ...traceArgs(ctx),
   ];
 
@@ -1841,9 +2043,10 @@ export async function confirmSealed(ctx: Ctx): Promise<void> {
     return;
   }
 
-  // Relative to the package root, which main() has already chdir'd to, so the lines below can be
-  // pasted straight into the shell this was launched from.
-  const dir = relative(PACKAGE_ROOT, ctx.outDir);
+  // Relative to the directory the command was launched from — not the package root main() chdir'd to —
+  // so the lines below can be pasted straight into that shell.
+  const fromLaunch = relative(INVOCATION_DIR, ctx.outDir);
+  const dir = fromLaunch === '' ? '.' : fromLaunch;
 
   say(
     '',

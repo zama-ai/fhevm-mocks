@@ -56,7 +56,7 @@ import {IVersioned, IWiredInputVerifier, IWiredProtocolConfig} from "../Interfac
  * ## What is NOT here, and why
  *
  * The survey — every zero-argument getter on the live stack, unchanged — lives in
- * `upgrade/testnet.ts`, together with the event scans and the `--handle` value re-read. That split is a
+ * `upgrade/ts/testnet.ts`, together with the event scans and the `--handle` value re-read. That split is a
  * capability constraint, not a preference: Solidity cannot enumerate an ABI, so a Solidity survey would be
  * a hand-maintained list of getters — exactly what the survey exists to avoid. The event scans need
  * `eth_getLogs` over the upgrade's block range, which is likewise a coordinator job.

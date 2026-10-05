@@ -9,10 +9,15 @@
 //
 // Same policies as the upgrade test: a private port checked for occupancy, a dedicated out-dir, skips
 // that name what is missing, and a cleanup that leaves nothing behind.
+//
+// It runs the way an OPERATOR does: from a folder of its own, outside the repository, holding a config
+// file whose `"outDir": "out"` resolves against that folder. The upgrade test keeps its out dir inside
+// `create2-deploy/`, so the two layouts are both exercised.
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { Contract, JsonRpcProvider } from 'ethers';
@@ -26,12 +31,27 @@ import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
 const PORT = 8558;
 const RPC_URL = `http://127.0.0.1:${PORT}`;
 
-/** Bare name: the coordinator resolves `--out-dir` against `create2-deploy/`, where forge may write. */
-const OUT_DIR_ARG = '.out-test-create2-deploy';
 const DEPLOYMENT_ID = 'create2-deploy-e2e';
 
+/** The operator's folder: outside the repository, created fresh, removed at the end. */
+const OPERATOR_DIR = mkdtempSync(join(tmpdir(), 'create2-deploy-e2e-'));
+const CONFIG_NAME = 'deploy.config.json';
+
+/** `"outDir": "out"` in the config, which must land beside the config file, not in the repository. */
 function outDirAbs(): string {
-  return join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', OUT_DIR_ARG);
+  return join(OPERATOR_DIR, 'out');
+}
+
+function writeOperatorConfig(): void {
+  const config = {
+    rpcUrl: RPC_URL,
+    deploymentId: DEPLOYMENT_ID,
+    outDir: 'out',
+    confirmations: 0,
+    finality: false,
+    git: false,
+  };
+  writeFileSync(join(OPERATOR_DIR, CONFIG_NAME), `${JSON.stringify(config, null, 2)}\n`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,8 +118,8 @@ function note(what: string): void {
  */
 function runCoordinator(args: readonly string[]): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn('node', ['create2-deploy/deploy-testnet.ts', ...args], {
-      cwd: PACKAGE_ROOT_ABS_PATH,
+    const child = spawn(join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'deploy-cli'), args, {
+      cwd: OPERATOR_DIR,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -119,16 +139,11 @@ function runCoordinator(args: readonly string[]): Promise<{ ok: boolean; output:
 
 const STEPS = 5;
 
-const COMMON_ARGS = [
-  '--config',
-  'create2-deploy/anvil-config.json',
-  '--rpc-url',
-  RPC_URL,
-  '--out-dir',
-  OUT_DIR_ARG,
-  '--deployment-id',
-  DEPLOYMENT_ID,
-] as const;
+/**
+ * Nothing: run from OPERATOR_DIR, `deploy-cli` finds `./deploy.config.json` by itself — exactly what an
+ * operator types.
+ */
+const COMMON_ARGS = [] as const;
 
 function manifestAddresses(): Readonly<Record<string, string>> {
   const path = join(outDirAbs(), 'manifest.json');
@@ -240,18 +255,17 @@ void test(
       let deployed = false;
 
       await t.test('the coordinator deploys and verifies the whole stack in one run', async () => {
-        announce(
-          2,
-          STEPS,
-          'deploy v13 with deploy-testnet.ts --stage all (3 forge builds, 22 creates, steps A-F, verify)',
-        );
+        announce(2, STEPS, 'deploy v13 with deploy-cli --stage all (3 forge builds, 22 creates, steps A-F, verify)');
         rmSync(outDirAbs(), { recursive: true, force: true });
+        writeOperatorConfig();
         const { ok, output } = await runCoordinator([...COMMON_ARGS, '--stage', 'all']);
         if (!ok) {
           const detail = (await portIsOpen()) ? '' : ` — ${nodeGone ?? `the anvil on ${RPC_URL} stopped answering`}`;
           assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
         }
         assert.match(output, /OK - every terminal condition/, 'the deploy ran its own verify');
+        // Forge wrote outside the repository through the config the coordinator generated there.
+        assert.ok(existsSync(join(outDirAbs(), '.foundry', 'foundry.toml')), 'generated forge config in the out dir');
         manifest = manifestAddresses();
         for (const [role] of VERSIONED_ROLES) addressOf(manifest, role);
         addressOf(manifest, 'ACL_OWNER');
@@ -337,7 +351,7 @@ void test(
       provider?.destroy();
       killNode();
       process.off('exit', killNode);
-      rmSync(outDirAbs(), { recursive: true, force: true });
+      rmSync(OPERATOR_DIR, { recursive: true, force: true });
     }
   },
 );

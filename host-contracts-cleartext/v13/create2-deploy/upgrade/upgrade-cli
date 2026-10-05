@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# Upgrade a running v12 cleartext FHEVM stack to v13 through the CREATE2 factory. See ../UPGRADE.md.
+#
+#   upgrade-cli --help
+#
+# Run it from your upgrade folder: without --config it reads ./upgrade.config.json there. It may be
+# called through a symlink (e.g. one in ~/bin); the real location is resolved first, because the
+# TypeScript it runs sits beside it in ts/.
+set -euo pipefail
+
+# Follow symlinks to this file's real directory. Plain `readlink` (no -f), which macOS and Linux share.
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+  dir="$(cd -P -- "$(dirname -- "$src")" && pwd)"
+  src="$(readlink -- "$src")"
+  [[ "$src" == /* ]] || src="$dir/$src"
+done
+here="$(cd -P -- "$(dirname -- "$src")" && pwd)"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "upgrade-cli: node not found. Install Node.js >= 22.18 (https://nodejs.org)." >&2
+  exit 1
+fi
+# Older Node versions fail on the .ts file with a syntax error that names nothing useful.
+if [ "$(node -p 'process.features.typescript ? 1 : 0' 2>/dev/null)" != 1 ]; then
+  echo "upgrade-cli: Node.js $(node --version) cannot run TypeScript directly. Install Node.js >= 22.18." >&2
+  exit 1
+fi
+
+exec node "$here/ts/testnet.ts" "$@"
