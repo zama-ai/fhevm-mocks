@@ -1735,6 +1735,29 @@ export function settledBlock(ctx: Ctx): number {
   return ctx.useFinality ? finalizedBlock(ctx) : Math.max(0, headBlock(ctx) - ctx.opt.confirmations);
 }
 
+/** A block's timestamp in seconds, or null when the node does not answer. */
+function blockTimestamp(ctx: Ctx, block: number): number | null {
+  const r = capture('cast', ['block', String(block), '--field', 'timestamp', '--rpc-url', ctx.opt.rpcUrl]);
+  const ts = Number(r.stdout);
+  return r.ok && Number.isFinite(ts) && ts > 0 ? ts : null;
+}
+
+/**
+ * When the settled block should reach `target`, as `ETA ~11 min (≈23:00)`, or '' when unknown.
+ *
+ * The settled block trails real time by a roughly constant lag (finality: ~15-20 min on Ethereum; or
+ * `confirmations` blocks), so it reaches `target` once the clock has moved on by the time between the
+ * two blocks: no block-time guess, the same on every chain. Finality moves in jumps, so this is an
+ * estimate within one jump (~6.4 min on Ethereum).
+ */
+function settlementEta(targetTs: number | null, settledTs: number | null): string {
+  if (targetTs === null || settledTs === null) return '';
+  const seconds = targetTs - settledTs;
+  if (seconds <= 30) return ', ETA any moment now';
+  const at = new Date(Date.now() + seconds * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `, ETA ~${String(Math.max(1, Math.round(seconds / 60)))} min (≈${at})`;
+}
+
 /** How `settledBlock` is computed, for messages: `finalized`, or `N blocks deep`. */
 export function settlementRule(ctx: Ctx): string {
   return ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
@@ -1802,6 +1825,11 @@ function listPrerequisites(prerequisites: readonly Prerequisite[]): string[] {
  *   hold at the head, not yet settled    wait, a line a minute, until they are
  *   do not hold even at the head         stop: an earlier stage is not done. The message names what is missing
  *
+ * While waiting, every line shows the settled block against the TARGET: the first block at which every
+ * pending prerequisite holds, i.e. the block the settled block must reach. It is found once, by bisection
+ * between the settled block and the head (a prerequisite, once done, stays done), and found again if a
+ * reorg moves it.
+ *
  * A dry run never waits: it reports what is not settled yet and goes on, so the simulation still runs.
  * Only the still-pending prerequisites are re-checked while waiting. Returns the settled block used.
  */
@@ -1839,16 +1867,46 @@ export async function awaitPrerequisites(
     return settled;
   }
 
+  const settledName = ctx.useFinality ? 'finalized block' : 'settled block';
+  let target = firstBlockWhereAllHold(pending, settled, headBlock(ctx));
+  let targetTs = blockTimestamp(ctx, target);
+  const settledTs = new Map<number, number | null>();
+  const eta = (): string => {
+    if (!settledTs.has(settled)) settledTs.set(settled, blockTimestamp(ctx, settled));
+    return settlementEta(targetTs, settledTs.get(settled) ?? null);
+  };
   say(
-    `  waiting for ${String(pending.length)} prerequisite(s) of ${label} to be settled (${rule}; settled block ${String(settled)}, chain head ${String(headBlock(ctx))}):`,
+    `  waiting for ${String(pending.length)} prerequisite(s) of ${label} to be settled (${rule}):`,
     ...listPrerequisites(pending),
-    `  They are done on chain; this is the reorg safety margin.${ctx.useFinality ? ' It takes ~15 minutes on an Ethereum testnet.' : ''} Nothing is stuck; Ctrl-C is safe here.`,
+    `  They are done on chain at block ${String(target)}; the ${settledName} must reach it. This is the reorg safety`,
+    '  margin. Nothing is stuck; Ctrl-C is safe here.',
+    ...(ctx.useFinality
+      ? [
+          '  The finalized block moves in jumps, not block by block: on an Ethereum testnet 32 blocks every',
+          '  ~6.4 minutes, ~15-20 minutes behind the head. The same number can repeat for several minutes.',
+        ]
+      : []),
+    `  ${settledName} ${String(settled)} → target ${String(target)}: ${String(target - settled)} block(s) to go${eta()}`,
   );
   const beat = heartbeat();
   while (pending.length > 0) {
     await sleep(12_000);
     settled = settledBlock(ctx);
     pending = pending.filter((p) => !p.holds(settled));
+    if (pending.length > 0 && settled >= target) {
+      // Settled past the target and still pending: what was at the target is not there any more.
+      const gone = pending.filter((p) => !p.holds(null));
+      if (gone.length > 0) {
+        fail(
+          `Error: ${label}: prerequisite(s) seen at the head are no longer there (reorg?):`,
+          ...listPrerequisites(gone),
+          '       Run the earlier stages again; they re-send only what is missing.',
+        );
+      }
+      target = firstBlockWhereAllHold(pending, settled, headBlock(ctx));
+      targetTs = blockTimestamp(ctx, target);
+      say(`  the prerequisites moved to block ${String(target)} (reorg?); waiting for that block instead`);
+    }
     if (pending.length > 0 && beat.due()) {
       // Once a minute, also make sure what is pending is still there at all: a reorg can undo it.
       const gone = pending.filter((p) => !p.holds(null));
@@ -1860,13 +1918,28 @@ export async function awaitPrerequisites(
         );
       }
       say(
-        `  … settled block ${String(settled)}, ${String(pending.length)} prerequisite(s) still pending (${beat.elapsed()})`,
+        `  … ${settledName} ${String(settled)} → target ${String(target)}: ${String(target - settled)} block(s) to go${eta()} (waiting ${beat.elapsed()})`,
       );
     }
   }
   say(`  ✔ ${label}: every prerequisite is settled at block ${String(settled)} (${rule})`);
   recordFinality(ctx);
   return settled;
+}
+
+/**
+ * The first block in (settled, head] at which every prerequisite holds. They do not all hold at
+ * `settled` and all hold at the head; a prerequisite, once done, stays done, so this is a bisection.
+ */
+function firstBlockWhereAllHold(prerequisites: readonly Prerequisite[], settled: number, head: number): number {
+  let lo = settled;
+  let hi = head;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (prerequisites.every((p) => p.holds(mid))) hi = mid;
+    else lo = mid;
+  }
+  return hi;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

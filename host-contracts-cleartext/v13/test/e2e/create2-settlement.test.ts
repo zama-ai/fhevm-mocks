@@ -190,6 +190,12 @@ void test(
         // On a chain that advances, the stage right after a sending stage finds its prerequisites mined but
         // not yet 3 deep: it must wait, then go.
         assert.match(output, /waiting for \d+ prerequisite\(s\) of C to be settled/, 'C waited for A and B');
+        // Every wait names the block it is heading for and when it should get there.
+        assert.match(
+          output,
+          /settled block \d+ → target \d+: \d+ block\(s\) to go, ETA /,
+          'current vs target, with an ETA',
+        );
         assert.match(output, /✔ C: every prerequisite is settled/, 'then C went');
         assert.match(output, /✔ verify: /, 'verify read a settled step F');
         deployed = true;
@@ -225,7 +231,9 @@ void test(
       await t.test("journal lines lost before they were written come back from forge's records", async (st) => {
         if (needsStack(st)) return;
         announce('case 2: the creates lines removed, forge files kept');
-        writeJournal(journal().filter((l) => (l.stage !== 'creates' || l.kind === 'stage-start') && l.kind !== 'finalized'));
+        writeJournal(
+          journal().filter((l) => (l.stage !== 'creates' || l.kind === 'stage-start') && l.kind !== 'finalized'),
+        );
         const { ok, output } = await deployCli(['--stage', 'status']);
         assert.ok(ok, output.slice(-3000));
         const creates = transactions().filter((tx) => tx.stage === 'creates');
