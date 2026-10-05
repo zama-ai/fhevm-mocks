@@ -2,7 +2,8 @@
 // central file alone — the tree is consulted only to learn what differs — and it is refused unless the
 // worktree is clean or carries exactly one unstaged change, the central file itself, so every derived diff
 // stays attributable to the operation. Writes are the planned package.json lines, the embedded version in
-// each committed generated file, and, per installation root, one lockfile refresh whose diff must be
+// each committed generated file, the payload version lines of each isolated consumer fixture's lockfile
+// (edited in place, never re-resolved), and, per installation root, one lockfile refresh whose diff must be
 // exactly the planned member version lines. No rollback: a failure leaves the diff for inspection and the
 // next run refuses until only the central file is modified.
 
@@ -11,6 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import { type ConsumerLockPin, readConsumerLockPins } from './checks/consumer-lockfiles.ts';
 import { type LoadedPackage, loadPackages } from './npm.ts';
 import { type RegistryFetch, distributionChannels, npmjsStatus } from './package-versions.ts';
 import { compareVersions, parseVersion } from './semver.ts';
@@ -56,6 +58,8 @@ export type DerivedWrite = {
   readonly to: string;
   /** Set on a generated-file write only: locates the embedded version (group 1) to replace. */
   readonly pattern?: RegExp;
+  /** Set on a consumer-lockfile write only: the `packages` entry whose `version` is replaced. */
+  readonly lockNode?: string;
 };
 
 export type ApplyPlan = {
@@ -107,7 +111,7 @@ export function centralDiffAgainstHead(
 
 /**
  * The derived fields that disagree with the central file: package.json versions, generated version files,
- * then lockfile member lines.
+ * lockfile member lines, then consumer lockfile pins.
  */
 export function planDerivedWrites(
   workspaceRoot: string,
@@ -115,12 +119,23 @@ export function planDerivedWrites(
   versions: VersionsFile,
   locks: readonly InstallationLock[],
   generated: readonly GeneratedVersion[] = [],
+  consumerPins: readonly ConsumerLockPin[] = [],
 ): readonly DerivedWrite[] {
-  return centralPayloads(packages, versions).flatMap(({ pkg, central }) => [
+  const writes = centralPayloads(packages, versions).flatMap(({ pkg, central }) => [
     ...packageWrite(workspaceRoot, pkg, central),
     ...generated.flatMap((entry) => generatedWrite(workspaceRoot, pkg, entry, central)),
     ...locks.flatMap((lock) => lockWrites(workspaceRoot, lock, pkg, central)),
+    ...consumerPins.flatMap((pin) => consumerLockWrite(workspaceRoot, pkg, pin, central)),
   ]);
+  // A link and its target can name the same versioned node; it is written once.
+  const seen = new Set<string>();
+  return writes.filter((write) => {
+    if (write.lockNode === undefined) return true;
+    const key = `${write.path}\0${write.lockNode}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** The plan for the operator: what the central edit is, and what would be reconciled from it. */
@@ -164,6 +179,7 @@ export function planVersionApply(
       versions,
       readInstallationLocks(workspaceRoot, packages),
       readGeneratedVersions(packages),
+      readConsumerLockPins(packages, versions),
     ),
   };
 }
@@ -185,8 +201,8 @@ export async function guardNpmjs(
 }
 
 /**
- * Write the plan: package.json lines and generated version files, then one lockfile refresh per root, each
- * proven to change only its planned lines.
+ * Write the plan: package.json lines, generated version files and consumer lockfile pins, then one lockfile
+ * refresh per root, each proven to change only its planned lines.
  */
 export function applyPlan(
   workspaceRoot: string,
@@ -198,6 +214,9 @@ export function applyPlan(
   for (const write of plan.writes.filter(isPackageWrite)) writePackageVersion(join(workspaceRoot, write.path), write);
   for (const write of plan.writes.filter(isGeneratedWrite)) {
     writeGeneratedVersion(join(workspaceRoot, write.path), write);
+  }
+  for (const write of plan.writes.filter(isConsumerLockWrite)) {
+    writeLockNodeVersion(join(workspaceRoot, write.path), write);
   }
   for (const lock of lockPaths(plan)) {
     assertUnchangedFromHead(workspaceRoot, lock, git);
@@ -244,6 +263,45 @@ export function writeGeneratedVersion(file: string, write: DerivedWrite): void {
   writeFileSync(file, text.slice(0, span[0]) + write.to + text.slice(span[1]));
 }
 
+/**
+ * Replace one `packages` entry's `"version"` line in a lockfile, by text, without npm: re-resolving would move
+ * every other dependency too. Proven afterwards: the parsed lockfile differs from the original in that one
+ * value and nowhere else.
+ */
+export function writeLockNodeVersion(file: string, write: DerivedWrite): void {
+  const node = write.lockNode;
+  if (node === undefined) throw new Error(`${file}: not a consumer-lockfile write`);
+  const text = readFileSync(file, 'utf8');
+  const lines = text.split('\n');
+  const opening = new RegExp(`^(\\s*)${escapeRegExp(JSON.stringify(node))}: \\{$`);
+  const starts = lines.flatMap((line, index) => (opening.test(line) ? [index] : []));
+  if (starts.length !== 1) {
+    throw new Error(`${file}: expected exactly one entry ${JSON.stringify(node)}, found ${String(starts.length)}`);
+  }
+  const start = starts[0] ?? 0;
+  const indent = opening.exec(lines[start] ?? '')?.[1] ?? '';
+  const end = lines.findIndex(
+    (line, index) => index > start && /^\s*\},?$/.test(line) && line.startsWith(`${indent}}`),
+  );
+  const versionLine = new RegExp(`^(${indent}\\s+"version":\\s*")${escapeRegExp(write.from)}(",?)$`);
+  const hits = lines.flatMap((line, index) => (index > start && index < end && versionLine.test(line) ? [index] : []));
+  const hit = hits[0];
+  if (end === -1 || hits.length !== 1 || hit === undefined) {
+    throw new Error(
+      `${file}: expected exactly one "version": "${write.from}" in ${node}, found ${String(hits.length)}`,
+    );
+  }
+  lines[hit] = (lines[hit] ?? '').replace(versionLine, `$1${write.to}$2`);
+  const updated = lines.join('\n');
+  const expected = JSON.parse(text) as { packages: Record<string, { version?: string }> };
+  const entry = expected.packages[node];
+  if (entry !== undefined) entry.version = write.to;
+  if (JSON.stringify(JSON.parse(updated)) !== JSON.stringify(expected)) {
+    throw new Error(`${file}: rewriting ${node} would change more than its version; nothing written`);
+  }
+  writeFileSync(file, updated);
+}
+
 function isPackageWrite(write: DerivedWrite): boolean {
   return write.path.endsWith('package.json');
 }
@@ -252,12 +310,16 @@ function isGeneratedWrite(write: DerivedWrite): boolean {
   return write.pattern !== undefined;
 }
 
+function isConsumerLockWrite(write: DerivedWrite): boolean {
+  return write.lockNode !== undefined;
+}
+
+/** Installation-root lockfiles: every write that is not edited in place. */
 function lockPaths(plan: ApplyPlan): readonly string[] {
-  return [
-    ...new Set(
-      plan.writes.filter((write) => !isPackageWrite(write) && !isGeneratedWrite(write)).map((write) => write.path),
-    ),
-  ];
+  const refreshed = plan.writes.filter(
+    (write) => !isPackageWrite(write) && !isGeneratedWrite(write) && !isConsumerLockWrite(write),
+  );
+  return [...new Set(refreshed.map((write) => write.path))];
 }
 
 // Refreshing a lock that already differs from HEAD would hide someone else's change inside this operation.
@@ -346,6 +408,32 @@ function generatedWrite(
     );
   }
   return [{ path, description: 'generated version', from: version, to: central, pattern: file.pattern }];
+}
+
+// A pin with no version has no line to edit; only regeneration can add one, so it is refused at plan time.
+function consumerLockWrite(
+  workspaceRoot: string,
+  pkg: LoadedPackage,
+  pin: ConsumerLockPin,
+  central: string,
+): readonly DerivedWrite[] {
+  if (pin.payload.key !== pkg.key || pin.version === central || (pin.link && pin.version === undefined)) return [];
+  const path = relative(workspaceRoot, join(workspaceRoot, pin.lockKey));
+  if (pin.version === undefined) {
+    throw new Error(
+      `version apply: ${path} records no version for '${pin.label}'; run ` +
+        `\`test-consumer-regenerate-package-lock ${pin.consumerKey}\``,
+    );
+  }
+  return [
+    {
+      path,
+      description: `${pin.versionNodeKey} version`,
+      from: pin.version,
+      to: central,
+      lockNode: pin.versionNodeKey,
+    },
+  ];
 }
 
 function lockWrites(

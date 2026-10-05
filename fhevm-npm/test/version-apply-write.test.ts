@@ -11,6 +11,7 @@ import {
   guardNpmjs,
   planVersionApply,
   writeGeneratedVersion,
+  writeLockNodeVersion,
   writePackageVersion,
 } from '../base/version-apply.ts';
 import { loadedPackage, parseTestNpmManifest } from './helpers.ts';
@@ -150,6 +151,58 @@ test('writeGeneratedVersion replaces only the captured version and demands exact
     assert.throws(
       () => writeGeneratedVersion(file, { path: 'Version.sol', description: 'version', from: '1', to: '2' }),
       /not a generated-file write/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("writeLockNodeVersion edits one entry's version line in place and refuses anything wider", () => {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-write-lock-node-'));
+  try {
+    const file = join(root, 'package-lock.json');
+    const node = 'node_modules/@scope/plugin';
+    const write = (from: string) => ({
+      path: 'package-lock.json',
+      description: 'v',
+      from,
+      to: '1.0.0',
+      lockNode: node,
+    });
+    const lock = (version: string) =>
+      [
+        '{',
+        '  "lockfileVersion": 3,',
+        '  "packages": {',
+        '    "node_modules/@other/thing": {',
+        `      "version": "${version}"`,
+        '    },',
+        `    "${node}": {`,
+        `      "version": "${version}",`,
+        '      "resolved": "file:../../pkg",',
+        '      "engines": {',
+        '        "node": ">=22"',
+        '      }',
+        '    }',
+        '  }',
+        '}',
+        '',
+      ].join('\n');
+    writeFileSync(file, lock('1.0.0-1'));
+    assert.throws(() => writeLockNodeVersion(file, write('0.9.0')), /found 0/);
+    writeLockNodeVersion(file, write('1.0.0-1'));
+    // Only the target entry moved; the other entry carrying the same version is untouched.
+    assert.equal(
+      readFileSync(file, 'utf8'),
+      lock('1.0.0-1').replace(`"${node}": {\n      "version": "1.0.0-1"`, `"${node}": {\n      "version": "1.0.0"`),
+    );
+    assert.throws(
+      () => writeLockNodeVersion(file, { ...write('1.0.0'), lockNode: 'node_modules/@scope/missing' }),
+      /exactly one entry/,
+    );
+    assert.throws(
+      () => writeLockNodeVersion(file, { path: 'package-lock.json', description: 'v', from: '1', to: '2' }),
+      /not a consumer-lockfile write/,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

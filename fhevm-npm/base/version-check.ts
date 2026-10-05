@@ -1,13 +1,15 @@
 // `version check`: is every derived version equal to the central one? The central file is validated first
 // (versions.ts); only a valid graph is compared against the tree. Derived state is the payload's own
 // package.json version, in every installation root whose lockfile records the member, the `version`
-// npm wrote for it, and every committed generated file that embeds it (GENERATED_VERSION_FILES).
+// npm wrote for it, the version each isolated consumer fixture's lockfile pins it at, and every committed
+// generated file that embeds it (GENERATED_VERSION_FILES).
 // Nothing here reads a version back into the authority.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import { type ConsumerLockPin, readConsumerLockPins } from './checks/consumer-lockfiles.ts';
 import { lockfilePath, packageJsonPath } from './checks/package-names.ts';
 import type { Violation } from './diagnostics.ts';
 import { type LoadedPackage, loadPackages } from './npm.ts';
@@ -40,6 +42,7 @@ export function inspectVersions(workspaceRoot: string, manifest: NpmManifest): V
   const packages = loadPackages(workspaceRoot, manifest);
   const locks = readInstallationLocks(workspaceRoot, packages);
   const generated = readGeneratedVersions(packages);
+  const consumerPins = readConsumerLockPins(packages, versions);
   // Validated one payload at a time, so each violation stays attributable to the payload it came from.
   const perPackage = packages.map((pkg) => ({
     key: pkg.key,
@@ -47,6 +50,7 @@ export function inspectVersions(workspaceRoot: string, manifest: NpmManifest): V
       ...validatePackageVersions([pkg], versions),
       ...validateLockfileMemberVersions([pkg], versions, locks),
       ...validateGeneratedVersions([pkg], versions, generated),
+      ...validateConsumerLockfileVersions([pkg], versions, consumerPins),
     ],
   }));
   const failed = new Set(perPackage.filter((entry) => entry.violations.length > 0).map((entry) => entry.key));
@@ -163,6 +167,34 @@ export function readGeneratedVersions(
     const path = join(pkg.directory, file.path);
     if (!existsSync(path)) return [];
     return [{ file, version: file.pattern.exec(readFileSync(path, 'utf8'))?.[1] }];
+  });
+}
+
+/**
+ * Every isolated consumer fixture's lockfile pins each payload it reaches at the central version. A member
+ * consumer has no lock of its own (its installation root's is checked above). Only the version is graded
+ * here; which payload a node resolves to is `check consumer-lockfiles`'s concern.
+ */
+export function validateConsumerLockfileVersions(
+  packages: readonly LoadedPackage[],
+  versions: VersionsFile,
+  pins: readonly ConsumerLockPin[],
+): readonly Violation[] {
+  const centralByKey = new Map(centralPayloads(packages, versions).map(({ pkg, central }) => [pkg.key, central]));
+  return pins.flatMap((pin) => {
+    const central = centralByKey.get(pin.payload.key);
+    if (central === undefined || pin.version === central || (pin.link && pin.version === undefined)) return [];
+    return [
+      {
+        rule: 'version-consumer-lockfile',
+        packageKey: pin.lockKey,
+        message:
+          pin.version === undefined
+            ? `records no version for '${pin.label}'; central version is ${central} — run ` +
+              `\`test-consumer-regenerate-package-lock ${pin.consumerKey}\``
+            : `records ${pin.version} for '${pin.label}'; central version is ${central} — run \`version apply\``,
+      },
+    ];
   });
 }
 
