@@ -2187,8 +2187,9 @@ export function recordObservation(ctx: Ctx, stage: string, note: string, block: 
  * The journal's transactions, one per hash, in the order they were first recorded, with the LAST line's
  * content: a transaction recorded `unmined` and later mined reads as mined.
  *
- * Stage-start anchors and finality records are not transactions and are left out; observations (step F,
- * no hash) are always kept.
+ * Stage-start anchors and finality records are not transactions and are left out. A line with no hash is
+ * kept only when it is an OBSERVATION (step F sent by a multisig): older journals also hold no-hash lines
+ * for transactions forge planned but never signed, and those record nothing that happened.
  */
 export function readJournal(ctx: Ctx): JournalEntry[] {
   const out: JournalEntry[] = [];
@@ -2196,7 +2197,7 @@ export function readJournal(ctx: Ctx): JournalEntry[] {
   for (const line of readJsonl<JournalLine>(ctx.journalPath)) {
     if (!isTxLine(line)) continue;
     if (line.hash === null) {
-      out.push(line);
+      if (line.observed === true) out.push(line);
       continue;
     }
     const at = position.get(line.hash);
