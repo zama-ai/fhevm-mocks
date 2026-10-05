@@ -15,14 +15,16 @@ To check it yourself:
 
 ```sh
 forge build create2-deploy/script/*.s.sol --out /tmp/draftout   # Solidity
-./node_modules/.bin/tsc -p create2-deploy/tsconfig.json --noEmit  # TypeScript
-node create2-deploy/deploy-testnet.ts --help
+npx tsc -p create2-deploy/tsconfig.json --noEmit                  # TypeScript
+create2-deploy/deploy-cli --help
 ```
 
-The coordinator is TypeScript run by **plain `node`** (≥ 22.6), which strips types at load — no tsx,
+The coordinator is TypeScript run by **plain `node`** (≥ 22.18), which strips types at load — no tsx,
 no build step, no dependencies, no `jq`. `erasableSyntaxOnly` in the tsconfig enforces that: it fails
 the typecheck on anything node cannot strip (`enum`, `namespace`, parameter properties), so the
-editor catches it before node does.
+editor catches it before node does. Operators never call `node` themselves: `deploy-cli` and
+`upgrade/upgrade-cli` are small bash launchers that check the Node version, follow a symlink to their real
+location, and run the `.ts` file beside them in `ts/`.
 
 Read it, decide whether the shape is right, then throw it away and write the real thing under
 `pkg/forge/script/`.
@@ -31,11 +33,15 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 
 | File | Plan section | What it is |
 | --- | --- | --- |
-| [deploy-testnet.ts](deploy-testnet.ts) | §1, §3, §11 | fresh-stack coordinator: preflight gates, 3 builds, one forge invocation per stage |
-| [upgrade/testnet.ts](upgrade/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v12 stack without moving ownership or pausers |
+| [deploy-cli](deploy-cli) | — | the operator's entry point for a fresh deploy: checks Node, runs `ts/deploy-testnet.ts` |
+| [ts/deploy-testnet.ts](ts/deploy-testnet.ts) | §1, §3, §11 | fresh-stack coordinator: preflight gates, 3 builds, one forge invocation per stage |
+| [upgrade/upgrade-cli](upgrade/upgrade-cli) | — | the operator's entry point for an upgrade: checks Node, runs `upgrade/ts/testnet.ts` |
+| [upgrade/ts/testnet.ts](upgrade/ts/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v12 stack without moving ownership or pausers |
 | [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) | — | the upgrade as terminal commands, in order, with what "good" looks like at each step |
-| [utils.ts](utils.ts) | — | dependency-free helpers: process running, JSONL, path containment |
-| `deploy.config.json` | — | optional, auto-discovered: the stable arguments, so they aren't retyped |
+| [ts/common.ts](ts/common.ts) | — | everything the two coordinators share: options, config file, preflight, journal, broadcast |
+| [ts/utils.ts](ts/utils.ts) | — | dependency-free helpers: process running, JSONL, path containment |
+| `deploy.config.json` | — | optional, read from the current directory: the stable arguments, so they aren't retyped |
+| [create2-deploy.config.json](create2-deploy.config.json) | — | the testnets the tool may broadcast to |
 | [anvil-config.json](anvil-config.json) | — | ready-made config for the local rehearsal — see GUIDE |
 | [tsconfig.json](tsconfig.json) | — | editor + `tsc --noEmit` only; nothing is ever built from it |
 | [script/FhevmCreate2Base.s.sol](script/FhevmCreate2Base.s.sol) | §3, §5.4, §9 | env config, role table, salts, initcode, factory call, manifest codec |
@@ -97,7 +103,7 @@ that previous head to **finalize**; for a single manual stage, pass `--min-block
 
 ### Upgrading a v12 stack
 
-`upgrade/testnet.ts` has a separate four-stage flow because it preserves the live ACL, executor,
+`upgrade/upgrade-cli` has a separate flow because it preserves the live ACL, executor,
 verifiers, HCU limit, cleartext contracts, `PauserSet`, and `ACLOwner`:
 
 ```text
@@ -189,10 +195,10 @@ What is **not** proven, and would have to be added to prove it:
 ## Checking a stage before running it
 
 ```sh
-node deploy-testnet.ts … --report                  # which STEPS ran, with the tx that did each
-node deploy-testnet.ts … --stage status            # what's done, what's left, and why
-node deploy-testnet.ts … --stage log               # every tx, in the order it was sent
-node deploy-testnet.ts … --stage creates --dry-run # is this stage ready? sends nothing
+deploy-cli … --report                  # which STEPS ran, with the tx that did each
+deploy-cli … --stage status            # what's done, what's left, and why
+deploy-cli … --stage log               # every tx, in the order it was sent
+deploy-cli … --stage creates --dry-run # is this stage ready? sends nothing
 ```
 
 Four read-only views, answering four different questions:
@@ -269,7 +275,8 @@ a run leaves nothing in the package root) — when a journal line isn't enough, 
 calldata and gas breakdown is one directory away.
 
 Everything a run writes lives under `--out-dir` (default `create2-deploy/.out`), and it should
-be **one directory per chain** — `--out-dir .out-sepolia`, `--out-dir .out-amoy`. The *addresses*
+be **one directory per chain** — anywhere on disk, inside the repository or in an operator's own
+folder (see [DEPLOY.md](DEPLOY.md)). The *addresses*
 are the same on every chain for a given deployer + deploymentId (§14.1), which is the point; what's
 per-chain is the `chainId` in the manifest and everything about what was actually sent. Sharing one
 directory would reseal over another chain's manifest and interleave its journal — losing the only
@@ -288,9 +295,9 @@ already there was sealed for a different chain.
 A deployment spans many invocations, often days apart. Two mechanisms keep them consistent, and they
 work from opposite ends:
 
-- **A config file removes the retyping.** `--config PATH`, or `deploy.config.json` beside the script,
+- **A config file removes the retyping.** `--config PATH`, or `./deploy.config.json` in the current directory,
   holding the stable half — what this deployment *is*. **Any flag overrides it**, so a one-off
-  `--rpc-url` needs no edit. It deliberately rejects `stage`, `dryRun`, `minBlock` and `yes`: those
+  `--rpc-url` needs no edit. It deliberately rejects `stage`, `dryRun`, `minBlock`, `noConfirm` and the other per-run flags: those
   are what one invocation *does*, and pinning them would make every invocation the same one. Unknown
   keys are rejected too, since a typo here selects a different address set.
 - **Preflight catches drift anyway**, against the manifest — because a config file is a convention,
@@ -470,20 +477,20 @@ fs_permissions = [
 ]
 ```
 
-That list is also what bounds `--out-dir`. Forge does accept absolute entries, including outside the
-project root — verified, not assumed — but it is static config, so granting one per deployment
-doesn't scale. The shell therefore grants a single root, resolves relative values against it, and
-**rejects an out dir outside it at startup**; otherwise forge notices only midway through pass 1,
-after two builds, complaining about a path the operator never typed. Giving the CREATE2 path its own
-root rather than sharing `./internal/.deploy-config` also keeps either path from clobbering the
-other's config.
+That list no longer bounds `--out-dir`. Forge ignores `fs_permissions` in the environment, so the
+coordinator writes a config of its own into `<out-dir>/.foundry/foundry.toml`: forge's fully resolved
+config (`forge config`), every path made absolute, plus the out dir in `fs_permissions` and
+`allow_paths`, passed to every forge call as `--root <package> --config-path <it>`. Before any build it
+resolves both configs again and refuses to run if anything but those two fields differs, because every
+address is a hash of the compiled bytecode. The repository's `foundry.toml` is never edited, and an out
+dir that contains the package is refused.
 
 ## Running it
 
 A real testnet, which has not been done yet:
 
 ```sh
-node create2-deploy/deploy-testnet.ts \
+create2-deploy/deploy-cli \
   --rpc-url        "$SEPOLIA_RPC_URL" \
   --account        fhevm-testnet-deployer \
   --admin          0x… \
@@ -496,8 +503,8 @@ is allowed only because the node answers `anvil_nodeInfo`:
 
 ```sh
 anvil --silent &
-node create2-deploy/deploy-testnet.ts --config create2-deploy/anvil-config.json \
-  --out-dir .out-rehearsal --no-confirm --stage all
+create2-deploy/deploy-cli --config create2-deploy/anvil-config.json \
+  --out-dir create2-deploy/.out-rehearsal --no-confirm --stage all
 ```
 
 **This is not the path for local dev.** RULES.md rules 15 and 17 require the local stack to land on the
