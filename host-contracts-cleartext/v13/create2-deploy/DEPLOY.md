@@ -197,6 +197,7 @@ deployment folder.
 ### Step 7: compute the addresses
 
 ```sh
+# from ~/fhevm-deployments/arbsepolia-2026-10
 deploy-cli --stage compute
 ```
 
@@ -215,6 +216,7 @@ The seal also records which commit of the tool computed it.
 ### Step 9: deploy
 
 ```sh
+# from ~/fhevm-deployments/arbsepolia-2026-10
 deploy-cli --stage all
 ```
 
@@ -231,6 +233,7 @@ You should see `OK - every terminal condition for the deploy`.
 ### Step 10: check the result
 
 ```sh
+# from ~/fhevm-deployments/arbsepolia-2026-10
 deploy-cli --stage status
 deploy-cli --report
 jq .address out/manifest.json
@@ -241,6 +244,7 @@ jq .address out/manifest.json
 ### Step 11: commit the record
 
 ```sh
+# from ~/fhevm-deployments/arbsepolia-2026-10
 git add out/journal.jsonl
 git commit -m "record: cleartext-v13-arbsepolia-2026-10"
 git push
