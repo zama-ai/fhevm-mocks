@@ -39,6 +39,7 @@ import {
   readJsonl,
   removeIfPresent,
   run,
+  heartbeat,
   sameAddress,
   say,
   requireTool,
@@ -484,9 +485,13 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
     "  '--stage verify' will pick up from wherever this got to.",
   );
 
+  // A multisig can take minutes or days to sign: one line a minute says the poll is still alive.
+  const beat = heartbeat();
   for (;;) {
     const owner = captureOrFail('cast', ['call', aclOwner, 'owner()(address)', '--rpc-url', ctx.opt.rpcUrl]);
     if (sameAddress(owner, ctx.opt.admin)) break;
+    if (beat.due())
+      say(`  … still waiting for the admin's acceptOwnership(): ACLOwner.owner() is ${owner} (${beat.elapsed()})`);
     await sleep(15000);
   }
 

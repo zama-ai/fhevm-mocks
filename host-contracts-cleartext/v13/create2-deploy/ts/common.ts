@@ -23,6 +23,7 @@ import {
   captureOrFail,
   ensureDir,
   fail,
+  heartbeat,
   hexToNumber,
   isInside,
   pad,
@@ -33,6 +34,7 @@ import {
   sameAddress,
   say,
   sleep,
+  transcriptActive,
   warn,
 } from './utils.ts';
 
@@ -1701,24 +1703,43 @@ export function hasCodeAt(ctx: Ctx, address: string, block: number): boolean {
  * through block.number, which is why the depth floor lives there and the finality wait lives here.
  */
 export async function waitForBlock(ctx: Ctx, target: number): Promise<void> {
+  // `finalityTarget` is the block the PREVIOUS stage ended in (0 when nothing ran before in this process).
+  // Every line names it, so "block X" is never confused with "the chain is at block Y".
+  const prev = ctx.finalityTarget;
   let head = headBlock(ctx);
   if (head < target) {
-    say(`  waiting for block ${target} (at ${head}, reorg depth ${ctx.opt.confirmations})`);
+    say(
+      prev > 0
+        ? `  waiting until block ${target}: the previous stage ended in block ${prev}, and "confirmations" is ${ctx.opt.confirmations} (chain head: ${head})`
+        : `  waiting until block ${target} (--min-block; chain head: ${head})`,
+    );
+    const beat = heartbeat();
     while (head < target) {
       await sleep(4000);
       head = headBlock(ctx);
+      if (beat.due()) say(`  … chain head ${head}, ${target - head} block(s) to go (${beat.elapsed()})`);
     }
+    say(`  block ${target} reached (chain head: ${head})`);
   }
 
-  if (!ctx.useFinality || ctx.finalityTarget <= 0) return;
+  if (!ctx.useFinality || prev <= 0) return;
 
   let fin = finalizedBlock(ctx);
-  if (fin < ctx.finalityTarget) {
-    say(`  waiting for block ${ctx.finalityTarget} to FINALIZE (finalized at ${fin})`);
-    while (fin < ctx.finalityTarget) {
+  if (fin < prev) {
+    // On an Ethereum testnet finality trails the head by two epochs, ~13 minutes, before EVERY stage: said
+    // up front so a long silence is never mistaken for a hang, and repeated once a minute while it lasts.
+    say(
+      `  waiting for block ${prev}, where the previous stage ended, to be finalized.`,
+      `  The chain has finalized up to block ${fin}: ${prev - fin} block(s) to go. This takes ~15 minutes on an`,
+      '  Ethereum testnet. Nothing is stuck; Ctrl-C is safe here.',
+    );
+    const beat = heartbeat();
+    while (fin < prev) {
       await sleep(12000);
       fin = finalizedBlock(ctx);
+      if (beat.due()) say(`  … finalized up to block ${fin}, ${prev - fin} block(s) to go (${beat.elapsed()})`);
     }
+    say(`  block ${prev} is finalized`);
   }
 }
 
@@ -2093,10 +2114,26 @@ export async function broadcast(
   //
   // The exit code is captured rather than thrown, so the journal is written even when the stage
   // dies. A half-finished stage is the case the audit trail exists for.
+  // Said before forge starts: it sends one transaction at a time and waits for each receipt, so a stage
+  // of 20 transactions on a 12-second chain takes minutes. When its output is piped into a transcript,
+  // forge shows none of that progress, so a heartbeat reports the sender's nonce instead.
+  say(
+    `  sending from ${from}: one transaction at a time, each waiting for its receipt.`,
+    '  On a public testnet this takes about one block per transaction.',
+  );
+  const startNonce = captureOrFail('cast', ['nonce', from, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]);
+  const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
     [...base, ...forgeSignerArgs(key), '--sender', from, '--slow', '--broadcast'],
     env,
+    transcriptActive()
+      ? () => {
+          const nonce = capture('cast', ['nonce', from, '--rpc-url', ctx.opt.rpcUrl]).stdout;
+          const sent = /^\d+$/.test(nonce) && /^\d+$/.test(startNonce) ? Number(nonce) - Number(startNonce) : '?';
+          return `  … forge is still sending (${beat.elapsed()}): ${String(sent)} transaction(s) mined so far`;
+        }
+      : undefined,
   );
 
   recordJournal(ctx, target);

@@ -31,6 +31,7 @@ import {
   ensureDir,
   fail,
   freePort,
+  heartbeat,
   hexToNumber,
   pad,
   readJson,
@@ -401,6 +402,8 @@ function previousAbiDir(ctx: Ctx): string {
 function surveyStack(ctx: Ctx, block?: number): Readonly<Record<string, string>> {
   const dir = previousAbiDir(ctx);
   const readings: Record<string, string> = {};
+  // One RPC call per getter, 60+ of them: on a slow public RPC that is a minute or more.
+  const beat = heartbeat();
   for (const target of SURVEY_TARGETS) {
     const path = join(dir, target.abi);
     if (!existsSync(path)) fail(`Error: required v12 ABI is missing: ${path}`, '       Pass --previous-abi-dir PATH.');
@@ -425,6 +428,11 @@ function surveyStack(ctx: Ctx, block?: number): Readonly<Record<string, string>>
         ...atBlock(block),
       ]);
       readings[`${target.label}.${name}`] = result.ok ? result.stdout : '<reverted>';
+      if (beat.due()) {
+        say(
+          `    … ${String(Object.keys(readings).length)} getters read so far, now ${target.label} (${beat.elapsed()})`,
+        );
+      }
     }
   }
   if (Object.keys(readings).length < 50) {
@@ -1083,12 +1091,24 @@ type Log = {
 /** Blocks per `eth_getLogs` call. Public RPCs cap the range, and compute-to-verify can span days. */
 const LOG_WINDOW = 2000;
 
+/** One progress clock for every event scan of this run. See scanLogs. */
+let scanBeat: ReturnType<typeof heartbeat> | null = null;
+
 /** Every `signature` event `address` emitted from `fromBlock` to the head, fetched in RPC-sized windows. */
 function scanLogs(ctx: Ctx, address: string, signature: string, fromBlock: number): Log[] {
   const head = headBlock(ctx);
   const logs: Log[] = [];
+  // Days between compute and verify are thousands of blocks, in RPC-sized windows, for a dozen scans:
+  // the heartbeat is shared by all of them, or a dozen 50-second scans would never print a line.
+  scanBeat ??= heartbeat();
+  const beat = scanBeat;
   for (let from = fromBlock; from <= head; from += LOG_WINDOW) {
     const to = Math.min(from + LOG_WINDOW - 1, head);
+    if (beat.due()) {
+      say(
+        `    … scanning ${signature.split('(')[0] ?? signature} events: block ${String(from)} of ${String(head)} (${beat.elapsed()})`,
+      );
+    }
     const r = capture('cast', [
       'logs',
       '--json',
@@ -1567,6 +1587,9 @@ async function waitForCreatesSettled(ctx: Ctx): Promise<void> {
       '       Run creates first.',
     );
   }
+  // One line when the wait starts, then one a minute: every 12 s flooded the terminal for ~15 minutes.
+  const beat = heartbeat();
+  let announced = false;
   for (;;) {
     const settled = settledBlock(ctx);
     const pending = CREATE_ROLES.filter((role) => !hasCodeAt(ctx, at(role), settled));
@@ -1574,9 +1597,12 @@ async function waitForCreatesSettled(ctx: Ctx): Promise<void> {
       say(`  every create is settled at block ${String(settled)} (${settlementRule(ctx)})`);
       return;
     }
-    say(
-      `  waiting: ${String(pending.length)} create(s) not yet settled at block ${String(settled)} (${settlementRule(ctx)})`,
-    );
+    if (!announced || beat.due()) {
+      say(
+        `  waiting: ${String(pending.length)} create(s) not yet settled at block ${String(settled)} (${settlementRule(ctx)}${announced ? `, ${beat.elapsed()}` : ''})`,
+      );
+      announced = true;
+    }
     await sleep(12_000);
   }
 }
@@ -1597,6 +1623,8 @@ async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
       '       transaction was reorged out. --stage status says which; --stage materialize is safe to re-run.',
     );
   }
+  const beat = heartbeat();
+  let announced = false;
   for (;;) {
     const settled = settledBlock(ctx);
     if (settled >= block) {
@@ -1605,7 +1633,12 @@ async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
       );
       return block;
     }
-    say(`  waiting for block ${String(block)} to settle (${settlementRule(ctx)}, settled block ${String(settled)})`);
+    if (!announced || beat.due()) {
+      say(
+        `  waiting for block ${String(block)} to settle (${settlementRule(ctx)}, settled block ${String(settled)}${announced ? `, ${beat.elapsed()}` : ''})`,
+      );
+      announced = true;
+    }
     await sleep(12_000);
   }
 }
