@@ -182,7 +182,8 @@ Usage: upgrade-cli --rpc-url URL [--account NAME] --admin 0x...
   --account NAME       forge keystore account to broadcast from. Required on every chain EXCEPT a
                        local anvil, where accounts 0 and 1 of anvil's public mnemonic are used
   --admin 0x...        the CURRENT ACLOwner owner. Not a value this sets — a value it VERIFIES, since
-                       ownership must not change
+                       ownership must not change. Optional with --admin-account, whose address is
+                       then used; with both, they must be the same account
   --deployment-id ID   reuse the deployment's own id. The salt mixes the version, so "0.13" here and
                        "0.12" for the original deploy already give disjoint addresses
 

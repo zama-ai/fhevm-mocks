@@ -141,8 +141,9 @@ Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID 
                        local anvil: omit it there and accounts 0 and 1 of anvil's public mnemonic are
                        used as deployer and admin, so a rehearsal needs no keystore. The node must
                        answer anvil_nodeInfo or this is refused
-  --admin 0x...        final owner of ACLOwner. Mandatory, no default — except under the
-                       anvil default above, where it is anvil account 1
+  --admin 0x...        final owner of ACLOwner. Required, except when the admin signs through
+                       --admin-account (or the anvil default above): then it is that account's
+                       address. With both, they must be the same account
   --deployment-id ID   operator-chosen string; a fresh one gives a disjoint address set
   --pauser 0x...       optional operator pauser, step A'
   --confirmations N    reorg DEPTH floor for the between-stage waits (default 3). This is
@@ -151,10 +152,10 @@ Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID 
   --no-finality        between stages wait only for --confirmations of depth, NOT for the previous
                        stage to finalize. Depth is a heuristic — ~3 min at 15 blocks vs ~12.8 min to
                        PoS finality — and testnets are where that gap bites
-  --admin-account NAME forge keystore account that SIGNS step F on the admin's behalf. Does not
-                       replace --admin, which stays the authoritative address and is sealed in the
-                       manifest; this must resolve to the same account. Without it, step F polls
-                       until the admin's own transaction lands (the multisig case)
+  --admin-account NAME forge keystore account that SIGNS step F on the admin's behalf. Without
+                       --admin, the admin address is read from it (one password prompt); with
+                       --admin, it must resolve to that address. Without --admin-account, step F
+                       polls until the admin's own transaction lands (the multisig case)
   --out-dir PATH       where this deployment's seal, generated config and journal are written. Any
                        folder, inside the repository or not; ONE PER (chain, deployment-id). On the
                        command line it is relative to the current directory; as "outDir" in a config

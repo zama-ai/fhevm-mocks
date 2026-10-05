@@ -171,7 +171,10 @@ Create `deploy.config.json` in your deployment folder, for example
 }
 ```
 
-If the admin is a multisig, delete the `adminAccount` line.
+- **Admin is a key:** `admin` is optional. Without it, the tool reads the address from `adminAccount`
+  (one password prompt) and shows it in its first lines. With both, they must be the same account, or
+  the tool refuses to start.
+- **Admin is a multisig:** delete the `adminAccount` line. `admin` is then required.
 
 `deploymentId` decides every address. The tool derives one CREATE2 salt per contract from it:
 `keccak256(abi.encode("fhevm.cleartext", "0.13", deploymentId, <contract name>))`. The deployer key also

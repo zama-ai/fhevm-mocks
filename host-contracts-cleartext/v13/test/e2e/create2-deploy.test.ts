@@ -254,6 +254,25 @@ void test(
       let manifest: Readonly<Record<string, string>> = {};
       let deployed = false;
 
+      // Preflight only, so seconds: no build, no transaction. On anvil the admin signs as account 1, so any
+      // other --admin is a mismatch, and root must never be handed to an address the signer is not.
+      await t.test('an --admin that is not the admin signer is refused before anything runs', async () => {
+        writeOperatorConfig();
+        const outDir = join(OPERATOR_DIR, 'wrong-admin');
+        const { ok, output } = await runCoordinator([
+          ...COMMON_ARGS,
+          '--admin',
+          '0x000000000000000000000000000000000000dEaD',
+          '--out-dir',
+          outDir,
+          '--stage',
+          'compute',
+        ]);
+        assert.equal(ok, false, 'a mismatched --admin was accepted');
+        assert.match(output, /They have to be the same account/, output.slice(-2000));
+        assert.ok(!existsSync(join(outDir, 'manifest.json')), 'nothing may be sealed for a refused admin');
+      });
+
       await t.test('the coordinator deploys and verifies the whole stack in one run', async () => {
         announce(2, STEPS, 'deploy v13 with deploy-cli --stage all (3 forge builds, 22 creates, steps A-F, verify)');
         rmSync(outDirAbs(), { recursive: true, force: true });
@@ -264,6 +283,12 @@ void test(
           assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
         }
         assert.match(output, /OK - every terminal condition/, 'the deploy ran its own verify');
+        // The config names no admin: it is derived from the admin signer, and preflight says so.
+        assert.match(
+          output,
+          new RegExp(`admin\\s+${ANVIL_ADMIN}\\s+\\(from anvil account 1\\)`, 'i'),
+          'the admin address derived from the admin signer',
+        );
         // Forge wrote outside the repository through the config the coordinator generated there.
         assert.ok(existsSync(join(outDirAbs(), '.foundry', 'foundry.toml')), 'generated forge config in the out dir');
         manifest = manifestAddresses();

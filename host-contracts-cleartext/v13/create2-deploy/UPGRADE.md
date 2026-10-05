@@ -193,7 +193,10 @@ Create `upgrade.config.json` in your upgrade folder, for example
 }
 ```
 
-If the admin is a multisig, delete the `adminAccount` line.
+- **Admin is a key:** `admin` is optional. Without it, the tool reads the address from `adminAccount`
+  (one password prompt) and shows it in its first lines. With both, they must be the same account, or
+  the tool refuses to start.
+- **Admin is a multisig:** delete the `adminAccount` line. `admin` is then required.
 
 `upgrade-cli` reads `upgrade.config.json` from the folder you run it in, so always run it from your
 upgrade folder. If you open a new terminal, set `RPC` from step 4 again.

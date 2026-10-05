@@ -79,6 +79,8 @@ export type Options = {
   /** Who signs step F on the admin's behalf, when anything does. */
   readonly adminSigner: Signer | null;
   readonly admin: string;
+  /** True when `admin` was not given and was read off the admin signer (keystore or anvil). */
+  readonly adminDerived: boolean;
   readonly deploymentId: string;
   readonly pauser: string | null;
   readonly adminAccount: string | null;
@@ -903,13 +905,19 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
         ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
         : null;
 
-  // --admin is an ADDRESS, and mandatory — except on the anvil default, where the
-  // only sensible value is the account that adminSigner will sign with. Deriving it keeps the two from
-  // disagreeing, which preflight would otherwise reject.
-  if (admin === '' && adminSigner?.kind === 'anvil') {
+  // --admin is an ADDRESS. When it is not given but an admin signer is — `--admin-account`, or the anvil
+  // default — it is read off that signer: the only value that could pass checkAdminAccount anyway. A
+  // keystore costs its password here, which is why checkAdminAccount then skips the comparison rather
+  // than asking a second time. A multisig admin has no signer, so there it stays mandatory.
+  //
+  // Only for stages that reach the chain: `log` and `report` read local files and never use the admin,
+  // so they must not unlock a keystore just to compute it.
+  let adminDerived = false;
+  if (admin === '' && adminSigner !== null && flow.needsChain(stage)) {
     admin = signerAddress(adminSigner);
+    adminDerived = true;
   }
-  if (admin === '') fail(missing('--admin', 'admin'));
+  if (admin === '' && flow.needsChain(stage)) fail(missing('--admin', 'admin'));
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
 
   // A path typed on the command line is relative to the caller's directory; a path written in a config
@@ -956,6 +964,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     signer,
     adminSigner,
     admin,
+    adminDerived,
     deploymentId,
     adminAccount,
     pauser: cli.pauser ?? cfg.pauser ?? null,
@@ -1366,7 +1375,8 @@ export function checkOutDirIdentity(ctx: Ctx): void {
  * before surfacing, on a run that may have started days earlier.
  */
 export function checkAdminAccount(ctx: Ctx): void {
-  if (ctx.opt.adminSigner === null) return;
+  // Derived from the signer itself (resolveOptions), so comparing would only compare it with itself.
+  if (ctx.opt.adminSigner === null || ctx.opt.adminDerived) return;
 
   const resolved = signerAddress(ctx.opt.adminSigner);
   if (!sameAddress(resolved, ctx.opt.admin)) {
@@ -1517,7 +1527,9 @@ export function preflight(ctx: Ctx): void {
     `  finalized block  ${finalized}`,
     `  deployer         ${ctx.deployer}`,
     `  balance          ${balanceEth} ETH`,
-    `  admin            ${ctx.opt.admin}`,
+    `  admin            ${ctx.opt.admin}${
+      ctx.opt.adminDerived && ctx.opt.adminSigner !== null ? ` (from ${describeSigner(ctx.opt.adminSigner)})` : ''
+    }`,
     ...(adminBalanceEth === null ? [] : [`  admin balance    ${adminBalanceEth} ETH`]),
     `  deploymentId     ${ctx.opt.deploymentId} @ v${FHEVM_VERSION}`,
     `  out dir          ${ctx.outDir}`,
