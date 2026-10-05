@@ -1071,8 +1071,10 @@ export function resolveOutDir(outDirArg: string | null): string {
  * `fs_permissions` is static config and forge ignores it in the environment, so this writes a complete
  * config of its own: forge's own fully resolved one (`forge config`, which also flattens the `extends`
  * chain — forge refuses nested `extends`), plus the out dir in `fs_permissions` and in `allow_paths`
- * (solc must be allowed to import the generated addresses.sol from there). Every forge call then gets
- * `--root <package> --config-path <it>`.
+ * (solc must be allowed to import the generated addresses.sol from there), and `cache_path` moved to
+ * `<out>/cache`. Forge writes there its build cache and, after every broadcast, a "sensitive" copy of
+ * the run (the RPC URL, which can embed an API key): both belong to the deployment, not to the tool
+ * checkout. Every forge call then gets `--root <package> --config-path <it>`.
  *
  * Every path in it is written ABSOLUTE, resolved against the package root. Forge resolves the relative
  * paths of a `--config-path` file against that file's directory, not against `--root` — so a relative
@@ -1081,13 +1083,14 @@ export function resolveOutDir(outDirArg: string | null): string {
  *
  * The generated file must change NOTHING else, because every CREATE2 address is a hash of the compiled
  * bytecode. So it is not trusted: both configs are resolved again, every path made absolute the same
- * way, and compared — everything but the two permission fields. Any difference stops the run before a
- * single build.
+ * way, and compared — everything but the two permission fields and the cache location, none of which
+ * reaches the bytecode. Any difference stops the run before a single build.
  */
 export function prepareForgeConfig(ctx: Ctx): void {
   const dir = join(ctx.outDir, '.foundry');
   const path = join(dir, 'foundry.toml');
   const quoted = JSON.stringify(ctx.outDir);
+  const cachePath = join(ctx.outDir, 'cache');
 
   const dumped = captureOrFail('forge', ['config', '--root', PACKAGE_ROOT]);
   // Only [profile.default] and its subtables are rewritten: [fmt], [doc] and the rest have keys of the
@@ -1105,6 +1108,8 @@ export function prepareForgeConfig(ctx: Ctx): void {
     const absolute = entries.map((entry) => (key === 'libs' ? absolutePath(entry) : absoluteRemapping(entry)));
     return `${key} = [${absolute.map((entry) => JSON.stringify(entry)).join(', ')}]`;
   });
+
+  profile = profile.replace(/^cache_path = .*$/m, `cache_path = ${JSON.stringify(cachePath)}`);
 
   const allowPaths = /^allow_paths = \[(.*)\]$/m;
   const inner = allowPaths.exec(profile)?.[1];
@@ -1126,7 +1131,7 @@ export function prepareForgeConfig(ctx: Ctx): void {
   const got = resolved(['--config-path', path]);
 
   const differing = [...new Set([...Object.keys(want), ...Object.keys(got)])].filter(
-    (key) => key !== 'fs_permissions' && key !== 'allow_paths' && stableJson(want[key]) !== stableJson(got[key]),
+    (key) => !GENERATED_FORGE_KEYS.has(key) && stableJson(want[key]) !== stableJson(got[key]),
   );
   if (differing.length > 0) {
     fail(
@@ -1137,9 +1142,14 @@ export function prepareForgeConfig(ctx: Ctx): void {
   }
   const granted = JSON.stringify(got.fs_permissions ?? []).includes(quoted.slice(1, -1));
   if (!granted) fail(`Error: the generated forge config ${path} does not grant write access to ${ctx.outDir}.`);
+  if (got.cache_path !== cachePath)
+    fail(`Error: the generated forge config ${path} does not move the cache to ${cachePath}.`);
 
   ctx.forgeArgs = ['--root', PACKAGE_ROOT, '--config-path', path];
 }
+
+/** The keys the generated forge config sets on purpose; none of them reaches the bytecode. */
+const GENERATED_FORGE_KEYS: ReadonlySet<string> = new Set(['fs_permissions', 'allow_paths', 'cache_path']);
 
 /** The single-path keys of a forge profile. `libs` and `remappings` are handled as lists. */
 const FORGE_PATH_KEYS: readonly string[] = [

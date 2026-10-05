@@ -511,9 +511,11 @@ fs_permissions = [
 That list no longer bounds `--out-dir`. Forge ignores `fs_permissions` in the environment, so the
 coordinator writes a config of its own into `<out-dir>/.foundry/foundry.toml`: forge's fully resolved
 config (`forge config`), every path made absolute, plus the out dir in `fs_permissions` and
-`allow_paths`, passed to every forge call as `--root <package> --config-path <it>`. Before any build it
-resolves both configs again and refuses to run if anything but those two fields differs, because every
-address is a hash of the compiled bytecode. The repository's `foundry.toml` is never edited, and an out
+`allow_paths`, and `cache_path` moved to `<out-dir>/cache`, passed to every forge call as
+`--root <package> --config-path <it>`. The cache move keeps forge's build cache and its "sensitive
+values" copy of each broadcast (the RPC URL, which can embed an API key) with the deployment, out of
+the tool checkout. Before any build it resolves both configs again and refuses to run if anything but
+those three fields differs, because every address is a hash of the compiled bytecode. The repository's `foundry.toml` is never edited, and an out
 dir that contains the package is refused.
 
 ## Running it

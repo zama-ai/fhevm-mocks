@@ -291,6 +291,11 @@ void test(
         );
         // Forge wrote outside the repository through the config the coordinator generated there.
         assert.ok(existsSync(join(outDirAbs(), '.foundry', 'foundry.toml')), 'generated forge config in the out dir');
+        // Forge's "sensitive values" copy of each broadcast (the RPC URL) belongs to the deployment too.
+        assert.ok(
+          existsSync(join(outDirAbs(), 'cache', 'FhevmDeployCreates.s.sol')),
+          "forge's broadcast cache in the out dir, not in the tool checkout",
+        );
         // compute's scratch file goes once the seal is complete: nothing after compute reads it.
         assert.ok(!existsSync(join(outDirAbs(), 'pass2.json')), 'pass2.json left behind after a complete seal');
         manifest = manifestAddresses();

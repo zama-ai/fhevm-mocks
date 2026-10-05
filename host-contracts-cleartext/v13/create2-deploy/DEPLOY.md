@@ -261,6 +261,7 @@ arbsepolia-2026-10/
     ├── journal.jsonl      every transaction sent     commit it (step 11)
     ├── build/             forge's compiled output    do not commit
     ├── broadcast/         forge's raw records        do not commit
+    ├── cache/             forge's cache + RPC URL    never commit (may hold an API key)
     └── .foundry/          forge config for this run  do not commit
 ```
 
