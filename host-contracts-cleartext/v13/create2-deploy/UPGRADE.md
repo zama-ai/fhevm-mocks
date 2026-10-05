@@ -57,7 +57,7 @@ check, see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) and [README.md](README.md#up
 | Foundry (`forge`, `cast`, `anvil`)            | build, send, and fork the chain for the rehearsal       |
 | Node.js ≥ 22.18, `git`, `make`, `jq`          | run the tool                                            |
 | the v12 deploy's `manifest.json`              | the nine live addresses and the `deploymentId`          |
-| the **admin** key or multisig                 | the current owner of `ACLOwner`; it sends the upgrade   |
+| the **admin** key or multisig, with testnet ETH | the current owner of `ACLOwner`; it sends the upgrade, the biggest transaction of the run |
 | a **deployer** key with testnet ETH           | sends the 10 creates; it gets no power over the stack   |
 | your KMS nodes' tx sender, IP and storage URL | new in v13, not on chain                                |
 | an RPC that serves `eth_getLogs`              | verify reads the upgrade's events                       |
@@ -66,8 +66,10 @@ check, see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) and [README.md](README.md#up
 
 ### Step 1: install the tool
 
+> ⚠️ **Use the `release/0.13.x` branch only.** Never `main` or another branch.
+
 ```sh
-git clone https://github.com/zama-ai/fhevm-mocks.git ~/src/fhevm-mocks
+git clone --branch release/0.13.x --single-branch https://github.com/zama-ai/fhevm-mocks.git ~/src/fhevm-mocks
 cd ~/src/fhevm-mocks
 make install
 ```
@@ -117,6 +119,17 @@ cast wallet import fhevm-deployer --interactive
 cast wallet import fhevm-admin --interactive   # skip if the admin is a multisig
 ```
 
+Both keys need testnet ETH: the deployer sends the 10 creates, and the admin key sends the upgrade itself
+(step 14). A multisig admin pays its own gas.
+
+```sh
+cast balance "$(cast wallet address --account fhevm-deployer)" --rpc-url $RPC --ether
+cast balance "$(cast wallet address --account fhevm-admin)" --rpc-url $RPC --ether   # admin key only
+```
+
+If the admin key has no ETH, the tool refuses to start step 14. The rehearsal (step 13) does not catch it:
+on its fork, the admin is given ETH.
+
 ### Step 6: create a test handle
 
 Optional, strongly recommended: it proves existing data survives the upgrade.
@@ -162,7 +175,8 @@ All four thresholds equal the live `getThreshold()` value.
 
 ### Step 8: write the config file
 
-Create `upgrade.config.json` in your upgrade folder:
+Create `upgrade.config.json` in your upgrade folder, for example
+`~/fhevm-deployments/arbsepolia-upgrade-v13/upgrade.config.json`:
 
 ```json
 {
@@ -191,6 +205,7 @@ upgrade folder. If you open a new terminal, set `RPC` from step 4 again.
 > | ----------------------------------------- | ------------------------------------------------------------------ |
 > | `"out"`                                   | ✅ OK: `out/` next to `upgrade.config.json`                         |
 > | `"/home/me/fhevm-deployments/arbsepolia-upgrade-v13/out"` | ✅ OK: the same folder, written in full             |
+> | `"~/fhevm-deployments/arbsepolia-upgrade-v13/out"` | ❌ Not OK: `~` is not expanded in a JSON file. Write `"out"`, or the full path |
 > | `"out"`, reused for a second upgrade      | ❌ Not OK: one `outDir` per upgrade. Use a new upgrade folder       |
 > | `"/home/me/src/fhevm-mocks"` (or any folder containing the tool) | ❌ Not OK: the tool refuses to start            |
 
