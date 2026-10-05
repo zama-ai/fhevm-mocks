@@ -194,10 +194,6 @@ export type Ctx = {
   readonly deployer: string;
   chainId: string;
   useFinality: boolean;
-  /** Block the next broadcasting stage may not start before. */
-  nextMinBlock: number;
-  /** Block that must FINALIZE before the next stage. 0 = nothing sent yet. */
-  finalityTarget: number;
   stageLabel: string;
   /**
    * `--root <package> --config-path <generated foundry.toml>`, appended to every forge invocation so
@@ -1238,8 +1234,6 @@ export function buildContext(flow: Flow, opt: Options): Ctx {
     deployer,
     chainId: '',
     useFinality: opt.useFinality,
-    nextMinBlock: 0,
-    finalityTarget: 0,
     stageLabel: '',
     forgeArgs: [],
   };
@@ -1731,69 +1725,159 @@ export function settledBlock(ctx: Ctx): number {
   return ctx.useFinality ? finalizedBlock(ctx) : Math.max(0, headBlock(ctx) - ctx.opt.confirmations);
 }
 
-/** Does `address` hold code as of `block`? A create is settled when this holds at `settledBlock`. */
-export function hasCodeAt(ctx: Ctx, address: string, block: number): boolean {
-  const r = capture('cast', ['code', address, '--block', String(block), '--rpc-url', ctx.opt.rpcUrl]);
+/** How `settledBlock` is computed, for messages: `finalized`, or `N blocks deep`. */
+export function settlementRule(ctx: Ctx): string {
+  return ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
+}
+
+/** `--block N`, or nothing for the head (`null`). */
+function blockArgs(block: number | null): string[] {
+  return block === null ? [] : ['--block', String(block)];
+}
+
+/** Does `address` hold code as of `block` (`null`: the head)? */
+export function hasCodeAt(ctx: Ctx, address: string, block: number | null): boolean {
+  const r = capture('cast', ['code', address, ...blockArgs(block), '--rpc-url', ctx.opt.rpcUrl]);
   return r.ok && r.stdout !== '' && r.stdout !== '0x';
+}
+
+/** A view call as of `block` (`null`: the head), decoded by cast; null when it reverts. */
+export function callAt(
+  ctx: Ctx,
+  to: string,
+  sig: string,
+  args: readonly string[],
+  block: number | null,
+): string | null {
+  const r = capture('cast', ['call', to, sig, ...args, ...blockArgs(block), '--rpc-url', ctx.opt.rpcUrl]);
+  return r.ok ? r.stdout.trim() : null;
+}
+
+export const ERC1967_IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+
+/** The ERC-1967 implementation of `proxy` as of `block` (`null`: the head), lower-cased; null if unreadable. */
+export function implementationAt(ctx: Ctx, proxy: string, block: number | null): string | null {
+  const r = capture('cast', [
+    'storage',
+    proxy,
+    ERC1967_IMPLEMENTATION_SLOT,
+    ...blockArgs(block),
+    '--rpc-url',
+    ctx.opt.rpcUrl,
+  ]);
+  const word = /0x[0-9a-fA-F]{64}/.exec(r.stdout)?.[0];
+  return !r.ok || word === undefined ? null : `0x${word.slice(-40)}`.toLowerCase();
+}
+
+/**
+ * One fact a stage needs from the stages before it — "the ACL is owned by the ACLOwner" — as a check
+ * that can be asked of any block: `holds(n)` at block n, `holds(null)` at the head.
+ */
+export type Prerequisite = { readonly what: string; readonly holds: (block: number | null) => boolean };
+
+function listPrerequisites(prerequisites: readonly Prerequisite[]): string[] {
+  const shown = prerequisites.slice(0, 6).map((p) => `    - ${p.what}`);
+  return prerequisites.length > 6 ? [...shown, `    … and ${String(prerequisites.length - 6)} more`] : shown;
+}
+
+/**
+ * The decision to start a stage, always taken at the SETTLED block — never at the head alone.
+ *
+ * What a stage reads, a previous stage wrote; if that write is reorged away after the stage has acted
+ * on it, the stage acted on a chain that no longer exists. So every prerequisite must hold at the
+ * settled block (finalized, or `confirmations` deep):
+ *
+ *   all hold at the settled block        go now — whatever happened before: a restart, Ctrl-C, another
+ *                                        machine. No memory of "where the previous stage ended" is needed
+ *   hold at the head, not yet settled    wait, a line a minute, until they are
+ *   do not hold even at the head         stop: an earlier stage is not done. The message names what is missing
+ *
+ * A dry run never waits: it reports what is not settled yet and goes on, so the simulation still runs.
+ * Only the still-pending prerequisites are re-checked while waiting. Returns the settled block used.
+ */
+export async function awaitPrerequisites(
+  ctx: Ctx,
+  label: string,
+  prerequisites: readonly Prerequisite[],
+): Promise<number> {
+  let settled = settledBlock(ctx);
+  if (prerequisites.length === 0) return settled;
+  const rule = settlementRule(ctx);
+  let pending = prerequisites.filter((p) => !p.holds(settled));
+  if (pending.length === 0) {
+    say(
+      `  ✔ ${label}: ${String(prerequisites.length)} prerequisite(s) hold at the settled block ${String(settled)} (${rule})`,
+    );
+    return settled;
+  }
+
+  const missing = pending.filter((p) => !p.holds(null));
+  if (missing.length > 0) {
+    fail(
+      `Error: ${label} cannot start: not done on chain yet, even at the head:`,
+      ...listPrerequisites(missing),
+      '       Run the earlier stages first; --stage status shows where the deployment stands.',
+    );
+  }
+
+  if (ctx.opt.dryRun) {
+    say(
+      `  ${label}: ${String(pending.length)} prerequisite(s) are done at the head but not yet settled (${rule}, settled block ${String(settled)}):`,
+      ...listPrerequisites(pending),
+      '  A real run would wait for them. The dry run goes on against the head.',
+    );
+    return settled;
+  }
+
+  say(
+    `  waiting for ${String(pending.length)} prerequisite(s) of ${label} to be settled (${rule}; settled block ${String(settled)}, chain head ${String(headBlock(ctx))}):`,
+    ...listPrerequisites(pending),
+    `  They are done on chain; this is the reorg safety margin.${ctx.useFinality ? ' It takes ~15 minutes on an Ethereum testnet.' : ''} Nothing is stuck; Ctrl-C is safe here.`,
+  );
+  const beat = heartbeat();
+  while (pending.length > 0) {
+    await sleep(12_000);
+    settled = settledBlock(ctx);
+    pending = pending.filter((p) => !p.holds(settled));
+    if (pending.length > 0 && beat.due()) {
+      // Once a minute, also make sure what is pending is still there at all: a reorg can undo it.
+      const gone = pending.filter((p) => !p.holds(null));
+      if (gone.length > 0) {
+        fail(
+          `Error: ${label}: prerequisite(s) seen at the head are no longer there (reorg?):`,
+          ...listPrerequisites(gone),
+          '       Run the earlier stages again; they re-send only what is missing.',
+        );
+      }
+      say(
+        `  … settled block ${String(settled)}, ${String(pending.length)} prerequisite(s) still pending (${beat.elapsed()})`,
+      );
+    }
+  }
+  say(`  ✔ ${label}: every prerequisite is settled at block ${String(settled)} (${rule})`);
+  recordFinality(ctx);
+  return settled;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * The reorg gate, shell half.
+ * Wait until the chain has reached `target`: the manual `--min-block` floor.
  *
- * Steps A-F each REQUIRE FHEVM_MIN_BLOCK and refuse to run until the chain has reached it. Every one
- * of them decides what to do by reading state a previous step wrote, so a predicate evaluated one
- * block after the transaction it asks about can be answering from a block about to be orphaned — and
- * these predicates decide whether a step is SKIPPED.
- *
- * Two halves, both needed: this waits so the normal path does not fail; the script refuses so a
- * different orchestrator cannot proceed early just because it did not implement the wait.
- *
- * Depth is a heuristic — ~3 min at 15 blocks vs ~12.8 min to PoS finality — so this waits for the
- * `finalized` tag as well, when the chain serves it. A Solidity script cannot read `finalized`
- * through block.number, which is why the depth floor lives there and the finality wait lives here.
+ * The reorg safety between stages is NOT here any more: it is awaitPrerequisites, which asks the chain
+ * whether what a stage depends on is settled. This only honours an explicit `--min-block`.
  */
 export async function waitForBlock(ctx: Ctx, target: number): Promise<void> {
-  // `finalityTarget` is the block the PREVIOUS stage ended in (0 when nothing ran before in this process).
-  // Every line names it, so "block X" is never confused with "the chain is at block Y".
-  const prev = ctx.finalityTarget;
   let head = headBlock(ctx);
-  if (head < target) {
-    say(
-      prev > 0
-        ? `  waiting until block ${target}: the previous stage ended in block ${prev}, and "confirmations" is ${ctx.opt.confirmations} (chain head: ${head})`
-        : `  waiting until block ${target} (--min-block; chain head: ${head})`,
-    );
-    const beat = heartbeat();
-    while (head < target) {
-      await sleep(4000);
-      head = headBlock(ctx);
-      if (beat.due()) say(`  … chain head ${head}, ${target - head} block(s) to go (${beat.elapsed()})`);
-    }
-    say(`  block ${target} reached (chain head: ${head})`);
+  if (head >= target) return;
+  say(`  waiting until block ${String(target)} (--min-block; chain head: ${String(head)})`);
+  const beat = heartbeat();
+  while (head < target) {
+    await sleep(4000);
+    head = headBlock(ctx);
+    if (beat.due()) say(`  … chain head ${String(head)}, ${String(target - head)} block(s) to go (${beat.elapsed()})`);
   }
-
-  if (!ctx.useFinality || prev <= 0) return;
-
-  let fin = finalizedBlock(ctx);
-  if (fin < prev) {
-    // On an Ethereum testnet finality trails the head by two epochs, ~13 minutes, before EVERY stage: said
-    // up front so a long silence is never mistaken for a hang, and repeated once a minute while it lasts.
-    say(
-      `  waiting for block ${prev}, where the previous stage ended, to be finalized.`,
-      `  The chain has finalized up to block ${fin}: ${prev - fin} block(s) to go. This takes ~15 minutes on an`,
-      '  Ethereum testnet. Nothing is stuck; Ctrl-C is safe here.',
-    );
-    const beat = heartbeat();
-    while (fin < prev) {
-      await sleep(12000);
-      fin = finalizedBlock(ctx);
-      if (beat.due()) say(`  … finalized up to block ${fin}, ${prev - fin} block(s) to go (${beat.elapsed()})`);
-    }
-    say(`  block ${prev} is finalized`);
-    recordFinality(ctx);
-  }
+  say(`  block ${String(target)} reached (chain head: ${String(head)})`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2414,6 +2498,7 @@ export async function broadcast(
   signer?: Signer,
   sender?: string,
   extraEnv?: NodeJS.ProcessEnv,
+  prerequisites: readonly Prerequisite[] = [],
 ): Promise<void> {
   const from = sender ?? ctx.deployer;
   const key = signer ?? ctx.opt.signer;
@@ -2442,6 +2527,7 @@ export async function broadcast(
   // fail with the Solidity gate's block countdown rather than block for ten minutes.
   if (ctx.opt.dryRun) {
     say('  (dry run: simulating, nothing will be sent)');
+    await awaitPrerequisites(ctx, ctx.stageLabel, prerequisites);
     const env = {
       ...scriptEnv(ctx),
       ...generatedConfigEnv(ctx),
@@ -2457,15 +2543,18 @@ export async function broadcast(
   // which returned above.
   confirmSealed(ctx);
 
+  // The decision to send: everything this stage depends on must hold at the SETTLED block.
+  const settled = await awaitPrerequisites(ctx, ctx.stageLabel, prerequisites);
+  if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   requireNoPendingTxs(ctx, from);
-  const minBlock = ctx.opt.minBlockOverride ?? ctx.nextMinBlock;
-  await waitForBlock(ctx, minBlock);
 
+  // The scripts' own floor, kept as a second line of defence: they refuse to run on a chain that is
+  // behind the block the prerequisites were checked at.
   const env = {
     ...scriptEnv(ctx),
     ...generatedConfigEnv(ctx),
     ...extraEnv,
-    FHEVM_MIN_BLOCK: String(minBlock),
+    FHEVM_MIN_BLOCK: String(ctx.opt.minBlockOverride ?? settled),
   };
 
   // --slow: one transaction at a time, waiting for each receipt. The two hard edges (impl₁ before
@@ -2505,12 +2594,6 @@ export async function broadcast(
     console.error(`  stage failed (forge exit ${code}). What was sent is in --stage log.`);
     process.exit(code);
   }
-
-  // Derived from the head AFTER the stage rather than from a receipt: --slow means every transaction
-  // is already mined by now, so the head is at or past the last of them. Erring later is the safe
-  // direction for a reorg gate.
-  ctx.finalityTarget = headBlock(ctx);
-  ctx.nextMinBlock = ctx.finalityTarget + ctx.opt.confirmations;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

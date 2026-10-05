@@ -47,6 +47,7 @@ import {
   warn,
 } from '../../ts/utils.ts';
 import {
+  awaitPrerequisites,
   broadcast,
   buildContext,
   type Ctx,
@@ -76,6 +77,7 @@ import {
   RULE_WIDTH,
   SCRIPT_DIR,
   scriptEnv,
+  settlementRule,
   stampToolCommit,
   settledBlock,
   showJournal,
@@ -1435,8 +1437,6 @@ async function stageRehearse(ctx: Ctx): Promise<void> {
       broadcastDir: join(forkDir, 'broadcast'),
       journalPath: join(forkDir, 'journal.jsonl'),
       useFinality: false,
-      nextMinBlock: 0,
-      finalityTarget: 0,
     };
     say(`  ✔ forked ${ctx.opt.rpcUrl} at block ${String(forkedAt)} onto ${forkUrl}`);
 
@@ -1523,7 +1523,7 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
  */
 async function stageVerify(ctx: Ctx): Promise<void> {
   say('✅  verify');
-  await waitForBlock(ctx, ctx.opt.minBlockOverride ?? ctx.nextMinBlock);
+  if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   await waitForMaterializeSettled(ctx);
   const out = checkBuildOut(ctx);
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx) };
@@ -1578,35 +1578,14 @@ function isMaterialized(ctx: Ctx): boolean {
  */
 async function waitForCreatesSettled(ctx: Ctx): Promise<void> {
   const { address } = sealedManifest(ctx);
-  const at = (role: string): string => address[role] ?? '';
-  const head = headBlock(ctx);
-  const absent = CREATE_ROLES.filter((role) => !hasCodeAt(ctx, at(role), head));
-  if (absent.length > 0) {
-    fail(
-      `Error: ${String(absent.length)} of ${String(CREATE_ROLES.length)} creates have no code at block ${String(head)}:`,
-      ...absent.map((role) => `         ${role}`),
-      '       Run creates first.',
-    );
-  }
-  // One line when the wait starts, then one a minute: every 12 s flooded the terminal for ~15 minutes.
-  const beat = heartbeat();
-  let announced = false;
-  for (;;) {
-    const settled = settledBlock(ctx);
-    const pending = CREATE_ROLES.filter((role) => !hasCodeAt(ctx, at(role), settled));
-    if (pending.length === 0) {
-      say(`  every create is settled at block ${String(settled)} (${settlementRule(ctx)})`);
-      recordFinality(ctx);
-      return;
-    }
-    if (!announced || beat.due()) {
-      say(
-        `  waiting: ${String(pending.length)} create(s) not yet settled at block ${String(settled)} (${settlementRule(ctx)}${announced ? `, ${beat.elapsed()}` : ''})`,
-      );
-      announced = true;
-    }
-    await sleep(12_000);
-  }
+  await awaitPrerequisites(
+    ctx,
+    'the ten creates',
+    CREATE_ROLES.map((role) => ({
+      what: `code at ${role}`,
+      holds: (block: number | null) => hasCodeAt(ctx, address[role] ?? '', block),
+    })),
+  );
 }
 
 /**
@@ -1644,10 +1623,6 @@ async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
     }
     await sleep(12_000);
   }
-}
-
-function settlementRule(ctx: Ctx): string {
-  return ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

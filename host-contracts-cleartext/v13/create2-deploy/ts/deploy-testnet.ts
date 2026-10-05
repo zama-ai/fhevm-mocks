@@ -47,11 +47,17 @@ import {
 import {
   broadcast,
   buildContext,
+  awaitPrerequisites,
+  callAt,
   type Ctx,
   type Flow,
   generatedConfigEnv,
+  hasCodeAt,
   headBlock,
+  HOST_ROLES,
+  implementationAt,
   PACKAGE_ROOT,
+  type Prerequisite,
   loadConfigFile,
   type Manifest,
   isCompleteSeal,
@@ -351,6 +357,81 @@ function stageCompute(ctx: Ctx): void {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * What each stage needs from the stages before it — checked at the SETTLED block before it may start
+ * (awaitPrerequisites). Each fact is the chain state a previous step writes, phrased so it still holds
+ * once this stage itself is done: a resumed run must find its own past work acceptable.
+ */
+function prerequisitesFor(ctx: Ctx, stage: Stage): Prerequisite[] {
+  const manifest = readJson<Manifest>(manifestPath(ctx));
+  const sealed = manifest?.address;
+  if (sealed === undefined) fail(`Error: no manifest at ${manifestPath(ctx)} - run compute first.`);
+  const at = (role: string): string => sealed[role] ?? '';
+  const acl = at('ACL_ADDRESS');
+  const aclOwner = at('ACL_OWNER');
+  const is = (got: string | null, want: string): boolean => got !== null && sameAddress(got, want);
+  const owner = (contract: string, block: number | null): string | null =>
+    callAt(ctx, contract, 'owner()(address)', [], block);
+  const pendingOwner = (contract: string, block: number | null): string | null =>
+    callAt(ctx, contract, 'pendingOwner()(address)', [], block);
+  const code = (role: string): Prerequisite => ({
+    what: `code at ${role}`,
+    holds: (block) => hasCodeAt(ctx, at(role), block),
+  });
+
+  switch (stage) {
+    case 'pausers':
+      return [code('ACL_ADDRESS'), code('PAUSER_SET_ADDRESS'), code('ACL_OWNER')];
+    case 'offer-acl':
+      return [code('ACL_ADDRESS'), code('ACL_OWNER')];
+    case 'accept-acl':
+      return [
+        {
+          what: 'A: PauserSet.isPauser(ACLOwner)',
+          holds: (block) =>
+            callAt(ctx, at('PAUSER_SET_ADDRESS'), 'isPauser(address)(bool)', [aclOwner], block) === 'true',
+        },
+        {
+          what: 'B: ACL ownership offered to the ACLOwner (or already accepted)',
+          holds: (block) => is(pendingOwner(acl, block), aclOwner) || is(owner(acl, block), aclOwner),
+        },
+      ];
+    case 'materialize':
+      return [
+        { what: 'C: ACL.owner() is the ACLOwner', holds: (block) => is(owner(acl, block), aclOwner) },
+        ...Object.keys(sealed).map(code),
+      ];
+    case 'offer-admin':
+      return HOST_ROLES.filter((role) => role !== 'PAUSER_SET_ADDRESS').map((role) => ({
+        what: `D: ${role} points at its sealed implementation`,
+        holds: (block: number | null) => is(implementationAt(ctx, at(role), block), at(`IMPL_${role}`)),
+      }));
+    case 'accept-admin':
+      return [
+        {
+          what: 'E: ACLOwner offered to the admin (or already accepted)',
+          holds: (block) =>
+            is(pendingOwner(aclOwner, block), ctx.opt.admin) || is(owner(aclOwner, block), ctx.opt.admin),
+        },
+      ];
+    case 'verify':
+      return [
+        { what: 'F: ACLOwner.owner() is the admin', holds: (block) => is(owner(aclOwner, block), ctx.opt.admin) },
+      ];
+    // creates needs only the factory and the seal, checked in preflight; the rest send nothing or are not
+    // stages of their own (`all` runs the others).
+    case 'compute':
+    case 'creates':
+    case 'status':
+    case 'log':
+    case 'report':
+    case 'all':
+      return [];
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
  * The seal must be committed AND PUSHED before any transaction — for a stronger reason than
  * audit trail. The addresses are a function of the init-code hashes, so retrying a failed create
  * needs the byte-exact ones, and a resumed run's first act is computing which addresses to probe.
@@ -377,7 +458,14 @@ async function stageCreates(ctx: Ctx): Promise<void> {
 async function stepARegisterPausers(ctx: Ctx): Promise<void> {
   say("🚨  pausers (steps A, A')");
   ctx.stageLabel = "A/A'";
-  await broadcast(ctx, 'FhevmRegisterPausers.s.sol:FhevmRegisterPausers');
+  await broadcast(
+    ctx,
+    'FhevmRegisterPausers.s.sol:FhevmRegisterPausers',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'pausers'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -392,7 +480,14 @@ async function stepARegisterPausers(ctx: Ctx): Promise<void> {
 async function stepBOfferAclOwnership(ctx: Ctx): Promise<void> {
   say('📤  offer ACL ownership (step B)');
   ctx.stageLabel = 'B';
-  await broadcast(ctx, 'FhevmOfferACLOwnership.s.sol:FhevmOfferACLOwnership');
+  await broadcast(
+    ctx,
+    'FhevmOfferACLOwnership.s.sol:FhevmOfferACLOwnership',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'offer-acl'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -405,7 +500,14 @@ async function stepBOfferAclOwnership(ctx: Ctx): Promise<void> {
 async function stepCAcceptAclOwnership(ctx: Ctx): Promise<void> {
   say('🚚  accept ACL ownership (step C)');
   ctx.stageLabel = 'C';
-  await broadcast(ctx, 'FhevmAcceptACLOwnership.s.sol:FhevmAcceptACLOwnership');
+  await broadcast(
+    ctx,
+    'FhevmAcceptACLOwnership.s.sol:FhevmAcceptACLOwnership',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'accept-acl'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -417,7 +519,14 @@ async function stepCAcceptAclOwnership(ctx: Ctx): Promise<void> {
 async function stepDMaterializeStack(ctx: Ctx): Promise<void> {
   say('🍔  materialize the stack (step D)');
   ctx.stageLabel = 'D';
-  await broadcast(ctx, 'FhevmMaterializeStack.s.sol:FhevmMaterializeStack');
+  await broadcast(
+    ctx,
+    'FhevmMaterializeStack.s.sol:FhevmMaterializeStack',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'materialize'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -429,7 +538,14 @@ async function stepDMaterializeStack(ctx: Ctx): Promise<void> {
 async function stepEOfferOwnerToAdmin(ctx: Ctx): Promise<void> {
   say('🥬  offer the ACLOwner to the admin (step E)');
   ctx.stageLabel = 'E';
-  await broadcast(ctx, 'FhevmOfferACLOwnerToAdmin.s.sol:FhevmOfferACLOwnerToAdmin');
+  await broadcast(
+    ctx,
+    'FhevmOfferACLOwnerToAdmin.s.sol:FhevmOfferACLOwnerToAdmin',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'offer-admin'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -465,10 +581,14 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
       'FhevmAcceptOwnershipAsAdmin.s.sol:FhevmAcceptOwnershipAsAdmin',
       ctx.opt.adminSigner,
       ctx.opt.admin,
+      undefined,
+      prerequisitesFor(ctx, 'accept-admin'),
     );
     return;
   }
 
+  // The multisig path sends nothing, but asks the admin to act on step E: E must be settled first.
+  await awaitPrerequisites(ctx, ctx.stageLabel, prerequisitesFor(ctx, 'accept-admin'));
   if (ctx.opt.dryRun) {
     say("  (dry run: no --admin-account, so this stage would poll for the admin's transaction)");
     return;
@@ -495,16 +615,26 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
   }
 
   say('  F  accepted. The deployer key is no longer root over this stack.');
-  ctx.finalityTarget = headBlock(ctx);
-  ctx.nextMinBlock = ctx.finalityTarget + ctx.opt.confirmations;
-  recordObservation(ctx, 'F', 'admin accepted ACLOwner ownership (sent externally)', ctx.finalityTarget);
+  recordObservation(ctx, 'F', 'admin accepted ACLOwner ownership (sent externally)', headBlock(ctx));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/** The terminal conditions. Reverts non-zero if any is unmet. */
-function stageVerify(ctx: Ctx): void {
+/**
+ * The terminal conditions. Reverts non-zero if any is unmet.
+ *
+ * When step F is done, its effect must be SETTLED before the verdict is read, or the verdict could be
+ * about a block that is then reorged away. When it is not even done, verify still runs: its job is to
+ * report what is wrong, and it will.
+ */
+async function stageVerify(ctx: Ctx): Promise<void> {
   say('✅  verify');
+  const prerequisites = prerequisitesFor(ctx, 'verify');
+  if (prerequisites.every((p) => p.holds(null))) {
+    await awaitPrerequisites(ctx, 'verify', prerequisites);
+  } else {
+    say('  step F is not done on chain yet: verify reports the stack as it stands.');
+  }
   const code = run(
     'forge',
     [
@@ -587,7 +717,7 @@ async function runStage(ctx: Ctx, stage: Stage): Promise<void> {
       await stepFAcceptOwnershipAsAdmin(ctx);
       return;
     case 'verify':
-      stageVerify(ctx);
+      await stageVerify(ctx);
       return;
     case 'status':
       stageStatus(ctx);
@@ -662,7 +792,7 @@ async function main(): Promise<void> {
     }
 
     for (const stage of RUN_ORDER) await runStage(ctx, stage);
-    stageVerify(ctx);
+    await stageVerify(ctx);
   } else {
     await runStage(ctx, opt.stage as Stage);
   }

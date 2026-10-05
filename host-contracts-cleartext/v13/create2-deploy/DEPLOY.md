@@ -301,9 +301,9 @@ arbsepolia-2026-10/
    `git checkout` that brings the tool back to the sealed one.
 10. **Run one invocation at a time.** Two runs in parallel, or a run while transactions are pending, waste
     gas and fail.
-11. **Prefer `--stage all`.** It waits for each stage to finalize before the next one. When you run stages
-    one by one (`--stage pausers`, `--stage offer-acl`, ...), nothing waits for you: wait for finality
-    yourself, or pass `--min-block N`.
+11. **Every stage waits for what it depends on to be final.** Whether you run `--stage all` or one stage
+    at a time, a stage starts only once the earlier steps it needs are settled on chain (finalized, or
+    `confirmations` deep). If they are not done at all, it stops and names what is missing.
 12. **A `FATAL` in `status` is not resumable.** It means a proxy holds an implementation this deployment
     did not seal, or the stack is half-materialized. Retrying makes it worse. Stop and investigate.
 13. **Do not use the rehearsal flags on a live chain.** `--no-git`, `--no-confirm`, `--no-finality` and

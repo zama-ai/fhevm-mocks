@@ -97,9 +97,15 @@ skipped, what didn't is retried **at the same address**. The one unsafe moment i
 the previous attempt's transactions are still in the mempool — the coordinator refuses to start when
 the sender's pending nonce is ahead of its latest.
 
-Steps A–F additionally require `FHEVM_MIN_BLOCK` and refuse to start before it. In `all` mode the
-coordinator derives it per stage as *previous stage's head + `--confirmations`*, and also waits for
-that previous head to **finalize**; for a single manual stage, pass `--min-block N`.
+**Every stage starts only once what it depends on is settled.** Before A–F and `verify`, the
+coordinator checks the stage's prerequisites — the chain state earlier steps wrote: code at the creates,
+`isPauser(ACLOwner)`, the ownership offers and acceptances, the materialized slots — **at the settled
+block** (`finalized`, or `--confirmations` behind the head with `--no-finality`). All settled: the stage
+starts at once, whatever ran before — a restart, a Ctrl-C, another machine. Done at the head but not
+settled: it waits, a line a minute. Not done even at the head: it stops and names what is missing. The
+decision is the chain's, never a memory of "where the previous stage ended", so a single manual
+`--stage` is exactly as safe as `all`. The scripts still require `FHEVM_MIN_BLOCK` (set to the settled
+block that was checked) as a second line of defence; `--min-block N` adds a manual floor.
 
 ### Upgrading a v12 stack
 
@@ -168,8 +174,8 @@ that decides anything is read from a local file**:
 | `materialize` after a completed materialize | the seven slots | head | `precheck` says "already materialized", `rehearse` steps aside, the script returns without sending, `verify` runs — a resumed `all` finishes rather than failing |
 
 "Settled" means the `finalized` block when the chain serves the tag, and `--confirmations` behind the head
-with `--no-finality`. The in-memory "previous stage's head plus confirmations" wait is still there; it is
-no longer what the safety rests on.
+with `--no-finality`. There is no in-memory wait any more: every stage, in both tools, decides from the
+chain at the settled block.
 
 Two rules make the layers worth having. **Every expectation comes from the seal, the source or a different
 contract** — never from the value under test, which is why `verify` recompiles into an empty `build-check`
@@ -369,7 +375,8 @@ read from a block that is about to be orphaned is not a stale display value, it'
 not happening. A reorged-away `addPauser` that the predicate reported as done is a stack that reaches
 §7's terminal conditions with no pauser.
 
-The coordinator waits *and* passes the number; the script refuses independently. That's the same
+The coordinator decides at the settled block (see "Every stage starts only once what it depends on is
+settled" above) *and* passes that block number; the script refuses independently. That's the same
 argument as every other gate here — a `sleep` in this shell binds this shell, not §13's TS driver or
 an operator running one `--stage` by hand. `0` is a legitimate value (the first stage of a run passes
 it) but there is **no default**, so skipping the wait is a decision someone made rather than a
