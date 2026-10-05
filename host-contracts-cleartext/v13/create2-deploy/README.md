@@ -247,21 +247,45 @@ decide anything.** Resume is `getCode(addr) != ""` and the other chain predicate
 log becomes an input to that decision it's a second opinion that can disagree with the chain — the
 exact failure the CREATE2 path exists to avoid. It is for humans, after the fact.
 
-One JSON object per transaction, appended across stages, distilled from forge's own `run-latest.json`
-(so it invents no facts — it flattens ten of them into one stream, tagged by stage):
+Append-only JSON lines, across stages, distilled from forge's own broadcast records and checked
+against the chain (so it invents no facts). Three kinds of line:
+
+| `kind` | what | written |
+| --- | --- | --- |
+| `tx` (or none, in older journals) | one transaction: hash, sender, nonce, **block and block hash**, status, gas | after each stage, from every `run-*.json` forge kept; a later line for the same hash supersedes the earlier one (`unmined` → mined) |
+| `stage-start` | sender, nonce, head block | **before** forge starts a broadcasting stage |
+| `finalized` | hash, block, block hash, the settled block at that time, the rule (`finalized` or `N blocks deep`) | once the block is settled AND the block at that height still has the recorded hash |
+
+`unmined` means *sent, no receipt yet*: a transaction forge planned but never signed has no hash and is
+not recorded at all.
 
 ```
-  STAGE      STATUS    BLOCK     WHAT                           ADDRESS / TX
-  creates    ok        6240913   ERC1967Proxy                   0xACL01…
-  A/A'       REVERTED  6240930   addPauser(address)             0xPAU02…
-  D          ok        6240955   upgrade((address,address,bytes 0xOWN03…
-  F          ok        6241002   admin accepted ACLOwner owners -
+  STAGE      STATUS    BLOCK     FINAL  WHAT                           ADDRESS / TX
+  creates    ok        6240913   yes    ERC1967Proxy                   0xACL01…
+  A/A'       REVERTED  6240930   yes    addPauser(address)             0xPAU02…
+  D          ok        6240955   no     upgrade((address,address,bytes 0xOWN03…
+  F          ok        6241002   -      admin accepted ACLOwner owners -
 ```
+
+**It is completed at the start of every run that reaches a node** (`reconcileJournal`), so an
+interruption cannot leave a hole in it:
+
+1. a transaction forge recorded but the journal never got (the run was killed before writing) is read
+   back from forge's `run-*.json` files, flagged `recovered: broadcast-file`;
+2. a transaction sent with NO record at all (killed before forge wrote anything) is found on chain:
+   the nonces after a `stage-start` anchor that no line accounts for are looked up by scanning the
+   blocks from the anchor forward, flagged `recovered: nonce-scan`;
+3. older lines lacking sender, nonce or block hash are completed from the chain;
+4. finality is recorded for whatever has settled since; a transaction whose block hash changed is a
+   reorg, re-read from the chain and warned about.
+
+"Nothing decides from the journal" still holds for what is DONE: that is always the chain's predicates.
+The journal answers only "has this deployment sent anything yet" (the seal gate and `compute`'s refusal).
 
 Three details that matter more than the format:
 
-- **It is written even when a stage fails.** `broadcast()` captures forge's exit code rather than
-  letting `set -e` abort, records, *then* exits. A half-finished stage is exactly what the trail is
+- **It is written even when a stage fails.** `broadcast()` captures forge's exit code, records, *then*
+  exits. A half-finished stage is exactly what the trail is
   for; aborting before recording would drop the transactions someone needs to look at.
 - **Reverts are counted and warned about per stage**, not left to scroll past. A reverted create is
   not fatal here — it doesn't burn its address (§2) — but it should never be silent.

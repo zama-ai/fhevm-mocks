@@ -57,11 +57,12 @@ import {
   generatedConfigEnv,
   hasCodeAt,
   headBlock,
-  type JournalEntry,
   loadConfigFile,
   type Manifest,
   isCompleteSeal,
+  journalHasSentTx,
   manifestPath,
+  recordFinality,
   removeScratchIfSealed,
   scratchPath,
   PACKAGE_ROOT,
@@ -748,7 +749,7 @@ function requireScript(name: string): string {
  * too, but only as a second witness — the chain is the one that cannot be lost with a directory.
  */
 function upgradeStarted(ctx: Ctx): boolean {
-  if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) return true;
+  if (journalHasSentTx(ctx)) return true;
   const manifest = readJson<Manifest>(manifestPath(ctx));
   if (manifest?.address === undefined) return false;
   const head = headBlock(ctx);
@@ -1595,6 +1596,7 @@ async function waitForCreatesSettled(ctx: Ctx): Promise<void> {
     const pending = CREATE_ROLES.filter((role) => !hasCodeAt(ctx, at(role), settled));
     if (pending.length === 0) {
       say(`  every create is settled at block ${String(settled)} (${settlementRule(ctx)})`);
+      recordFinality(ctx);
       return;
     }
     if (!announced || beat.due()) {
@@ -1631,6 +1633,7 @@ async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
       say(
         `  the materialize block ${String(block)} is settled (${settlementRule(ctx)}, settled block ${String(settled)})`,
       );
+      recordFinality(ctx);
       return block;
     }
     if (!announced || beat.due()) {

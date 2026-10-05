@@ -36,7 +36,6 @@ import {
   ensureDir,
   fail,
   readJson,
-  readJsonl,
   removeIfPresent,
   run,
   heartbeat,
@@ -53,10 +52,10 @@ import {
   generatedConfigEnv,
   headBlock,
   PACKAGE_ROOT,
-  type JournalEntry,
   loadConfigFile,
   type Manifest,
   isCompleteSeal,
+  journalHasSentTx,
   manifestPath,
   removeScratchIfSealed,
   scratchPath,
@@ -266,7 +265,7 @@ function stageCompute(ctx: Ctx): void {
   // worse, start building a second disjoint set alongside the first. A
   // redeploy takes a FRESH deploymentId. Preflight rejects the mismatches, so reaching here with a
   // non-empty journal really does mean "this deployment has already sent transactions".
-  if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) {
+  if (journalHasSentTx(ctx)) {
     fail(
       `Error: '${ctx.opt.deploymentId}' has already sent transactions (see ${ctx.journalPath}),`,
       '       so its addresses are not safe to recompute.',
@@ -654,7 +653,7 @@ async function main(): Promise<void> {
     // operator committed, and preflight has already refused one that no longer matches the config or the
     // tool. Recomputing would replace the committed address set behind the operator's back. Resealing on
     // purpose is `--stage compute`.
-    if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) {
+    if (journalHasSentTx(ctx)) {
       say('🎃 compute already sealed and past its first transaction - skipping (resume)');
     } else if (isCompleteSeal(ctx)) {
       say(`🎃 compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);

@@ -14,7 +14,7 @@
 //
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
 import {
@@ -206,7 +206,21 @@ export type Ctx = {
   forgeArgs: readonly string[];
 };
 
+/**
+ * One transaction in the journal: sent by this tooling (from forge's broadcast records), recovered from
+ * the chain, or observed (a multisig's step F, which no local key sent).
+ *
+ * Append-only: a later line with the SAME hash supersedes an earlier one — `unmined` becoming mined,
+ * a block hash filled in, a reorg re-read. readJournal keeps the last line per hash.
+ *
+ *   status    ok | REVERTED   mined, per its receipt
+ *             unmined         SENT (it has a hash) but no receipt yet: in the mempool, dropped, or reorged out
+ *   blockHash                 with `block`, proof of WHERE it was mined: a reorg changes the hash at that height
+ *   recovered                 how a line the run itself did not write got here: `broadcast-file` (forge's own
+ *                             records), `nonce-scan` (found on chain from a stage-start anchor)
+ */
 export type JournalEntry = {
+  readonly kind?: 'tx';
   readonly stage: string;
   readonly script?: string;
   readonly hash: string | null;
@@ -214,27 +228,64 @@ export type JournalEntry = {
   readonly contract?: string | null;
   readonly address?: string | null;
   readonly function?: string | null;
+  readonly from?: string | null;
+  readonly nonce?: number | null;
   readonly block: number | null;
+  readonly blockHash?: string | null;
   readonly gasUsed?: number | null;
   readonly status: 'ok' | 'REVERTED' | 'unmined';
+  readonly recovered?: 'broadcast-file' | 'nonce-scan';
   readonly observed?: boolean;
   readonly note?: string;
   readonly ts?: number | null;
 };
 
-/** The shape of forge's broadcast/<Script>/<chainId>/run-latest.json that this reads. */
+/**
+ * Written BEFORE forge is started for a broadcasting stage, so that even a run killed the instant after
+ * it sent something leaves a trace: who was about to send, from which nonce, from which block. At startup,
+ * nonces the journal cannot account for are looked up on chain from here (reconcileJournal).
+ */
+export type JournalStageStart = {
+  readonly kind: 'stage-start';
+  readonly stage: string;
+  readonly script: string;
+  readonly from: string;
+  readonly nonce: number;
+  readonly head: number;
+  readonly ts: number;
+};
+
+/**
+ * A transaction's block is final: the chain's settled block (finalized tag, or `confirmations` deep with
+ * --no-finality) had reached it, AND the block at that height still had the recorded hash.
+ */
+export type JournalFinalized = {
+  readonly kind: 'finalized';
+  readonly hash: string;
+  readonly block: number;
+  readonly blockHash: string;
+  readonly settledBlock: number;
+  readonly rule: string;
+  readonly ts: number;
+};
+
+export type JournalLine = JournalEntry | JournalStageStart | JournalFinalized;
+
+/** The shape of forge's broadcast/<Script>/<chainId>/run-*.json that this reads. */
 export type ForgeRun = {
   readonly timestamp?: number;
   readonly transactions?: ReadonlyArray<{
-    readonly hash: string;
+    readonly hash: string | null;
     readonly transactionType?: string;
     readonly contractName?: string;
     readonly contractAddress?: string;
     readonly function?: string | null;
+    readonly transaction?: { readonly from?: string; readonly nonce?: string };
   }>;
   readonly receipts?: ReadonlyArray<{
     readonly transactionHash: string;
     readonly blockNumber?: string;
+    readonly blockHash?: string;
     readonly status?: string;
     readonly gasUsed?: string;
   }>;
@@ -1609,6 +1660,7 @@ export function preflight(ctx: Ctx): void {
     checkAdminAccount(ctx);
   }
   checkFactory(ctx);
+  reconcileJournal(ctx);
 
   const finalized = probeFinality(ctx);
   const balanceEth = etherBalance(ctx, ctx.deployer);
@@ -1740,6 +1792,7 @@ export async function waitForBlock(ctx: Ctx, target: number): Promise<void> {
       if (beat.due()) say(`  … finalized up to block ${fin}, ${prev - fin} block(s) to go (${beat.elapsed()})`);
     }
     say(`  block ${prev} is finalized`);
+    recordFinality(ctx);
   }
 }
 
@@ -1776,69 +1829,341 @@ export function requireNoPendingTxs(ctx: Ctx, who: string): void {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Distil forge's run-latest.json into the journal.
+ * Distil forge's broadcast records for one stage's script into the journal.
  *
  * Called whether the stage SUCCEEDED OR NOT — a stage that died halfway is precisely when the record
  * matters, and forge has already written what it managed to send.
  *
  * Invents no facts: forge already records every transaction and receipt, and this flattens them into
- * one append-only stream across stages, tagged with which stage sent what. Reading ten separate
- * run-latest.json files in the right order is the thing this saves you at 2am.
+ * one append-only stream across stages, tagged with which stage sent what. A transaction forge recorded
+ * without a receipt is looked up on chain before it is called `unmined`.
  */
-
-////////////////////////////////////////////////////////////////////////////////
-
 export function recordJournal(ctx: Ctx, target: string): void {
   // `?? target` is unreachable in practice — a forge target is always `File.sol:Contract` — but
-  // noUncheckedIndexedAccess types index access as possibly-undefined, and a non-null assertion here
-  // would be a claim rather than a handled case. A target without a colon IS its own file name.
+  // noUncheckedIndexedAccess types index access as possibly-undefined. A target without a colon IS its
+  // own file name.
   const file = target.split(':')[0] ?? target;
-  const runPath = join(ctx.broadcastDir, file, ctx.chainId, 'run-latest.json');
-  const forgeRun = readJson<ForgeRun>(runPath);
-  if (forgeRun === null) return;
-
-  const receipts = forgeRun.receipts ?? [];
-  const rows: JournalEntry[] = (forgeRun.transactions ?? []).map((tx) => {
-    const rc = receipts.find((r) => r.transactionHash === tx.hash);
-    return {
-      stage: ctx.stageLabel,
-      script: file,
-      hash: tx.hash,
-      type: tx.transactionType ?? null,
-      contract: tx.contractName ?? null,
-      address: tx.contractAddress ?? null,
-      function: tx.function ?? null,
-      block: hexToNumber(rc?.blockNumber),
-      gasUsed: hexToNumber(rc?.gasUsed),
-      status: rc === undefined ? 'unmined' : rc.status === '0x1' ? 'ok' : 'REVERTED',
-      ts: forgeRun.timestamp ?? null,
-    };
-  });
-
-  // Skip transactions the journal already has.
-  //
-  // forge does NOT clear run-latest.json when a re-run broadcasts nothing — it just leaves the
-  // previous run's file in place. Every idempotent re-run of an already-done stage would therefore
-  // re-read and re-append the same transactions, and since re-running IS the resume path here, the
-  // journal filled up with duplicates of its own history.
-  //
-  // Keyed on the transaction hash, which is unique by construction, so a hash already recorded is
-  // never new information. Observations (step F, hash null) are always kept — they are not
-  // transactions this run sent, and there is nothing to collide on.
-  const known = new Set(
-    readJsonl<JournalEntry>(ctx.journalPath)
-      .map((r) => r.hash)
-      .filter((h): h is string => h !== null),
-  );
-  const fresh = rows.filter((r) => r.hash === null || !known.has(r.hash));
-
-  appendJsonl(ctx.journalPath, fresh);
+  const fresh = ingestForgeRuns(ctx, file, ctx.stageLabel, false);
 
   // A reverted transaction is not fatal on this path — a failed create does not burn its address
   // — but it must never scroll past unnoticed. Counted from what was actually appended, so a
   // re-run of a stage that once reverted does not warn about it again.
   const reverted = fresh.filter((r) => r.status === 'REVERTED').length;
   if (reverted > 0) warn(`${reverted} transaction(s) REVERTED in this stage - see --stage log`);
+}
+
+/**
+ * Every `run-<time>.json` forge kept for one script, oldest first.
+ *
+ * Not just `run-latest.json`: that is a copy of the newest run only, so a run that was interrupted and
+ * then re-run would otherwise lose the first run's transactions from the journal.
+ */
+function forgeRunFiles(ctx: Ctx, file: string): string[] {
+  const dir = join(ctx.broadcastDir, file, ctx.chainId);
+  if (!existsSync(dir)) return [];
+  const time = (name: string): number => Number(name.slice('run-'.length, -'.json'.length));
+  return readdirSync(dir)
+    .filter((name) => /^run-\d+\.json$/.test(name))
+    .sort((a, b) => time(a) - time(b))
+    .map((name) => join(dir, name));
+}
+
+/** A receipt as cast prints it with --json: hex numbers. */
+type ChainReceipt = {
+  readonly blockNumber?: string;
+  readonly blockHash?: string;
+  readonly status?: string;
+  readonly gasUsed?: string;
+};
+
+/** The receipt of `hash`, or null when the chain has none (pending, dropped, reorged out). Never waits. */
+function chainReceipt(ctx: Ctx, hash: string): ChainReceipt | null {
+  const r = capture('cast', ['receipt', hash, '--async', '--json', '--rpc-url', ctx.opt.rpcUrl]);
+  if (!r.ok) return null;
+  try {
+    return JSON.parse(r.stdout) as ChainReceipt;
+  } catch {
+    return null;
+  }
+}
+
+/** The mined fields of a journal line, from a receipt (or `unmined` without one). */
+function minedFields(rc: ChainReceipt | null): Pick<JournalEntry, 'block' | 'blockHash' | 'gasUsed' | 'status'> {
+  return {
+    block: hexToNumber(rc?.blockNumber),
+    blockHash: rc?.blockHash?.toLowerCase() ?? null,
+    gasUsed: hexToNumber(rc?.gasUsed),
+    status: rc === null ? 'unmined' : rc.status === '0x1' ? 'ok' : 'REVERTED',
+  };
+}
+
+function isTxLine(line: JournalLine): line is JournalEntry {
+  return line.kind === undefined || line.kind === 'tx';
+}
+
+/** The last journal line per transaction hash: the current knowledge about each one. */
+function latestByHash(ctx: Ctx): Map<string, JournalEntry> {
+  const latest = new Map<string, JournalEntry>();
+  for (const line of readJsonl<JournalLine>(ctx.journalPath)) {
+    if (isTxLine(line) && line.hash !== null) latest.set(line.hash, line);
+  }
+  return latest;
+}
+
+/**
+ * Append what forge recorded for `file` that the journal does not already know.
+ *
+ * A transaction with no hash was planned but never signed — nothing happened, so nothing is recorded. A
+ * known transaction is appended again only with news: a receipt for one that was `unmined`, or the block
+ * hash an older line lacks.
+ */
+function ingestForgeRuns(ctx: Ctx, file: string, stage: string, recovering: boolean): JournalEntry[] {
+  const latest = latestByHash(ctx);
+  const out: JournalEntry[] = [];
+  for (const path of forgeRunFiles(ctx, file)) {
+    const run = readJson<ForgeRun>(path);
+    if (run === null) continue;
+    const receipts = run.receipts ?? [];
+    for (const tx of run.transactions ?? []) {
+      if (tx.hash === null) continue;
+      const known = latest.get(tx.hash);
+      if (known !== undefined && known.status !== 'unmined' && (known.blockHash ?? null) !== null) continue;
+      const fromFile = receipts.find((r) => r.transactionHash === tx.hash);
+      const rc = fromFile ?? chainReceipt(ctx, tx.hash);
+      const entry: JournalEntry = {
+        kind: 'tx',
+        stage: known?.stage ?? stage,
+        script: file,
+        hash: tx.hash,
+        type: tx.transactionType ?? null,
+        contract: tx.contractName ?? null,
+        address: tx.contractAddress ?? null,
+        function: tx.function ?? null,
+        from: tx.transaction?.from?.toLowerCase() ?? null,
+        nonce: hexToNumber(tx.transaction?.nonce),
+        ...minedFields(rc),
+        ...(recovering && known === undefined ? { recovered: 'broadcast-file' as const } : {}),
+        ts: run.timestamp ?? null,
+      };
+      if (known !== undefined && entry.status === 'unmined') continue; // still no news
+      out.push(entry);
+      latest.set(tx.hash, entry);
+    }
+  }
+  appendJsonl(ctx.journalPath, out);
+  return out;
+}
+
+/**
+ * Record, BEFORE forge starts, who is about to send from which nonce at which block.
+ *
+ * The one line that survives a kill at any instant: if the run dies after forge sent something but
+ * before anything was written, reconcileJournal finds the missing nonces on chain from here.
+ */
+export function recordStageStart(ctx: Ctx, script: string, from: string, nonce: number): void {
+  const anchor: JournalStageStart = {
+    kind: 'stage-start',
+    stage: ctx.stageLabel,
+    script,
+    from: from.toLowerCase(),
+    nonce,
+    head: headBlock(ctx),
+    ts: Date.now(),
+  };
+  appendJsonl(ctx.journalPath, [anchor]);
+}
+
+/**
+ * Bring the journal up to date with everything that exists, at the start of every run that reaches a
+ * node. The journal is an audit trail; this is what makes it complete even after an interruption.
+ *
+ *   1. forge's broadcast records, every run of every script — a transaction sent before a kill is in
+ *      forge's files even when the journal never got the line;
+ *   2. older lines without sender, nonce or block hash are completed from the chain;
+ *   3. nonces sent after a stage-start anchor but in no record at all are found on chain;
+ *   4. finality is recorded for every mined transaction whose block is now settled.
+ */
+export function reconcileJournal(ctx: Ctx): void {
+  if (!existsSync(ctx.journalPath) && !existsSync(ctx.broadcastDir)) return;
+  const anchors = readJsonl<JournalLine>(ctx.journalPath).filter(
+    (line): line is JournalStageStart => line.kind === 'stage-start',
+  );
+  const labelFor = (script: string): string =>
+    [...anchors].reverse().find((anchor) => anchor.script === script)?.stage ?? script;
+
+  if (existsSync(ctx.broadcastDir)) {
+    for (const script of readdirSync(ctx.broadcastDir)) {
+      const recovered = ingestForgeRuns(ctx, script, labelFor(script), true);
+      if (recovered.length > 0)
+        say(`  journal: ${String(recovered.length)} line(s) completed from forge's records of ${script}`);
+    }
+  }
+  completeOldLines(ctx);
+  recoverByNonce(ctx, anchors);
+  recordFinality(ctx);
+}
+
+/** Lines written before sender, nonce and block hash were recorded: completed once, from the chain. */
+function completeOldLines(ctx: Ctx): void {
+  const updates: JournalEntry[] = [];
+  for (const entry of latestByHash(ctx).values()) {
+    if (entry.hash === null) continue;
+    const needsSender = (entry.from ?? null) === null || (entry.nonce ?? null) === null;
+    const needsBlockHash = entry.status !== 'unmined' && (entry.blockHash ?? null) === null;
+    if (!needsSender && !needsBlockHash) continue;
+    const tx = capture('cast', ['tx', entry.hash, '--json', '--rpc-url', ctx.opt.rpcUrl]);
+    let from = entry.from ?? null;
+    let nonce = entry.nonce ?? null;
+    if (tx.ok) {
+      try {
+        const parsed = JSON.parse(tx.stdout) as { readonly from?: string; readonly nonce?: string };
+        from = parsed.from?.toLowerCase() ?? from;
+        nonce = hexToNumber(parsed.nonce) ?? nonce;
+      } catch {
+        // keep what the line had
+      }
+    }
+    updates.push({ ...entry, kind: 'tx', from, nonce, ...minedFields(chainReceipt(ctx, entry.hash)) });
+  }
+  appendJsonl(ctx.journalPath, updates);
+  if (updates.length > 0)
+    say(`  journal: ${String(updates.length)} older line(s) completed (sender, nonce, block hash)`);
+}
+
+/** Blocks scanned at most when looking for unrecorded nonces: far more than any stage takes. */
+const NONCE_SCAN_LIMIT = 50_000;
+
+/**
+ * Case 3: a transaction was sent, then the run was killed before forge or the journal wrote anything.
+ *
+ * Its sender and its starting nonce are in a stage-start anchor, so the nonces between the first anchor
+ * and the sender's current nonce that no journal line accounts for are exactly the lost ones. There is no
+ * standard RPC for "transaction by sender and nonce", so the blocks from the anchor on are scanned —
+ * forward, stopping as soon as every missing nonce is found.
+ */
+function recoverByNonce(ctx: Ctx, anchors: readonly JournalStageStart[]): void {
+  const senders = [...new Set(anchors.map((anchor) => anchor.from))];
+  for (const sender of senders) {
+    const mine = anchors.filter((anchor) => anchor.from === sender).sort((a, b) => a.nonce - b.nonce);
+    const first = mine[0];
+    if (first === undefined) continue;
+    const latestNonce = Number(
+      captureOrFail('cast', ['nonce', sender, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]),
+    );
+    const accounted = new Set(
+      [...latestByHash(ctx).values()]
+        .filter((entry) => entry.from === sender && entry.status !== 'unmined')
+        .map((entry) => entry.nonce),
+    );
+    const missing = new Set<number>();
+    for (let n = first.nonce; n < latestNonce; n++) if (!accounted.has(n)) missing.add(n);
+    if (missing.size === 0) continue;
+
+    const lowest = Math.min(...missing);
+    const anchorFor = (nonce: number): JournalStageStart =>
+      [...mine].reverse().find((anchor) => anchor.nonce <= nonce) ?? first;
+    const fromBlock = anchorFor(lowest).head;
+    const head = headBlock(ctx);
+    say(
+      `  journal: ${String(missing.size)} transaction(s) from ${sender} are on chain but in no record`,
+      `           (nonces ${[...missing].sort((a, b) => a - b).join(', ')}); scanning from block ${String(fromBlock)}`,
+    );
+    const beat = heartbeat();
+    const found: JournalEntry[] = [];
+    for (let n = fromBlock; n <= head && n < fromBlock + NONCE_SCAN_LIMIT && missing.size > 0; n++) {
+      const block = capture('cast', ['block', String(n), '--full', '--json', '--rpc-url', ctx.opt.rpcUrl]);
+      if (!block.ok) continue;
+      let txs: ReadonlyArray<{ hash?: string; from?: string; nonce?: string; to?: string | null }> = [];
+      try {
+        txs = (JSON.parse(block.stdout) as { transactions?: typeof txs }).transactions ?? [];
+      } catch {
+        continue;
+      }
+      for (const tx of txs) {
+        const nonce = hexToNumber(tx.nonce);
+        if (tx.hash === undefined || tx.from?.toLowerCase() !== sender || nonce === null || !missing.has(nonce))
+          continue;
+        const anchor = anchorFor(nonce);
+        found.push({
+          kind: 'tx',
+          stage: anchor.stage,
+          script: anchor.script,
+          hash: tx.hash,
+          address: tx.to ?? null,
+          from: sender,
+          nonce,
+          ...minedFields(chainReceipt(ctx, tx.hash)),
+          recovered: 'nonce-scan',
+          note: 'found on chain from a stage-start anchor; in no local record',
+          ts: Date.now(),
+        });
+        missing.delete(nonce);
+      }
+      if (beat.due()) say(`    … scanned up to block ${String(n)} of ${String(head)} (${beat.elapsed()})`);
+    }
+    appendJsonl(ctx.journalPath, found);
+    if (found.length > 0) say(`  journal: recovered ${String(found.length)} transaction(s) from the chain`);
+    if (missing.size > 0) {
+      warn(
+        `nonce(s) ${[...missing].sort((a, b) => a - b).join(', ')} of ${sender} were not found after block ${String(fromBlock)}.`,
+        'They may have been sent by something else than this tool. The journal does not list them.',
+      );
+    }
+  }
+}
+
+/**
+ * Point 1: record the finality of every mined transaction whose block is now settled.
+ *
+ * Settled is the chain's `finalized` block, or `confirmations` behind the head with --no-finality. A
+ * transaction is recorded final only if the block at its height STILL has the recorded hash; otherwise it
+ * was reorged, and its line is re-read from the chain instead (and the operator warned).
+ */
+export function recordFinality(ctx: Ctx): void {
+  const finalized = new Set(
+    readJsonl<JournalLine>(ctx.journalPath)
+      .filter((line): line is JournalFinalized => line.kind === 'finalized')
+      .map((line) => line.hash),
+  );
+  const candidates = [...latestByHash(ctx).values()].filter(
+    (entry) => entry.hash !== null && entry.status !== 'unmined' && !finalized.has(entry.hash),
+  );
+  if (candidates.length === 0) return;
+
+  const settled = settledBlock(ctx);
+  const rule = ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
+  const hashAtHeight = new Map<number, string | null>();
+  const canonicalHash = (height: number): string | null => {
+    if (!hashAtHeight.has(height)) {
+      const r = capture('cast', ['block', String(height), '--field', 'hash', '--rpc-url', ctx.opt.rpcUrl]);
+      hashAtHeight.set(height, r.ok ? r.stdout.toLowerCase() : null);
+    }
+    return hashAtHeight.get(height) ?? null;
+  };
+
+  const lines: JournalLine[] = [];
+  for (const entry of candidates) {
+    const hash = entry.hash;
+    const block = entry.block;
+    const blockHash = entry.blockHash ?? null;
+    if (hash === null || block === null || blockHash === null || block > settled) continue;
+    const atHeight = canonicalHash(block);
+    if (atHeight === null) continue;
+    if (atHeight !== blockHash.toLowerCase()) {
+      const reread: JournalEntry = { ...entry, kind: 'tx', ...minedFields(chainReceipt(ctx, hash)) };
+      lines.push(reread);
+      warn(
+        `reorg: ${hash} is no longer in block ${String(block)}`,
+        `(now: ${reread.block === null ? 'not on chain' : `block ${String(reread.block)}`}). The journal is updated.`,
+      );
+      continue;
+    }
+    lines.push({ kind: 'finalized', hash, block, blockHash, settledBlock: settled, rule, ts: Date.now() });
+  }
+  appendJsonl(ctx.journalPath, lines);
+  const finals = lines.filter((line) => line.kind === 'finalized').length;
+  if (finals > 0)
+    say(`  journal: ${String(finals)} transaction(s) recorded as final (${rule}, settled block ${String(settled)})`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1852,30 +2177,52 @@ export function recordJournal(ctx: Ctx, target: string): void {
  * pedantry.
  */
 export function recordObservation(ctx: Ctx, stage: string, note: string, block: number): void {
-  const entry: JournalEntry = { stage, observed: true, note, block, hash: null, status: 'ok' };
+  const entry: JournalEntry = { kind: 'tx', stage, observed: true, note, block, hash: null, status: 'ok' };
   appendJsonl(ctx.journalPath, [entry]);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * The journal, with duplicate transactions collapsed.
+ * The journal's transactions, one per hash, in the order they were first recorded, with the LAST line's
+ * content: a transaction recorded `unmined` and later mined reads as mined.
  *
- * recordJournal now refuses to append a hash it already holds, but journals written before that
- * carry repeats — one per idempotent re-run of an already-done stage, because forge leaves the
- * previous run-latest.json in place when a run broadcasts nothing. Collapsing on read means an
- * existing journal reports correctly instead of needing to be hand-edited.
- *
- * Entries with no hash are observations, not transactions (step F), and are always kept.
+ * Stage-start anchors and finality records are not transactions and are left out; observations (step F,
+ * no hash) are always kept.
  */
 export function readJournal(ctx: Ctx): JournalEntry[] {
-  const seen = new Set<string>();
-  return readJsonl<JournalEntry>(ctx.journalPath).filter((r) => {
-    if (r.hash === null) return true;
-    if (seen.has(r.hash)) return false;
-    seen.add(r.hash);
-    return true;
-  });
+  const out: JournalEntry[] = [];
+  const position = new Map<string, number>();
+  for (const line of readJsonl<JournalLine>(ctx.journalPath)) {
+    if (!isTxLine(line)) continue;
+    if (line.hash === null) {
+      out.push(line);
+      continue;
+    }
+    const at = position.get(line.hash);
+    if (at === undefined) {
+      position.set(line.hash, out.length);
+      out.push(line);
+    } else {
+      const first = out[at];
+      out[at] = { ...first, ...line, stage: first?.stage ?? line.stage };
+    }
+  }
+  return out;
+}
+
+/** Has this deployment sent anything? A transaction with a hash, not a mere stage-start anchor. */
+export function journalHasSentTx(ctx: Ctx): boolean {
+  return readJournal(ctx).some((entry) => entry.hash !== null);
+}
+
+/** The hashes the journal records as final. */
+export function finalizedHashes(ctx: Ctx): Set<string> {
+  return new Set(
+    readJsonl<JournalLine>(ctx.journalPath)
+      .filter((line): line is JournalFinalized => line.kind === 'finalized')
+      .map((line) => line.hash),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1888,20 +2235,30 @@ export function showJournal(ctx: Ctx): void {
     return;
   }
 
+  const final = finalizedHashes(ctx);
   say(`📜  log  (${ctx.journalPath})`, '');
-  say(`  ${pad('STAGE', 10)} ${pad('STATUS', 9)} ${pad('BLOCK', 9)} ${pad('WHAT', 30)} ADDRESS / TX`);
+  say(
+    `  ${pad('STAGE', 10)} ${pad('STATUS', 9)} ${pad('BLOCK', 9)} ${pad('FINAL', 6)} ${pad('WHAT', 30)} ADDRESS / TX`,
+  );
   for (const r of rows) {
     // WHAT is truncated rather than left to overflow: a full signature would push the address column
     // out of line on one row and not the others.
     const what = r.contract ?? r.function ?? r.note ?? '-';
+    const isFinal = r.hash !== null && final.has(r.hash) ? 'yes' : r.status === 'unmined' ? '-' : 'no';
     say(
       `  ${pad(r.stage, 10)} ${pad(r.status, 9)} ${pad(r.block === null ? '-' : String(r.block), 9)} ` +
-        `${pad(what, 30)} ${r.address ?? r.hash ?? '-'}`,
+        `${pad(isFinal, 6)} ${pad(what, 30)} ${r.address ?? r.hash ?? '-'}${r.recovered === undefined ? '' : `  (recovered: ${r.recovered})`}`,
     );
   }
 
   const reverted = rows.filter((r) => r.status === 'REVERTED').length;
-  say('', `  ${rows.length} entries, ${reverted} reverted`, `  raw forge records: ${ctx.broadcastDir}`);
+  const finals = rows.filter((r) => r.hash !== null && final.has(r.hash)).length;
+  say(
+    '',
+    `  ${rows.length} entries, ${reverted} reverted, ${finals} final`,
+    '  FINAL is as of the last run that reached the node; `--stage status` (or any stage) updates it.',
+    `  raw forge records: ${ctx.broadcastDir}`,
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1926,6 +2283,7 @@ export function showJournal(ctx: Ctx): void {
 export function stageReport(ctx: Ctx): void {
   const manifest = readJson<Manifest>(manifestPath(ctx));
   const rows = readJournal(ctx);
+  const final = finalizedHashes(ctx);
 
   say(`📋  report  ${ctx.opt.deploymentId}`);
   if (manifest === null) {
@@ -1968,7 +2326,7 @@ export function stageReport(ctx: Ctx): void {
     say(`  ${failed > 0 ? '❌' : '✅'}  ${pad(step.label, 8)} ${step.title}${suffix}`);
 
     say(`      ${'-'.repeat(RULE_WIDTH)}`);
-    for (const e of entries) say(`      ${reportTxLine(e)}`);
+    for (const e of entries) say(`      ${reportTxLine(e, final)}`);
   }
 
   const reverted = rows.filter((r) => r.status === 'REVERTED').length;
@@ -2026,11 +2384,12 @@ export function reportAddresses(manifest: Manifest): void {
  * paste it into an explorer. Step F's line has no hash when the admin's transaction was merely
  * observed — see recordObservation — and says so rather than printing a misleading blank.
  */
-export function reportTxLine(e: JournalEntry): string {
+export function reportTxLine(e: JournalEntry, final: ReadonlySet<string> = new Set()): string {
   const block = e.block === null ? 'unmined' : `block ${e.block}`;
   const what = e.contract ?? e.function ?? e.note ?? '-';
   const hash = e.hash ?? '(no local receipt - sent externally)';
-  return `${pad(block, 15)} ${pad(e.status, 9)} ${hash}  ${what}`;
+  const isFinal = e.hash !== null && final.has(e.hash) ? 'final' : '';
+  return `${pad(block, 15)} ${pad(e.status, 9)} ${pad(isFinal, 6)} ${hash}  ${what}`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2122,6 +2481,9 @@ export async function broadcast(
     '  On a public testnet this takes about one block per transaction.',
   );
   const startNonce = captureOrFail('cast', ['nonce', from, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]);
+  // Before forge can sign anything: if the run is killed the instant after it sends, this line is what
+  // lets the next run find the transaction on chain (reconcileJournal).
+  recordStageStart(ctx, target.split(':')[0] ?? target, from, Number(startNonce));
   const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
@@ -2137,6 +2499,7 @@ export async function broadcast(
   );
 
   recordJournal(ctx, target);
+  recordFinality(ctx);
   if (code !== 0) {
     console.error(`  stage failed (forge exit ${code}). What was sent is in --stage log.`);
     process.exit(code);
@@ -2209,7 +2572,7 @@ export function confirmSealed(ctx: Ctx): void {
   // run was invoked. It used to hang off the `--stage all` branch, which meant the manual path, the
   // one a real deployment actually uses, was never asked at all. An empty journal is the same signal
   // `compute` uses to decide whether recomputing is still safe.
-  if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) return;
+  if (journalHasSentTx(ctx)) return;
 
   // `--no-git` / `"git": false` — this deployment does not need a committed seal at all.
   //
