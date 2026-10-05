@@ -289,7 +289,7 @@ already there was sealed for a different chain.
 | `broadcast/…/run-latest.json` | forge's raw records | no |
 | `manifest.json` | the seal — salts, init-code hashes, addresses | **before any tx** (§9) |
 | `addresses.sol` | the generated config | **before any tx** (§9) |
-| `pass2.json` | compute's pass-2 → pass-3 scratch | no |
+| `pass2.json` | compute's pass-2 → pass-3 scratch; deleted once `manifest.json` is a complete seal, kept for diagnosis otherwise | no |
 | `build/` | `forge --out` | no |
 
 A deployment spans many invocations, often days apart. Two mechanisms keep them consistent, and they

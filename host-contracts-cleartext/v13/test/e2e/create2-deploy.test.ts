@@ -291,6 +291,8 @@ void test(
         );
         // Forge wrote outside the repository through the config the coordinator generated there.
         assert.ok(existsSync(join(outDirAbs(), '.foundry', 'foundry.toml')), 'generated forge config in the out dir');
+        // compute's scratch file goes once the seal is complete: nothing after compute reads it.
+        assert.ok(!existsSync(join(outDirAbs(), 'pass2.json')), 'pass2.json left behind after a complete seal');
         manifest = manifestAddresses();
         for (const [role] of VERSIONED_ROLES) addressOf(manifest, role);
         addressOf(manifest, 'ACL_OWNER');

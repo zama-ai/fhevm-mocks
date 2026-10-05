@@ -230,11 +230,12 @@ You should see `9 addresses verified against the live stack`, then `wrote` follo
 `out/manifest.json`.
 
 ```sh
-git -C ~/src/fhevm-mocks rev-parse HEAD > tool-commit.txt
-git add upgrade.config.json kms-migration.json v12-manifest.json tool-commit.txt out/manifest.json out/addresses.sol
+git add upgrade.config.json kms-migration.json v12-manifest.json out/manifest.json out/addresses.sol
 git commit -m "seal: upgrade <deploymentId>"
-git push
+git push        # only if your repo has a remote
 ```
+
+The seal also records which commit of the tool computed it.
 
 ### Step 11: create the new contracts
 
@@ -242,7 +243,9 @@ git push
 upgrade-cli --stage creates
 ```
 
-Answer `y` to `Pushed to git? [y/N]`. You should see `created 10`.
+You should see `created 10`. Before its first transaction, the tool checks that the seal is committed,
+and pushed if your branch has an upstream. If not, it stops, sends nothing, and prints the git commands
+to run.
 
 ### Step 12: run the gate
 
@@ -304,7 +307,6 @@ arbsepolia-upgrade-v13/
 ├── upgrade.config.json    you wrote it                       commit it (step 10)
 ├── kms-migration.json     you wrote it                       commit it (step 10)
 ├── v12-manifest.json      copied from the v12 deploy         commit it (step 10)
-├── tool-commit.txt        the tool's git commit              commit it (step 10)
 └── out/
     ├── manifest.json      the seal, with the pre-upgrade snapshot   commit it (step 10)
     ├── addresses.sol      the generated config               commit it (step 10)
@@ -358,7 +360,8 @@ upgrade-cli --stage all
    `verify` compares against it.
 9. **Do not update the tool during an upgrade.** No `git pull` or `git checkout` in `~/src/fhevm-mocks`
    between step 10 and step 16. `precheck` and `verify` recompile and fail if the bytecode no longer
-   matches the seal. `tool-commit.txt` says which commit to use if you ever need to resume.
+   matches the seal. The seal records the tool's commit, and the tool refuses to send anything from
+   another commit: it prints the `git checkout` that brings the tool back to the sealed one.
 10. **Pass at least one `--handle`.** Without one, verify proves the stack still works, not that existing
     data survived.
 11. **What verify does not prove.** It checks every zero-argument getter, the handles you gave, the slots,

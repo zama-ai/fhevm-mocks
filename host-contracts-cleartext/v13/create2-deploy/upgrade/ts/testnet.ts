@@ -59,7 +59,10 @@ import {
   type JournalEntry,
   loadConfigFile,
   type Manifest,
+  isCompleteSeal,
   manifestPath,
+  removeScratchIfSealed,
+  scratchPath,
   PACKAGE_ROOT,
   parseCliArgs,
   preflight,
@@ -71,6 +74,7 @@ import {
   RULE_WIDTH,
   SCRIPT_DIR,
   scriptEnv,
+  stampToolCommit,
   settledBlock,
   showJournal,
   stageReport,
@@ -763,7 +767,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
   removeIfPresent(
     ctx.buildOut,
     join(ctx.outDir, 'addresses.sol'),
-    join(ctx.outDir, 'pass2.json'),
+    scratchPath(ctx),
     manifestPath(ctx),
     preUpgradePath(ctx),
   );
@@ -819,6 +823,9 @@ async function stageCompute(ctx: Ctx): Promise<void> {
     await pass(2, env);
   });
   mergePreUpgradeIntoManifest(ctx);
+  stampToolCommit(ctx);
+  // The upgrade's seal is complete only once the pre-upgrade snapshot is merged into it.
+  removeScratchIfSealed(ctx, ['preUpgrade']);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1896,8 +1903,12 @@ async function main(): Promise<void> {
     // it is incidental, so a sealed upgrade past its first transaction skips it. Otherwise `--stage all`
     // could never resume the upgrade it started. Asked of the chain, so a run killed before it wrote its
     // journal still resumes rather than resealing.
+    // Before anything is sent, an existing complete seal — pre-upgrade snapshot included — is reused,
+    // never recomputed: the snapshot is the only witness to "before", and the operator committed it.
     if (upgradeStarted(ctx)) {
       say('🍟 compute already sealed and past its first transaction - skipping (resume)');
+    } else if (isCompleteSeal(ctx, ['preUpgrade'])) {
+      say(`🍟 compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
     } else {
       await stageCompute(ctx);
     }

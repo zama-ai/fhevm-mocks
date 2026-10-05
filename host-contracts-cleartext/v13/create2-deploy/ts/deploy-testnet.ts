@@ -55,7 +55,10 @@ import {
   type JournalEntry,
   loadConfigFile,
   type Manifest,
+  isCompleteSeal,
   manifestPath,
+  removeScratchIfSealed,
+  scratchPath,
   parseCliArgs,
   preflight,
   recordObservation,
@@ -63,6 +66,7 @@ import {
   resolveOptions,
   SCRIPT_DIR,
   scriptEnv,
+  stampToolCommit,
   showJournal,
   stageReport,
   traceArgs,
@@ -274,7 +278,7 @@ function stageCompute(ctx: Ctx): void {
   // Clears only what compute itself produces. NOT the whole out dir: that would also take
   // journal.jsonl and broadcast/, which are the audit trail and belong to the deploy stages.
   ensureDir(ctx.outDir);
-  removeIfPresent(ctx.buildOut, join(ctx.outDir, 'addresses.sol'), join(ctx.outDir, 'pass2.json'), manifestPath(ctx));
+  removeIfPresent(ctx.buildOut, join(ctx.outDir, 'addresses.sol'), scratchPath(ctx), manifestPath(ctx));
 
   const script = `${SCRIPT_DIR}/FhevmComputeCreate2Addresses.s.sol:FhevmComputeCreate2Addresses`;
   // --no-build: trust what is already in the out dir rather than rebuilding.
@@ -339,6 +343,8 @@ function stageCompute(ctx: Ctx): void {
 
   // `forge script` can report success for a run that reverted, so check the artifact, not the code.
   if (!existsSync(manifestPath(ctx))) fail('Error: pass 3 wrote no manifest.json.');
+  stampToolCommit(ctx);
+  removeScratchIfSealed(ctx);
   say('', `  sealed: ${manifestPath(ctx)}`);
 }
 
@@ -638,8 +644,15 @@ async function main(): Promise<void> {
     // error. Here it is incidental rather than requested, so a sealed deployment that has already
     // sent something simply skips it and carries on — otherwise `--stage all` could never resume the
     // deployment it started.
+    //
+    // Before the first transaction, an existing COMPLETE seal is reused, never recomputed: it is what the
+    // operator committed, and preflight has already refused one that no longer matches the config or the
+    // tool. Recomputing would replace the committed address set behind the operator's back. Resealing on
+    // purpose is `--stage compute`.
     if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) {
       say('🎃 compute already sealed and past its first transaction - skipping (resume)');
+    } else if (isCompleteSeal(ctx)) {
+      say(`🎃 compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
     } else {
       stageCompute(ctx);
     }

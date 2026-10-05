@@ -205,13 +205,12 @@ The last line is `sealed:` followed by the full path of `out/manifest.json`.
 ### Step 8: commit and push the seal
 
 ```sh
-git -C ~/src/fhevm-mocks rev-parse HEAD > tool-commit.txt
-git add deploy.config.json tool-commit.txt out/manifest.json out/addresses.sol
+git add deploy.config.json out/manifest.json out/addresses.sol
 git commit -m "seal: cleartext-v13-arbsepolia-2026-10"
-git push
+git push        # only if your repo has a remote
 ```
 
-`tool-commit.txt` records which version of the tool computed the addresses.
+The seal also records which commit of the tool computed it.
 
 ### Step 9: deploy
 
@@ -219,7 +218,10 @@ git push
 deploy-cli --stage all
 ```
 
-- At the first transaction it asks `Pushed to git? [y/N]`. Answer `y`.
+- It reuses the seal of step 7: it does not compute again.
+- Before its first transaction, it checks that the seal is committed, and pushed if your branch has an
+  upstream. If not, it stops, sends nothing, and prints the git commands to run. Run them, then
+  `deploy-cli --stage all` again.
 - **Multisig admin:** the run stops at step F and prints a `cast send <ACL_OWNER> 'acceptOwnership()'`
   command. Have the multisig execute `acceptOwnership()` on that address. The run continues by itself
   once it lands.
@@ -249,7 +251,6 @@ git push
 ```text
 arbsepolia-2026-10/
 ├── deploy.config.json     you wrote it               commit it (step 8)
-├── tool-commit.txt        the tool's git commit      commit it (step 8)
 └── out/
     ├── manifest.json      the seal: every address    commit it (step 8)
     ├── addresses.sol      the generated config       commit it (step 8)
@@ -291,8 +292,9 @@ arbsepolia-2026-10/
 8. **Never run `compute` again once a transaction has been sent.** To start over, use a new deployment
    folder and a new `deploymentId`. The old stack stays where it is.
 9. **Do not update the tool during a deployment.** No `git pull` or `git checkout` in `~/src/fhevm-mocks`
-   between step 7 and step 11. Every address depends on the compiled bytecode. `tool-commit.txt` says
-   which commit to use if you ever need to resume.
+   between step 7 and step 11. Every address depends on the compiled bytecode. The seal records the
+   tool's commit, and the tool refuses to send anything from another commit: it prints the
+   `git checkout` that brings the tool back to the sealed one.
 10. **Run one invocation at a time.** Two runs in parallel, or a run while transactions are pending, waste
     gas and fail.
 11. **Prefer `--stage all`.** It waits for each stage to finalize before the next one. When you run stages

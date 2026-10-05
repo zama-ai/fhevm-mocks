@@ -116,7 +116,7 @@ One directory per chain, set by `--out-dir` (default `create2-deploy/.out`):
 ├── broadcast/<Script>.s.sol/<chainId>/run-latest.json   forge's raw records
 ├── manifest.json                                  salts + addresses (commit this)
 ├── addresses.sol                                  generated config (commit this)
-├── pass2.json                                     compute scratch
+├── pass2.json                                     compute scratch, deleted once the seal is complete
 └── build/                                         forge --out
 ```
 

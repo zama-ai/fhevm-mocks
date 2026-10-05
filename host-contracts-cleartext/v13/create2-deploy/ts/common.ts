@@ -21,7 +21,6 @@ import {
   appendJsonl,
   capture,
   captureOrFail,
-  confirm,
   ensureDir,
   fail,
   hexToNumber,
@@ -29,6 +28,7 @@ import {
   pad,
   readJson,
   readJsonl,
+  removeIfPresent,
   runLogged,
   sameAddress,
   say,
@@ -243,6 +243,10 @@ export type Manifest = {
   readonly deploymentId?: string;
   readonly deployer?: string;
   readonly admin?: string;
+  /** Deploy only: the optional operator pauser, the zero address when none. */
+  readonly pauser0?: string;
+  /** The tool's git commit at `compute` (stampToolCommit); null when the tool is not a git checkout. */
+  readonly toolCommit?: string | null;
   readonly address?: Record<string, string>;
 };
 
@@ -1194,6 +1198,75 @@ export function manifestPath(ctx: Ctx): string {
   return join(ctx.outDir, 'manifest.json');
 }
 
+/** `compute`'s pass-to-pass scratch file. Read only by the next compute pass, never by a later stage. */
+export function scratchPath(ctx: Ctx): string {
+  return join(ctx.outDir, 'pass2.json');
+}
+
+/**
+ * Delete `compute`'s scratch file, but ONLY once the seal is complete.
+ *
+ * The last pass carried everything it needed out of the scratch file into the manifest, so a complete
+ * manifest makes it dead weight — and a leftover file next to the seal invites someone to commit it or
+ * read it as if it meant something. "Complete" is checked rather than assumed: the manifest parses, its
+ * address map is non-empty, every entry is an address, the ACL and ACLOwner are there, and every
+ * `requiredKeys` top-level field exists. Anything less keeps the scratch file, because a failed seal is
+ * exactly when its intermediate values help to diagnose what went wrong.
+ */
+export function removeScratchIfSealed(ctx: Ctx, requiredKeys: readonly string[] = []): void {
+  if (!isCompleteSeal(ctx, requiredKeys)) {
+    warn(`keeping ${scratchPath(ctx)}: ${manifestPath(ctx)} is not a complete seal.`);
+    return;
+  }
+  removeIfPresent(scratchPath(ctx));
+}
+
+/**
+ * Is `manifest.json` a complete seal? It parses, its address map is non-empty, every entry is an address,
+ * the ACL and ACLOwner are there, and every `requiredKeys` top-level field exists.
+ *
+ * What `--stage all` asks before reusing a seal instead of computing one, and what the scratch cleanup
+ * asks before deleting pass2.json — one definition, so the two can never disagree.
+ */
+export function isCompleteSeal(ctx: Ctx, requiredKeys: readonly string[] = []): boolean {
+  let manifest: Record<string, unknown> | null = null;
+  try {
+    manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
+  } catch {
+    return false;
+  }
+  if (manifest === null) return false;
+  const address = manifest.address;
+  if (address === null || typeof address !== 'object' || Array.isArray(address)) return false;
+  const map = address as Record<string, unknown>;
+  const values = Object.values(map);
+  return (
+    values.length > 0 &&
+    values.every((a) => typeof a === 'string' && /^0x[0-9a-fA-F]{40}$/.test(a)) &&
+    ['ACL_ADDRESS', 'ACL_OWNER'].every((role) => role in map) &&
+    requiredKeys.every((key) => key in manifest)
+  );
+}
+
+/** The tool checkout's git commit, or null when it is not a git checkout. */
+export function toolCommit(): string | null {
+  const r = capture('git', ['-C', PACKAGE_ROOT, 'rev-parse', 'HEAD']);
+  return r.ok && /^[0-9a-f]{40}$/.test(r.stdout) ? r.stdout : null;
+}
+
+/**
+ * Record the tool's git commit in the seal, so a later run can tell when the checkout has moved.
+ *
+ * Every address is a hash of bytecode this checkout compiled; another commit can compile other
+ * bytecode. `creates` would still catch the drift address by address, but only after a build, and
+ * with a message about bytecode rather than about the `git pull` that caused it.
+ */
+export function stampToolCommit(ctx: Ctx): void {
+  const manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
+  if (manifest === null) return;
+  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, toolCommit: toolCommit() }, null, 2)}\n`);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -1357,6 +1430,41 @@ export function checkOutDirIdentity(ctx: Ctx): void {
       "       address this deployment's seal never named. Rotating the admin after the run is the",
       "       standing admin's own transferOwnership call, not a re-run with a different --admin.",
     );
+  }
+
+  // `compute` itself reseals, so it is the one stage these two must not block: it is how a seal that no
+  // longer matches gets replaced, as long as nothing has been sent (it refuses otherwise).
+  if (ctx.opt.stage === 'compute') return;
+
+  // The pauser moves no address, but it is who step A' registers — and its predicate is "THIS pauser is
+  // registered", so a changed value would quietly register a second one.
+  const ZERO = '0x0000000000000000000000000000000000000000';
+  if (manifest.pauser0 !== undefined && !sameAddress(manifest.pauser0, ctx.opt.pauser ?? ZERO)) {
+    fail(
+      `Error: '${ctx.opt.deploymentId}' was sealed with a different pauser.`,
+      `         sealed:   ${sameAddress(manifest.pauser0, ZERO) ? '(none)' : manifest.pauser0}`,
+      `         --pauser  ${ctx.opt.pauser ?? '(none)'}`,
+      '       Restore the sealed value, or reseal with --stage compute if nothing has been sent yet.',
+    );
+  }
+
+  // The tool moved since the seal. Every address is a hash of the bytecode it compiled.
+  const sealedCommit = manifest.toolCommit;
+  const currentCommit = toolCommit();
+  if (typeof sealedCommit === 'string' && currentCommit !== null && sealedCommit !== currentCommit) {
+    const lines = [
+      `the tool checkout ${PACKAGE_ROOT} is at ${currentCommit.slice(0, 12)},`,
+      `but '${ctx.opt.deploymentId}' was sealed at ${sealedCommit.slice(0, 12)}.`,
+      `Check out the sealed commit:  git -C ${PACKAGE_ROOT} checkout ${sealedCommit}`,
+      'or, if nothing has been sent yet, reseal with --stage compute and commit the new seal.',
+    ];
+    const sends =
+      ctx.opt.stage === 'all' ||
+      ctx.flow.needsDeployerKey(ctx.opt.stage) ||
+      ctx.flow.adminSendingStages.includes(ctx.opt.stage);
+    // A stage that sends must not run on code the seal was not computed from; a read-only look may.
+    if (sends) fail(`Error: ${lines[0] ?? ''}`, ...lines.slice(1).map((line) => `       ${line}`));
+    warn(...lines);
   }
 }
 
@@ -1966,7 +2074,7 @@ export async function broadcast(
 
   // The seal gate. No-ops unless this is the first transaction of the deployment; never reached by a dry run,
   // which returned above.
-  await confirmSealed(ctx);
+  confirmSealed(ctx);
 
   requireNoPendingTxs(ctx, from);
   const minBlock = ctx.opt.minBlockOverride ?? ctx.nextMinBlock;
@@ -2057,7 +2165,7 @@ export function requireBuiltArtifacts(ctx: Ctx): void {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-export async function confirmSealed(ctx: Ctx): Promise<void> {
+export function confirmSealed(ctx: Ctx): void {
   if (ctx.opt.noConfirm) return;
 
   // Fires on the CONDITION — "this deployment has never sent a transaction" — rather than on how the
@@ -2081,27 +2189,59 @@ export async function confirmSealed(ctx: Ctx): Promise<void> {
     return;
   }
 
+  const state = gitSealState(ctx.outDir, ['manifest.json', 'addresses.sol']);
+  if (state.ok) {
+    say(`  seal: ${state.detail}`);
+    return;
+  }
+
   // Relative to the directory the command was launched from — not the package root main() chdir'd to —
   // so the lines below can be pasted straight into that shell.
   const fromLaunch = relative(INVOCATION_DIR, ctx.outDir);
   const dir = fromLaunch === '' ? '.' : fromLaunch;
-
-  say(
+  fail(
     '',
-    '  ---------------------------------------------------------------------------',
-    '  About to send the FIRST transaction for this deployment.',
+    `Error: the seal is not safely in git: ${state.reason}.`,
     '',
-    '  GIT COMMIT AND PUSH the seal first. It is not a formality: the addresses ARE',
-    '  the init-code hashes, so retrying a failed create needs the byte-exact ones,',
-    '  and a resumed run computes which addresses to probe from them. Lose the seal',
-    '  and a half-finished stack cannot be finished.',
+    '       Nothing has been sent. Before the FIRST transaction the seal must be committed (and pushed,',
+    '       when the branch has an upstream): the addresses ARE the init-code hashes, so retrying a failed',
+    '       create needs the byte-exact ones. Lose the seal and a half-finished stack cannot be finished.',
     '',
-    `    git add -f ${dir}/manifest.json ${dir}/addresses.sol`,
-    `    git commit -m "seal: ${ctx.opt.deploymentId}"`,
-    '    git push',
-    '  ---------------------------------------------------------------------------',
+    `         git add -f ${dir}/manifest.json ${dir}/addresses.sol`,
+    `         git commit -m "seal: ${ctx.opt.deploymentId}"`,
+    '         git push        # only if the branch has an upstream',
+    '',
+    '       Then run the same command again.',
   );
-  if (!(await confirm('  Pushed to git? [y/N] '))) fail('Aborted before the first transaction.');
+}
+
+/**
+ * Where the seal stands in git, checked rather than asked.
+ *
+ * Committed means: both files are in HEAD and identical to it. Pushed is required only when the branch
+ * HAS an upstream; then the last commit touching them must be an ancestor of it. A local-only repository
+ * is accepted as is. Not a git repository at all is refused: the seal would then live in one copy.
+ */
+export function gitSealState(
+  dir: string,
+  files: readonly string[],
+): { readonly ok: true; readonly detail: string } | { readonly ok: false; readonly reason: string } {
+  const git = (...args: string[]) => capture('git', ['-C', dir, ...args]);
+  if (!git('rev-parse', '--show-toplevel').ok) return { ok: false, reason: `${dir} is not inside a git repository` };
+  for (const file of files) {
+    if (!git('cat-file', '-e', `HEAD:./${file}`).ok) return { ok: false, reason: `${file} is not committed` };
+    if (!git('diff', '--quiet', 'HEAD', '--', file).ok) {
+      return { ok: false, reason: `${file} has changed since it was committed` };
+    }
+  }
+  const last = git('log', '-1', '--format=%H', '--', ...files).stdout;
+  const short = last.slice(0, 12);
+  const upstream = git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}');
+  if (!upstream.ok) return { ok: true, detail: `committed in ${short} (no upstream branch, nothing to push to)` };
+  if (!git('merge-base', '--is-ancestor', last, '@{u}').ok) {
+    return { ok: false, reason: `the commit with the seal (${short}) is not pushed to ${upstream.stdout}` };
+  }
+  return { ok: true, detail: `committed in ${short} and pushed to ${upstream.stdout}` };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
