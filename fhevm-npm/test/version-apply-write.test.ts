@@ -5,7 +5,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { type NpmRunner, applyPlan, guardNpmjs, planVersionApply, writePackageVersion } from '../base/version-apply.ts';
+import {
+  type NpmRunner,
+  applyPlan,
+  guardNpmjs,
+  planVersionApply,
+  writeGeneratedVersion,
+  writeLockNodeVersion,
+  writePackageVersion,
+} from '../base/version-apply.ts';
 import { loadedPackage, parseTestNpmManifest } from './helpers.ts';
 
 const manifest = parseTestNpmManifest({
@@ -114,6 +122,88 @@ test('writePackageVersion demands exactly one matching version line', () => {
     );
     writePackageVersion(file, { path: 'package.json', description: 'version', from: '1.0.0', to: '1.0.1' });
     assert.equal(readFileSync(file, 'utf8'), '{\n  "version": "1.0.1"\n}\n');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('writeGeneratedVersion replaces only the captured version and demands exactly one expected match', () => {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-write-generated-'));
+  try {
+    const file = join(root, 'Version.sol');
+    const pattern = /string internal constant VERSION = "([^"]*)";/;
+    const write = (from: string) => ({
+      path: 'Version.sol',
+      description: 'generated version',
+      from,
+      to: '1.0.0',
+      pattern,
+    });
+    const sol = (version: string) =>
+      `// generated from 1.0.0-1\nlibrary V {\n    string internal constant VERSION = "${version}";\n}\n`;
+    writeFileSync(file, sol('1.0.0-1'));
+    assert.throws(() => writeGeneratedVersion(file, write('0.9.0')), /embedding 0\.9\.0, found 1\.0\.0-1/);
+    writeGeneratedVersion(file, write('1.0.0-1'));
+    // The comment carrying the same text is untouched: only the captured span moved.
+    assert.equal(readFileSync(file, 'utf8'), sol('1.0.0'));
+    writeFileSync(file, sol('1.0.0-1') + sol('1.0.0-1'));
+    assert.throws(() => writeGeneratedVersion(file, write('1.0.0-1')), /found 2/);
+    assert.throws(
+      () => writeGeneratedVersion(file, { path: 'Version.sol', description: 'version', from: '1', to: '2' }),
+      /not a generated-file write/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("writeLockNodeVersion edits one entry's version line in place and refuses anything wider", () => {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-write-lock-node-'));
+  try {
+    const file = join(root, 'package-lock.json');
+    const node = 'node_modules/@scope/plugin';
+    const write = (from: string) => ({
+      path: 'package-lock.json',
+      description: 'v',
+      from,
+      to: '1.0.0',
+      lockNode: node,
+    });
+    const lock = (version: string) =>
+      [
+        '{',
+        '  "lockfileVersion": 3,',
+        '  "packages": {',
+        '    "node_modules/@other/thing": {',
+        `      "version": "${version}"`,
+        '    },',
+        `    "${node}": {`,
+        `      "version": "${version}",`,
+        '      "resolved": "file:../../pkg",',
+        '      "engines": {',
+        '        "node": ">=22"',
+        '      }',
+        '    }',
+        '  }',
+        '}',
+        '',
+      ].join('\n');
+    writeFileSync(file, lock('1.0.0-1'));
+    assert.throws(() => writeLockNodeVersion(file, write('0.9.0')), /found 0/);
+    writeLockNodeVersion(file, write('1.0.0-1'));
+    // Only the target entry moved; the other entry carrying the same version is untouched.
+    assert.equal(
+      readFileSync(file, 'utf8'),
+      lock('1.0.0-1').replace(`"${node}": {\n      "version": "1.0.0-1"`, `"${node}": {\n      "version": "1.0.0"`),
+    );
+    assert.throws(
+      () => writeLockNodeVersion(file, { ...write('1.0.0'), lockNode: 'node_modules/@scope/missing' }),
+      /exactly one entry/,
+    );
+    assert.throws(
+      () => writeLockNodeVersion(file, { path: 'package-lock.json', description: 'v', from: '1', to: '2' }),
+      /not a consumer-lockfile write/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

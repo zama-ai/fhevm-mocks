@@ -1,23 +1,28 @@
 // `version apply`: reconcile every derived version from sdk/versions.json. The plan is computed from the
 // central file alone — the tree is consulted only to learn what differs — and it is refused unless the
 // worktree is clean or carries exactly one unstaged change, the central file itself, so every derived diff
-// stays attributable to the operation. Writes are the planned package.json lines and, per installation
-// root, one lockfile refresh whose diff must be exactly the planned member version lines. No rollback: a
-// failure leaves the diff for inspection and the next run refuses until only the central file is modified.
+// stays attributable to the operation. Writes are the planned package.json lines, the embedded version in
+// each committed generated file, the payload version lines of each isolated consumer fixture's lockfile
+// (edited in place, never re-resolved), and, per installation root, one lockfile refresh whose diff must be
+// exactly the planned member version lines. No rollback: a failure leaves the diff for inspection and the
+// next run refuses until only the central file is modified.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import { type ConsumerLockPin, readConsumerLockPins } from './checks/consumer-lockfiles.ts';
 import { type LoadedPackage, loadPackages } from './npm.ts';
 import { type RegistryFetch, distributionChannels, npmjsStatus } from './package-versions.ts';
 import { compareVersions, parseVersion } from './semver.ts';
 import {
+  type GeneratedVersion,
   type InstallationLock,
   centralPayloads,
   inspectVersions,
   memberEntries,
+  readGeneratedVersions,
   readInstallationLocks,
 } from './version-check.ts';
 import { VERSIONS_FILE, type VersionsFile, loadVersions, validateVersionGraph } from './versions.ts';
@@ -51,6 +56,10 @@ export type DerivedWrite = {
   readonly description: string;
   readonly from: string;
   readonly to: string;
+  /** Set on a generated-file write only: locates the embedded version (group 1) to replace. */
+  readonly pattern?: RegExp;
+  /** Set on a consumer-lockfile write only: the `packages` entry whose `version` is replaced. */
+  readonly lockNode?: string;
 };
 
 export type ApplyPlan = {
@@ -100,17 +109,33 @@ export function centralDiffAgainstHead(
   });
 }
 
-/** The derived fields that disagree with the central file: package.json versions, then lockfile member lines. */
+/**
+ * The derived fields that disagree with the central file: package.json versions, generated version files,
+ * lockfile member lines, then consumer lockfile pins.
+ */
 export function planDerivedWrites(
   workspaceRoot: string,
   packages: readonly LoadedPackage[],
   versions: VersionsFile,
   locks: readonly InstallationLock[],
+  generated: readonly GeneratedVersion[] = [],
+  consumerPins: readonly ConsumerLockPin[] = [],
 ): readonly DerivedWrite[] {
-  return centralPayloads(packages, versions).flatMap(({ pkg, central }) => [
+  const writes = centralPayloads(packages, versions).flatMap(({ pkg, central }) => [
     ...packageWrite(workspaceRoot, pkg, central),
+    ...generated.flatMap((entry) => generatedWrite(workspaceRoot, pkg, entry, central)),
     ...locks.flatMap((lock) => lockWrites(workspaceRoot, lock, pkg, central)),
+    ...consumerPins.flatMap((pin) => consumerLockWrite(workspaceRoot, pkg, pin, central)),
   ]);
+  // A link and its target can name the same versioned node; it is written once.
+  const seen = new Set<string>();
+  return writes.filter((write) => {
+    if (write.lockNode === undefined) return true;
+    const key = `${write.path}\0${write.lockNode}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** The plan for the operator: what the central edit is, and what would be reconciled from it. */
@@ -148,7 +173,14 @@ export function planVersionApply(
   return {
     transitions:
       state.kind === 'central-edit' ? centralDiffAgainstHead(workspaceRoot, versions, allowDowngrade, git) : [],
-    writes: planDerivedWrites(workspaceRoot, packages, versions, readInstallationLocks(workspaceRoot, packages)),
+    writes: planDerivedWrites(
+      workspaceRoot,
+      packages,
+      versions,
+      readInstallationLocks(workspaceRoot, packages),
+      readGeneratedVersions(packages),
+      readConsumerLockPins(packages, versions),
+    ),
   };
 }
 
@@ -168,7 +200,10 @@ export async function guardNpmjs(
   }
 }
 
-/** Write the plan: package.json lines, then one lockfile refresh per root, each proven to change only its planned lines. */
+/**
+ * Write the plan: package.json lines, generated version files and consumer lockfile pins, then one lockfile
+ * refresh per root, each proven to change only its planned lines.
+ */
 export function applyPlan(
   workspaceRoot: string,
   manifest: NpmManifest,
@@ -177,6 +212,12 @@ export function applyPlan(
   git: GitRunner = runGit,
 ): void {
   for (const write of plan.writes.filter(isPackageWrite)) writePackageVersion(join(workspaceRoot, write.path), write);
+  for (const write of plan.writes.filter(isGeneratedWrite)) {
+    writeGeneratedVersion(join(workspaceRoot, write.path), write);
+  }
+  for (const write of plan.writes.filter(isConsumerLockWrite)) {
+    writeLockNodeVersion(join(workspaceRoot, write.path), write);
+  }
   for (const lock of lockPaths(plan)) {
     assertUnchangedFromHead(workspaceRoot, lock, git);
     npm(LOCK_REFRESH, join(workspaceRoot, lock, '..'));
@@ -202,12 +243,83 @@ export function writePackageVersion(file: string, write: DerivedWrite): void {
   writeFileSync(file, text.replace(line, `$1${write.to}$2`));
 }
 
+/**
+ * Replace the embedded version captured by the write's pattern, and nothing else: the generator's output
+ * is otherwise left byte-for-byte, so fhevm-npm needs no generator and no other workspace installed.
+ */
+export function writeGeneratedVersion(file: string, write: DerivedWrite): void {
+  if (write.pattern === undefined) throw new Error(`${file}: not a generated-file write`);
+  const text = readFileSync(file, 'utf8');
+  const flags = write.pattern.flags.replace('g', '');
+  const matches = [...text.matchAll(new RegExp(write.pattern.source, `${flags}gd`))];
+  const match = matches[0];
+  const span = match?.indices?.[1];
+  if (matches.length !== 1 || match?.[1] !== write.from || span === undefined) {
+    throw new Error(
+      `${file}: expected exactly one ${String(write.pattern)} embedding ${write.from}, found ` +
+        (matches.length === 1 ? (match?.[1] ?? 'none') : String(matches.length)),
+    );
+  }
+  writeFileSync(file, text.slice(0, span[0]) + write.to + text.slice(span[1]));
+}
+
+/**
+ * Replace one `packages` entry's `"version"` line in a lockfile, by text, without npm: re-resolving would move
+ * every other dependency too. Proven afterwards: the parsed lockfile differs from the original in that one
+ * value and nowhere else.
+ */
+export function writeLockNodeVersion(file: string, write: DerivedWrite): void {
+  const node = write.lockNode;
+  if (node === undefined) throw new Error(`${file}: not a consumer-lockfile write`);
+  const text = readFileSync(file, 'utf8');
+  const lines = text.split('\n');
+  const opening = new RegExp(`^(\\s*)${escapeRegExp(JSON.stringify(node))}: \\{$`);
+  const starts = lines.flatMap((line, index) => (opening.test(line) ? [index] : []));
+  if (starts.length !== 1) {
+    throw new Error(`${file}: expected exactly one entry ${JSON.stringify(node)}, found ${String(starts.length)}`);
+  }
+  const start = starts[0] ?? 0;
+  const indent = opening.exec(lines[start] ?? '')?.[1] ?? '';
+  const end = lines.findIndex(
+    (line, index) => index > start && /^\s*\},?$/.test(line) && line.startsWith(`${indent}}`),
+  );
+  const versionLine = new RegExp(`^(${indent}\\s+"version":\\s*")${escapeRegExp(write.from)}(",?)$`);
+  const hits = lines.flatMap((line, index) => (index > start && index < end && versionLine.test(line) ? [index] : []));
+  const hit = hits[0];
+  if (end === -1 || hits.length !== 1 || hit === undefined) {
+    throw new Error(
+      `${file}: expected exactly one "version": "${write.from}" in ${node}, found ${String(hits.length)}`,
+    );
+  }
+  lines[hit] = (lines[hit] ?? '').replace(versionLine, `$1${write.to}$2`);
+  const updated = lines.join('\n');
+  const expected = JSON.parse(text) as { packages: Record<string, { version?: string }> };
+  const entry = expected.packages[node];
+  if (entry !== undefined) entry.version = write.to;
+  if (JSON.stringify(JSON.parse(updated)) !== JSON.stringify(expected)) {
+    throw new Error(`${file}: rewriting ${node} would change more than its version; nothing written`);
+  }
+  writeFileSync(file, updated);
+}
+
 function isPackageWrite(write: DerivedWrite): boolean {
   return write.path.endsWith('package.json');
 }
 
+function isGeneratedWrite(write: DerivedWrite): boolean {
+  return write.pattern !== undefined;
+}
+
+function isConsumerLockWrite(write: DerivedWrite): boolean {
+  return write.lockNode !== undefined;
+}
+
+/** Installation-root lockfiles: every write that is not edited in place. */
 function lockPaths(plan: ApplyPlan): readonly string[] {
-  return [...new Set(plan.writes.filter((write) => !isPackageWrite(write)).map((write) => write.path))];
+  const refreshed = plan.writes.filter(
+    (write) => !isPackageWrite(write) && !isGeneratedWrite(write) && !isConsumerLockWrite(write),
+  );
+  return [...new Set(refreshed.map((write) => write.path))];
 }
 
 // Refreshing a lock that already differs from HEAD would hide someone else's change inside this operation.
@@ -277,6 +389,50 @@ function packageWrite(workspaceRoot: string, pkg: LoadedPackage, central: string
   if (from === central) return [];
   return [
     { path: relative(workspaceRoot, join(pkg.directory, 'package.json')), description: 'version', from, to: central },
+  ];
+}
+
+// A file the pattern cannot read is refused at plan time, before anything is written: rewriting it blind
+// would replace whatever the generator now emits.
+function generatedWrite(
+  workspaceRoot: string,
+  pkg: LoadedPackage,
+  { file, version }: GeneratedVersion,
+  central: string,
+): readonly DerivedWrite[] {
+  if (file.packageKey !== pkg.key || version === central) return [];
+  const path = relative(workspaceRoot, join(pkg.directory, file.path));
+  if (version === undefined) {
+    throw new Error(
+      `version apply: ${path} embeds no version matching ${String(file.pattern)}; run ${file.regenerate}`,
+    );
+  }
+  return [{ path, description: 'generated version', from: version, to: central, pattern: file.pattern }];
+}
+
+// A pin with no version has no line to edit; only regeneration can add one, so it is refused at plan time.
+function consumerLockWrite(
+  workspaceRoot: string,
+  pkg: LoadedPackage,
+  pin: ConsumerLockPin,
+  central: string,
+): readonly DerivedWrite[] {
+  if (pin.payload.key !== pkg.key || pin.version === central || (pin.link && pin.version === undefined)) return [];
+  const path = relative(workspaceRoot, join(workspaceRoot, pin.lockKey));
+  if (pin.version === undefined) {
+    throw new Error(
+      `version apply: ${path} records no version for '${pin.label}'; run ` +
+        `\`test-consumer-regenerate-package-lock ${pin.consumerKey}\``,
+    );
+  }
+  return [
+    {
+      path,
+      description: `${pin.versionNodeKey} version`,
+      from: pin.version,
+      to: central,
+      lockNode: pin.versionNodeKey,
+    },
   ];
 }
 

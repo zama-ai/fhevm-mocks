@@ -1,12 +1,15 @@
 // `version check`: is every derived version equal to the central one? The central file is validated first
 // (versions.ts); only a valid graph is compared against the tree. Derived state is the payload's own
-// package.json version and, in every installation root whose lockfile records the member, the `version`
-// npm wrote for it. Nothing here reads a version back into the authority.
+// package.json version, in every installation root whose lockfile records the member, the `version`
+// npm wrote for it, the version each isolated consumer fixture's lockfile pins it at, and every committed
+// generated file that embeds it (GENERATED_VERSION_FILES).
+// Nothing here reads a version back into the authority.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import { type ConsumerLockPin, readConsumerLockPins } from './checks/consumer-lockfiles.ts';
 import { lockfilePath, packageJsonPath } from './checks/package-names.ts';
 import type { Violation } from './diagnostics.ts';
 import { type LoadedPackage, loadPackages } from './npm.ts';
@@ -15,6 +18,11 @@ import { type VersionsFile, loadVersions, validateVersionGraph } from './version
 
 export type VersionInspection = {
   readonly checkedPackageKeys: readonly string[];
+  /**
+   * The checked payloads with no violation. Violations are keyed by the derived file (package.json,
+   * a lockfile, a generated file), never by the payload, so the generic report cannot tell on its own.
+   */
+  readonly passedPackageKeys: readonly string[];
   readonly violations: readonly Violation[];
 };
 
@@ -30,14 +38,26 @@ export function inspectVersions(workspaceRoot: string, manifest: NpmManifest): V
   const graph = validateVersionGraph(manifest, versions);
   const checkedPackageKeys = Object.keys(versions.packages);
   // An invalid graph makes every derived comparison meaningless; report it alone.
-  if (graph.length > 0) return { checkedPackageKeys, violations: graph };
+  if (graph.length > 0) return { checkedPackageKeys, passedPackageKeys: [], violations: graph };
   const packages = loadPackages(workspaceRoot, manifest);
+  const locks = readInstallationLocks(workspaceRoot, packages);
+  const generated = readGeneratedVersions(packages);
+  const consumerPins = readConsumerLockPins(packages, versions);
+  // Validated one payload at a time, so each violation stays attributable to the payload it came from.
+  const perPackage = packages.map((pkg) => ({
+    key: pkg.key,
+    violations: [
+      ...validatePackageVersions([pkg], versions),
+      ...validateLockfileMemberVersions([pkg], versions, locks),
+      ...validateGeneratedVersions([pkg], versions, generated),
+      ...validateConsumerLockfileVersions([pkg], versions, consumerPins),
+    ],
+  }));
+  const failed = new Set(perPackage.filter((entry) => entry.violations.length > 0).map((entry) => entry.key));
   return {
     checkedPackageKeys,
-    violations: [
-      ...validatePackageVersions(packages, versions),
-      ...validateLockfileMemberVersions(packages, versions, readInstallationLocks(workspaceRoot, packages)),
-    ],
+    passedPackageKeys: checkedPackageKeys.filter((key) => !failed.has(key)),
+    violations: perPackage.flatMap((entry) => entry.violations),
   };
 }
 
@@ -78,6 +98,104 @@ export function validateLockfileMemberVersions(
         })),
     ),
   );
+}
+
+/**
+ * A committed file generated from a payload's version. Committed, so it ships whatever it last said: a bump
+ * that does not regenerate it publishes the previous version. Generators read package.json, not
+ * versions.json, but package.json is already held to the central version above.
+ */
+export type GeneratedVersionFile = {
+  readonly packageKey: string;
+  /** Relative to the payload directory. */
+  readonly path: string;
+  /** Captures the embedded version as group 1; `version apply` replaces exactly that span. */
+  readonly pattern: RegExp;
+  /** The fallback when the pattern no longer matches and `version apply` cannot rewrite the file. */
+  readonly regenerate: string;
+};
+
+export const GENERATED_VERSION_FILES: readonly GeneratedVersionFile[] = [
+  {
+    packageKey: './foundry/forge-fhevm-std/pkg',
+    path: 'src/StdFhevmVersion.sol',
+    pattern: /string internal constant VERSION = "([^"]*)";/,
+    regenerate: '`npm run generate:version` in foundry/forge-fhevm-std',
+  },
+];
+
+/** What one generated file says. `version` is undefined when the file exists but the pattern finds nothing. */
+export type GeneratedVersion = {
+  readonly file: GeneratedVersionFile;
+  readonly version: string | undefined;
+};
+
+/** Every generated version file must embed its payload's central version. */
+export function validateGeneratedVersions(
+  packages: readonly LoadedPackage[],
+  versions: VersionsFile,
+  generated: readonly GeneratedVersion[],
+): readonly Violation[] {
+  const centralByKey = new Map(centralPayloads(packages, versions).map(({ pkg, central }) => [pkg.key, central]));
+  return generated.flatMap(({ file, version }) => {
+    const central = centralByKey.get(file.packageKey);
+    if (central === undefined || version === central) return [];
+    return [
+      {
+        rule: 'version-generated',
+        packageKey: `${file.packageKey}/${file.path}`,
+        message:
+          version === undefined
+            ? `embeds no version matching ${String(file.pattern)}; central version is ${central} — run ${file.regenerate}`
+            : `embeds ${version}; central version is ${central} — run \`version apply\``,
+      },
+    ];
+  });
+}
+
+/**
+ * Reads each generated file of a loaded payload. A missing file is skipped, not reported: `clean:generated`
+ * deletes it and this check runs pre-build; a deleted tracked file already shows in `git status`.
+ */
+export function readGeneratedVersions(
+  packages: readonly LoadedPackage[],
+  files: readonly GeneratedVersionFile[] = GENERATED_VERSION_FILES,
+): GeneratedVersion[] {
+  return files.flatMap((file) => {
+    const pkg = packages.find((candidate) => candidate.key === file.packageKey);
+    if (pkg === undefined) return [];
+    const path = join(pkg.directory, file.path);
+    if (!existsSync(path)) return [];
+    return [{ file, version: file.pattern.exec(readFileSync(path, 'utf8'))?.[1] }];
+  });
+}
+
+/**
+ * Every isolated consumer fixture's lockfile pins each payload it reaches at the central version. A member
+ * consumer has no lock of its own (its installation root's is checked above). Only the version is graded
+ * here; which payload a node resolves to is `check consumer-lockfiles`'s concern.
+ */
+export function validateConsumerLockfileVersions(
+  packages: readonly LoadedPackage[],
+  versions: VersionsFile,
+  pins: readonly ConsumerLockPin[],
+): readonly Violation[] {
+  const centralByKey = new Map(centralPayloads(packages, versions).map(({ pkg, central }) => [pkg.key, central]));
+  return pins.flatMap((pin) => {
+    const central = centralByKey.get(pin.payload.key);
+    if (central === undefined || pin.version === central || (pin.link && pin.version === undefined)) return [];
+    return [
+      {
+        rule: 'version-consumer-lockfile',
+        packageKey: pin.lockKey,
+        message:
+          pin.version === undefined
+            ? `records no version for '${pin.label}'; central version is ${central} — run ` +
+              `\`test-consumer-regenerate-package-lock ${pin.consumerKey}\``
+            : `records ${pin.version} for '${pin.label}'; central version is ${central} — run \`version apply\``,
+      },
+    ];
+  });
 }
 
 /** The lockfile of every installation root the members belong to, missing files skipped. */

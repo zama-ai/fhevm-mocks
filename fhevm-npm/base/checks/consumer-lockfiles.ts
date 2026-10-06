@@ -20,13 +20,18 @@ export const RULE = '6.1.3';
 /** Reads a file, or undefined when it does not exist. Injectable so tests need no disk. */
 export type FileReader = (file: string) => string | undefined;
 
-type LockNode = {
+export type LockNode = {
   readonly version?: string;
   readonly resolved?: string;
   readonly link?: boolean;
 };
 
-type Payload = { readonly key: string; readonly name: string; readonly version: string; readonly directory: string };
+export type Payload = {
+  readonly key: string;
+  readonly name: string;
+  readonly version: string;
+  readonly directory: string;
+};
 
 function readIfPresent(file: string): string | undefined {
   return existsSync(file) ? readFileSync(file, 'utf8') : undefined;
@@ -41,7 +46,6 @@ export function validateConsumerLockfiles(
   const violations: Violation[] = [];
   const payloads = publishedPayloads(packages, versions);
   const payloadByDirectory = new Map(payloads.map((payload) => [payload.directory, payload]));
-  const payloadNames = new Set(payloads.map((payload) => payload.name));
   const byKey = new Map(packages.map((pkg) => [pkg.key, pkg]));
 
   for (const consumerKey of isolatedConsumerKeys(packages)) {
@@ -60,52 +64,27 @@ export function validateConsumerLockfiles(
     }
 
     // Pass 1: every published node, by the payload its `resolved` path names.
-    const resolvedPayloadOf = new Map<string, Payload>(); // lock node key → payload
-    for (const [nodeKey, node] of nodes) {
-      const name = nodeName(nodeKey);
-      if (name === undefined || !payloadNames.has(name)) continue;
-
-      // A workspace link carries no version of its own: `resolved` is a bare path to the node that does.
-      if (node.link === true) {
-        const target =
-          node.resolved === undefined ? undefined : payloadByDirectory.get(resolve(consumer.directory, node.resolved));
-        if (target === undefined) continue;
-        resolvedPayloadOf.set(nodeKey, target);
-        const linked = node.resolved === undefined ? undefined : nodes.get(node.resolved);
-        if (linked?.version !== undefined && linked.version !== target.version) {
-          violations.push({
-            rule: RULE,
-            packageKey: lockKey,
-            message:
-              `${nodeKey} → ${String(node.resolved)}: pins ${name}@${linked.version}, but versions.json says ` +
-              `${target.key} is ${target.version} — ${fix}`,
-          });
-        }
-        continue;
-      }
-
-      const payload = payloadFor(node, name, consumer.directory, payloads, payloadByDirectory);
-      if (payload === undefined) {
-        violations.push({
-          rule: RULE,
-          packageKey: lockKey,
-          message:
-            `${nodeKey}: resolves ${name} to '${String(node.resolved)}', which is not a published payload of this ` +
-            `workspace — ${fix}`,
-        });
-        continue;
-      }
-      resolvedPayloadOf.set(nodeKey, payload);
-      if (node.version !== payload.version) {
-        violations.push({
-          rule: RULE,
-          packageKey: lockKey,
-          message:
-            `${nodeKey}: pins ${name}@${String(node.version)}, but versions.json says ${payload.key} is ` +
-            `${payload.version} — ${fix}`,
-        });
-      }
+    const { pins, unresolved } = pinnedPayloads(consumer.directory, nodes, payloads, payloadByDirectory);
+    for (const node of unresolved) {
+      violations.push({
+        rule: RULE,
+        packageKey: lockKey,
+        message:
+          `${node.nodeKey}: resolves ${node.name} to '${String(node.resolved)}', which is not a published payload ` +
+          `of this workspace — ${fix}`,
+      });
     }
+    for (const pin of pins) {
+      if (pin.version === pin.payload.version || (pin.link && pin.version === undefined)) continue;
+      violations.push({
+        rule: RULE,
+        packageKey: lockKey,
+        message:
+          `${pin.label}: pins ${pin.name}@${String(pin.version)}, but versions.json says ${pin.payload.key} is ` +
+          `${pin.payload.version} — ${fix}`,
+      });
+    }
+    const resolvedPayloadOf = new Map(pins.map((pin) => [pin.nodeKey, pin.payload])); // lock node key → payload
 
     // Pass 2: every `file:` dependency on a payload — the consumer's own, and those of each payload the
     // lock reached — must resolve in the lock to the directory the depender names.
@@ -149,6 +128,99 @@ export function validateConsumerLockfiles(
     }
   }
   return violations;
+}
+
+/** A lock node standing for a published payload, and the version the lock records for it. */
+export type PayloadPin = {
+  readonly nodeKey: string;
+  /** The node key, plus the link target when the version is read through a workspace link. */
+  readonly label: string;
+  readonly name: string;
+  /** The node that records `version`: the link target for a link, the node itself otherwise. */
+  readonly versionNodeKey: string;
+  /** Undefined when the node (or the node a link points at) records none. */
+  readonly version: string | undefined;
+  /** Read through a workspace link: a link target without a version is the target's own problem. */
+  readonly link: boolean;
+  readonly payload: Payload;
+};
+
+/** A node named like a payload whose resolution matches none of them. */
+export type UnresolvedPayloadNode = {
+  readonly nodeKey: string;
+  readonly name: string;
+  readonly resolved: string | undefined;
+};
+
+/** Every lock node named like a published payload, attributed to the payload its `resolved` path names. */
+export function pinnedPayloads(
+  consumerDirectory: string,
+  nodes: ReadonlyMap<string, LockNode>,
+  payloads: readonly Payload[],
+  payloadByDirectory: ReadonlyMap<string, Payload>,
+): { readonly pins: readonly PayloadPin[]; readonly unresolved: readonly UnresolvedPayloadNode[] } {
+  const payloadNames = new Set(payloads.map((payload) => payload.name));
+  const pins: PayloadPin[] = [];
+  const unresolved: UnresolvedPayloadNode[] = [];
+  for (const [nodeKey, node] of nodes) {
+    const name = nodeName(nodeKey);
+    if (name === undefined || !payloadNames.has(name)) continue;
+
+    // A workspace link carries no version of its own: `resolved` is a bare path to the node that does.
+    if (node.link === true) {
+      const target =
+        node.resolved === undefined ? undefined : payloadByDirectory.get(resolve(consumerDirectory, node.resolved));
+      if (target === undefined) continue;
+      const linked = node.resolved === undefined ? undefined : nodes.get(node.resolved);
+      pins.push({
+        nodeKey,
+        label: `${nodeKey} → ${String(node.resolved)}`,
+        name,
+        versionNodeKey: String(node.resolved),
+        version: linked?.version,
+        link: true,
+        payload: target,
+      });
+      continue;
+    }
+
+    const payload = payloadFor(node, name, consumerDirectory, payloads, payloadByDirectory);
+    if (payload === undefined) {
+      unresolved.push({ nodeKey, name, resolved: node.resolved });
+      continue;
+    }
+    pins.push({ nodeKey, label: nodeKey, name, versionNodeKey: nodeKey, version: node.version, link: false, payload });
+  }
+  return { pins, unresolved };
+}
+
+/** One payload pin in one isolated consumer's lockfile. */
+export type ConsumerLockPin = PayloadPin & { readonly consumerKey: string; readonly lockKey: string };
+
+/**
+ * The payload pins of every isolated consumer lockfile that exists and parses; the rest is this check's to
+ * report. Payloads are priced from versions.json, so `pin.payload.version` is the central version.
+ */
+export function readConsumerLockPins(
+  packages: readonly LoadedPackage[],
+  versions: VersionsFile,
+  readFile: FileReader = readIfPresent,
+): readonly ConsumerLockPin[] {
+  const payloads = publishedPayloads(packages, versions);
+  const payloadByDirectory = new Map(payloads.map((payload) => [payload.directory, payload]));
+  const byKey = new Map(packages.map((pkg) => [pkg.key, pkg]));
+  return isolatedConsumerKeys(packages).flatMap((consumerKey) => {
+    const consumer = byKey.get(consumerKey);
+    const text = consumer === undefined ? undefined : readFile(join(consumer.directory, 'package-lock.json'));
+    const nodes = text === undefined ? undefined : lockNodes(text);
+    if (consumer === undefined || nodes === undefined) return [];
+    const lockKey = `${consumerKey}/package-lock.json`;
+    return pinnedPayloads(consumer.directory, nodes, payloads, payloadByDirectory).pins.map((pin) => ({
+      ...pin,
+      consumerKey,
+      lockKey,
+    }));
+  });
 }
 
 /**
