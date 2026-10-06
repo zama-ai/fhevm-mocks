@@ -72,6 +72,11 @@ export type Flow = {
   readonly needsDeployerKey: (stage: Stage) => boolean;
   /** The stages that send a transaction FROM THE ADMIN (besides `all`), so preflight checks its funds. */
   readonly adminSendingStages: readonly Stage[];
+  /**
+   * The stages that only READ the chain, so they never unlock a keystore: the deployer and the admin come
+   * from the manifest, and the admin keystore is not checked against `admin` (nothing is signed with it).
+   */
+  readonly readOnlyStages: readonly Stage[];
 };
 
 export type Options = {
@@ -959,19 +964,6 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
         ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
         : null;
 
-  // --admin is an ADDRESS. When it is not given but an admin signer is — `--admin-account`, or the anvil
-  // default — it is read off that signer: the only value that could pass checkAdminAccount anyway. A
-  // keystore costs its password here, which is why checkAdminAccount then skips the comparison rather
-  // than asking a second time. A multisig admin has no signer, so there it stays mandatory.
-  //
-  // Only for stages that reach the chain: `log` and `report` read local files and never use the admin,
-  // so they must not unlock a keystore just to compute it.
-  let adminDerived = false;
-  if (admin === '' && adminSigner !== null && flow.needsChain(stage)) {
-    admin = signerAddress(adminSigner);
-    adminDerived = true;
-  }
-  if (admin === '' && flow.needsChain(stage)) fail(missing('--admin', 'admin'));
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
 
   // A path typed on the command line is relative to the caller's directory; a path written in a config
@@ -1002,6 +994,26 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   layer(() => 'config', cfg.existing ?? {});
   layer(existingFlagFor, cli.existing);
 
+  // --admin is an ADDRESS. When it is not given but an admin signer is — `--admin-account`, or the anvil
+  // default — it is read off that signer: the only value that could pass checkAdminAccount anyway. A
+  // keystore costs its password here, which is why checkAdminAccount then skips the comparison rather
+  // than asking a second time. A multisig admin has no signer, so there it stays mandatory.
+  //
+  // A read-only stage (verify, status) takes the admin the manifest sealed instead, as it does the
+  // deployer, so it never unlocks the admin keystore; before anything is sealed it falls back to the
+  // signer. Only for stages that reach the chain: `log` and `report` read local files and never use the
+  // admin, so they must not unlock a keystore just to compute it.
+  const outDirArg = pathOption(cli.outDirArg, cfg.outDir);
+  let adminDerived = false;
+  if (admin === '' && flow.readOnlyStages.includes(stage)) {
+    admin = readJson<Manifest>(join(resolveOutDir(outDirArg), 'manifest.json'))?.admin ?? '';
+  }
+  if (admin === '' && adminSigner !== null && flow.needsChain(stage)) {
+    admin = signerAddress(adminSigner);
+    adminDerived = true;
+  }
+  if (admin === '' && flow.needsChain(stage)) fail(missing('--admin', 'admin'));
+
   // A dry run of `all` would be theater: nothing is sent, so stage 2 simulates against a chain where
   // stage 1 never happened, and every later stage reports blocked on a precondition a real run would
   // have satisfied.
@@ -1024,7 +1036,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     pauser: cli.pauser ?? cfg.pauser ?? null,
     confirmations: cli.confirmations ?? cfg.confirmations ?? 3,
     minBlockOverride: cli.minBlockOverride,
-    outDirArg: pathOption(cli.outDirArg, cfg.outDir),
+    outDirArg,
     stage,
     dryRun: cli.dryRun,
     useFinality: cli.useFinality ?? cfg.finality ?? true,
@@ -1661,7 +1673,12 @@ export function preflight(ctx: Ctx): void {
   checkChainAllowed(ctx);
   checkPreviousManifest(ctx);
   checkOutDirIdentity(ctx);
-  if (ctx.flow.needsDeployerKey(ctx.opt.stage) || ctx.opt.adminAccount !== null || ctx.opt.stage === 'materialize') {
+  // The admin keystore only matters to a stage that may sign with it; a read-only one must not prompt for it.
+  const readOnly = ctx.flow.readOnlyStages.includes(ctx.opt.stage);
+  if (
+    !readOnly &&
+    (ctx.flow.needsDeployerKey(ctx.opt.stage) || ctx.opt.adminAccount !== null || ctx.opt.stage === 'materialize')
+  ) {
     checkAdminAccount(ctx);
   }
   checkFactory(ctx);

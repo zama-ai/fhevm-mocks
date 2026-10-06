@@ -37,6 +37,7 @@ contract FhevmVerify is FhevmVerifyBase {
         string memory manifest = _loadManifest();
 
         _banner("Verify");
+        _printAddresses(manifest);
 
         address acl = _readManifestAddress(manifest, R_ACL);
         address pauserSet = _readManifestAddress(manifest, R_PAUSER_SET);
@@ -63,6 +64,30 @@ contract FhevmVerify is FhevmVerifyBase {
     }
 
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * @dev The addresses a consumer configures, as the manifest seals them: every proxy, the PauserSet and
+     *      the ACLOwner. Printed before any check, so the report says which stack the verdict is about.
+     */
+    function _printAddresses(string memory manifest) private view {
+        string[] memory proxyRoles = _allProxyRoles();
+        console.log("  ---- contract addresses (manifest)");
+        for (uint256 i = 0; i < proxyRoles.length; i++) {
+            _printAddress(manifest, proxyRoles[i]);
+        }
+        _printAddress(manifest, R_PAUSER_SET);
+        _printAddress(manifest, R_ACL_OWNER);
+        console.log("");
+    }
+
+    function _printAddress(string memory manifest, string memory role) private view {
+        bytes memory label = bytes(string.concat("  ", role));
+        bytes memory padded = new bytes(label.length < 32 ? 32 : label.length);
+        for (uint256 i = 0; i < padded.length; i++) {
+            padded[i] = i < label.length ? label[i] : bytes1(" ");
+        }
+        console.log(string(padded), _readManifestAddress(manifest, role));
+    }
 
     /**
      * @dev Code at every address the deploy is responsible for: each proxy, each proxy's implementation,

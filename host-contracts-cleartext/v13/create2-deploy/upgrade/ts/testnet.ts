@@ -1891,6 +1891,7 @@ const UPGRADE_FLOW: Flow = {
   needsChain,
   needsDeployerKey,
   adminSendingStages: ['materialize'],
+  readOnlyStages: ['precheck', 'verify', 'status'],
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -389,6 +389,37 @@ void test(
         assert.doesNotMatch(status.output, /^\s+(todo|DRIFT|NO CODE|TOO BIG)\s+[A-Z_]/m, status.output.slice(-3000));
         assert.doesNotMatch(status.output, /BLOCKED|FATAL|WAITING/, status.output.slice(-3000));
       });
+
+      await t.test('verify is read-only: it never unlocks the admin keystore, and names the addresses', async (st) => {
+        if (needsStack(st)) return;
+        note('verify with no admin and an adminAccount whose keystore does not exist');
+        // Unlocking it would fail (no such keystore, and stdin is not a terminal to prompt on), so this
+        // passes only if verify takes the admin, like the deployer, from the manifest.
+        const readOnlyConfig = 'readonly.config.json';
+        writeFileSync(
+          join(OPERATOR_DIR, readOnlyConfig),
+          `${JSON.stringify(
+            {
+              rpcUrl: RPC_URL,
+              deploymentId: DEPLOYMENT_ID,
+              outDir: 'out',
+              confirmations: 0,
+              finality: false,
+              git: false,
+              adminAccount: 'no-such-keystore',
+            },
+            null,
+            2,
+          )}\n`,
+        );
+        const verify = await runCoordinator(['--config', readOnlyConfig, '--stage', 'verify']);
+        assert.ok(verify.ok, `read-only verify failed:\n${verify.output.slice(-3000)}`);
+        assert.match(verify.output, /OK - every terminal condition/);
+        // Every address a consumer configures is printed, as the manifest seals it.
+        for (const role of ['ACL_ADDRESS', 'KMS_VERIFIER_ADDRESS', 'PAUSER_SET_ADDRESS', 'ACL_OWNER']) {
+          assert.match(verify.output, new RegExp(`${role}\\s+${addressOf(manifest, role)}`, 'i'), role);
+        }
+      });
     } finally {
       provider?.destroy();
       killNode();
