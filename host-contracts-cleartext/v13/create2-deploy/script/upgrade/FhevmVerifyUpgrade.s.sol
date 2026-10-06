@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {console} from "forge-std/Script.sol";
 import {FhevmUpgradeChecks} from "./FhevmUpgradeChecks.s.sol";
 import {IVersioned, IWiredInputVerifier, IWiredProtocolConfig} from "../Interfaces.sol";
+import {KmsNode} from "../../../pkg/src/contracts/shared/Structs.sol";
 
 /**
  * @title  FhevmVerifyUpgrade
@@ -69,7 +70,7 @@ contract FhevmVerifyUpgrade is FhevmUpgradeChecks {
         _loadUpgradeConfig();
         string memory manifest = _loadManifest();
 
-        _banner("verify upgrade");
+        _banner("Verify upgrade");
 
         _expectFactoryPresent();
 
@@ -173,6 +174,13 @@ contract FhevmVerifyUpgrade is FhevmUpgradeChecks {
      *
      *      `InputVerifier`'s coprocessor set is here for the opposite reason: nothing was supposed to
      *      touch it at all, so this is the check that its absence from the op list actually held.
+     *
+     *      Each node's `txSenderAddress`, `ipAddress` and `storageUrl` are new in v13: no v12 value exists to
+     *      survive, and the getter survey cannot reach them (`getKmsNodesForContext` takes an argument). They
+     *      come from `--migration` or the package defaults, sealed by `compute`, so the seal is what they are
+     *      checked against — never LibFhevmCleartextConfig, which a real `--migration` rightly departs from.
+     *      With a multisig admin the payload is executed outside this tool, and this is the only after-the-
+     *      fact witness that what landed is what was sealed.
      */
     function _checkSurvivedValues(string memory manifest) private {
         IWiredProtocolConfig pc = IWiredProtocolConfig(_readManifestAddress(manifest, R_PROTOCOL_CONFIG));
@@ -186,6 +194,8 @@ contract FhevmVerifyUpgrade is FhevmUpgradeChecks {
             vm.parseUint(vm.parseJsonString(manifest, ".preUpgrade.migration.existingContextId")),
             "ProtocolConfig.getCurrentKmsContextId() == the pre-upgrade context id"
         );
+
+        _expectSealedKmsNodes(manifest, pc.getKmsNodesForContext(pc.getCurrentKmsContextId()));
 
         uint256 kmsThreshold = vm.parseJsonUint(manifest, ".preUpgrade.kmsThreshold");
         _expectUint(pc.getPublicDecryptionThreshold(), kmsThreshold, "publicDecryption threshold survived");
@@ -204,5 +214,42 @@ contract FhevmVerifyUpgrade is FhevmUpgradeChecks {
             vm.parseJsonUint(manifest, ".preUpgrade.coprocessorThreshold"),
             "InputVerifier.getThreshold() untouched"
         );
+    }
+
+    /// @dev Every KMS node of the current context, field by field and in order, against the sealed migration.
+    function _expectSealedKmsNodes(string memory manifest, KmsNode[] memory live) private {
+        uint256 sealedCount;
+        while (vm.keyExistsJson(manifest, _sealedNode(sealedCount, ""))) sealedCount++;
+        if (live.length != sealedCount) {
+            _expectUint(live.length, sealedCount, "ProtocolConfig KMS nodes - count == the sealed migration");
+            return;
+        }
+        for (uint256 i; i < sealedCount; i++) {
+            string memory n = string.concat("ProtocolConfig KMS node ", vm.toString(i), " ");
+            _expectAddr(
+                live[i].txSenderAddress,
+                vm.parseJsonAddress(manifest, _sealedNode(i, ".txSenderAddress")),
+                string.concat(n, "txSenderAddress == sealed")
+            );
+            _expectAddr(
+                live[i].signerAddress,
+                vm.parseJsonAddress(manifest, _sealedNode(i, ".signerAddress")),
+                string.concat(n, "signerAddress == sealed")
+            );
+            _expectStr(
+                live[i].ipAddress,
+                vm.parseJsonString(manifest, _sealedNode(i, ".ipAddress")),
+                string.concat(n, "ipAddress == sealed")
+            );
+            _expectStr(
+                live[i].storageUrl,
+                vm.parseJsonString(manifest, _sealedNode(i, ".storageUrl")),
+                string.concat(n, "storageUrl == sealed")
+            );
+        }
+    }
+
+    function _sealedNode(uint256 i, string memory field) private pure returns (string memory) {
+        return string.concat(".preUpgrade.migration.existingKmsNodes[", vm.toString(i), "]", field);
     }
 }

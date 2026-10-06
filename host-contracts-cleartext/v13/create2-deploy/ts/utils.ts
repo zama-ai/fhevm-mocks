@@ -58,6 +58,26 @@ export function say(...lines: readonly string[]): void {
   }
 }
 
+const BANNER_RULE = '*'.repeat(60);
+
+/**
+ * The start of a stage, so a reader can tell where one ends and the next begins:
+ *
+ *   (blank line)
+ *   (blank line)
+ *   ************************************************************
+ *   **   🥬 Step E: offer the ACLOwner to the admin
+ *   ************************************************************
+ *   (blank line)
+ *
+ * No closing `**` on the title line: an emoji is one character but two columns wide in most terminals,
+ * so a right edge would never line up. Forge scripts print a banner of their own (`=== … ===`) inside
+ * the stage; this is the stage's.
+ */
+export function banner(title: string): void {
+  say('', '', BANNER_RULE, `**   ${title}`, BANNER_RULE, '');
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /** Only the first line is labeled; the rest are indented to align under it. */

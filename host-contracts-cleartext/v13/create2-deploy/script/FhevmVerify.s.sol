@@ -6,7 +6,17 @@ pragma solidity ^0.8.24;
 import {console} from "forge-std/Script.sol";
 import {FhevmVerifyBase} from "./FhevmVerifyBase.s.sol";
 import {LibFhevmCleartextConfig as C} from "../../pkg/forge/src/shared/LibFhevmCleartextConfig.sol";
-import {IOwnable2Step, IPauserSet, IACLOwner, IWiredInputVerifier, IWiredProtocolConfig} from "./Interfaces.sol";
+import {
+    IOwnable2Step,
+    IPauserSet,
+    IACLOwner,
+    IEIP712Domain,
+    IWiredHCULimit,
+    IWiredInputVerifier,
+    IWiredKMSVerifier,
+    IWiredProtocolConfig
+} from "./Interfaces.sol";
+import {KmsNode} from "../../pkg/src/contracts/shared/Structs.sol";
 
 /**
  * @title FhevmVerify
@@ -26,7 +36,7 @@ contract FhevmVerify is FhevmVerifyBase {
         _loadConfig();
         string memory manifest = _loadManifest();
 
-        _banner("verify");
+        _banner("Verify");
 
         address acl = _readManifestAddress(manifest, R_ACL);
         address pauserSet = _readManifestAddress(manifest, R_PAUSER_SET);
@@ -40,7 +50,7 @@ contract FhevmVerify is FhevmVerifyBase {
         bool materialized = _checkMaterialized(manifest);
         if (materialized) {
             _expectWiring(manifest);
-            _checkSigners(manifest);
+            _checkCleartextConfig(manifest);
         } else {
             console.log("  ---- baked-in address checks skipped: the stack is not materialized (step D)");
         }
@@ -80,14 +90,15 @@ contract FhevmVerify is FhevmVerifyBase {
     }
 
     /**
-     * @dev The coprocessor and KMS signer sets, DERIVED FROM THE MNEMONIC rather than read off a
-     *      generated file.
+     * @dev Every value step D seeded into storage, against LibFhevmCleartextConfig (`C`): the signer sets,
+     *      thresholds, EIP-712 domains, KMS node metadata and HCU limits. The signer sets are DERIVED FROM
+     *      THE MNEMONIC rather than read off a generated file.
      *
      *      LocalHostBootstrap holds the same addresses, and step D seeded the chain from it — which
      *      is precisely why comparing against it here would be weak. It is a generated mirror; if it
      *      were regenerated wrongly, or generated from a different mnemonic, the chain and the mirror
-     *      would agree with each other and both be wrong. Deriving from FHEVM_MNEMONIC at the paths
-     *      in cleartext-config.ts checks the chain against the ACTUAL source, independently of
+     *      would agree with each other and both be wrong. Deriving from each pool's mnemonic, path and
+     *      first index in LibFhevmCleartextConfig checks the chain against the ACTUAL source, independently of
      *      whatever the build happened to bake in — which is "chosen, not inherited" applied to
      *      the one part of the config that only exists in storage.
      *
@@ -97,32 +108,101 @@ contract FhevmVerify is FhevmVerifyBase {
      *      this file still passes — the stack deploys, verifies against itself, and fails only when
      *      the relayer arrives. It is also why this stack is testnet-only: the mnemonic is published,
      *      so on mainnet these are keys everyone has.
+     *
+     *      Not checked, because it never reaches the chain: CLEARTEXT_RELAYER_URL.
      */
-    function _checkSigners(string memory manifest) private {
+    function _checkCleartextConfig(string memory manifest) private {
+        address[] memory coprocessors = _derive(
+            C.CLEARTEXT_COPROCESSORS_MNEMONIC,
+            C.CLEARTEXT_COPROCESSORS_MNEMONIC_PATH,
+            C.CLEARTEXT_COPROCESSORS_MNEMONIC_INDEX,
+            C.CLEARTEXT_COPROCESSOR_COUNT
+        );
+        address[] memory kmsSigners = _derive(
+            C.CLEARTEXT_KMS_NODES_MNEMONIC,
+            C.CLEARTEXT_KMS_NODES_MNEMONIC_PATH,
+            C.CLEARTEXT_KMS_NODES_MNEMONIC_INDEX,
+            C.CLEARTEXT_KMS_NODE_COUNT
+        );
+        uint256 kms = C.CLEARTEXT_KMS_NODE_COUNT;
+
+        // InputVerifier: the coprocessor set, its threshold, and the domain input proofs are signed in.
+        address inputVerifier = _readManifestAddress(manifest, R_INPUT_VERIFIER);
         _expectSignerSet(
-            IWiredInputVerifier(_readManifestAddress(manifest, R_INPUT_VERIFIER)).getCoprocessorSigners(),
-            _derive(C.CLEARTEXT_COPROCESSORS_MNEMONIC_PATH, C.CLEARTEXT_COPROCESSOR_COUNT),
+            IWiredInputVerifier(inputVerifier).getCoprocessorSigners(),
+            coprocessors,
             "InputVerifier.getCoprocessorSigners()"
         );
-        _expect(
-            IWiredInputVerifier(_readManifestAddress(manifest, R_INPUT_VERIFIER)).getThreshold()
-                == C.CLEARTEXT_COPROCESSOR_THRESHOLD,
-            "InputVerifier.getThreshold() == coprocessor threshold"
+        _expectUint(
+            IWiredInputVerifier(inputVerifier).getThreshold(),
+            C.CLEARTEXT_COPROCESSOR_THRESHOLD,
+            "InputVerifier.getThreshold()"
         );
+        _expectDomain(inputVerifier, C.CLEARTEXT_INPUT_VERIFICATION_ADDRESS, "InputVerifier");
 
+        // KMSVerifier: its domain, and the KMS set as it reads it through ProtocolConfig.
+        address kmsVerifier = _readManifestAddress(manifest, R_KMS_VERIFIER);
+        _expectDomain(kmsVerifier, C.CLEARTEXT_DECRYPTION_ADDRESS, "KMSVerifier");
+        _expectSignerSet(IWiredKMSVerifier(kmsVerifier).getKmsSigners(), kmsSigners, "KMSVerifier.getKmsSigners()");
+        _expectUint(IWiredKMSVerifier(kmsVerifier).getThreshold(), kms, "KMSVerifier.getThreshold()");
+
+        // ProtocolConfig: the KMS set, every per-node field, and every threshold, which is the node count.
         IWiredProtocolConfig pc = IWiredProtocolConfig(_readManifestAddress(manifest, R_PROTOCOL_CONFIG));
-        _expectSignerSet(
-            pc.getKmsSigners(),
-            _derive(C.CLEARTEXT_KMS_NODES_MNEMONIC_PATH, C.CLEARTEXT_KMS_NODE_COUNT),
-            "ProtocolConfig.getKmsSigners()"
-        );
-
-        // Every threshold is the node count, as ts/constants.ts DEFAULT_KMS_THRESHOLDS has it.
-        uint256 kms = C.CLEARTEXT_KMS_NODE_COUNT;
+        _expectSignerSet(pc.getKmsSigners(), kmsSigners, "ProtocolConfig.getKmsSigners()");
+        _expectKmsNodes(pc.getKmsNodesForContext(pc.getCurrentKmsContextId()), kmsSigners);
         _expectUint(pc.getPublicDecryptionThreshold(), kms, "ProtocolConfig publicDecryption threshold");
         _expectUint(pc.getUserDecryptionThreshold(), kms, "ProtocolConfig userDecryption threshold");
         _expectUint(pc.getKmsGenThreshold(), kms, "ProtocolConfig kmsGen threshold");
         _expectUint(pc.getMpcThreshold(), kms, "ProtocolConfig mpc threshold");
+
+        // HCULimit: the three limits.
+        IWiredHCULimit hcu = IWiredHCULimit(_readManifestAddress(manifest, R_HCU_LIMIT));
+        _expectUint(hcu.getGlobalHCUCapPerBlock(), C.CLEARTEXT_HCU_CAP_PER_BLOCK, "HCULimit.getGlobalHCUCapPerBlock()");
+        _expectUint(hcu.getMaxHCUDepthPerTx(), C.CLEARTEXT_MAX_HCU_DEPTH_PER_TX, "HCULimit.getMaxHCUDepthPerTx()");
+        _expectUint(hcu.getMaxHCUPerTx(), C.CLEARTEXT_MAX_HCU_PER_TX, "HCULimit.getMaxHCUPerTx()");
+    }
+
+    /// @dev The EIP-712 domain a verifier's signatures are made in: the gateway chain and the gateway contract.
+    function _expectDomain(address verifier, address verifyingContract, string memory name) private {
+        (,,, uint256 chainId, address gotContract,,) = IEIP712Domain(verifier).eip712Domain();
+        _expectUint(
+            chainId, C.CLEARTEXT_GATEWAY_CHAIN_ID, string.concat(name, " EIP-712 domain chainId (gateway chain)")
+        );
+        _expectAddr(gotContract, verifyingContract, string.concat(name, " EIP-712 domain verifyingContract"));
+    }
+
+    /// @dev Every KMS node of the current context: tx sender, signer, and its one-based `${prefix}${i + 1}` IP and URL.
+    function _expectKmsNodes(KmsNode[] memory nodes, address[] memory signers) private {
+        uint256 count = C.CLEARTEXT_KMS_NODE_COUNT;
+        if (nodes.length != count) {
+            _expectUint(nodes.length, count, "ProtocolConfig KMS nodes - count");
+            return;
+        }
+        address[] memory txSenders = _derive(
+            C.CLEARTEXT_KMS_NODES_TX_SENDER_MNEMONIC,
+            C.CLEARTEXT_KMS_NODES_TX_SENDER_MNEMONIC_PATH,
+            C.CLEARTEXT_KMS_NODES_TX_SENDER_MNEMONIC_INDEX,
+            count
+        );
+        address[] memory gotSenders = new address[](count);
+        address[] memory gotSigners = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            gotSenders[i] = nodes[i].txSenderAddress;
+            gotSigners[i] = nodes[i].signerAddress;
+            string memory n = vm.toString(i + 1);
+            _expectStr(
+                nodes[i].ipAddress,
+                string.concat(C.CLEARTEXT_KMS_NODE_IP_ADDRESS_PREFIX, n),
+                string.concat("KMS node ", n, " ipAddress")
+            );
+            _expectStr(
+                nodes[i].storageUrl,
+                string.concat(C.CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX, n),
+                string.concat("KMS node ", n, " storageUrl")
+            );
+        }
+        _expectSignerSet(gotSenders, txSenders, "ProtocolConfig KMS nodes - txSenderAddress");
+        _expectSignerSet(gotSigners, signers, "ProtocolConfig KMS nodes - signerAddress");
     }
 
     /**
@@ -143,16 +223,20 @@ contract FhevmVerify is FhevmVerifyBase {
     }
 
     /**
-     * @dev The signer pool at an HD path, derived rather than read from the chain.
+     * @dev The signer pool at an HD path, from its first index on, derived rather than read from the chain.
      *
      *      Deriving is the point: comparing the chain against itself would pass whatever it held. These are
      *      the keys the js-sdk cleartext relayer will use, so the question is whether the stack registered
      *      the addresses those keys produce.
      */
-    function _derive(string memory path, uint256 count) private pure returns (address[] memory out) {
+    function _derive(string memory mnemonic, string memory path, uint32 first, uint256 count)
+        private
+        pure
+        returns (address[] memory out)
+    {
         out = new address[](count);
         for (uint32 i = 0; i < count; i++) {
-            out[i] = vm.addr(vm.deriveKey(C.FHEVM_MNEMONIC, path, i));
+            out[i] = vm.addr(vm.deriveKey(mnemonic, path, first + i));
         }
     }
 

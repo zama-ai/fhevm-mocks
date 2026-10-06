@@ -18,7 +18,7 @@ contract FhevmComputeUpgradeAddresses is FhevmUpgradeBase {
     }
 
     function _pass1() private {
-        _banner("upgrade pass 1/2 - empty implementation and new proxies");
+        _banner("Upgrade pass 1/2: empty implementation and new proxies");
         bytes memory emptyCode = _initCode(A_EMPTY_SHARED);
         address emptyImpl = _predictCreate2Address(R_IMPL_EMPTY_SHARED, emptyCode);
         bytes memory proxyCode = _proxyInitCode(emptyImpl, _sharedProxyInitData());
@@ -41,7 +41,7 @@ contract FhevmComputeUpgradeAddresses is FhevmUpgradeBase {
     }
 
     function _pass2() private {
-        _banner("upgrade pass 2/2 - implementations, assert, seal");
+        _banner("Upgrade pass 2/2: implementations, assert, seal");
         string memory scratch = vm.readFile(_scratchPath());
 
         bytes memory emptyCode = _initCode(A_EMPTY_SHARED);

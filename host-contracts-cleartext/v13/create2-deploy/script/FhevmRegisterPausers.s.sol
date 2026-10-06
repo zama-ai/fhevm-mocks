@@ -80,7 +80,7 @@ contract FhevmRegisterPausers is FhevmCreate2Base {
             _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner), "FhevmRegisterPausers: run creates first"
         );
 
-        _banner("pausers - steps A, A'");
+        _banner("Pausers: steps A, A'");
 
         vm.startBroadcast();
 
@@ -98,7 +98,6 @@ contract FhevmRegisterPausers is FhevmCreate2Base {
         vm.stopBroadcast();
 
         console.log("");
-        console.log("  next: FhevmOfferACLOwnership (step B)");
     }
 
     /**

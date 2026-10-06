@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
+import {KmsNode} from "../../pkg/src/contracts/shared/Structs.sol";
+
 // Not wired into the build, not compiled, not tested.
 //
 // Minimal local views, so this draft compiles against forge-std alone and nothing here can influence
@@ -64,6 +66,9 @@ interface IWiredFHEVMExecutor {
 
 interface IWiredHCULimit {
     function getFHEVMExecutorAddress() external view returns (address);
+    function getGlobalHCUCapPerBlock() external view returns (uint48);
+    function getMaxHCUDepthPerTx() external view returns (uint48);
+    function getMaxHCUPerTx() external view returns (uint48);
 }
 
 interface IWiredCleartextArithmetic {
@@ -95,6 +100,23 @@ interface IWiredProtocolConfig {
     function getUserDecryptionThreshold() external view returns (uint256);
     function getKmsGenThreshold() external view returns (uint256);
     function getMpcThreshold() external view returns (uint256);
+    function getKmsNodesForContext(uint256 kmsContextId) external view returns (KmsNode[] memory);
+}
+
+/// @dev ERC-5267, as InputVerifier and KMSVerifier expose it: the domain their EIP-712 signatures are made in.
+interface IEIP712Domain {
+    function eip712Domain()
+        external
+        view
+        returns (
+            bytes1 fields,
+            string memory name,
+            string memory version,
+            uint256 chainId,
+            address verifyingContract,
+            bytes32 salt,
+            uint256[] memory extensions
+        );
 }
 
 /// @dev The v12 KMSVerifier's signer surface — the live source the sealed migration must still match at

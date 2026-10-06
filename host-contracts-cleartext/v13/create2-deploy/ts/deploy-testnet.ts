@@ -40,6 +40,7 @@ import {
   run,
   heartbeat,
   sameAddress,
+  banner,
   say,
   requireTool,
   sleep,
@@ -142,6 +143,15 @@ const RUN_ORDER: readonly Stage[] = [
   'offer-admin',
   'accept-admin',
 ];
+
+/** Every stage `--stage all` runs, in order: what the `N/M:` in front of a stage banner counts. */
+const SEQUENCE: readonly Stage[] = ['compute', ...RUN_ORDER, 'verify'];
+
+/** A stage's banner, numbered by its place in the full run (`7/9: 📥 Step F: …`), standalone or not. */
+function stageBanner(stage: Stage, title: string): void {
+  const at = SEQUENCE.indexOf(stage);
+  banner(at < 0 ? title : `${String(at + 1)}/${String(SEQUENCE.length)}: ${title}`);
+}
 
 const HELP = `
 Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID [options]
@@ -264,7 +274,7 @@ function needsDeployerKey(stage: string): boolean {
 ////////////////////////////////////////////////////////////////////////////////
 
 function stageCompute(ctx: Ctx): void {
-  say('🎃 compute (3 passes, 2 rebuilds)');
+  stageBanner('compute', '🎃 Compute: 3 passes, 2 rebuilds');
 
   // Recomputing after transactions have been sent would move the sealed address set out from under a
   // stack that is already partly deployed — the creates stage would then either report drift or,
@@ -352,6 +362,10 @@ function stageCompute(ctx: Ctx): void {
   stampToolCommit(ctx);
   removeScratchIfSealed(ctx);
   say('', `  sealed: ${manifestPath(ctx)}`);
+  // Run on its own, the next thing is the operator's: `--stage all` checks the seal is committed anyway.
+  if (ctx.opt.stage === 'compute') {
+    say('  next: commit (and push) the seal and the config, then deploy-cli --stage all');
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -440,7 +454,7 @@ function prerequisitesFor(ctx: Ctx, stage: Stage): Prerequisite[] {
  * NOT automated: pushing to a shared remote is the operator's call, not this script's.
  */
 async function stageCreates(ctx: Ctx): Promise<void> {
-  say('🧀  creates (one CREATE2 per create, each gated on getCode)');
+  stageBanner('creates', '🧀 Creates: one CREATE2 per create, each gated on getCode');
   ctx.stageLabel = 'creates';
   await broadcast(ctx, 'FhevmDeployCreates.s.sol:FhevmDeployCreates');
 }
@@ -456,7 +470,7 @@ async function stageCreates(ctx: Ctx): Promise<void> {
  * rather than producing a stack with no reachable emergency stop.
  */
 async function stepARegisterPausers(ctx: Ctx): Promise<void> {
-  say("🚨  pausers (steps A, A')");
+  stageBanner('pausers', "🚨 Pausers: steps A, A'");
   ctx.stageLabel = "A/A'";
   await broadcast(
     ctx,
@@ -478,7 +492,7 @@ async function stepARegisterPausers(ctx: Ctx): Promise<void> {
  * `pausers` is equally callable before or after it.
  */
 async function stepBOfferAclOwnership(ctx: Ctx): Promise<void> {
-  say('📤  offer ACL ownership (step B)');
+  stageBanner('offer-acl', '📤 Step B: offer ACL ownership');
   ctx.stageLabel = 'B';
   await broadcast(
     ctx,
@@ -498,7 +512,7 @@ async function stepBOfferAclOwnership(ctx: Ctx): Promise<void> {
  * this file's ordering.
  */
 async function stepCAcceptAclOwnership(ctx: Ctx): Promise<void> {
-  say('🚚  accept ACL ownership (step C)');
+  stageBanner('accept-acl', '🚚 Step C: accept ACL ownership');
   ctx.stageLabel = 'C';
   await broadcast(
     ctx,
@@ -517,7 +531,7 @@ async function stepCAcceptAclOwnership(ctx: Ctx): Promise<void> {
  * stage cannot be resumed halfway: see the tri-state note in FhevmMaterializeStack.
  */
 async function stepDMaterializeStack(ctx: Ctx): Promise<void> {
-  say('🍔  materialize the stack (step D)');
+  stageBanner('materialize', '🍔 Step D: materialize the stack');
   ctx.stageLabel = 'D';
   await broadcast(
     ctx,
@@ -536,7 +550,7 @@ async function stepDMaterializeStack(ctx: Ctx): Promise<void> {
  * warns rather than refuses if the stack is not materialized (see its header).
  */
 async function stepEOfferOwnerToAdmin(ctx: Ctx): Promise<void> {
-  say('🥬  offer the ACLOwner to the admin (step E)');
+  stageBanner('offer-admin', '🥬 Step E: offer the ACLOwner to the admin');
   ctx.stageLabel = 'E';
   await broadcast(
     ctx,
@@ -546,6 +560,10 @@ async function stepEOfferOwnerToAdmin(ctx: Ctx): Promise<void> {
     undefined,
     prerequisitesFor(ctx, 'offer-admin'),
   );
+  // Under `--stage all` step F follows by itself; run on its own, the admin's transaction is still owed.
+  if (ctx.opt.stage === 'offer-admin') {
+    say('  next: deploy-cli --stage accept-admin (sent by the admin), then deploy-cli --stage verify');
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -567,7 +585,7 @@ async function stepEOfferOwnerToAdmin(ctx: Ctx): Promise<void> {
  *                          and `--stage verify` picks up wherever it got to.
  */
 async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
-  say('📥  accept ownership as the admin (step F)');
+  stageBanner('accept-admin', '📥 Step F: accept ownership as the admin');
   ctx.stageLabel = 'F';
 
   const manifest = readJson<Manifest>(manifestPath(ctx));
@@ -628,7 +646,7 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
  * report what is wrong, and it will.
  */
 async function stageVerify(ctx: Ctx): Promise<void> {
-  say('✅  verify');
+  stageBanner('verify', '✅ Verify');
   const prerequisites = prerequisitesFor(ctx, 'verify');
   if (prerequisites.every((p) => p.holds(null))) {
     await awaitPrerequisites(ctx, 'verify', prerequisites);
@@ -663,7 +681,7 @@ async function stageVerify(ctx: Ctx): Promise<void> {
  * I get to, and what is stopping the next step?" with a board.
  */
 function stageStatus(ctx: Ctx): void {
-  say('📊  status');
+  banner('📊 Status');
   run(
     'forge',
     [
@@ -784,9 +802,9 @@ async function main(): Promise<void> {
     // tool. Recomputing would replace the committed address set behind the operator's back. Resealing on
     // purpose is `--stage compute`.
     if (journalHasSentTx(ctx)) {
-      say('🎃 compute already sealed and past its first transaction - skipping (resume)');
+      stageBanner('compute', '🎃 Compute: already sealed and past its first transaction - skipping (resume)');
     } else if (isCompleteSeal(ctx)) {
-      say(`🎃 compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
+      stageBanner('compute', `🎃 Compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
     } else {
       stageCompute(ctx);
     }

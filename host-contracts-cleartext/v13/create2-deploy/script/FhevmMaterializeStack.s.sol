@@ -72,12 +72,12 @@ contract FhevmMaterializeStack is FhevmCreate2Base {
         address aclOwner = _readManifestAddress(manifest, R_ACL_OWNER);
         require(_deployed(acl) && _deployed(aclOwner), "FhevmMaterializeStack: run creates first");
 
-        _banner("step D - materialize the stack");
+        _banner("Step D: materialize the stack");
 
         (IACLOwner.Op[] memory ops, uint256 materialized) = _buildOps(manifest);
 
         if (materialized == _allProxyRoles().length) {
-            console.log("  D  upgrade - already done (every slot match the seal)");
+            console.log("  upgrade - already done (every slot match the seal)");
             return;
         }
         require(materialized == 0, "FhevmMaterializeStack: D - stack is partially materialized, this is not resumable");
@@ -96,9 +96,8 @@ contract FhevmMaterializeStack is FhevmCreate2Base {
         IACLOwner(aclOwner).upgrade(ops);
         vm.stopBroadcast();
 
-        console.log("  D  every proxy materialized in one ACLOwner.upgrade");
+        console.log("  every proxy materialized in one ACLOwner.upgrade");
         console.log("");
-        console.log("  next: FhevmOfferACLOwnerToAdmin (step E)");
     }
 
     /**

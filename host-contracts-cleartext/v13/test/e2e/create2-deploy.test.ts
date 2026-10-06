@@ -283,6 +283,16 @@ void test(
           assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
         }
         assert.match(output, /OK - every terminal condition/, 'the deploy ran its own verify');
+        // Every value step D seeded is checked against LibFhevmCleartextConfig, not only the signer sets.
+        for (const check of [
+          'InputVerifier EIP-712 domain chainId (gateway chain)',
+          'KMSVerifier EIP-712 domain verifyingContract',
+          'ProtocolConfig KMS nodes - txSenderAddress',
+          'KMS node 4 storageUrl',
+          'HCULimit.getMaxHCUPerTx()',
+        ]) {
+          assert.ok(output.includes(`ok   ${check}`), `verify checked: ${check}`);
+        }
         // The config names no admin: it is derived from the admin signer, and preflight says so.
         assert.match(
           output,

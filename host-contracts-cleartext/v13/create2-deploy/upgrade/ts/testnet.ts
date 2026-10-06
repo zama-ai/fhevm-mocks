@@ -39,6 +39,7 @@ import {
   removeIfPresent,
   requireTool,
   runLogged,
+  banner,
   say,
   sleep,
   spawnBackground,
@@ -127,6 +128,12 @@ const ALL_STAGES: readonly Stage[] = [
 
 /** What `--stage all` runs, in order. `precheck` is not listed because `materialize` always runs it first. */
 const RUN_ORDER: readonly Stage[] = ['compute', 'creates', 'rehearse', 'materialize', 'verify'];
+
+/** A stage's banner, numbered by its place in the full run (`4/5: 🧩 Materialize: …`), standalone or not. */
+function stageBanner(stage: Stage, title: string): void {
+  const at = RUN_ORDER.indexOf(stage);
+  banner(at < 0 ? title : `${String(at + 1)}/${String(RUN_ORDER.length)}: ${title}`);
+}
 
 /** The seven proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table. */
 const UPGRADED_ROLES: readonly string[] = [
@@ -604,7 +611,7 @@ function validateExisting(ctx: Ctx): void {
   const arithmetic = at('CLEARTEXT_ARITHMETIC_ADDRESS');
   const aclOwner = at('ACL_OWNER');
 
-  say('🔬  validating the live stack');
+  say('  🔬 validating the live stack');
 
   // Where the address under test came from, so the transcript records the seal's provenance and not
   // just its content. `?` for a role no layer supplied — the missing gate above has already failed.
@@ -759,7 +766,7 @@ function upgradeStarted(ctx: Ctx): boolean {
 }
 
 async function stageCompute(ctx: Ctx): Promise<void> {
-  say('🍟 compute (2 passes, 1 rebuild)');
+  stageBanner('compute', '🍟 Compute: 2 passes, 1 rebuild');
 
   // Same reasoning as the deploy: recomputing after transactions have been sent would move the sealed
   // address set out from under a half-applied upgrade. An upgrade is worse than a deploy here, because
@@ -895,7 +902,7 @@ function safeNumber(value: bigint, label: string): number {
 function capturePreUpgrade(ctx: Ctx): PreUpgradeSnapshot {
   const blockNumber = settledBlock(ctx);
   if (!Number.isSafeInteger(blockNumber) || blockNumber < 0) fail('Error: could not capture the pre-upgrade block.');
-  say(`🔭  snapshotting the live stack at settled block ${String(blockNumber)}`);
+  say(`  🔭 snapshotting the live stack at settled block ${String(blockNumber)}`);
 
   const kms = ctx.opt.existing.KMS_VERIFIER_ADDRESS ?? '';
   const inputVerifier = ctx.opt.existing.INPUT_VERIFIER_ADDRESS ?? '';
@@ -1318,7 +1325,7 @@ async function runReadOnly(
 ////////////////////////////////////////////////////////////////////////////////
 
 async function stageCreates(ctx: Ctx): Promise<void> {
-  say('🥩 creates (one CREATE2 per create, each gated on getCode)');
+  stageBanner('creates', '🥩 Creates: one CREATE2 per create, each gated on getCode');
   ctx.stageLabel = 'creates';
   requireScript('FhevmUpgradeCreates.s.sol');
   await broadcast(ctx, 'upgrade/FhevmUpgradeCreates.s.sol:FhevmUpgradeCreates', undefined, undefined, existingEnv(ctx));
@@ -1329,7 +1336,9 @@ async function stageCreates(ctx: Ctx): Promise<void> {
  * failure, so the operator sees the whole picture before the one transaction that cannot be retried.
  */
 async function stagePrecheck(ctx: Ctx): Promise<void> {
-  say('🚧  precheck — everything that must hold before the atomic upgrade');
+  // A stage of its own only when asked for; inside rehearse and materialize it is one of their steps.
+  if (ctx.opt.stage === 'precheck') banner('🚧 Precheck: everything that must hold before the atomic upgrade');
+  else say('  🚧 precheck: everything that must hold before the atomic upgrade');
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...sealedMigrationEnv(ctx) };
   await step(ctx, 'precheck', 'pre-materialize check, from a fresh recompile', async () => {
     const ok = await runReadOnly(
@@ -1392,7 +1401,7 @@ async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; r
  * copied in, not moved — the seal stays where it is.
  */
 async function stageRehearse(ctx: Ctx): Promise<void> {
-  say('🎭  rehearse — the upgrade on a fork of this chain');
+  stageBanner('rehearse', '🎭 Rehearse: the upgrade on a fork of this chain');
   requireTool('anvil');
   if (!ctx.opt.dryRun) await waitForCreatesSettled(ctx);
   await stagePrecheck(ctx);
@@ -1476,7 +1485,7 @@ async function stageRehearse(ctx: Ctx): Promise<void> {
 }
 
 async function stageMaterialize(ctx: Ctx): Promise<void> {
-  say('🧩  materialize — one atomic ACLOwner.upgrade');
+  stageBanner('materialize', '🧩 Materialize: one atomic ACLOwner.upgrade');
   ctx.stageLabel = 'D';
   requireScript('FhevmMaterializeUpgrade.s.sol');
 
@@ -1522,7 +1531,7 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
  * orphaned is not a verdict. Run it again later at greater depth; `verify-report.json` records each run.
  */
 async function stageVerify(ctx: Ctx): Promise<void> {
-  say('✅  verify');
+  stageBanner('verify', '✅ Verify');
   if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   await waitForMaterializeSettled(ctx);
   const out = checkBuildOut(ctx);
@@ -1738,7 +1747,7 @@ function stageProgress(ctx: Ctx): void {
     say(`No progress ledger at ${progressPath(ctx)} - nothing has run for this upgrade yet.`);
     return;
   }
-  say(`📈  progress  (${progressPath(ctx)})`, '');
+  banner(`📈 Progress: ${progressPath(ctx)}`);
   say(`  ${pad('WHEN', 20)} ${pad('STAGE', 10)} ${pad('STATUS', 7)} ${pad('TOOK', 8)} ${pad('BLOCK', 9)} STEP`);
   const when = (row: ProgressEntry): string => pad(row.ts.slice(0, 19).replace('T', ' '), 20);
   const open = new Map<string, ProgressEntry>();
@@ -1768,7 +1777,7 @@ function stageStatus(ctx: Ctx): void {
     return;
   }
   say('-'.repeat(RULE_WIDTH));
-  say(`📋  status  ${ctx.opt.deploymentId} @ v0.13`);
+  banner(`📋 Status: ${ctx.opt.deploymentId} @ v0.13`);
   say('-'.repeat(RULE_WIDTH));
 
   const createRoles = CREATE_ROLES;
@@ -1917,9 +1926,9 @@ async function main(): Promise<void> {
     // Before anything is sent, an existing complete seal — pre-upgrade snapshot included — is reused,
     // never recomputed: the snapshot is the only witness to "before", and the operator committed it.
     if (upgradeStarted(ctx)) {
-      say('🍟 compute already sealed and past its first transaction - skipping (resume)');
+      stageBanner('compute', '🍟 Compute: already sealed and past its first transaction - skipping (resume)');
     } else if (isCompleteSeal(ctx, ['preUpgrade'])) {
-      say(`🍟 compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
+      stageBanner('compute', `🍟 Compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
     } else {
       await stageCompute(ctx);
     }

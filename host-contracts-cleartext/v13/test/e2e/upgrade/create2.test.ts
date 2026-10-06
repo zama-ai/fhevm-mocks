@@ -613,6 +613,13 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
           ...existingAddressArgs(v12),
         ]);
         assert.ok(ok, `v13 create2 upgrade failed:\n${output.slice(-4000)}`);
+        // The v13-only per-node fields are checked against the sealed migration, not just printed.
+        for (const field of ['txSenderAddress', 'signerAddress', 'ipAddress', 'storageUrl']) {
+          assert.ok(
+            output.includes(`ok   ProtocolConfig KMS node 3 ${field} == sealed`),
+            `verify checked node ${field} against the seal`,
+          );
+        }
         v13Upgraded = true;
       },
     );
@@ -734,7 +741,7 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
           handleBefore,
         ]);
         assert.ok(again.ok, `second --stage all failed:\n${again.output.slice(-4000)}`);
-        assert.match(again.output, /compute already sealed .* skipping/, 'compute is skipped, from the chain');
+        assert.match(again.output, /Compute: already sealed .* skipping/, 'compute is skipped, from the chain');
         assert.match(again.output, /already present 10/, 'no create is re-sent');
         assert.match(again.output, /already materialized; run verify/, 'the gate recognizes the upgraded stack');
         assert.match(again.output, /nothing left to rehearse/, 'the rehearsal steps aside');
@@ -750,6 +757,25 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         const recompute = await runCoordinator(v13Root, UPGRADE_CLI, [...common, '--stage', 'compute']);
         assert.equal(recompute.ok, false, 'compute must refuse once contracts are on chain');
         assert.match(recompute.output, /already put contracts on chain/, recompute.output.slice(-2000));
+
+        // verify compares every v13-only KMS node field to the seal: one sealed IP changed must fail it.
+        note('verify against a tampered seal (expect a FAIL below)');
+        const manifestFile = join(outDirAbs(v13Root), 'manifest.json');
+        const sealed = readFileSync(manifestFile, 'utf8');
+        const tampered = JSON.parse(sealed) as {
+          preUpgrade: { migration: { existingKmsNodes: Array<{ ipAddress: string }> } };
+        };
+        const node0 = tampered.preUpgrade.migration.existingKmsNodes[0];
+        assert.ok(node0, 'the seal has KMS nodes');
+        node0.ipAddress = '10.66.66.66';
+        writeFileSync(manifestFile, `${JSON.stringify(tampered, null, 2)}\n`);
+        try {
+          const bad = await runCoordinator(v13Root, UPGRADE_CLI, [...common, '--stage', 'verify']);
+          assert.equal(bad.ok, false, 'verify must fail when the chain differs from the seal');
+          assert.match(bad.output, /FAIL ProtocolConfig KMS node 0 ipAddress == sealed/, bad.output.slice(-3000));
+        } finally {
+          writeFileSync(manifestFile, sealed);
+        }
       },
     );
   } finally {

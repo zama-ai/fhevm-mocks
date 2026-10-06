@@ -32,6 +32,7 @@ import {
   removeIfPresent,
   runLogged,
   sameAddress,
+  banner,
   say,
   sleep,
   transcriptActive,
@@ -1653,7 +1654,7 @@ function previousManifestLines(ctx: Ctx): string[] {
  * run dry mid-run. This prints; measuring a real threshold against a fork is still a gap.
  */
 export function preflight(ctx: Ctx): void {
-  say('🍖 preflight');
+  banner('🍖 Preflight');
 
   prepareForgeConfig(ctx);
   ctx.chainId = captureOrFail('cast', ['chain-id', '--rpc-url', ctx.opt.rpcUrl]);
@@ -2404,7 +2405,7 @@ export function showJournal(ctx: Ctx): void {
   }
 
   const final = finalizedHashes(ctx);
-  say(`📜  log  (${ctx.journalPath})`, '');
+  banner(`📜 Log: ${ctx.journalPath}`);
   say(
     `  ${pad('STAGE', 10)} ${pad('STATUS', 9)} ${pad('BLOCK', 9)} ${pad('FINAL', 6)} ${pad('WHAT', 30)} ADDRESS / TX`,
   );
@@ -2453,7 +2454,7 @@ export function stageReport(ctx: Ctx): void {
   const rows = readJournal(ctx);
   const final = finalizedHashes(ctx);
 
-  say(`📋  report  ${ctx.opt.deploymentId}`);
+  banner(`📋 Report: ${ctx.opt.deploymentId}`);
   if (manifest === null) {
     say(`  no manifest at ${manifestPath(ctx)} - this deployment has not been computed yet.`);
     return;

@@ -18,7 +18,7 @@ contract FhevmUpgradeCreates is FhevmUpgradeBase {
         string memory manifest = _loadManifest();
         Create[] memory creates = _upgradeCreates(manifest);
 
-        _banner("upgrade creates");
+        _banner("Upgrade creates");
         vm.startBroadcast();
         for (uint256 i; i < creates.length; i++) {
             _create(manifest, creates[i]);

@@ -68,13 +68,13 @@ contract FhevmOfferACLOwnerToAdmin is FhevmCreate2Base {
         address aclOwner = _readManifestAddress(manifest, R_ACL_OWNER);
         require(_deployed(aclOwner), "FhevmOfferACLOwnerToAdmin: run creates first");
 
-        _banner("step E - offer the ACLOwner to the admin");
+        _banner("Step E: offer the ACLOwner to the admin");
 
         // PREDICATE — offered or already accepted. Both are "done": re-offering after the admin has
         // accepted would need the deployer to still own the ACLOwner, which it no longer does.
         address owner_ = IACLOwner(aclOwner).owner();
         if (owner_ == cfg.admin || IACLOwner(aclOwner).pendingOwner() == cfg.admin) {
-            console.log("  E  transferOwnership(admin) - already offered or accepted");
+            console.log("  transferOwnership(admin) - already offered or accepted");
             return;
         }
 
@@ -90,14 +90,13 @@ contract FhevmOfferACLOwnerToAdmin is FhevmCreate2Base {
         IACLOwner(aclOwner).transferOwnership(cfg.admin);
         vm.stopBroadcast();
 
-        console.log("  E  ACLOwner ownership OFFERED to", cfg.admin);
+        console.log("  ACLOwner ownership OFFERED to", cfg.admin);
         console.log("");
         console.log("  The run is NOT complete. The deployer is still root over this stack until the");
         console.log("  admin sends acceptOwnership() from its own key:");
         console.log("");
         console.log("    cast send <ACL_OWNER> 'acceptOwnership()' --account <admin>");
         console.log("");
-        console.log("  next: that transaction, then FhevmVerify");
     }
 
     /// @dev See the OPEN note in the header. A warning, deliberately, not a `require`.

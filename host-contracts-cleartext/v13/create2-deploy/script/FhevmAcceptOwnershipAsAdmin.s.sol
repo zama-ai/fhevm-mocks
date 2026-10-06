@@ -56,10 +56,10 @@ contract FhevmAcceptOwnershipAsAdmin is FhevmCreate2Base {
         // unwind the `pendingOwner` write that the precondition below just confirmed.
         _requireMinBlock();
 
-        _banner("step F - accept ownership of the ACLOwner");
+        _banner("Step F: accept ownership of the ACLOwner");
 
         if (IACLOwner(aclOwner).owner() == cfg.admin) {
-            console.log("  F  acceptOwnership - already done");
+            console.log("  acceptOwnership - already done");
             return;
         }
 
@@ -73,9 +73,8 @@ contract FhevmAcceptOwnershipAsAdmin is FhevmCreate2Base {
         IOwnable2Step(aclOwner).acceptOwnership();
         vm.stopBroadcast();
 
-        console.log("  F  ACLOwner ownership accepted by", cfg.admin);
+        console.log("  ACLOwner ownership accepted by", cfg.admin);
         console.log("");
         console.log("  The deployer key is no longer root over this stack.");
-        console.log("  next: FhevmVerify");
     }
 }
