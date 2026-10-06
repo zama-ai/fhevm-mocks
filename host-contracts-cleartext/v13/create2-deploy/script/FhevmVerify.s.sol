@@ -69,7 +69,7 @@ contract FhevmVerify is FhevmVerifyBase {
      * @dev The addresses a consumer configures, as the manifest seals them: every proxy, the PauserSet and
      *      the ACLOwner. Printed before any check, so the report says which stack the verdict is about.
      */
-    function _printAddresses(string memory manifest) private view {
+    function _printAddresses(string memory manifest) private pure {
         string[] memory proxyRoles = _allProxyRoles();
         console.log("  ---- contract addresses (manifest)");
         for (uint256 i = 0; i < proxyRoles.length; i++) {
@@ -80,7 +80,7 @@ contract FhevmVerify is FhevmVerifyBase {
         console.log("");
     }
 
-    function _printAddress(string memory manifest, string memory role) private view {
+    function _printAddress(string memory manifest, string memory role) private pure {
         bytes memory label = bytes(string.concat("  ", role));
         bytes memory padded = new bytes(label.length < 32 ? 32 : label.length);
         for (uint256 i = 0; i < padded.length; i++) {
