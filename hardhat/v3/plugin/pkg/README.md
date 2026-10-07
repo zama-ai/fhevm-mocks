@@ -19,9 +19,6 @@
 
 Hardhat 3 plugin for developing and testing FHEVM contracts.
 
-> **Version `0.13.0-0` — beta prerelease.** This is a prerelease: it is not published under the `latest` npm tag, so
-> install it by its exact version (`@fhevm/hardhat-plugin-v3@0.13.0-0`). APIs may still change before `0.13.0`.
-
 For documentation and resources:
 
 - [Setting up Hardhat](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup)
@@ -42,7 +39,7 @@ manually.
 ## Installation
 
 ```sh
-npm install --save-dev @fhevm/hardhat-plugin-v3@0.13.0-0
+npm install --save-dev @fhevm/hardhat-plugin-v3
 ```
 
 And register the plugin in your [`hardhat.config.ts`](https://hardhat.org/config/):
@@ -63,7 +60,7 @@ A minimal project: a contract that stores two encrypted values, adds them, and a
 ### 1. Install
 
 ```sh
-npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox-mocha-ethers @fhevm/hardhat-plugin-v3@0.13.0-0 @fhevm/sdk viem
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox-mocha-ethers @fhevm/hardhat-plugin-v3 @fhevm/sdk viem
 npm install @fhevm/solidity
 ```
 
