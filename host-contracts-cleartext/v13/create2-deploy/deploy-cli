@@ -22,9 +22,11 @@ if ! command -v node >/dev/null 2>&1; then
   echo "deploy-cli: node not found. Install Node.js >= 22.18 (https://nodejs.org)." >&2
   exit 1
 fi
-# Older Node versions fail on the .ts file with a syntax error that names nothing useful.
-if [ "$(node -p 'process.features.typescript ? 1 : 0' 2>/dev/null)" != 1 ]; then
-  echo "deploy-cli: Node.js $(node --version) cannot run TypeScript directly. Install Node.js >= 22.18." >&2
+# Older Node versions fail on the .ts file with a syntax error that names nothing useful. The probe answers
+# through its exit status, not its output: anything else writing to node's stdout cannot fool it. Its
+# stderr is kept for the error, so a rejected NODE_OPTIONS flag or a crashing node names itself.
+if ! probe_err="$(node -e 'process.exit(process.features.typescript ? 0 : 1)' 2>&1 >/dev/null)"; then
+  echo "deploy-cli: Node.js $(node --version 2>&1) cannot run TypeScript directly (node: $(command -v node); NODE_OPTIONS: ${NODE_OPTIONS:-unset}${probe_err:+; node said: $probe_err}). Install Node.js >= 22.18." >&2
   exit 1
 fi
 
