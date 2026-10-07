@@ -1,0 +1,75 @@
+name: sdk-cleartext-publish-release
+
+# Publishes the release payloads one after the other, in dependency order:
+#   1. host-contracts-cleartext (current generation)
+#   2. hardhat plugin v3        (depends on 1 on npmjs.com)
+#   3. forge fhevm
+# Each step is the same reusable workflow the single-package publish workflows call, so a step here runs
+# exactly what its standalone workflow runs. A failed step stops the ones after it.
+#
+# Dry run caveat: step 2's `publish check --check-npmjs` requires the host-contracts-cleartext version it
+# depends on to already be on npmjs.com. In a dry run step 1 publishes nothing, so step 2 only passes if
+# that version was published before.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and check without publishing'
+        required: false
+        default: true
+        type: boolean
+      latest:
+        description: 'Publish X.Y.Z as npm latest (unchecked: next; X.Y.Z-A is always alpha)'
+        required: false
+        default: true
+        type: boolean
+
+# No permissions at the workflow level — each calling job declares only what it needs.
+permissions: {}
+
+# One release run at a time; a second one queues instead of racing the first.
+concurrency:
+  group: sdk-publish-release
+  cancel-in-progress: false
+
+jobs:
+  # A reusable workflow cannot elevate the caller's GITHUB_TOKEN: whatever sdk-cleartext-publish-package.yml
+  # asks for is capped by what is granted on the calling job, so each job grants both.
+  host-contracts-cleartext:
+    permissions:
+      contents: 'read' # Required to checkout repository code
+      id-token: 'write' # Required for OIDC / npm provenance attestation
+    uses: ./.github/workflows/sdk-cleartext-publish-package.yml
+    with:
+      build_target: 'compile-cleartext-v-cur' # build the current host-contracts-cleartext
+      dry_run: ${{ inputs.dry_run }}
+      latest: ${{ inputs.latest }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  hardhat-plugin-v3:
+    needs: host-contracts-cleartext
+    permissions:
+      contents: 'read' # Required to checkout repository code
+      id-token: 'write' # Required for OIDC / npm provenance attestation
+    uses: ./.github/workflows/sdk-cleartext-publish-package.yml
+    with:
+      build_target: 'compile-hh-v3-plugin' # build the hardhat plugin v3
+      dry_run: ${{ inputs.dry_run }}
+      latest: ${{ inputs.latest }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  forge-fhevm:
+    needs: hardhat-plugin-v3
+    permissions:
+      contents: 'read' # Required to checkout repository code
+      id-token: 'write' # Required for OIDC / npm provenance attestation
+    uses: ./.github/workflows/sdk-cleartext-publish-package.yml
+    with:
+      build_target: 'compile-forge-std' # build forge-fhevm package
+      dry_run: ${{ inputs.dry_run }}
+      latest: ${{ inputs.latest }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
