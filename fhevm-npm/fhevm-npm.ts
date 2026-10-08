@@ -28,6 +28,7 @@ import { checkTsconfigPaths } from './commands/check-tsconfig-paths.ts';
 import { checkFhevmChainsOrigin } from './commands/check-fhevm-chains-origin.ts';
 import { checkVendoredOrigin } from './commands/check-vendored-origin.ts';
 import { syncFhevmChains } from './commands/sync-fhevm-chains.ts';
+import { syncHhV2ConstantsCommand } from './commands/sync-hh-v2-constants.ts'; // hh-v2-constants
 import { checkWorkspaces } from './commands/check-workspaces.ts';
 import { checkGenerations } from './commands/check-generations.ts';
 import { generateChainConstantsCommand } from './commands/generate-chain-constants.ts';
@@ -96,6 +97,11 @@ async function main(): Promise<void> {
   // Both are manifest-free: they speak to the protocol registry and the workspace-root chains file.
   if (options.command === 'sync-fhevm-chains') {
     await syncFhevmChains({ workspaceRoot: options.workspaceRoot, commit: options.commit, latest: options.latest });
+    return;
+  }
+  // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2. Manifest-free: versions.json and one plugin file.
+  if (options.command === 'sync-hh-v2-constants') {
+    syncHhV2ConstantsCommand({ workspaceRoot: options.workspaceRoot, check: options.check });
     return;
   }
   if (options.command === 'check-fhevm-chains-origin') {
