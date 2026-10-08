@@ -26,6 +26,7 @@ import { checkScripts } from './commands/check-scripts.ts';
 import { checkTscMode } from './commands/check-tsc-mode.ts';
 import { checkTsconfigPaths } from './commands/check-tsconfig-paths.ts';
 import { checkFhevmChainsOrigin } from './commands/check-fhevm-chains-origin.ts';
+import { checkDeployments } from './commands/check-deployments.ts';
 import { checkVendoredOrigin } from './commands/check-vendored-origin.ts';
 import { syncFhevmChains } from './commands/sync-fhevm-chains.ts';
 import { syncHhV2ConstantsCommand } from './commands/sync-hh-v2-constants.ts'; // hh-v2-constants
@@ -102,6 +103,13 @@ async function main(): Promise<void> {
   // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2. Manifest-free: versions.json and one plugin file.
   if (options.command === 'sync-hh-v2-constants') {
     syncHhV2ConstantsCommand({ workspaceRoot: options.workspaceRoot, check: options.check });
+    return;
+  }
+  // Manifest-free: deployment records, the chains config and, with --base, git history.
+  if (options.command === 'check-deployments') {
+    const report = checkDeployments({ workspaceRoot: options.workspaceRoot, base: options.base });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
     return;
   }
   if (options.command === 'check-fhevm-chains-origin') {

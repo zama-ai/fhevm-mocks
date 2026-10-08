@@ -35,6 +35,7 @@ export type CliOptions = {
   readonly command:
     | CommandName
     | 'check-fhevm-chains-origin'
+    | 'check-deployments'
     | 'check-mirror'
     | 'check-vendored-origin'
     | 'clean-forge-dependencies'
@@ -103,6 +104,7 @@ export type CliOptions = {
   | { readonly command: 'version-check' }
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
+  | { readonly command: 'check-deployments'; readonly base?: string }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
   | { readonly command: 'sync-hh-v2-constants'; readonly check: boolean } // hh-v2-constants
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
@@ -203,6 +205,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
     | undefined;
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
+  let checkDeployments: { readonly base?: string } | undefined;
   let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
   let regenerateConsumerPackageLocks = false;
   let regenerateConsumerPackageLockSelector: string | undefined;
@@ -505,6 +508,13 @@ Why:
       syncHhV2Constants = { check: options.check };
     });
   check
+    .command('deployments')
+    .description('Check every deployment record under deployments/; with --base, also that none of them changed.')
+    .option('--base <ref>', 'fail if a record folder that exists at the merge base with this ref changed in any way')
+    .action((options: { readonly base?: string }) => {
+      checkDeployments = { base: options.base };
+    });
+  check
     .command('fhevm-chains-origin')
     .description("Check that the chain addresses match the protocol registry's latest commit.")
     .action(() => {
@@ -713,7 +723,8 @@ Why:
     generateChainConstants === undefined &&
     syncFhevmChains === undefined &&
     syncHhV2Constants === undefined && // hh-v2-constants
-    !checkFhevmChainsOrigin
+    !checkFhevmChainsOrigin &&
+    checkDeployments === undefined
   ) {
     program.help({ error: true });
     throw new Error('unreachable');
@@ -759,6 +770,16 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...syncHhV2Constants,
+    };
+  }
+  if (checkDeployments !== undefined) {
+    return {
+      command: 'check-deployments',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...checkDeployments,
     };
   }
   if (checkFhevmChainsOrigin) {

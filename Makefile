@@ -605,6 +605,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check consumer-lockfiles)
 	$(call run-fhevm-npm,check lint-policy)
 	$(call run-fhevm-npm,check cleartext-config)
+	$(call run-fhevm-npm,check deployments)
 	$(call run-fhevm-npm,sync vendored --check)
 
 # Not wired into `check-pre` or `ci`: the mirror spec is not implemented yet. Running it today reports 7
