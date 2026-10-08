@@ -498,6 +498,11 @@ export class FhevmEnvironment {
     return this._contractsRepository;
   }
 
+  // Non-throwing variant for use in error-handling paths where FHEVM may not be initialized.
+  public tryGetContractsRepository(): contracts.FhevmContractsRepository | undefined {
+    return this._contractsRepository;
+  }
+
   public get isDeployed(): boolean {
     return this._deployCompleted;
   }
