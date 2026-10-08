@@ -10,12 +10,12 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Build and check without publishing'
+        description: "Build and check without publishing"
         required: false
         default: true
         type: boolean
       latest:
-        description: 'Publish X.Y.Z as npm latest (unchecked: next; X.Y.Z-A is always alpha)'
+        description: "Publish X.Y.Z as npm latest (unchecked: next; X.Y.Z-A is always alpha)"
         required: false
         default: true
         type: boolean

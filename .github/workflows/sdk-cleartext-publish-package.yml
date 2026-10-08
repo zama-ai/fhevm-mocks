@@ -10,16 +10,16 @@ on:
   workflow_call:
     inputs:
       build_target:
-        description: 'compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin, compile-forge-std'
+        description: "compile-cleartext-v-cur, compile-hh-v2-plugin, compile-hh-v3-plugin, compile-forge-std"
         required: true
         type: string
       dry_run:
-        description: 'run every step but stop short of publishing'
+        description: "run every step but stop short of publishing"
         required: false
         default: true
         type: boolean
       latest:
-        description: 'publish X.Y.Z as npm latest; false publishes it as next (X.Y.Z-A is always alpha)'
+        description: "publish X.Y.Z as npm latest; false publishes it as next (X.Y.Z-A is always alpha)"
         required: false
         default: true
         type: boolean
