@@ -1,0 +1,69 @@
+name: sdk-cleartext-deployments
+
+# Deployment records are frozen.
+#
+# A record under deployments/<chain>/<deploymentId>/ is evidence of on-chain transactions: once it is on
+# the base branch, nothing in it may change, and a later event gets a new folder (deployments/README.md).
+# This workflow proves it for every pull request, and checks each record for completeness and consistency.
+#
+# Meant to be a REQUIRED check (`sdk-cleartext-deployments/check`), so a failure blocks the merge. That is
+# why it runs on EVERY pull request, with no `paths:` filter: a workflow skipped by a path filter reports
+# no check at all, and a required check that never reports leaves the pull request waiting forever. It
+# costs about a minute, so filtering would buy nothing.
+#
+# Its own workflow rather than a job of sdk-cleartext-tests.yml: a pull request that only adds a record
+# skips that suite (see its `changes` filter), and this check must run regardless. No workflow_dispatch:
+# a manual run has no pull request base to compare against, and the rest of the check runs in
+# `make check-pre` already.
+on:
+  pull_request:
+    branches:
+      - release/0.13.x
+
+# No permissions at the workflow level — each job declares only what it needs.
+permissions: {}
+
+# A newer push to the same pull request makes the running check pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: sdk-cleartext-deployments/check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: 'read' # Required to checkout repository code
+    steps:
+      # Full history: the check reads the merge base of the pull request and its base branch.
+      - name: Check out repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: 'false'
+          fetch-depth: 0
+
+      # 22.x: ./fhevm-npm-cli runs a .ts entry point and relies on Node's type stripping, on by default
+      # from 22.18.
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: 22.x
+
+      # Aikido's supply-chain monitor, as in sdk-cleartext-tests.yml: blocks a package with a known-malicious
+      # checksum before npm can run it.
+      - name: Install safe-chain
+        shell: bash
+        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/download/1.5.3/install-safe-chain.sh | sh -s -- --ci
+
+      - name: Update npm
+        run: npm install -g npm@11.7.0
+
+      # fhevm-npm is an autonomous root: it runs with nothing else installed.
+      - name: Install fhevm-npm
+        run: npm --prefix fhevm-npm ci --no-audit --no-fund
+
+      - name: Check that no deployment record changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./fhevm-npm-cli check deployments --base "$BASE_SHA"
