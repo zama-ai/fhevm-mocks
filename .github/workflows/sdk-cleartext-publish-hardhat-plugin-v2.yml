@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Build and check without publishing"
+        description: "Dry run: build and check, publish nothing"
         required: false
         default: true
         type: boolean
