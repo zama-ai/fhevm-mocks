@@ -73,9 +73,9 @@ test('publish pack stages a node_modules-free copy with the rendered package.jso
     const tarball = publishPack(root, manifest, './plugin/pkg', { pack: recordingPacker(seen) });
     assert.equal(tarball, join(root, 'tarballs', 'scope-plugin-0.13.0.tgz'));
     assert.ok(existsSync(tarball));
-    // The staged manifest is the rendered one: the link became the library's generation range.
+    // The staged manifest is the rendered one: the link became a caret on the library's central version.
     const staged = JSON.parse(seen.staged?.packageJson ?? '{}') as { dependencies: Record<string, string> };
-    assert.deepEqual(staged.dependencies, { '@scope/library': '^0.13.0' });
+    assert.deepEqual(staged.dependencies, { '@scope/library': '^0.13.4' });
     // node_modules is excluded at every depth; sources travel.
     assert.deepEqual(seen.staged?.entries, ['package.json', 'src', 'src/index.js']);
     // The tree is untouched and the scratch copy is gone.
