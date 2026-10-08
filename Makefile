@@ -587,6 +587,8 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check json-schemas)
 	$(call run-fhevm-npm,check manifest-coverage)
 	$(call run-fhevm-npm,version check)
+# hh-v2-constants: Hardhat 2 only, delete the next line with hardhat/v2.
+	$(call run-fhevm-npm,sync hh-v2-constants --check)
 	$(call run-fhevm-npm,check names)
 	$(call run-fhevm-npm,check workspaces)
 	$(call run-fhevm-npm,check ownership)
