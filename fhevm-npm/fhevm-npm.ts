@@ -246,6 +246,7 @@ async function main(): Promise<void> {
       manifest,
       packageSelector: options.packageSelector,
       verbosity: options.verbosity,
+      fresh: options.fresh,
     });
     return;
   }

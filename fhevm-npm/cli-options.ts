@@ -118,7 +118,11 @@ export type CliOptions = {
       readonly commit?: string;
       readonly check: boolean;
     }
-  | { readonly command: 'test-consumer-regenerate-package-lock'; readonly packageSelector?: string }
+  | {
+      readonly command: 'test-consumer-regenerate-package-lock';
+      readonly packageSelector?: string;
+      readonly fresh: boolean;
+    }
   | {
       readonly command: 'test-consumer';
       readonly packageSelector?: string;
@@ -211,6 +215,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let checkDeployments: { readonly base?: string } | undefined;
   let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
   let regenerateConsumerPackageLocks = false;
+  let regenerateConsumerPackageLocksFresh = false;
   let regenerateConsumerPackageLockSelector: string | undefined;
   let testConsumer:
     | {
@@ -701,9 +706,15 @@ Why:
   program
     .command('test-consumer-regenerate-package-lock [package]')
     .description('Rebuild the package-lock.json of the standalone test projects.')
-    .action((packageSelector: string | undefined) => {
+    .option(
+      '--fresh',
+      'resolve every dependency again from no lock, instead of updating the committed one; moves every in-range version',
+      false,
+    )
+    .action((packageSelector: string | undefined, options: { readonly fresh: boolean }) => {
       regenerateConsumerPackageLocks = true;
       regenerateConsumerPackageLockSelector = packageSelector;
+      regenerateConsumerPackageLocksFresh = options.fresh;
     });
 
   program.parse([...argv], { from: 'user' });
@@ -850,6 +861,7 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       packageSelector: regenerateConsumerPackageLockSelector,
+      fresh: regenerateConsumerPackageLocksFresh,
     };
   }
   if (mirrorPackageSelector !== undefined) {
