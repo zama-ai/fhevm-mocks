@@ -1,0 +1,9 @@
+{
+  "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "account": "0xalexbel-0",
+  "admin": "0xD9F9298BbcD72843586e7E08DAe577E3a0aC8866",
+  "adminAccount": "0xalexbel-1",
+  "deploymentId": "cleartext-v13-sepolia-2026-10-05-1",
+  "outDir": "record",
+  "confirmations": 3
+}
