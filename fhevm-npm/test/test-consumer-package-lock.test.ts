@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 
+import { parseCliOptions } from '../cli-options.ts';
+
 import {
   consumerInstallArguments,
   consumerInstallMode,
@@ -94,6 +96,48 @@ test('regenerates and validates a consumer lock atomically in a sibling staging 
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('npm starts from the committed lock by default, and from no lock only when fresh', () => {
+  // What npm finds in the staging copy when `install` runs decides how much moves: with the committed lock,
+  // only what no longer satisfies its range; without one, every dependency to the newest version in range.
+  const seenAtInstall = (fresh: boolean): string | undefined => {
+    const root = join(tmpdir(), `fhevm-npm-consumer-lock-mode-${String(process.pid)}-${String(Date.now())}`);
+    const fixture = join(root, 'test-consumer', 'esm');
+    mkdirSync(fixture, { recursive: true });
+    writeFileSync(join(fixture, 'package.json'), '{"name":"consumer","private":true,"type":"module"}\n');
+    writeFileSync(join(fixture, 'package-lock.json'), '{"committed":true}\n');
+    let seen: string | undefined;
+    try {
+      regenerateFixturePackageLock(
+        fixture,
+        (directory, args) => {
+          if (args[0] !== 'install') return;
+          const lock = join(directory, 'package-lock.json');
+          seen = existsSync(lock) ? readFileSync(lock, 'utf8') : undefined;
+          writeFileSync(lock, '{"name":"consumer","lockfileVersion":3,"packages":{"":{}}}\n');
+        },
+        [],
+        0,
+        fresh,
+      );
+      return seen;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  assert.equal(seenAtInstall(false), '{"committed":true}\n');
+  assert.equal(seenAtInstall(true), undefined);
+});
+
+test("'test-consumer-regenerate-package-lock' keeps the committed lock unless --fresh is given", () => {
+  const plain = parseCliOptions(['test-consumer-regenerate-package-lock']);
+  if (plain.command !== 'test-consumer-regenerate-package-lock') throw new Error(`unexpected ${plain.command}`);
+  assert.equal(plain.fresh, false);
+  const fresh = parseCliOptions(['test-consumer-regenerate-package-lock', './hardhat/v3/plugin', '--fresh']);
+  if (fresh.command !== 'test-consumer-regenerate-package-lock') throw new Error(`unexpected ${fresh.command}`);
+  assert.deepEqual([fresh.packageSelector, fresh.fresh], ['./hardhat/v3/plugin', true]);
 });
 
 test('keeps the committed lock when regeneration validation fails', () => {
