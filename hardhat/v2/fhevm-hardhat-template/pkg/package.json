@@ -46,13 +46,13 @@
     "verify:sepolia": "hardhat verify --network sepolia"
   },
   "dependencies": {
-    "@fhevm/solidity": "^0.13.3",
+    "@fhevm/solidity": "^0.13.4",
     "encrypted-types": "^0.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@fhevm/hardhat-plugin": "file:../../plugin/pkg",
-    "@fhevm/sdk": "^0.13.4",
+    "@fhevm/sdk": "^0.13.7",
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.3",
     "@nomicfoundation/hardhat-network-helpers": "^1.1.2",

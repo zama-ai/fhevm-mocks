@@ -6,8 +6,8 @@
   "dependencies": {
     "forbidden": ["solhint"],
     "pinned": {
-      "@fhevm/sdk": "^0.13.4",
-      "@fhevm/solidity": "^0.13.3",
+      "@fhevm/sdk": "^0.13.7",
+      "@fhevm/solidity": "^0.13.4",
       "encrypted-types": "^0.0.4",
       "@openzeppelin/contracts": "5.1.0",
       "@openzeppelin/contracts-upgradeable": "5.1.0"

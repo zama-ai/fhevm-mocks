@@ -25,9 +25,9 @@ const constants = {
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   // https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-  // @fhevm/solidity@0.13.3
+  // @fhevm/solidity@0.13.4
   FHEVM_SOLIDITY_PACKAGE: {
-    version: '0.13.3',
+    version: '0.13.4',
     name: '@fhevm/solidity',
     configFile: 'config/ZamaConfig.sol',
     configContractName: 'EthereumConfig',
