@@ -1,4 +1,4 @@
-name: sdk-cleartext-publish-forge-fhevm
+name: sdk-cleartext-publish-release
 
 # Placeholder for the default branch. GitHub only lists a manual workflow when its file exists on
 # main, but runs the file from the branch picked in the branch selector. The real workflow lives on

@@ -1,26 +1,24 @@
 name: sdk-cleartext-tests
 
+# Placeholder for the default branch. GitHub only lists a manual workflow when its file exists on
+# main, but runs the file from the branch picked in the branch selector. The real workflow lives on
+# every release line (release/X.Y.x); this stub exists so the workflow shows up in the Actions UI
+# and in `gh workflow run`. Dispatched from main or from a branch cut from main, it fails at once
+# with the message below. Keep its `name` and inputs identical to the release copies.
+
 on:
-  pull_request:
-    branches:
-      - release/0.13.x
-      - release/0.14.x
   workflow_dispatch:
 
 permissions: {}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  run-tests:
-    name: sdk-cleartext-tests/test (bpr)
+  refuse:
+    name: not-a-release-branch
     runs-on: ubuntu-latest
-    timeout-minutes: 180
-    permissions:
-      contents: "read" # Required to checkout repository code
     steps:
-      - name: placeholder
+      - name: Refuse to run outside a release line
+        env:
+          REF: ${{ github.ref }}
         run: |
-          echo "placeholder job"
+          echo "::error::${GITHUB_WORKFLOW} only runs from a release line (release/X.Y.x); this run is on ${REF}. Pick the release branch in the branch selector and run it again."
+          exit 1
