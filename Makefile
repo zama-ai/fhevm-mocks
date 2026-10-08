@@ -263,7 +263,8 @@ install-ci: ## Install every installation root from its committed lockfile (npm 
 	$(call run-fhevm-npm,install-forge-dependencies)
 
 # Move a pinned dependency: edit its spec in npm-manifest.json#dependencies.pinned, then run this.
-#   1. `sync pinned` copies every pin into each package.json that declares it.
+#   1. `sync pinned` copies every pin into each package.json that declares it, and `sync hh-v2-constants`
+#      records the @fhevm/solidity pin in the Hardhat 2 plugin's constants (a no-op for any other pin).
 #   2. `npm install --package-lock-only` rewrites each install root's lockfile, and nothing else: no
 #      node_modules, no install scripts. Already-locked versions that still satisfy their ranges stay, so
 #      only what the moved pins reach is re-resolved. fhevm-npm's root declares no pinned package.
@@ -274,6 +275,8 @@ install-ci: ## Install every installation root from its committed lockfile (npm 
 # cannot be resolved yet.
 sync-pinned: ## Apply npm-manifest.json's pins to every package.json, regenerate every lockfile, then install from them
 	$(call run-fhevm-npm,sync pinned)
+# hh-v2-constants: Hardhat 2 only, delete the next line with hardhat/v2.
+	$(call run-fhevm-npm,sync hh-v2-constants)
 	npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 	npm --prefix $(DIR_HH_V2) install --package-lock-only --ignore-scripts --no-audit --no-fund
 	npm --prefix $(DIR_HH_V3) install --package-lock-only --ignore-scripts --no-audit --no-fund
