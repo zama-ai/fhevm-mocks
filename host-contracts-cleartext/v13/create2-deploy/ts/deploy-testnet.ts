@@ -3,9 +3,10 @@
 // Deploy a cleartext FHEVM stack to a public EVM testnet via the canonical
 // CREATE2 factory. Coordinator for create2-deploy/script/*.
 //
-//   node create2-deploy/deploy-testnet.ts --help
+//   create2-deploy/deploy-cli --help
 //
-// Plain `node` (>= 22.6) runs this directly — types are stripped at load, no tsx, no build step, no
+// `deploy-cli` is the entry point: it checks the Node version, then runs this file with plain `node`
+// (>= 22.18), which runs it directly — types are stripped at load, no tsx, no build step, no
 // dependencies. That constrains the syntax to the erasable subset: no `enum`, no `namespace`, no
 // parameter properties, and relative imports carry their `.ts` extension.
 //
@@ -35,10 +36,11 @@ import {
   ensureDir,
   fail,
   readJson,
-  readJsonl,
   removeIfPresent,
   run,
+  heartbeat,
   sameAddress,
+  banner,
   say,
   requireTool,
   sleep,
@@ -46,15 +48,24 @@ import {
 import {
   broadcast,
   buildContext,
+  awaitPrerequisites,
+  callAt,
   type Ctx,
   type Flow,
   generatedConfigEnv,
+  hasCodeAt,
   headBlock,
+  HOST_ROLES,
+  implementationAt,
   PACKAGE_ROOT,
-  type JournalEntry,
+  type Prerequisite,
   loadConfigFile,
   type Manifest,
+  isCompleteSeal,
+  journalHasSentTx,
   manifestPath,
+  removeScratchIfSealed,
+  scratchPath,
   parseCliArgs,
   preflight,
   recordObservation,
@@ -62,6 +73,7 @@ import {
   resolveOptions,
   SCRIPT_DIR,
   scriptEnv,
+  stampToolCommit,
   showJournal,
   stageReport,
   traceArgs,
@@ -132,17 +144,26 @@ const RUN_ORDER: readonly Stage[] = [
   'accept-admin',
 ];
 
+/** Every stage `--stage all` runs, in order: what the `N/M:` in front of a stage banner counts. */
+const SEQUENCE: readonly Stage[] = ['compute', ...RUN_ORDER, 'verify'];
+
+/** A stage's banner, numbered by its place in the full run (`7/9: 📥 Step F: …`), standalone or not. */
+function stageBanner(stage: Stage, title: string): void {
+  const at = SEQUENCE.indexOf(stage);
+  banner(at < 0 ? title : `${String(at + 1)}/${String(SEQUENCE.length)}: ${title}`);
+}
+
 const HELP = `
-Usage: node create2-deploy/deploy-testnet.ts --rpc-url URL --account NAME
-                                                   --admin 0x... --deployment-id ID [options]
+Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID [options]
 
   --rpc-url URL        node to deploy to (required)
   --account NAME       forge keystore account to broadcast from. Required on every chain EXCEPT a
                        local anvil: omit it there and accounts 0 and 1 of anvil's public mnemonic are
                        used as deployer and admin, so a rehearsal needs no keystore. The node must
                        answer anvil_nodeInfo or this is refused
-  --admin 0x...        final owner of ACLOwner. Mandatory, no default — except under the
-                       anvil default above, where it is anvil account 1
+  --admin 0x...        final owner of ACLOwner. Required, except when the admin signs through
+                       --admin-account (or the anvil default above): then it is that account's
+                       address. With both, they must be the same account
   --deployment-id ID   operator-chosen string; a fresh one gives a disjoint address set
   --pauser 0x...       optional operator pauser, step A'
   --confirmations N    reorg DEPTH floor for the between-stage waits (default 3). This is
@@ -151,14 +172,14 @@ Usage: node create2-deploy/deploy-testnet.ts --rpc-url URL --account NAME
   --no-finality        between stages wait only for --confirmations of depth, NOT for the previous
                        stage to finalize. Depth is a heuristic — ~3 min at 15 blocks vs ~12.8 min to
                        PoS finality — and testnets are where that gap bites
-  --admin-account NAME forge keystore account that SIGNS step F on the admin's behalf. Does not
-                       replace --admin, which stays the authoritative address and is sealed in the
-                       manifest; this must resolve to the same account. Without it, step F polls
-                       until the admin's own transaction lands (the multisig case)
-  --out-dir PATH       where this deployment's seal, generated config and journal are written
-                       (default: .out). Relative to create2-deploy/, and MUST stay inside it:
-                       forge writes only where foundry.toml's fs_permissions allows, which is static
-                       config. ONE PER (chain, deployment-id)
+  --admin-account NAME forge keystore account that SIGNS step F on the admin's behalf. Without
+                       --admin, the admin address is read from it (one password prompt); with
+                       --admin, it must resolve to that address. Without --admin-account, step F
+                       polls until the admin's own transaction lands (the multisig case)
+  --out-dir PATH       where this deployment's seal, generated config and journal are written. Any
+                       folder, inside the repository or not; ONE PER (chain, deployment-id). On the
+                       command line it is relative to the current directory; as "outDir" in a config
+                       file, relative to that file's folder. Default: create2-deploy/.out
   --dry-run            run the chosen stage WITHOUT --broadcast. Same script, same predicates, same
                        preconditions, simulated against the head. Not valid with --stage all
   --min-block N        FHEVM_MIN_BLOCK for a single manual --stage run: steps A-F refuse to start
@@ -180,9 +201,10 @@ Usage: node create2-deploy/deploy-testnet.ts --rpc-url URL --account NAME
                        For throwaway rehearsals. Also settable as "git": false in a config file
   --config PATH        JSON file holding the stable arguments, so they are not retyped every
                        invocation: rpcUrl, account, admin, deploymentId, pauser, adminAccount,
-                       confirmations, outDir, finality. An explicit flag always overrides it.
-                       Without --config, ./create2-deploy/deploy.config.json is used if it
-                       exists. Unknown keys are rejected, and so are stage/dryRun/minBlock/noConfirm —
+                       confirmations, outDir, finality. An explicit flag always overrides it. Its
+                       relative paths are relative to the config file's own folder.
+                       Without --config, ./deploy.config.json in the CURRENT directory is used
+                       if it exists. Unknown keys are rejected, and so are stage/dryRun/minBlock/noConfirm —
                        those are what one invocation DOES, not what the deployment IS
 
   --stage STAGE        one of, in order:
@@ -252,14 +274,14 @@ function needsDeployerKey(stage: string): boolean {
 ////////////////////////////////////////////////////////////////////////////////
 
 function stageCompute(ctx: Ctx): void {
-  say('🎃 compute (3 passes, 2 rebuilds)');
+  stageBanner('compute', '🎃 Compute: 3 passes, 2 rebuilds');
 
   // Recomputing after transactions have been sent would move the sealed address set out from under a
   // stack that is already partly deployed — the creates stage would then either report drift or,
   // worse, start building a second disjoint set alongside the first. A
   // redeploy takes a FRESH deploymentId. Preflight rejects the mismatches, so reaching here with a
   // non-empty journal really does mean "this deployment has already sent transactions".
-  if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) {
+  if (journalHasSentTx(ctx)) {
     fail(
       `Error: '${ctx.opt.deploymentId}' has already sent transactions (see ${ctx.journalPath}),`,
       '       so its addresses are not safe to recompute.',
@@ -272,7 +294,7 @@ function stageCompute(ctx: Ctx): void {
   // Clears only what compute itself produces. NOT the whole out dir: that would also take
   // journal.jsonl and broadcast/, which are the audit trail and belong to the deploy stages.
   ensureDir(ctx.outDir);
-  removeIfPresent(ctx.buildOut, join(ctx.outDir, 'addresses.sol'), join(ctx.outDir, 'pass2.json'), manifestPath(ctx));
+  removeIfPresent(ctx.buildOut, join(ctx.outDir, 'addresses.sol'), scratchPath(ctx), manifestPath(ctx));
 
   const script = `${SCRIPT_DIR}/FhevmComputeCreate2Addresses.s.sol:FhevmComputeCreate2Addresses`;
   // --no-build: trust what is already in the out dir rather than rebuilding.
@@ -291,7 +313,7 @@ function stageCompute(ctx: Ctx): void {
       say('  (--no-build: using the artifacts already in the out dir)');
       return;
     }
-    if (run('forge', ['build', '--out', ctx.buildOut, '--skip', 'test'], env) !== 0) {
+    if (run('forge', ['build', '--out', ctx.buildOut, '--skip', 'test', ...ctx.forgeArgs], env) !== 0) {
       fail('Error: forge build failed.');
     }
   };
@@ -302,7 +324,16 @@ function stageCompute(ctx: Ctx): void {
   // chain 31337 whatever it was really for, and preflight's identity check would block the very
   // deployment it had just created, on any chain but that one.
   const pass = (n: number, env: NodeJS.ProcessEnv): void => {
-    const args = ['script', script, '--out', ctx.buildOut, '--rpc-url', ctx.opt.rpcUrl, ...traceArgs(ctx)];
+    const args = [
+      'script',
+      script,
+      '--out',
+      ctx.buildOut,
+      '--rpc-url',
+      ctx.opt.rpcUrl,
+      ...ctx.forgeArgs,
+      ...traceArgs(ctx),
+    ];
     if (run('forge', args, { ...env, FHEVM_PASS: String(n) }) !== 0) {
       fail(`Error: compute pass ${n} failed.`);
     }
@@ -328,7 +359,88 @@ function stageCompute(ctx: Ctx): void {
 
   // `forge script` can report success for a run that reverted, so check the artifact, not the code.
   if (!existsSync(manifestPath(ctx))) fail('Error: pass 3 wrote no manifest.json.');
+  stampToolCommit(ctx);
+  removeScratchIfSealed(ctx);
   say('', `  sealed: ${manifestPath(ctx)}`);
+  // Run on its own, the next thing is the operator's: `--stage all` checks the seal is committed anyway.
+  if (ctx.opt.stage === 'compute') {
+    say('  next: commit (and push) the seal and the config, then deploy-cli --stage all');
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * What each stage needs from the stages before it — checked at the SETTLED block before it may start
+ * (awaitPrerequisites). Each fact is the chain state a previous step writes, phrased so it still holds
+ * once this stage itself is done: a resumed run must find its own past work acceptable.
+ */
+function prerequisitesFor(ctx: Ctx, stage: Stage): Prerequisite[] {
+  const manifest = readJson<Manifest>(manifestPath(ctx));
+  const sealed = manifest?.address;
+  if (sealed === undefined) fail(`Error: no manifest at ${manifestPath(ctx)} - run compute first.`);
+  const at = (role: string): string => sealed[role] ?? '';
+  const acl = at('ACL_ADDRESS');
+  const aclOwner = at('ACL_OWNER');
+  const is = (got: string | null, want: string): boolean => got !== null && sameAddress(got, want);
+  const owner = (contract: string, block: number | null): string | null =>
+    callAt(ctx, contract, 'owner()(address)', [], block);
+  const pendingOwner = (contract: string, block: number | null): string | null =>
+    callAt(ctx, contract, 'pendingOwner()(address)', [], block);
+  const code = (role: string): Prerequisite => ({
+    what: `code at ${role}`,
+    holds: (block) => hasCodeAt(ctx, at(role), block),
+  });
+
+  switch (stage) {
+    case 'pausers':
+      return [code('ACL_ADDRESS'), code('PAUSER_SET_ADDRESS'), code('ACL_OWNER')];
+    case 'offer-acl':
+      return [code('ACL_ADDRESS'), code('ACL_OWNER')];
+    case 'accept-acl':
+      return [
+        {
+          what: 'A: PauserSet.isPauser(ACLOwner)',
+          holds: (block) =>
+            callAt(ctx, at('PAUSER_SET_ADDRESS'), 'isPauser(address)(bool)', [aclOwner], block) === 'true',
+        },
+        {
+          what: 'B: ACL ownership offered to the ACLOwner (or already accepted)',
+          holds: (block) => is(pendingOwner(acl, block), aclOwner) || is(owner(acl, block), aclOwner),
+        },
+      ];
+    case 'materialize':
+      return [
+        { what: 'C: ACL.owner() is the ACLOwner', holds: (block) => is(owner(acl, block), aclOwner) },
+        ...Object.keys(sealed).map(code),
+      ];
+    case 'offer-admin':
+      return HOST_ROLES.filter((role) => role !== 'PAUSER_SET_ADDRESS').map((role) => ({
+        what: `D: ${role} points at its sealed implementation`,
+        holds: (block: number | null) => is(implementationAt(ctx, at(role), block), at(`IMPL_${role}`)),
+      }));
+    case 'accept-admin':
+      return [
+        {
+          what: 'E: ACLOwner offered to the admin (or already accepted)',
+          holds: (block) =>
+            is(pendingOwner(aclOwner, block), ctx.opt.admin) || is(owner(aclOwner, block), ctx.opt.admin),
+        },
+      ];
+    case 'verify':
+      return [
+        { what: 'F: ACLOwner.owner() is the admin', holds: (block) => is(owner(aclOwner, block), ctx.opt.admin) },
+      ];
+    // creates needs only the factory and the seal, checked in preflight; the rest send nothing or are not
+    // stages of their own (`all` runs the others).
+    case 'compute':
+    case 'creates':
+    case 'status':
+    case 'log':
+    case 'report':
+    case 'all':
+      return [];
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -342,7 +454,7 @@ function stageCompute(ctx: Ctx): void {
  * NOT automated: pushing to a shared remote is the operator's call, not this script's.
  */
 async function stageCreates(ctx: Ctx): Promise<void> {
-  say('🧀  creates (one CREATE2 per create, each gated on getCode)');
+  stageBanner('creates', '🧀 Creates: one CREATE2 per create, each gated on getCode');
   ctx.stageLabel = 'creates';
   await broadcast(ctx, 'FhevmDeployCreates.s.sol:FhevmDeployCreates');
 }
@@ -358,9 +470,16 @@ async function stageCreates(ctx: Ctx): Promise<void> {
  * rather than producing a stack with no reachable emergency stop.
  */
 async function stepARegisterPausers(ctx: Ctx): Promise<void> {
-  say("🚨  pausers (steps A, A')");
+  stageBanner('pausers', "🚨 Pausers: steps A, A'");
   ctx.stageLabel = "A/A'";
-  await broadcast(ctx, 'FhevmRegisterPausers.s.sol:FhevmRegisterPausers');
+  await broadcast(
+    ctx,
+    'FhevmRegisterPausers.s.sol:FhevmRegisterPausers',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'pausers'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -373,9 +492,16 @@ async function stepARegisterPausers(ctx: Ctx): Promise<void> {
  * `pausers` is equally callable before or after it.
  */
 async function stepBOfferAclOwnership(ctx: Ctx): Promise<void> {
-  say('📤  offer ACL ownership (step B)');
+  stageBanner('offer-acl', '📤 Step B: offer ACL ownership');
   ctx.stageLabel = 'B';
-  await broadcast(ctx, 'FhevmOfferACLOwnership.s.sol:FhevmOfferACLOwnership');
+  await broadcast(
+    ctx,
+    'FhevmOfferACLOwnership.s.sol:FhevmOfferACLOwnership',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'offer-acl'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -386,9 +512,16 @@ async function stepBOfferAclOwnership(ctx: Ctx): Promise<void> {
  * this file's ordering.
  */
 async function stepCAcceptAclOwnership(ctx: Ctx): Promise<void> {
-  say('🚚  accept ACL ownership (step C)');
+  stageBanner('accept-acl', '🚚 Step C: accept ACL ownership');
   ctx.stageLabel = 'C';
-  await broadcast(ctx, 'FhevmAcceptACLOwnership.s.sol:FhevmAcceptACLOwnership');
+  await broadcast(
+    ctx,
+    'FhevmAcceptACLOwnership.s.sol:FhevmAcceptACLOwnership',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'accept-acl'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -398,9 +531,16 @@ async function stepCAcceptAclOwnership(ctx: Ctx): Promise<void> {
  * stage cannot be resumed halfway: see the tri-state note in FhevmMaterializeStack.
  */
 async function stepDMaterializeStack(ctx: Ctx): Promise<void> {
-  say('🍔  materialize the stack (step D)');
+  stageBanner('materialize', '🍔 Step D: materialize the stack');
   ctx.stageLabel = 'D';
-  await broadcast(ctx, 'FhevmMaterializeStack.s.sol:FhevmMaterializeStack');
+  await broadcast(
+    ctx,
+    'FhevmMaterializeStack.s.sol:FhevmMaterializeStack',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'materialize'),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -410,9 +550,20 @@ async function stepDMaterializeStack(ctx: Ctx): Promise<void> {
  * warns rather than refuses if the stack is not materialized (see its header).
  */
 async function stepEOfferOwnerToAdmin(ctx: Ctx): Promise<void> {
-  say('🥬  offer the ACLOwner to the admin (step E)');
+  stageBanner('offer-admin', '🥬 Step E: offer the ACLOwner to the admin');
   ctx.stageLabel = 'E';
-  await broadcast(ctx, 'FhevmOfferACLOwnerToAdmin.s.sol:FhevmOfferACLOwnerToAdmin');
+  await broadcast(
+    ctx,
+    'FhevmOfferACLOwnerToAdmin.s.sol:FhevmOfferACLOwnerToAdmin',
+    undefined,
+    undefined,
+    undefined,
+    prerequisitesFor(ctx, 'offer-admin'),
+  );
+  // Under `--stage all` step F follows by itself; run on its own, the admin's transaction is still owed.
+  if (ctx.opt.stage === 'offer-admin') {
+    say('  next: deploy-cli --stage accept-admin (sent by the admin), then deploy-cli --stage verify');
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -434,7 +585,7 @@ async function stepEOfferOwnerToAdmin(ctx: Ctx): Promise<void> {
  *                          and `--stage verify` picks up wherever it got to.
  */
 async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
-  say('📥  accept ownership as the admin (step F)');
+  stageBanner('accept-admin', '📥 Step F: accept ownership as the admin');
   ctx.stageLabel = 'F';
 
   const manifest = readJson<Manifest>(manifestPath(ctx));
@@ -448,10 +599,14 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
       'FhevmAcceptOwnershipAsAdmin.s.sol:FhevmAcceptOwnershipAsAdmin',
       ctx.opt.adminSigner,
       ctx.opt.admin,
+      undefined,
+      prerequisitesFor(ctx, 'accept-admin'),
     );
     return;
   }
 
+  // The multisig path sends nothing, but asks the admin to act on step E: E must be settled first.
+  await awaitPrerequisites(ctx, ctx.stageLabel, prerequisitesFor(ctx, 'accept-admin'));
   if (ctx.opt.dryRun) {
     say("  (dry run: no --admin-account, so this stage would poll for the admin's transaction)");
     return;
@@ -467,23 +622,37 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
     "  '--stage verify' will pick up from wherever this got to.",
   );
 
+  // A multisig can take minutes or days to sign: one line a minute says the poll is still alive.
+  const beat = heartbeat();
   for (;;) {
     const owner = captureOrFail('cast', ['call', aclOwner, 'owner()(address)', '--rpc-url', ctx.opt.rpcUrl]);
     if (sameAddress(owner, ctx.opt.admin)) break;
+    if (beat.due())
+      say(`  … still waiting for the admin's acceptOwnership(): ACLOwner.owner() is ${owner} (${beat.elapsed()})`);
     await sleep(15000);
   }
 
   say('  F  accepted. The deployer key is no longer root over this stack.');
-  ctx.finalityTarget = headBlock(ctx);
-  ctx.nextMinBlock = ctx.finalityTarget + ctx.opt.confirmations;
-  recordObservation(ctx, 'F', 'admin accepted ACLOwner ownership (sent externally)', ctx.finalityTarget);
+  recordObservation(ctx, 'F', 'admin accepted ACLOwner ownership (sent externally)', headBlock(ctx));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/** The terminal conditions. Reverts non-zero if any is unmet. */
-function stageVerify(ctx: Ctx): void {
-  say('✅  verify');
+/**
+ * The terminal conditions. Reverts non-zero if any is unmet.
+ *
+ * When step F is done, its effect must be SETTLED before the verdict is read, or the verdict could be
+ * about a block that is then reorged away. When it is not even done, verify still runs: its job is to
+ * report what is wrong, and it will.
+ */
+async function stageVerify(ctx: Ctx): Promise<void> {
+  stageBanner('verify', '✅ Verify');
+  const prerequisites = prerequisitesFor(ctx, 'verify');
+  if (prerequisites.every((p) => p.holds(null))) {
+    await awaitPrerequisites(ctx, 'verify', prerequisites);
+  } else {
+    say('  step F is not done on chain yet: verify reports the stack as it stands.');
+  }
   const code = run(
     'forge',
     [
@@ -493,6 +662,7 @@ function stageVerify(ctx: Ctx): void {
       ctx.opt.rpcUrl,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       ...traceArgs(ctx),
     ],
     { ...scriptEnv(ctx), ...generatedConfigEnv(ctx) },
@@ -511,7 +681,7 @@ function stageVerify(ctx: Ctx): void {
  * I get to, and what is stopping the next step?" with a board.
  */
 function stageStatus(ctx: Ctx): void {
-  say('📊  status');
+  banner('📊 Status');
   run(
     'forge',
     [
@@ -521,6 +691,7 @@ function stageStatus(ctx: Ctx): void {
       ctx.opt.rpcUrl,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       ...traceArgs(ctx),
     ],
     { ...scriptEnv(ctx), ...generatedConfigEnv(ctx) },
@@ -564,7 +735,7 @@ async function runStage(ctx: Ctx, stage: Stage): Promise<void> {
       await stepFAcceptOwnershipAsAdmin(ctx);
       return;
     case 'verify':
-      stageVerify(ctx);
+      await stageVerify(ctx);
       return;
     case 'status':
       stageStatus(ctx);
@@ -595,6 +766,8 @@ const DEPLOY_FLOW: Flow = {
   reportSteps: REPORT_STEPS,
   needsChain,
   needsDeployerKey,
+  adminSendingStages: ['accept-admin'],
+  readOnlyStages: ['verify', 'status'],
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -624,14 +797,21 @@ async function main(): Promise<void> {
     // error. Here it is incidental rather than requested, so a sealed deployment that has already
     // sent something simply skips it and carries on — otherwise `--stage all` could never resume the
     // deployment it started.
-    if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) {
-      say('🎃 compute already sealed and past its first transaction - skipping (resume)');
+    //
+    // Before the first transaction, an existing COMPLETE seal is reused, never recomputed: it is what the
+    // operator committed, and preflight has already refused one that no longer matches the config or the
+    // tool. Recomputing would replace the committed address set behind the operator's back. Resealing on
+    // purpose is `--stage compute`.
+    if (journalHasSentTx(ctx)) {
+      stageBanner('compute', '🎃 Compute: already sealed and past its first transaction - skipping (resume)');
+    } else if (isCompleteSeal(ctx)) {
+      stageBanner('compute', `🎃 Compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
     } else {
       stageCompute(ctx);
     }
 
     for (const stage of RUN_ORDER) await runStage(ctx, stage);
-    stageVerify(ctx);
+    await stageVerify(ctx);
   } else {
     await runStage(ctx, opt.stage as Stage);
   }

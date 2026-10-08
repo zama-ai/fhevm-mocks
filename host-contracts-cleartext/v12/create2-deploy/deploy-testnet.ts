@@ -342,7 +342,7 @@ function stageCompute(ctx: Ctx): void {
  * NOT automated: pushing to a shared remote is the operator's call, not this script's.
  */
 async function stageCreates(ctx: Ctx): Promise<void> {
-  say('🧀  creates (one CREATE2 per create, each gated on getCode)');
+  say('🧀 creates (one CREATE2 per create, each gated on getCode)');
   ctx.stageLabel = 'creates';
   await broadcast(ctx, 'FhevmDeployCreates.s.sol:FhevmDeployCreates');
 }
@@ -358,7 +358,7 @@ async function stageCreates(ctx: Ctx): Promise<void> {
  * rather than producing a stack with no reachable emergency stop.
  */
 async function stepARegisterPausers(ctx: Ctx): Promise<void> {
-  say("🚨  pausers (steps A, A')");
+  say("🚨 pausers (steps A, A')");
   ctx.stageLabel = "A/A'";
   await broadcast(ctx, 'FhevmRegisterPausers.s.sol:FhevmRegisterPausers');
 }
@@ -483,7 +483,7 @@ async function stepFAcceptOwnershipAsAdmin(ctx: Ctx): Promise<void> {
 
 /** the terminal conditions. Reverts non-zero if any is unmet. */
 function stageVerify(ctx: Ctx): void {
-  say('✅  verify');
+  say('✅ verify');
   const code = run(
     'forge',
     [

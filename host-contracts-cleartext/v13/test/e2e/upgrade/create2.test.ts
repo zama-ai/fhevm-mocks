@@ -53,6 +53,9 @@ import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
  */
 const PREVIOUS_GENERATION_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', 'v12');
 
+/** v13's operator entry point. v12 predates it, so its coordinator is still run as `node <file>.ts`. */
+const UPGRADE_CLI = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'upgrade', 'upgrade-cli');
+
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,11 +74,12 @@ const RPC_URL = `http://127.0.0.1:${PORT}`;
  * A dedicated out-dir per generation, so a run never touches the `.out-anvil` a developer's manual
  * rehearsal uses. `.out-*` and `.test-*` (the file below) are gitignored in both generations.
  *
- * Passed to `--out-dir` as a BARE name, because the coordinator resolves that flag against `FS_ROOT` —
- * the `create2-deploy/` directory — not against the package root. It has to: `foundry.toml`'s
- * `fs_permissions` grants forge write access to exactly `./create2-deploy`, so a manifest outside it
- * cannot be sealed at all. Passing `create2-deploy/.out-…` here nests it one level too deep, which is
- * silent — the coordinator still exits 0, and only the missing manifest gives it away.
+ * The two coordinators read `--out-dir` differently, which is why the calls below differ:
+ *
+ *   v12   a BARE name, resolved against its `create2-deploy/` (its foundry.toml grants forge write access
+ *         to exactly that). `create2-deploy/.out-…` there nests one level too deep, silently.
+ *   v13   any path, relative to the caller's directory. Passed ABSOLUTE here (outDirAbs), so it lands in
+ *         `create2-deploy/` like v12's and is cleaned up the same way.
  */
 const OUT_DIR_ARG = '.out-test-create2-e2e';
 const NEGATIVE_OUT_DIR_ARG = '.out-test-create2-e2e-negative';
@@ -171,9 +175,13 @@ function note(what: string): void {
  * The coordinators use anvil's public mnemonic when they detect anvil (via anvil_nodeInfo), so no
  * keystore and no password prompt. FHEVM_* env is left untouched: the config file carries everything.
  */
-function runCoordinator(cwd: string, args: readonly string[]): Promise<{ ok: boolean; output: string }> {
+function runCoordinator(
+  cwd: string,
+  command: string,
+  args: readonly string[],
+): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn('node', args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     const onData = (chunk: Buffer): void => {
       const text = chunk.toString();
@@ -377,7 +385,7 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         'deploy v12 with ../v12 deploy-testnet.ts --stage all (3 forge builds, 22 creates, steps A-F)',
       );
       rmSync(outDirAbs(v12Root), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v12Root, [
+      const { ok, output } = await runCoordinator(v12Root, 'node', [
         'create2-deploy/deploy-testnet.ts',
         '--config',
         'create2-deploy/anvil-config.json',
@@ -393,8 +401,8 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         'all',
       ]);
       if (!ok) {
-        // The node is PROBED rather than read off the child's `exit` event: `runCoordinator` uses
-        // spawnSync, so that event is still queued here and would report a live node as dead.
+        // The node is PROBED rather than judged from `nodeGone` alone: the probe says whether it answers
+        // right now, whatever order the child-process events arrived in.
         const detail = (await portIsOpen()) ? '' : ` — ${nodeGone ?? `the anvil on ${RPC_URL} stopped answering`}`;
         assert.fail(`v12 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
       }
@@ -513,14 +521,13 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
       announce(6, STEPS, 'negative: compute with a wrong ACL address must refuse (expect an Error below)');
       const wrong = { ...v12, ACL_ADDRESS: ZERO };
       rmSync(outDirAbs(v13Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v13Root, [
-        'create2-deploy/upgrade/testnet.ts',
+      const { ok, output } = await runCoordinator(v13Root, UPGRADE_CLI, [
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         RPC_URL,
         '--out-dir',
-        NEGATIVE_OUT_DIR_ARG,
+        outDirAbs(v13Root, NEGATIVE_OUT_DIR_ARG),
         '--deployment-id',
         `${DEPLOYMENT_ID}-wrong-address`,
         '--stage',
@@ -555,14 +562,13 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         )}\n`,
       );
       rmSync(outDirAbs(v13Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v13Root, [
-        'create2-deploy/upgrade/testnet.ts',
+      const { ok, output } = await runCoordinator(v13Root, UPGRADE_CLI, [
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         RPC_URL,
         '--out-dir',
-        NEGATIVE_OUT_DIR_ARG,
+        outDirAbs(v13Root, NEGATIVE_OUT_DIR_ARG),
         '--deployment-id',
         `${DEPLOYMENT_ID}-wrong-migration`,
         '--stage',
@@ -585,17 +591,16 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         announce(
           8,
           STEPS,
-          'upgrade with upgrade/testnet.ts --stage all (compute, creates, rehearse on a fork, materialize, verify)',
+          'upgrade with upgrade-cli --stage all (compute, creates, rehearse on a fork, materialize, verify)',
         );
         rmSync(outDirAbs(v13Root), { recursive: true, force: true });
-        const { ok, output } = await runCoordinator(v13Root, [
-          'create2-deploy/upgrade/testnet.ts',
+        const { ok, output } = await runCoordinator(v13Root, UPGRADE_CLI, [
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
           RPC_URL,
           '--out-dir',
-          OUT_DIR_ARG,
+          outDirAbs(v13Root),
           // The SAME deployment id as the deploy, deliberately: `_salt` mixes `cfg.version`, so "0.13"
           // against the v12 deploy's "0.12" already yields a disjoint salt namespace for the same role
           // names. Reusing the id is therefore correct and preferred.
@@ -608,6 +613,13 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
           ...existingAddressArgs(v12),
         ]);
         assert.ok(ok, `v13 create2 upgrade failed:\n${output.slice(-4000)}`);
+        // The v13-only per-node fields are checked against the sealed migration, not just printed.
+        for (const field of ['txSenderAddress', 'signerAddress', 'ipAddress', 'storageUrl']) {
+          assert.ok(
+            output.includes(`ok   ProtocolConfig KMS node 3 ${field} == sealed`),
+            `verify checked node ${field} against the seal`,
+          );
+        }
         v13Upgraded = true;
       },
     );
@@ -705,13 +717,12 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
       async (st) => {
         if (needsV13(st)) return;
         const common = [
-          'create2-deploy/upgrade/testnet.ts',
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
           RPC_URL,
           '--out-dir',
-          OUT_DIR_ARG,
+          outDirAbs(v13Root),
           '--deployment-id',
           DEPLOYMENT_ID,
           ...existingAddressArgs(v12),
@@ -722,9 +733,15 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
           STEPS,
           're-run --stage all on the upgraded stack (must resume and send nothing), status, compute must refuse',
         );
-        const again = await runCoordinator(v13Root, [...common, '--stage', 'all', '--handle', handleBefore]);
+        const again = await runCoordinator(v13Root, UPGRADE_CLI, [
+          ...common,
+          '--stage',
+          'all',
+          '--handle',
+          handleBefore,
+        ]);
         assert.ok(again.ok, `second --stage all failed:\n${again.output.slice(-4000)}`);
-        assert.match(again.output, /compute already sealed .* skipping/, 'compute is skipped, from the chain');
+        assert.match(again.output, /Compute: already sealed .* skipping/, 'compute is skipped, from the chain');
         assert.match(again.output, /already present 10/, 'no create is re-sent');
         assert.match(again.output, /already materialized; run verify/, 'the gate recognizes the upgraded stack');
         assert.match(again.output, /nothing left to rehearse/, 'the rehearsal steps aside');
@@ -732,14 +749,33 @@ void test('create2-deploy: fresh anvil, v12 stack, then the v13 upgrade', { skip
         assert.match(again.output, /OK - every terminal condition for the upgrade/, 'verify still holds');
 
         note('status');
-        const status = await runCoordinator(v13Root, [...common, '--stage', 'status']);
+        const status = await runCoordinator(v13Root, UPGRADE_CLI, [...common, '--stage', 'status']);
         assert.ok(status.ok, status.output.slice(-2000));
         assert.match(status.output, /materialize: done/, status.output.slice(-2000));
 
         note('compute must refuse (expect an Error below)');
-        const recompute = await runCoordinator(v13Root, [...common, '--stage', 'compute']);
+        const recompute = await runCoordinator(v13Root, UPGRADE_CLI, [...common, '--stage', 'compute']);
         assert.equal(recompute.ok, false, 'compute must refuse once contracts are on chain');
         assert.match(recompute.output, /already put contracts on chain/, recompute.output.slice(-2000));
+
+        // verify compares every v13-only KMS node field to the seal: one sealed IP changed must fail it.
+        note('verify against a tampered seal (expect a FAIL below)');
+        const manifestFile = join(outDirAbs(v13Root), 'manifest.json');
+        const sealed = readFileSync(manifestFile, 'utf8');
+        const tampered = JSON.parse(sealed) as {
+          preUpgrade: { migration: { existingKmsNodes: Array<{ ipAddress: string }> } };
+        };
+        const node0 = tampered.preUpgrade.migration.existingKmsNodes[0];
+        assert.ok(node0, 'the seal has KMS nodes');
+        node0.ipAddress = '10.66.66.66';
+        writeFileSync(manifestFile, `${JSON.stringify(tampered, null, 2)}\n`);
+        try {
+          const bad = await runCoordinator(v13Root, UPGRADE_CLI, [...common, '--stage', 'verify']);
+          assert.equal(bad.ok, false, 'verify must fail when the chain differs from the seal');
+          assert.match(bad.output, /FAIL ProtocolConfig KMS node 0 ipAddress == sealed/, bad.output.slice(-3000));
+        } finally {
+          writeFileSync(manifestFile, sealed);
+        }
       },
     );
   } finally {

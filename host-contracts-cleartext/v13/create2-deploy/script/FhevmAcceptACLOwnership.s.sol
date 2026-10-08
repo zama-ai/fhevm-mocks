@@ -70,14 +70,14 @@ contract FhevmAcceptACLOwnership is FhevmCreate2Base {
             _deployed(acl) && _deployed(pauserSet) && _deployed(aclOwner), "FhevmAcceptACLOwnership: run creates first"
         );
 
-        _banner("step C - accept ACL ownership");
+        _banner("Step C: accept ACL ownership");
 
         vm.startBroadcast();
 
         // PREDICATE — the resume case, and the only one. Unlike B there is no second form to check:
         // ACL.acceptOwnership() clears pendingOwner as it sets owner, so "accepted" is a single state.
         if (IOwnable2Step(acl).owner() == aclOwner) {
-            console.log("  C  acceptACLOwnership - already done");
+            console.log("  acceptACLOwnership - already done");
         } else {
             require(
                 IOwnable2Step(acl).pendingOwner() == aclOwner,
@@ -96,7 +96,7 @@ contract FhevmAcceptACLOwnership is FhevmCreate2Base {
             );
 
             IACLOwner(aclOwner).acceptACLOwnership();
-            console.log("  C  ACL ownership accepted by", aclOwner);
+            console.log("  ACL ownership accepted by", aclOwner);
         }
 
         vm.stopBroadcast();
@@ -104,6 +104,5 @@ contract FhevmAcceptACLOwnership is FhevmCreate2Base {
         console.log("");
         console.log("  ACL.owner() is now the ACLOwner. addPauser is no longer the deployer's to call");
         console.log("  directly - use ACLOwner.execute(pauserSet, ...) from here on.");
-        console.log("  next: FhevmMaterializeStack (step D)");
     }
 }

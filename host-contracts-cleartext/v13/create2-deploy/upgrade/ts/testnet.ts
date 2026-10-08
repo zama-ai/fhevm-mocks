@@ -1,7 +1,7 @@
 // Upgrade a LIVE v12 cleartext stack to v13, through the canonical CREATE2 factory.
 //
 //
-// The sibling of deploy-testnet.ts, and everything that is not a stage comes from common.ts: argument
+// Run through `upgrade/upgrade-cli`. The sibling of ts/deploy-testnet.ts, and everything that is not a stage comes from common.ts: argument
 // parsing, the config file, the out-dir identity check, the chain and factory preflight, signer
 // resolution, the reorg/finality waits, the journal, the seal gate and broadcast().
 //
@@ -31,6 +31,7 @@ import {
   ensureDir,
   fail,
   freePort,
+  heartbeat,
   hexToNumber,
   pad,
   readJson,
@@ -38,14 +39,16 @@ import {
   removeIfPresent,
   requireTool,
   runLogged,
+  banner,
   say,
   sleep,
   spawnBackground,
   startTranscript,
   waitUntil,
   warn,
-} from '../utils.ts';
+} from '../../ts/utils.ts';
 import {
+  awaitPrerequisites,
   broadcast,
   buildContext,
   type Ctx,
@@ -56,10 +59,14 @@ import {
   generatedConfigEnv,
   hasCodeAt,
   headBlock,
-  type JournalEntry,
   loadConfigFile,
   type Manifest,
+  isCompleteSeal,
+  journalHasSentTx,
   manifestPath,
+  recordFinality,
+  removeScratchIfSealed,
+  scratchPath,
   PACKAGE_ROOT,
   parseCliArgs,
   preflight,
@@ -71,12 +78,14 @@ import {
   RULE_WIDTH,
   SCRIPT_DIR,
   scriptEnv,
+  settlementRule,
+  stampToolCommit,
   settledBlock,
   showJournal,
   stageReport,
   traceArgs,
   waitForBlock,
-} from '../common.ts';
+} from '../../ts/common.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Stages
@@ -119,6 +128,12 @@ const ALL_STAGES: readonly Stage[] = [
 
 /** What `--stage all` runs, in order. `precheck` is not listed because `materialize` always runs it first. */
 const RUN_ORDER: readonly Stage[] = ['compute', 'creates', 'rehearse', 'materialize', 'verify'];
+
+/** A stage's banner, numbered by its place in the full run (`4/5: 🧩 Materialize: …`), standalone or not. */
+function stageBanner(stage: Stage, title: string): void {
+  const at = RUN_ORDER.indexOf(stage);
+  banner(at < 0 ? title : `${String(at + 1)}/${String(RUN_ORDER.length)}: ${title}`);
+}
 
 /** The seven proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table. */
 const UPGRADED_ROLES: readonly string[] = [
@@ -175,14 +190,15 @@ function needsDeployerKey(stage: string): boolean {
 const HELP = `
 Upgrade a live v12 cleartext stack to v13, via the canonical CREATE2 factory.
 
-Usage: node create2-deploy/upgrade/testnet.ts --rpc-url URL [--account NAME] --admin 0x...
-                             --deployment-id ID --previous-manifest PATH [--handle 0x...]
+Usage: upgrade-cli --rpc-url URL [--account NAME] --admin 0x...
+                   --deployment-id ID --previous-manifest PATH [--handle 0x...]
 
   --rpc-url URL        node to upgrade on (required)
   --account NAME       forge keystore account to broadcast from. Required on every chain EXCEPT a
                        local anvil, where accounts 0 and 1 of anvil's public mnemonic are used
   --admin 0x...        the CURRENT ACLOwner owner. Not a value this sets — a value it VERIFIES, since
-                       ownership must not change
+                       ownership must not change. Optional with --admin-account, whose address is
+                       then used; with both, they must be the same account
   --deployment-id ID   reuse the deployment's own id. The salt mixes the version, so "0.13" here and
                        "0.12" for the original deploy already give disjoint addresses
 
@@ -225,13 +241,17 @@ THE LIVE STACK — nine addresses, best supplied through --previous-manifest or 
 
   --confirmations N    reorg DEPTH floor for the between-stage waits
   --no-finality        wait only for --confirmations of depth, not for finality
-  --out-dir PATH       where this upgrade's seal, generated config and journal go
+  --out-dir PATH       where this upgrade's seal, generated config and journal go. Any folder, inside
+                       the repository or not; relative to the current directory on the command line
   --dry-run            run the chosen stage WITHOUT --broadcast
   --min-block N        FHEVM_MIN_BLOCK for a single manual --stage run
   --no-confirm         do not ask about the seal before the first transaction
   --no-build           reuse the artifacts already in the out dir
   --no-git             this upgrade needs no git-committed seal
-  --config PATH        JSON file holding the stable arguments (default: ${DEFAULT_CONFIG_NAME})
+  --config PATH        JSON file holding the stable arguments (default: ./${DEFAULT_CONFIG_NAME} in the
+                       current directory, if it exists). Its
+                       relative paths (outDir, previousManifest, migration, previousAbiDir) are
+                       relative to the config file's own folder
   --stage STAGE        one of, in order:
                          compute       2 builds + 2 passes, writes the manifest      (no tx)
                          creates       the CREATE2s through the factory
@@ -392,6 +412,8 @@ function previousAbiDir(ctx: Ctx): string {
 function surveyStack(ctx: Ctx, block?: number): Readonly<Record<string, string>> {
   const dir = previousAbiDir(ctx);
   const readings: Record<string, string> = {};
+  // One RPC call per getter, 60+ of them: on a slow public RPC that is a minute or more.
+  const beat = heartbeat();
   for (const target of SURVEY_TARGETS) {
     const path = join(dir, target.abi);
     if (!existsSync(path)) fail(`Error: required v12 ABI is missing: ${path}`, '       Pass --previous-abi-dir PATH.');
@@ -416,6 +438,11 @@ function surveyStack(ctx: Ctx, block?: number): Readonly<Record<string, string>>
         ...atBlock(block),
       ]);
       readings[`${target.label}.${name}`] = result.ok ? result.stdout : '<reverted>';
+      if (beat.due()) {
+        say(
+          `    … ${String(Object.keys(readings).length)} getters read so far, now ${target.label} (${beat.elapsed()})`,
+        );
+      }
     }
   }
   if (Object.keys(readings).length < 50) {
@@ -584,7 +611,7 @@ function validateExisting(ctx: Ctx): void {
   const arithmetic = at('CLEARTEXT_ARITHMETIC_ADDRESS');
   const aclOwner = at('ACL_OWNER');
 
-  say('🔬  validating the live stack');
+  say('  🔬 validating the live stack');
 
   // Where the address under test came from, so the transcript records the seal's provenance and not
   // just its content. `?` for a role no layer supplied — the missing gate above has already failed.
@@ -731,7 +758,7 @@ function requireScript(name: string): string {
  * too, but only as a second witness — the chain is the one that cannot be lost with a directory.
  */
 function upgradeStarted(ctx: Ctx): boolean {
-  if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) return true;
+  if (journalHasSentTx(ctx)) return true;
   const manifest = readJson<Manifest>(manifestPath(ctx));
   if (manifest?.address === undefined) return false;
   const head = headBlock(ctx);
@@ -739,7 +766,7 @@ function upgradeStarted(ctx: Ctx): boolean {
 }
 
 async function stageCompute(ctx: Ctx): Promise<void> {
-  say('🍟 compute (2 passes, 1 rebuild)');
+  stageBanner('compute', '🍟 Compute: 2 passes, 1 rebuild');
 
   // Same reasoning as the deploy: recomputing after transactions have been sent would move the sealed
   // address set out from under a half-applied upgrade. An upgrade is worse than a deploy here, because
@@ -758,7 +785,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
   removeIfPresent(
     ctx.buildOut,
     join(ctx.outDir, 'addresses.sol'),
-    join(ctx.outDir, 'pass2.json'),
+    scratchPath(ctx),
     manifestPath(ctx),
     preUpgradePath(ctx),
   );
@@ -780,7 +807,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
       say('  (--no-build: using the artifacts already in the out dir)');
       return;
     }
-    if ((await runLogged('forge', ['build', '--out', ctx.buildOut, '--skip', 'test'], env)) !== 0) {
+    if ((await runLogged('forge', ['build', '--out', ctx.buildOut, '--skip', 'test', ...ctx.forgeArgs], env)) !== 0) {
       fail('Error: forge build failed.');
     }
   };
@@ -792,6 +819,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
       `${script}:FhevmComputeUpgradeAddresses`,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       '--rpc-url',
       ctx.opt.rpcUrl,
       ...traceArgs(ctx),
@@ -813,6 +841,9 @@ async function stageCompute(ctx: Ctx): Promise<void> {
     await pass(2, env);
   });
   mergePreUpgradeIntoManifest(ctx);
+  stampToolCommit(ctx);
+  // The upgrade's seal is complete only once the pre-upgrade snapshot is merged into it.
+  removeScratchIfSealed(ctx, ['preUpgrade']);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -871,7 +902,7 @@ function safeNumber(value: bigint, label: string): number {
 function capturePreUpgrade(ctx: Ctx): PreUpgradeSnapshot {
   const blockNumber = settledBlock(ctx);
   if (!Number.isSafeInteger(blockNumber) || blockNumber < 0) fail('Error: could not capture the pre-upgrade block.');
-  say(`🔭  snapshotting the live stack at settled block ${String(blockNumber)}`);
+  say(`  🔭 snapshotting the live stack at settled block ${String(blockNumber)}`);
 
   const kms = ctx.opt.existing.KMS_VERIFIER_ADDRESS ?? '';
   const inputVerifier = ctx.opt.existing.INPUT_VERIFIER_ADDRESS ?? '';
@@ -1070,12 +1101,24 @@ type Log = {
 /** Blocks per `eth_getLogs` call. Public RPCs cap the range, and compute-to-verify can span days. */
 const LOG_WINDOW = 2000;
 
+/** One progress clock for every event scan of this run. See scanLogs. */
+let scanBeat: ReturnType<typeof heartbeat> | null = null;
+
 /** Every `signature` event `address` emitted from `fromBlock` to the head, fetched in RPC-sized windows. */
 function scanLogs(ctx: Ctx, address: string, signature: string, fromBlock: number): Log[] {
   const head = headBlock(ctx);
   const logs: Log[] = [];
+  // Days between compute and verify are thousands of blocks, in RPC-sized windows, for a dozen scans:
+  // the heartbeat is shared by all of them, or a dozen 50-second scans would never print a line.
+  scanBeat ??= heartbeat();
+  const beat = scanBeat;
   for (let from = fromBlock; from <= head; from += LOG_WINDOW) {
     const to = Math.min(from + LOG_WINDOW - 1, head);
+    if (beat.due()) {
+      say(
+        `    … scanning ${signature.split('(')[0] ?? signature} events: block ${String(from)} of ${String(head)} (${beat.elapsed()})`,
+      );
+    }
     const r = capture('cast', [
       'logs',
       '--json',
@@ -1266,14 +1309,23 @@ async function runReadOnly(
   env: NodeJS.ProcessEnv,
 ): Promise<boolean> {
   const script = requireScript(file);
-  const args = ['script', `${script}:${contract}`, '--out', out, '--rpc-url', ctx.opt.rpcUrl, ...traceArgs(ctx)];
+  const args = [
+    'script',
+    `${script}:${contract}`,
+    '--out',
+    out,
+    '--rpc-url',
+    ctx.opt.rpcUrl,
+    ...ctx.forgeArgs,
+    ...traceArgs(ctx),
+  ];
   return (await runLogged('forge', args, env)) === 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 async function stageCreates(ctx: Ctx): Promise<void> {
-  say('🥩 creates (one CREATE2 per create, each gated on getCode)');
+  stageBanner('creates', '🥩 Creates: one CREATE2 per create, each gated on getCode');
   ctx.stageLabel = 'creates';
   requireScript('FhevmUpgradeCreates.s.sol');
   await broadcast(ctx, 'upgrade/FhevmUpgradeCreates.s.sol:FhevmUpgradeCreates', undefined, undefined, existingEnv(ctx));
@@ -1284,7 +1336,9 @@ async function stageCreates(ctx: Ctx): Promise<void> {
  * failure, so the operator sees the whole picture before the one transaction that cannot be retried.
  */
 async function stagePrecheck(ctx: Ctx): Promise<void> {
-  say('🚧  precheck — everything that must hold before the atomic upgrade');
+  // A stage of its own only when asked for; inside rehearse and materialize it is one of their steps.
+  if (ctx.opt.stage === 'precheck') banner('🚧 Precheck: everything that must hold before the atomic upgrade');
+  else say('  🚧 precheck: everything that must hold before the atomic upgrade');
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...sealedMigrationEnv(ctx) };
   await step(ctx, 'precheck', 'pre-materialize check, from a fresh recompile', async () => {
     const ok = await runReadOnly(
@@ -1321,6 +1375,7 @@ async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; r
       ctx.opt.rpcUrl,
       '--out',
       ctx.buildOut,
+      ...ctx.forgeArgs,
       '--sender',
       ctx.opt.admin,
       ...traceArgs(ctx),
@@ -1346,7 +1401,7 @@ async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; r
  * copied in, not moved — the seal stays where it is.
  */
 async function stageRehearse(ctx: Ctx): Promise<void> {
-  say('🎭  rehearse — the upgrade on a fork of this chain');
+  stageBanner('rehearse', '🎭 Rehearse: the upgrade on a fork of this chain');
   requireTool('anvil');
   if (!ctx.opt.dryRun) await waitForCreatesSettled(ctx);
   await stagePrecheck(ctx);
@@ -1391,8 +1446,6 @@ async function stageRehearse(ctx: Ctx): Promise<void> {
       broadcastDir: join(forkDir, 'broadcast'),
       journalPath: join(forkDir, 'journal.jsonl'),
       useFinality: false,
-      nextMinBlock: 0,
-      finalityTarget: 0,
     };
     say(`  ✔ forked ${ctx.opt.rpcUrl} at block ${String(forkedAt)} onto ${forkUrl}`);
 
@@ -1432,7 +1485,7 @@ async function stageRehearse(ctx: Ctx): Promise<void> {
 }
 
 async function stageMaterialize(ctx: Ctx): Promise<void> {
-  say('🧩  materialize — one atomic ACLOwner.upgrade');
+  stageBanner('materialize', '🧩 Materialize: one atomic ACLOwner.upgrade');
   ctx.stageLabel = 'D';
   requireScript('FhevmMaterializeUpgrade.s.sol');
 
@@ -1478,8 +1531,8 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
  * orphaned is not a verdict. Run it again later at greater depth; `verify-report.json` records each run.
  */
 async function stageVerify(ctx: Ctx): Promise<void> {
-  say('✅  verify');
-  await waitForBlock(ctx, ctx.opt.minBlockOverride ?? ctx.nextMinBlock);
+  stageBanner('verify', '✅ Verify');
+  if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   await waitForMaterializeSettled(ctx);
   const out = checkBuildOut(ctx);
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx) };
@@ -1534,28 +1587,14 @@ function isMaterialized(ctx: Ctx): boolean {
  */
 async function waitForCreatesSettled(ctx: Ctx): Promise<void> {
   const { address } = sealedManifest(ctx);
-  const at = (role: string): string => address[role] ?? '';
-  const head = headBlock(ctx);
-  const absent = CREATE_ROLES.filter((role) => !hasCodeAt(ctx, at(role), head));
-  if (absent.length > 0) {
-    fail(
-      `Error: ${String(absent.length)} of ${String(CREATE_ROLES.length)} creates have no code at block ${String(head)}:`,
-      ...absent.map((role) => `         ${role}`),
-      '       Run creates first.',
-    );
-  }
-  for (;;) {
-    const settled = settledBlock(ctx);
-    const pending = CREATE_ROLES.filter((role) => !hasCodeAt(ctx, at(role), settled));
-    if (pending.length === 0) {
-      say(`  every create is settled at block ${String(settled)} (${settlementRule(ctx)})`);
-      return;
-    }
-    say(
-      `  waiting: ${String(pending.length)} create(s) not yet settled at block ${String(settled)} (${settlementRule(ctx)})`,
-    );
-    await sleep(12_000);
-  }
+  await awaitPrerequisites(
+    ctx,
+    'the ten creates',
+    CREATE_ROLES.map((role) => ({
+      what: `code at ${role}`,
+      holds: (block: number | null) => hasCodeAt(ctx, address[role] ?? '', block),
+    })),
+  );
 }
 
 /**
@@ -1574,21 +1613,25 @@ async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
       '       transaction was reorged out. --stage status says which; --stage materialize is safe to re-run.',
     );
   }
+  const beat = heartbeat();
+  let announced = false;
   for (;;) {
     const settled = settledBlock(ctx);
     if (settled >= block) {
       say(
         `  the materialize block ${String(block)} is settled (${settlementRule(ctx)}, settled block ${String(settled)})`,
       );
+      recordFinality(ctx);
       return block;
     }
-    say(`  waiting for block ${String(block)} to settle (${settlementRule(ctx)}, settled block ${String(settled)})`);
+    if (!announced || beat.due()) {
+      say(
+        `  waiting for block ${String(block)} to settle (${settlementRule(ctx)}, settled block ${String(settled)}${announced ? `, ${beat.elapsed()}` : ''})`,
+      );
+      announced = true;
+    }
     await sleep(12_000);
   }
-}
-
-function settlementRule(ctx: Ctx): string {
-  return ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1704,7 +1747,7 @@ function stageProgress(ctx: Ctx): void {
     say(`No progress ledger at ${progressPath(ctx)} - nothing has run for this upgrade yet.`);
     return;
   }
-  say(`📈  progress  (${progressPath(ctx)})`, '');
+  banner(`📈 Progress: ${progressPath(ctx)}`);
   say(`  ${pad('WHEN', 20)} ${pad('STAGE', 10)} ${pad('STATUS', 7)} ${pad('TOOK', 8)} ${pad('BLOCK', 9)} STEP`);
   const when = (row: ProgressEntry): string => pad(row.ts.slice(0, 19).replace('T', ' '), 20);
   const open = new Map<string, ProgressEntry>();
@@ -1734,7 +1777,7 @@ function stageStatus(ctx: Ctx): void {
     return;
   }
   say('-'.repeat(RULE_WIDTH));
-  say(`📋  status  ${ctx.opt.deploymentId} @ v0.13`);
+  banner(`📋 Status: ${ctx.opt.deploymentId} @ v0.13`);
   say('-'.repeat(RULE_WIDTH));
 
   const createRoles = CREATE_ROLES;
@@ -1847,6 +1890,8 @@ const UPGRADE_FLOW: Flow = {
   reportSteps: REPORT_STEPS,
   needsChain,
   needsDeployerKey,
+  adminSendingStages: ['materialize'],
+  readOnlyStages: ['precheck', 'verify', 'status'],
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1879,8 +1924,12 @@ async function main(): Promise<void> {
     // it is incidental, so a sealed upgrade past its first transaction skips it. Otherwise `--stage all`
     // could never resume the upgrade it started. Asked of the chain, so a run killed before it wrote its
     // journal still resumes rather than resealing.
+    // Before anything is sent, an existing complete seal — pre-upgrade snapshot included — is reused,
+    // never recomputed: the snapshot is the only witness to "before", and the operator committed it.
     if (upgradeStarted(ctx)) {
-      say('🍟 compute already sealed and past its first transaction - skipping (resume)');
+      stageBanner('compute', '🍟 Compute: already sealed and past its first transaction - skipping (resume)');
+    } else if (isCompleteSeal(ctx, ['preUpgrade'])) {
+      stageBanner('compute', `🍟 Compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
     } else {
       await stageCompute(ctx);
     }

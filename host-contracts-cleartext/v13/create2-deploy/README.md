@@ -15,14 +15,16 @@ To check it yourself:
 
 ```sh
 forge build create2-deploy/script/*.s.sol --out /tmp/draftout   # Solidity
-./node_modules/.bin/tsc -p create2-deploy/tsconfig.json --noEmit  # TypeScript
-node create2-deploy/deploy-testnet.ts --help
+npx tsc -p create2-deploy/tsconfig.json --noEmit                  # TypeScript
+create2-deploy/deploy-cli --help
 ```
 
-The coordinator is TypeScript run by **plain `node`** (≥ 22.6), which strips types at load — no tsx,
+The coordinator is TypeScript run by **plain `node`** (≥ 22.18), which strips types at load — no tsx,
 no build step, no dependencies, no `jq`. `erasableSyntaxOnly` in the tsconfig enforces that: it fails
 the typecheck on anything node cannot strip (`enum`, `namespace`, parameter properties), so the
-editor catches it before node does.
+editor catches it before node does. Operators never call `node` themselves: `deploy-cli` and
+`upgrade/upgrade-cli` are small bash launchers that check the Node version, follow a symlink to their real
+location, and run the `.ts` file beside them in `ts/`.
 
 Read it, decide whether the shape is right, then throw it away and write the real thing under
 `pkg/forge/script/`.
@@ -31,11 +33,15 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 
 | File | Plan section | What it is |
 | --- | --- | --- |
-| [deploy-testnet.ts](deploy-testnet.ts) | §1, §3, §11 | fresh-stack coordinator: preflight gates, 3 builds, one forge invocation per stage |
-| [upgrade/testnet.ts](upgrade/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v12 stack without moving ownership or pausers |
+| [deploy-cli](deploy-cli) | — | the operator's entry point for a fresh deploy: checks Node, runs `ts/deploy-testnet.ts` |
+| [ts/deploy-testnet.ts](ts/deploy-testnet.ts) | §1, §3, §11 | fresh-stack coordinator: preflight gates, 3 builds, one forge invocation per stage |
+| [upgrade/upgrade-cli](upgrade/upgrade-cli) | — | the operator's entry point for an upgrade: checks Node, runs `upgrade/ts/testnet.ts` |
+| [upgrade/ts/testnet.ts](upgrade/ts/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v12 stack without moving ownership or pausers |
 | [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) | — | the upgrade as terminal commands, in order, with what "good" looks like at each step |
-| [utils.ts](utils.ts) | — | dependency-free helpers: process running, JSONL, path containment |
-| `deploy.config.json` | — | optional, auto-discovered: the stable arguments, so they aren't retyped |
+| [ts/common.ts](ts/common.ts) | — | everything the two coordinators share: options, config file, preflight, journal, broadcast |
+| [ts/utils.ts](ts/utils.ts) | — | dependency-free helpers: process running, JSONL, path containment |
+| `deploy.config.json` | — | optional, read from the current directory: the stable arguments, so they aren't retyped |
+| [create2-deploy.config.json](create2-deploy.config.json) | — | the testnets the tool may broadcast to |
 | [anvil-config.json](anvil-config.json) | — | ready-made config for the local rehearsal — see GUIDE |
 | [tsconfig.json](tsconfig.json) | — | editor + `tsc --noEmit` only; nothing is ever built from it |
 | [script/FhevmCreate2Base.s.sol](script/FhevmCreate2Base.s.sol) | §3, §5.4, §9 | env config, role table, salts, initcode, factory call, manifest codec |
@@ -91,13 +97,19 @@ skipped, what didn't is retried **at the same address**. The one unsafe moment i
 the previous attempt's transactions are still in the mempool — the coordinator refuses to start when
 the sender's pending nonce is ahead of its latest.
 
-Steps A–F additionally require `FHEVM_MIN_BLOCK` and refuse to start before it. In `all` mode the
-coordinator derives it per stage as *previous stage's head + `--confirmations`*, and also waits for
-that previous head to **finalize**; for a single manual stage, pass `--min-block N`.
+**Every stage starts only once what it depends on is settled.** Before A–F and `verify`, the
+coordinator checks the stage's prerequisites — the chain state earlier steps wrote: code at the creates,
+`isPauser(ACLOwner)`, the ownership offers and acceptances, the materialized slots — **at the settled
+block** (`finalized`, or `--confirmations` behind the head with `--no-finality`). All settled: the stage
+starts at once, whatever ran before — a restart, a Ctrl-C, another machine. Done at the head but not
+settled: it waits, a line a minute. Not done even at the head: it stops and names what is missing. The
+decision is the chain's, never a memory of "where the previous stage ended", so a single manual
+`--stage` is exactly as safe as `all`. The scripts still require `FHEVM_MIN_BLOCK` (set to the settled
+block that was checked) as a second line of defence; `--min-block N` adds a manual floor.
 
 ### Upgrading a v12 stack
 
-`upgrade/testnet.ts` has a separate four-stage flow because it preserves the live ACL, executor,
+`upgrade/upgrade-cli` has a separate flow because it preserves the live ACL, executor,
 verifiers, HCU limit, cleartext contracts, `PauserSet`, and `ACLOwner`:
 
 ```text
@@ -162,8 +174,8 @@ that decides anything is read from a local file**:
 | `materialize` after a completed materialize | the seven slots | head | `precheck` says "already materialized", `rehearse` steps aside, the script returns without sending, `verify` runs — a resumed `all` finishes rather than failing |
 
 "Settled" means the `finalized` block when the chain serves the tag, and `--confirmations` behind the head
-with `--no-finality`. The in-memory "previous stage's head plus confirmations" wait is still there; it is
-no longer what the safety rests on.
+with `--no-finality`. There is no in-memory wait any more: every stage, in both tools, decides from the
+chain at the settled block.
 
 Two rules make the layers worth having. **Every expectation comes from the seal, the source or a different
 contract** — never from the value under test, which is why `verify` recompiles into an empty `build-check`
@@ -189,10 +201,10 @@ What is **not** proven, and would have to be added to prove it:
 ## Checking a stage before running it
 
 ```sh
-node deploy-testnet.ts … --report                  # which STEPS ran, with the tx that did each
-node deploy-testnet.ts … --stage status            # what's done, what's left, and why
-node deploy-testnet.ts … --stage log               # every tx, in the order it was sent
-node deploy-testnet.ts … --stage creates --dry-run # is this stage ready? sends nothing
+deploy-cli … --report                  # which STEPS ran, with the tx that did each
+deploy-cli … --stage status            # what's done, what's left, and why
+deploy-cli … --stage log               # every tx, in the order it was sent
+deploy-cli … --stage creates --dry-run # is this stage ready? sends nothing
 ```
 
 Four read-only views, answering four different questions:
@@ -241,21 +253,45 @@ decide anything.** Resume is `getCode(addr) != ""` and the other chain predicate
 log becomes an input to that decision it's a second opinion that can disagree with the chain — the
 exact failure the CREATE2 path exists to avoid. It is for humans, after the fact.
 
-One JSON object per transaction, appended across stages, distilled from forge's own `run-latest.json`
-(so it invents no facts — it flattens ten of them into one stream, tagged by stage):
+Append-only JSON lines, across stages, distilled from forge's own broadcast records and checked
+against the chain (so it invents no facts). Three kinds of line:
+
+| `kind` | what | written |
+| --- | --- | --- |
+| `tx` (or none, in older journals) | one transaction: hash, sender, nonce, **block and block hash**, status, gas | after each stage, from every `run-*.json` forge kept; a later line for the same hash supersedes the earlier one (`unmined` → mined) |
+| `stage-start` | sender, nonce, head block | **before** forge starts a broadcasting stage |
+| `finalized` | hash, block, block hash, the settled block at that time, the rule (`finalized` or `N blocks deep`) | once the block is settled AND the block at that height still has the recorded hash |
+
+`unmined` means *sent, no receipt yet*: a transaction forge planned but never signed has no hash and is
+not recorded at all.
 
 ```
-  STAGE      STATUS    BLOCK     WHAT                           ADDRESS / TX
-  creates    ok        6240913   ERC1967Proxy                   0xACL01…
-  A/A'       REVERTED  6240930   addPauser(address)             0xPAU02…
-  D          ok        6240955   upgrade((address,address,bytes 0xOWN03…
-  F          ok        6241002   admin accepted ACLOwner owners -
+  STAGE      STATUS    BLOCK     FINAL  WHAT                           ADDRESS / TX
+  creates    ok        6240913   yes    ERC1967Proxy                   0xACL01…
+  A/A'       REVERTED  6240930   yes    addPauser(address)             0xPAU02…
+  D          ok        6240955   no     upgrade((address,address,bytes 0xOWN03…
+  F          ok        6241002   -      admin accepted ACLOwner owners -
 ```
+
+**It is completed at the start of every run that reaches a node** (`reconcileJournal`), so an
+interruption cannot leave a hole in it:
+
+1. a transaction forge recorded but the journal never got (the run was killed before writing) is read
+   back from forge's `run-*.json` files, flagged `recovered: broadcast-file`;
+2. a transaction sent with NO record at all (killed before forge wrote anything) is found on chain:
+   the nonces after a `stage-start` anchor that no line accounts for are looked up by scanning the
+   blocks from the anchor forward, flagged `recovered: nonce-scan`;
+3. older lines lacking sender, nonce or block hash are completed from the chain;
+4. finality is recorded for whatever has settled since; a transaction whose block hash changed is a
+   reorg, re-read from the chain and warned about.
+
+"Nothing decides from the journal" still holds for what is DONE: that is always the chain's predicates.
+The journal answers only "has this deployment sent anything yet" (the seal gate and `compute`'s refusal).
 
 Three details that matter more than the format:
 
-- **It is written even when a stage fails.** `broadcast()` captures forge's exit code rather than
-  letting `set -e` abort, records, *then* exits. A half-finished stage is exactly what the trail is
+- **It is written even when a stage fails.** `broadcast()` captures forge's exit code, records, *then*
+  exits. A half-finished stage is exactly what the trail is
   for; aborting before recording would drop the transactions someone needs to look at.
 - **Reverts are counted and warned about per stage**, not left to scroll past. A reverted create is
   not fatal here — it doesn't burn its address (§2) — but it should never be silent.
@@ -269,7 +305,8 @@ a run leaves nothing in the package root) — when a journal line isn't enough, 
 calldata and gas breakdown is one directory away.
 
 Everything a run writes lives under `--out-dir` (default `create2-deploy/.out`), and it should
-be **one directory per chain** — `--out-dir .out-sepolia`, `--out-dir .out-amoy`. The *addresses*
+be **one directory per chain** — anywhere on disk, inside the repository or in an operator's own
+folder (see [DEPLOY.md](DEPLOY.md)). The *addresses*
 are the same on every chain for a given deployer + deploymentId (§14.1), which is the point; what's
 per-chain is the `chainId` in the manifest and everything about what was actually sent. Sharing one
 directory would reseal over another chain's manifest and interleave its journal — losing the only
@@ -282,15 +319,15 @@ already there was sealed for a different chain.
 | `broadcast/…/run-latest.json` | forge's raw records | no |
 | `manifest.json` | the seal — salts, init-code hashes, addresses | **before any tx** (§9) |
 | `addresses.sol` | the generated config | **before any tx** (§9) |
-| `pass2.json` | compute's pass-2 → pass-3 scratch | no |
+| `pass2.json` | compute's pass-2 → pass-3 scratch; deleted once `manifest.json` is a complete seal, kept for diagnosis otherwise | no |
 | `build/` | `forge --out` | no |
 
 A deployment spans many invocations, often days apart. Two mechanisms keep them consistent, and they
 work from opposite ends:
 
-- **A config file removes the retyping.** `--config PATH`, or `deploy.config.json` beside the script,
+- **A config file removes the retyping.** `--config PATH`, or `./deploy.config.json` in the current directory,
   holding the stable half — what this deployment *is*. **Any flag overrides it**, so a one-off
-  `--rpc-url` needs no edit. It deliberately rejects `stage`, `dryRun`, `minBlock` and `yes`: those
+  `--rpc-url` needs no edit. It deliberately rejects `stage`, `dryRun`, `minBlock`, `noConfirm` and the other per-run flags: those
   are what one invocation *does*, and pinning them would make every invocation the same one. Unknown
   keys are rejected too, since a typo here selects a different address set.
 - **Preflight catches drift anyway**, against the manifest — because a config file is a convention,
@@ -338,7 +375,8 @@ read from a block that is about to be orphaned is not a stale display value, it'
 not happening. A reorged-away `addPauser` that the predicate reported as done is a stack that reaches
 §7's terminal conditions with no pauser.
 
-The coordinator waits *and* passes the number; the script refuses independently. That's the same
+The coordinator decides at the settled block (see "Every stage starts only once what it depends on is
+settled" above) *and* passes that block number; the script refuses independently. That's the same
 argument as every other gate here — a `sleep` in this shell binds this shell, not §13's TS driver or
 an operator running one `--stage` by hand. `0` is a legitimate value (the first stage of a run passes
 it) but there is **no default**, so skipping the wait is a decision someone made rather than a
@@ -470,20 +508,22 @@ fs_permissions = [
 ]
 ```
 
-That list is also what bounds `--out-dir`. Forge does accept absolute entries, including outside the
-project root — verified, not assumed — but it is static config, so granting one per deployment
-doesn't scale. The shell therefore grants a single root, resolves relative values against it, and
-**rejects an out dir outside it at startup**; otherwise forge notices only midway through pass 1,
-after two builds, complaining about a path the operator never typed. Giving the CREATE2 path its own
-root rather than sharing `./internal/.deploy-config` also keeps either path from clobbering the
-other's config.
+That list no longer bounds `--out-dir`. Forge ignores `fs_permissions` in the environment, so the
+coordinator writes a config of its own into `<out-dir>/.foundry/foundry.toml`: forge's fully resolved
+config (`forge config`), every path made absolute, plus the out dir in `fs_permissions` and
+`allow_paths`, and `cache_path` moved to `<out-dir>/cache`, passed to every forge call as
+`--root <package> --config-path <it>`. The cache move keeps forge's build cache and its "sensitive
+values" copy of each broadcast (the RPC URL, which can embed an API key) with the deployment, out of
+the tool checkout. Before any build it resolves both configs again and refuses to run if anything but
+those three fields differs, because every address is a hash of the compiled bytecode. The repository's `foundry.toml` is never edited, and an out
+dir that contains the package is refused.
 
 ## Running it
 
 A real testnet, which has not been done yet:
 
 ```sh
-node create2-deploy/deploy-testnet.ts \
+create2-deploy/deploy-cli \
   --rpc-url        "$SEPOLIA_RPC_URL" \
   --account        fhevm-testnet-deployer \
   --admin          0x… \
@@ -496,8 +536,8 @@ is allowed only because the node answers `anvil_nodeInfo`:
 
 ```sh
 anvil --silent &
-node create2-deploy/deploy-testnet.ts --config create2-deploy/anvil-config.json \
-  --out-dir .out-rehearsal --no-confirm --stage all
+create2-deploy/deploy-cli --config create2-deploy/anvil-config.json \
+  --out-dir create2-deploy/.out-rehearsal --no-confirm --stage all
 ```
 
 **This is not the path for local dev.** RULES.md rules 15 and 17 require the local stack to land on the

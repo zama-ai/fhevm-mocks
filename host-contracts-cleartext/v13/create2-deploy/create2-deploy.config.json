@@ -1,0 +1,21 @@
+{
+  "//": [
+    "The chains deploy-cli and upgrade/upgrade-cli may broadcast to. A local anvil is always accepted",
+    "and needs no entry. TESTNETS ONLY: the cleartext stack's KMS and coprocessor keys derive from a",
+    "published mnemonic, so on a mainnet anyone can sign for it. Never add one. A short list of well-known",
+    "mainnets is also blocked in ts/common.ts (KNOWN_MAINNET_CHAIN_IDS), so adding one of those here by mistake",
+    "still fails. A chain also needs the canonical CREATE2 factory at 0x4e59b448... with the pinned code",
+    "hash, which preflight checks."
+  ],
+  "allowedChains": [
+    { "chainId": 11155111, "name": "Sepolia" },
+    { "chainId": 17000, "name": "Holesky" },
+    { "chainId": 84532, "name": "Base Sepolia" },
+    { "chainId": 421614, "name": "Arbitrum Sepolia" },
+    { "chainId": 560048, "name": "Hoodi" },
+    { "chainId": 97, "name": "BNB Smart Chain Testnet" },
+    { "chainId": 80002, "name": "Polygon Amoy" },
+    { "chainId": 936486, "name": "Zenith TREX Testnet" },
+    { "chainId": 936485, "name": "Zenith Testnet" }
+  ]
+}
