@@ -44,6 +44,7 @@ import { publishOrder } from './commands/publish-order.ts';
 import { publishPack } from './commands/publish-pack.ts';
 import { publishRender } from './commands/publish-render.ts';
 import { syncVendoredCommand } from './commands/sync-vendored.ts';
+import { syncPinnedCommand } from './commands/sync-pinned.ts';
 import { bumpVendoredCommand } from './commands/bump-vendored.ts';
 import { testConsumerRegeneratePackageLock } from './commands/test-consumer-regenerate-package-lock.ts';
 import { testConsumer } from './commands/test-consumer.ts';
@@ -135,6 +136,12 @@ async function main(): Promise<void> {
     return;
   }
   const manifest = loadNpmManifest(options.manifestFile);
+  if (options.command === 'sync-pinned') {
+    const report = syncPinnedCommand({ workspaceRoot: options.workspaceRoot, manifest, check: options.check });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
   if (options.command === 'sync-vendored') {
     const report = syncVendoredCommand({
       workspaceRoot: options.workspaceRoot,

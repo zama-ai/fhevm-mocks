@@ -55,6 +55,7 @@ export type CliOptions = {
     | 'sync-fhevm-chains'
     | 'sync-hh-v2-constants' // hh-v2-constants
     | 'sync-vendored'
+    | 'sync-pinned'
     | 'bump-vendored'
     | 'test-consumer'
     | 'test-consumer-regenerate-package-lock';
@@ -108,6 +109,7 @@ export type CliOptions = {
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
   | { readonly command: 'sync-hh-v2-constants'; readonly check: boolean } // hh-v2-constants
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
+  | { readonly command: 'sync-pinned'; readonly check: boolean }
   | {
       readonly command: 'bump-vendored';
       readonly selector: string;
@@ -194,6 +196,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
       }
     | undefined;
   let syncVendored: { readonly check: boolean; readonly digest: boolean } | undefined;
+  let syncPinned: { readonly check: boolean } | undefined;
   let bumpVendored:
     | {
         readonly selector: string;
@@ -467,6 +470,13 @@ Why:
     .action((options: { readonly check: boolean; readonly digest: boolean }) => {
       syncVendored = { check: options.check, digest: options.digest };
     });
+  sync
+    .command('pinned')
+    .description("Copy npm-manifest.json's pinned dependency specs into every package.json that declares them.")
+    .option('--check', 'compare instead of writing, and fail on any difference', false)
+    .action((options: { readonly check: boolean }) => {
+      syncPinned = { check: options.check };
+    });
   // Distinct from `sync`: this MOVES a pin, then syncs what follows from it.
   const bump = program.command('bump').description('Move a recorded pin, and everything derived from it.');
   bump
@@ -717,6 +727,7 @@ Why:
     !regenerateConsumerPackageLocks &&
     testConsumer === undefined &&
     syncVendored === undefined &&
+    syncPinned === undefined &&
     bumpVendored === undefined &&
     generateExports === undefined &&
     generateCleartextConfig === undefined &&
@@ -731,6 +742,16 @@ Why:
   }
   const options = program.opts<RawOptions>();
   const workspaceRoot = resolve(options.root);
+  if (syncPinned !== undefined) {
+    return {
+      command: 'sync-pinned',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...syncPinned,
+    };
+  }
   if (syncVendored !== undefined) {
     return {
       command: 'sync-vendored',
