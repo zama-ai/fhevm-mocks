@@ -197,11 +197,12 @@ grep -rln --exclude-dir=node_modules --exclude-dir=_types --exclude-dir=_cjs --e
 
 Three groups, in increasing order of effort:
 
-1. **The previous-generation edge** — `internal/constants.ts` (`PREVIOUS_GENERATION_DIR_ABS_PATH`),
-   the devDependency pin in `package.json`, and the import specifier
-   `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`,
-   plus the CREATE2 side: `create2-deploy/upgrade/anvil-config.json`'s `previousAbiDir` and the default in
-   `create2-deploy/upgrade/testnet.ts`.
+1. **The previous-generation edge** — the devDependency pin in `package.json`, the import specifier
+   `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`, and
+   `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`. Every one of them lives in
+   an `upgrade/` directory that the rotation deletes whole, except the forge side of the same edge: the
+   `@fhevm/host-contracts-cleartext-v13-dev/` line in `remappings.txt` and `allow_paths` in `foundry.toml`,
+   which `test/upgrade/CleartextGenerationUpgrade.t.sol` compiles through. `ROTATION.md` lists those two.
 
    Much smaller than it used to be. The e2e once built v(N-1), packed it, and extracted it under an
    alias in `test/ts/node_modules` just to obtain an importable copy — a whole `prepareTestV13Consumer`

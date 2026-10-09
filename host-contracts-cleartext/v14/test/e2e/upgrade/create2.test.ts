@@ -34,7 +34,24 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
-import { PACKAGE_ROOT_ABS_PATH, PREVIOUS_GENERATION_DIR_ABS_PATH } from '../../../internal/constants.ts';
+import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
+
+/**
+ * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
+ * processes, and cleaning its build output. Declared here because this file is its only caller, and
+ * both go when the pair rotates.
+ *
+ * TypeScript that merely wants v13's code must NOT come through here. v13 is a workspace member, so
+ * it is imported like any dependency — `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts`,
+ * resolved through the link npm created, with types and go-to-definition intact. The upgrade e2e used
+ * to build v13, pack it and extract it under an alias in `test/ts/node_modules` purely to get an
+ * importable copy; a workspace link does that already, and the whole apparatus is gone.
+ *
+ * A tarball is for testing the PUBLISH CONTRACT — `files` omissions, undeclared deps, stale output —
+ * and it is worth its cost only when the packed artifact is what is on trial. Using one to obtain a
+ * sibling's source code buys nothing and pays a build, a pack and an install for it.
+ */
+const PREVIOUS_GENERATION_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', 'v13');
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration

@@ -15,7 +15,7 @@ cd sdk/host-contracts-cleartext/v14
 rm -rf create2-deploy/upgrade          # the upgrade CLI, its config, its runbook
 rm -rf create2-deploy/script/upgrade   # the 8 Solidity scripts that CLI runs
 rm -rf internal/upgrade                # starts the upgrade test
-rm -rf test/upgrade                    # forge test for the upgrade tables
+rm -rf test/upgrade                    # forge tests: the upgrade tables, and a v13 stack brought forward
 rm -rf test/e2e/upgrade                # upgrades a real v13 stack through the CLI
 rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
 ```
@@ -35,7 +35,19 @@ name starts with `test:upgrade`, not only the one called that.
 `test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`. Nothing
 else in `package.json` changes.
 
-## 3. Keep these
+## 3. Delete two lines in the forge config
+
+The forge side of the same edge: `test/upgrade/CleartextGenerationUpgrade.t.sol` compiles against v13's forge
+payload through these, and it is gone after step 1.
+
+```sh
+# remappings.txt
+@fhevm/host-contracts-cleartext-v13-dev/=../v13/
+# foundry.toml (with the comment above it)
+allow_paths = ["../v13"]
+```
+
+## 4. Keep these
 
 They mention v13, but they are not going anywhere:
 
@@ -50,7 +62,7 @@ Other files mention v13 too. They describe what v14 upgrades _from_, which stays
 commit as `pkg/src/contracts` (rule 5.1.3c), and `check:zama-config` reads it. It goes with the generation: it
 leaves only when v14 itself is retired, and it is never edited by hand — `fhevm-npm sync vendored` owns it.
 
-## 4. Check it worked
+## 5. Check it worked
 
 ```sh
 cd ../..
@@ -64,11 +76,10 @@ forge build && forge test && npm run lint && npm run test
 
 Green means v14 is complete without v13.
 
-## 5. Tidy the docs (optional)
+## 6. Tidy the docs (optional)
 
-Nothing reads documentation, so skip this if you like. These four still describe the deleted folders:
+Nothing reads documentation, so skip this if you like. These three still describe the deleted folders:
 
 - `README.md`
-- `WIRING.md`
 - `create2-deploy/README.md`
 - `create2-deploy/GUIDE.md`
