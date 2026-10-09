@@ -71,6 +71,9 @@ jobs:
               - '!.github/workflows/sdk-cleartext-publish-*.yml'
               # Prose only: no check or test reads these.
               - '!fhevm-npm-docs/**'
+              # Deployment records: data no build or test reads. sdk-cleartext-deployments.yml
+              # checks them on every pull request, whatever else it changes.
+              - '!deployments/**'
 
   run-tests:
     name: sdk-cleartext-tests/test (bpr)

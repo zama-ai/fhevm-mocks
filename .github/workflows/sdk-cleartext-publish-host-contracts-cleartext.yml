@@ -8,6 +8,11 @@ on:
         required: false
         default: true
         type: boolean
+      latest:
+        description: 'Publish X.Y.Z as npm latest (unchecked: next; X.Y.Z-A is always alpha)'
+        required: false
+        default: true
+        type: boolean
 
 # No permissions at the workflow level — the calling job declares only what it needs.
 permissions: {}
@@ -24,5 +29,6 @@ jobs:
     with:
       build_target: 'compile-cleartext-v-cur' # Build the current host-contracts-cleartext.
       dry_run: ${{ inputs.dry_run }}
+      latest: ${{ inputs.latest }}
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
