@@ -1,7 +1,7 @@
 {
   "$schema": "./fhevm-npm/schemas/npm-manifest.schema.json",
   "inventory": {
-    "exclude": ["./js-sdk", "./cli-js-sdk"]
+    "exclude": ["./js-sdk", "./cli-js-sdk", "./host-contracts-cleartext/v15", "./host-contracts-cleartext/v16"]
   },
   "dependencies": {
     "forbidden": ["solhint"],
@@ -92,7 +92,7 @@
       "member": true,
       "publishedRelPath": "./host-contracts-cleartext/v13/pkg",
       "dependencyGroup": "host-contracts-cleartext/v13",
-      "note": "Current generation, and the reference implementation every older generation is derived from.",
+      "note": "Older generation. Reachable as @fhevm/host-contracts-cleartext-v13-dev/pkg/... only because this manifest declares no `exports`.",
       "vendored": [
         {
           "relPath": "./internal/zama-config",
@@ -121,7 +121,7 @@
       "mirror": {
         "repository": "https://github.com/zama-ai/host-contracts-cleartext"
       },
-      "note": "The only generation whose published package is a member, so the shared name resolves to exactly one directory.",
+      "note": "Deliberately not a member: it shares its published name with v14/pkg, and listing both would make that name ambiguous.",
       "vendored": [
         {
           "relPath": "./src/contracts",
@@ -185,6 +185,7 @@
       "member": true,
       "publishedRelPath": "./host-contracts-cleartext/v14/pkg",
       "dependencyGroup": "host-contracts-cleartext/v14",
+      "note": "Current generation, and the reference implementation every older generation is derived from.",
       "vendored": [
         {
           "relPath": "./internal/zama-config",
