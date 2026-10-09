@@ -30,7 +30,7 @@
 // stay covered by the deploy tests and `VerifyFhevmDeploy`, which read them back off a live chain.
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { PACKAGE_ROOT_ABS_PATH } from '../internal/constants.ts';
@@ -80,6 +80,10 @@ const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path:
   {
     label: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
     path: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
+    // The CREATE2 upgrade lane is what a rotation deletes from V(N-1) (ROTATION.md § 1), so on the next
+    // generation's branch this file is legitimately gone. Everything else in the list stays for the life
+    // of the generation, so only this entry may be absent.
+    optional: true,
   },
 ];
 
@@ -254,7 +258,8 @@ const PLAIN_CONTRACTS: ReadonlyArray<{
 
 void test('no deploy layer deploys a plain upstream contract', () => {
   const offences: string[] = [];
-  for (const { label, path } of DEPLOY_LAYER_FILES) {
+  for (const { label, path, optional } of DEPLOY_LAYER_FILES) {
+    if (optional === true && !existsSync(join(PACKAGE_ROOT_ABS_PATH, path))) continue;
     const source = read(path);
     for (const { role, forbidden } of PLAIN_CONTRACTS) {
       for (const { pattern, what } of forbidden) {
