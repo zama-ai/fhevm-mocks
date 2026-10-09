@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 //
-// Small, dependency-free helpers for deploy-testnet.ts.
+// Small, dependency-free helpers for the two CREATE2 coordinators.
 //
-// Runs on plain `node` (>= 22.6), which strips types at load. That constrains the syntax to the
+// Runs on plain `node` (>= 22.18), which strips types at load. That constrains the syntax to the
 // "erasable" subset: no `enum`, no `namespace`, no parameter properties, and relative imports must
 // carry their `.ts` extension. Union types stand in for enums throughout.
 
@@ -58,6 +58,26 @@ export function say(...lines: readonly string[]): void {
   }
 }
 
+const BANNER_RULE = '*'.repeat(60);
+
+/**
+ * The start of a stage, so a reader can tell where one ends and the next begins:
+ *
+ *   (blank line)
+ *   (blank line)
+ *   ************************************************************
+ *   **   🥬 Step E: offer the ACLOwner to the admin
+ *   ************************************************************
+ *   (blank line)
+ *
+ * No closing `**` on the title line: an emoji is one character but two columns wide in most terminals,
+ * so a right edge would never line up. Forge scripts print a banner of their own (`=== … ===`) inside
+ * the stage; this is the stage's.
+ */
+export function banner(title: string): void {
+  say('', '', BANNER_RULE, `**   ${title}`, BANNER_RULE, '');
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /** Only the first line is labeled; the rest are indented to align under it. */
@@ -84,17 +104,49 @@ export function run(cmd: string, args: readonly string[], env?: NodeJS.ProcessEn
 }
 
 /**
- * `run`, streaming the child's output live AND into the transcript.
+ * `run`, streaming the child's output live — and into the transcript, when one is being kept.
+ *
+ * Without a transcript the child gets the real terminal: forge draws its live progress (transactions
+ * being sent, receipts arriving) only when its output IS a terminal, so a pipe would hide all of it and a
+ * broadcast would look frozen for minutes. With a transcript the output has to be piped to be copied, so
+ * that progress is lost; `progress`, if given, is printed every `progressMs` while the child runs to
+ * make up for it.
  *
  * Async because streaming and capturing at once needs pipes, and a pipe is read as it fills. The exit
  * code is returned, never thrown on, for the same reason as `run`.
  */
-export function runLogged(cmd: string, args: readonly string[], env?: NodeJS.ProcessEnv): Promise<number> {
+export function runLogged(
+  cmd: string,
+  args: readonly string[],
+  env?: NodeJS.ProcessEnv,
+  progress?: () => string,
+  progressMs = 30_000,
+): Promise<number> {
   return new Promise((resolveCode) => {
-    const child = spawn(cmd, args as string[], {
-      stdio: ['inherit', 'pipe', 'pipe'],
-      env: env ? { ...process.env, ...env } : process.env,
-    });
+    const childEnv = env ? { ...process.env, ...env } : process.env;
+    if (transcriptPath === null) {
+      const child = spawn(cmd, args as string[], { stdio: 'inherit', env: childEnv });
+      child.on('error', () => {
+        resolveCode(1);
+      });
+      child.on('close', (code) => {
+        resolveCode(code ?? 1);
+      });
+      return;
+    }
+
+    const child = spawn(cmd, args as string[], { stdio: ['inherit', 'pipe', 'pipe'], env: childEnv });
+    // Piped, the child shows no live progress of its own, so something here must: the caller's line if it
+    // has a better one, otherwise which command is still running and for how long.
+    const beat = heartbeat(progressMs);
+    const line = progress ?? (() => `  … ${cmd} ${args[0] ?? ''} still running (${beat.elapsed()})`);
+    const timer = setInterval(() => {
+      say(line());
+    }, progressMs);
+    const stop = (code: number): void => {
+      clearInterval(timer);
+      resolveCode(code);
+    };
     child.stdout.on('data', (chunk: Buffer) => {
       process.stdout.write(chunk);
       transcribe(chunk.toString());
@@ -104,12 +156,39 @@ export function runLogged(cmd: string, args: readonly string[], env?: NodeJS.Pro
       transcribe(chunk.toString());
     });
     child.on('error', () => {
-      resolveCode(1);
+      stop(1);
     });
     child.on('close', (code) => {
-      resolveCode(code ?? 1);
+      stop(code ?? 1);
     });
   });
+}
+
+/** Is a transcript being kept? Then a child's output is piped, and its own live progress is not shown. */
+export function transcriptActive(): boolean {
+  return transcriptPath !== null;
+}
+
+/**
+ * A rate limiter for "still waiting" lines: true at most once per `ms`, starting `ms` after creation.
+ * A wait loop that polls every few seconds then speaks once a minute — never silent for long, never a
+ * flood. `elapsed()` says how long the wait has been going, for the line itself.
+ */
+export function heartbeat(ms = 60_000): { readonly due: () => boolean; readonly elapsed: () => string } {
+  const started = Date.now();
+  let last = started;
+  return {
+    due: () => {
+      const now = Date.now();
+      if (now - last < ms) return false;
+      last = now;
+      return true;
+    },
+    elapsed: () => {
+      const s = Math.round((Date.now() - started) / 1000);
+      return s < 60 ? `${String(s)}s` : `${String(Math.floor(s / 60))}m${String(s % 60).padStart(2, '0')}s`;
+    },
+  };
 }
 
 ////////////////////////////////////////////////////////////////////////////////

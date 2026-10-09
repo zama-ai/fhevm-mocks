@@ -1,15 +1,20 @@
 # GUIDE
 
-`deploy-testnet.ts` can be run from any directory — it locates the package root from its own path and
-switches there itself. Paths behave as follows:
+> **Start here instead:** [DEPLOY.md](DEPLOY.md) to deploy a stack on a live testnet, and
+> [UPGRADE.md](UPGRADE.md) to upgrade a running v12 stack. This file is the detailed reference.
 
-|             | resolved against                                 | example                                                        |
-| ----------- | ------------------------------------------------ | -------------------------------------------------------------- |
-| `--config`  | your current directory                           | `--config ./configs/amoy.json`                                 |
-| `--out-dir` | `create2-deploy/`, and must stay inside it | `--out-dir .out-sepolia` → `create2-deploy/.out-sepolia` |
+Run every command below from `host-contracts-cleartext/v13/create2-deploy`. The two launchers,
+`deploy-cli` and `upgrade/upgrade-cli`, locate the package root from their own path, so they work from
+any directory; without `--config` they read `deploy.config.json` / `upgrade.config.json` from the
+**current** directory, which is why this guide runs them from here. Paths behave as follows:
 
-The `git` and `jq` snippets further down are written relative to the package root
-(`sdk/host-contracts-cleartext/v13`).
+|                                                  | resolved against         | example                                                         |
+| ------------------------------------------------ | ------------------------ | --------------------------------------------------------------- |
+| `--config`, `--out-dir`, …                       | your current directory   | `--out-dir .out-sepolia` → `.out-sepolia`        |
+| `outDir`, `previousManifest`, … in a config file | the config file's folder | `"outDir": ".out-sepolia"` in `deploy.config.json` → the same   |
+
+The out dir can be anywhere, inside the repository or not (see [DEPLOY.md](DEPLOY.md) for an operator
+folder outside it).
 
 ## 0. Setup
 
@@ -19,7 +24,8 @@ cast wallet list
 cast wallet address --account fhevm-testnet-deployer
 ```
 
-`create2-deploy/deploy.config.json` — picked up automatically, one file per deployment:
+`deploy.config.json`, in `create2-deploy/` — picked up automatically from the current directory, one file
+per deployment:
 
 ```json
 {
@@ -32,27 +38,23 @@ cast wallet address --account fhevm-testnet-deployer
 }
 ```
 
-```sh
-D="node create2-deploy/deploy-testnet.ts"
-```
-
 Any flag overrides the file, so a one-off needs no edit:
 
 ```sh
-$D --rpc-url https://other.example --stage status
-$D --config ./configs/amoy.json --stage all
+./deploy-cli --rpc-url https://other.example --stage status
+./deploy-cli --config ./configs/amoy.json --stage all
 ```
 
 ## 1. Compute the addresses
 
 ```sh
-$D --stage compute
+./deploy-cli --stage compute
 ```
 
 ## 2. Seal
 
 ```sh
-git add -f create2-deploy/.out-*/manifest.json create2-deploy/.out-*/addresses.sol
+git add -f .out-*/manifest.json .out-*/addresses.sol
 git commit -m "seal"
 git push
 ```
@@ -60,20 +62,20 @@ git push
 ## 3. Deploy
 
 ```sh
-$D --stage creates
-$D --stage pausers
-$D --stage offer-acl
-$D --stage accept-acl
-$D --stage materialize
-$D --stage offer-admin
-$D --stage accept-admin
-$D --stage verify
+./deploy-cli --stage creates
+./deploy-cli --stage pausers
+./deploy-cli --stage offer-acl
+./deploy-cli --stage accept-acl
+./deploy-cli --stage materialize
+./deploy-cli --stage offer-admin
+./deploy-cli --stage accept-admin
+./deploy-cli --stage verify
 ```
 
 ## 4. Or all at once
 
 ```sh
-$D --stage all
+./deploy-cli --stage all
 ```
 
 ---
@@ -81,10 +83,10 @@ $D --stage all
 ## Checks
 
 ```sh
-$D --report
-$D --stage status
-$D --stage log
-$D --stage creates --dry-run
+./deploy-cli --report
+./deploy-cli --stage status
+./deploy-cli --stage log
+./deploy-cli --stage creates --dry-run
 ```
 
 ```
@@ -114,20 +116,20 @@ One directory per chain, set by `--out-dir` (default `create2-deploy/.out`):
 ├── broadcast/<Script>.s.sol/<chainId>/run-latest.json   forge's raw records
 ├── manifest.json                                  salts + addresses (commit this)
 ├── addresses.sol                                  generated config (commit this)
-├── pass2.json                                     compute scratch
+├── pass2.json                                     compute scratch, deleted once the seal is complete
 └── build/                                         forge --out
 ```
 
 ```sh
-jq -s . create2-deploy/.out-*/journal.jsonl
-jq . create2-deploy/.out-*/manifest.json
-jq -r '.address.ACL_OWNER' create2-deploy/.out-*/manifest.json
+jq -s . .out-*/journal.jsonl
+jq . .out-*/manifest.json
+jq -r '.address.ACL_OWNER' .out-*/manifest.json
 ```
 
 ## A second deployment on the same chain
 
 ```sh
-$D --deployment-id cleartext-v13-sepolia-2026-09 \
+./deploy-cli --deployment-id cleartext-v13-sepolia-2026-09 \
    --out-dir .out-cleartext-v13-sepolia-2026-09 --stage compute
 ```
 
@@ -139,19 +141,19 @@ $D --deployment-id cleartext-v13-sepolia-2026-09 \
 ## A second chain
 
 ```sh
-$D --config ./configs/amoy.json --stage all
+./deploy-cli --config ./configs/amoy.json --stage all
 ```
 
 ## Options
 
 ```sh
-$D --stage all --pauser 0x1111111111111111111111111111111111111111
-$D --stage all --confirmations 15
-$D --stage all --no-finality
-$D --stage accept-admin --admin-account my-admin-key
-$D --stage accept-acl --min-block 6240930
-$D --stage all --no-confirm    # I have already pushed the seal
-$D --stage all --no-git        # this deployment needs no seal at all
+./deploy-cli --stage all --pauser 0x1111111111111111111111111111111111111111
+./deploy-cli --stage all --confirmations 15
+./deploy-cli --stage all --no-finality
+./deploy-cli --stage accept-admin --admin-account my-admin-key
+./deploy-cli --stage accept-acl --min-block 6240930
+./deploy-cli --stage all --no-confirm    # I have already pushed the seal
+./deploy-cli --stage all --no-git        # this deployment needs no seal at all
 ```
 
 ## Rehearsing the whole thing on anvil
@@ -169,9 +171,6 @@ chain id it reports**, detected by `anvil_nodeInfo` rather than by the id itself
 claiming 31337 gets no exemption. What the allow-list protects is broadcasting to a network other
 people use; an anvil reaches nothing. The run says so when the exemption applies, so it is never
 silent.
-
-One thing must be arranged before the first run, and it is not test-only: `foundry.toml` needs an
-`fs_permissions` entry or forge refuses to write the manifest at all.
 
 **No keystore is needed on anvil.** Omit `--account` and the coordinator uses accounts 0 and 1 of
 anvil's public mnemonic — 0 deploys, 1 becomes the admin — and defaults `--admin` to account 1's
@@ -211,33 +210,8 @@ The settings are already written down in `create2-deploy/anvil-config.json`:
 the seal — right for a throwaway rehearsal, and the run warns each time it applies. Steps 1–3 make
 that file usable.
 
-**1. Grant filesystem access — once.**
-
-No new file. Edit the existing one at the package root:
-
-```
-sdk/host-contracts-cleartext/v13/foundry.toml
-```
-
-It already has an `fs_permissions` line (line 22), granting the nonce path its directory and nothing
-else. Replace that one line:
-
-```toml
-# before
-fs_permissions = [{ access = "read-write", path = "./internal/.deploy-config" }]
-
-# after
-fs_permissions = [
-    { access = "read-write", path = "./internal/.deploy-config" },   # nonce path
-    { access = "read-write", path = "./create2-deploy" },            # this path
-]
-```
-
-Paths are relative to that `foundry.toml`. Check it took:
-
-```sh
-forge config | grep -A6 fs_permissions
-```
+**1. Nothing to configure.** The coordinator generates the forge config that lets it write to the out
+dir, in `<out-dir>/.foundry/`; the repository's `foundry.toml` is never edited.
 
 **2. Nothing to import.** Omit `--account` and `--admin` on anvil; accounts 0 and 1 of the public
 mnemonic are used. To use a keystore anyway (what `anvil-config.json` records):
@@ -259,42 +233,42 @@ run to verify the path end to end:
 
 ```sh
 anvil --silent &
-node deploy-testnet.ts --config anvil-config.json --out-dir .out-rehearsal --no-confirm --stage all
+./deploy-cli --config anvil-config.json --out-dir .out-rehearsal --no-confirm --stage all
 ```
 
-**4. Build the command — in a second terminal.**
+**4. Go to `create2-deploy/` — in a second terminal.**
 
-Everything is already in `create2-deploy/anvil-config.json`, including `"git": false`, so this is the
-whole invocation:
+Everything is already in `anvil-config.json`, including `"git": false`, so every command below only adds
+`--config anvil-config.json`:
 
 ```sh
-A="node create2-deploy/deploy-testnet.ts --config create2-deploy/anvil-config.json"
+cd host-contracts-cleartext/v13/create2-deploy
 ```
 
 **5. Run it, one stage at a time.**
 
 ```sh
-$A --stage compute
-$A --stage creates
-$A --stage pausers
-$A --stage offer-acl
-$A --stage accept-acl
-$A --stage materialize
+./deploy-cli --config anvil-config.json --stage compute
+./deploy-cli --config anvil-config.json --stage creates
+./deploy-cli --config anvil-config.json --stage pausers
+./deploy-cli --config anvil-config.json --stage offer-acl
+./deploy-cli --config anvil-config.json --stage accept-acl
+./deploy-cli --config anvil-config.json --stage materialize
 ```
 
 **6. Inspect.**
 
 ```sh
-$A --report
-$A --stage status
-$A --stage log
-$A --stage materialize --dry-run
+./deploy-cli --config anvil-config.json --report
+./deploy-cli --config anvil-config.json --stage status
+./deploy-cli --config anvil-config.json --stage log
+./deploy-cli --config anvil-config.json --stage materialize --dry-run
 ```
 
 **7. Reset and start over.**
 
 ```sh
-rm -rf create2-deploy/.out-anvil
+rm -rf .out-anvil
 ```
 
 Restart anvil (step 3) to discard the chain too, then go to step 4.
@@ -306,13 +280,13 @@ For the operator's checklist — commands only, in order — see [upgrade/RUNBOO
 The automated cross-generation rehearsal is the shortest authoritative example:
 
 ```sh
-cd sdk/host-contracts-cleartext/v13
+cd host-contracts-cleartext/v13
 npm run test:upgrade
 ```
 
 It starts a dedicated anvil, deploys v12 with `../v12/create2-deploy/deploy-testnet.ts`, creates a
 `trivialEncrypt` handle, passes the nine v12 manifest addresses as CLI inputs to
-`upgrade/testnet.ts`, and verifies the v13 versions, the two new CREATE2 proxies, the preserved handle,
+`upgrade/upgrade-cli`, and verifies the v13 versions, the two new CREATE2 proxies, the preserved handle,
 all 54 zero-argument v12 getter readings, ownership, pausers, and forbidden-event absence.
 
 For a manual run, start anvil in one terminal and deploy v12 from a second:
@@ -322,7 +296,7 @@ anvil --silent
 ```
 
 ```sh
-cd sdk/host-contracts-cleartext/v12
+cd host-contracts-cleartext/v12
 node create2-deploy/deploy-testnet.ts \
   --config create2-deploy/anvil-config.json \
   --out-dir .out-v12-for-v13 \
@@ -340,8 +314,8 @@ Point the upgrade at the manifest v12 just sealed, rather than retyping its nine
   "confirmations": 0,
   "finality": false,
   "git": false,
-  "previousAbiDir": "../v12/pkg/abi",
-  "previousManifest": "../v12/create2-deploy/.out-v12-for-v13/manifest.json"
+  "previousAbiDir": "../../v12/pkg/abi",
+  "previousManifest": "../../v12/create2-deploy/.out-v12-for-v13/manifest.json"
 }
 ```
 
@@ -375,9 +349,8 @@ Either way `validating the live stack` tags each address with where it came from
 Then run from v13, reusing the v12 deployment id:
 
 ```sh
-cd ../v13
-node create2-deploy/upgrade/testnet.ts \
-  --config create2-deploy/upgrade.config.json \
+cd ../v13/create2-deploy
+./upgrade/upgrade-cli \
   --stage all \
   --handle 0xHANDLE
 ```
@@ -392,15 +365,14 @@ This is the run-book for a stack that matters. Every stage is separately runnabl
 two read-only checks are where a human reads before deciding:
 
 ```sh
-U="node create2-deploy/upgrade/testnet.ts --config create2-deploy/upgrade.config.json"
-$U --stage compute                 # validates the nine addresses, snapshots, seals
-git add -f create2-deploy/.out-*/manifest.json create2-deploy/.out-*/addresses.sol && git commit -m seal && git push
-$U --stage creates                 # ten CREATE2s, each gated on getCode
-$U --stage precheck                # READ THIS. Fresh recompile; every FAIL line, not just the first
-$U --stage rehearse                # the exact calldata on an anvil fork of the chain, then verify on the fork
-$U --stage materialize             # runs precheck again, then the one atomic call
-$U --stage verify                  # waits for depth + finality, then the three layers
-$U --stage verify --min-block N    # later, at greater depth — compare the two verify-report.json
+./upgrade/upgrade-cli --stage compute                 # validates the nine addresses, snapshots, seals
+git add -f .out-*/manifest.json .out-*/addresses.sol && git commit -m seal && git push
+./upgrade/upgrade-cli --stage creates                 # ten CREATE2s, each gated on getCode
+./upgrade/upgrade-cli --stage precheck                # READ THIS. Fresh recompile; every FAIL line, not just the first
+./upgrade/upgrade-cli --stage rehearse                # the exact calldata on an anvil fork of the chain, then verify on the fork
+./upgrade/upgrade-cli --stage materialize             # runs precheck again, then the one atomic call
+./upgrade/upgrade-cli --stage verify                  # waits for depth + finality, then the three layers
+./upgrade/upgrade-cli --stage verify --min-block N    # later, at greater depth — compare the two verify-report.json
 ```
 
 `precheck` and `verify` recompile into `<out-dir>/build-check` so the seal is re-derived from the current
@@ -413,10 +385,10 @@ Each stage announces its steps as `▸ step` and closes them as `✔ step (took,
 the plan first. Afterwards:
 
 ```sh
-$U --stage progress                # every step, when, how long, at which block — no node needed
-$U --stage status                  # what the chain says is done and what is blocked
-$U --stage log                     # every transaction sent
-ls create2-deploy/.out-*/logs/     # one full transcript per invocation, forge output included
+./upgrade/upgrade-cli --stage progress                # every step, when, how long, at which block — no node needed
+./upgrade/upgrade-cli --stage status                  # what the chain says is done and what is blocked
+./upgrade/upgrade-cli --stage log                     # every transaction sent
+ls .out-*/logs/     # one full transcript per invocation, forge output included
 ```
 
 ### If it is interrupted
@@ -442,8 +414,8 @@ gate printed the same digest, derived from the build rather than from the file �
 the digest the wallet shows for the signed payload must match both.** Then:
 
 ```sh
-$U --stage status                  # materialize: done — all seven implementation slots match the seal
-$U --stage verify                  # records the multisig's transaction in the journal as an observation
+./upgrade/upgrade-cli --stage status                  # materialize: done — all seven implementation slots match the seal
+./upgrade/upgrade-cli --stage verify                  # records the multisig's transaction in the journal as an observation
 ```
 
 `verify` finds the multisig's transaction through the seven `Upgraded` events, requires them all in one

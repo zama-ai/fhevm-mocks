@@ -1,4 +1,5 @@
-// Shared machinery for the two CREATE2 coordinators, `deploy-testnet.ts` and `upgrade/testnet.ts`.
+// Shared machinery for the two CREATE2 coordinators, `ts/deploy-testnet.ts` and `upgrade/ts/testnet.ts`,
+// which operators run through the `deploy-cli` and `upgrade/upgrade-cli` launchers.
 //
 // The split is by WHAT VARIES, not by size. Both flows want the same everything-except-the-stages:
 // argument parsing, the config file, the out-dir identity check, the chain and factory preflight, signer
@@ -13,24 +14,28 @@
 //
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
 import {
   appendJsonl,
   capture,
   captureOrFail,
-  confirm,
+  ensureDir,
   fail,
+  heartbeat,
   hexToNumber,
   isInside,
   pad,
   readJson,
   readJsonl,
+  removeIfPresent,
   runLogged,
   sameAddress,
+  banner,
   say,
   sleep,
+  transcriptActive,
   warn,
 } from './utils.ts';
 
@@ -45,8 +50,8 @@ export type Stage = string;
 /**
  * Everything that differs between the deploy and the upgrade.
  *
- * Seven fields, which is the honest measure of how much the two flows actually diverge: the rest of this
- * file is identical for both. Adding a flow means writing one of these plus its stage functions.
+ * A handful of fields, which is the honest measure of how much the two flows actually diverge: the rest
+ * of this file is identical for both. Adding a flow means writing one of these plus its stage functions.
  */
 export type Flow = {
   /** For messages and the journal, e.g. `deploy` or `upgrade`. */
@@ -65,6 +70,13 @@ export type Flow = {
   readonly needsChain: (stage: Stage) => boolean;
   /** Does this stage need the deployer resolved from the keystore, at the cost of a password prompt? */
   readonly needsDeployerKey: (stage: Stage) => boolean;
+  /** The stages that send a transaction FROM THE ADMIN (besides `all`), so preflight checks its funds. */
+  readonly adminSendingStages: readonly Stage[];
+  /**
+   * The stages that only READ the chain, so they never unlock a keystore: the deployer and the admin come
+   * from the manifest, and the admin keystore is not checked against `admin` (nothing is signed with it).
+   */
+  readonly readOnlyStages: readonly Stage[];
 };
 
 export type Options = {
@@ -75,6 +87,8 @@ export type Options = {
   /** Who signs step F on the admin's behalf, when anything does. */
   readonly adminSigner: Signer | null;
   readonly admin: string;
+  /** True when `admin` was not given and was read off the admin signer (keystore or anvil). */
+  readonly adminDerived: boolean;
   readonly deploymentId: string;
   readonly pauser: string | null;
   readonly adminAccount: string | null;
@@ -186,14 +200,29 @@ export type Ctx = {
   readonly deployer: string;
   chainId: string;
   useFinality: boolean;
-  /** Block the next broadcasting stage may not start before. */
-  nextMinBlock: number;
-  /** Block that must FINALIZE before the next stage. 0 = nothing sent yet. */
-  finalityTarget: number;
   stageLabel: string;
+  /**
+   * `--root <package> --config-path <generated foundry.toml>`, appended to every forge invocation so
+   * forge may write to the out dir wherever it is. Set by prepareForgeConfig, in preflight.
+   */
+  forgeArgs: readonly string[];
 };
 
+/**
+ * One transaction in the journal: sent by this tooling (from forge's broadcast records), recovered from
+ * the chain, or observed (a multisig's step F, which no local key sent).
+ *
+ * Append-only: a later line with the SAME hash supersedes an earlier one — `unmined` becoming mined,
+ * a block hash filled in, a reorg re-read. readJournal keeps the last line per hash.
+ *
+ *   status    ok | REVERTED   mined, per its receipt
+ *             unmined         SENT (it has a hash) but no receipt yet: in the mempool, dropped, or reorged out
+ *   blockHash                 with `block`, proof of WHERE it was mined: a reorg changes the hash at that height
+ *   recovered                 how a line the run itself did not write got here: `broadcast-file` (forge's own
+ *                             records), `nonce-scan` (found on chain from a stage-start anchor)
+ */
 export type JournalEntry = {
+  readonly kind?: 'tx';
   readonly stage: string;
   readonly script?: string;
   readonly hash: string | null;
@@ -201,27 +230,64 @@ export type JournalEntry = {
   readonly contract?: string | null;
   readonly address?: string | null;
   readonly function?: string | null;
+  readonly from?: string | null;
+  readonly nonce?: number | null;
   readonly block: number | null;
+  readonly blockHash?: string | null;
   readonly gasUsed?: number | null;
   readonly status: 'ok' | 'REVERTED' | 'unmined';
+  readonly recovered?: 'broadcast-file' | 'nonce-scan';
   readonly observed?: boolean;
   readonly note?: string;
   readonly ts?: number | null;
 };
 
-/** The shape of forge's broadcast/<Script>/<chainId>/run-latest.json that this reads. */
+/**
+ * Written BEFORE forge is started for a broadcasting stage, so that even a run killed the instant after
+ * it sent something leaves a trace: who was about to send, from which nonce, from which block. At startup,
+ * nonces the journal cannot account for are looked up on chain from here (reconcileJournal).
+ */
+export type JournalStageStart = {
+  readonly kind: 'stage-start';
+  readonly stage: string;
+  readonly script: string;
+  readonly from: string;
+  readonly nonce: number;
+  readonly head: number;
+  readonly ts: number;
+};
+
+/**
+ * A transaction's block is final: the chain's settled block (finalized tag, or `confirmations` deep with
+ * --no-finality) had reached it, AND the block at that height still had the recorded hash.
+ */
+export type JournalFinalized = {
+  readonly kind: 'finalized';
+  readonly hash: string;
+  readonly block: number;
+  readonly blockHash: string;
+  readonly settledBlock: number;
+  readonly rule: string;
+  readonly ts: number;
+};
+
+export type JournalLine = JournalEntry | JournalStageStart | JournalFinalized;
+
+/** The shape of forge's broadcast/<Script>/<chainId>/run-*.json that this reads. */
 export type ForgeRun = {
   readonly timestamp?: number;
   readonly transactions?: ReadonlyArray<{
-    readonly hash: string;
+    readonly hash: string | null;
     readonly transactionType?: string;
     readonly contractName?: string;
     readonly contractAddress?: string;
     readonly function?: string | null;
+    readonly transaction?: { readonly from?: string; readonly nonce?: string };
   }>;
   readonly receipts?: ReadonlyArray<{
     readonly transactionHash: string;
     readonly blockNumber?: string;
+    readonly blockHash?: string;
     readonly status?: string;
     readonly gasUsed?: string;
   }>;
@@ -232,6 +298,10 @@ export type Manifest = {
   readonly deploymentId?: string;
   readonly deployer?: string;
   readonly admin?: string;
+  /** Deploy only: the optional operator pauser, the zero address when none. */
+  readonly pauser0?: string;
+  /** The tool's git commit at `compute` (stampToolCommit); null when the tool is not a git checkout. */
+  readonly toolCommit?: string | null;
   readonly address?: Record<string, string>;
 };
 
@@ -242,15 +312,15 @@ export type Manifest = {
  * from anywhere. main() chdirs to PACKAGE_ROOT before touching forge, because forge resolves script
  * paths, remappings and fs_permissions against the directory holding foundry.toml.
  *
- * One consequence worth knowing: loadConfigFile runs BEFORE that chdir, so a relative --config
- * resolves against the caller's directory — which is what anyone typing it would expect. A relative
- * --out-dir does not: it resolves against FS_ROOT, because it has to land somewhere forge is allowed
- * to write (see resolveOutDir).
+ * Paths are resolved BEFORE that chdir, so they mean what the operator meant: a path typed on the
+ * command line is relative to the caller's directory, and a path written in a config file is relative
+ * to that file's directory. An operator folder can therefore live anywhere — its config says
+ * `"outDir": "out"` and that means the `out` beside it.
  */
+export const INVOCATION_DIR = process.cwd();
 
-////////////////////////////////////////////////////////////////////////////////
-
-export const DRAFT_DIR = import.meta.dirname;
+/** `create2-deploy/`. This file lives in `create2-deploy/ts/`, one level below. */
+export const DRAFT_DIR = dirname(import.meta.dirname);
 export const PACKAGE_ROOT = dirname(DRAFT_DIR);
 /** Relative on purpose: forge resolves script paths against the project root it runs in. */
 export const SCRIPT_DIR = 'create2-deploy/script';
@@ -295,10 +365,76 @@ export const FACTORY_CODEHASH = '0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd
  *
  * This list binds OUR tooling and nobody
  * else's — the address set is replayable onto mainnet by anyone, and no allow-list here can stop it.
+ *
+ * The list lives in `create2-deploy/create2-deploy.config.json`, committed, so adding a testnet is a
+ * reviewed one-line diff rather than a code change. KNOWN_MAINNET_CHAIN_IDS stays in code on purpose:
+ * it is the backstop that keeps an edit to that file from opening a mainnet.
  */
-export const ALLOWED_CHAIN_IDS: readonly string[] = ['11155111', '17000', '84532', '421614'];
+export const CHAINS_CONFIG_PATH = join(DRAFT_DIR, 'create2-deploy.config.json');
 
-/** Where forge may write. Must match foundry.toml's fs_permissions — see resolveOutDir. */
+export type AllowedChain = { readonly chainId: string; readonly name: string };
+
+/** Refused even when listed in create2-deploy.config.json. Not exhaustive: a backstop, not the rule. */
+export const KNOWN_MAINNET_CHAIN_IDS: readonly string[] = [
+  '1', // Ethereum
+  '10', // OP Mainnet
+  '56', // BNB Smart Chain
+  '79', // Zenith mainnet
+  '100', // Gnosis
+  '137', // Polygon PoS
+  '324', // zkSync Era
+  '8453', // Base
+  '42161', // Arbitrum One
+  '42170', // Arbitrum Nova
+  '43114', // Avalanche C-Chain
+  '59144', // Linea
+  '534352', // Scroll
+];
+
+/** Read and validate the allow-list. Any problem with the file is fatal: an unreadable list allows nothing. */
+export function loadAllowedChains(): readonly AllowedChain[] {
+  const path = CHAINS_CONFIG_PATH;
+  if (!existsSync(path)) fail(`Error: no chain allow-list at ${path}.`);
+  let raw: unknown;
+  try {
+    raw = readJson<unknown>(path);
+  } catch {
+    fail(`Error: ${path} is not valid JSON.`);
+  }
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) fail(`Error: ${path} is not a JSON object.`);
+  const obj = raw as Record<string, unknown>;
+  for (const key of Object.keys(obj)) {
+    if (key !== '//' && key !== 'allowedChains') fail(`Error: unknown key '${key}' in ${path}.`);
+  }
+  if (!Array.isArray(obj.allowedChains) || obj.allowedChains.length === 0) {
+    fail(`Error: ${path} needs a non-empty "allowedChains" array.`);
+  }
+
+  const chains = obj.allowedChains.map((entry: unknown, i: number): AllowedChain => {
+    const e = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<string, unknown>;
+    if (typeof e.chainId !== 'number' || !Number.isSafeInteger(e.chainId) || e.chainId <= 0) {
+      fail(`Error: ${path} allowedChains[${String(i)}].chainId must be a positive integer.`);
+    }
+    if (typeof e.name !== 'string' || e.name === '') {
+      fail(`Error: ${path} allowedChains[${String(i)}].name must be a non-empty string.`);
+    }
+    const chainId = String(e.chainId);
+    if (KNOWN_MAINNET_CHAIN_IDS.includes(chainId)) {
+      fail(
+        `Error: ${path} lists chain ${chainId} (${e.name}), which is a MAINNET.`,
+        "       The cleartext stack's signer keys come from a published mnemonic; on a mainnet anyone",
+        '       can sign for it. Remove the entry.',
+      );
+    }
+    return { chainId, name: e.name };
+  });
+
+  const ids = chains.map((c) => c.chainId);
+  if (new Set(ids).size !== ids.length) fail(`Error: ${path} lists a chain id twice.`);
+  return chains;
+}
+
+/** Where the default `.out` dir lives, when neither --out-dir nor a config file names one. */
 export const FS_ROOT = DRAFT_DIR;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -721,7 +857,10 @@ export function loadConfigFile(
   flow: Flow,
   explicitPath: string | null,
 ): { readonly cfg: ConfigFile; readonly path: string | null } {
-  const path = explicitPath ?? join(FS_ROOT, flow.defaultConfigName);
+  // Without --config, the conventional name in the CURRENT directory, and nowhere else: an operator runs
+  // the CLI from their deployment folder. Falling back to a second location would silently pick up a
+  // different deployment's config whenever someone forgot to cd.
+  const path = explicitPath ?? join(INVOCATION_DIR, flow.defaultConfigName);
 
   if (!existsSync(path)) {
     // An explicit --config that is not there is an error; the conventional path simply not existing
@@ -825,20 +964,20 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
         ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
         : null;
 
-  // --admin is an ADDRESS, and mandatory — except on the anvil default, where the
-  // only sensible value is the account that adminSigner will sign with. Deriving it keeps the two from
-  // disagreeing, which preflight would otherwise reject.
-  if (admin === '' && adminSigner?.kind === 'anvil') {
-    admin = signerAddress(adminSigner);
-  }
-  if (admin === '') fail(missing('--admin', 'admin'));
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
+
+  // A path typed on the command line is relative to the caller's directory; a path written in a config
+  // file is relative to that FILE's directory, so an operator folder works wherever it is and whatever
+  // directory the command is run from. Resolved here, before main() chdirs to the package root.
+  const configDir = configPath === null ? INVOCATION_DIR : dirname(resolve(configPath));
+  const pathOption = (fromCli: string | null, fromConfig: string | undefined): string | null =>
+    fromCli !== null ? resolve(fromCli) : fromConfig !== undefined ? resolve(configDir, fromConfig) : null;
 
   // The live stack, lowest layer first: a previous manifest, then the config file, then the flags.
   // A flag someone typed must never lose to a file, and the manifest is a convenience over typing nine
   // of them — so it sits at the bottom. existingSource records which layer won each role, because a
   // sealed address is only auditable if the seal says where it came from.
-  const previousManifestPath = cli.previousManifestPath ?? cfg.previousManifest ?? null;
+  const previousManifestPath = pathOption(cli.previousManifestPath, cfg.previousManifest);
   const previousManifest =
     previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId);
 
@@ -854,6 +993,26 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   layer(() => 'manifest', previousManifest?.address ?? {});
   layer(() => 'config', cfg.existing ?? {});
   layer(existingFlagFor, cli.existing);
+
+  // --admin is an ADDRESS. When it is not given but an admin signer is — `--admin-account`, or the anvil
+  // default — it is read off that signer: the only value that could pass checkAdminAccount anyway. A
+  // keystore costs its password here, which is why checkAdminAccount then skips the comparison rather
+  // than asking a second time. A multisig admin has no signer, so there it stays mandatory.
+  //
+  // A read-only stage (verify, status) takes the admin the manifest sealed instead, as it does the
+  // deployer, so it never unlocks the admin keystore; before anything is sealed it falls back to the
+  // signer. Only for stages that reach the chain: `log` and `report` read local files and never use the
+  // admin, so they must not unlock a keystore just to compute it.
+  const outDirArg = pathOption(cli.outDirArg, cfg.outDir);
+  let adminDerived = false;
+  if (admin === '' && flow.readOnlyStages.includes(stage)) {
+    admin = readJson<Manifest>(join(resolveOutDir(outDirArg), 'manifest.json'))?.admin ?? '';
+  }
+  if (admin === '' && adminSigner !== null && flow.needsChain(stage)) {
+    admin = signerAddress(adminSigner);
+    adminDerived = true;
+  }
+  if (admin === '' && flow.needsChain(stage)) fail(missing('--admin', 'admin'));
 
   // A dry run of `all` would be theater: nothing is sent, so stage 2 simulates against a chain where
   // stage 1 never happened, and every later stage reports blocked on a precondition a real run would
@@ -871,12 +1030,13 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     signer,
     adminSigner,
     admin,
+    adminDerived,
     deploymentId,
     adminAccount,
     pauser: cli.pauser ?? cfg.pauser ?? null,
     confirmations: cli.confirmations ?? cfg.confirmations ?? 3,
     minBlockOverride: cli.minBlockOverride,
-    outDirArg: cli.outDirArg ?? cfg.outDir ?? null,
+    outDirArg,
     stage,
     dryRun: cli.dryRun,
     useFinality: cli.useFinality ?? cfg.finality ?? true,
@@ -890,8 +1050,8 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     existing,
     existingSource,
     previousManifest,
-    migrationPath: cli.migrationPath ?? cfg.migration ?? null,
-    previousAbiDir: cli.previousAbiDir ?? cfg.previousAbiDir ?? null,
+    migrationPath: pathOption(cli.migrationPath, cfg.migration),
+    previousAbiDir: pathOption(cli.previousAbiDir, cfg.previousAbiDir),
     handles: cli.handles.length > 0 ? cli.handles : (cfg.handles ?? []),
   };
 }
@@ -899,42 +1059,162 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Resolve --out-dir, and refuse anything forge could not write to.
+ * Resolve the out dir: anywhere on disk, so an operator keeps a deployment in a folder of their own
+ * rather than inside this repository. `outDirArg` is already absolute (see resolveOptions); null is
+ * the developer default, `create2-deploy/.out`.
  *
- * The compute passes write addresses.sol, pass2.json and manifest.json with `vm.writeFile`, and
- * forge rejects any path not granted by `fs_permissions` in foundry.toml:
- *
- *     vm.createDir: the path /... is not allowed to be accessed for write operations
- *
- * That list is static config, so --out-dir can only ever reach inside it. Absolute paths anywhere on
- * disk do work IF foundry.toml grants them — forge accepts entries outside the project root — but
- * granting one per deployment does not scale, so this keeps every out dir under a single root.
- *
- * foundry.toml needs, alongside the nonce path's own entry:
- *
- *     fs_permissions = [
- *         { access = "read-write", path = "./internal/.deploy-config" },   # nonce path
- *         { access = "read-write", path = "./create2-deploy" },      # this path
- *     ]
- *
- * Checked here rather than left to forge, which would only notice midway through pass 1 — after two
- * builds — complaining about a path the operator never typed.
+ * Forge writes there through a generated config (prepareForgeConfig), not through foundry.toml. The one
+ * thing refused is an out dir that CONTAINS the package: forge would be granted write access to the
+ * whole source tree, and `compute` clears paths inside the out dir.
  */
-
-////////////////////////////////////////////////////////////////////////////////
-
 export function resolveOutDir(outDirArg: string | null): string {
-  const outDir = outDirArg === null ? join(FS_ROOT, '.out') : resolve(FS_ROOT, outDirArg);
-
-  if (!isInside(outDir, FS_ROOT)) {
+  const outDir = outDirArg ?? join(FS_ROOT, '.out');
+  if (isInside(PACKAGE_ROOT, outDir)) {
     fail(
-      `Error: --out-dir must be inside ${FS_ROOT}`,
-      `         resolved to: ${outDir}`,
-      "       forge only writes where foundry.toml's fs_permissions allows, and that is",
-      '       static config. To use somewhere else, add it there first.',
+      `Error: the out dir ${outDir} contains the package at ${PACKAGE_ROOT}.`,
+      '       Use a dedicated folder for each deployment, e.g. --out-dir ~/fhevm-deployments/arbsepolia/out',
     );
   }
   return outDir;
+}
+
+/**
+ * Let forge write to the out dir, wherever it is, WITHOUT editing the repository's foundry.toml.
+ *
+ * `fs_permissions` is static config and forge ignores it in the environment, so this writes a complete
+ * config of its own: forge's own fully resolved one (`forge config`, which also flattens the `extends`
+ * chain — forge refuses nested `extends`), plus the out dir in `fs_permissions` and in `allow_paths`
+ * (solc must be allowed to import the generated addresses.sol from there), and `cache_path` moved to
+ * `<out>/cache`. Forge writes there its build cache and, after every broadcast, a "sensitive" copy of
+ * the run (the RPC URL, which can embed an API key): both belong to the deployment, not to the tool
+ * checkout. Every forge call then gets `--root <package> --config-path <it>`.
+ *
+ * Every path in it is written ABSOLUTE, resolved against the package root. Forge resolves the relative
+ * paths of a `--config-path` file against that file's directory, not against `--root` — so a relative
+ * `libs` or remapping would point into the out dir, and solc would find nothing. Absolute paths are what
+ * forge computes internally from the original file anyway.
+ *
+ * The generated file must change NOTHING else, because every CREATE2 address is a hash of the compiled
+ * bytecode. So it is not trusted: both configs are resolved again, every path made absolute the same
+ * way, and compared — everything but the two permission fields and the cache location, none of which
+ * reaches the bytecode. Any difference stops the run before a single build.
+ */
+export function prepareForgeConfig(ctx: Ctx): void {
+  const dir = join(ctx.outDir, '.foundry');
+  const path = join(dir, 'foundry.toml');
+  const quoted = JSON.stringify(ctx.outDir);
+  const cachePath = join(ctx.outDir, 'cache');
+
+  const dumped = captureOrFail('forge', ['config', '--root', PACKAGE_ROOT]);
+  // Only [profile.default] and its subtables are rewritten: [fmt], [doc] and the rest have keys of the
+  // same names (`out`, ...) that mean something else.
+  const sectionEnd = dumped.search(/^\[(?!\[?profile\.default[\].])/m);
+  const head = sectionEnd < 0 ? dumped : dumped.slice(0, sectionEnd);
+  const tail = sectionEnd < 0 ? '' : dumped.slice(sectionEnd);
+
+  let profile = head.replace(
+    new RegExp(`^(${FORGE_PATH_KEYS.join('|')}) = "(.*)"$`, 'gm'),
+    (_m, key: string, value: string) => `${key} = ${JSON.stringify(absolutePath(value))}`,
+  );
+  profile = profile.replace(/^(libs|remappings) = \[([\s\S]*?)\]$/gm, (_m, key: string, body: string) => {
+    const entries = [...body.matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? '');
+    const absolute = entries.map((entry) => (key === 'libs' ? absolutePath(entry) : absoluteRemapping(entry)));
+    return `${key} = [${absolute.map((entry) => JSON.stringify(entry)).join(', ')}]`;
+  });
+
+  profile = profile.replace(/^cache_path = .*$/m, `cache_path = ${JSON.stringify(cachePath)}`);
+
+  const allowPaths = /^allow_paths = \[(.*)\]$/m;
+  const inner = allowPaths.exec(profile)?.[1];
+  if (inner === undefined) fail('Error: `forge config` printed no single-line allow_paths; cannot extend it.');
+  profile = profile.replace(allowPaths, `allow_paths = [${inner.trim() === '' ? quoted : `${inner}, ${quoted}`}]`);
+
+  const toml = `${profile}${tail}\n\n[[profile.default.fs_permissions]]\naccess = true\npath = ${quoted}\n`;
+  ensureDir(dir);
+  writeFileSync(path, toml);
+
+  const resolved = (args: readonly string[]): Record<string, unknown> =>
+    normalizeForgePaths(
+      JSON.parse(captureOrFail('forge', ['config', '--json', '--root', PACKAGE_ROOT, ...args])) as Record<
+        string,
+        unknown
+      >,
+    );
+  const want = resolved([]);
+  const got = resolved(['--config-path', path]);
+
+  const differing = [...new Set([...Object.keys(want), ...Object.keys(got)])].filter(
+    (key) => !GENERATED_FORGE_KEYS.has(key) && stableJson(want[key]) !== stableJson(got[key]),
+  );
+  if (differing.length > 0) {
+    fail(
+      `Error: the generated forge config ${path} changes more than the out dir permission:`,
+      ...differing.map((key) => `         ${key}`),
+      '       Every address depends on the compiled bytecode, so nothing else may differ.',
+    );
+  }
+  const granted = JSON.stringify(got.fs_permissions ?? []).includes(quoted.slice(1, -1));
+  if (!granted) fail(`Error: the generated forge config ${path} does not grant write access to ${ctx.outDir}.`);
+  if (got.cache_path !== cachePath)
+    fail(`Error: the generated forge config ${path} does not move the cache to ${cachePath}.`);
+
+  ctx.forgeArgs = ['--root', PACKAGE_ROOT, '--config-path', path];
+}
+
+/** The keys the generated forge config sets on purpose; none of them reaches the bytecode. */
+const GENERATED_FORGE_KEYS: ReadonlySet<string> = new Set(['fs_permissions', 'allow_paths', 'cache_path']);
+
+/** The single-path keys of a forge profile. `libs` and `remappings` are handled as lists. */
+const FORGE_PATH_KEYS: readonly string[] = [
+  'src',
+  'test',
+  'script',
+  'out',
+  'cache_path',
+  'snapshots',
+  'broadcast',
+  'test_failures_file',
+];
+
+/** A forge path, absolute, resolved the way forge resolves the repository's own foundry.toml. */
+function absolutePath(value: string): string {
+  return resolve(PACKAGE_ROOT, value);
+}
+
+/** `[context:]prefix=target` with the target made absolute, keeping its trailing slash. */
+function absoluteRemapping(remapping: string): string {
+  const eq = remapping.indexOf('=');
+  if (eq < 0) return remapping;
+  const target = remapping.slice(eq + 1);
+  const slash = target.endsWith('/') ? '/' : '';
+  return `${remapping.slice(0, eq + 1)}${absolutePath(target)}${slash}`;
+}
+
+/** The same rewriting, applied to `forge config --json` output, so two configs compare by MEANING. */
+function normalizeForgePaths(config: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...config };
+  for (const key of FORGE_PATH_KEYS) {
+    const value = out[key];
+    if (typeof value === 'string') out[key] = absolutePath(value);
+  }
+  if (Array.isArray(out.libs)) out.libs = out.libs.map((v: unknown) => (typeof v === 'string' ? absolutePath(v) : v));
+  if (Array.isArray(out.remappings)) {
+    out.remappings = out.remappings.map((v: unknown) => (typeof v === 'string' ? absoluteRemapping(v) : v));
+  }
+  return out;
+}
+
+/** JSON with object keys sorted, so two equal configs always serialize to the same string. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    return `{${Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableJson(obj[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -977,9 +1257,8 @@ export function buildContext(flow: Flow, opt: Options): Ctx {
     deployer,
     chainId: '',
     useFinality: opt.useFinality,
-    nextMinBlock: 0,
-    finalityTarget: 0,
     stageLabel: '',
+    forgeArgs: [],
   };
 }
 
@@ -987,6 +1266,75 @@ export function buildContext(flow: Flow, opt: Options): Ctx {
 
 export function manifestPath(ctx: Ctx): string {
   return join(ctx.outDir, 'manifest.json');
+}
+
+/** `compute`'s pass-to-pass scratch file. Read only by the next compute pass, never by a later stage. */
+export function scratchPath(ctx: Ctx): string {
+  return join(ctx.outDir, 'pass2.json');
+}
+
+/**
+ * Delete `compute`'s scratch file, but ONLY once the seal is complete.
+ *
+ * The last pass carried everything it needed out of the scratch file into the manifest, so a complete
+ * manifest makes it dead weight — and a leftover file next to the seal invites someone to commit it or
+ * read it as if it meant something. "Complete" is checked rather than assumed: the manifest parses, its
+ * address map is non-empty, every entry is an address, the ACL and ACLOwner are there, and every
+ * `requiredKeys` top-level field exists. Anything less keeps the scratch file, because a failed seal is
+ * exactly when its intermediate values help to diagnose what went wrong.
+ */
+export function removeScratchIfSealed(ctx: Ctx, requiredKeys: readonly string[] = []): void {
+  if (!isCompleteSeal(ctx, requiredKeys)) {
+    warn(`keeping ${scratchPath(ctx)}: ${manifestPath(ctx)} is not a complete seal.`);
+    return;
+  }
+  removeIfPresent(scratchPath(ctx));
+}
+
+/**
+ * Is `manifest.json` a complete seal? It parses, its address map is non-empty, every entry is an address,
+ * the ACL and ACLOwner are there, and every `requiredKeys` top-level field exists.
+ *
+ * What `--stage all` asks before reusing a seal instead of computing one, and what the scratch cleanup
+ * asks before deleting pass2.json — one definition, so the two can never disagree.
+ */
+export function isCompleteSeal(ctx: Ctx, requiredKeys: readonly string[] = []): boolean {
+  let manifest: Record<string, unknown> | null = null;
+  try {
+    manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
+  } catch {
+    return false;
+  }
+  if (manifest === null) return false;
+  const address = manifest.address;
+  if (address === null || typeof address !== 'object' || Array.isArray(address)) return false;
+  const map = address as Record<string, unknown>;
+  const values = Object.values(map);
+  return (
+    values.length > 0 &&
+    values.every((a) => typeof a === 'string' && /^0x[0-9a-fA-F]{40}$/.test(a)) &&
+    ['ACL_ADDRESS', 'ACL_OWNER'].every((role) => role in map) &&
+    requiredKeys.every((key) => key in manifest)
+  );
+}
+
+/** The tool checkout's git commit, or null when it is not a git checkout. */
+export function toolCommit(): string | null {
+  const r = capture('git', ['-C', PACKAGE_ROOT, 'rev-parse', 'HEAD']);
+  return r.ok && /^[0-9a-f]{40}$/.test(r.stdout) ? r.stdout : null;
+}
+
+/**
+ * Record the tool's git commit in the seal, so a later run can tell when the checkout has moved.
+ *
+ * Every address is a hash of bytecode this checkout compiled; another commit can compile other
+ * bytecode. `creates` would still catch the drift address by address, but only after a build, and
+ * with a message about bytecode rather than about the `git pull` that caused it.
+ */
+export function stampToolCommit(ctx: Ctx): void {
+  const manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
+  if (manifest === null) return;
+  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, toolCommit: toolCommit() }, null, 2)}\n`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1049,7 +1397,12 @@ export function generatedConfigEnv(ctx: Ctx): NodeJS.ProcessEnv {
 ////////////////////////////////////////////////////////////////////////////////
 
 export function checkChainAllowed(ctx: Ctx): void {
-  if (ALLOWED_CHAIN_IDS.includes(ctx.chainId)) return;
+  const allowed = loadAllowedChains();
+  const match = allowed.find((c) => c.chainId === ctx.chainId);
+  if (match !== undefined) {
+    say(`  chain id ${ctx.chainId} allowed: ${match.name}, listed in ${CHAINS_CONFIG_PATH}`);
+    return;
+  }
 
   // An anvil is exempt whatever chain id it reports, and that is not a hole in the rule — it is the
   // rule read properly. What the allow-list protects against is BROADCASTING a stack whose KMS keys
@@ -1069,7 +1422,8 @@ export function checkChainAllowed(ctx: Ctx): void {
   fail(
     `Error: chain id ${ctx.chainId} is not in the testnet allow-list, and ${ctx.opt.rpcUrl} is not an anvil.`,
     '       This stack derives its KMS/coprocessor keys from a PUBLISHED mnemonic, so it may only be',
-    `       broadcast to a testnet (${ALLOWED_CHAIN_IDS.join(', ')}) or to a local anvil.`,
+    `       broadcast to a testnet listed in ${CHAINS_CONFIG_PATH}`,
+    `       (${allowed.map((c) => `${c.name} ${c.chainId}`).join(', ')}) or to a local anvil.`,
   );
 }
 
@@ -1147,6 +1501,41 @@ export function checkOutDirIdentity(ctx: Ctx): void {
       "       standing admin's own transferOwnership call, not a re-run with a different --admin.",
     );
   }
+
+  // `compute` itself reseals, so it is the one stage these two must not block: it is how a seal that no
+  // longer matches gets replaced, as long as nothing has been sent (it refuses otherwise).
+  if (ctx.opt.stage === 'compute') return;
+
+  // The pauser moves no address, but it is who step A' registers — and its predicate is "THIS pauser is
+  // registered", so a changed value would quietly register a second one.
+  const ZERO = '0x0000000000000000000000000000000000000000';
+  if (manifest.pauser0 !== undefined && !sameAddress(manifest.pauser0, ctx.opt.pauser ?? ZERO)) {
+    fail(
+      `Error: '${ctx.opt.deploymentId}' was sealed with a different pauser.`,
+      `         sealed:   ${sameAddress(manifest.pauser0, ZERO) ? '(none)' : manifest.pauser0}`,
+      `         --pauser  ${ctx.opt.pauser ?? '(none)'}`,
+      '       Restore the sealed value, or reseal with --stage compute if nothing has been sent yet.',
+    );
+  }
+
+  // The tool moved since the seal. Every address is a hash of the bytecode it compiled.
+  const sealedCommit = manifest.toolCommit;
+  const currentCommit = toolCommit();
+  if (typeof sealedCommit === 'string' && currentCommit !== null && sealedCommit !== currentCommit) {
+    const lines = [
+      `the tool checkout ${PACKAGE_ROOT} is at ${currentCommit.slice(0, 12)},`,
+      `but '${ctx.opt.deploymentId}' was sealed at ${sealedCommit.slice(0, 12)}.`,
+      `Check out the sealed commit:  git -C ${PACKAGE_ROOT} checkout ${sealedCommit}`,
+      'or, if nothing has been sent yet, reseal with --stage compute and commit the new seal.',
+    ];
+    const sends =
+      ctx.opt.stage === 'all' ||
+      ctx.flow.needsDeployerKey(ctx.opt.stage) ||
+      ctx.flow.adminSendingStages.includes(ctx.opt.stage);
+    // A stage that sends must not run on code the seal was not computed from; a read-only look may.
+    if (sends) fail(`Error: ${lines[0] ?? ''}`, ...lines.slice(1).map((line) => `       ${line}`));
+    warn(...lines);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1164,7 +1553,8 @@ export function checkOutDirIdentity(ctx: Ctx): void {
  * before surfacing, on a run that may have started days earlier.
  */
 export function checkAdminAccount(ctx: Ctx): void {
-  if (ctx.opt.adminSigner === null) return;
+  // Derived from the signer itself (resolveOptions), so comparing would only compare it with itself.
+  if (ctx.opt.adminSigner === null || ctx.opt.adminDerived) return;
 
   const resolved = signerAddress(ctx.opt.adminSigner);
   if (!sameAddress(resolved, ctx.opt.admin)) {
@@ -1276,20 +1666,44 @@ function previousManifestLines(ctx: Ctx): string[] {
  * run dry mid-run. This prints; measuring a real threshold against a fork is still a gap.
  */
 export function preflight(ctx: Ctx): void {
-  say('🍖 preflight');
+  banner('🍖 Preflight');
 
+  prepareForgeConfig(ctx);
   ctx.chainId = captureOrFail('cast', ['chain-id', '--rpc-url', ctx.opt.rpcUrl]);
   checkChainAllowed(ctx);
   checkPreviousManifest(ctx);
   checkOutDirIdentity(ctx);
-  if (ctx.flow.needsDeployerKey(ctx.opt.stage) || ctx.opt.adminAccount !== null || ctx.opt.stage === 'materialize') {
+  // The admin keystore only matters to a stage that may sign with it; a read-only one must not prompt for it.
+  const readOnly = ctx.flow.readOnlyStages.includes(ctx.opt.stage);
+  if (
+    !readOnly &&
+    (ctx.flow.needsDeployerKey(ctx.opt.stage) || ctx.opt.adminAccount !== null || ctx.opt.stage === 'materialize')
+  ) {
     checkAdminAccount(ctx);
   }
   checkFactory(ctx);
+  reconcileJournal(ctx);
 
   const finalized = probeFinality(ctx);
-  const balanceWei = captureOrFail('cast', ['balance', ctx.deployer, '--rpc-url', ctx.opt.rpcUrl]);
-  const balanceEth = captureOrFail('cast', ['to-unit', balanceWei, 'ether']);
+  const balanceEth = etherBalance(ctx, ctx.deployer);
+
+  // The admin signs a transaction of its own — step F of a deploy, the atomic upgrade — but only at the
+  // END of a run. An empty admin key would surface there, after everything else had been sent and waited
+  // for, so it is checked here. Only when this tooling signs for it (a multisig pays its own gas), and
+  // only for a stage that actually sends as the admin: a read-only look must not fail on it.
+  const adminSigner = ctx.opt.adminSigner;
+  const adminBalanceEth = adminSigner === null ? null : etherBalance(ctx, ctx.opt.admin);
+  if (adminSigner !== null && adminBalanceEth !== null) {
+    const sendsAsAdmin =
+      !ctx.opt.dryRun && (ctx.opt.stage === 'all' || ctx.flow.adminSendingStages.includes(ctx.opt.stage));
+    if (sendsAsAdmin && /^0(\.0*)?$/.test(adminBalanceEth)) {
+      fail(
+        `Error: the admin ${ctx.opt.admin} has no ETH on chain ${ctx.chainId}.`,
+        `       This run sends a transaction as the admin (${ctx.flow.adminSendingStages.join(', ')}), signed by`,
+        `       ${describeSigner(adminSigner)}. Fund it first; nothing has been sent.`,
+      );
+    }
+  }
 
   say(
     `  chain            ${ctx.chainId}`,
@@ -1297,13 +1711,22 @@ export function preflight(ctx: Ctx): void {
     `  finalized block  ${finalized}`,
     `  deployer         ${ctx.deployer}`,
     `  balance          ${balanceEth} ETH`,
-    `  admin            ${ctx.opt.admin}`,
+    `  admin            ${ctx.opt.admin}${
+      ctx.opt.adminDerived && ctx.opt.adminSigner !== null ? ` (from ${describeSigner(ctx.opt.adminSigner)})` : ''
+    }`,
+    ...(adminBalanceEth === null ? [] : [`  admin balance    ${adminBalanceEth} ETH`]),
     `  deploymentId     ${ctx.opt.deploymentId} @ v${FHEVM_VERSION}`,
     `  out dir          ${ctx.outDir}`,
     `  config           ${ctx.opt.configPath ?? '(none - all arguments on the command line)'}`,
     ...previousManifestLines(ctx),
     '',
   );
+}
+
+/** An account's balance in ether, as `cast to-unit` prints it (e.g. `0`, `1.5`). */
+function etherBalance(ctx: Ctx, address: string): string {
+  const wei = captureOrFail('cast', ['balance', address, '--rpc-url', ctx.opt.rpcUrl]);
+  return captureOrFail('cast', ['to-unit', wei, 'ether']);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1330,49 +1753,232 @@ export function settledBlock(ctx: Ctx): number {
   return ctx.useFinality ? finalizedBlock(ctx) : Math.max(0, headBlock(ctx) - ctx.opt.confirmations);
 }
 
-/** Does `address` hold code as of `block`? A create is settled when this holds at `settledBlock`. */
-export function hasCodeAt(ctx: Ctx, address: string, block: number): boolean {
-  const r = capture('cast', ['code', address, '--block', String(block), '--rpc-url', ctx.opt.rpcUrl]);
+/** A block's timestamp in seconds, or null when the node does not answer. */
+function blockTimestamp(ctx: Ctx, block: number): number | null {
+  const r = capture('cast', ['block', String(block), '--field', 'timestamp', '--rpc-url', ctx.opt.rpcUrl]);
+  const ts = Number(r.stdout);
+  return r.ok && Number.isFinite(ts) && ts > 0 ? ts : null;
+}
+
+/**
+ * When the settled block should reach `target`, as `ETA ~11 min (≈23:00)`, or '' when unknown.
+ *
+ * The settled block trails real time by a roughly constant lag (finality: ~15-20 min on Ethereum; or
+ * `confirmations` blocks), so it reaches `target` once the clock has moved on by the time between the
+ * two blocks: no block-time guess, the same on every chain. Finality moves in jumps, so this is an
+ * estimate within one jump (~6.4 min on Ethereum).
+ */
+function settlementEta(targetTs: number | null, settledTs: number | null): string {
+  if (targetTs === null || settledTs === null) return '';
+  const seconds = targetTs - settledTs;
+  if (seconds <= 30) return ', ETA any moment now';
+  const at = new Date(Date.now() + seconds * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `, ETA ~${String(Math.max(1, Math.round(seconds / 60)))} min (≈${at})`;
+}
+
+/** How `settledBlock` is computed, for messages: `finalized`, or `N blocks deep`. */
+export function settlementRule(ctx: Ctx): string {
+  return ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
+}
+
+/** `--block N`, or nothing for the head (`null`). */
+function blockArgs(block: number | null): string[] {
+  return block === null ? [] : ['--block', String(block)];
+}
+
+/** Does `address` hold code as of `block` (`null`: the head)? */
+export function hasCodeAt(ctx: Ctx, address: string, block: number | null): boolean {
+  const r = capture('cast', ['code', address, ...blockArgs(block), '--rpc-url', ctx.opt.rpcUrl]);
   return r.ok && r.stdout !== '' && r.stdout !== '0x';
+}
+
+/** A view call as of `block` (`null`: the head), decoded by cast; null when it reverts. */
+export function callAt(
+  ctx: Ctx,
+  to: string,
+  sig: string,
+  args: readonly string[],
+  block: number | null,
+): string | null {
+  const r = capture('cast', ['call', to, sig, ...args, ...blockArgs(block), '--rpc-url', ctx.opt.rpcUrl]);
+  return r.ok ? r.stdout.trim() : null;
+}
+
+export const ERC1967_IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+
+/** The ERC-1967 implementation of `proxy` as of `block` (`null`: the head), lower-cased; null if unreadable. */
+export function implementationAt(ctx: Ctx, proxy: string, block: number | null): string | null {
+  const r = capture('cast', [
+    'storage',
+    proxy,
+    ERC1967_IMPLEMENTATION_SLOT,
+    ...blockArgs(block),
+    '--rpc-url',
+    ctx.opt.rpcUrl,
+  ]);
+  const word = /0x[0-9a-fA-F]{64}/.exec(r.stdout)?.[0];
+  return !r.ok || word === undefined ? null : `0x${word.slice(-40)}`.toLowerCase();
+}
+
+/**
+ * One fact a stage needs from the stages before it — "the ACL is owned by the ACLOwner" — as a check
+ * that can be asked of any block: `holds(n)` at block n, `holds(null)` at the head.
+ */
+export type Prerequisite = { readonly what: string; readonly holds: (block: number | null) => boolean };
+
+function listPrerequisites(prerequisites: readonly Prerequisite[]): string[] {
+  const shown = prerequisites.slice(0, 6).map((p) => `    - ${p.what}`);
+  return prerequisites.length > 6 ? [...shown, `    … and ${String(prerequisites.length - 6)} more`] : shown;
+}
+
+/**
+ * The decision to start a stage, always taken at the SETTLED block — never at the head alone.
+ *
+ * What a stage reads, a previous stage wrote; if that write is reorged away after the stage has acted
+ * on it, the stage acted on a chain that no longer exists. So every prerequisite must hold at the
+ * settled block (finalized, or `confirmations` deep):
+ *
+ *   all hold at the settled block        go now — whatever happened before: a restart, Ctrl-C, another
+ *                                        machine. No memory of "where the previous stage ended" is needed
+ *   hold at the head, not yet settled    wait, a line a minute, until they are
+ *   do not hold even at the head         stop: an earlier stage is not done. The message names what is missing
+ *
+ * While waiting, every line shows the settled block against the TARGET: the first block at which every
+ * pending prerequisite holds, i.e. the block the settled block must reach. It is found once, by bisection
+ * between the settled block and the head (a prerequisite, once done, stays done), and found again if a
+ * reorg moves it.
+ *
+ * A dry run never waits: it reports what is not settled yet and goes on, so the simulation still runs.
+ * Only the still-pending prerequisites are re-checked while waiting. Returns the settled block used.
+ */
+export async function awaitPrerequisites(
+  ctx: Ctx,
+  label: string,
+  prerequisites: readonly Prerequisite[],
+): Promise<number> {
+  let settled = settledBlock(ctx);
+  if (prerequisites.length === 0) return settled;
+  const rule = settlementRule(ctx);
+  let pending = prerequisites.filter((p) => !p.holds(settled));
+  if (pending.length === 0) {
+    say(
+      `  ✔ ${label}: ${String(prerequisites.length)} prerequisite(s) hold at the settled block ${String(settled)} (${rule})`,
+    );
+    return settled;
+  }
+
+  const missing = pending.filter((p) => !p.holds(null));
+  if (missing.length > 0) {
+    fail(
+      `Error: ${label} cannot start: not done on chain yet, even at the head:`,
+      ...listPrerequisites(missing),
+      '       Run the earlier stages first; --stage status shows where the deployment stands.',
+    );
+  }
+
+  if (ctx.opt.dryRun) {
+    say(
+      `  ${label}: ${String(pending.length)} prerequisite(s) are done at the head but not yet settled (${rule}, settled block ${String(settled)}):`,
+      ...listPrerequisites(pending),
+      '  A real run would wait for them. The dry run goes on against the head.',
+    );
+    return settled;
+  }
+
+  const settledName = ctx.useFinality ? 'finalized block' : 'settled block';
+  let target = firstBlockWhereAllHold(pending, settled, headBlock(ctx));
+  let targetTs = blockTimestamp(ctx, target);
+  const settledTs = new Map<number, number | null>();
+  const eta = (): string => {
+    if (!settledTs.has(settled)) settledTs.set(settled, blockTimestamp(ctx, settled));
+    return settlementEta(targetTs, settledTs.get(settled) ?? null);
+  };
+  say(
+    `  waiting for ${String(pending.length)} prerequisite(s) of ${label} to be settled (${rule}):`,
+    ...listPrerequisites(pending),
+    `  They are done on chain at block ${String(target)}; the ${settledName} must reach it. This is the reorg safety`,
+    '  margin. Nothing is stuck; Ctrl-C is safe here.',
+    ...(ctx.useFinality
+      ? [
+          '  The finalized block moves in jumps, not block by block: on an Ethereum testnet 32 blocks every',
+          '  ~6.4 minutes, ~15-20 minutes behind the head. The same number can repeat for several minutes.',
+        ]
+      : []),
+    `  ${settledName} ${String(settled)} → target ${String(target)}: ${String(target - settled)} block(s) to go${eta()}`,
+  );
+  const beat = heartbeat();
+  while (pending.length > 0) {
+    await sleep(12_000);
+    settled = settledBlock(ctx);
+    pending = pending.filter((p) => !p.holds(settled));
+    if (pending.length > 0 && settled >= target) {
+      // Settled past the target and still pending: what was at the target is not there any more.
+      const gone = pending.filter((p) => !p.holds(null));
+      if (gone.length > 0) {
+        fail(
+          `Error: ${label}: prerequisite(s) seen at the head are no longer there (reorg?):`,
+          ...listPrerequisites(gone),
+          '       Run the earlier stages again; they re-send only what is missing.',
+        );
+      }
+      target = firstBlockWhereAllHold(pending, settled, headBlock(ctx));
+      targetTs = blockTimestamp(ctx, target);
+      say(`  the prerequisites moved to block ${String(target)} (reorg?); waiting for that block instead`);
+    }
+    if (pending.length > 0 && beat.due()) {
+      // Once a minute, also make sure what is pending is still there at all: a reorg can undo it.
+      const gone = pending.filter((p) => !p.holds(null));
+      if (gone.length > 0) {
+        fail(
+          `Error: ${label}: prerequisite(s) seen at the head are no longer there (reorg?):`,
+          ...listPrerequisites(gone),
+          '       Run the earlier stages again; they re-send only what is missing.',
+        );
+      }
+      say(
+        `  … ${settledName} ${String(settled)} → target ${String(target)}: ${String(target - settled)} block(s) to go${eta()} (waiting ${beat.elapsed()})`,
+      );
+    }
+  }
+  say(`  ✔ ${label}: every prerequisite is settled at block ${String(settled)} (${rule})`);
+  recordFinality(ctx);
+  return settled;
+}
+
+/**
+ * The first block in (settled, head] at which every prerequisite holds. They do not all hold at
+ * `settled` and all hold at the head; a prerequisite, once done, stays done, so this is a bisection.
+ */
+function firstBlockWhereAllHold(prerequisites: readonly Prerequisite[], settled: number, head: number): number {
+  let lo = settled;
+  let hi = head;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (prerequisites.every((p) => p.holds(mid))) hi = mid;
+    else lo = mid;
+  }
+  return hi;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * The reorg gate, shell half.
+ * Wait until the chain has reached `target`: the manual `--min-block` floor.
  *
- * Steps A-F each REQUIRE FHEVM_MIN_BLOCK and refuse to run until the chain has reached it. Every one
- * of them decides what to do by reading state a previous step wrote, so a predicate evaluated one
- * block after the transaction it asks about can be answering from a block about to be orphaned — and
- * these predicates decide whether a step is SKIPPED.
- *
- * Two halves, both needed: this waits so the normal path does not fail; the script refuses so a
- * different orchestrator cannot proceed early just because it did not implement the wait.
- *
- * Depth is a heuristic — ~3 min at 15 blocks vs ~12.8 min to PoS finality — so this waits for the
- * `finalized` tag as well, when the chain serves it. A Solidity script cannot read `finalized`
- * through block.number, which is why the depth floor lives there and the finality wait lives here.
+ * The reorg safety between stages is NOT here any more: it is awaitPrerequisites, which asks the chain
+ * whether what a stage depends on is settled. This only honours an explicit `--min-block`.
  */
 export async function waitForBlock(ctx: Ctx, target: number): Promise<void> {
   let head = headBlock(ctx);
-  if (head < target) {
-    say(`  waiting for block ${target} (at ${head}, reorg depth ${ctx.opt.confirmations})`);
-    while (head < target) {
-      await sleep(4000);
-      head = headBlock(ctx);
-    }
+  if (head >= target) return;
+  say(`  waiting until block ${String(target)} (--min-block; chain head: ${String(head)})`);
+  const beat = heartbeat();
+  while (head < target) {
+    await sleep(4000);
+    head = headBlock(ctx);
+    if (beat.due()) say(`  … chain head ${String(head)}, ${String(target - head)} block(s) to go (${beat.elapsed()})`);
   }
-
-  if (!ctx.useFinality || ctx.finalityTarget <= 0) return;
-
-  let fin = finalizedBlock(ctx);
-  if (fin < ctx.finalityTarget) {
-    say(`  waiting for block ${ctx.finalityTarget} to FINALIZE (finalized at ${fin})`);
-    while (fin < ctx.finalityTarget) {
-      await sleep(12000);
-      fin = finalizedBlock(ctx);
-    }
-  }
+  say(`  block ${String(target)} reached (chain head: ${String(head)})`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1408,69 +2014,341 @@ export function requireNoPendingTxs(ctx: Ctx, who: string): void {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Distil forge's run-latest.json into the journal.
+ * Distil forge's broadcast records for one stage's script into the journal.
  *
  * Called whether the stage SUCCEEDED OR NOT — a stage that died halfway is precisely when the record
  * matters, and forge has already written what it managed to send.
  *
  * Invents no facts: forge already records every transaction and receipt, and this flattens them into
- * one append-only stream across stages, tagged with which stage sent what. Reading ten separate
- * run-latest.json files in the right order is the thing this saves you at 2am.
+ * one append-only stream across stages, tagged with which stage sent what. A transaction forge recorded
+ * without a receipt is looked up on chain before it is called `unmined`.
  */
-
-////////////////////////////////////////////////////////////////////////////////
-
 export function recordJournal(ctx: Ctx, target: string): void {
   // `?? target` is unreachable in practice — a forge target is always `File.sol:Contract` — but
-  // noUncheckedIndexedAccess types index access as possibly-undefined, and a non-null assertion here
-  // would be a claim rather than a handled case. A target without a colon IS its own file name.
+  // noUncheckedIndexedAccess types index access as possibly-undefined. A target without a colon IS its
+  // own file name.
   const file = target.split(':')[0] ?? target;
-  const runPath = join(ctx.broadcastDir, file, ctx.chainId, 'run-latest.json');
-  const forgeRun = readJson<ForgeRun>(runPath);
-  if (forgeRun === null) return;
-
-  const receipts = forgeRun.receipts ?? [];
-  const rows: JournalEntry[] = (forgeRun.transactions ?? []).map((tx) => {
-    const rc = receipts.find((r) => r.transactionHash === tx.hash);
-    return {
-      stage: ctx.stageLabel,
-      script: file,
-      hash: tx.hash,
-      type: tx.transactionType ?? null,
-      contract: tx.contractName ?? null,
-      address: tx.contractAddress ?? null,
-      function: tx.function ?? null,
-      block: hexToNumber(rc?.blockNumber),
-      gasUsed: hexToNumber(rc?.gasUsed),
-      status: rc === undefined ? 'unmined' : rc.status === '0x1' ? 'ok' : 'REVERTED',
-      ts: forgeRun.timestamp ?? null,
-    };
-  });
-
-  // Skip transactions the journal already has.
-  //
-  // forge does NOT clear run-latest.json when a re-run broadcasts nothing — it just leaves the
-  // previous run's file in place. Every idempotent re-run of an already-done stage would therefore
-  // re-read and re-append the same transactions, and since re-running IS the resume path here, the
-  // journal filled up with duplicates of its own history.
-  //
-  // Keyed on the transaction hash, which is unique by construction, so a hash already recorded is
-  // never new information. Observations (step F, hash null) are always kept — they are not
-  // transactions this run sent, and there is nothing to collide on.
-  const known = new Set(
-    readJsonl<JournalEntry>(ctx.journalPath)
-      .map((r) => r.hash)
-      .filter((h): h is string => h !== null),
-  );
-  const fresh = rows.filter((r) => r.hash === null || !known.has(r.hash));
-
-  appendJsonl(ctx.journalPath, fresh);
+  const fresh = ingestForgeRuns(ctx, file, ctx.stageLabel, false);
 
   // A reverted transaction is not fatal on this path — a failed create does not burn its address
   // — but it must never scroll past unnoticed. Counted from what was actually appended, so a
   // re-run of a stage that once reverted does not warn about it again.
   const reverted = fresh.filter((r) => r.status === 'REVERTED').length;
   if (reverted > 0) warn(`${reverted} transaction(s) REVERTED in this stage - see --stage log`);
+}
+
+/**
+ * Every `run-<time>.json` forge kept for one script, oldest first.
+ *
+ * Not just `run-latest.json`: that is a copy of the newest run only, so a run that was interrupted and
+ * then re-run would otherwise lose the first run's transactions from the journal.
+ */
+function forgeRunFiles(ctx: Ctx, file: string): string[] {
+  const dir = join(ctx.broadcastDir, file, ctx.chainId);
+  if (!existsSync(dir)) return [];
+  const time = (name: string): number => Number(name.slice('run-'.length, -'.json'.length));
+  return readdirSync(dir)
+    .filter((name) => /^run-\d+\.json$/.test(name))
+    .sort((a, b) => time(a) - time(b))
+    .map((name) => join(dir, name));
+}
+
+/** A receipt as cast prints it with --json: hex numbers. */
+type ChainReceipt = {
+  readonly blockNumber?: string;
+  readonly blockHash?: string;
+  readonly status?: string;
+  readonly gasUsed?: string;
+};
+
+/** The receipt of `hash`, or null when the chain has none (pending, dropped, reorged out). Never waits. */
+function chainReceipt(ctx: Ctx, hash: string): ChainReceipt | null {
+  const r = capture('cast', ['receipt', hash, '--async', '--json', '--rpc-url', ctx.opt.rpcUrl]);
+  if (!r.ok) return null;
+  try {
+    return JSON.parse(r.stdout) as ChainReceipt;
+  } catch {
+    return null;
+  }
+}
+
+/** The mined fields of a journal line, from a receipt (or `unmined` without one). */
+function minedFields(rc: ChainReceipt | null): Pick<JournalEntry, 'block' | 'blockHash' | 'gasUsed' | 'status'> {
+  return {
+    block: hexToNumber(rc?.blockNumber),
+    blockHash: rc?.blockHash?.toLowerCase() ?? null,
+    gasUsed: hexToNumber(rc?.gasUsed),
+    status: rc === null ? 'unmined' : rc.status === '0x1' ? 'ok' : 'REVERTED',
+  };
+}
+
+function isTxLine(line: JournalLine): line is JournalEntry {
+  return line.kind === undefined || line.kind === 'tx';
+}
+
+/** The last journal line per transaction hash: the current knowledge about each one. */
+function latestByHash(ctx: Ctx): Map<string, JournalEntry> {
+  const latest = new Map<string, JournalEntry>();
+  for (const line of readJsonl<JournalLine>(ctx.journalPath)) {
+    if (isTxLine(line) && line.hash !== null) latest.set(line.hash, line);
+  }
+  return latest;
+}
+
+/**
+ * Append what forge recorded for `file` that the journal does not already know.
+ *
+ * A transaction with no hash was planned but never signed — nothing happened, so nothing is recorded. A
+ * known transaction is appended again only with news: a receipt for one that was `unmined`, or the block
+ * hash an older line lacks.
+ */
+function ingestForgeRuns(ctx: Ctx, file: string, stage: string, recovering: boolean): JournalEntry[] {
+  const latest = latestByHash(ctx);
+  const out: JournalEntry[] = [];
+  for (const path of forgeRunFiles(ctx, file)) {
+    const run = readJson<ForgeRun>(path);
+    if (run === null) continue;
+    const receipts = run.receipts ?? [];
+    for (const tx of run.transactions ?? []) {
+      if (tx.hash === null) continue;
+      const known = latest.get(tx.hash);
+      if (known !== undefined && known.status !== 'unmined' && (known.blockHash ?? null) !== null) continue;
+      const fromFile = receipts.find((r) => r.transactionHash === tx.hash);
+      const rc = fromFile ?? chainReceipt(ctx, tx.hash);
+      const entry: JournalEntry = {
+        kind: 'tx',
+        stage: known?.stage ?? stage,
+        script: file,
+        hash: tx.hash,
+        type: tx.transactionType ?? null,
+        contract: tx.contractName ?? null,
+        address: tx.contractAddress ?? null,
+        function: tx.function ?? null,
+        from: tx.transaction?.from?.toLowerCase() ?? null,
+        nonce: hexToNumber(tx.transaction?.nonce),
+        ...minedFields(rc),
+        ...(recovering && known === undefined ? { recovered: 'broadcast-file' as const } : {}),
+        ts: run.timestamp ?? null,
+      };
+      if (known !== undefined && entry.status === 'unmined') continue; // still no news
+      out.push(entry);
+      latest.set(tx.hash, entry);
+    }
+  }
+  appendJsonl(ctx.journalPath, out);
+  return out;
+}
+
+/**
+ * Record, BEFORE forge starts, who is about to send from which nonce at which block.
+ *
+ * The one line that survives a kill at any instant: if the run dies after forge sent something but
+ * before anything was written, reconcileJournal finds the missing nonces on chain from here.
+ */
+export function recordStageStart(ctx: Ctx, script: string, from: string, nonce: number): void {
+  const anchor: JournalStageStart = {
+    kind: 'stage-start',
+    stage: ctx.stageLabel,
+    script,
+    from: from.toLowerCase(),
+    nonce,
+    head: headBlock(ctx),
+    ts: Date.now(),
+  };
+  appendJsonl(ctx.journalPath, [anchor]);
+}
+
+/**
+ * Bring the journal up to date with everything that exists, at the start of every run that reaches a
+ * node. The journal is an audit trail; this is what makes it complete even after an interruption.
+ *
+ *   1. forge's broadcast records, every run of every script — a transaction sent before a kill is in
+ *      forge's files even when the journal never got the line;
+ *   2. older lines without sender, nonce or block hash are completed from the chain;
+ *   3. nonces sent after a stage-start anchor but in no record at all are found on chain;
+ *   4. finality is recorded for every mined transaction whose block is now settled.
+ */
+export function reconcileJournal(ctx: Ctx): void {
+  if (!existsSync(ctx.journalPath) && !existsSync(ctx.broadcastDir)) return;
+  const anchors = readJsonl<JournalLine>(ctx.journalPath).filter(
+    (line): line is JournalStageStart => line.kind === 'stage-start',
+  );
+  const labelFor = (script: string): string =>
+    [...anchors].reverse().find((anchor) => anchor.script === script)?.stage ?? script;
+
+  if (existsSync(ctx.broadcastDir)) {
+    for (const script of readdirSync(ctx.broadcastDir)) {
+      const recovered = ingestForgeRuns(ctx, script, labelFor(script), true);
+      if (recovered.length > 0)
+        say(`  journal: ${String(recovered.length)} line(s) completed from forge's records of ${script}`);
+    }
+  }
+  completeOldLines(ctx);
+  recoverByNonce(ctx, anchors);
+  recordFinality(ctx);
+}
+
+/** Lines written before sender, nonce and block hash were recorded: completed once, from the chain. */
+function completeOldLines(ctx: Ctx): void {
+  const updates: JournalEntry[] = [];
+  for (const entry of latestByHash(ctx).values()) {
+    if (entry.hash === null) continue;
+    const needsSender = (entry.from ?? null) === null || (entry.nonce ?? null) === null;
+    const needsBlockHash = entry.status !== 'unmined' && (entry.blockHash ?? null) === null;
+    if (!needsSender && !needsBlockHash) continue;
+    const tx = capture('cast', ['tx', entry.hash, '--json', '--rpc-url', ctx.opt.rpcUrl]);
+    let from = entry.from ?? null;
+    let nonce = entry.nonce ?? null;
+    if (tx.ok) {
+      try {
+        const parsed = JSON.parse(tx.stdout) as { readonly from?: string; readonly nonce?: string };
+        from = parsed.from?.toLowerCase() ?? from;
+        nonce = hexToNumber(parsed.nonce) ?? nonce;
+      } catch {
+        // keep what the line had
+      }
+    }
+    updates.push({ ...entry, kind: 'tx', from, nonce, ...minedFields(chainReceipt(ctx, entry.hash)) });
+  }
+  appendJsonl(ctx.journalPath, updates);
+  if (updates.length > 0)
+    say(`  journal: ${String(updates.length)} older line(s) completed (sender, nonce, block hash)`);
+}
+
+/** Blocks scanned at most when looking for unrecorded nonces: far more than any stage takes. */
+const NONCE_SCAN_LIMIT = 50_000;
+
+/**
+ * Case 3: a transaction was sent, then the run was killed before forge or the journal wrote anything.
+ *
+ * Its sender and its starting nonce are in a stage-start anchor, so the nonces between the first anchor
+ * and the sender's current nonce that no journal line accounts for are exactly the lost ones. There is no
+ * standard RPC for "transaction by sender and nonce", so the blocks from the anchor on are scanned —
+ * forward, stopping as soon as every missing nonce is found.
+ */
+function recoverByNonce(ctx: Ctx, anchors: readonly JournalStageStart[]): void {
+  const senders = [...new Set(anchors.map((anchor) => anchor.from))];
+  for (const sender of senders) {
+    const mine = anchors.filter((anchor) => anchor.from === sender).sort((a, b) => a.nonce - b.nonce);
+    const first = mine[0];
+    if (first === undefined) continue;
+    const latestNonce = Number(
+      captureOrFail('cast', ['nonce', sender, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]),
+    );
+    const accounted = new Set(
+      [...latestByHash(ctx).values()]
+        .filter((entry) => entry.from === sender && entry.status !== 'unmined')
+        .map((entry) => entry.nonce),
+    );
+    const missing = new Set<number>();
+    for (let n = first.nonce; n < latestNonce; n++) if (!accounted.has(n)) missing.add(n);
+    if (missing.size === 0) continue;
+
+    const lowest = Math.min(...missing);
+    const anchorFor = (nonce: number): JournalStageStart =>
+      [...mine].reverse().find((anchor) => anchor.nonce <= nonce) ?? first;
+    const fromBlock = anchorFor(lowest).head;
+    const head = headBlock(ctx);
+    say(
+      `  journal: ${String(missing.size)} transaction(s) from ${sender} are on chain but in no record`,
+      `           (nonces ${[...missing].sort((a, b) => a - b).join(', ')}); scanning from block ${String(fromBlock)}`,
+    );
+    const beat = heartbeat();
+    const found: JournalEntry[] = [];
+    for (let n = fromBlock; n <= head && n < fromBlock + NONCE_SCAN_LIMIT && missing.size > 0; n++) {
+      const block = capture('cast', ['block', String(n), '--full', '--json', '--rpc-url', ctx.opt.rpcUrl]);
+      if (!block.ok) continue;
+      let txs: ReadonlyArray<{ hash?: string; from?: string; nonce?: string; to?: string | null }> = [];
+      try {
+        txs = (JSON.parse(block.stdout) as { transactions?: typeof txs }).transactions ?? [];
+      } catch {
+        continue;
+      }
+      for (const tx of txs) {
+        const nonce = hexToNumber(tx.nonce);
+        if (tx.hash === undefined || tx.from?.toLowerCase() !== sender || nonce === null || !missing.has(nonce))
+          continue;
+        const anchor = anchorFor(nonce);
+        found.push({
+          kind: 'tx',
+          stage: anchor.stage,
+          script: anchor.script,
+          hash: tx.hash,
+          address: tx.to ?? null,
+          from: sender,
+          nonce,
+          ...minedFields(chainReceipt(ctx, tx.hash)),
+          recovered: 'nonce-scan',
+          note: 'found on chain from a stage-start anchor; in no local record',
+          ts: Date.now(),
+        });
+        missing.delete(nonce);
+      }
+      if (beat.due()) say(`    … scanned up to block ${String(n)} of ${String(head)} (${beat.elapsed()})`);
+    }
+    appendJsonl(ctx.journalPath, found);
+    if (found.length > 0) say(`  journal: recovered ${String(found.length)} transaction(s) from the chain`);
+    if (missing.size > 0) {
+      warn(
+        `nonce(s) ${[...missing].sort((a, b) => a - b).join(', ')} of ${sender} were not found after block ${String(fromBlock)}.`,
+        'They may have been sent by something else than this tool. The journal does not list them.',
+      );
+    }
+  }
+}
+
+/**
+ * Point 1: record the finality of every mined transaction whose block is now settled.
+ *
+ * Settled is the chain's `finalized` block, or `confirmations` behind the head with --no-finality. A
+ * transaction is recorded final only if the block at its height STILL has the recorded hash; otherwise it
+ * was reorged, and its line is re-read from the chain instead (and the operator warned).
+ */
+export function recordFinality(ctx: Ctx): void {
+  const finalized = new Set(
+    readJsonl<JournalLine>(ctx.journalPath)
+      .filter((line): line is JournalFinalized => line.kind === 'finalized')
+      .map((line) => line.hash),
+  );
+  const candidates = [...latestByHash(ctx).values()].filter(
+    (entry) => entry.hash !== null && entry.status !== 'unmined' && !finalized.has(entry.hash),
+  );
+  if (candidates.length === 0) return;
+
+  const settled = settledBlock(ctx);
+  const rule = ctx.useFinality ? 'finalized' : `${String(ctx.opt.confirmations)} blocks deep`;
+  const hashAtHeight = new Map<number, string | null>();
+  const canonicalHash = (height: number): string | null => {
+    if (!hashAtHeight.has(height)) {
+      const r = capture('cast', ['block', String(height), '--field', 'hash', '--rpc-url', ctx.opt.rpcUrl]);
+      hashAtHeight.set(height, r.ok ? r.stdout.toLowerCase() : null);
+    }
+    return hashAtHeight.get(height) ?? null;
+  };
+
+  const lines: JournalLine[] = [];
+  for (const entry of candidates) {
+    const hash = entry.hash;
+    const block = entry.block;
+    const blockHash = entry.blockHash ?? null;
+    if (hash === null || block === null || blockHash === null || block > settled) continue;
+    const atHeight = canonicalHash(block);
+    if (atHeight === null) continue;
+    if (atHeight !== blockHash.toLowerCase()) {
+      const reread: JournalEntry = { ...entry, kind: 'tx', ...minedFields(chainReceipt(ctx, hash)) };
+      lines.push(reread);
+      warn(
+        `reorg: ${hash} is no longer in block ${String(block)}`,
+        `(now: ${reread.block === null ? 'not on chain' : `block ${String(reread.block)}`}). The journal is updated.`,
+      );
+      continue;
+    }
+    lines.push({ kind: 'finalized', hash, block, blockHash, settledBlock: settled, rule, ts: Date.now() });
+  }
+  appendJsonl(ctx.journalPath, lines);
+  const finals = lines.filter((line) => line.kind === 'finalized').length;
+  if (finals > 0)
+    say(`  journal: ${String(finals)} transaction(s) recorded as final (${rule}, settled block ${String(settled)})`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1484,30 +2362,53 @@ export function recordJournal(ctx: Ctx, target: string): void {
  * pedantry.
  */
 export function recordObservation(ctx: Ctx, stage: string, note: string, block: number): void {
-  const entry: JournalEntry = { stage, observed: true, note, block, hash: null, status: 'ok' };
+  const entry: JournalEntry = { kind: 'tx', stage, observed: true, note, block, hash: null, status: 'ok' };
   appendJsonl(ctx.journalPath, [entry]);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * The journal, with duplicate transactions collapsed.
+ * The journal's transactions, one per hash, in the order they were first recorded, with the LAST line's
+ * content: a transaction recorded `unmined` and later mined reads as mined.
  *
- * recordJournal now refuses to append a hash it already holds, but journals written before that
- * carry repeats — one per idempotent re-run of an already-done stage, because forge leaves the
- * previous run-latest.json in place when a run broadcasts nothing. Collapsing on read means an
- * existing journal reports correctly instead of needing to be hand-edited.
- *
- * Entries with no hash are observations, not transactions (step F), and are always kept.
+ * Stage-start anchors and finality records are not transactions and are left out. A line with no hash is
+ * kept only when it is an OBSERVATION (step F sent by a multisig): older journals also hold no-hash lines
+ * for transactions forge planned but never signed, and those record nothing that happened.
  */
 export function readJournal(ctx: Ctx): JournalEntry[] {
-  const seen = new Set<string>();
-  return readJsonl<JournalEntry>(ctx.journalPath).filter((r) => {
-    if (r.hash === null) return true;
-    if (seen.has(r.hash)) return false;
-    seen.add(r.hash);
-    return true;
-  });
+  const out: JournalEntry[] = [];
+  const position = new Map<string, number>();
+  for (const line of readJsonl<JournalLine>(ctx.journalPath)) {
+    if (!isTxLine(line)) continue;
+    if (line.hash === null) {
+      if (line.observed === true) out.push(line);
+      continue;
+    }
+    const at = position.get(line.hash);
+    if (at === undefined) {
+      position.set(line.hash, out.length);
+      out.push(line);
+    } else {
+      const first = out[at];
+      out[at] = { ...first, ...line, stage: first?.stage ?? line.stage };
+    }
+  }
+  return out;
+}
+
+/** Has this deployment sent anything? A transaction with a hash, not a mere stage-start anchor. */
+export function journalHasSentTx(ctx: Ctx): boolean {
+  return readJournal(ctx).some((entry) => entry.hash !== null);
+}
+
+/** The hashes the journal records as final. */
+export function finalizedHashes(ctx: Ctx): Set<string> {
+  return new Set(
+    readJsonl<JournalLine>(ctx.journalPath)
+      .filter((line): line is JournalFinalized => line.kind === 'finalized')
+      .map((line) => line.hash),
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1520,20 +2421,30 @@ export function showJournal(ctx: Ctx): void {
     return;
   }
 
-  say(`📜  log  (${ctx.journalPath})`, '');
-  say(`  ${pad('STAGE', 10)} ${pad('STATUS', 9)} ${pad('BLOCK', 9)} ${pad('WHAT', 30)} ADDRESS / TX`);
+  const final = finalizedHashes(ctx);
+  banner(`📜 Log: ${ctx.journalPath}`);
+  say(
+    `  ${pad('STAGE', 10)} ${pad('STATUS', 9)} ${pad('BLOCK', 9)} ${pad('FINAL', 6)} ${pad('WHAT', 30)} ADDRESS / TX`,
+  );
   for (const r of rows) {
     // WHAT is truncated rather than left to overflow: a full signature would push the address column
     // out of line on one row and not the others.
     const what = r.contract ?? r.function ?? r.note ?? '-';
+    const isFinal = r.hash !== null && final.has(r.hash) ? 'yes' : r.status === 'unmined' ? '-' : 'no';
     say(
       `  ${pad(r.stage, 10)} ${pad(r.status, 9)} ${pad(r.block === null ? '-' : String(r.block), 9)} ` +
-        `${pad(what, 30)} ${r.address ?? r.hash ?? '-'}`,
+        `${pad(isFinal, 6)} ${pad(what, 30)} ${r.address ?? r.hash ?? '-'}${r.recovered === undefined ? '' : `  (recovered: ${r.recovered})`}`,
     );
   }
 
   const reverted = rows.filter((r) => r.status === 'REVERTED').length;
-  say('', `  ${rows.length} entries, ${reverted} reverted`, `  raw forge records: ${ctx.broadcastDir}`);
+  const finals = rows.filter((r) => r.hash !== null && final.has(r.hash)).length;
+  say(
+    '',
+    `  ${rows.length} entries, ${reverted} reverted, ${finals} final`,
+    '  FINAL is as of the last run that reached the node; `--stage status` (or any stage) updates it.',
+    `  raw forge records: ${ctx.broadcastDir}`,
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1558,8 +2469,9 @@ export function showJournal(ctx: Ctx): void {
 export function stageReport(ctx: Ctx): void {
   const manifest = readJson<Manifest>(manifestPath(ctx));
   const rows = readJournal(ctx);
+  const final = finalizedHashes(ctx);
 
-  say(`📋  report  ${ctx.opt.deploymentId}`);
+  banner(`📋 Report: ${ctx.opt.deploymentId}`);
   if (manifest === null) {
     say(`  no manifest at ${manifestPath(ctx)} - this deployment has not been computed yet.`);
     return;
@@ -1600,7 +2512,7 @@ export function stageReport(ctx: Ctx): void {
     say(`  ${failed > 0 ? '❌' : '✅'}  ${pad(step.label, 8)} ${step.title}${suffix}`);
 
     say(`      ${'-'.repeat(RULE_WIDTH)}`);
-    for (const e of entries) say(`      ${reportTxLine(e)}`);
+    for (const e of entries) say(`      ${reportTxLine(e, final)}`);
   }
 
   const reverted = rows.filter((r) => r.status === 'REVERTED').length;
@@ -1658,11 +2570,12 @@ export function reportAddresses(manifest: Manifest): void {
  * paste it into an explorer. Step F's line has no hash when the admin's transaction was merely
  * observed — see recordObservation — and says so rather than printing a misleading blank.
  */
-export function reportTxLine(e: JournalEntry): string {
+export function reportTxLine(e: JournalEntry, final: ReadonlySet<string> = new Set()): string {
   const block = e.block === null ? 'unmined' : `block ${e.block}`;
   const what = e.contract ?? e.function ?? e.note ?? '-';
   const hash = e.hash ?? '(no local receipt - sent externally)';
-  return `${pad(block, 15)} ${pad(e.status, 9)} ${hash}  ${what}`;
+  const isFinal = e.hash !== null && final.has(e.hash) ? 'final' : '';
+  return `${pad(block, 15)} ${pad(e.status, 9)} ${pad(isFinal, 6)} ${hash}  ${what}`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1686,6 +2599,7 @@ export async function broadcast(
   signer?: Signer,
   sender?: string,
   extraEnv?: NodeJS.ProcessEnv,
+  prerequisites: readonly Prerequisite[] = [],
 ): Promise<void> {
   const from = sender ?? ctx.deployer;
   const key = signer ?? ctx.opt.signer;
@@ -1699,6 +2613,7 @@ export async function broadcast(
     ctx.opt.rpcUrl,
     '--out',
     ctx.buildOut,
+    ...ctx.forgeArgs,
     ...traceArgs(ctx),
   ];
 
@@ -1713,6 +2628,7 @@ export async function broadcast(
   // fail with the Solidity gate's block countdown rather than block for ten minutes.
   if (ctx.opt.dryRun) {
     say('  (dry run: simulating, nothing will be sent)');
+    await awaitPrerequisites(ctx, ctx.stageLabel, prerequisites);
     const env = {
       ...scriptEnv(ctx),
       ...generatedConfigEnv(ctx),
@@ -1726,17 +2642,20 @@ export async function broadcast(
 
   // The seal gate. No-ops unless this is the first transaction of the deployment; never reached by a dry run,
   // which returned above.
-  await confirmSealed(ctx);
+  confirmSealed(ctx);
 
+  // The decision to send: everything this stage depends on must hold at the SETTLED block.
+  const settled = await awaitPrerequisites(ctx, ctx.stageLabel, prerequisites);
+  if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   requireNoPendingTxs(ctx, from);
-  const minBlock = ctx.opt.minBlockOverride ?? ctx.nextMinBlock;
-  await waitForBlock(ctx, minBlock);
 
+  // The scripts' own floor, kept as a second line of defence: they refuse to run on a chain that is
+  // behind the block the prerequisites were checked at.
   const env = {
     ...scriptEnv(ctx),
     ...generatedConfigEnv(ctx),
     ...extraEnv,
-    FHEVM_MIN_BLOCK: String(minBlock),
+    FHEVM_MIN_BLOCK: String(ctx.opt.minBlockOverride ?? settled),
   };
 
   // --slow: one transaction at a time, waiting for each receipt. The two hard edges (impl₁ before
@@ -1745,23 +2664,37 @@ export async function broadcast(
   //
   // The exit code is captured rather than thrown, so the journal is written even when the stage
   // dies. A half-finished stage is the case the audit trail exists for.
+  // Said before forge starts: it sends one transaction at a time and waits for each receipt, so a stage
+  // of 20 transactions on a 12-second chain takes minutes. When its output is piped into a transcript,
+  // forge shows none of that progress, so a heartbeat reports the sender's nonce instead.
+  say(
+    `  sending from ${from}: one transaction at a time, each waiting for its receipt.`,
+    '  On a public testnet this takes about one block per transaction.',
+  );
+  const startNonce = captureOrFail('cast', ['nonce', from, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]);
+  // Before forge can sign anything: if the run is killed the instant after it sends, this line is what
+  // lets the next run find the transaction on chain (reconcileJournal).
+  recordStageStart(ctx, target.split(':')[0] ?? target, from, Number(startNonce));
+  const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
     [...base, ...forgeSignerArgs(key), '--sender', from, '--slow', '--broadcast'],
     env,
+    transcriptActive()
+      ? () => {
+          const nonce = capture('cast', ['nonce', from, '--rpc-url', ctx.opt.rpcUrl]).stdout;
+          const sent = /^\d+$/.test(nonce) && /^\d+$/.test(startNonce) ? Number(nonce) - Number(startNonce) : '?';
+          return `  … forge is still sending (${beat.elapsed()}): ${String(sent)} transaction(s) mined so far`;
+        }
+      : undefined,
   );
 
   recordJournal(ctx, target);
+  recordFinality(ctx);
   if (code !== 0) {
     console.error(`  stage failed (forge exit ${code}). What was sent is in --stage log.`);
     process.exit(code);
   }
-
-  // Derived from the head AFTER the stage rather than from a receipt: --slow means every transaction
-  // is already mined by now, so the head is at or past the last of them. Erring later is the safe
-  // direction for a reorg gate.
-  ctx.finalityTarget = headBlock(ctx);
-  ctx.nextMinBlock = ctx.finalityTarget + ctx.opt.confirmations;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1817,14 +2750,14 @@ export function requireBuiltArtifacts(ctx: Ctx): void {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-export async function confirmSealed(ctx: Ctx): Promise<void> {
+export function confirmSealed(ctx: Ctx): void {
   if (ctx.opt.noConfirm) return;
 
   // Fires on the CONDITION — "this deployment has never sent a transaction" — rather than on how the
   // run was invoked. It used to hang off the `--stage all` branch, which meant the manual path, the
   // one a real deployment actually uses, was never asked at all. An empty journal is the same signal
   // `compute` uses to decide whether recomputing is still safe.
-  if (readJsonl<JournalEntry>(ctx.journalPath).length > 0) return;
+  if (journalHasSentTx(ctx)) return;
 
   // `--no-git` / `"git": false` — this deployment does not need a committed seal at all.
   //
@@ -1841,26 +2774,59 @@ export async function confirmSealed(ctx: Ctx): Promise<void> {
     return;
   }
 
-  // Relative to the package root, which main() has already chdir'd to, so the lines below can be
-  // pasted straight into the shell this was launched from.
-  const dir = relative(PACKAGE_ROOT, ctx.outDir);
+  const state = gitSealState(ctx.outDir, ['manifest.json', 'addresses.sol']);
+  if (state.ok) {
+    say(`  seal: ${state.detail}`);
+    return;
+  }
 
-  say(
+  // Relative to the directory the command was launched from — not the package root main() chdir'd to —
+  // so the lines below can be pasted straight into that shell.
+  const fromLaunch = relative(INVOCATION_DIR, ctx.outDir);
+  const dir = fromLaunch === '' ? '.' : fromLaunch;
+  fail(
     '',
-    '  ---------------------------------------------------------------------------',
-    '  About to send the FIRST transaction for this deployment.',
+    `Error: the seal is not safely in git: ${state.reason}.`,
     '',
-    '  GIT COMMIT AND PUSH the seal first. It is not a formality: the addresses ARE',
-    '  the init-code hashes, so retrying a failed create needs the byte-exact ones,',
-    '  and a resumed run computes which addresses to probe from them. Lose the seal',
-    '  and a half-finished stack cannot be finished.',
+    '       Nothing has been sent. Before the FIRST transaction the seal must be committed (and pushed,',
+    '       when the branch has an upstream): the addresses ARE the init-code hashes, so retrying a failed',
+    '       create needs the byte-exact ones. Lose the seal and a half-finished stack cannot be finished.',
     '',
-    `    git add -f ${dir}/manifest.json ${dir}/addresses.sol`,
-    `    git commit -m "seal: ${ctx.opt.deploymentId}"`,
-    '    git push',
-    '  ---------------------------------------------------------------------------',
+    `         git add -f ${dir}/manifest.json ${dir}/addresses.sol`,
+    `         git commit -m "seal: ${ctx.opt.deploymentId}"`,
+    '         git push        # only if the branch has an upstream',
+    '',
+    '       Then run the same command again.',
   );
-  if (!(await confirm('  Pushed to git? [y/N] '))) fail('Aborted before the first transaction.');
+}
+
+/**
+ * Where the seal stands in git, checked rather than asked.
+ *
+ * Committed means: both files are in HEAD and identical to it. Pushed is required only when the branch
+ * HAS an upstream; then the last commit touching them must be an ancestor of it. A local-only repository
+ * is accepted as is. Not a git repository at all is refused: the seal would then live in one copy.
+ */
+export function gitSealState(
+  dir: string,
+  files: readonly string[],
+): { readonly ok: true; readonly detail: string } | { readonly ok: false; readonly reason: string } {
+  const git = (...args: string[]) => capture('git', ['-C', dir, ...args]);
+  if (!git('rev-parse', '--show-toplevel').ok) return { ok: false, reason: `${dir} is not inside a git repository` };
+  for (const file of files) {
+    if (!git('cat-file', '-e', `HEAD:./${file}`).ok) return { ok: false, reason: `${file} is not committed` };
+    if (!git('diff', '--quiet', 'HEAD', '--', file).ok) {
+      return { ok: false, reason: `${file} has changed since it was committed` };
+    }
+  }
+  const last = git('log', '-1', '--format=%H', '--', ...files).stdout;
+  const short = last.slice(0, 12);
+  const upstream = git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}');
+  if (!upstream.ok) return { ok: true, detail: `committed in ${short} (no upstream branch, nothing to push to)` };
+  if (!git('merge-base', '--is-ancestor', last, '@{u}').ok) {
+    return { ok: false, reason: `the commit with the seal (${short}) is not pushed to ${upstream.stdout}` };
+  }
+  return { ok: true, detail: `committed in ${short} and pushed to ${upstream.stdout}` };
 }
 
 ////////////////////////////////////////////////////////////////////////////////

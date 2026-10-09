@@ -36,7 +36,7 @@ They mention v12, but they are not going anywhere:
 
 - `pkg/` — `updateV12ToV13` and its types. v13 still upgrades v12 deployments; only the test is going.
 - `internal/listUpgradeOps.ts` and `list:upgrade-ops` — you pass it a folder, so it fits any generation.
-- `create2-deploy/common.ts`, `utils.ts`, `deploy-testnet.ts`, `script/*.sol` outside `script/upgrade/`,
+- `create2-deploy/deploy-cli`, `create2-deploy/ts/`, `script/*.sol` outside `script/upgrade/`,
   and `test/Create2Ordinals.t.sol`.
 
 Other files mention v12 too. They describe what v13 upgrades _from_, which stays true.

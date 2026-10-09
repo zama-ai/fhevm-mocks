@@ -51,7 +51,7 @@ contract FhevmStatus is FhevmCreate2Base {
         _loadConfig();
         string memory manifest = _loadManifest();
 
-        _banner("status");
+        _banner("Status");
 
         _reportCreates(manifest);
         _reportSteps(manifest);
@@ -147,52 +147,52 @@ contract FhevmStatus is FhevmCreate2Base {
 
     function _reportA(address pauserSet, address aclOwner, address aclCurrentOwner) private view {
         if (IPauserSet(pauserSet).isPauser(aclOwner)) {
-            console.log("  A   addPauser(ACLOwner)     done");
+            console.log("  A - addPauser(ACLOwner): done");
         } else if (aclCurrentOwner == cfg.deployer) {
-            console.log("  A   addPauser(ACLOwner)     ready");
+            console.log("  A - addPauser(ACLOwner): ready");
         } else {
             // Not unrecoverable — `ACLOwner.execute` keeps it reachable forever — but it is
             // no longer this stage's to do, and step C will refuse until it is done.
-            console.log("  A   addPauser(ACLOwner)     BLOCKED - ACL.owner() is no longer the deployer;");
-            console.log("                                        use ACLOwner.execute(pauserSet, ...)");
+            console.log("  A - addPauser(ACLOwner): BLOCKED, ACL.owner() is no longer the deployer;");
+            console.log("      use ACLOwner.execute(pauserSet, ...)");
         }
     }
 
     function _reportAPrime(address pauserSet, address aclCurrentOwner) private view {
         if (cfg.pauser0 == address(0)) {
-            console.log("  A'  addPauser(operator)     not configured (FHEVM_PAUSER_0 unset) - optional");
+            console.log("  A' - addPauser(operator): not configured (FHEVM_PAUSER_0 unset), optional");
         } else if (IPauserSet(pauserSet).isPauser(cfg.pauser0)) {
-            console.log("  A'  addPauser(operator)     done");
+            console.log("  A' - addPauser(operator): done");
         } else if (aclCurrentOwner == cfg.deployer) {
-            console.log("  A'  addPauser(operator)     ready");
+            console.log("  A' - addPauser(operator): ready");
         } else {
-            console.log("  A'  addPauser(operator)     BLOCKED - use ACLOwner.execute(pauserSet, ...)");
+            console.log("  A' - addPauser(operator): BLOCKED, use ACLOwner.execute(pauserSet, ...)");
         }
     }
 
     function _reportB(address acl, address aclOwner, address aclCurrentOwner) private view {
         if (aclCurrentOwner == aclOwner || IOwnable2Step(acl).pendingOwner() == aclOwner) {
-            console.log("  B   offer ACL ownership     done");
+            console.log("  B - offer ACL ownership: done");
         } else if (aclCurrentOwner == cfg.deployer) {
-            console.log("  B   offer ACL ownership     ready");
+            console.log("  B - offer ACL ownership: ready");
         } else {
-            console.log("  B   offer ACL ownership     BLOCKED - ACL.owner() is not the deployer:", aclCurrentOwner);
+            console.log("  B - offer ACL ownership: BLOCKED, ACL.owner() is not the deployer:", aclCurrentOwner);
         }
     }
 
     function _reportC(address acl, address aclOwner, address aclCurrentOwner, bool aOk) private view {
         if (aclCurrentOwner == aclOwner) {
-            console.log("  C   accept ACL ownership    done");
+            console.log("  C - accept ACL ownership: done");
             return;
         }
         if (IOwnable2Step(acl).pendingOwner() != aclOwner) {
-            console.log("  C   accept ACL ownership    BLOCKED - ACL.pendingOwner() is not the ACLOwner (run B)");
+            console.log("  C - accept ACL ownership: BLOCKED, ACL.pendingOwner() is not the ACLOwner (run B)");
         } else if (!aOk) {
-            console.log("  C   accept ACL ownership    BLOCKED - ACLOwner is not a registered pauser (run A)");
+            console.log("  C - accept ACL ownership: BLOCKED, ACLOwner is not a registered pauser (run A)");
         } else if (IACLOwner(aclOwner).owner() != cfg.deployer) {
-            console.log("  C   accept ACL ownership    BLOCKED - the deployer no longer owns the ACLOwner");
+            console.log("  C - accept ACL ownership: BLOCKED, the deployer no longer owns the ACLOwner");
         } else {
-            console.log("  C   accept ACL ownership    ready");
+            console.log("  C - accept ACL ownership: ready");
         }
     }
 
@@ -227,20 +227,20 @@ contract FhevmStatus is FhevmCreate2Base {
 
         if (foreign != 0) {
             _bad++;
-            console.log("  D   materialize             FATAL - proxies point at implementations this manifest");
-            console.log("                                      did not seal. A human decides.");
+            console.log("  D - materialize: FATAL, proxies point at implementations this manifest");
+            console.log("      did not seal. A human decides.");
         } else if (live == _allProxyRoles().length) {
-            console.log("  D   materialize             done");
+            console.log("  D - materialize: done");
         } else if (live != 0) {
             _bad++;
-            console.log("  D   materialize             FATAL - partially materialized, and upgrade is atomic:");
-            console.log("                                      re-running reverts permanently. Slots filled:", live);
+            console.log("  D - materialize: FATAL, partially materialized, and upgrade is atomic:");
+            console.log("      re-running reverts permanently. Slots filled:", live);
         } else if (aclCurrentOwner != aclOwner) {
-            console.log("  D   materialize             BLOCKED - the ACLOwner does not own ACL yet (run C)");
+            console.log("  D - materialize: BLOCKED, the ACLOwner does not own ACL yet (run C)");
         } else if (IACLOwner(aclOwner).owner() != cfg.deployer) {
-            console.log("  D   materialize             BLOCKED - the deployer no longer owns the ACLOwner");
+            console.log("  D - materialize: BLOCKED, the deployer no longer owns the ACLOwner");
         } else {
-            console.log("  D   materialize             ready");
+            console.log("  D - materialize: ready");
         }
     }
 
@@ -251,12 +251,12 @@ contract FhevmStatus is FhevmCreate2Base {
         address owner_ = IACLOwner(aclOwner).owner();
 
         if (owner_ == cfg.admin || IACLOwner(aclOwner).pendingOwner() == cfg.admin) {
-            console.log("  E   offer to admin          done");
+            console.log("  E - offer to admin: done");
         } else if (owner_ == cfg.deployer) {
-            console.log("  E   offer to admin          ready");
+            console.log("  E - offer to admin: ready");
         } else {
-            console.log("  E   offer to admin          BLOCKED - the ACLOwner is owned by neither the");
-            console.log("                                        deployer nor the configured admin:", owner_);
+            console.log("  E - offer to admin: BLOCKED, the ACLOwner is owned by neither the");
+            console.log("      deployer nor the configured admin:", owner_);
         }
     }
 
@@ -265,13 +265,13 @@ contract FhevmStatus is FhevmCreate2Base {
     ///      so "waiting" here is not a formality, it is the deployment still being unfinished.
     function _reportF(address aclOwner) private view {
         if (IACLOwner(aclOwner).owner() == cfg.admin) {
-            console.log("  F   admin accepts           done - the deployer is no longer root");
+            console.log("  F - admin accepts: done, the deployer is no longer root");
         } else if (IACLOwner(aclOwner).pendingOwner() == cfg.admin) {
-            console.log("  F   admin accepts           WAITING - the admin must send acceptOwnership()");
-            console.log("                                        from its own key. Nobody else can.");
-            console.log("                                        The deployer is STILL root until then.");
+            console.log("  F - admin accepts: WAITING, the admin must send acceptOwnership()");
+            console.log("      from its own key. Nobody else can.");
+            console.log("      The deployer is STILL root until then.");
         } else {
-            console.log("  F   admin accepts           BLOCKED - nothing has been offered to the admin (run E)");
+            console.log("  F - admin accepts: BLOCKED, nothing has been offered to the admin (run E)");
         }
     }
 }
