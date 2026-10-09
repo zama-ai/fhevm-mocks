@@ -1,0 +1,3 @@
+dd09b761fce79a17672ca7c6d1efd5e90d44e3c5
+# release/0.13.x, the merge of PR #135. The seal was computed from a pre-merge commit of that PR with the
+# same contract sources and config; the deploy scripts differ only in log text, so this commit reproduces it.

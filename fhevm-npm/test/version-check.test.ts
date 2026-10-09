@@ -6,10 +6,15 @@ import test from 'node:test';
 
 import {
   type InstallationLock,
+  type GeneratedVersionFile,
+  readGeneratedVersions,
   readInstallationLocks,
+  validateConsumerLockfileVersions,
+  validateGeneratedVersions,
   validateLockfileMemberVersions,
   validatePackageVersions,
 } from '../base/version-check.ts';
+import type { ConsumerLockPin } from '../base/checks/consumer-lockfiles.ts';
 import type { VersionsFile } from '../base/versions.ts';
 import { loadedPackage } from './helpers.ts';
 
@@ -86,4 +91,84 @@ test('readInstallationLocks reads one lockfile per installation root and skips r
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+const versionSol: GeneratedVersionFile = {
+  packageKey: './library/pkg',
+  path: 'src/Version.sol',
+  pattern: /VERSION = "([^"]*)";/,
+  regenerate: '`npm run generate:version`',
+};
+
+test('a generated version file must embed the central version; payloads the file lacks are not compared', () => {
+  const central = versions({ './library/pkg': '1.2.3' });
+  assert.deepEqual(
+    validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: '1.2.3' }]),
+    [],
+  );
+  assert.deepEqual(validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: '1.2.3-1' }]), [
+    {
+      rule: 'version-generated',
+      packageKey: './library/pkg/src/Version.sol',
+      message: 'embeds 1.2.3-1; central version is 1.2.3 — run `version apply`',
+    },
+  ]);
+  assert.deepEqual(validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: undefined }]), [
+    {
+      rule: 'version-generated',
+      packageKey: './library/pkg/src/Version.sol',
+      message:
+        'embeds no version matching /VERSION = "([^"]*)";/; central version is 1.2.3 — run `npm run generate:version`',
+    },
+  ]);
+  assert.deepEqual(
+    validateGeneratedVersions([library('1.2.3')], versions({}), [{ file: versionSol, version: '0.0.0' }]),
+    [],
+  );
+});
+
+test('readGeneratedVersions reads each present file and skips missing files and unloaded payloads', () => {
+  const root = mkdtempSync(join(tmpdir(), 'fhevm-npm-version-check-'));
+  try {
+    const pkg = { ...library('1.2.3'), directory: join(root, 'library', 'pkg') };
+    const orphan: GeneratedVersionFile = { ...versionSol, packageKey: './elsewhere/pkg' };
+    assert.deepEqual(readGeneratedVersions([pkg], [versionSol, orphan]), []);
+    mkdirSync(join(pkg.directory, 'src'), { recursive: true });
+    writeFileSync(join(pkg.directory, 'src', 'Version.sol'), 'string internal constant VERSION = "1.2.3-1";\n');
+    assert.deepEqual(readGeneratedVersions([pkg], [versionSol, orphan]), [{ file: versionSol, version: '1.2.3-1' }]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a consumer lockfile must pin each payload at the central version; a versionless link target is not graded', () => {
+  const pin = (version: string | undefined, link = false): ConsumerLockPin => ({
+    consumerKey: './library/test-consumer/esm',
+    lockKey: './library/test-consumer/esm/package-lock.json',
+    nodeKey: 'node_modules/@scope/library',
+    label: 'node_modules/@scope/library',
+    name: '@scope/library',
+    versionNodeKey: 'node_modules/@scope/library',
+    version,
+    link,
+    payload: { key: './library/pkg', name: '@scope/library', version: '1.2.3', directory: '/workspace/library/pkg' },
+  });
+  const central = versions({ './library/pkg': '1.2.3' });
+  const regenerate = 'run `test-consumer-regenerate-package-lock ./library/test-consumer/esm`';
+  assert.deepEqual(validateConsumerLockfileVersions([library('1.2.3')], central, [pin('1.2.3')]), []);
+  assert.deepEqual(validateConsumerLockfileVersions([library('1.2.3')], central, [pin(undefined, true)]), []);
+  assert.deepEqual(validateConsumerLockfileVersions([library('1.2.3')], central, [pin('1.2.3-1'), pin(undefined)]), [
+    {
+      rule: 'version-consumer-lockfile',
+      packageKey: './library/test-consumer/esm/package-lock.json',
+      message: "records 1.2.3-1 for 'node_modules/@scope/library'; central version is 1.2.3 — run `version apply`",
+    },
+    {
+      rule: 'version-consumer-lockfile',
+      packageKey: './library/test-consumer/esm/package-lock.json',
+      message: `records no version for 'node_modules/@scope/library'; central version is 1.2.3 — ${regenerate}`,
+    },
+  ]);
+  // Attributed to its payload: validating another payload alone reports nothing for this pin.
+  assert.deepEqual(validateConsumerLockfileVersions([plugin], central, [pin('1.2.3-1')]), []);
 });

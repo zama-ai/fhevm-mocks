@@ -1,6 +1,6 @@
 // The publication side of RELEASE_PLAN.md, read-only half. A published payload carries `file:` links to
 // other payloads (rule 3.1.1); npmjs.com cannot resolve a path, so `publish render` shows the manifest a
-// consumer will see — each link replaced by the generation range of the target's central version — and
+// consumer will see — each link replaced by the dependency range of the target's central version — and
 // `publish order` derives, from those same links, the order payloads must reach the registry in. Nothing
 // here writes; `publish pack` calls renderPackageJson so the tarball cannot differ from what render showed.
 
@@ -10,7 +10,7 @@ import type { NpmManifest } from '../manifest.ts';
 import { npmPackedFiles } from './checks/published-files.ts';
 import { type DependencyDeclaration, type LoadedPackage, dependencyDeclarations, loadPackages } from './npm.ts';
 import { distributionChannels } from './package-versions.ts';
-import { generationRange, parseVersion } from './semver.ts';
+import { dependencyRange, parseVersion } from './semver.ts';
 import { type VersionsFile, loadVersions } from './versions.ts';
 
 export type PayloadGraph = {
@@ -60,7 +60,7 @@ export function topologicalOrder(graph: PayloadGraph): readonly string[] {
   return order;
 }
 
-/** The payload's package.json as npmjs.com must see it: every `file:` link becomes the target's generation range. */
+/** The payload's package.json as npmjs.com must see it: every `file:` link becomes the target's dependency range. */
 export function renderPackageJson(
   pkg: LoadedPackage,
   packages: readonly LoadedPackage[],
@@ -145,7 +145,7 @@ function linkedPayload(
   return packages.find((candidate) => resolve(candidate.directory) === target);
 }
 
-// Decision 1: `^0.<generation>.0` of the target's central version; a link to anything unpublishable cannot render.
+// RULES 4.3.4: `^<version>` of the target's central version; a link to anything unpublishable cannot render.
 function renderedSpec(
   pkg: LoadedPackage,
   declaration: DependencyDeclaration,
@@ -162,5 +162,5 @@ function renderedSpec(
   const parsed = central === undefined ? undefined : parseVersion(central);
   if (parsed === undefined)
     throw new Error(`publish render: ${target.key} has no canonical central version in versions.json`);
-  return generationRange(parsed);
+  return dependencyRange(parsed);
 }

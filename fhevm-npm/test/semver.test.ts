@@ -4,10 +4,10 @@ import test from 'node:test';
 import {
   compareVersions,
   formatVersion,
-  generationRange,
+  dependencyRange,
   isCanonicalVersion,
   parseVersion,
-  satisfiesGenerationRange,
+  satisfiesDependencyRange,
 } from '../base/semver.ts';
 
 const v = (text: string) => {
@@ -37,22 +37,31 @@ test('ordering follows SemVer §11: core numerically, a release above its prerel
   assert.ok(compareVersions(v('1.0.0-1'), v('1.0.0-alpha')) < 0);
 });
 
-test('the rendered range is the generation, whatever the patch; a prerelease pins itself', () => {
-  assert.equal(generationRange(v('0.13.0')), '^0.13.0');
-  assert.equal(generationRange(v('0.13.4')), '^0.13.0');
-  assert.equal(generationRange(v('0.14.0-alpha.0')), '0.14.0-alpha.0');
-  assert.equal(generationRange(v('1.2.3')), '^1.0.0');
+test('the rendered range is a caret on the version itself; a prerelease pins itself', () => {
+  assert.equal(dependencyRange(v('0.13.0')), '^0.13.0');
+  // The floor is the version the payload was built against, not the generation's first release: a payload
+  // built against 0.13.4 must never resolve to 0.13.0-0.13.3, which may lack a fix it relies on.
+  assert.equal(dependencyRange(v('0.13.4')), '^0.13.4');
+  assert.equal(dependencyRange(v('0.14.0-alpha.0')), '0.14.0-alpha.0');
+  assert.equal(dependencyRange(v('1.2.3')), '^1.2.3');
 });
 
-test('a published version satisfies the generation range only inside the generation, never as a prerelease', () => {
-  assert.ok(satisfiesGenerationRange(v('0.13.0'), '^0.13.0'));
-  assert.ok(satisfiesGenerationRange(v('0.13.9'), '^0.13.0'));
-  assert.equal(satisfiesGenerationRange(v('0.14.0'), '^0.13.0'), false);
-  assert.equal(satisfiesGenerationRange(v('0.12.9'), '^0.13.0'), false);
-  assert.equal(satisfiesGenerationRange(v('0.13.4-0'), '^0.13.0'), false);
-  assert.ok(satisfiesGenerationRange(v('1.5.0'), '^1.0.0'));
-  assert.equal(satisfiesGenerationRange(v('2.0.0'), '^1.0.0'), false);
+test('a published version satisfies the range from its floor to the end of the generation, never as a prerelease', () => {
+  assert.ok(satisfiesDependencyRange(v('0.13.0'), '^0.13.0'));
+  assert.ok(satisfiesDependencyRange(v('0.13.9'), '^0.13.0'));
+  assert.ok(satisfiesDependencyRange(v('0.13.4'), '^0.13.4'));
+  assert.ok(satisfiesDependencyRange(v('0.13.5'), '^0.13.4'));
+  // Below the floor: the dependency a hotfix replaced.
+  assert.equal(satisfiesDependencyRange(v('0.13.3'), '^0.13.4'), false);
+  assert.equal(satisfiesDependencyRange(v('0.14.0'), '^0.13.0'), false);
+  assert.equal(satisfiesDependencyRange(v('0.14.0'), '^0.13.4'), false);
+  assert.equal(satisfiesDependencyRange(v('0.12.9'), '^0.13.0'), false);
+  assert.equal(satisfiesDependencyRange(v('0.13.4-0'), '^0.13.0'), false);
+  assert.ok(satisfiesDependencyRange(v('1.5.0'), '^1.0.0'));
+  assert.ok(satisfiesDependencyRange(v('1.5.0'), '^1.2.3'));
+  assert.equal(satisfiesDependencyRange(v('1.2.2'), '^1.2.3'), false);
+  assert.equal(satisfiesDependencyRange(v('2.0.0'), '^1.0.0'), false);
   // An exact range, as a prerelease renders to, matches that version alone.
-  assert.ok(satisfiesGenerationRange(v('0.14.0-alpha.0'), '0.14.0-alpha.0'));
-  assert.equal(satisfiesGenerationRange(v('0.14.0-alpha.1'), '0.14.0-alpha.0'), false);
+  assert.ok(satisfiesDependencyRange(v('0.14.0-alpha.0'), '0.14.0-alpha.0'));
+  assert.equal(satisfiesDependencyRange(v('0.14.0-alpha.1'), '0.14.0-alpha.0'), false);
 });

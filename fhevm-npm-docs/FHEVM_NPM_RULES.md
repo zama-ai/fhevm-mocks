@@ -536,20 +536,6 @@ unguarded — those two rules own its content, and every nested `package.json` b
 # ❌ host-contracts-cleartext/v13/INVENTED.md: present in v13 here but absent from release/0.13.x
 ```
 
-`FHEVM_PARITY_REF_<GENERATION>` names a different ref to compare that generation against. It is for the window where
-V(N-1) is brought across while the work it comes from is still on a topic branch, unmerged into the release branch
-that owns it: until that merge lands the derived ref is the wrong baseline, and the honest alternative — turning the
-check off — compares nothing at all. Two rules stop it becoming a mute button. An override is REPORTED on every run
-that uses it, as a note rather than a verbose success, because a green run that never looked at the release branch has
-not proved what this rule is about. And an override that does not resolve FAILS rather than skips: the skip above is
-for a branch nobody created, whereas a ref someone typed is a ref they expect to exist.
-
-```sh
-FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity
-# ⚠️  ./host-contracts-cleartext/v13: compared with 'devex/alexb/v13/forge-fhevm-std-v2' because
-#     FHEVM_PARITY_REF_V13 is set — this run does NOT prove parity with 'release/0.13.x'
-```
-
 ## 4. Where a version lives
 
 Which rules apply depends on the kind of package, as named in § 1.1.
@@ -717,14 +703,22 @@ $EDITOR sdk/versions.json && make version-plan && make version-apply && git add 
 npm --prefix hardhat/v3/plugin/pkg version patch
 ```
 
-**4.3.4 A rendered dependency range is the target's generation: `^0.<generation>.0`.** The generation is the minor of
-the target's central version, so generation 13 renders as `^0.13.0` whether that version is `0.13.0` or `0.13.4`: this
-generation, any patch, never the next one, and a contracts patch never forces a plugin re-render. A prerelease central
-version renders exactly, since a caret range does not match prereleases. This is the one range policy; there is no
-per-edge configuration.
+**4.3.4 A rendered dependency range is a caret on the target's central version: `^<version>`.** A payload built
+against contracts `0.13.4` renders `^0.13.4`: at least the version it was built and tested against, up to the next
+generation, which the caret on a `0.x` version excludes. The floor is never lower than that version: a lower one lets a
+consumer who upgrades the payload keep, from their lockfile, an older dependency that may lack a fix the payload relies
+on. A contracts patch still never forces a payload release; the payload raises its floor on its next release. A
+prerelease central version renders exactly, since a caret range does not match prereleases. This is the one range
+policy; there is no per-edge configuration.
+
+The floor makes the publish order binding: `publish check --check-npmjs` requires a published version that satisfies
+the range, so the target's version must be on npmjs.com before the payload that renders it.
 
 ```jsonc
 // ✅ In the v3 plugin's tarball, rendered from the file: link by `publish pack` (target central 0.13.4).
+"@fhevm/host-contracts-cleartext": "^0.13.4"
+
+// ❌ The generation floor: a consumer upgrading the plugin can keep contracts 0.13.0-0.13.3 and miss a fix.
 "@fhevm/host-contracts-cleartext": "^0.13.0"
 
 // ❌ Exact: every contracts patch would force a plugin release, or leave consumers with two copies.

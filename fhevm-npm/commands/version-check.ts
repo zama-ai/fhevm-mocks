@@ -8,6 +8,7 @@ export const versionCheck: CheckCommand = (context) => {
     command: 'version check',
     checkedPackageKeys: inspection.checkedPackageKeys,
     checkedItemLabel: 'central version(s)',
+    verboseSuccesses: inspection.passedPackageKeys,
     violations: inspection.violations,
   };
 };

@@ -58,16 +58,17 @@ function comparePrerelease(left: readonly string[], right: readonly string[]): n
 }
 
 /**
- * The range a published tarball carries for a dependency at this central version (decision 1): the
- * generation with any patch, `^0.13.0` for `0.13.4`; a prerelease pins itself exactly.
+ * The range a published tarball carries for a dependency at this central version (RULES 4.3.4): a caret
+ * on the version itself, `^0.13.4` for `0.13.4`. The floor is the version the payload was built and tested
+ * against, so upgrading the payload can never leave a consumer on an older dependency (one missing a fix
+ * the payload relies on); the caret still stops at the next generation. A prerelease pins itself exactly.
  */
-export function generationRange(version: ParsedVersion): string {
-  if (isPrerelease(version)) return formatVersion(version);
-  return version.major === 0 ? `^0.${version.minor}.0` : `^${version.major}.0.0`;
+export function dependencyRange(version: ParsedVersion): string {
+  return isPrerelease(version) ? formatVersion(version) : `^${formatVersion(version)}`;
 }
 
-/** Does a published release satisfy a range produced by `generationRange`? Prereleases never do. */
-export function satisfiesGenerationRange(candidate: ParsedVersion, range: string): boolean {
+/** Does a published release satisfy a range produced by `dependencyRange`? Prereleases never do. */
+export function satisfiesDependencyRange(candidate: ParsedVersion, range: string): boolean {
   if (!range.startsWith('^')) return formatVersion(candidate) === range;
   const floor = parseVersion(range.slice(1));
   if (floor === undefined || isPrerelease(candidate)) return false;

@@ -26,8 +26,10 @@ import { checkScripts } from './commands/check-scripts.ts';
 import { checkTscMode } from './commands/check-tsc-mode.ts';
 import { checkTsconfigPaths } from './commands/check-tsconfig-paths.ts';
 import { checkFhevmChainsOrigin } from './commands/check-fhevm-chains-origin.ts';
+import { checkDeployments } from './commands/check-deployments.ts';
 import { checkVendoredOrigin } from './commands/check-vendored-origin.ts';
 import { syncFhevmChains } from './commands/sync-fhevm-chains.ts';
+import { syncHhV2ConstantsCommand } from './commands/sync-hh-v2-constants.ts'; // hh-v2-constants
 import { checkWorkspaces } from './commands/check-workspaces.ts';
 import { checkGenerations } from './commands/check-generations.ts';
 import { generateChainConstantsCommand } from './commands/generate-chain-constants.ts';
@@ -42,6 +44,7 @@ import { publishOrder } from './commands/publish-order.ts';
 import { publishPack } from './commands/publish-pack.ts';
 import { publishRender } from './commands/publish-render.ts';
 import { syncVendoredCommand } from './commands/sync-vendored.ts';
+import { syncPinnedCommand } from './commands/sync-pinned.ts';
 import { bumpVendoredCommand } from './commands/bump-vendored.ts';
 import { testConsumerRegeneratePackageLock } from './commands/test-consumer-regenerate-package-lock.ts';
 import { testConsumer } from './commands/test-consumer.ts';
@@ -98,6 +101,18 @@ async function main(): Promise<void> {
     await syncFhevmChains({ workspaceRoot: options.workspaceRoot, commit: options.commit, latest: options.latest });
     return;
   }
+  // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2. Manifest-free: versions.json and one plugin file.
+  if (options.command === 'sync-hh-v2-constants') {
+    syncHhV2ConstantsCommand({ workspaceRoot: options.workspaceRoot, check: options.check });
+    return;
+  }
+  // Manifest-free: deployment records, the chains config and, with --base, git history.
+  if (options.command === 'check-deployments') {
+    const report = checkDeployments({ workspaceRoot: options.workspaceRoot, base: options.base });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
   if (options.command === 'check-fhevm-chains-origin') {
     const report = await checkFhevmChainsOrigin({ workspaceRoot: options.workspaceRoot });
     printReport(report, options.verbosity);
@@ -121,6 +136,12 @@ async function main(): Promise<void> {
     return;
   }
   const manifest = loadNpmManifest(options.manifestFile);
+  if (options.command === 'sync-pinned') {
+    const report = syncPinnedCommand({ workspaceRoot: options.workspaceRoot, manifest, check: options.check });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
   if (options.command === 'sync-vendored') {
     const report = syncVendoredCommand({
       workspaceRoot: options.workspaceRoot,
@@ -225,6 +246,7 @@ async function main(): Promise<void> {
       manifest,
       packageSelector: options.packageSelector,
       verbosity: options.verbosity,
+      fresh: options.fresh,
     });
     return;
   }

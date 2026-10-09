@@ -147,7 +147,7 @@ versions drifted from the central file fails ci.
 # Publishing a payload (rendering the file: links)
 
 A published payload links other payloads with `file:` (RULES 3.1.1) — correct here, meaningless on npmjs.com.
-`publish pack` renders each link to the target's generation range (`^0.13.0`, RULES 4.3.4) in a staged copy
+`publish pack` renders each link to a caret on the target's version (`^0.13.4`, RULES 4.3.4) in a staged copy
 and packs that; `publish check` proves the tarball; `publish order` says which payload goes first. Nothing
 in fhevm-npm publishes — `npm publish <tarball>` is CI's, with its credentials and dist-tag:
 

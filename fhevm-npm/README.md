@@ -26,10 +26,16 @@ node ./fhevm-npm.ts check cleartext-config
 node ./fhevm-npm.ts check generations
 node ./fhevm-npm.ts sync vendored
 node ./fhevm-npm.ts sync vendored --check
+node ./fhevm-npm.ts sync pinned
+node ./fhevm-npm.ts sync pinned --check
 node ./fhevm-npm.ts bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6
 node ./fhevm-npm.ts bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6 --check
 node ./fhevm-npm.ts sync fhevm-chains --latest
 node ./fhevm-npm.ts check fhevm-chains-origin
+node ./fhevm-npm.ts check deployments
+node ./fhevm-npm.ts check deployments --base origin/release/0.13.x
+node ./fhevm-npm.ts sync hh-v2-constants          # hh-v2-constants: Hardhat 2 only, delete with hardhat/v2
+node ./fhevm-npm.ts sync hh-v2-constants --check  # hh-v2-constants
 node ./fhevm-npm.ts generate chain-constants
 node ./fhevm-npm.ts generate chain-constants --check
 node ./fhevm-npm.ts version check

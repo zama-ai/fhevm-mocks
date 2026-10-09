@@ -103,6 +103,8 @@ export type RegenerateTestConsumerPackageLocksOptions = {
   readonly manifest: NpmManifest;
   readonly packageSelector?: string;
   readonly verbosity: Verbosity;
+  /** Resolve every dependency again instead of updating the committed lock; see regenerateFixturePackageLock. */
+  readonly fresh?: boolean;
 };
 
 export type NpmRunner = (directory: string, args: readonly string[], verbosity?: Verbosity) => void;
@@ -349,7 +351,13 @@ export function regenerateTestConsumerPackageLocks(
   }
 
   for (const target of isolated) {
-    regenerateFixturePackageLock(target.source.directory, runner, target.linkedDependencies, options.verbosity);
+    regenerateFixturePackageLock(
+      target.source.directory,
+      runner,
+      target.linkedDependencies,
+      options.verbosity,
+      options.fresh ?? false,
+    );
     console.log(`✅ Regenerated ${target.source.key}/package-lock.json (${target.moduleKind.toUpperCase()})`);
   }
 }
@@ -361,16 +369,27 @@ function partition<T>(values: readonly T[], predicate: (value: T) => boolean): [
   return [matching, rest];
 }
 
+/**
+ * Regenerates one fixture's lockfile in a staging copy beside it, validates it, and swaps it in atomically.
+ *
+ * By default npm starts from the committed lock, as `npm install` does in an installation root: a locked version
+ * that still satisfies its range stays, so only what changed — a moved pin, a new declaration — is re-resolved.
+ * Starting from no lock instead (`fresh`) moves every dependency to the newest version its range allows, which is
+ * a deliberate refresh, not something a pin change should drag along. A local payload whose version moved without
+ * its lock entry following is not trusted to npm either way: the validation below refuses a lock that records it
+ * at another version, so a stale entry fails loudly instead of being committed.
+ */
 export function regenerateFixturePackageLock(
   fixtureDirectory: string,
   runner: NpmRunner = runNpm,
   linkedDependencies: readonly LinkedDependency[] = [],
   verbosity: Verbosity = 0,
+  fresh = false,
 ): void {
   const stagingDirectory = mkdtempSync(join(dirname(fixtureDirectory), '.fhevm-npm-lock-'));
   try {
     copyFixture(fixtureDirectory, stagingDirectory);
-    rmSync(join(stagingDirectory, 'package-lock.json'), { force: true });
+    if (fresh) rmSync(join(stagingDirectory, 'package-lock.json'), { force: true });
     const injected = injectTransitiveDependencies(stagingDirectory, linkedDependencies);
     runner(
       stagingDirectory,
