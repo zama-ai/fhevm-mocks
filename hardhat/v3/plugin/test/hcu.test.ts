@@ -96,6 +96,55 @@ void test('type names and handles follow the protocol layout', () => {
   assert.throws(() => parseFhevmHandle(`0x${'00'.repeat(30)}6300`), isPluginError);
 });
 
+void test('FheMulDiv is priced on factor2 alone, in its own scalar encoding', async (t) => {
+  // (factor1 * factor2) / divisor: the divisor is always a plain value, and the scalar flag is not the usual
+  // 0x01 — HCULimit.sol says 0x01 means factor2 is ENCRYPTED and 0x03 that it is scalar.
+  await withExecutor((executor) => {
+    if (!executor.abi.some((item) => item.type === 'event' && item.name === 'FheMulDiv')) {
+      t.skip('this executor has no FheMulDiv event (it arrives with the 0.14 protocol line)');
+      return;
+    }
+    const f1 = handle(1, FhevmType.euint32);
+    const f2 = handle(2, FhevmType.euint32);
+    const divisor = `0x${'00'.repeat(31)}07` as const;
+    const params = [
+      { type: 'bytes32' },
+      { type: 'bytes32' },
+      { type: 'bytes32' },
+      { type: 'bytes1' },
+      { type: 'bytes32' },
+    ];
+    const mulDiv = (scalarByte: `0x${string}`, result: `0x${string}`): FhevmLog => ({
+      address: executor.address,
+      topics: encodeEventTopics({ abi: executor.abi, eventName: 'FheMulDiv', args: { caller: ALICE } }).filter(
+        (topic): topic is `0x${string}` => typeof topic === 'string',
+      ),
+      data: encodeAbiParameters(params, [f1, f2, divisor, scalarByte, result]),
+      blockNumber: 1n,
+      logIndex: 0,
+      transactionHash: TX_HASH,
+      transactionIndex: 0,
+    });
+    const priceOf = (scalar: boolean): number =>
+      (scalar ? ALL_OPERATORS_PRICES.fheMulDiv.scalar?.Uint32 : ALL_OPERATORS_PRICES.fheMulDiv.nonScalar?.Uint32) ?? -1;
+    const receipt = (log: FhevmLog) => ({ status: 'success' as const, transactionHash: TX_HASH, logs: [log] });
+
+    // Nothing in this receipt created f1 or f2, so their depth is 0 and the result's depth is the op alone.
+    const r3 = handle(3, FhevmType.euint32);
+    const scalar = computeReceiptHCU(executor, receipt(mulDiv('0x03', r3)));
+    assert.equal(scalar.globalHCU, priceOf(true));
+    assert.equal(scalar.HCUDepthByHandle[r3], priceOf(true));
+
+    const r4 = handle(4, FhevmType.euint32);
+    const encrypted = computeReceiptHCU(executor, receipt(mulDiv('0x01', r4)));
+    assert.equal(encrypted.globalHCU, priceOf(false));
+    assert.notEqual(priceOf(true), priceOf(false), 'the two columns must differ for this test to mean anything');
+
+    // The flag every other operator uses is not a valid fheMulDiv flag: a log carrying it is malformed.
+    assert.throws(() => computeReceiptHCU(executor, receipt(mulDiv('0x00', handle(5, FhevmType.euint32)))), isPluginError);
+  });
+});
+
 void test('a synthetic receipt walks HCU depth through the dependency chain', async () => {
   await withExecutor((executor) => {
     const h1 = handle(1, FhevmType.euint32);

@@ -135,6 +135,16 @@ function priceEvent(event: CoprocessorEvent, op: HCUOperator): PricedEvent {
       const values = bytes32Array(args, 'values', name);
       return { hcu: getHCU(name, typeOf(value), { n: values.length }), result, inputs: [value, ...values] };
     }
+    case 'FheMulDiv': {
+      // (factor1 * factor2) / divisor. The divisor is always a plain value, never a handle, and the scalar
+      // flag speaks about factor2 alone — in its own encoding, not the 0x01 every other operator uses.
+      // Emitted from the 0.14 protocol line on; an executor without the event simply never produces one.
+      const factor1 = bytes32(args, 'factor1', name);
+      const factor2IsScalar = mulDivFactor2IsScalar(args, name);
+      const column = factor2IsScalar ? op.scalar : op.nonScalar;
+      const inputs = factor2IsScalar ? [factor1] : [factor1, bytes32(args, 'factor2', name)];
+      return { hcu: column?.[typeOf(result)] ?? 0, result, inputs };
+    }
     case 'VerifyInput':
       return { hcu: 0, result, inputs: [] };
   }
@@ -157,6 +167,18 @@ function typePrice(op: HCUOperator, type: FheTypeName): number {
 
 function typeOf(handle: Hex): FheTypeName {
   return getFheTypeName(parseFhevmHandle(handle).fhevmType);
+}
+
+// fheMulDiv's scalarByte is not the usual flag (HCULimit.sol: FHE_MUL_DIV_FACTOR2_ENCRYPTED = 0x01,
+// FHE_MUL_DIV_FACTOR2_SCALAR = 0x03). Read through `isScalar`, 0x01 would price an ENCRYPTED factor2 as scalar.
+const FHE_MUL_DIV_FACTOR2_ENCRYPTED = '0x01';
+const FHE_MUL_DIV_FACTOR2_SCALAR = '0x03';
+
+function mulDivFactor2IsScalar(args: Args, name: string): boolean {
+  const byte: unknown = args.scalarByte;
+  if (byte === FHE_MUL_DIV_FACTOR2_SCALAR) return true;
+  if (byte === FHE_MUL_DIV_FACTOR2_ENCRYPTED) return false;
+  return fail(name, 'scalarByte', `${FHE_MUL_DIV_FACTOR2_ENCRYPTED} or ${FHE_MUL_DIV_FACTOR2_SCALAR}`, byte);
 }
 
 function isScalar(args: Args, name: string): boolean {
