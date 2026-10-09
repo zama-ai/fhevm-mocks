@@ -169,6 +169,16 @@ function chainDefinition(stack: Stack, variant: ChainVariant): object {
   };
 }
 
+/** How many lines back a declared name is: `@fhevm/sdk` is 0, `@fhevm/sdk-prev<k>` is k. */
+const linesBack = (sdkName: string): number => Number(/-prev(\d+)$/.exec(sdkName)?.[1] ?? 0);
+
+/** Every (older line, newer line) pair: a permit the older one signed, which the newer one goes on using. */
+export const UPGRADES = SDK_LINES.flatMap((olderName) =>
+  SDK_LINES.filter((newerName) => linesBack(newerName) < linesBack(olderName)).flatMap((newerName) =>
+    CHAIN_VARIANTS.map((variant) => ({ olderName, newerName, variant })),
+  ),
+);
+
 /** Every (sdk line, chain variant) pair, the unit each scenario runs for. */
 export const COMBINATIONS = SDK_LINES.flatMap((sdkName) => CHAIN_VARIANTS.map((variant) => ({ sdkName, variant })));
 
@@ -197,6 +207,7 @@ export type Scenario =
   | 'userDecrypt'
   | 'delegatedUserDecrypt'
   | 'permitFromAnEarlierKmsContext'
+  | 'permitFromAnOlderSdkLine'
   | 'publicDecryptWithAStaleKmsContext'
   | 'userDecryptWithAStaleKmsContext';
 export type GapContext = {
@@ -469,6 +480,15 @@ export async function signPermitInAnotherProcess(
     encoding: 'utf8',
   });
   return JSON.parse(out) as StoredPermit;
+}
+
+/** Stores a permit the way an app does: the sdk's own serialization, through JSON. */
+export async function storePermit(client: SdkClient, permit: Permit): Promise<StoredPermit> {
+  const stored = {
+    transportKeyPair: await client.serializeTransportKeyPair({ transportKeyPair: permit.transportKeyPair }),
+    signedPermit: await client.serializeSignedDecryptionPermit({ signedPermit: permit.signedPermit }),
+  };
+  return JSON.parse(JSON.stringify(stored)) as StoredPermit;
 }
 
 /** Loads a stored permit the way an app does on start-up. */

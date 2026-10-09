@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { MNEMONIC, startAnvil, stopAnvil } from '@fhevm/sdk-common-dev';
 import {
   ACL_ABI,
+  CHAIN_VARIANTS,
   COMBINATIONS,
   DAY,
   type Env,
@@ -19,6 +20,7 @@ import {
   type Permit,
   SDK_LINES,
   type Scenario,
+  UPGRADES,
   type SdkClient,
   type SdkLine,
   alice,
@@ -26,12 +28,14 @@ import {
   clearValueOf,
   connect,
   expectOutcome,
+  loadPermit,
   makePubliclyDecryptable,
   publicDecryptAndVerify,
   rotateKms,
   send,
   signPermit,
   startEnv,
+  storePermit,
   submitToNewProbe,
   userDecryptWith,
 } from './utils/sdkLines.ts';
@@ -102,6 +106,46 @@ describe.skipIf(SDK_LINES.length === 0)('one KMS context', () => {
       });
     });
   });
+});
+
+// An app that upgrades its sdk keeps the permits it stored: one signed by an older line, then loaded and used by a
+// newer one, on the same host and the same KMS committee.
+describe.skipIf(UPGRADES.length === 0)('a permit signed by an older sdk line, used by a newer one', () => {
+  let env: Env | undefined;
+  const started = (): Env => {
+    if (env === undefined) throw new Error('the stack did not start');
+    return env;
+  };
+
+  beforeAll(async () => {
+    env = await startEnv(startAnvil({ port: 8663, mnemonic: MNEMONIC }));
+  }, 120_000);
+
+  afterAll(async () => {
+    if (env !== undefined) await stopAnvil(env.anvil.process);
+  });
+
+  describe.each(UPGRADES)(
+    'signed by $olderName, used by $newerName, $variant.name',
+    ({ olderName, newerName, variant }) => {
+      test('user-decrypts with the stored permit', async () => {
+        const e = started();
+        const clear = 42n;
+        // The older line signs as it always did (its full chain definition); the newer line runs with `variant`.
+        const older = await connect(e, olderName, CHAIN_VARIANTS[0]);
+        const { probeAddress, handle } = await submitToNewProbe(e, older.client, clear);
+        const stored = await storePermit(older.client, await signPermit(e, older.client, alice, probeAddress));
+        const newer = await connect(e, newerName, variant);
+        await expectOutcome(
+          { sdk: newer.sdk, variant, kmsVerifierVersion: e.kmsVerifierVersion, scenario: 'permitFromAnOlderSdkLine' },
+          async () => {
+            const permit = await loadPermit(newer.client, stored);
+            expect(await userDecryptWith(newer.client, permit, handle, probeAddress)).toBe(clear);
+          },
+        );
+      });
+    },
+  );
 });
 
 // Every value and permit is made with the sdk under the first KMS context, then the committee is replaced, then each
