@@ -7,6 +7,7 @@ interface IProbeExecutor {
     function verifyInput(bytes32 inputHandle, address userAddress, bytes memory inputProof, uint8 inputType)
         external
         returns (bytes32);
+    function trivialEncrypt(uint256 pt, uint8 toType) external returns (bytes32);
 }
 
 interface IProbeACL {
@@ -17,7 +18,8 @@ interface IProbeACL {
 /**
  * The smallest dApp an sdk client needs on the other side: it takes one encrypted input from the caller and grants
  * the result to itself and to the caller, so the caller can user-decrypt it (or delegate that), and it can make the
- * result publicly decryptable. An EOA cannot hold these grants itself: an input is only allowed transiently, to the
+ * result publicly decryptable. `trivial` makes a value with no sdk at all, for a test that must not touch the sdk
+ * before a given moment. An EOA cannot hold these grants itself: an input is only allowed transiently, to the
  * contract that verifies it, for the duration of the transaction.
  */
 contract SdkProbe {
@@ -36,6 +38,13 @@ contract SdkProbe {
         _ACL.allow(verified, address(this));
         _ACL.allow(verified, msg.sender);
         handle = verified;
+    }
+
+    function trivial(uint256 value, uint8 fheType) external {
+        bytes32 made = _EXECUTOR.trivialEncrypt(value, fheType);
+        _ACL.allow(made, address(this));
+        _ACL.allow(made, msg.sender);
+        handle = made;
     }
 
     function makePubliclyDecryptable() external {

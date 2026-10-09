@@ -21,6 +21,7 @@ export default defineConfig({
       'destroy-kms-context.test.ts',
       'kms-lifecycle.test.ts',
       'sdk-compatibility.test.ts',
+      'sdk-kms-rotation.test.ts',
     ],
     testTimeout: 60_000,
   },
