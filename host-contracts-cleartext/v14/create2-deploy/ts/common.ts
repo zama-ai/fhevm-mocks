@@ -1095,7 +1095,8 @@ export function resolveOutDir(outDirArg: string | null): string {
  *
  * Every path in it is written ABSOLUTE, resolved against the package root. Forge resolves the relative
  * paths of a `--config-path` file against that file's directory, not against `--root` — so a relative
- * `libs` or remapping would point into the out dir, and solc would find nothing. Absolute paths are what
+ * `libs` or remapping would point into the out dir, and solc would find nothing, and a relative `skip`
+ * glob would match nothing, so a source the repository skips would be compiled after all. Absolute paths are what
  * forge computes internally from the original file anyway.
  *
  * The generated file must change NOTHING else, because every CREATE2 address is a hash of the compiled
@@ -1120,9 +1121,9 @@ export function prepareForgeConfig(ctx: Ctx): void {
     new RegExp(`^(${FORGE_PATH_KEYS.join('|')}) = "(.*)"$`, 'gm'),
     (_m, key: string, value: string) => `${key} = ${JSON.stringify(absolutePath(value))}`,
   );
-  profile = profile.replace(/^(libs|remappings) = \[([\s\S]*?)\]$/gm, (_m, key: string, body: string) => {
+  profile = profile.replace(/^(libs|remappings|skip) = \[([\s\S]*?)\]$/gm, (_m, key: string, body: string) => {
     const entries = [...body.matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? '');
-    const absolute = entries.map((entry) => (key === 'libs' ? absolutePath(entry) : absoluteRemapping(entry)));
+    const absolute = entries.map((entry) => (key === 'remappings' ? absoluteRemapping(entry) : absolutePath(entry)));
     return `${key} = [${absolute.map((entry) => JSON.stringify(entry)).join(', ')}]`;
   });
 
@@ -1202,6 +1203,8 @@ function normalizeForgePaths(config: Record<string, unknown>): Record<string, un
     if (typeof value === 'string') out[key] = absolutePath(value);
   }
   if (Array.isArray(out.libs)) out.libs = out.libs.map((v: unknown) => (typeof v === 'string' ? absolutePath(v) : v));
+  // `skip` holds globs, relative like the rest; a relative one would match nothing once the config moves.
+  if (Array.isArray(out.skip)) out.skip = out.skip.map((v: unknown) => (typeof v === 'string' ? absolutePath(v) : v));
   if (Array.isArray(out.remappings)) {
     out.remappings = out.remappings.map((v: unknown) => (typeof v === 'string' ? absoluteRemapping(v) : v));
   }
