@@ -536,6 +536,20 @@ unguarded — those two rules own its content, and every nested `package.json` b
 # ❌ host-contracts-cleartext/v13/INVENTED.md: present in v13 here but absent from release/0.13.x
 ```
 
+`FHEVM_PARITY_REF_<GENERATION>` names a different ref to compare that generation against. It is for the window where
+V(N-1) is brought across while the work it comes from is still on a topic branch, unmerged into the release branch
+that owns it: until that merge lands the derived ref is the wrong baseline, and the honest alternative — turning the
+check off — compares nothing at all. Two rules stop it becoming a mute button. An override is REPORTED on every run
+that uses it, as a note rather than a verbose success, because a green run that never looked at the release branch has
+not proved what this rule is about. And an override that does not resolve FAILS rather than skips: the skip above is
+for a branch nobody created, whereas a ref someone typed is a ref they expect to exist.
+
+```sh
+FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity
+# ⚠️  ./host-contracts-cleartext/v13: compared with 'devex/alexb/v13/forge-fhevm-std-v2' because
+#     FHEVM_PARITY_REF_V13 is set — this run does NOT prove parity with 'release/0.13.x'
+```
+
 ## 4. Where a version lives
 
 Which rules apply depends on the kind of package, as named in § 1.1.
