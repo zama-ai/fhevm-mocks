@@ -8,7 +8,7 @@ pragma solidity ^0.8.24;
 //   struct  from "/**\n * @title   CoprocessorConfig" through the struct's closing brace
 //   library from the "/// keccak256(abi.encode(...)" comment through the end of `setCoprocessor`
 //
-// v14 note: 0.13.3 is the newest @fhevm/solidity on npm. Checked against the fhevm repository at v0.14.1
+// v14 note: @fhevm/solidity has no 0.14 release yet (v14 pins the 0.13 line). Checked against the fhevm repository at v0.14.1
 // (library-solidity/lib/Impl.sol): the struct, the slot and both functions are byte-identical. That
 // revision inserts two `fheMulDiv` scalar-byte constants between the slot and the functions; they are
 // unrelated to the config and deliberately not carried here.

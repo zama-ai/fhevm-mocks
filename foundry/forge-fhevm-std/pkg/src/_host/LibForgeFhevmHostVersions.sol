@@ -80,6 +80,9 @@ library LibForgeFhevmHostVersions {
     IForgeVm private constant vm = IForgeVm(FORGE_VM_ADDRESS);
 
     // -- The floor: fhevm v0.14.0 -------------------------------------------
+    //
+    // The tags of `zama-ai/fhevm` at the start of this line. The ceilings below are GENERATED from what
+    // this package vendors, so the upper end follows the release; only the lower end is written down.
 
     string internal constant ACL_FLOOR = "ACL v0.5.0";
     string internal constant FHEVM_EXECUTOR_FLOOR = "FHEVMExecutor v0.5.0";
