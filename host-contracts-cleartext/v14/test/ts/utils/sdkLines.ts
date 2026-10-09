@@ -79,6 +79,13 @@ export type SdkClient = {
     delegatorAddress?: Address;
     transportKeyPair: TransportKeyPair;
   }): Promise<SignedPermit>;
+  serializeTransportKeyPair(args: { transportKeyPair: TransportKeyPair }): Promise<unknown>;
+  parseTransportKeyPair(args: StoredPermit['transportKeyPair']): Promise<TransportKeyPair>;
+  serializeSignedDecryptionPermit(args: { signedPermit: SignedPermit }): Promise<unknown>;
+  parseSignedDecryptionPermit(args: {
+    serializedPermit: StoredPermit['signedPermit'];
+    transportKeyPair: TransportKeyPair;
+  }): Promise<SignedPermit>;
   decryptValues(args: {
     encryptedValues: Hex[];
     contractAddress: Address;
@@ -136,10 +143,11 @@ export const CHAIN_VARIANTS = [
 ] as const;
 export type ChainVariant = (typeof CHAIN_VARIANTS)[number];
 
-function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unknown {
+/** The sdk chain definition, as plain data: what `defineFhevmChain` takes, and what crosses into another process. */
+function chainDefinition(stack: Stack, variant: ChainVariant): object {
   const contract = (address: string) => ({ address: getAddress(address) });
   const { fhevmAddresses } = stack;
-  return sdk.defineChain({
+  return {
     id: foundry.id,
     fhevm: {
       contracts: {
@@ -158,7 +166,7 @@ function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unkn
         },
       },
     },
-  });
+  };
 }
 
 /** Every (sdk line, chain variant) pair, the unit each scenario runs for. */
@@ -174,7 +182,7 @@ export async function connect(
   variant: ChainVariant,
 ): Promise<{ sdk: SdkLine; client: SdkClient }> {
   const sdk = await loadSdkLine(sdkName);
-  const client = sdk.createClient(env.publicClient, cleartextChain(sdk, env.stack, variant));
+  const client = sdk.createClient(env.publicClient, sdk.defineChain(chainDefinition(env.stack, variant)));
   await client.ready;
   return { sdk, client };
 }
@@ -301,9 +309,10 @@ export function probe(): Probe {
   }
 }
 
+const ALICE_ADDRESS_INDEX = 7;
 const account = (addressIndex: number): LocalAccount => mnemonicToAccount(MNEMONIC, { addressIndex });
 const signerOf = (user: LocalAccount) => ({ signTypedData: (data: unknown) => user.signTypedData(data as never) });
-export const alice = account(7);
+export const alice = account(ALICE_ADDRESS_INDEX);
 export const bob = account(8);
 
 /** One anvil with a deployed cleartext host. */
@@ -420,6 +429,57 @@ export async function makePubliclyDecryptable(env: Env, probeAddress: Address): 
 }
 
 export type Permit = { transportKeyPair: TransportKeyPair; signedPermit: SignedPermit };
+
+/** A permit as an app stores it: the sdk's own serialization, plain JSON. */
+export type StoredPermit = {
+  transportKeyPair: { publicKey: string; privateKey: string; tkmsVersion?: string };
+  signedPermit: {
+    version: number;
+    eip712: unknown;
+    signature: string;
+    signerAddress: string;
+    delegatorAddress?: string;
+  };
+};
+
+/**
+ * Has alice sign a permit for `contractAddress` with `sdkName`, in a separate `node` process
+ * (utils/signPermitInAnotherProcess.ts), and returns it as an app would store it. This process's sdk is not touched.
+ */
+export async function signPermitInAnotherProcess(
+  env: Env,
+  sdkName: string,
+  variant: ChainVariant,
+  contractAddress: Address,
+): Promise<StoredPermit> {
+  const { timestamp } = await env.publicClient.getBlock();
+  const input = {
+    sdkName,
+    rpcUrl: env.rpcUrl,
+    chain: chainDefinition(env.stack, variant),
+    mnemonic: MNEMONIC,
+    addressIndex: ALICE_ADDRESS_INDEX,
+    contractAddress,
+    startTimestamp: Number(timestamp),
+    durationSeconds: DAY,
+  };
+  const script = join(PACKAGE_ROOT_ABS_PATH, 'test', 'ts', 'utils', 'signPermitInAnotherProcess.ts');
+  const out = execFileSync(process.execPath, [script, JSON.stringify(input)], {
+    cwd: PACKAGE_ROOT_ABS_PATH,
+    encoding: 'utf8',
+  });
+  return JSON.parse(out) as StoredPermit;
+}
+
+/** Loads a stored permit the way an app does on start-up. */
+export async function loadPermit(client: SdkClient, stored: StoredPermit): Promise<Permit> {
+  const transportKeyPair = await client.parseTransportKeyPair(stored.transportKeyPair);
+  const signedPermit = await client.parseSignedDecryptionPermit({
+    serializedPermit: stored.signedPermit,
+    transportKeyPair,
+  });
+  return { transportKeyPair, signedPermit };
+}
 
 export async function signPermit(
   env: Env,
