@@ -64,7 +64,7 @@ contract FhevmOfferACLOwnership is FhevmCreate2Base {
         address aclOwner = _readManifestAddress(manifest, R_ACL_OWNER);
         require(_deployed(acl) && _deployed(aclOwner), "FhevmOfferACLOwnership: run creates first");
 
-        _banner("step B - offer ACL ownership");
+        _banner("Step B: offer ACL ownership");
 
         vm.startBroadcast();
 
@@ -73,7 +73,7 @@ contract FhevmOfferACLOwnership is FhevmCreate2Base {
         // case would hand the deployer a live `pendingOwner` on a contract it no longer owns, which
         // `FhevmVerify` then refuses to call the run complete.
         if (IOwnable2Step(acl).owner() == aclOwner || IOwnable2Step(acl).pendingOwner() == aclOwner) {
-            console.log("  B  transferOwnership(ACLOwner) - already done");
+            console.log("  transferOwnership(ACLOwner) - already done");
         } else {
             // PRECONDITION. Fatal, not a retry: someone else owns the ACL, so this stack is not the
             // one this manifest describes.
@@ -83,13 +83,12 @@ contract FhevmOfferACLOwnership is FhevmCreate2Base {
             );
 
             IOwnable2Step(acl).transferOwnership(aclOwner);
-            console.log("  B  ACL.transferOwnership(ACLOwner)", aclOwner);
+            console.log("  ACL.transferOwnership(ACLOwner)", aclOwner);
         }
 
         vm.stopBroadcast();
 
         console.log("");
         console.log("  ACL.owner() is still the deployer - ownership moves at C, not here.");
-        console.log("  next: FhevmAcceptACLOwnership (step C)");
     }
 }

@@ -22,7 +22,7 @@ contract FhevmComputeUpgradeAddresses is FhevmUpgradeBase {
     }
 
     function _pass1() private {
-        _banner("upgrade pass 1/2 - live addresses");
+        _banner("Upgrade pass 1/2: live addresses");
         _writeAddresses();
 
         string memory o = "upgradePass1";
@@ -35,7 +35,7 @@ contract FhevmComputeUpgradeAddresses is FhevmUpgradeBase {
     }
 
     function _pass2() private {
-        _banner("upgrade pass 2/2 - implementations, assert, seal");
+        _banner("Upgrade pass 2/2: implementations, assert, seal");
         string memory scratch = vm.readFile(_scratchPath());
         require(
             _addressesHash() == vm.parseJsonBytes32(scratch, ".addressesHash"),

@@ -53,6 +53,9 @@ import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
  */
 const PREVIOUS_GENERATION_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', 'v13');
 
+/** v14's upgrade entry point. */
+const UPGRADE_CLI = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'upgrade', 'upgrade-cli');
+
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,11 +74,12 @@ const RPC_URL = `http://127.0.0.1:${PORT}`;
  * A dedicated out-dir per generation, so a run never touches the `.out-anvil` a developer's manual
  * rehearsal uses. `.out-*` is gitignored in both generations; `.test-*` (the file below) in this one.
  *
- * Passed to `--out-dir` as a BARE name, because the coordinator resolves that flag against `FS_ROOT` —
- * the `create2-deploy/` directory — not against the package root. It has to: `foundry.toml`'s
- * `fs_permissions` grants forge write access to exactly `./create2-deploy`, so a manifest outside it
- * cannot be sealed at all. Passing `create2-deploy/.out-…` here nests it one level too deep, which is
- * silent — the coordinator still exits 0, and only the missing manifest gives it away.
+ * The two coordinators read `--out-dir` differently, which is why the calls below differ:
+ *
+ *   v13   relative to the caller's directory too, but run from its `create2-deploy/`, so a BARE name lands
+ *         there (its foundry.toml grants forge write access to exactly that folder).
+ *   v14   any path, relative to the caller's directory. Passed ABSOLUTE here (outDirAbs), so it lands in
+ *         `create2-deploy/` like v13's and is cleaned up the same way.
  */
 const OUT_DIR_ARG = '.out-test-create2-e2e';
 const NEGATIVE_OUT_DIR_ARG = '.out-test-create2-e2e-negative';
@@ -103,7 +107,7 @@ function blockedReason(): string | undefined {
   for (const bin of ['anvil', 'forge'] as const) {
     if (!haveBinary(bin)) return `${bin} not found — install foundry (https://getfoundry.sh)`;
   }
-  if (!existsSync(join(PREVIOUS_GENERATION_DIR_ABS_PATH, 'create2-deploy', 'deploy-testnet.ts'))) {
+  if (!existsSync(join(PREVIOUS_GENERATION_DIR_ABS_PATH, 'create2-deploy', 'deploy-cli'))) {
     return `the sibling v13 package has no create2-deploy coordinator at ${PREVIOUS_GENERATION_DIR_ABS_PATH}`;
   }
   return undefined;
@@ -171,9 +175,13 @@ function note(what: string): void {
  * The coordinators use anvil's public mnemonic when they detect anvil (via anvil_nodeInfo), so no
  * keystore and no password prompt. FHEVM_* env is left untouched: the config file carries everything.
  */
-function runCoordinator(cwd: string, args: readonly string[]): Promise<{ ok: boolean; output: string }> {
+function runCoordinator(
+  cwd: string,
+  command: string,
+  args: readonly string[],
+): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn('node', args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     const onData = (chunk: Buffer): void => {
       const text = chunk.toString();
@@ -373,30 +381,31 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
     let v13Deployed = false;
 
     await t.test('v13 deploys from scratch through its own CREATE2 coordinator', async () => {
-      announce(
-        2,
-        STEPS,
-        'deploy v13 with ../v13 deploy-testnet.ts --stage all (3 forge builds, 22 creates, steps A-F)',
-      );
+      announce(2, STEPS, 'deploy v13 with ../v13 deploy-cli --stage all (3 forge builds, 22 creates, steps A-F)');
       rmSync(outDirAbs(v13Root), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v13Root, [
-        'create2-deploy/deploy-testnet.ts',
-        '--config',
-        'create2-deploy/anvil-config.json',
-        // --rpc-url beats the config file (common.ts resolveOptions), which is what lets this run on a
-        // private port while reusing the checked-in rehearsal config for everything else.
-        '--rpc-url',
-        RPC_URL,
-        '--out-dir',
-        OUT_DIR_ARG,
-        '--deployment-id',
-        DEPLOYMENT_ID,
-        '--stage',
-        'all',
-      ]);
+      // v13 has an operator entry point (`deploy-cli`, run from its create2-deploy/ folder, where its relative
+      // --out-dir lands); v12, the generation v13 upgrades from, predated it and was run as `node <file>.ts`.
+      const { ok, output } = await runCoordinator(
+        join(v13Root, 'create2-deploy'),
+        join(v13Root, 'create2-deploy', 'deploy-cli'),
+        [
+          '--config',
+          'anvil-config.json',
+          // --rpc-url beats the config file (common.ts resolveOptions), which is what lets this run on a
+          // private port while reusing the checked-in rehearsal config for everything else.
+          '--rpc-url',
+          RPC_URL,
+          '--out-dir',
+          OUT_DIR_ARG,
+          '--deployment-id',
+          DEPLOYMENT_ID,
+          '--stage',
+          'all',
+        ],
+      );
       if (!ok) {
-        // The node is PROBED rather than read off the child's `exit` event: `runCoordinator` uses
-        // spawnSync, so that event is still queued here and would report a live node as dead.
+        // The node is PROBED rather than judged from `nodeGone` alone: the probe says whether it answers
+        // right now, whatever order the child-process events arrived in.
         const detail = (await portIsOpen()) ? '' : ` — ${nodeGone ?? `the anvil on ${RPC_URL} stopped answering`}`;
         assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
       }
@@ -517,14 +526,13 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       announce(6, STEPS, 'negative: compute with a wrong ACL address must refuse (expect an Error below)');
       const wrong = { ...v13, ACL_ADDRESS: ZERO };
       rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v14Root, [
-        'create2-deploy/upgrade/testnet.ts',
+      const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         RPC_URL,
         '--out-dir',
-        NEGATIVE_OUT_DIR_ARG,
+        outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
         '--deployment-id',
         `${DEPLOYMENT_ID}-wrong-address`,
         '--stage',
@@ -563,14 +571,13 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         )}\n`,
       );
       rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v14Root, [
-        'create2-deploy/upgrade/testnet.ts',
+      const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         RPC_URL,
         '--out-dir',
-        NEGATIVE_OUT_DIR_ARG,
+        outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
         '--deployment-id',
         `${DEPLOYMENT_ID}-wrong-migration`,
         '--stage',
@@ -593,17 +600,16 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         announce(
           8,
           STEPS,
-          'upgrade with upgrade/testnet.ts --stage all (compute, creates, rehearse on a fork, materialize, verify)',
+          'upgrade with upgrade-cli --stage all (compute, creates, rehearse on a fork, materialize, verify)',
         );
         rmSync(outDirAbs(v14Root), { recursive: true, force: true });
-        const { ok, output } = await runCoordinator(v14Root, [
-          'create2-deploy/upgrade/testnet.ts',
+        const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
           RPC_URL,
           '--out-dir',
-          OUT_DIR_ARG,
+          outDirAbs(v14Root),
           // The SAME deployment id as the deploy, deliberately: `_salt` mixes `cfg.version`, so "0.14"
           // against the v13 deploy's "0.13" already yields a disjoint salt namespace for the same role
           // names. Reusing the id is therefore correct and preferred.
@@ -733,13 +739,12 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       async (st) => {
         if (needsV14(st)) return;
         const common = [
-          'create2-deploy/upgrade/testnet.ts',
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
           RPC_URL,
           '--out-dir',
-          OUT_DIR_ARG,
+          outDirAbs(v14Root),
           '--deployment-id',
           DEPLOYMENT_ID,
           ...existingAddressArgs(v13),
@@ -750,9 +755,15 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
           STEPS,
           're-run --stage all on the upgraded stack (must resume and send nothing), status, compute must refuse',
         );
-        const again = await runCoordinator(v14Root, [...common, '--stage', 'all', '--handle', handleBefore]);
+        const again = await runCoordinator(v14Root, UPGRADE_CLI, [
+          ...common,
+          '--stage',
+          'all',
+          '--handle',
+          handleBefore,
+        ]);
         assert.ok(again.ok, `second --stage all failed:\n${again.output.slice(-4000)}`);
-        assert.match(again.output, /compute already sealed .* skipping/, 'compute is skipped, from the chain');
+        assert.match(again.output, /Compute: already sealed .* skipping/, 'compute is skipped, from the chain');
         assert.match(again.output, /already present 7/, 'no create is re-sent');
         assert.match(again.output, /already materialized; run verify/, 'the gate recognizes the upgraded stack');
         assert.match(again.output, /nothing left to rehearse/, 'the rehearsal steps aside');
@@ -760,21 +771,21 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         assert.match(again.output, /OK - every terminal condition for the upgrade/, 'verify still holds');
 
         note('status');
-        const status = await runCoordinator(v14Root, [...common, '--stage', 'status']);
+        const status = await runCoordinator(v14Root, UPGRADE_CLI, [...common, '--stage', 'status']);
         assert.ok(status.ok, status.output.slice(-2000));
         assert.match(status.output, /materialize: done/, status.output.slice(-2000));
 
         // The sealed init parameters are the package defaults: what a stack deployed from anvil's mnemonic
         // must have been given, and what the anchor hash verify checked was computed from.
         note('params');
-        const params = await runCoordinator(v14Root, [...common, '--stage', 'params']);
+        const params = await runCoordinator(v14Root, UPGRADE_CLI, [...common, '--stage', 'params']);
         assert.ok(params.ok, params.output.slice(-2000));
         assert.match(params.output, /mpcIdentity\s+kms-core-1-cleartext-core-1/, params.output.slice(-2000));
         assert.match(params.output, /storagePrefix\s+cleartext-1/, params.output.slice(-2000));
         assert.match(params.output, /softwareVersion\s+0\.0\.0-cleartext/, params.output.slice(-2000));
 
         note('compute must refuse (expect an Error below)');
-        const recompute = await runCoordinator(v14Root, [...common, '--stage', 'compute']);
+        const recompute = await runCoordinator(v14Root, UPGRADE_CLI, [...common, '--stage', 'compute']);
         assert.equal(recompute.ok, false, 'compute must refuse once contracts are on chain');
         assert.match(recompute.output, /already put contracts on chain/, recompute.output.slice(-2000));
       },

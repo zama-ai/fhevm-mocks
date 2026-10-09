@@ -34,7 +34,7 @@ contract FhevmPreMaterializeCheck is FhevmUpgradeChecks {
         _loadUpgradeConfig();
         string memory manifest = _loadManifest();
 
-        _banner("pre-materialize check");
+        _banner("Pre-materialize check");
 
         _expectFactoryPresent();
 
