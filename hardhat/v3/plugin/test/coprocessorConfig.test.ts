@@ -51,7 +51,7 @@ void test('getCoprocessorConfig and assertCoprocessorInitialized read what a con
       pluginError(`Contract at ${CONSUMER} is not initialized`),
     );
     await assert.rejects(
-      fhevm.assertCoprocessorInitialized({ address: CONSUMER }, 'Consumer'),
+      fhevm.assertCoprocessorInitialized(CONSUMER, 'Consumer'),
       pluginError(
         `Contract Consumer at ${CONSUMER} is not initialized for FHE operations. Make sure it either inherits from @fhevm/solidity/config/ZamaConfig.sol:ZamaEthereumConfig`,
       ),
@@ -60,7 +60,9 @@ void test('getCoprocessorConfig and assertCoprocessorInitialized read what a con
     // The deployed stack's trio: the assertion passes, the reader hands the addresses back checksummed.
     const { aclAddress, fhevmExecutorAddress, kmsVerifierAddress } = precomputeLocalhostAddresses().fhevmAddresses;
     await write([aclAddress, fhevmExecutorAddress, kmsVerifierAddress]);
-    const config = await fhevm.getCoprocessorConfig({ getAddress: () => Promise.resolve(CONSUMER) });
+    // Both take a plain address now; the `FhevmAddressLike` forms (`{ address }`, `{ getAddress() }`)
+    // are no longer accepted, so a caller passes `await contract.getAddress()` itself.
+    const config = await fhevm.getCoprocessorConfig(CONSUMER);
     assert.deepEqual(config, {
       ACLAddress: aclAddress,
       CoprocessorAddress: fhevmExecutorAddress,

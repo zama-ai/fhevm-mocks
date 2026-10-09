@@ -25,9 +25,9 @@ const constants = {
   TRACE_DECRYPTION_REQUEST_EVENTS: false,
   DEVELOPMENT_NETWORK_CHAINID: 31337,
   // https://www.npmjs.com/package/@fhevm/solidity?activeTab=versions
-  // @fhevm/solidity@0.13.3
+  // @fhevm/solidity@0.13.4
   FHEVM_SOLIDITY_PACKAGE: {
-    version: '0.13.3',
+    version: '0.13.4',
     name: '@fhevm/solidity',
     configFile: 'config/ZamaConfig.sol',
     configContractName: 'EthereumConfig',
@@ -50,7 +50,7 @@ const constants = {
       KMSVerifierAddress: '0x901F8942346f7AB3a01F6D7613119Bca447Bb030',
     },
   },
-  // @fhevm/host-contracts-cleartext@0.13.0
+  // @fhevm/host-contracts-cleartext@0.13.1
   //
   // The canonical localhost cleartext stack, mirroring the package's generated
   // `pkg/forge/src/_internal/LocalHostAddresses.sol`. Every address below is
@@ -61,7 +61,7 @@ const constants = {
   // `@fhevm/solidity/config/ZamaConfig.sol` compiles into every dApp inheriting its local config
   // (see FHEVM_SOLIDITY_PACKAGE.LocalConfig below) — which is why none of this may drift.
   FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE: {
-    version: '0.13.0',
+    version: '0.13.1',
     name: '@fhevm/host-contracts-cleartext',
     // BIP-39 mnemonic the local stack is *deployed* from. This is NOT the signer mnemonic: the KMS
     // and coprocessor signing keys are derived and owned by `@fhevm/sdk`. Two mnemonics, two jobs.

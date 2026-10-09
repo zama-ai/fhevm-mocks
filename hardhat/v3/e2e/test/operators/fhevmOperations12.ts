@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -138,2272 +137,2814 @@ describe('FHEVM operations 12', function () {
   });
 
   it('test operator "rotr" overload (euint8, uint8) => euint8 test 1 (226, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add8(226n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint8_uint8(at(encryptedAmount.handles, 0), 10n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint8({
+      value: 226n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint8_uint8(encryptedAmount.externalEuint8, 10n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint8, await this.contract7.resEuint8());
-    expect(res).to.equal(184n);
+    const res = await fhevm.cleartextDb.readUint8({ euint8: await this.contract7.resEuint8() });
+    expect(res).to.equal(184);
   });
 
   it('test operator "rotr" overload (euint8, uint8) => euint8 test 2 (6, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add8(6n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint8_uint8(at(encryptedAmount.handles, 0), 10n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint8({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint8_uint8(encryptedAmount.externalEuint8, 10n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint8, await this.contract7.resEuint8());
-    expect(res).to.equal(129n);
+    const res = await fhevm.cleartextDb.readUint8({ euint8: await this.contract7.resEuint8() });
+    expect(res).to.equal(129);
   });
 
   it('test operator "rotr" overload (euint8, uint8) => euint8 test 3 (10, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add8(10n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint8_uint8(at(encryptedAmount.handles, 0), 10n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint8({
+      value: 10n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint8_uint8(encryptedAmount.externalEuint8, 10n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint8, await this.contract7.resEuint8());
-    expect(res).to.equal(130n);
+    const res = await fhevm.cleartextDb.readUint8({ euint8: await this.contract7.resEuint8() });
+    expect(res).to.equal(130);
   });
 
   it('test operator "rotr" overload (euint8, uint8) => euint8 test 4 (10, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add8(10n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint8_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint8({
+      value: 10n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint8_uint8(encryptedAmount.externalEuint8, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint8, await this.contract7.resEuint8());
-    expect(res).to.equal(40n);
+    const res = await fhevm.cleartextDb.readUint8({ euint8: await this.contract7.resEuint8() });
+    expect(res).to.equal(40);
   });
 
   it('test operator "shl" overload (euint16, euint8) => euint16 test 1 (29822, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(29822n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 29822n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(16128n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(16128);
   });
 
   it('test operator "shl" overload (euint16, euint8) => euint16 test 2 (3, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(3n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 3n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(384n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(384);
   });
 
   it('test operator "shl" overload (euint16, euint8) => euint16 test 3 (7, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(7n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 7n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(896n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(896);
   });
 
   it('test operator "shl" overload (euint16, euint8) => euint16 test 4 (7, 3)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(7n);
-    input.add8(3n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 7n },
+        { type: 'uint8', value: 3n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(56n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(56);
   });
 
   it('test operator "shl" overload (euint16, uint8) => euint16 test 1 (29822, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(29822n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint16_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 29822n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint16_uint8(encryptedAmount.externalEuint16, 7n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(16128n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(16128);
   });
 
   it('test operator "shl" overload (euint16, uint8) => euint16 test 2 (3, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(3n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint16_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 3n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint16_uint8(encryptedAmount.externalEuint16, 7n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(384n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(384);
   });
 
   it('test operator "shl" overload (euint16, uint8) => euint16 test 3 (7, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(7n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint16_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint16_uint8(encryptedAmount.externalEuint16, 7n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(896n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(896);
   });
 
   it('test operator "shl" overload (euint16, uint8) => euint16 test 4 (7, 3)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(7n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint16_uint8(at(encryptedAmount.handles, 0), 3n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint16_uint8(encryptedAmount.externalEuint16, 3n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(56n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(56);
   });
 
   it('test operator "shr" overload (euint16, euint8) => euint16 test 1 (54968, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(54968n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 54968n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(858n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(858);
   });
 
   it('test operator "shr" overload (euint16, euint8) => euint16 test 2 (2, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(2n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 2n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint16, euint8) => euint16 test 3 (6, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(6n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 6n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint16, euint8) => euint16 test 4 (6, 2)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(6n);
-    input.add8(2n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 6n },
+        { type: 'uint8', value: 2n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(1n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(1);
   });
 
   it('test operator "shr" overload (euint16, uint8) => euint16 test 1 (54968, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(54968n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint16_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 54968n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint16_uint8(encryptedAmount.externalEuint16, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(858n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(858);
   });
 
   it('test operator "shr" overload (euint16, uint8) => euint16 test 2 (2, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(2n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint16_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 2n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint16_uint8(encryptedAmount.externalEuint16, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint16, uint8) => euint16 test 3 (6, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(6n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint16_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint16_uint8(encryptedAmount.externalEuint16, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint16, uint8) => euint16 test 4 (6, 2)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(6n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint16_uint8(at(encryptedAmount.handles, 0), 2n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint16_uint8(encryptedAmount.externalEuint16, 2n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(1n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(1);
   });
 
   it('test operator "rotl" overload (euint16, euint8) => euint16 test 1 (40525, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(40525n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 40525n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(39740n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(39740);
   });
 
   it('test operator "rotl" overload (euint16, euint8) => euint16 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(5n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 5n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(2560n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(2560);
   });
 
   it('test operator "rotl" overload (euint16, euint8) => euint16 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(9n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 9n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(4608n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(4608);
   });
 
   it('test operator "rotl" overload (euint16, euint8) => euint16 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(9n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 9n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(288n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(288);
   });
 
   it('test operator "rotl" overload (euint16, uint8) => euint16 test 1 (40525, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(40525n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint16_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 40525n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint16_uint8(encryptedAmount.externalEuint16, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(39740n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(39740);
   });
 
   it('test operator "rotl" overload (euint16, uint8) => euint16 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint16_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint16_uint8(encryptedAmount.externalEuint16, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(2560n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(2560);
   });
 
   it('test operator "rotl" overload (euint16, uint8) => euint16 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint16_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint16_uint8(encryptedAmount.externalEuint16, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(4608n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(4608);
   });
 
   it('test operator "rotl" overload (euint16, uint8) => euint16 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint16_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint16_uint8(encryptedAmount.externalEuint16, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(288n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(288);
   });
 
   it('test operator "rotr" overload (euint16, euint8) => euint16 test 1 (22963, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(22963n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 22963n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(45913n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(45913);
   });
 
   it('test operator "rotr" overload (euint16, euint8) => euint16 test 2 (4, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(4n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 4n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(1024n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(1024);
   });
 
   it('test operator "rotr" overload (euint16, euint8) => euint16 test 3 (8, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(8n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 8n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(2048n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(2048);
   });
 
   it('test operator "rotr" overload (euint16, euint8) => euint16 test 4 (8, 4)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(8n);
-    input.add8(4n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint16', value: 8n },
+        { type: 'uint8', value: 4n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint16_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(32768n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(32768);
   });
 
   it('test operator "rotr" overload (euint16, uint8) => euint16 test 1 (22963, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(22963n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint16_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 22963n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint16_uint8(encryptedAmount.externalEuint16, 8n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(45913n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(45913);
   });
 
   it('test operator "rotr" overload (euint16, uint8) => euint16 test 2 (4, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(4n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint16_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 4n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint16_uint8(encryptedAmount.externalEuint16, 8n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(1024n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(1024);
   });
 
   it('test operator "rotr" overload (euint16, uint8) => euint16 test 3 (8, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(8n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint16_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 8n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint16_uint8(encryptedAmount.externalEuint16, 8n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(2048n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(2048);
   });
 
   it('test operator "rotr" overload (euint16, uint8) => euint16 test 4 (8, 4)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(8n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint16_uint8(at(encryptedAmount.handles, 0), 4n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 8n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint16_uint8(encryptedAmount.externalEuint16, 4n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(32768n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(32768);
   });
 
   it('test operator "shl" overload (euint32, euint8) => euint32 test 1 (4215468776, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(4215468776n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 4215468776n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2246430720n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2246430720);
   });
 
   it('test operator "shl" overload (euint32, euint8) => euint32 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(5n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 5n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2560n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2560);
   });
 
   it('test operator "shl" overload (euint32, euint8) => euint32 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 9n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(4608n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(4608);
   });
 
   it('test operator "shl" overload (euint32, euint8) => euint32 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 9n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(288n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(288);
   });
 
   it('test operator "shl" overload (euint32, uint8) => euint32 test 1 (4215468776, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(4215468776n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint32_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 4215468776n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint32_uint8(encryptedAmount.externalEuint32, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2246430720n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2246430720);
   });
 
   it('test operator "shl" overload (euint32, uint8) => euint32 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint32_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint32_uint8(encryptedAmount.externalEuint32, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2560n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2560);
   });
 
   it('test operator "shl" overload (euint32, uint8) => euint32 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint32_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint32_uint8(encryptedAmount.externalEuint32, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(4608n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(4608);
   });
 
   it('test operator "shl" overload (euint32, uint8) => euint32 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint32_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint32_uint8(encryptedAmount.externalEuint32, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(288n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(288);
   });
 
   it('test operator "shr" overload (euint32, euint8) => euint32 test 1 (553385694, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(553385694n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 553385694n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(8646651n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(8646651);
   });
 
   it('test operator "shr" overload (euint32, euint8) => euint32 test 2 (2, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(2n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 2n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint32, euint8) => euint32 test 3 (6, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(6n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 6n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint32, euint8) => euint32 test 4 (6, 2)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(6n);
-    input.add8(2n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 6n },
+        { type: 'uint8', value: 2n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(1n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(1);
   });
 
   it('test operator "shr" overload (euint32, uint8) => euint32 test 1 (553385694, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(553385694n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint32_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 553385694n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint32_uint8(encryptedAmount.externalEuint32, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(8646651n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(8646651);
   });
 
   it('test operator "shr" overload (euint32, uint8) => euint32 test 2 (2, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(2n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint32_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 2n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint32_uint8(encryptedAmount.externalEuint32, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint32, uint8) => euint32 test 3 (6, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(6n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint32_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint32_uint8(encryptedAmount.externalEuint32, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(0n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(0);
   });
 
   it('test operator "shr" overload (euint32, uint8) => euint32 test 4 (6, 2)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(6n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint32_uint8(at(encryptedAmount.handles, 0), 2n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint32_uint8(encryptedAmount.externalEuint32, 2n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(1n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(1);
   });
 
   it('test operator "rotl" overload (euint32, euint8) => euint32 test 1 (964043969, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(964043969n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 964043969n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(3964240498n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(3964240498);
   });
 
   it('test operator "rotl" overload (euint32, euint8) => euint32 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(5n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 5n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2560n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2560);
   });
 
   it('test operator "rotl" overload (euint32, euint8) => euint32 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 9n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(4608n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(4608);
   });
 
   it('test operator "rotl" overload (euint32, euint8) => euint32 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 9n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(288n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(288);
   });
 
   it('test operator "rotl" overload (euint32, uint8) => euint32 test 1 (964043969, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(964043969n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint32_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 964043969n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint32_uint8(encryptedAmount.externalEuint32, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(3964240498n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(3964240498);
   });
 
   it('test operator "rotl" overload (euint32, uint8) => euint32 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint32_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint32_uint8(encryptedAmount.externalEuint32, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2560n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2560);
   });
 
   it('test operator "rotl" overload (euint32, uint8) => euint32 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint32_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint32_uint8(encryptedAmount.externalEuint32, 9n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(4608n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(4608);
   });
 
   it('test operator "rotl" overload (euint32, uint8) => euint32 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint32_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint32_uint8(encryptedAmount.externalEuint32, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(288n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(288);
   });
 
   it('test operator "rotr" overload (euint32, euint8) => euint32 test 1 (1271260918, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(1271260918n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 1271260918n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(3737745596n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(3737745596);
   });
 
   it('test operator "rotr" overload (euint32, euint8) => euint32 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(7n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 7n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(14680064n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(14680064);
   });
 
   it('test operator "rotr" overload (euint32, euint8) => euint32 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(11n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 11n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(23068672n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(23068672);
   });
 
   it('test operator "rotr" overload (euint32, euint8) => euint32 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(11n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint32', value: 11n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint32_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(369098752n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(369098752);
   });
 
   it('test operator "rotr" overload (euint32, uint8) => euint32 test 1 (1271260918, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(1271260918n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint32_uint8(at(encryptedAmount.handles, 0), 11n, encryptedAmount.inputProof);
-    await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(3737745596n);
-  });
-
-  it('test operator "rotr" overload (euint32, uint8) => euint32 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(7n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint32_uint8(at(encryptedAmount.handles, 0), 11n, encryptedAmount.inputProof);
-    await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(14680064n);
-  });
-
-  it('test operator "rotr" overload (euint32, uint8) => euint32 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(11n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint32_uint8(at(encryptedAmount.handles, 0), 11n, encryptedAmount.inputProof);
-    await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(23068672n);
-  });
-
-  it('test operator "rotr" overload (euint32, uint8) => euint32 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(11n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint32_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
-    await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(369098752n);
-  });
-
-  it('test operator "shl" overload (euint64, euint8) => euint64 test 1 (18439553599879397381, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18439553599879397381n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 1271260918n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint32_uint8(
+      encryptedAmount.externalEuint32,
+      11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(3737745596);
+  });
+
+  it('test operator "rotr" overload (euint32, uint8) => euint32 test 2 (7, 11)', async function () {
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint32_uint8(
+      encryptedAmount.externalEuint32,
+      11n,
+      encryptedAmount.inputProof,
+    );
+    await tx.wait();
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(14680064);
+  });
+
+  it('test operator "rotr" overload (euint32, uint8) => euint32 test 3 (11, 11)', async function () {
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint32_uint8(
+      encryptedAmount.externalEuint32,
+      11n,
+      encryptedAmount.inputProof,
+    );
+    await tx.wait();
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(23068672);
+  });
+
+  it('test operator "rotr" overload (euint32, uint8) => euint32 test 4 (11, 7)', async function () {
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint32_uint8(encryptedAmount.externalEuint32, 7n, encryptedAmount.inputProof);
+    await tx.wait();
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(369098752);
+  });
+
+  it('test operator "shl" overload (euint64, euint8) => euint64 test 1 (18439553599879397381, 5)', async function () {
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 18439553599879397381n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint64_euint8(
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
+      encryptedAmount.inputProof,
+    );
+    await tx.wait();
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(18216648911144616096n);
   });
 
   it('test operator "shl" overload (euint64, euint8) => euint64 test 2 (1, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(1n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 1n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(32n);
   });
 
   it('test operator "shl" overload (euint64, euint8) => euint64 test 3 (5, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 5n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(160n);
   });
 
   it('test operator "shl" overload (euint64, euint8) => euint64 test 4 (5, 1)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-    input.add8(1n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 5n },
+        { type: 'uint8', value: 1n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(10n);
   });
 
   it('test operator "shl" overload (euint64, uint8) => euint64 test 1 (18439553599879397381, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18439553599879397381n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint64_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 18439553599879397381n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint64_uint8(encryptedAmount.externalEuint64, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(18216648911144616096n);
   });
 
   it('test operator "shl" overload (euint64, uint8) => euint64 test 2 (1, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(1n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint64_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 1n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint64_uint8(encryptedAmount.externalEuint64, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(32n);
   });
 
   it('test operator "shl" overload (euint64, uint8) => euint64 test 3 (5, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint64_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint64_uint8(encryptedAmount.externalEuint64, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(160n);
   });
 
   it('test operator "shl" overload (euint64, uint8) => euint64 test 4 (5, 1)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint64_uint8(at(encryptedAmount.handles, 0), 1n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint64_uint8(encryptedAmount.externalEuint64, 1n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(10n);
   });
 
   it('test operator "shr" overload (euint64, euint8) => euint64 test 1 (18440734008878900693, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18440734008878900693n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 18440734008878900693n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(576272937777465646n);
   });
 
   it('test operator "shr" overload (euint64, euint8) => euint64 test 2 (1, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(1n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 1n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint64, euint8) => euint64 test 3 (5, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 5n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint64, euint8) => euint64 test 4 (5, 1)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-    input.add8(1n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 5n },
+        { type: 'uint8', value: 1n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2n);
   });
 
   it('test operator "shr" overload (euint64, uint8) => euint64 test 1 (18440734008878900693, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18440734008878900693n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint64_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 18440734008878900693n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint64_uint8(encryptedAmount.externalEuint64, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(576272937777465646n);
   });
 
   it('test operator "shr" overload (euint64, uint8) => euint64 test 2 (1, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(1n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint64_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 1n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint64_uint8(encryptedAmount.externalEuint64, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint64, uint8) => euint64 test 3 (5, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint64_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint64_uint8(encryptedAmount.externalEuint64, 5n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint64, uint8) => euint64 test 4 (5, 1)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint64_uint8(at(encryptedAmount.handles, 0), 1n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint64_uint8(encryptedAmount.externalEuint64, 1n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2n);
   });
 
   it('test operator "rotl" overload (euint64, euint8) => euint64 test 1 (18445824036689295007, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18445824036689295007n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 18445824036689295007n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(18211214596523859967n);
   });
 
   it('test operator "rotl" overload (euint64, euint8) => euint64 test 2 (4, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(4n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 4n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(1024n);
   });
 
   it('test operator "rotl" overload (euint64, euint8) => euint64 test 3 (8, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(8n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 8n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2048n);
   });
 
   it('test operator "rotl" overload (euint64, euint8) => euint64 test 4 (8, 4)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(8n);
-    input.add8(4n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 8n },
+        { type: 'uint8', value: 4n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(128n);
   });
 
   it('test operator "rotl" overload (euint64, uint8) => euint64 test 1 (18445824036689295007, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18445824036689295007n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint64_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 18445824036689295007n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint64_uint8(encryptedAmount.externalEuint64, 8n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(18211214596523859967n);
   });
 
   it('test operator "rotl" overload (euint64, uint8) => euint64 test 2 (4, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(4n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint64_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 4n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint64_uint8(encryptedAmount.externalEuint64, 8n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(1024n);
   });
 
   it('test operator "rotl" overload (euint64, uint8) => euint64 test 3 (8, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(8n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint64_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 8n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint64_uint8(encryptedAmount.externalEuint64, 8n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2048n);
   });
 
   it('test operator "rotl" overload (euint64, uint8) => euint64 test 4 (8, 4)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(8n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint64_uint8(at(encryptedAmount.handles, 0), 4n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 8n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint64_uint8(encryptedAmount.externalEuint64, 4n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(128n);
   });
 
   it('test operator "rotr" overload (euint64, euint8) => euint64 test 1 (18443032178182195551, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18443032178182195551n);
-    input.add8(10n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 18443032178182195551n },
+        { type: 'uint8', value: 10n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(6341064650439682434n);
   });
 
   it('test operator "rotr" overload (euint64, euint8) => euint64 test 2 (6, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(6n);
-    input.add8(10n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 6n },
+        { type: 'uint8', value: 10n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(108086391056891904n);
   });
 
   it('test operator "rotr" overload (euint64, euint8) => euint64 test 3 (10, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(10n);
-    input.add8(10n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 10n },
+        { type: 'uint8', value: 10n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(180143985094819840n);
   });
 
   it('test operator "rotr" overload (euint64, euint8) => euint64 test 4 (10, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(10n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint64', value: 10n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint64_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2882303761517117440n);
   });
 
   it('test operator "rotr" overload (euint64, uint8) => euint64 test 1 (18443032178182195551, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18443032178182195551n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint64_uint8(at(encryptedAmount.handles, 0), 10n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 18443032178182195551n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint64_uint8(
+      encryptedAmount.externalEuint64,
+      10n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(6341064650439682434n);
   });
 
   it('test operator "rotr" overload (euint64, uint8) => euint64 test 2 (6, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(6n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint64_uint8(at(encryptedAmount.handles, 0), 10n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint64_uint8(
+      encryptedAmount.externalEuint64,
+      10n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(108086391056891904n);
   });
 
   it('test operator "rotr" overload (euint64, uint8) => euint64 test 3 (10, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(10n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint64_uint8(at(encryptedAmount.handles, 0), 10n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 10n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint64_uint8(
+      encryptedAmount.externalEuint64,
+      10n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(180143985094819840n);
   });
 
   it('test operator "rotr" overload (euint64, uint8) => euint64 test 4 (10, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(10n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint64_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 10n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint64_uint8(encryptedAmount.externalEuint64, 6n, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2882303761517117440n);
   });
 
   it('test operator "shl" overload (euint128, euint8) => euint128 test 1 (340282366920938463463374258789024564311, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463374258789024564311n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 340282366920938463463374258789024564311n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(340282366920938463462660587092778858496n);
   });
 
   it('test operator "shl" overload (euint128, euint8) => euint128 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(7n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 7n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(14336n);
   });
 
   it('test operator "shl" overload (euint128, euint8) => euint128 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(11n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 11n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(22528n);
   });
 
   it('test operator "shl" overload (euint128, euint8) => euint128 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(11n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 11n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(1408n);
   });
 
   it('test operator "shl" overload (euint128, uint8) => euint128 test 1 (340282366920938463463374258789024564311, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463374258789024564311n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint128_uint8(at(encryptedAmount.handles, 0), 11n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 340282366920938463463374258789024564311n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      11n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(340282366920938463462660587092778858496n);
   });
 
   it('test operator "shl" overload (euint128, uint8) => euint128 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(7n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint128_uint8(at(encryptedAmount.handles, 0), 11n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      11n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(14336n);
   });
 
   it('test operator "shl" overload (euint128, uint8) => euint128 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(11n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint128_uint8(at(encryptedAmount.handles, 0), 11n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      11n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(22528n);
   });
 
   it('test operator "shl" overload (euint128, uint8) => euint128 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(11n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint128_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      7n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(1408n);
   });
 
   it('test operator "shr" overload (euint128, euint8) => euint128 test 1 (340282366920938463463366167854780163447, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463366167854780163447n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 340282366920938463463366167854780163447n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(2658455991569831745807548186365470026n);
   });
 
   it('test operator "shr" overload (euint128, euint8) => euint128 test 2 (3, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(3n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 3n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint128, euint8) => euint128 test 3 (7, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(7n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 7n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint128, euint8) => euint128 test 4 (7, 3)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(7n);
-    input.add8(3n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 7n },
+        { type: 'uint8', value: 3n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint128, uint8) => euint128 test 1 (340282366920938463463366167854780163447, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463366167854780163447n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint128_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 340282366920938463463366167854780163447n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      7n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(2658455991569831745807548186365470026n);
   });
 
   it('test operator "shr" overload (euint128, uint8) => euint128 test 2 (3, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(3n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint128_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 3n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      7n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint128, uint8) => euint128 test 3 (7, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(7n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint128_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      7n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint128, uint8) => euint128 test 4 (7, 3)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(7n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint128_uint8(at(encryptedAmount.handles, 0), 3n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      3n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "rotl" overload (euint128, euint8) => euint128 test 1 (340282366920938463463368416343967945667, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463368416343967945667n);
-    input.add8(10n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 340282366920938463463368416343967945667n },
+        { type: 'uint8', value: 10n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(340282366920938463457034933524296044543n);
   });
 
   it('test operator "rotl" overload (euint128, euint8) => euint128 test 2 (6, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(6n);
-    input.add8(10n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 6n },
+        { type: 'uint8', value: 10n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(6144n);
   });
 
   it('test operator "rotl" overload (euint128, euint8) => euint128 test 3 (10, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(10n);
-    input.add8(10n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 10n },
+        { type: 'uint8', value: 10n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(10240n);
   });
 
   it('test operator "rotl" overload (euint128, euint8) => euint128 test 4 (10, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(10n);
-    input.add8(6n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 10n },
+        { type: 'uint8', value: 6n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(640n);
   });
 
   it('test operator "rotl" overload (euint128, uint8) => euint128 test 1 (340282366920938463463368416343967945667, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463368416343967945667n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 340282366920938463463368416343967945667n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint128,
       10n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(340282366920938463457034933524296044543n);
   });
 
   it('test operator "rotl" overload (euint128, uint8) => euint128 test 2 (6, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(6n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 6n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint128,
       10n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(6144n);
   });
 
   it('test operator "rotl" overload (euint128, uint8) => euint128 test 3 (10, 10)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(10n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 10n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint128_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint128,
       10n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(10240n);
   });
 
   it('test operator "rotl" overload (euint128, uint8) => euint128 test 4 (10, 6)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(10n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint128_uint8(at(encryptedAmount.handles, 0), 6n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 10n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      6n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(640n);
   });
 
   it('test operator "rotr" overload (euint128, euint8) => euint128 test 1 (340282366920938463463368300741336936539, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463368300741336936539n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 340282366920938463463368300741336936539n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(122288975612212260307150224910282203824n);
   });
 
   it('test operator "rotr" overload (euint128, euint8) => euint128 test 2 (4, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(4n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 4n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(5316911983139663491615228241121378304n);
   });
 
   it('test operator "rotr" overload (euint128, euint8) => euint128 test 3 (8, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(8n);
-    input.add8(8n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 8n },
+        { type: 'uint8', value: 8n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(10633823966279326983230456482242756608n);
   });
 
   it('test operator "rotr" overload (euint128, euint8) => euint128 test 4 (8, 4)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(8n);
-    input.add8(4n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint128', value: 8n },
+        { type: 'uint8', value: 4n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint128_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(170141183460469231731687303715884105728n);
   });
 
   it('test operator "rotr" overload (euint128, uint8) => euint128 test 1 (340282366920938463463368300741336936539, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463368300741336936539n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint128_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 340282366920938463463368300741336936539n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      8n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(122288975612212260307150224910282203824n);
   });
 
   it('test operator "rotr" overload (euint128, uint8) => euint128 test 2 (4, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(4n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint128_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 4n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      8n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(5316911983139663491615228241121378304n);
   });
 
   it('test operator "rotr" overload (euint128, uint8) => euint128 test 3 (8, 8)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(8n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint128_uint8(at(encryptedAmount.handles, 0), 8n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 8n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      8n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(10633823966279326983230456482242756608n);
   });
 
   it('test operator "rotr" overload (euint128, uint8) => euint128 test 4 (8, 4)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(8n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint128_uint8(at(encryptedAmount.handles, 0), 4n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 8n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint128_uint8(
+      encryptedAmount.externalEuint128,
+      4n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(170141183460469231731687303715884105728n);
   });
 
   it('test operator "shl" overload (euint256, euint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457580500903050044891, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457580500903050044891n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 115792089237316195423570985008687907853269984665640564039457580500903050044891n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(115792089237316195423570985008687907853269984665640564039455788418752376976896n);
   });
 
   it('test operator "shl" overload (euint256, euint8) => euint256 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(5n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 5n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(2560n);
   });
 
   it('test operator "shl" overload (euint256, euint8) => euint256 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 9n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(4608n);
   });
 
   it('test operator "shl" overload (euint256, euint8) => euint256 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 9n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(288n);
   });
 
   it('test operator "shl" overload (euint256, uint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457580500903050044891, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457580500903050044891n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint256_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 115792089237316195423570985008687907853269984665640564039457580500903050044891n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      9n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(115792089237316195423570985008687907853269984665640564039455788418752376976896n);
   });
 
   it('test operator "shl" overload (euint256, uint8) => euint256 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint256_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      9n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(2560n);
   });
 
   it('test operator "shl" overload (euint256, uint8) => euint256 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint256_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      9n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(4608n);
   });
 
   it('test operator "shl" overload (euint256, uint8) => euint256 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shl_euint256_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shl_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      5n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(288n);
   });
 
   it('test operator "shr" overload (euint256, euint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457583417412523292639, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457583417412523292639n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 115792089237316195423570985008687907853269984665640564039457583417412523292639n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(226156424291633194186662080095093570025917938800079226639565592612133834555n);
   });
 
   it('test operator "shr" overload (euint256, euint8) => euint256 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(5n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 5n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint256, euint8) => euint256 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-    input.add8(9n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 9n },
+        { type: 'uint8', value: 9n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint256, euint8) => euint256 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 9n },
+        { type: 'uint8', value: 5n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.shr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint256, uint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457583417412523292639, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457583417412523292639n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint256_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 115792089237316195423570985008687907853269984665640564039457583417412523292639n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      9n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(226156424291633194186662080095093570025917938800079226639565592612133834555n);
   });
 
   it('test operator "shr" overload (euint256, uint8) => euint256 test 2 (5, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(5n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint256_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      9n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint256, uint8) => euint256 test 3 (9, 9)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint256_uint8(at(encryptedAmount.handles, 0), 9n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      9n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "shr" overload (euint256, uint8) => euint256 test 4 (9, 5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(9n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.shr_euint256_uint8(at(encryptedAmount.handles, 0), 5n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 9n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.shr_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      5n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(0n);
   });
 
   it('test operator "rotl" overload (euint256, euint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457579586918477272697, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457579586918477272697n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 115792089237316195423570985008687907853269984665640564039457579586918477272697n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(115792089237316195423570985008687907853269984665640564039448529810865081536511n);
   });
 
   it('test operator "rotl" overload (euint256, euint8) => euint256 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(7n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 7n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(14336n);
   });
 
   it('test operator "rotl" overload (euint256, euint8) => euint256 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 11n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(22528n);
   });
 
   it('test operator "rotl" overload (euint256, euint8) => euint256 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 11n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(1408n);
   });
 
   it('test operator "rotl" overload (euint256, uint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457579586918477272697, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457579586918477272697n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 115792089237316195423570985008687907853269984665640564039457579586918477272697n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint256,
       11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(115792089237316195423570985008687907853269984665640564039448529810865081536511n);
   });
 
   it('test operator "rotl" overload (euint256, uint8) => euint256 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(7n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint256,
       11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(14336n);
   });
 
   it('test operator "rotl" overload (euint256, uint8) => euint256 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotl_euint256_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint256,
       11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(22528n);
   });
 
   it('test operator "rotl" overload (euint256, uint8) => euint256 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotl_euint256_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotl_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      7n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(1408n);
   });
 
   it('test operator "rotr" overload (euint256, euint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457583160369374111971, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457583160369374111971n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 115792089237316195423570985008687907853269984665640564039457583160369374111971n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(12890916184623092068639738565420333491477322511604515918455238844217114161317n);
   });
 
   it('test operator "rotr" overload (euint256, euint8) => euint256 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(7n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 7n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(395773742510358089826658640166413747545356392900138646619239789089546829824n);
   });
 
   it('test operator "rotr" overload (euint256, euint8) => euint256 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-    input.add8(11n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 11n },
+        { type: 'uint8', value: 11n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(621930166801991284013320720261507317571274331700217873258805382855002161152n);
   });
 
   it('test operator "rotr" overload (euint256, euint8) => euint256 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-    input.add8(7n);
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.client.encryptValues({
+      values: [
+        { type: 'uint256', value: 11n },
+        { type: 'uint8', value: 7n },
+      ],
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_euint8(
-      at(encryptedAmount.handles, 0),
-      at(encryptedAmount.handles, 1),
+      at(encryptedAmount.encryptedValues, 0),
+      at(encryptedAmount.encryptedValues, 1),
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(9950882668831860544213131524184117081140389307203485972140886125680034578432n);
   });
 
   it('test operator "rotr" overload (euint256, uint8) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457583160369374111971, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457583160369374111971n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 115792089237316195423570985008687907853269984665640564039457583160369374111971n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint256,
       11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(12890916184623092068639738565420333491477322511604515918455238844217114161317n);
   });
 
   it('test operator "rotr" overload (euint256, uint8) => euint256 test 2 (7, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(7n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 7n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint256,
       11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(395773742510358089826658640166413747545356392900138646619239789089546829824n);
   });
 
   it('test operator "rotr" overload (euint256, uint8) => euint256 test 3 (11, 11)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-
-    const encryptedAmount = await input.encrypt();
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
     const tx = await this.contract7.rotr_euint256_uint8(
-      at(encryptedAmount.handles, 0),
+      encryptedAmount.externalEuint256,
       11n,
       encryptedAmount.inputProof,
     );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(621930166801991284013320720261507317571274331700217873258805382855002161152n);
   });
 
   it('test operator "rotr" overload (euint256, uint8) => euint256 test 4 (11, 7)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(11n);
-
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.rotr_euint256_uint8(at(encryptedAmount.handles, 0), 7n, encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 11n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.rotr_euint256_uint8(
+      encryptedAmount.externalEuint256,
+      7n,
+      encryptedAmount.inputProof,
+    );
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(9950882668831860544213131524184117081140389307203485972140886125680034578432n);
   });
 
   it('test operator "neg" overload (euint8) => euint8 test 1 (209)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add8(209n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.neg_euint8(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint8({
+      value: 209n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.neg_euint8(encryptedAmount.externalEuint8, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint8, await this.contract7.resEuint8());
-    expect(res).to.equal(47n);
+    const res = await fhevm.cleartextDb.readUint8({ euint8: await this.contract7.resEuint8() });
+    expect(res).to.equal(47);
   });
 
   it('test operator "not" overload (euint8) => euint8 test 1 (5)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add8(5n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.not_euint8(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint8({
+      value: 5n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.not_euint8(encryptedAmount.externalEuint8, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint8, await this.contract7.resEuint8());
-    expect(res).to.equal(250n);
+    const res = await fhevm.cleartextDb.readUint8({ euint8: await this.contract7.resEuint8() });
+    expect(res).to.equal(250);
   });
 
   it('test operator "neg" overload (euint16) => euint16 test 1 (9149)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(9149n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.neg_euint16(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 9149n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.neg_euint16(encryptedAmount.externalEuint16, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(56387n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(56387);
   });
 
   it('test operator "not" overload (euint16) => euint16 test 1 (31189)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add16(31189n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.not_euint16(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint16({
+      value: 31189n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.not_euint16(encryptedAmount.externalEuint16, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint16, await this.contract7.resEuint16());
-    expect(res).to.equal(34346n);
+    const res = await fhevm.cleartextDb.readUint16({ euint16: await this.contract7.resEuint16() });
+    expect(res).to.equal(34346);
   });
 
   it('test operator "neg" overload (euint32) => euint32 test 1 (76635629)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(76635629n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.neg_euint32(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 76635629n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.neg_euint32(encryptedAmount.externalEuint32, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(4218331667n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(4218331667);
   });
 
   it('test operator "not" overload (euint32) => euint32 test 1 (1666976830)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add32(1666976830n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.not_euint32(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint32({
+      value: 1666976830n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.not_euint32(encryptedAmount.externalEuint32, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint32, await this.contract7.resEuint32());
-    expect(res).to.equal(2627990465n);
+    const res = await fhevm.cleartextDb.readUint32({ euint32: await this.contract7.resEuint32() });
+    expect(res).to.equal(2627990465);
   });
 
   it('test operator "neg" overload (euint64) => euint64 test 1 (18443817374059539241)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18443817374059539241n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.neg_euint64(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 18443817374059539241n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.neg_euint64(encryptedAmount.externalEuint64, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(2926699650012375n);
   });
 
   it('test operator "not" overload (euint64) => euint64 test 1 (18438918812121678031)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add64(18438918812121678031n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.not_euint64(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint64({
+      value: 18438918812121678031n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.not_euint64(encryptedAmount.externalEuint64, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint64, await this.contract7.resEuint64());
+    const res = await fhevm.cleartextDb.readUint64({ euint64: await this.contract7.resEuint64() });
     expect(res).to.equal(7825261587873584n);
   });
 
   it('test operator "neg" overload (euint128) => euint128 test 1 (340282366920938463463373292485062704909)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463373292485062704909n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.neg_euint128(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 340282366920938463463373292485062704909n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.neg_euint128(encryptedAmount.externalEuint128, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(1314946705506547n);
   });
 
   it('test operator "not" overload (euint128) => euint128 test 1 (340282366920938463463370157040088526121)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add128(340282366920938463463370157040088526121n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.not_euint128(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint128({
+      value: 340282366920938463463370157040088526121n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.not_euint128(encryptedAmount.externalEuint128, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint128, await this.contract7.resEuint128());
+    const res = await fhevm.cleartextDb.readUint128({ euint128: await this.contract7.resEuint128() });
     expect(res).to.equal(4450391679685334n);
   });
 
   it('test operator "neg" overload (euint256) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457576813979567537173)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457576813979567537173n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.neg_euint256(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 115792089237316195423570985008687907853269984665640564039457576813979567537173n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.neg_euint256(encryptedAmount.externalEuint256, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(7193933562102763n);
   });
 });

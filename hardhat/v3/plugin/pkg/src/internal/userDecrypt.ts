@@ -5,7 +5,8 @@
 import { HardhatPluginError } from 'hardhat/plugins';
 import { type Address, type Hex, type LocalAccount, type TypedDataDefinition, isAddress } from 'viem';
 
-import type { FhevmClient, FhevmUser, FhevmUserDecryptOptions } from '../types.js';
+import type { FhevmClient } from '../types.js';
+import type { FhevmUser, FhevmUserDecryptOptions } from '../types-p.js';
 import { PLUGIN_ID } from './constants.js';
 import { assertHandleIsInitialized } from './fhevmHandle.js';
 import { timestampNow } from './time.js';

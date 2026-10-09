@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -17,15 +16,6 @@ import { getSigners } from '../utils/signers.ts';
 // connection's `fhevm`, handles narrowed with `at`. Suite state stays on mocha's `this`, as upstream.
 const connection = await network.getOrCreate();
 const { ethers, fhevm } = connection;
-
-type Hex = `0x${string}`;
-
-// `handles` is `Hex[]`: the i-th handle, or a loud failure.
-function at(handles: readonly Hex[], i: number): Hex {
-  const handle = handles[i];
-  if (handle === undefined) throw new Error(`encrypt() returned no handle #${String(i)}`);
-  return handle;
-}
 
 async function deployFHEVMTestFixture1(): Promise<FHEVMTestSuite1> {
   const signers = await getSigners(connection);
@@ -138,12 +128,14 @@ describe('FHEVM operations 13', function () {
   });
 
   it('test operator "not" overload (euint256) => euint256 test 1 (115792089237316195423570985008687907853269984665640564039457575743487352122021)', async function () {
-    const input = fhevm.createEncryptedInput(this.contract7Address, this.signers.alice.address);
-    input.add256(115792089237316195423570985008687907853269984665640564039457575743487352122021n);
-    const encryptedAmount = await input.encrypt();
-    const tx = await this.contract7.not_euint256(at(encryptedAmount.handles, 0), encryptedAmount.inputProof);
+    const encryptedAmount = await fhevm.helpers.encryptUint256({
+      value: 115792089237316195423570985008687907853269984665640564039457575743487352122021n,
+      contractAddress: this.contract7Address,
+      userAddress: this.signers.alice.address,
+    });
+    const tx = await this.contract7.not_euint256(encryptedAmount.externalEuint256, encryptedAmount.inputProof);
     await tx.wait();
-    const res = await fhevm.debugger.decryptEuint(FhevmType.euint256, await this.contract7.resEuint256());
+    const res = await fhevm.cleartextDb.readUint256({ euint256: await this.contract7.resEuint256() });
     expect(res).to.equal(8264425777517914n);
   });
 });

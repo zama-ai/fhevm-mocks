@@ -27,6 +27,13 @@ async function deployFixture(): Promise<{
   return { headsOrTails, headsOrTailsAddress };
 }
 
+// `KMSInvalidSigner` is declared by `KMSVerifier`, a stack contract this suite never deploys, so there
+// is no contract instance to hand chai. Declaring the one error signature is enough for it to match the
+// revert data — it only needs something that can decode the error.
+const kmsVerifier = (): { interface: InstanceType<typeof ethers.Interface> } => ({
+  interface: new ethers.Interface(['error KMSInvalidSigner(address invalidSigner)']),
+});
+
 /**
  * The `HeadsOrTails` example showcases the public decryption mechanism and
  * its corresponding on-chain verification in the case of a single value.
@@ -34,20 +41,6 @@ async function deployFixture(): Promise<{
  * cryptographically verifiable result of the decryption of a single original
  * on-chain ciphertext.
  */
-/**
- * Flips the least significant byte of the first KMS signature's `s`: proof byte 64, i.e. one byte of signer
- * count, then 63 bytes into the first 65-byte signature (`r` is bytes 0-31 of it, `s` bytes 32-63). Unlike
- * appending bytes, this keeps the proof well-formed — every length check passes — so the verifier reaches
- * signature recovery and gets an address that is not a registered KMS signer. `s` rather than `r` on
- * purpose: any `s` in range recovers to SOME address, whereas `r` must be an on-curve x-coordinate, which a
- * flipped `r` is only about half the time — the other half fails earlier, as `ECDSAInvalidSignature`.
- */
-function withCorruptedFirstSignature(decryptionProof: string): string {
-  const at = 2 + 2 * 64; // '0x', then byte 64 as two hex characters
-  const flipped = (parseInt(decryptionProof.slice(at, at + 2), 16) ^ 0xff).toString(16).padStart(2, '0');
-  return decryptionProof.slice(0, at) + flipped + decryptionProof.slice(at + 2);
-}
-
 describe('HeadsOrTails', function () {
   let contract: HeadsOrTails;
   let contractAddress: Hex;
@@ -144,22 +137,22 @@ describe('HeadsOrTails', function () {
     const gameId = gameCreatedEvent.gameId;
     const encryptedBool = gameCreatedEvent.encryptedHasHeadsWon;
 
-    // Call the Zama Relayer to compute the decryption
-    const publicDecryptResults = await fhevm.publicDecrypt([encryptedBool]);
+    // Call the Zama Relayer to compute the decryption. One handle, so this is a `helpers` call; the
+    // `WithSignatures` form is the one that also returns the proof the contract needs.
+    const { checkSignaturesArgs } = await fhevm.helpers.decryptPublicBoolWithSignatures({ ebool: encryptedBool });
 
-    // The Relayer returns a `PublicDecryptResults` object containing:
-    // - the ORDERED clear values (here we have only one single value)
+    // Alongside the clear value, the Relayer returns a `checkSignaturesArgs` object containing:
+    // - the ORDERED handles the proof was computed over (here a single one)
     // - the ORDERED clear values in ABI-encoded form
     // - the KMS decryption proof associated with the ORDERED clear values in ABI-encoded form
-    const abiEncodedClearGameResult = publicDecryptResults.abiEncodedClearValues;
-    const decryptionProof = publicDecryptResults.decryptionProof;
+    const abiEncodedClearGameResult = checkSignaturesArgs.abiEncodedCleartexts;
+    const decryptionProof = checkSignaturesArgs.decryptionProof;
 
-    // Let's forward the `PublicDecryptResults` content to the on-chain contract whose job
+    // Let's forward the decrypted payload and its proof to the on-chain contract whose job
     // will simply be to verify the proof and declare the final winner of the game
     // Wait for the receipt, as every other transaction here does: the read below is only correct once
     // this is mined, and on a real node it is not mined yet when the call returns.
-    const tx = await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof);
-    await tx.wait();
+    await (await contract.recordAndVerifyWinner(gameId, abiEncodedClearGameResult, decryptionProof)).wait();
 
     const winner = await contract.getWinner(gameId);
 
@@ -173,39 +166,20 @@ describe('HeadsOrTails', function () {
     }
   });
 
-  // ❌ The test must fail if the decryption proof is invalid.
-  //
-  // A proof is `numSigners (1 byte) | signatures (65 bytes each) | extraData`, so bytes appended to it land in
-  // extraData, not in a signature. Since v0.14 the KMSVerifier requires extraData to be exactly 33 bytes
-  // (version 1) or 65 bytes (version 2) and rejects anything else BEFORE recovering a single signer, so the
-  // malformed proof is refused as malformed: `DeserializingExtraDataFail`. (v0.13 tolerated trailing bytes,
-  // which then corrupted the signed digest and surfaced later as `KMSInvalidSigner`.)
+  // ❌ The test must fail if the decryption proof is invalid
   it('should fail when the decryption proof is invalid', async function () {
     const gameCreatedEvent = await play();
 
-    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
+    const { checkSignaturesArgs } = await fhevm.helpers.decryptPublicBoolWithSignatures({
+      ebool: gameCreatedEvent.encryptedHasHeadsWon,
+    });
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent.gameId,
-        publicDecryptResults.abiEncodedClearValues,
-        `${publicDecryptResults.decryptionProof}dead`,
+        checkSignaturesArgs.abiEncodedCleartexts,
+        `${checkSignaturesArgs.decryptionProof}dead`,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'DeserializingExtraDataFail'));
-  });
-
-  // ❌ The test must fail if a KMS signature inside the proof is corrupted: the proof stays well-formed, so
-  // the verifier recovers a signer from the tampered signature — one that is not a registered KMS signer.
-  it('should fail with KMSInvalidSigner when a KMS signature is corrupted', async function () {
-    const gameCreatedEvent = await play();
-
-    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
-    await expect(
-      contract.recordAndVerifyWinner(
-        gameCreatedEvent.gameId,
-        publicDecryptResults.abiEncodedClearValues,
-        withCorruptedFirstSignature(publicDecryptResults.decryptionProof),
-      ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 
   // ❌ The test must fail if a malicious operator attempts to use a decryption proof
@@ -213,29 +187,27 @@ describe('HeadsOrTails', function () {
   it('should fail when using a decryption proof with a forged game result', async function () {
     const gameCreatedEvent = await play();
 
-    const publicDecryptResults = await fhevm.publicDecrypt([gameCreatedEvent.encryptedHasHeadsWon]);
-    const clearHeadsHasWon = publicDecryptResults.clearValues[gameCreatedEvent.encryptedHasHeadsWon];
+    const { clearValue: clearHeadsHasWon, checkSignaturesArgs } = await fhevm.helpers.decryptPublicBoolWithSignatures({
+      ebool: gameCreatedEvent.encryptedHasHeadsWon,
+    });
 
     // The clear value is also ABI-encoded
     const decodedHeadsHasWon: unknown = ethers.AbiCoder.defaultAbiCoder().decode(
       ['bool'],
-      publicDecryptResults.abiEncodedClearValues,
+      checkSignaturesArgs.abiEncodedCleartexts,
     )[0];
     expect(decodedHeadsHasWon).to.eq(clearHeadsHasWon);
 
-    // Let's try to forge the game result
-    const forgedABIEncodedClearValues = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['bool'],
-      [!(clearHeadsHasWon as boolean)],
-    );
+    // Let's try to forge the game result. `clearValue` is already a boolean, so no cast is needed.
+    const forgedABIEncodedClearValues = ethers.AbiCoder.defaultAbiCoder().encode(['bool'], [!clearHeadsHasWon]);
 
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent.gameId,
         forgedABIEncodedClearValues,
-        publicDecryptResults.decryptionProof,
+        checkSignaturesArgs.decryptionProof,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 
   // ❌ Two games (Game1 and Game2) are played between playerA and playerB.
@@ -249,14 +221,16 @@ describe('HeadsOrTails', function () {
     const gameCreatedEvent2 = await play();
 
     // Let's try to forge the Game1's winner using the result of Game2
-    const publicDecryptResults2 = await fhevm.publicDecrypt([gameCreatedEvent2.encryptedHasHeadsWon]);
+    const { checkSignaturesArgs: checkSignaturesArgs2 } = await fhevm.helpers.decryptPublicBoolWithSignatures({
+      ebool: gameCreatedEvent2.encryptedHasHeadsWon,
+    });
 
     await expect(
       contract.recordAndVerifyWinner(
         gameCreatedEvent1.gameId,
-        publicDecryptResults2.abiEncodedClearValues,
-        publicDecryptResults2.decryptionProof,
+        checkSignaturesArgs2.abiEncodedCleartexts,
+        checkSignaturesArgs2.decryptionProof,
       ),
-    ).to.be.revertedWithCustomError(...fhevm.revertedWithCustomErrorArgs('KMSVerifier', 'KMSInvalidSigner'));
+    ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });
 });

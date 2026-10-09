@@ -1,10 +1,8 @@
 /* eslint-disable no-unexpected-multiline */
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { network } from 'hardhat';
 
 import type { TestConfidentialERC20Votes } from '../../types/ethers-contracts/index.ts';
-import { accountFor } from '../utils/signers.ts';
 
 const connection = await network.getOrCreate();
 const { ethers, fhevm } = connection;
@@ -34,11 +32,12 @@ export async function transferTokensAndDelegate(
   confidentialERC20Votes: TestConfidentialERC20Votes,
   confidentialERC20VotesAddress: Hex,
 ): Promise<void> {
-  const input = fhevm.createEncryptedInput(confidentialERC20VotesAddress, (await owner.getAddress()) as Hex);
-  input.add64(transferAmount);
-  const encryptedTransferAmount = await input.encrypt();
-  const [transferHandle] = encryptedTransferAmount.handles;
-  if (transferHandle === undefined) throw new Error('encrypt() returned no handle');
+  const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+    value: transferAmount,
+    contractAddress: confidentialERC20VotesAddress,
+    userAddress: await owner.getAddress(),
+  });
+  const transferHandle = encryptedTransferAmount.externalEuint64;
 
   let tx = await confidentialERC20Votes
     .connect(owner)
@@ -59,7 +58,11 @@ export async function userDecryptCurrentVotes(
   confidentialERC20VotesAddress: Hex,
 ): Promise<bigint> {
   const voteHandle = (await confidentialERC20Votes.getCurrentVotes(await account.getAddress())) as Hex;
-  return fhevm.userDecryptEuint(FhevmType.euint64, voteHandle, confidentialERC20VotesAddress, accountFor(account));
+  return fhevm.helpers.decryptUint64({
+    euint64: voteHandle,
+    contractAddress: confidentialERC20VotesAddress,
+    userAddress: account.address,
+  });
 }
 
 export async function userDecryptPriorVotes(
@@ -69,5 +72,9 @@ export async function userDecryptPriorVotes(
   confidentialERC20VotesAddress: Hex,
 ): Promise<bigint> {
   const voteHandle = (await confidentialERC20Votes.getPriorVotes(await account.getAddress(), blockNumber)) as Hex;
-  return fhevm.userDecryptEuint(FhevmType.euint64, voteHandle, confidentialERC20VotesAddress, accountFor(account));
+  return fhevm.helpers.decryptUint64({
+    euint64: voteHandle,
+    contractAddress: confidentialERC20VotesAddress,
+    userAddress: account.address,
+  });
 }

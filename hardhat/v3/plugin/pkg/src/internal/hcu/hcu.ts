@@ -3,11 +3,12 @@
 // @fhevm/mock-utils); viem hands the events NAMED arguments, so each family reads its fields by name.
 
 import { HardhatPluginError } from 'hardhat/plugins';
-import { type Hex, isHex, size } from 'viem';
+import { type Hex, type PublicClient, isHex, size } from 'viem';
 
-import type { CoprocessorEvent, FhevmTransactionHCUInfo, FhevmTransactionReceipt } from '../../types.js';
-import { PLUGIN_ID } from '../constants.js';
+import type { FhevmTransactionHCUInfo } from '../../types.js';
+import type { CoprocessorEvent, FhevmTransactionReceipt } from '../../types-p.js';
 import type { FhevmContractWrapper } from '../contracts.js';
+import { PLUGIN_ID } from '../constants.js';
 import { parseCoprocessorEvents } from '../events.js';
 import { parseFhevmHandle } from '../fhevmHandle.js';
 import { getFheTypeName, getFheTypeNameFromByte } from './fheTypeName.js';
@@ -15,7 +16,11 @@ import { type FheTypeName, type HCUOperator, getHCU, hcuPriceOf } from './prices
 
 type Args = Record<string, unknown>;
 
-export function computeTransactionHCU(
+/**
+ * The HCU of an already-fetched receipt. Pure: no IO, so the unit tests can hand it a synthetic
+ * receipt, and {@link computeTransactionHCU} is the thin shell that fetches one.
+ */
+export function computeReceiptHCU(
   executor: FhevmContractWrapper,
   receipt: FhevmTransactionReceipt,
 ): FhevmTransactionHCUInfo {
@@ -40,6 +45,31 @@ export function computeTransactionHCU(
     maxHCUDepth: Math.max(0, ...Object.values(depthByHandle)),
     HCUDepthByHandle: depthByHandle,
   };
+}
+
+/**
+ * The HCU a mined transaction consumed, by hash. Fetches the receipt itself, so a caller no longer has
+ * to hold on to one — `await tx.wait()` throws its receipt away in most of the suites that call this.
+ */
+export async function computeTransactionHCU(
+  executor: FhevmContractWrapper,
+  client: PublicClient,
+  txHash: string,
+): Promise<FhevmTransactionHCUInfo> {
+  if (!isHex(txHash) || size(txHash) !== 32) {
+    throw new HardhatPluginError(PLUGIN_ID, `computeTransactionHCU: '${txHash}' is not a 32-byte transaction hash.`);
+  }
+  let receipt;
+  try {
+    receipt = await client.getTransactionReceipt({ hash: txHash });
+  } catch {
+    // viem throws `TransactionReceiptNotFoundError`; say which hash, and that it may be unmined.
+    throw new HardhatPluginError(
+      PLUGIN_ID,
+      `computeTransactionHCU: no receipt for transaction '${txHash}' — is it mined on this network?`,
+    );
+  }
+  return computeReceiptHCU(executor, receipt);
 }
 
 type PricedEvent = { readonly hcu: number; readonly result: Hex; readonly inputs: readonly Hex[] };
@@ -88,15 +118,6 @@ function priceEvent(event: CoprocessorEvent, op: HCUOperator): PricedEvent {
       if (!isScalar(args, name)) throw new HardhatPluginError(PLUGIN_ID, `Non-scalar ${name} not implemented yet`);
       return { hcu: op.scalar?.[typeOf(result)] ?? 0, result, inputs: [lhs] };
     }
-    case 'FheMulDiv': {
-      // (factor1 * factor2) / divisor. The divisor is always a plain value, never a handle, and the scalar
-      // flag speaks about factor2 alone — in its own encoding, not the 0x01 every other operator uses.
-      const factor1 = bytes32(args, 'factor1', name);
-      const factor2IsScalar = mulDivFactor2IsScalar(args, name);
-      const column = factor2IsScalar ? op.scalar : op.nonScalar;
-      const inputs = factor2IsScalar ? [factor1] : [factor1, bytes32(args, 'factor2', name)];
-      return { hcu: column?.[typeOf(result)] ?? 0, result, inputs };
-    }
     case 'FheIfThenElse': {
       const inputs = [bytes32(args, 'control', name), bytes32(args, 'ifTrue', name), bytes32(args, 'ifFalse', name)];
       return { hcu: typePrice(op, typeOf(result)), result, inputs };
@@ -136,18 +157,6 @@ function typePrice(op: HCUOperator, type: FheTypeName): number {
 
 function typeOf(handle: Hex): FheTypeName {
   return getFheTypeName(parseFhevmHandle(handle).fhevmType);
-}
-
-// fheMulDiv's scalarByte is not the usual flag (HCULimit.sol: FHE_MUL_DIV_FACTOR2_ENCRYPTED = 0x01,
-// FHE_MUL_DIV_FACTOR2_SCALAR = 0x03). Read through `isScalar`, 0x01 would price an ENCRYPTED factor2 as scalar.
-const FHE_MUL_DIV_FACTOR2_ENCRYPTED = '0x01';
-const FHE_MUL_DIV_FACTOR2_SCALAR = '0x03';
-
-function mulDivFactor2IsScalar(args: Args, name: string): boolean {
-  const byte: unknown = args.scalarByte;
-  if (byte === FHE_MUL_DIV_FACTOR2_SCALAR) return true;
-  if (byte === FHE_MUL_DIV_FACTOR2_ENCRYPTED) return false;
-  return fail(name, 'scalarByte', `${FHE_MUL_DIV_FACTOR2_ENCRYPTED} or ${FHE_MUL_DIV_FACTOR2_SCALAR}`, byte);
 }
 
 function isScalar(args: Args, name: string): boolean {

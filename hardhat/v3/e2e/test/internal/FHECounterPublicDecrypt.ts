@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -40,15 +39,15 @@ describe('FHECounterPublicDecrypt', function () {
     ({ fheCounterContract, fheCounterContractAddress } = await deployFixture());
   });
 
-  // Encrypts one euint32 for alice; `handles` is `Hex[]`, so the single handle is narrowed here once.
+  // Encrypts one euint32 for alice. A single value, so this is `helpers`: the handle comes back
+  // already named `externalEuint32`, with no array to index and nothing to narrow.
   async function encryptOne32(value: number): Promise<{ handle: Hex; inputProof: Hex }> {
-    const encrypted = await fhevm
-      .createEncryptedInput(fheCounterContractAddress, signers.alice.address as Hex)
-      .add32(value)
-      .encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
-    return { handle, inputProof: encrypted.inputProof };
+    const encrypted = await fhevm.helpers.encryptUint32({
+      value,
+      contractAddress: fheCounterContractAddress,
+      userAddress: signers.alice.address,
+    });
+    return { handle: encrypted.externalEuint32, inputProof: encrypted.inputProof };
   }
 
   it('encrypted count should be uninitialized after deployment', async function () {
@@ -73,16 +72,15 @@ describe('FHECounterPublicDecrypt', function () {
     await tx.wait();
 
     const encryptedCountAfterInc = (await fheCounterContract.getCount()) as Hex;
-    const publicDecryptResults = await fhevm.publicDecrypt([encryptedCountAfterInc]);
+    const { clearValue: clearCountAfterInc, checkSignaturesArgs } =
+      await fhevm.helpers.decryptPublicUint32WithSignatures({ euint32: encryptedCountAfterInc });
 
-    expect(publicDecryptResults.clearValues[encryptedCountAfterInc]).to.eq(
-      BigInt(clearCountBeforeInc + clearOneTwoThree),
-    );
+    expect(clearCountAfterInc).to.eq(clearCountBeforeInc + clearOneTwoThree);
 
     await fheCounterContract.verify(
-      [encryptedCountAfterInc],
-      publicDecryptResults.abiEncodedClearValues,
-      publicDecryptResults.decryptionProof,
+      checkSignaturesArgs.handlesList,
+      checkSignaturesArgs.abiEncodedCleartexts,
+      checkSignaturesArgs.decryptionProof,
     );
   });
 
@@ -99,9 +97,9 @@ describe('FHECounterPublicDecrypt', function () {
     await tx.wait();
 
     const encryptedCountAfterInc = (await fheCounterContract.getCount()) as Hex;
-    const clearCountAfterInc = await fhevm.publicDecryptEuint(FhevmType.euint32, encryptedCountAfterInc);
+    const clearCountAfterInc = await fhevm.helpers.decryptPublicUint32({ euint32: encryptedCountAfterInc });
 
-    expect(clearCountAfterInc).to.eq(BigInt(clearCountBeforeInc + clearOne));
+    expect(clearCountAfterInc).to.eq(clearCountBeforeInc + clearOne);
   });
 
   it('increment the counter by 1 multiple times', async function () {
@@ -123,15 +121,16 @@ describe('FHECounterPublicDecrypt', function () {
     await tx2.wait();
     const encryptedCountAfterInc2 = (await fheCounterContract.getCount()) as Hex;
 
-    // Multiple public decrypt
-    const decryptedResults = await fhevm.publicDecrypt([encryptedCountAfterInc1, encryptedCountAfterInc2]);
+    // Multiple public decrypt. Two handles, so this is the client and not `helpers`: the answer is
+    // positional, one entry per handle in the order they were passed, rather than keyed by handle.
+    const decryptedResults = await fhevm.client.decryptPublicValues({
+      encryptedValues: [encryptedCountAfterInc1, encryptedCountAfterInc2],
+    });
 
     // Result should contain 2 values
-    expect(Object.keys(decryptedResults.clearValues).length).to.eq(2);
-    expect(decryptedResults.clearValues[encryptedCountAfterInc1]).to.eq(BigInt(clearCountBeforeInc + clearOne));
-    expect(decryptedResults.clearValues[encryptedCountAfterInc2]).to.eq(
-      BigInt(clearCountBeforeInc + clearOne + clearOne),
-    );
+    expect(decryptedResults.length).to.eq(2);
+    expect(decryptedResults[0]?.value).to.eq(clearCountBeforeInc + clearOne);
+    expect(decryptedResults[1]?.value).to.eq(clearCountBeforeInc + clearOne + clearOne);
   });
 
   it('decrement the counter by 1', async function () {
@@ -148,9 +147,9 @@ describe('FHECounterPublicDecrypt', function () {
     await tx.wait();
 
     const encryptedCountAfterDec = (await fheCounterContract.getCount()) as Hex;
-    const clearCountAfterDec = await fhevm.publicDecryptEuint(FhevmType.euint32, encryptedCountAfterDec);
+    const clearCountAfterDec = await fhevm.helpers.decryptPublicUint32({ euint32: encryptedCountAfterDec });
 
-    expect(clearCountAfterDec).to.eq(0n);
+    expect(clearCountAfterDec).to.eq(0);
   });
 
   it('increment the counter by 1 not decryptable', async function () {
@@ -170,7 +169,7 @@ describe('FHECounterPublicDecrypt', function () {
 
     let failed;
     try {
-      await fhevm.publicDecrypt([encryptedCountAfterInc]);
+      await fhevm.helpers.decryptPublicUint32({ euint32: encryptedCountAfterInc });
       failed = false;
     } catch {
       failed = true;

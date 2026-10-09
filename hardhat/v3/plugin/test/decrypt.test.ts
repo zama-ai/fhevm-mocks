@@ -6,12 +6,9 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
 import { createHardhatRuntimeEnvironment } from 'hardhat/hre';
 import { HardhatPluginError } from 'hardhat/plugins';
-import { hexToBytes } from 'viem';
-
-import plugin, { FhevmType } from '#esm/index.js';
+import plugin from '#esm/index.js';
 
 const ZERO_HANDLE = `0x${'0'.repeat(64)}` as const;
 const CONTRACT = '0x1111111111111111111111111111111111111111';
@@ -25,11 +22,9 @@ void test('the zero handle is refused as uninitialized, in every variant and as 
   const connection = await hre.network.create();
   try {
     const { fhevm } = connection;
-    await assert.rejects(fhevm.publicDecrypt([ZERO_HANDLE]), notInitialized);
-    await assert.rejects(fhevm.publicDecrypt([hexToBytes(ZERO_HANDLE)]), notInitialized);
-    await assert.rejects(fhevm.publicDecryptEbool(ZERO_HANDLE), notInitialized);
-    await assert.rejects(fhevm.publicDecryptEuint(FhevmType.euint32, ZERO_HANDLE), notInitialized);
-    await assert.rejects(fhevm.publicDecryptEaddress(ZERO_HANDLE), notInitialized);
+    await assert.rejects(fhevm.helpers.decryptPublicBool({ ebool: ZERO_HANDLE }), notInitialized);
+    await assert.rejects(fhevm.helpers.decryptPublicUint32({ euint32: ZERO_HANDLE }), notInitialized);
+    await assert.rejects(fhevm.helpers.decryptPublicAddress({ eaddress: ZERO_HANDLE }), notInitialized);
   } finally {
     await connection.close();
   }
@@ -40,9 +35,13 @@ void test('an input handle nobody allowed for decryption is rejected by the stac
   const connection = await hre.network.create();
   try {
     const { fhevm } = connection;
-    const { externalEuint } = await fhevm.encryptUint(FhevmType.euint32, 7, CONTRACT, USER);
-    await assert.rejects(fhevm.publicDecryptEuint(FhevmType.euint32, externalEuint));
-    await assert.rejects(fhevm.publicDecrypt([externalEuint]));
+    const { externalEuint32 } = await fhevm.helpers.encryptUint32({
+      value: 7,
+      contractAddress: CONTRACT,
+      userAddress: USER,
+    });
+    await assert.rejects(fhevm.helpers.decryptPublicUint32({ euint32: externalEuint32 }));
+    await assert.rejects(fhevm.client.decryptPublicValues({ encryptedValues: [externalEuint32] }));
   } finally {
     await connection.close();
   }
