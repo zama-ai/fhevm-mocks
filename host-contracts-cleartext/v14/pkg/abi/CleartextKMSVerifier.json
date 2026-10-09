@@ -134,6 +134,92 @@
   },
   {
     "type": "function",
+    "name": "delegatedUserDecrypt",
+    "inputs": [
+      {
+        "name": "pairs",
+        "type": "tuple[]",
+        "internalType": "struct HandleContractPair[]",
+        "components": [
+          {
+            "name": "handle",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contractAddress",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "delegator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "contractAddresses",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationDays",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "delegateSignature",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "payload",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "signers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "threshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "signedExtraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "eip712Domain",
     "inputs": [],
     "outputs": [
@@ -341,6 +427,50 @@
         "name": "handles",
         "type": "bytes32[]",
         "internalType": "bytes32[]"
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "abiEncodedCleartexts",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "digest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "signers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "threshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "signedExtraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "publicDecrypt",
+    "inputs": [
+      {
+        "name": "handles",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
       }
     ],
     "outputs": [
@@ -396,6 +526,87 @@
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "userDecrypt",
+    "inputs": [
+      {
+        "name": "pairs",
+        "type": "tuple[]",
+        "internalType": "struct HandleContractPair[]",
+        "components": [
+          {
+            "name": "handle",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contractAddress",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "contractAddresses",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationDays",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "userSignature",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "payload",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "signers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "threshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "signedExtraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -606,6 +817,17 @@
         "name": "delegate",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidKmsContext",
+    "inputs": [
+      {
+        "name": "kmsContextId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

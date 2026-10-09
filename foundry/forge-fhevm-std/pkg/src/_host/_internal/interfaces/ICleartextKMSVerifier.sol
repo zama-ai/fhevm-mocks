@@ -17,6 +17,7 @@ interface ICleartextKMSVerifier {
     error CleartextErrorHandleNotDelegatedForUserDecryption(
         bytes32 handle, address contractAddress, address delegator, address delegate
     );
+    error CleartextErrorInvalidKmsContext(uint256 kmsContextId);
     error CleartextErrorInvalidUserDecryptSignature();
     error CleartextErrorUserAddressEqualsContractAddress();
     error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
@@ -60,6 +61,20 @@ interface ICleartextKMSVerifier {
         uint256 durationDays,
         bytes memory delegateSignature
     ) external view returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData);
+    function delegatedUserDecrypt(
+        HandleContractPair[] memory pairs,
+        address delegator,
+        address delegate,
+        bytes memory publicKey,
+        address[] memory contractAddresses,
+        uint256 startTimestamp,
+        uint256 durationDays,
+        bytes memory delegateSignature,
+        bytes memory extraData
+    )
+        external
+        view
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData);
     function eip712Domain()
         external
         view
@@ -85,6 +100,16 @@ interface ICleartextKMSVerifier {
     function initializeFromEmptyProxy(address verifyingContractSource, uint64 chainIDSource) external;
     function isSigner(address account) external view returns (bool);
     function proxiableUUID() external view returns (bytes32);
+    function publicDecrypt(bytes32[] memory handles, bytes memory extraData)
+        external
+        view
+        returns (
+            bytes memory abiEncodedCleartexts,
+            bytes32 digest,
+            address[] memory signers,
+            uint256 threshold,
+            bytes memory signedExtraData
+        );
     function publicDecrypt(bytes32[] memory handles)
         external
         view
@@ -97,6 +122,19 @@ interface ICleartextKMSVerifier {
         );
     function reinitializeV4() external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
+    function userDecrypt(
+        HandleContractPair[] memory pairs,
+        address userAddress,
+        bytes memory publicKey,
+        address[] memory contractAddresses,
+        uint256 startTimestamp,
+        uint256 durationDays,
+        bytes memory userSignature,
+        bytes memory extraData
+    )
+        external
+        view
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData);
     function userDecrypt(
         HandleContractPair[] memory pairs,
         address userAddress,
