@@ -16,7 +16,7 @@ import {FHEVMExecutor} from "../../pkg/src/contracts/FHEVMExecutor.sol";
  * value too wide for its type — is REFUSED rather than silently narrowed to a number the caller never
  * wrote.
  *
- * WHOSE REFUSAL. The vendored `FHEVMExecutor.trivialEncrypt` checks the range
+ * WHOSE REFUSAL. Since fhevm v0.13.6 the vendored `FHEVMExecutor.trivialEncrypt` checks the range
  * itself (`_checkScalarRange`) and reverts `ScalarOutOfRange()` before the cleartext layer runs, so
  * that is the error a caller sees — here exactly as on a real chain, which is what a mock is for. The
  * cleartext layer's own `_normalizePlaintextToType` still guards `verifyInput`, which upstream does
