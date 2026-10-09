@@ -4,7 +4,8 @@ v14 has tests and tools that upgrade a **v13** stack to v14. They need v13 to be
 v13 is retired and those tests cannot run, so delete them.
 
 No rush: the Makefile only asks V(N) for `test:upgrade`, so they stop running by themselves. Nothing
-breaks while they sit there.
+breaks while they sit there — except the `@fhevm/sdk*` lines of step 2, which must go in the same change that moves
+the sdk pins forward.
 
 ## 1. Delete six folders
 
@@ -20,20 +21,29 @@ rm -rf test/e2e/upgrade                # upgrades a real v13 stack through the C
 rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
 ```
 
-## 2. Delete three lines in `package.json`
+## 2. Delete five lines in `package.json`
 
 ```jsonc
 "test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
 "test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v13 && …"
 "@fhevm/host-contracts-cleartext-v13-dev": "file:../v13",
+"@fhevm/sdk": "^0.14.2",
+"@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7",
 ```
 
 Both `test:upgrade*` scripts go: `test:upgrade:fast` is the same suite's fast lane, and it runs `test/upgrade/*`,
 `test/ts/upgrade` and `list:upgrade-ops -- ../v13`, all of which are gone after step 1. Delete every script whose
 name starts with `test:upgrade`, not only the one called that.
 
-`test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`. Nothing
-else in `package.json` changes.
+`test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`.
+
+Every `@fhevm/sdk*` devDependency goes too. Those names are roles, not versions: `@fhevm/sdk` is the current sdk line,
+`@fhevm/sdk-prev<k>` the line k steps back, and when v15 arrives `npm-manifest.json` moves every role one line forward
+(and adds `@fhevm/sdk-prev2`). Only V(N) may declare them, so this one is not optional: if v14 keeps them, `check
+pinned-dependencies` fails. `test/ts/sdk-compatibility.test.ts` stays; it finds no sdk line and skips. v14's sdk
+compatibility keeps being tested on its own release branch.
+
+Nothing else in `package.json` changes.
 
 ## 3. Delete two lines in the forge config
 
