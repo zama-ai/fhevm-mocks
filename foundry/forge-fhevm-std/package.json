@@ -46,7 +46,7 @@
     "test:fork-url": "node internal/cli/testForkUrl.ts"
   },
   "devDependencies": {
-    "@fhevm/solidity": "^0.13.3",
+    "@fhevm/solidity": "^0.13.4",
     "@types/node": "^22.0.0",
     "encrypted-types": "^0.0.4",
     "eslint": "^10.0.2",
