@@ -359,8 +359,9 @@ resolved when a lockfile is written, so a root locked after a newer release sile
 misstates what is installed, and roots locked at different times resolve different copies. Every copy a lockfile
 resolves for a pinned name is therefore checked too — top-level or nested under another dependency, in an
 installation root or a consumer fixture, and an npm alias under its alias name — and each must be **exactly the
-pinned version**. A newer copy means the pin is behind: move it up in `npm-manifest.json` and run `make sync-pinned`,
-so a release always carries the most recent package. An older copy means a lockfile was left behind a moved pin: npm
+pinned version**. A newer copy means the pin is behind: `make sync-pinned` moves it up (its `sync pinned` step raises
+the manifest pin to the newest version a lockfile resolves, and `sync pinned --check` fails until it has), so a
+release always carries the most recent package. An older copy means a lockfile was left behind a moved pin: npm
 keeps a locked version while it still satisfies the range, so delete its entry and let npm resolve it again (`npm
 install --package-lock-only` in an installation root, `fhevm-npm test-consumer-regenerate-package-lock <fixture>` for
 a consumer fixture; `npm update` fails with ERESOLVE in a workspace whose members declare the package as a peer).

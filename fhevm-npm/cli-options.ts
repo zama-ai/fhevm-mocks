@@ -477,7 +477,9 @@ Why:
     });
   sync
     .command('pinned')
-    .description("Copy npm-manifest.json's pinned dependency specs into every package.json that declares them.")
+    .description(
+      "Raise any pin a lockfile resolves newer than, then copy npm-manifest.json's pinned specs into every package.json that declares them.",
+    )
     .option('--check', 'compare instead of writing, and fail on any difference', false)
     .action((options: { readonly check: boolean }) => {
       syncPinned = { check: options.check };
