@@ -354,6 +354,20 @@ copies are therefore checked against the pin too, `node_modules` entries exclude
 than a declared spec. Regenerate an installation root with `npm install --package-lock-only`, and an isolated consumer
 fixture with `fhevm-npm test-consumer-regenerate-package-lock`.
 
+The pin fixes the spec, not the resolution: a range is resolved when a lockfile is written, so a root locked after a
+release takes the new version while the others keep the old one, and two installation roots resolve different copies
+after all. Every copy a lockfile resolves for a pinned name is therefore checked too — top-level or nested under
+another dependency, in an installation root or a consumer fixture, and an npm alias under its alias name — and all of
+them must be one version. npm keeps a locked version while it still satisfies the range, so a lagging copy is
+aligned by deleting its entry from the lockfile and letting npm resolve it again: `npm install --package-lock-only`
+in an installation root, `fhevm-npm test-consumer-regenerate-package-lock <fixture>` for a consumer fixture.
+(`npm update` fails with ERESOLVE in a workspace whose members declare the package as a peer.)
+
+```text
+❌ ./hardhat/v2/package-lock.json: '@fhevm/sdk' resolves to 0.14.2, but the lockfiles disagree
+   (0.14.2 in ./hardhat/v2/package-lock.json; 0.14.3 in ./package-lock.json)
+```
+
 ```jsonc
 // ✅ One spec named once, repeated by every consumer whatever its kind or dependency section.
 {
