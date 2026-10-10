@@ -20,13 +20,6 @@ async function deployFixture(): Promise<{
 }
 
 /**
- * The `HeadsOrTails` example showcases the public decryption mechanism and
- * its corresponding on-chain verification in the case of a single value.
- * The core assertion is to guarantee that a single given cleartext is the
- * cryptographically verifiable result of the decryption of a single original
- * on-chain ciphertext.
- */
-/**
  * Flips the least significant byte of the first KMS signature's `s`: proof byte 64, i.e. one byte of signer
  * count, then 63 bytes into the first 65-byte signature (`r` is bytes 0-31 of it, `s` bytes 32-63). Unlike
  * appending bytes, this keeps the proof well-formed — every length check passes — so the verifier reaches
@@ -44,6 +37,13 @@ function withCorruptedFirstSignature(decryptionProof: string): string {
   return decryptionProof.slice(0, at) + flipped + decryptionProof.slice(at + 2);
 }
 
+/**
+ * The `HeadsOrTails` example showcases the public decryption mechanism and
+ * its corresponding on-chain verification in the case of a single value.
+ * The core assertion is to guarantee that a single given cleartext is the
+ * cryptographically verifiable result of the decryption of a single original
+ * on-chain ciphertext.
+ */
 describe('HeadsOrTails', function () {
   let contract: HeadsOrTails;
   let contractAddress: string;
