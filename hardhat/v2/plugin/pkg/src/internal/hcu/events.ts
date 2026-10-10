@@ -1,9 +1,10 @@
 /**
  * Every event `FHEVMExecutor` emits.
  *
- * Mirrors the 30 declarations in the host contracts' `FHEEvents.sol` — verified against
+ * Mirrors the declarations in the host contracts' `FHEEvents.sol` — verified against
  * `<host-contracts-cleartext>/pkg/src/contracts/FHEEvents.sol` and the shipped
- * `abi/CleartextFHEVMExecutor.json`.
+ * `abi/CleartextFHEVMExecutor.json`. `FheMulDiv` is emitted from the 0.14 protocol line on; an
+ * executor without it simply never produces one.
  *
  * This is the *event* vocabulary, used to recognize coprocessor logs. It is deliberately NOT the
  * same thing as the set of operators HCU can price: `HCUOperatorName` is derived from
@@ -39,7 +40,8 @@ export type CoprocessorOperatorEventName =
   | 'Cast'
   | 'FheIfThenElse'
   | 'FheSum'
-  | 'FheIsIn';
+  | 'FheIsIn'
+  | 'FheMulDiv';
 
 export type CoprocessorEventName = CoprocessorOperatorEventName | 'VerifyInput';
 
@@ -74,6 +76,7 @@ const OPERATOR_EVENT_NAMES: ReadonlySet<string> = new Set<CoprocessorEventName>(
   'VerifyInput',
   'FheSum',
   'FheIsIn',
+  'FheMulDiv',
 ]);
 
 export function isCoprocessorEventName(value: unknown): value is CoprocessorEventName {
