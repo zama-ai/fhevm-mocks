@@ -166,44 +166,44 @@ const pluginDeclaring = (manifest: ReturnType<typeof manifestWithPin>, pins: Rec
   });
 
 test('rule 3.3.4 accepts every copy a lockfile resolves at exactly the pinned version', () => {
-  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.3' });
-  const packages = [root(manifest), pluginDeclaring(manifest, { '@fhevm/sdk': '^0.14.3' })];
+  const manifest = manifestWithPin({ '@scope/pkg': '^1.2.3' });
+  const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.3' })];
   const readLockfile = () => ({
-    '': { devDependencies: { '@fhevm/sdk': '^0.14.3' } },
-    'node_modules/@fhevm/sdk': { version: '0.14.3' },
-    'node_modules/other/node_modules/@fhevm/sdk': { version: '0.14.3' },
+    '': { devDependencies: { '@scope/pkg': '^1.2.3' } },
+    'node_modules/@scope/pkg': { version: '1.2.3' },
+    'node_modules/other/node_modules/@scope/pkg': { version: '1.2.3' },
   });
 
   assert.deepEqual(validatePinnedDependencies(manifest, packages, readLockfile), []);
 });
 
 test('rule 3.3.4 rejects a lockfile that resolves a newer version than the pin, and says to move the pin', () => {
-  // Every package.json says ^0.14.2, so the declared half passes; the root was locked after 0.14.3 shipped.
-  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2' });
-  const packages = [root(manifest), pluginDeclaring(manifest, { '@fhevm/sdk': '^0.14.2' })];
+  // Every package.json says ^1.2.2, so the declared half passes; the root was locked after 1.2.3 shipped.
+  const manifest = manifestWithPin({ '@scope/pkg': '^1.2.2' });
+  const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.2' })];
   const readLockfile = (file: string) =>
     file === '/workspace/package-lock.json'
-      ? { '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.3' } }
+      ? { '': {}, 'node_modules/@scope/pkg': { version: '1.2.3' } }
       : file === '/workspace/plugin/package-lock.json'
-        ? { '': { devDependencies: { '@fhevm/sdk': '^0.14.2' } }, 'node_modules/@fhevm/sdk': { version: '0.14.2' } }
+        ? { '': { devDependencies: { '@scope/pkg': '^1.2.2' } }, 'node_modules/@scope/pkg': { version: '1.2.2' } }
         : undefined;
 
   const violations = validatePinnedDependencies(manifest, packages, readLockfile);
   assert.equal(violations.length, 1);
   assert.equal(violations[0]?.rule, '3.3.4');
   assert.equal(violations[0]?.packageKey, './package-lock.json');
-  assert.match(violations[0]?.message ?? '', /'@fhevm\/sdk' resolves to 0\.14\.3 .*newer than its pin "\^0\.14\.2"/);
-  assert.match(violations[0]?.message ?? '', /Move it to "\^0\.14\.3" in npm-manifest\.json#dependencies\.pinned/);
+  assert.match(violations[0]?.message ?? '', /'@scope\/pkg' resolves to 1\.2\.3 .*newer than its pin "\^1\.2\.2"/);
+  assert.match(violations[0]?.message ?? '', /Move it to "\^1\.2\.3" in npm-manifest\.json#dependencies\.pinned/);
 });
 
 test('rule 3.3.4 rejects a lockfile left behind a moved pin, naming the re-lock', () => {
-  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.3' });
-  const packages = [root(manifest), pluginDeclaring(manifest, { '@fhevm/sdk': '^0.14.3' })];
+  const manifest = manifestWithPin({ '@scope/pkg': '^1.2.3' });
+  const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.3' })];
   const readLockfile = (file: string) =>
     file === '/workspace/package-lock.json'
-      ? { '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.2' } }
+      ? { '': {}, 'node_modules/@scope/pkg': { version: '1.2.2' } }
       : file === '/workspace/plugin/package-lock.json'
-        ? { '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.2' } }
+        ? { '': {}, 'node_modules/@scope/pkg': { version: '1.2.2' } }
         : undefined;
 
   const violations = validatePinnedDependencies(manifest, packages, readLockfile);
@@ -214,46 +214,46 @@ test('rule 3.3.4 rejects a lockfile left behind a moved pin, naming the re-lock'
   // An installation root is re-locked by npm; './plugin' is a standalone fixture here, re-locked by fhevm-npm.
   assert.match(
     violations[0]?.message ?? '',
-    /not the pinned 0\.14\.3 .*delete its 'node_modules\/@fhevm\/sdk' entry from \.\/package-lock\.json, then run 'npm install --package-lock-only' in the repository root/,
+    /not the pinned 1\.2\.3 .*delete its 'node_modules\/@scope\/pkg' entry from \.\/package-lock\.json, then run 'npm install --package-lock-only' in the repository root/,
   );
   assert.match(violations[1]?.message ?? '', /test-consumer-regenerate-package-lock \.\/plugin'/);
 });
 
 test('rule 3.3.4 checks nested copies inside one lockfile too', () => {
-  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.3' });
-  const packages = [root(manifest), pluginDeclaring(manifest, { '@fhevm/sdk': '^0.14.3' })];
+  const manifest = manifestWithPin({ '@scope/pkg': '^1.2.3' });
+  const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.3' })];
   // Only the root has a lockfile; one copy in it is nested under another dependency.
   const readLockfile = (file: string) =>
     file === '/workspace/package-lock.json'
       ? {
           '': {},
-          'node_modules/@fhevm/sdk': { version: '0.14.3' },
-          'node_modules/some-dep/node_modules/@fhevm/sdk': { version: '0.14.4' },
+          'node_modules/@scope/pkg': { version: '1.2.3' },
+          'node_modules/some-dep/node_modules/@scope/pkg': { version: '1.2.4' },
         }
       : undefined;
 
   const violations = validatePinnedDependencies(manifest, packages, readLockfile);
   assert.equal(violations.length, 1);
-  assert.match(violations[0]?.message ?? '', /at 'node_modules\/some-dep\/node_modules\/@fhevm\/sdk'/);
+  assert.match(violations[0]?.message ?? '', /at 'node_modules\/some-dep\/node_modules\/@scope\/pkg'/);
 });
 
 test('rule 3.3.4 checks an npm alias against its own pin, apart from the bare name it aliases', () => {
-  // @fhevm/sdk-prev1 installs @fhevm/sdk@0.13.x under the alias: a line of its own, pinned on its own.
-  const pins = { '@fhevm/sdk': '^0.14.3', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' };
+  // @scope/pkg-prev1 installs @scope/pkg@0.13.x under the alias: a line of its own, pinned on its own.
+  const pins = { '@scope/pkg': '^1.2.3', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' };
   const manifest = manifestWithPin(pins);
   const packages = [root(manifest), pluginDeclaring(manifest, pins)];
   const lock = (prev1: string) => () => ({
     '': {},
-    'node_modules/@fhevm/sdk': { version: '0.14.3' },
-    'node_modules/@fhevm/sdk-prev1': { name: '@fhevm/sdk', version: prev1 },
+    'node_modules/@scope/pkg': { version: '1.2.3' },
+    'node_modules/@scope/pkg-prev1': { name: '@scope/pkg', version: prev1 },
   });
 
-  assert.deepEqual(validatePinnedDependencies(manifest, packages, lock('0.13.7')), []);
+  assert.deepEqual(validatePinnedDependencies(manifest, packages, lock('1.1.7')), []);
 
-  const violations = validatePinnedDependencies(manifest, packages, lock('0.13.8'));
+  const violations = validatePinnedDependencies(manifest, packages, lock('1.1.8'));
   assert.ok(violations.length > 0);
-  assert.match(violations[0]?.message ?? '', /'@fhevm\/sdk-prev1' resolves to 0\.13\.8/);
-  assert.match(violations[0]?.message ?? '', /Move it to "npm:@fhevm\/sdk@\^0\.13\.8"/);
+  assert.match(violations[0]?.message ?? '', /'@scope\/pkg-prev1' resolves to 1\.1\.8/);
+  assert.match(violations[0]?.message ?? '', /Move it to "npm:@scope\/pkg@\^1\.1\.8"/);
 });
 
 test('rule 3.3.4 is inert when the manifest pins nothing', () => {
@@ -274,13 +274,13 @@ test('rule 3.3.4 is inert when the manifest pins nothing', () => {
 });
 
 test('rule 3.3.4 treats an npm alias as its own pin, keyed by the alias name, next to the bare name', () => {
-  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' });
+  const manifest = manifestWithPin({ '@scope/pkg': '^1.2.2', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' });
   const packages = [
     root(manifest),
     loadedPackage('./plugin', manifest.packages['./plugin']!, {
       name: 'plugin-dev',
       private: true,
-      devDependencies: { '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' },
+      devDependencies: { '@scope/pkg': '^1.2.2', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' },
     }),
   ];
   assert.deepEqual(
@@ -294,12 +294,12 @@ test('rule 3.3.4 treats an npm alias as its own pin, keyed by the alias name, ne
     loadedPackage('./plugin', manifest.packages['./plugin']!, {
       name: 'plugin-dev',
       private: true,
-      devDependencies: { '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.6' },
+      devDependencies: { '@scope/pkg': '^1.2.2', '@scope/pkg-prev1': 'npm:@scope/pkg@^0.13.6' },
     }),
     loadedPackage('./plugin/pkg', manifest.packages['./plugin/pkg']!, {
       name: 'plugin',
       private: true,
-      devDependencies: { '@fhevm/sdk-prev1': '^0.13.7' },
+      devDependencies: { '@scope/pkg-prev1': '^1.1.7' },
     }),
   ];
   const violations = validatePinnedDependencies(manifest, drifted, () => undefined);
@@ -309,20 +309,20 @@ test('rule 3.3.4 treats an npm alias as its own pin, keyed by the alias name, ne
   );
   assert.match(
     violations[0]?.message ?? '',
-    /is "npm:@fhevm\/sdk@\^0\.13\.6"; .*requires "npm:@fhevm\/sdk@\^0\.13\.7"/,
+    /is "npm:@scope\/pkg@\^0\.13\.6"; .*requires "npm:@scope\/pkg@\^1\.1\.7"/,
   );
 });
 
 test('the manifest accepts an npm alias of an exact, caret or tilde version', () => {
-  for (const spec of ['npm:@fhevm/sdk@^0.13.7', 'npm:@fhevm/sdk@0.13.7', 'npm:@fhevm/sdk@~0.13.7', 'npm:viem@^2.0.0']) {
+  for (const spec of ['npm:@scope/pkg@^1.1.7', 'npm:@scope/pkg@1.1.7', 'npm:@scope/pkg@~1.1.7', 'npm:viem@^2.0.0']) {
     assert.doesNotThrow(() => manifestWithPin({ alias: spec }), spec);
   }
 });
 
 test('the manifest rejects an npm alias whose target is not an exact, caret or tilde version', () => {
-  assert.throws(() => manifestWithPin({ alias: 'npm:@fhevm/sdk@latest' }), /exact, caret, or tilde/);
-  assert.throws(() => manifestWithPin({ alias: 'npm:@fhevm/sdk' }), /exact, caret, or tilde/);
-  assert.throws(() => manifestWithPin({ alias: 'npm:@Fhevm/SDK@^0.13.7' }), /exact, caret, or tilde/);
+  assert.throws(() => manifestWithPin({ alias: 'npm:@scope/pkg@latest' }), /exact, caret, or tilde/);
+  assert.throws(() => manifestWithPin({ alias: 'npm:@scope/pkg' }), /exact, caret, or tilde/);
+  assert.throws(() => manifestWithPin({ alias: 'npm:@Fhevm/SDK@^1.1.7' }), /exact, caret, or tilde/);
   assert.throws(() => manifestWithPin({ alias: 'file:../sdk' }), /exact, caret, or tilde/);
 });
 

@@ -91,7 +91,7 @@ function validateLockfile(
   return violations;
 }
 
-// The pin names the version the workspace develops and releases against: `^0.14.2` says 0.14.2. A range is
+// The pin names the version the workspace develops and releases against: `^1.2.2` says 1.2.2. A range is
 // resolved when a lockfile is written, so a root locked after a newer release silently takes that release instead —
 // the pin then lies about what is installed, and roots locked at different times resolve different copies. Every
 // copy a lockfile resolves for a pinned name — top-level or nested, in an installation root or a consumer fixture,
@@ -153,7 +153,7 @@ function validateResolvedVersions(
   return violations;
 }
 
-/** `^0.14.2`, `~0.14.2`, `0.14.2` and `npm:@fhevm/sdk@^0.14.2` all pin 0.14.2. */
+/** `^1.2.2`, `~1.2.2`, `1.2.2` and `npm:@scope/pkg@^1.2.2` all pin 1.2.2. */
 export function versionOfPin(pin: string): string {
   const range = pin.startsWith('npm:') ? pin.slice(pin.lastIndexOf('@') + 1) : pin;
   return range.replace(/^[~^]/, '');

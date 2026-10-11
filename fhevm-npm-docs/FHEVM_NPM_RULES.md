@@ -354,7 +354,7 @@ copies are therefore checked against the pin too, `node_modules` entries exclude
 than a declared spec. Regenerate an installation root with `npm install --package-lock-only`, and an isolated consumer
 fixture with `fhevm-npm test-consumer-regenerate-package-lock`.
 
-The pin also names the version the workspace develops and releases against: `^0.14.2` says 0.14.2. A range is
+The pin also names the version the workspace develops and releases against: `^1.2.2` says 1.2.2. A range is
 resolved when a lockfile is written, so a root locked after a newer release silently takes it instead; the pin then
 misstates what is installed, and roots locked at different times resolve different copies. Every copy a lockfile
 resolves for a pinned name is therefore checked too — top-level or nested under another dependency, in an
@@ -367,8 +367,8 @@ install --package-lock-only` in an installation root, `fhevm-npm test-consumer-r
 a consumer fixture; `npm update` fails with ERESOLVE in a workspace whose members declare the package as a peer).
 
 ```text
-❌ ./package-lock.json: '@fhevm/sdk' resolves to 0.14.3 at 'node_modules/@fhevm/sdk', newer than its pin "^0.14.2":
-   the pin is behind what is installed. Move it to "^0.14.3" in npm-manifest.json#dependencies.pinned
+❌ ./package-lock.json: '@scope/pkg' resolves to 1.2.3 at 'node_modules/@scope/pkg', newer than its pin "^1.2.2":
+   the pin is behind what is installed. Move it to "^1.2.3" in npm-manifest.json#dependencies.pinned
 ```
 
 ```jsonc
@@ -396,12 +396,12 @@ specs.
 ```jsonc
 // ✅ The current line under its own name, the previous line under an alias.
 {
-  "dependencies": { "pinned": { "@fhevm/sdk": "^0.14.2", "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7" } }
+  "dependencies": { "pinned": { "@scope/pkg": "^1.2.2", "@scope/pkg-prev1": "npm:@scope/pkg@^1.1.7" } }
 }
-"devDependencies": { "@fhevm/sdk": "^0.14.2", "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7" }
+"devDependencies": { "@scope/pkg": "^1.2.2", "@scope/pkg-prev1": "npm:@scope/pkg@^1.1.7" }
 
-// ❌ The range without `npm:`: npm would fetch a registry package actually named @fhevm/sdk-prev1.
-"devDependencies": { "@fhevm/sdk-prev1": "^0.13.7" }
+// ❌ The range without `npm:`: npm would fetch a registry package actually named @scope/pkg-prev1.
+"devDependencies": { "@scope/pkg-prev1": "^1.1.7" }
 ```
 
 ### 3.4 Depending across generations
