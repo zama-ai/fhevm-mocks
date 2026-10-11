@@ -114,13 +114,13 @@ test('rendering replaces exactly the planned specs and leaves the file otherwise
 });
 
 test('rendering rewrites an npm alias spec like any other, and leaves the bare name next to it alone', () => {
-  const manifest = manifestWithPins({ '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' });
+  const manifest = manifestWithPins({ '@scope/pkg': '^1.2.2', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' });
   const text = `{
   "name": "plugin",
   "private": true,
   "devDependencies": {
-    "@fhevm/sdk": "^0.14.2",
-    "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.6"
+    "@scope/pkg": "^1.2.2",
+    "@scope/pkg-prev1": "npm:@scope/pkg@^0.13.6"
   }
 }
 `;
@@ -128,11 +128,11 @@ test('rendering rewrites an npm alias spec like any other, and leaves the bare n
   const edits = planPinnedSync(manifest, [pkg]);
   assert.deepEqual(
     edits.map(({ name, from, to }) => ({ name, from, to })),
-    [{ name: '@fhevm/sdk-prev1', from: 'npm:@fhevm/sdk@^0.13.6', to: 'npm:@fhevm/sdk@^0.13.7' }],
+    [{ name: '@scope/pkg-prev1', from: 'npm:@scope/pkg@^0.13.6', to: 'npm:@scope/pkg@^1.1.7' }],
   );
   assert.equal(
     renderPinnedEdits('package.json', text, edits),
-    text.replace('"npm:@fhevm/sdk@^0.13.6"', '"npm:@fhevm/sdk@^0.13.7"'),
+    text.replace('"npm:@scope/pkg@^0.13.6"', '"npm:@scope/pkg@^1.1.7"'),
   );
 });
 
@@ -194,8 +194,8 @@ test('after a sync the package.json half of check pinned-dependencies passes, an
 
 test('a pin behind what a lockfile resolves is raised to the newest resolved version, operator and alias kept', () => {
   const manifest = manifestWithPins({
-    '@fhevm/sdk': '^0.14.2',
-    '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7',
+    '@scope/pkg': '^1.2.2',
+    '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7',
     '@fhevm/solidity': '^0.13.4',
     exact: '5.1.0',
   });
@@ -208,31 +208,31 @@ test('a pin behind what a lockfile resolves is raised to the newest resolved ver
       '/workspace/package-lock.json',
       {
         '': {},
-        'node_modules/@fhevm/sdk': { version: '0.14.3' },
-        'node_modules/@fhevm/sdk-prev1': { name: '@fhevm/sdk', version: '0.13.8' },
+        'node_modules/@scope/pkg': { version: '1.2.3' },
+        'node_modules/@scope/pkg-prev1': { name: '@scope/pkg', version: '1.1.8' },
         'node_modules/@fhevm/solidity': { version: '0.13.4' },
         'node_modules/exact': { version: '5.1.1' },
       },
     ],
     [
       '/workspace/plugin/package-lock.json',
-      { '': {}, 'node_modules/dep/node_modules/@fhevm/sdk': { version: '0.14.4' } },
+      { '': {}, 'node_modules/dep/node_modules/@scope/pkg': { version: '1.2.4' } },
     ],
   ]);
   const readLockfile: LockfileReader = (file) => locks.get(file);
 
   assert.deepEqual(planPinRaises(manifest, packages, readLockfile), [
     // The newest copy across every lockfile wins, nested ones included.
-    { name: '@fhevm/sdk', from: '^0.14.2', to: '^0.14.4' },
-    { name: '@fhevm/sdk-prev1', from: 'npm:@fhevm/sdk@^0.13.7', to: 'npm:@fhevm/sdk@^0.13.8' },
+    { name: '@scope/pkg', from: '^1.2.2', to: '^1.2.4' },
+    { name: '@scope/pkg-prev1', from: 'npm:@scope/pkg@^1.1.7', to: 'npm:@scope/pkg@^1.1.8' },
     { name: 'exact', from: '5.1.0', to: '5.1.1' },
   ]);
 });
 
 test('a pin at or ahead of every resolved copy is not raised', () => {
-  const manifest = manifestWithPins({ '@fhevm/sdk': '^0.14.3' });
+  const manifest = manifestWithPins({ '@scope/pkg': '^1.2.3' });
   const packages = [loadedPackage('.', manifest.packages['.']!, { name: 'workspace', private: true })];
-  const readLockfile = () => ({ '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.2' } });
+  const readLockfile = () => ({ '': {}, 'node_modules/@scope/pkg': { version: '1.2.2' } });
   // An OLDER copy is a lockfile left behind, npm's to re-lock; lowering the pin to it would undo a deliberate move.
   assert.deepEqual(planPinRaises(manifest, packages, readLockfile), []);
 });
@@ -242,31 +242,31 @@ test('raising rewrites only the pinned lines of npm-manifest.json, and the packa
   "dependencies": {
     "forbidden": ["solhint"],
     "pinned": {
-      "@fhevm/sdk": "^0.14.2",
-      "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7"
+      "@scope/pkg": "^1.2.2",
+      "@scope/pkg-prev1": "npm:@scope/pkg@^1.1.7"
     }
   }
 }
 `;
-  const raises = [{ name: '@fhevm/sdk', from: '^0.14.2', to: '^0.14.3' }];
+  const raises = [{ name: '@scope/pkg', from: '^1.2.2', to: '^1.2.3' }];
   assert.equal(
     renderPinRaises('npm-manifest.json', text, raises),
-    text.replace('"@fhevm/sdk": "^0.14.2"', '"@fhevm/sdk": "^0.14.3"'),
+    text.replace('"@scope/pkg": "^1.2.2"', '"@scope/pkg": "^1.2.3"'),
   );
   assert.throws(
-    () => renderPinRaises('npm-manifest.json', text, [{ name: '@fhevm/sdk', from: '^0.14.1', to: '^0.14.3' }]),
-    /expected exactly one "@fhevm\/sdk": "\^0\.14\.1" in "pinned", found 0/,
+    () => renderPinRaises('npm-manifest.json', text, [{ name: '@scope/pkg', from: '^1.2.1', to: '^1.2.3' }]),
+    /expected exactly one "@scope\/pkg": "\^1\.2\.1" in "pinned", found 0/,
   );
 
-  const manifest = manifestWithPins({ '@fhevm/sdk': '^0.14.2' });
+  const manifest = manifestWithPins({ '@scope/pkg': '^1.2.2' });
   const pkg = loadedPackage('./plugin', manifest.packages['./plugin']!, {
     name: 'plugin-dev',
     private: true,
-    devDependencies: { '@fhevm/sdk': '^0.14.2' },
+    devDependencies: { '@scope/pkg': '^1.2.2' },
   });
   assert.deepEqual(
     planPinnedSync(withRaisedPins(manifest, raises), [pkg]).map(({ name, from, to }) => ({ name, from, to })),
-    [{ name: '@fhevm/sdk', from: '^0.14.2', to: '^0.14.3' }],
+    [{ name: '@scope/pkg', from: '^1.2.2', to: '^1.2.3' }],
   );
 });
 
