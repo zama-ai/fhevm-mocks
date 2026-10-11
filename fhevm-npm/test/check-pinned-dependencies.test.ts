@@ -158,6 +158,129 @@ test('rule 3.3.4 ignores resolved node_modules entries inside a lockfile', () =>
   assert.deepEqual(validatePinnedDependencies(manifest, packages, readLockfile), []);
 });
 
+test('rule 3.3.4 accepts every lockfile resolving a pinned package to one version', () => {
+  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2' });
+  const packages = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2' },
+    }),
+  ];
+  const readLockfile = () => ({
+    '': { devDependencies: { '@fhevm/sdk': '^0.14.2' } },
+    'node_modules/@fhevm/sdk': { version: '0.14.3' },
+    'node_modules/other/node_modules/@fhevm/sdk': { version: '0.14.3' },
+  });
+
+  assert.deepEqual(validatePinnedDependencies(manifest, packages, readLockfile), []);
+});
+
+test('rule 3.3.4 rejects lockfiles that resolve the same pin to different versions, naming the laggards', () => {
+  // Every package.json says ^0.14.2, so the declared half passes; the root was locked after 0.14.3 shipped.
+  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2' });
+  const packages = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2' },
+    }),
+  ];
+  const readLockfile = (file: string) =>
+    file === '/workspace/package-lock.json'
+      ? { '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.3' } }
+      : file === '/workspace/plugin/package-lock.json'
+        ? { '': { devDependencies: { '@fhevm/sdk': '^0.14.2' } }, 'node_modules/@fhevm/sdk': { version: '0.14.2' } }
+        : undefined;
+
+  const violations = validatePinnedDependencies(manifest, packages, readLockfile);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0]?.rule, '3.3.4');
+  assert.equal(violations[0]?.packageKey, './plugin/package-lock.json');
+  assert.match(violations[0]?.message ?? '', /'@fhevm\/sdk' resolves to 0\.14\.2/);
+  assert.match(
+    violations[0]?.message ?? '',
+    /0\.14\.2 in \.\/plugin\/package-lock\.json; 0\.14\.3 in \.\/package-lock\.json/,
+  );
+  // './plugin' is a standalone fixture here, so the fix is the consumer-lock regeneration, not npm update.
+  assert.match(violations[0]?.message ?? '', /test-consumer-regenerate-package-lock \.\/plugin'/);
+});
+
+test('rule 3.3.4 names the re-lock for an installation root that lags', () => {
+  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2' });
+  const packages = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2' },
+    }),
+  ];
+  const readLockfile = (file: string) =>
+    file === '/workspace/package-lock.json'
+      ? { '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.2' } }
+      : file === '/workspace/plugin/package-lock.json'
+        ? { '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.3' } }
+        : undefined;
+
+  const violations = validatePinnedDependencies(manifest, packages, readLockfile);
+  assert.deepEqual(
+    violations.map((violation) => violation.packageKey),
+    ['./package-lock.json'],
+  );
+  assert.match(
+    violations[0]?.message ?? '',
+    /delete its 'node_modules\/@fhevm\/sdk' entry from \.\/package-lock\.json, then run 'npm install --package-lock-only' in the repository root/,
+  );
+});
+
+test('rule 3.3.4 compares nested copies inside one lockfile too', () => {
+  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2' });
+  const packages = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2' },
+    }),
+  ];
+  // Only the root has a lockfile; the disagreement is between two copies inside it.
+  const readLockfile = (file: string) =>
+    file === '/workspace/package-lock.json'
+      ? {
+          '': {},
+          'node_modules/@fhevm/sdk': { version: '0.14.3' },
+          'node_modules/some-dep/node_modules/@fhevm/sdk': { version: '0.14.2' },
+        }
+      : undefined;
+
+  const violations = validatePinnedDependencies(manifest, packages, readLockfile);
+  assert.equal(violations.length, 1);
+  assert.match(violations[0]?.message ?? '', /at 'node_modules\/some-dep\/node_modules\/@fhevm\/sdk'/);
+});
+
+test('rule 3.3.4 compares an npm alias under its own name, apart from the bare name it aliases', () => {
+  // @fhevm/sdk-prev1 installs @fhevm/sdk@0.13.7 under the alias: a different line, not a drift of @fhevm/sdk.
+  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' });
+  const packages = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' },
+    }),
+  ];
+  const readLockfile = () => ({
+    '': {},
+    'node_modules/@fhevm/sdk': { version: '0.14.3' },
+    'node_modules/@fhevm/sdk-prev1': { name: '@fhevm/sdk', version: '0.13.7' },
+  });
+
+  assert.deepEqual(validatePinnedDependencies(manifest, packages, readLockfile), []);
+});
+
 test('rule 3.3.4 is inert when the manifest pins nothing', () => {
   const manifest = manifestWithPin();
   const packages = [
