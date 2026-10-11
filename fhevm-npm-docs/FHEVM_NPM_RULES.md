@@ -369,6 +369,24 @@ fixture with `fhevm-npm test-consumer-regenerate-package-lock`.
 "devDependencies": { "@fhevm/sdk": "^0.13.2" }
 ```
 
+A pin may be an npm alias, `npm:<name>@<version>`, so that one installation holds two versions of the same package
+under two names, for instance a test that runs against two lines of a dependency. The alias is pinned under its own
+name, with its full spec, and is compared like any other pin: the target is part of the spec. When the aliases name
+roles rather than versions (`<name>` for the current line, `<name>-prev<k>` for k lines back), the specs move forward
+together at each generation rotation, and only V(N) may declare them: V(N-1) drops them, so no name ever carries two
+specs.
+
+```jsonc
+// ✅ The current line under its own name, the previous line under an alias.
+{
+  "dependencies": { "pinned": { "@fhevm/sdk": "^0.14.2", "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7" } }
+}
+"devDependencies": { "@fhevm/sdk": "^0.14.2", "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7" }
+
+// ❌ The range without `npm:`: npm would fetch a registry package actually named @fhevm/sdk-prev1.
+"devDependencies": { "@fhevm/sdk-prev1": "^0.13.7" }
+```
+
 ### 3.4 Depending across generations
 
 Some package families exist in several **generations** side by side: `host-contracts-cleartext/v12` and

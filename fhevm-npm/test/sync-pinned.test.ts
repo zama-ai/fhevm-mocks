@@ -106,6 +106,29 @@ test('rendering replaces exactly the planned specs and leaves the file otherwise
   assert.deepEqual(planPinnedSync(manifest, [synced]), []);
 });
 
+test('rendering rewrites an npm alias spec like any other, and leaves the bare name next to it alone', () => {
+  const manifest = manifestWithPins({ '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' });
+  const text = `{
+  "name": "plugin",
+  "private": true,
+  "devDependencies": {
+    "@fhevm/sdk": "^0.14.2",
+    "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.6"
+  }
+}
+`;
+  const pkg = loadedPackage('./plugin/pkg', manifest.packages['./plugin/pkg']!, JSON.parse(text) as PackageJson);
+  const edits = planPinnedSync(manifest, [pkg]);
+  assert.deepEqual(
+    edits.map(({ name, from, to }) => ({ name, from, to })),
+    [{ name: '@fhevm/sdk-prev1', from: 'npm:@fhevm/sdk@^0.13.6', to: 'npm:@fhevm/sdk@^0.13.7' }],
+  );
+  assert.equal(
+    renderPinnedEdits('package.json', text, edits),
+    text.replace('"npm:@fhevm/sdk@^0.13.6"', '"npm:@fhevm/sdk@^0.13.7"'),
+  );
+});
+
 test('rendering refuses a file it cannot edit unambiguously, rather than guessing', () => {
   const edit = {
     file: 'package.json',

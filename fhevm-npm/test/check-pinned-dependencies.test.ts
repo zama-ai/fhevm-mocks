@@ -175,6 +175,59 @@ test('rule 3.3.4 is inert when the manifest pins nothing', () => {
   );
 });
 
+test('rule 3.3.4 treats an npm alias as its own pin, keyed by the alias name, next to the bare name', () => {
+  const manifest = manifestWithPin({ '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' });
+  const packages = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7' },
+    }),
+  ];
+  assert.deepEqual(
+    validatePinnedDependencies(manifest, packages, () => undefined),
+    [],
+  );
+
+  // The alias target is part of the spec: the same range under the bare name, or another range, is drift.
+  const drifted = [
+    root(manifest),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, {
+      name: 'plugin-dev',
+      private: true,
+      devDependencies: { '@fhevm/sdk': '^0.14.2', '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.6' },
+    }),
+    loadedPackage('./plugin/pkg', manifest.packages['./plugin/pkg']!, {
+      name: 'plugin',
+      private: true,
+      devDependencies: { '@fhevm/sdk-prev1': '^0.13.7' },
+    }),
+  ];
+  const violations = validatePinnedDependencies(manifest, drifted, () => undefined);
+  assert.deepEqual(
+    violations.map((violation) => violation.packageKey),
+    ['./plugin/package.json', './plugin/pkg/package.json'],
+  );
+  assert.match(
+    violations[0]?.message ?? '',
+    /is "npm:@fhevm\/sdk@\^0\.13\.6"; .*requires "npm:@fhevm\/sdk@\^0\.13\.7"/,
+  );
+});
+
+test('the manifest accepts an npm alias of an exact, caret or tilde version', () => {
+  for (const spec of ['npm:@fhevm/sdk@^0.13.7', 'npm:@fhevm/sdk@0.13.7', 'npm:@fhevm/sdk@~0.13.7', 'npm:viem@^2.0.0']) {
+    assert.doesNotThrow(() => manifestWithPin({ alias: spec }), spec);
+  }
+});
+
+test('the manifest rejects an npm alias whose target is not an exact, caret or tilde version', () => {
+  assert.throws(() => manifestWithPin({ alias: 'npm:@fhevm/sdk@latest' }), /exact, caret, or tilde/);
+  assert.throws(() => manifestWithPin({ alias: 'npm:@fhevm/sdk' }), /exact, caret, or tilde/);
+  assert.throws(() => manifestWithPin({ alias: 'npm:@Fhevm/SDK@^0.13.7' }), /exact, caret, or tilde/);
+  assert.throws(() => manifestWithPin({ alias: 'file:../sdk' }), /exact, caret, or tilde/);
+});
+
 test('the manifest rejects a pinned spec that is not an exact, caret or tilde version', () => {
   assert.throws(() => manifestWithPin({ '@fhevm/sdk': '>=0.13.3 <0.14.0' }), /exact, caret, or tilde/);
   assert.throws(() => manifestWithPin({ '@fhevm/sdk': 'latest' }), /exact, caret, or tilde/);
