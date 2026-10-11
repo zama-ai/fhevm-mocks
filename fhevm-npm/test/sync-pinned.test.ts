@@ -4,9 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { validatePinnedDependencies } from '../base/checks/pinned-dependencies.ts';
+import { type LockfileReader, validatePinnedDependencies } from '../base/checks/pinned-dependencies.ts';
 import type { LoadedPackage, PackageJson } from '../base/npm.ts';
-import { applyPinnedEdits, planPinnedSync, renderPinnedEdits } from '../base/sync-pinned.ts';
+import {
+  applyPinnedEdits,
+  planPinRaises,
+  planPinnedSync,
+  renderPinRaises,
+  renderPinnedEdits,
+  withRaisedPins,
+} from '../base/sync-pinned.ts';
 import { parseCliOptions } from '../cli-options.ts';
 import { loadedPackage, parseTestNpmManifest } from './helpers.ts';
 
@@ -183,6 +190,84 @@ test('after a sync the package.json half of check pinned-dependencies passes, an
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('a pin behind what a lockfile resolves is raised to the newest resolved version, operator and alias kept', () => {
+  const manifest = manifestWithPins({
+    '@fhevm/sdk': '^0.14.2',
+    '@fhevm/sdk-prev1': 'npm:@fhevm/sdk@^0.13.7',
+    '@fhevm/solidity': '^0.13.4',
+    exact: '5.1.0',
+  });
+  const packages = [
+    loadedPackage('.', manifest.packages['.']!, { name: 'workspace', private: true }),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, { name: 'plugin-dev', private: true }),
+  ];
+  const locks = new Map<string, Record<string, Record<string, unknown>>>([
+    [
+      '/workspace/package-lock.json',
+      {
+        '': {},
+        'node_modules/@fhevm/sdk': { version: '0.14.3' },
+        'node_modules/@fhevm/sdk-prev1': { name: '@fhevm/sdk', version: '0.13.8' },
+        'node_modules/@fhevm/solidity': { version: '0.13.4' },
+        'node_modules/exact': { version: '5.1.1' },
+      },
+    ],
+    [
+      '/workspace/plugin/package-lock.json',
+      { '': {}, 'node_modules/dep/node_modules/@fhevm/sdk': { version: '0.14.4' } },
+    ],
+  ]);
+  const readLockfile: LockfileReader = (file) => locks.get(file);
+
+  assert.deepEqual(planPinRaises(manifest, packages, readLockfile), [
+    // The newest copy across every lockfile wins, nested ones included.
+    { name: '@fhevm/sdk', from: '^0.14.2', to: '^0.14.4' },
+    { name: '@fhevm/sdk-prev1', from: 'npm:@fhevm/sdk@^0.13.7', to: 'npm:@fhevm/sdk@^0.13.8' },
+    { name: 'exact', from: '5.1.0', to: '5.1.1' },
+  ]);
+});
+
+test('a pin at or ahead of every resolved copy is not raised', () => {
+  const manifest = manifestWithPins({ '@fhevm/sdk': '^0.14.3' });
+  const packages = [loadedPackage('.', manifest.packages['.']!, { name: 'workspace', private: true })];
+  const readLockfile = () => ({ '': {}, 'node_modules/@fhevm/sdk': { version: '0.14.2' } });
+  // An OLDER copy is a lockfile left behind, npm's to re-lock; lowering the pin to it would undo a deliberate move.
+  assert.deepEqual(planPinRaises(manifest, packages, readLockfile), []);
+});
+
+test('raising rewrites only the pinned lines of npm-manifest.json, and the package.json plan follows it', () => {
+  const text = `{
+  "dependencies": {
+    "forbidden": ["solhint"],
+    "pinned": {
+      "@fhevm/sdk": "^0.14.2",
+      "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7"
+    }
+  }
+}
+`;
+  const raises = [{ name: '@fhevm/sdk', from: '^0.14.2', to: '^0.14.3' }];
+  assert.equal(
+    renderPinRaises('npm-manifest.json', text, raises),
+    text.replace('"@fhevm/sdk": "^0.14.2"', '"@fhevm/sdk": "^0.14.3"'),
+  );
+  assert.throws(
+    () => renderPinRaises('npm-manifest.json', text, [{ name: '@fhevm/sdk', from: '^0.14.1', to: '^0.14.3' }]),
+    /expected exactly one "@fhevm\/sdk": "\^0\.14\.1" in "pinned", found 0/,
+  );
+
+  const manifest = manifestWithPins({ '@fhevm/sdk': '^0.14.2' });
+  const pkg = loadedPackage('./plugin', manifest.packages['./plugin']!, {
+    name: 'plugin-dev',
+    private: true,
+    devDependencies: { '@fhevm/sdk': '^0.14.2' },
+  });
+  assert.deepEqual(
+    planPinnedSync(withRaisedPins(manifest, raises), [pkg]).map(({ name, from, to }) => ({ name, from, to })),
+    [{ name: '@fhevm/sdk', from: '^0.14.2', to: '^0.14.3' }],
+  );
 });
 
 test("'sync pinned' parses with and without --check", () => {

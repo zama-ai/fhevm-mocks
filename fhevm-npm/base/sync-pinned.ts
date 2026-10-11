@@ -2,6 +2,11 @@
 // package. The manifest is the authority (rule 3.3.4); this command makes the tree agree with it, so moving a
 // pin is one edit of the manifest followed by one command, instead of a hand edit of every package.json.
 //
+// A pin that is BEHIND what the lockfiles resolve is raised first: when any lockfile resolves a newer version than
+// the pin names (a root locked after a release), the manifest pin moves up to it — the operator and an alias prefix
+// stay — so the workspace declares, and releases with, the package it actually installs. That is a text edit of
+// npm-manifest.json, made before the package.json edits, which then follow the raised pin.
+//
 // It walks exactly what `check pinned-dependencies` walks — the same packages, the same dependency fields — so
 // after a sync the package.json half of that check passes by construction. Lockfiles are deliberately left
 // alone: they are npm's output, and only npm may regenerate them (`make install`, then the consumer-lock
@@ -15,6 +20,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { NpmManifest } from '../manifest.ts';
+import {
+  type LockfileReader,
+  defaultLockfileReader,
+  isNewer,
+  resolvedCopies,
+  versionOfPin,
+} from './checks/pinned-dependencies.ts';
 import { packageJsonKey } from './checks/package-names.ts';
 import { type DependencyField, type LoadedPackage, declarationsByName } from './npm.ts';
 
@@ -26,6 +38,71 @@ export type PinnedEdit = {
   readonly from: string;
   readonly to: string;
 };
+
+export type PinRaise = { readonly name: string; readonly from: string; readonly to: string };
+
+/** Every pin some lockfile resolves NEWER than, raised to the newest version any lockfile resolves. */
+export function planPinRaises(
+  manifest: NpmManifest,
+  packages: readonly LoadedPackage[],
+  readLockfile: LockfileReader = defaultLockfileReader,
+): readonly PinRaise[] {
+  const pinned = Object.entries(manifest.dependencies?.pinned ?? {});
+  const copies = packages.flatMap((pkg) => resolvedCopies(pkg, pinned, readLockfile));
+  const raises: PinRaise[] = [];
+  for (const [name, pin] of pinned) {
+    const pinnedVersion = versionOfPin(pin);
+    let newest = pinnedVersion;
+    for (const copy of copies) if (copy.name === name && isNewer(copy.version, newest)) newest = copy.version;
+    if (newest === pinnedVersion) continue;
+    // The version is the tail of the spec, after any `^`/`~` and any `npm:<name>@` prefix.
+    raises.push({ name, from: pin, to: `${pin.slice(0, pin.length - pinnedVersion.length)}${newest}` });
+  }
+  return raises;
+}
+
+/** The manifest as it reads once `raises` are applied: what the package.json plan must follow. */
+export function withRaisedPins(manifest: NpmManifest, raises: readonly PinRaise[]): NpmManifest {
+  if (raises.length === 0 || manifest.dependencies?.pinned === undefined) return manifest;
+  const pinned = { ...manifest.dependencies.pinned };
+  for (const raise of raises) pinned[raise.name] = raise.to;
+  return { ...manifest, dependencies: { ...manifest.dependencies, pinned } };
+}
+
+/**
+ * Pure: npm-manifest.json text in, the same text with each raised pin replaced out. Each raise must find exactly
+ * one `"<name>": "<from>"` line inside the `pinned` block; the result is proven like a package.json edit.
+ */
+export function renderPinRaises(file: string, text: string, raises: readonly PinRaise[]): string {
+  const lines = text.split('\n');
+  const start = lines.findIndex((line) => /^\s*"pinned":\s*\{\s*$/.test(line));
+  const indent = /^(\s*)/.exec(lines[start] ?? '')?.[1] ?? '';
+  const end = lines.findIndex((line, index) => index > start && line.startsWith(`${indent}}`));
+  if (start === -1 || end === -1) throw new Error(`${file}: expected one "pinned" block written over several lines`);
+  for (const raise of raises) {
+    const entry = new RegExp(
+      `^(\\s*${escapeRegExp(JSON.stringify(raise.name))}:\\s*)${escapeRegExp(JSON.stringify(raise.from))}(,?\\s*)$`,
+    );
+    const hits = lines.flatMap((line, index) => (index > start && index < end && entry.test(line) ? [index] : []));
+    const hit = hits[0];
+    if (hits.length !== 1 || hit === undefined) {
+      throw new Error(
+        `${file}: expected exactly one "${raise.name}": "${raise.from}" in "pinned", found ${String(hits.length)}`,
+      );
+    }
+    lines[hit] = (lines[hit] ?? '').replace(entry, `$1${JSON.stringify(raise.to)}$2`);
+  }
+  const updated = lines.join('\n');
+
+  const expected = JSON.parse(text) as { dependencies?: { pinned?: Record<string, string> } };
+  for (const raise of raises) {
+    if (expected.dependencies?.pinned !== undefined) expected.dependencies.pinned[raise.name] = raise.to;
+  }
+  if (JSON.stringify(JSON.parse(updated)) !== JSON.stringify(expected)) {
+    throw new Error(`${file}: raising the pins would change more than those pins; nothing written`);
+  }
+  return updated;
+}
 
 /** Every declaration of a pinned package whose spec differs from the pin, in package then field order. */
 export function planPinnedSync(manifest: NpmManifest, packages: readonly LoadedPackage[]): readonly PinnedEdit[] {

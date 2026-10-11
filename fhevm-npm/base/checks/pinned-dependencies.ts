@@ -97,7 +97,7 @@ function validateLockfile(
 // copy a lockfile resolves for a pinned name — top-level or nested, in an installation root or a consumer fixture,
 // an npm alias under its alias name — must therefore be exactly the pinned version. A newer one means the pin is
 // behind: move it up, so the release carries the most recent package.
-type ResolvedCopy = {
+export type ResolvedCopy = {
   readonly name: string;
   readonly version: string;
   readonly lockfileKey: string;
@@ -105,7 +105,7 @@ type ResolvedCopy = {
   readonly pkg: LoadedPackage;
 };
 
-function resolvedCopies(
+export function resolvedCopies(
   pkg: LoadedPackage,
   pinned: readonly (readonly [string, string])[],
   readLockfile: LockfileReader,
@@ -154,12 +154,12 @@ function validateResolvedVersions(
 }
 
 /** `^0.14.2`, `~0.14.2`, `0.14.2` and `npm:@fhevm/sdk@^0.14.2` all pin 0.14.2. */
-function versionOfPin(pin: string): string {
+export function versionOfPin(pin: string): string {
   const range = pin.startsWith('npm:') ? pin.slice(pin.lastIndexOf('@') + 1) : pin;
   return range.replace(/^[~^]/, '');
 }
 
-function isNewer(candidate: string, reference: string): boolean {
+export function isNewer(candidate: string, reference: string): boolean {
   const c = parseVersion(candidate);
   const r = parseVersion(reference);
   return c !== undefined && r !== undefined && compareVersions(c, r) > 0;
@@ -177,7 +177,7 @@ function relockHint(copy: ResolvedCopy): string {
   return `Re-lock it: ${drop}, then run './fhevm-npm-cli test-consumer-regenerate-package-lock ${copy.pkg.key}'.`;
 }
 
-function defaultLockfileReader(file: string): LockfileEntries | undefined {
+export function defaultLockfileReader(file: string): LockfileEntries | undefined {
   if (!existsSync(file)) return undefined;
   const packages: unknown = JSON.parse(readFileSync(file, 'utf8')).packages;
   return typeof packages === 'object' && packages !== null ? (packages as LockfileEntries) : undefined;
