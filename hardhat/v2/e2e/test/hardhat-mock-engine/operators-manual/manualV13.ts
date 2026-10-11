@@ -15,8 +15,8 @@ import { Signers, getSigners, initSigners } from '../signers';
  * builder, and `instance.publicDecrypt` becomes `hre.fhevm.publicDecrypt` — which returns the same
  * handle-keyed `clearValues` shape.
  *
- * Upstream's `mulDiv` and `toExternalE*` tests are deliberately absent: those operators are not in
- * 0.13.3 and are expected in v14, so the contract does not declare them either.
+ * Upstream's tests for operators 0.13.3 does not expose (`toExternalE*` among them) are deliberately
+ * absent, so the contract does not declare those operators either.
  */
 
 const UINT64_MASK = (1n << 64n) - 1n;

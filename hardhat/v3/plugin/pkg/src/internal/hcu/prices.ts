@@ -10,8 +10,11 @@ import type { FheOperatorName, FheTypeName, NBucketedCost } from '../vendored/pr
 
 export type { FheTypeName } from '../vendored/priceTypes.js';
 
-/** Upstream operator name -> the event `FHEVMExecutor` emits for it. */
-const EVENT_NAME_BY_OPERATOR: Readonly<Record<FheOperatorName, string>> = {
+/**
+ * Upstream operator name -> the event `FHEVMExecutor` emits for it. An operator upstream prices but this
+ * generation's executor never emits has no entry: there is no event it could ever price.
+ */
+const EVENT_NAME_BY_OPERATOR: Readonly<Partial<Record<FheOperatorName, string>>> = {
   fheAdd: 'FheAdd',
   fheSub: 'FheSub',
   fheMul: 'FheMul',
@@ -42,8 +45,6 @@ const EVENT_NAME_BY_OPERATOR: Readonly<Record<FheOperatorName, string>> = {
   fheRandBounded: 'FheRandBounded',
   fheSum: 'FheSum',
   fheIsIn: 'FheIsIn',
-  // No `FheMulDiv` event exists in v13 yet; the price is published, so it is carried through.
-  fheMulDiv: 'FheMulDiv',
 };
 
 export type HCUOperator = (typeof ALL_OPERATORS_PRICES)[FheOperatorName];

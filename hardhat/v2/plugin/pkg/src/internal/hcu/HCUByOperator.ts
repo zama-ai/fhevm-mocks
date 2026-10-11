@@ -11,11 +11,14 @@ import type { FheOperatorName, FheTypeName, NBucketedCost } from '../vendored/pr
  * the lookups `hcu.ts` needs.
  *
  * Replaces a hand-maintained 525-line copy of the same table, which had drifted: it was missing
- * `fheSum`, `fheIsIn` and `fheMulDiv` entirely.
+ * whole operators, `fheSum` and `fheIsIn` among them.
  */
 
-/** Upstream operator name -> the event `FHEVMExecutor` emits for it. */
-const EVENT_NAME_BY_OPERATOR: Readonly<Record<FheOperatorName, string>> = {
+/**
+ * Upstream operator name -> the event `FHEVMExecutor` emits for it. An operator upstream prices but this
+ * generation's executor never emits has no entry: there is no event it could ever price.
+ */
+const EVENT_NAME_BY_OPERATOR: Readonly<Partial<Record<FheOperatorName, string>>> = {
   fheAdd: 'FheAdd',
   fheSub: 'FheSub',
   fheMul: 'FheMul',
@@ -46,9 +49,6 @@ const EVENT_NAME_BY_OPERATOR: Readonly<Record<FheOperatorName, string>> = {
   fheRandBounded: 'FheRandBounded',
   fheSum: 'FheSum',
   fheIsIn: 'FheIsIn',
-  // No `FheMulDiv` event exists in v13 — @fhevm/solidity does not expose `FHE.mulDiv` yet — but the
-  // price is already published, so it is carried through and will light up when the event arrives.
-  fheMulDiv: 'FheMulDiv',
 };
 
 export type HCUOperator = (typeof ALL_OPERATORS_PRICES)[FheOperatorName];
@@ -78,7 +78,7 @@ export const HCUByOperator = __byEventName();
  */
 export type HCUOperatorName = keyof typeof EVENT_NAME_BY_OPERATOR extends never
   ? never
-  : (typeof EVENT_NAME_BY_OPERATOR)[FheOperatorName];
+  : NonNullable<(typeof EVENT_NAME_BY_OPERATOR)[FheOperatorName]>;
 
 /**
  * Price of an `nBucketed` operator for an input array of `n` elements.

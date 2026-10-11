@@ -63,7 +63,6 @@ void test('the price bridge covers every operator event and nothing else', () =>
   for (const name of COPROCESSOR_EVENT_NAMES) {
     assert.equal(hcuPriceOf(name) !== undefined, name !== 'VerifyInput', name);
   }
-  assert.equal(hcuPriceOf('FheMulDiv'), ALL_OPERATORS_PRICES.fheMulDiv);
   assert.equal(Object.hasOwn(HCU_PRICE_BY_EVENT, 'toString'), false);
   assert.equal(getHCU('FheAdd', 'Uint32', { scalar: true }), ALL_OPERATORS_PRICES.fheAdd.scalar?.Uint32);
   assert.equal(getHCU('FheAdd', 'Uint32'), ALL_OPERATORS_PRICES.fheAdd.nonScalar?.Uint32);
