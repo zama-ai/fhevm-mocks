@@ -28,8 +28,8 @@ async function deployFixture(): Promise<{
  * flipped `r` is only about half the time — the other half fails earlier, as `ECDSAInvalidSignature`.
  *
  * Appended bytes would land in the proof's extraData, and what a KMSVerifier does with malformed extraData
- * depends on the protocol line (v0.14 refuses it as `DeserializingExtraDataFail`), so this test does not rely
- * on it: a corrupted signature is refused as `KMSInvalidSigner` by every line.
+ * depends on the protocol line (a strict parser refuses it before any signature is checked), so this test does
+ * not rely on it: a corrupted signature is refused as `KMSInvalidSigner` by every line.
  */
 function withCorruptedFirstSignature(decryptionProof: string): string {
   const at = 2 + 2 * 64; // '0x', then byte 64 as two hex characters
