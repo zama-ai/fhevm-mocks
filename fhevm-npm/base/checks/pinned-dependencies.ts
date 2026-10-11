@@ -43,7 +43,7 @@ export function validatePinnedDependencies(
     resolved.push(...resolvedCopies(pkg, pinned, readLockfile));
   }
 
-  violations.push(...validateResolvedVersions(resolved));
+  violations.push(...validateResolvedVersions(resolved, pinned));
 
   for (const [name, pin] of pinned) {
     if (declaredSomewhere.has(name)) continue;
@@ -91,10 +91,12 @@ function validateLockfile(
   return violations;
 }
 
-// The same pin, written in every package.json, still lets each lockfile resolve its own version: a range is
-// resolved when the lock is written, so a root locked after a release takes the new version and the others keep
-// the old one. That is the drift the pin exists to prevent, so every copy a lockfile resolves — top-level or
-// nested under another dependency, in an installation root or a consumer fixture — must be one version.
+// The pin names the version the workspace develops and releases against: `^0.14.2` says 0.14.2. A range is
+// resolved when a lockfile is written, so a root locked after a newer release silently takes that release instead —
+// the pin then lies about what is installed, and roots locked at different times resolve different copies. Every
+// copy a lockfile resolves for a pinned name — top-level or nested, in an installation root or a consumer fixture,
+// an npm alias under its alias name — must therefore be exactly the pinned version. A newer one means the pin is
+// behind: move it up, so the release carries the most recent package.
 type ResolvedCopy = {
   readonly name: string;
   readonly version: string;
@@ -129,52 +131,50 @@ function resolvedCopies(
   return copies;
 }
 
-function validateResolvedVersions(copies: readonly ResolvedCopy[]): readonly Violation[] {
-  const byName = new Map<string, ResolvedCopy[]>();
-  for (const copy of copies) byName.set(copy.name, [...(byName.get(copy.name) ?? []), copy]);
-
+function validateResolvedVersions(
+  copies: readonly ResolvedCopy[],
+  pinned: readonly (readonly [string, string])[],
+): readonly Violation[] {
+  const pins = new Map(pinned);
   const violations: Violation[] = [];
-  for (const [name, all] of byName) {
-    const versions = [...new Set(all.map((copy) => copy.version))].sort(byVersion);
-    if (versions.length < 2) continue;
-    // No version is the authority: the newest one is named as the target because a lagging root can reach it
-    // within the same range, whereas going back would mean re-locking the others.
-    const newest = versions[versions.length - 1];
-    const where = versions
-      .map((version) => {
-        const files = [...new Set(all.filter((copy) => copy.version === version).map((copy) => copy.lockfileKey))];
-        return `${version} in ${files.join(', ')}`;
-      })
-      .join('; ');
-    for (const copy of all) {
-      if (copy.version === newest) continue;
-      violations.push({
-        rule: '3.3.4',
-        packageKey: copy.lockfileKey,
-        message: `'${name}' resolves to ${copy.version} at '${copy.entryPath}', but the lockfiles disagree (${where}); every lockfile must resolve one version. ${alignHint(copy)}`,
-      });
-    }
+  for (const copy of copies) {
+    const pin = pins.get(copy.name);
+    if (pin === undefined) continue;
+    const pinnedVersion = versionOfPin(pin);
+    if (copy.version === pinnedVersion) continue;
+    violations.push({
+      rule: '3.3.4',
+      packageKey: copy.lockfileKey,
+      message: isNewer(copy.version, pinnedVersion)
+        ? `'${copy.name}' resolves to ${copy.version} at '${copy.entryPath}', newer than its pin "${pin}": the pin is behind what is installed. Move it to "${pin.replace(pinnedVersion, copy.version)}" in npm-manifest.json#dependencies.pinned, then run 'make sync-pinned'`
+        : `'${copy.name}' resolves to ${copy.version} at '${copy.entryPath}', not the pinned ${pinnedVersion} ("${pin}"). ${relockHint(copy)}`,
+    });
   }
   return violations;
 }
 
-function byVersion(left: string, right: string): number {
-  const l = parseVersion(left);
-  const r = parseVersion(right);
-  if (l === undefined || r === undefined) return left.localeCompare(right);
-  return compareVersions(l, r);
+/** `^0.14.2`, `~0.14.2`, `0.14.2` and `npm:@fhevm/sdk@^0.14.2` all pin 0.14.2. */
+function versionOfPin(pin: string): string {
+  const range = pin.startsWith('npm:') ? pin.slice(pin.lastIndexOf('@') + 1) : pin;
+  return range.replace(/^[~^]/, '');
 }
 
-// npm keeps a locked version while it still satisfies the range, so a lagging copy must be dropped from the lock
+function isNewer(candidate: string, reference: string): boolean {
+  const c = parseVersion(candidate);
+  const r = parseVersion(reference);
+  return c !== undefined && r !== undefined && compareVersions(c, r) > 0;
+}
+
+// npm keeps a locked version while it still satisfies the range, so a copy that must move is dropped from the lock
 // for npm to resolve it again — `npm update` would be the natural tool, but in a workspace whose members declare
 // the package as a peer it fails with ERESOLVE. A consumer fixture's lock is then regenerated by fhevm-npm.
-function alignHint(copy: ResolvedCopy): string {
+function relockHint(copy: ResolvedCopy): string {
   const drop = `delete its '${copy.entryPath}' entry from ${copy.lockfileKey}`;
   if (copy.pkg.inventory.kind === 'workspace-root') {
     const where = copy.pkg.key === '.' ? 'the repository root' : copy.pkg.key;
-    return `Align it: ${drop}, then run 'npm install --package-lock-only' in ${where}.`;
+    return `Re-lock it: ${drop}, then run 'npm install --package-lock-only' in ${where}.`;
   }
-  return `Align it: ${drop}, then run './fhevm-npm-cli test-consumer-regenerate-package-lock ${copy.pkg.key}'.`;
+  return `Re-lock it: ${drop}, then run './fhevm-npm-cli test-consumer-regenerate-package-lock ${copy.pkg.key}'.`;
 }
 
 function defaultLockfileReader(file: string): LockfileEntries | undefined {
