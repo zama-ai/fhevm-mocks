@@ -44,7 +44,7 @@ const LOCAL_HOST_ADDRESSES_PATH = join(
   'LocalHostAddresses.sol',
 );
 /**
- * This package's generation key, `v14` — the directory name, which is also its npm-manifest.json key and
+ * This package's generation key, `v<N>` — the directory name, which is also its npm-manifest.json key and
  * the value a constant's `generations` list names.
  */
 const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
@@ -52,9 +52,9 @@ const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
 /**
  * Which generation's `localhost` table this package is.
  *
- * Taken from the config remapping prefix — `fhevm-config-0.14.0/` — rather than from a constant added for
- * this test. That prefix already moves with the protocol minor and is already load-bearing, so it cannot
- * be stale while the package builds; a second declaration of "which generation am I" could be.
+ * Taken from the config remapping prefix — `fhevm-config-<major>.<minor>.0/` — rather than from a constant
+ * added for this test. That prefix already moves with the protocol minor and is already load-bearing, so it
+ * cannot be stale while the package builds; a second declaration of "which generation am I" could be.
  *
  * Reading the SIBLING generation's table would be the stronger check, but this test deliberately does not:
  * a generation must be checkable from its own checkout, and `../v12` may not be there.
