@@ -38,15 +38,13 @@ contract LibHostUpgradeCodeTest is Test {
     ///      from drifting apart.
     uint256 internal constant ROLES = 10;
 
+    /// Every contract the generated table knows, read off the enum rather than listed by name, so the
+    /// file holds for whatever set a generation ships.
     function _contracts() private pure returns (FhevmHostContracts[] memory all) {
         all = new FhevmHostContracts[](LocalHostUpgrade.HOST_CONTRACT_COUNT);
-        all[0] = FhevmHostContracts.ACL;
-        all[1] = FhevmHostContracts.FHEVMExecutor;
-        all[2] = FhevmHostContracts.KMSVerifier;
-        all[3] = FhevmHostContracts.InputVerifier;
-        all[4] = FhevmHostContracts.HCULimit;
-        all[5] = FhevmHostContracts.ProtocolConfig;
-        all[6] = FhevmHostContracts.KMSGeneration;
+        for (uint256 i = 0; i < all.length; i++) {
+            all[i] = FhevmHostContracts(uint8(i));
+        }
     }
 
     /// The localhost set, which is what every blob ships holding.
@@ -95,7 +93,10 @@ contract LibHostUpgradeCodeTest is Test {
             bytes memory back =
                 LibHostUpgradeCode.patch(there, LocalHostUpgrade.patchSites(all[i]), _remote(), _canonical());
 
-            assertTrue(keccak256(there) != keccak256(original), "the trip must actually change something");
+            // A contract with no baked-in address has nothing to rewrite; every other one must change.
+            if (LocalHostUpgrade.patchSites(all[i]).length != 0) {
+                assertTrue(keccak256(there) != keccak256(original), "the trip must actually change something");
+            }
             assertEq(back, original, "and come back exactly");
         }
     }
@@ -187,22 +188,24 @@ contract LibHostUpgradeCodeTest is Test {
         address hcuLimit = remote[uint8(FhevmAddressRole.HCULimit)];
         address pauserSet = remote[uint8(FhevmAddressRole.PauserSet)];
 
-        address deployedExecutor = _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.FHEVMExecutor, remote));
+        address deployedExecutor =
+            _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextFHEVMExecutor, remote));
         assertEq(IFHEVMExecutor(deployedExecutor).getACLAddress(), acl, "executor -> acl");
         assertEq(IFHEVMExecutor(deployedExecutor).getInputVerifierAddress(), inputVerifier, "executor -> inputVerifier");
         assertEq(IFHEVMExecutor(deployedExecutor).getHCULimitAddress(), hcuLimit, "executor -> hcuLimit");
 
-        address deployedAcl = _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.ACL, remote));
+        address deployedAcl = _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextACL, remote));
         assertEq(IACL(deployedAcl).getFHEVMExecutorAddress(), executor, "acl -> executor");
         assertEq(IACL(deployedAcl).getPauserSetAddress(), pauserSet, "acl -> pauserSet");
 
-        address deployedHcu = _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.HCULimit, remote));
+        address deployedHcu = _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextHCULimit, remote));
         assertEq(IHCULimitAddresses(deployedHcu).getFHEVMExecutorAddress(), executor, "hcuLimit -> executor");
     }
 
     /// The same, for the set the blobs ship with: a patch that is a no-op must still deploy and answer.
     function test_theCanonicalImplementationStillDeploysAndAnswers() public {
-        address deployed = _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.FHEVMExecutor, _canonical()));
+        address deployed =
+            _deploy(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextFHEVMExecutor, _canonical()));
         assertEq(
             IFHEVMExecutor(deployed).getACLAddress(),
             LocalHostUpgrade.canonicalAddress(FhevmAddressRole.ACL),
@@ -291,9 +294,9 @@ contract LibHostUpgradeCodeTest is Test {
         address[10] memory incomplete = _remote();
         incomplete[uint8(FhevmAddressRole.ACL)] = address(0);
 
-        // FHEVMExecutor references ACL, so the gap is reached rather than ignored.
+        // The executor references ACL, so the gap is reached rather than ignored.
         vm.expectRevert(abi.encodeWithSelector(LibHostUpgradeCode.NoAddressForRole.selector, FhevmAddressRole.ACL));
-        this.creationCodeForExternally(FhevmHostContracts.FHEVMExecutor, incomplete);
+        this.creationCodeForExternally(FhevmHostContracts.CleartextFHEVMExecutor, incomplete);
     }
 
     /// A role no site references may stay zero: the loop never reaches it.
@@ -301,8 +304,8 @@ contract LibHostUpgradeCodeTest is Test {
         address[10] memory set = _remote();
         set[uint8(FhevmAddressRole.CleartextDB)] = address(0);
 
-        // The vendored implementations know nothing about the cleartext contracts.
-        assertGt(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.FHEVMExecutor, set).length, 0, "patched");
+        // HCULimit references only the executor, so the CleartextDB role is never reached.
+        assertGt(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextHCULimit, set).length, 0, "patched");
     }
 
     // External wrappers, so `vm.expectRevert` has a call frame to catch.
