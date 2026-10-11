@@ -44,7 +44,7 @@ const LOCAL_HOST_ADDRESSES_PATH = join(
   'LocalHostAddresses.sol',
 );
 /**
- * This package's generation key, `v13` — the directory name, which is also its npm-manifest.json key and
+ * This package's generation key, `v<N>` — the directory name, which is also its npm-manifest.json key and
  * the value a constant's `generations` list names.
  */
 const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
@@ -52,9 +52,9 @@ const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
 /**
  * Which generation's `localhost` table this package is.
  *
- * Taken from the config remapping prefix — `fhevm-config-0.13.0/` — rather than from a constant added for
- * this test. That prefix already moves with the protocol minor and is already load-bearing, so it cannot
- * be stale while the package builds; a second declaration of "which generation am I" could be.
+ * Taken from the config remapping prefix — `fhevm-config-<major>.<minor>.0/` — rather than from a constant
+ * added for this test. That prefix already moves with the protocol minor and is already load-bearing, so it
+ * cannot be stale while the package builds; a second declaration of "which generation am I" could be.
  *
  * Reading the SIBLING generation's table would be the stronger check, but this test deliberately does not:
  * a generation must be checkable from its own checkout, and `../v12` may not be there.
@@ -187,8 +187,8 @@ function evaluateAs(solidityType: string, formula: string): string {
 }
 
 /** `export const NAME = VALUE;` from the TypeScript face, in declaration order. */
-function readTsFace(): Map<string, string> {
-  const src = readFileSync(TS_PATH, 'utf8');
+function readTsFace(path: string = TS_PATH): Map<string, string> {
+  const src = readFileSync(path, 'utf8');
   const out = new Map<string, string>();
   for (const [, name, value] of src.matchAll(/^export const ([A-Za-z_][A-Za-z0-9_]*) = ([^\n]+?);?$/gm)) {
     if (name === undefined || value === undefined) continue;
@@ -284,15 +284,16 @@ void test('addresses are EIP-55 checksummed', () => {
 void test('the TypeScript face matches the source of truth', () => {
   // Complete for this generation, like the Solidity face: `sync vendored` copies common-vendored's
   // `cleartext-config-<gen>.ts` here under the stable name, so the file is judged against visible truth.
-  const truth = readVisibleTruth();
-  const face = readTsFace();
+  checkTsFace('pkg/ts/cleartext-config.ts', readVisibleTruth(), readTsFace());
+});
 
+function checkTsFace(label: string, truth: Map<string, Entry>, face: Map<string, string>): void {
   assert.deepEqual(
     [...face.keys()],
     [...truth.keys()],
-    `pkg/ts/cleartext-config.ts declares a different set of constants, or in a different order, than\n` +
-      `sdk/cleartext-config.json. Names are verbatim and order is declaration order — an alias must follow\n` +
-      `the constant it aliases. The file is generated: rerun \`make generate\`, never edit it.`,
+    `${label} declares a different set of constants, or in a different order, than\n` +
+      `its source of truth. Names are verbatim and order is declaration order — an alias must follow\n` +
+      `the constant it aliases. The shared file is generated: rerun \`make generate\`, never edit it.`,
   );
 
   const diffs: string[] = [];
@@ -312,8 +313,8 @@ void test('the TypeScript face matches the source of truth', () => {
     const have = canonical(e.solidity, got);
     if (have !== want) diffs.push(`${name}\n    json: ${want}\n    ts:   ${have}`);
   }
-  assert.deepEqual(diffs, [], 'value drift between sdk/cleartext-config.json and pkg/ts/cleartext-config.ts');
-});
+  assert.deepEqual(diffs, [], `value drift between the source of truth and ${label}`);
+}
 
 void test('the Solidity face matches the source of truth', () => {
   // Per-generation file, so it carries the shared set AND what is scoped to this generation.
