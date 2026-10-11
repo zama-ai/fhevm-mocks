@@ -1,0 +1,94 @@
+{
+  "op": "isin",
+  "arity": 2,
+  "operands": ["lhs", "values"],
+  "semantics": "membership",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "isin_32_e2e_i4",
+      "lhs": { "bits": 32, "value": "0x186a0" },
+      "values": [
+        { "bits": 32, "value": "0x186a0" },
+        { "bits": 32, "value": "0x30d40" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_32_found_middle",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "values": [
+        { "bits": 32, "value": "0x17" },
+        { "bits": 32, "value": "0x64" },
+        { "bits": 32, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_32_not_found",
+      "lhs": { "bits": 32, "value": "0x1e" },
+      "values": [
+        { "bits": 32, "value": "0x17" },
+        { "bits": 32, "value": "0x64" },
+        { "bits": 32, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_32_mid_found",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "values": [
+        { "bits": 32, "value": "0x2d2d2d2d" },
+        { "bits": 32, "value": "0x6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_32_mid_not_found",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "values": [
+        { "bits": 32, "value": "0x2d2d2d2d" },
+        { "bits": 32, "value": "0xa5a5a5a5" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_32_pattern_found",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "values": [
+        { "bits": 32, "value": "0x5a5a5a5a" },
+        { "bits": 32, "value": "0xa5a5a5a5" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_32_pattern_vs_inverse",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "values": [
+        { "bits": 32, "value": "0x5a5a5a5a" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_32_sized_8_found",
+      "lhs": { "bits": 32, "value": "0x6b" },
+      "values": [
+        { "bits": 32, "value": "0x2d2d2d2d" },
+        { "bits": 32, "value": "0x6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_32_sized_16_found",
+      "lhs": { "bits": 32, "value": "0x6b6b" },
+      "values": [
+        { "bits": 32, "value": "0x2d2d2d2d" },
+        { "bits": 32, "value": "0x6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    }
+  ]
+}

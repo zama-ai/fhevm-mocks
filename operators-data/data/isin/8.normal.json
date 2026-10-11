@@ -1,0 +1,87 @@
+{
+  "op": "isin",
+  "arity": 2,
+  "operands": ["lhs", "values"],
+  "semantics": "membership",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "isin_8_e2e_i1",
+      "lhs": { "bits": 8, "value": "0x14" },
+      "values": [
+        { "bits": 8, "value": "0xa" },
+        { "bits": 8, "value": "0x14" },
+        { "bits": 8, "value": "0x1e" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_8_e2e_i2",
+      "lhs": { "bits": 8, "value": "0x63" },
+      "values": [
+        { "bits": 8, "value": "0xa" },
+        { "bits": 8, "value": "0x14" },
+        { "bits": 8, "value": "0x1e" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_8_found_middle",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "values": [
+        { "bits": 8, "value": "0x17" },
+        { "bits": 8, "value": "0x64" },
+        { "bits": 8, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_8_not_found",
+      "lhs": { "bits": 8, "value": "0x1e" },
+      "values": [
+        { "bits": 8, "value": "0x17" },
+        { "bits": 8, "value": "0x64" },
+        { "bits": 8, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_8_mid_found",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "values": [
+        { "bits": 8, "value": "0x2d" },
+        { "bits": 8, "value": "0x6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_8_mid_not_found",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "values": [
+        { "bits": 8, "value": "0x2d" },
+        { "bits": 8, "value": "0xa5" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_8_pattern_found",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "values": [
+        { "bits": 8, "value": "0x5a" },
+        { "bits": 8, "value": "0xa5" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_8_pattern_vs_inverse",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "values": [
+        { "bits": 8, "value": "0x5a" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    }
+  ]
+}

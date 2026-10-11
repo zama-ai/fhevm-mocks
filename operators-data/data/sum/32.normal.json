@@ -1,0 +1,85 @@
+{
+  "op": "sum",
+  "arity": 1,
+  "operands": ["values"],
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "sum_32_e2e_s2",
+      "values": [
+        { "bits": 32, "value": "0x186a0" },
+        { "bits": 32, "value": "0x30d40" }
+      ],
+      "result": { "bits": 32, "value": "0x493e0" }
+    },
+    {
+      "id": "sum_32_plain",
+      "values": [
+        { "bits": 32, "value": "0x64" },
+        { "bits": 32, "value": "0x17" }
+      ],
+      "result": { "bits": 32, "value": "0x7b" }
+    },
+    {
+      "id": "sum_32_small_three",
+      "values": [
+        { "bits": 32, "value": "0x7" },
+        { "bits": 32, "value": "0x17" },
+        { "bits": 32, "value": "0x64" }
+      ],
+      "result": { "bits": 32, "value": "0x82" }
+    },
+    {
+      "id": "sum_32_small_run",
+      "values": [
+        { "bits": 32, "value": "0x1" },
+        { "bits": 32, "value": "0x2" },
+        { "bits": 32, "value": "0x3" },
+        { "bits": 32, "value": "0x4" },
+        { "bits": 32, "value": "0x5" },
+        { "bits": 32, "value": "0x6" },
+        { "bits": 32, "value": "0x7" },
+        { "bits": 32, "value": "0x8" },
+        { "bits": 32, "value": "0x9" },
+        { "bits": 32, "value": "0xa" }
+      ],
+      "result": { "bits": 32, "value": "0x37" }
+    },
+    {
+      "id": "sum_32_mid_pair",
+      "values": [
+        { "bits": 32, "value": "0x6b6b6b6b" },
+        { "bits": 32, "value": "0x2d2d2d2d" }
+      ],
+      "result": { "bits": 32, "value": "0x98989898" }
+    },
+    {
+      "id": "sum_32_pattern_vs_inverse",
+      "values": [
+        { "bits": 32, "value": "0xa5a5a5a5" },
+        { "bits": 32, "value": "0x5a5a5a5a" }
+      ],
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "sum_32_sized_8",
+      "values": [
+        { "bits": 32, "value": "0x6b" },
+        { "bits": 32, "value": "0x2d" }
+      ],
+      "result": { "bits": 32, "value": "0x98" }
+    },
+    {
+      "id": "sum_32_sized_16",
+      "values": [
+        { "bits": 32, "value": "0x6b6b" },
+        { "bits": 32, "value": "0x2d2d" }
+      ],
+      "result": { "bits": 32, "value": "0x9898" }
+    }
+  ]
+}
