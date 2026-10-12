@@ -30,6 +30,12 @@ import {
 import { normalizeHex, readJson } from '../internal/utils.ts';
 import { derivePlaceholder } from '../internal/generatePlaceholders.ts';
 import {
+  EXPECTED_POOLED_SITES,
+  POOL_REORDER_EXEMPT,
+  canPoolReorder,
+  classifyAddressSites,
+} from '../internal/pooledAddressSites.ts';
+import {
   OUTPUT_PATH as COMPUTE_ADDRESSES_PATH,
   computeAddressesScript,
 } from '../internal/generateComputeAddressesScript.ts';
@@ -388,10 +394,54 @@ void test('LocalHostBytecode.sol carries the Forge cleartext variants alongside 
   }
 });
 
+// The bytecode-layout constraint these three tests defend is explained, with pictures, in
+// internal/pooledAddressSites.ts. Read that first; it is the only place the knowledge lives.
+void test('address patch sites are inline operands, except the committed pooled ones', () => {
+  const measured: Record<string, Partial<Record<AddressName, number>>> = {};
+
+  for (const target of TARGET_CONTRACTS) {
+    const template = readTemplate(target.contractName);
+    const field = CODE_KIND[target.contractName] === 'runtime' ? 'deployedBytecode' : 'bytecode';
+    const offsetField = field === 'bytecode' ? 'bytecodeOffsets' : 'deployedBytecodeOffsets';
+    const hex = normalizeHex(template[field], `${target.contractName}.${field}`);
+
+    for (const name of ADDRESS_NAMES) {
+      const { pooled } = classifyAddressSites(hex, getAddressReference(template, name)[offsetField]);
+      if (pooled > 0) (measured[target.contractName] ??= {})[name] = pooled;
+    }
+  }
+
+  assert.deepEqual(
+    measured,
+    EXPECTED_POOLED_SITES,
+    'the set of POOLED address sites moved. An address stored in the shared constant table instead of\n' +
+      'inline is what makes patched bytecode diverge from a direct compile — see\n' +
+      'internal/pooledAddressSites.ts. Two or more pooled addresses in ONE contract is the case that\n' +
+      'actually breaks; update the table there, and the exemption list with it, once understood.',
+  );
+});
+
+void test('only the exempted contracts can have their constant table reordered', () => {
+  const canReorder = Object.entries(EXPECTED_POOLED_SITES)
+    .filter(([, counts]) => canPoolReorder(counts))
+    .map(([contractName]) => contractName)
+    .sort();
+
+  assert.deepEqual(
+    canReorder,
+    Object.keys(POOL_REORDER_EXEMPT).sort(),
+    'the exemption list must be EXACTLY the contracts with two or more pooled addresses — derived from\n' +
+      'the rule, never hand-extended, so it cannot quietly grow to hide a new divergence.',
+  );
+});
+
 void test('LocalHostBytecode.sol blobs equal the committed templates patched with those addresses', () => {
   // Ties the two pipelines together. The generated file is compiled against real addresses; the
   // templates are compiled against markers and patched. Test 5 above proves those are equivalent, so
   // these must agree exactly — and if the sources moved without regenerating, they will not.
+  //
+  // Skips the contracts whose constant table can be reordered by substitution, where byte-identity is
+  // not achievable at all; the test below covers those with the strongest property that still holds.
   const source = readFileSync(LOCAL_HOST_BYTECODE_PATH, 'utf8');
   const declared = declaredAddresses(source);
   const blobs = declaredBlobs(source);
@@ -422,6 +472,8 @@ void test('LocalHostBytecode.sol blobs equal the committed templates patched wit
     const kind = CODE_KIND[target.contractName];
     assert.equal(blob.suffix, kind === 'runtime' ? 'RUNTIME' : 'CREATION', `${target.contractName} code kind`);
 
+    if (POOL_REORDER_EXEMPT[target.contractName] !== undefined) continue;
+
     const field = kind === 'runtime' ? 'deployedBytecode' : 'bytecode';
     // `hex"…"` literals carry no 0x prefix; patchBytecode returns one.
     assert.equal(
@@ -439,6 +491,45 @@ void test('LocalHostBytecode.sol blobs equal the committed templates patched wit
     }
   }
 });
+
+void test('an exempted contract carries exactly the same address constants as a direct compile', () => {
+  // What survives when byte-identity cannot: the patched artifact must be the same LENGTH and must
+  // contain each address exactly as many times as the compiled one. Only the slots the two sit in may
+  // differ. That still catches an address dropped, duplicated, or written with the wrong value —
+  // everything except the permutation the compiler is entitled to choose.
+  const source = readFileSync(LOCAL_HOST_BYTECODE_PATH, 'utf8');
+  const declared = declaredAddresses(source);
+  const blobs = declaredBlobs(source);
+
+  for (const contractName of Object.keys(POOL_REORDER_EXEMPT)) {
+    const target = TARGET_CONTRACTS.find((candidate) => candidate.contractName === contractName);
+    assert.ok(target, `${contractName} is exempted but is not a target contract`);
+
+    const blob = blobs.get(CONSTANT_NAMES[target.contractName]);
+    assert.ok(blob !== undefined, `${contractName} missing from LocalHostBytecode.sol`);
+
+    const field = CODE_KIND[target.contractName] === 'runtime' ? 'deployedBytecode' : 'bytecode';
+    const patched = normalizeHex(patchBytecode(readTemplate(contractName), field, declared), 'patched');
+
+    assert.equal(blob.hex.length, patched.length, `${contractName}: patched and compiled differ in LENGTH`);
+
+    for (const name of ADDRESS_NAMES) {
+      const address = normalizeHex(declared[name], name).toLowerCase();
+      assert.equal(
+        occurrences(blob.hex, address),
+        occurrences(patched, address),
+        `${contractName}: ${name} appears a different number of times in the patched and compiled code`,
+      );
+    }
+  }
+});
+
+/** Non-overlapping occurrences of `needle` in `haystack`. */
+function occurrences(haystack: string, needle: string): number {
+  let count = 0;
+  for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + needle.length)) count++;
+  return count;
+}
 
 void test('generated interfaces cover every target and share one FheType', () => {
   const interfaceDir = join(PKG_DIR_ABS_PATH, 'forge', 'src', '_internal', 'interfaces');

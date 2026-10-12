@@ -200,9 +200,9 @@ export const AUTHENTIC_CONTRACTS = [
  * chose, so its position is findable. The emitted constant is that same build with the markers spliced
  * to the localhost addresses, so the bytes and the offsets describe each other by construction. The
  * blobs above are a different compile entirely (see the header of this file), and their constant tables
- * can come out ordered differently — `internal/pooledAddressSites.ts` records the one contract where
- * that demonstrably happens. Reusing a template's offsets against them would write one address into
- * another's slot.
+ * can come out ordered differently — `internal/pooledAddressSites.ts` explains when, and records the
+ * contracts where it demonstrably happens. Reusing a template's offsets against them would write one
+ * address into another's slot.
  *
  * That risk is why `_upgradeImplementations` does not merely splice and trust: it compares the result
  * with the independent localhost compile of the same contract, byte for byte, in the same run. A patch
@@ -657,9 +657,9 @@ function _markerOffsets(hex: string, marker: string): number[] {
  * was written the other way round to begin with: the first version took the placeholder build's offsets
  * and spliced them into the localhost blob, and `FHEVMExecutor` failed immediately, because it pools
  * `ACL_ADDRESS` and `HCU_LIMIT_ADDRESS` and the compiler emits that pair in the opposite order once the
- * values change — the same reordering `internal/pooledAddressSites.ts` records for the cleartext
- * executor. Measured in its own bytes, a blob cannot disagree with its own table, and a contract that
- * pools two addresses stops being a special case.
+ * values change — the reordering `internal/pooledAddressSites.ts` explains. Measured in its own bytes,
+ * a blob cannot disagree with its own table, and a contract that pools two addresses stops being a
+ * special case.
  *
  * WHAT THE PLACEHOLDER BUILD IS STILL FOR: counting. A 20-byte address could in principle occur in the
  * bytecode by coincidence, and a scan cannot tell that from a real reference. The placeholder build
