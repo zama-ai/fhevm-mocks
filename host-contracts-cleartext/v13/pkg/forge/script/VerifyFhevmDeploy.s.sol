@@ -59,13 +59,13 @@ interface IEIP712Domain {
  *
  * Usage (from the package root):
  *
- *   FOUNDRY_REMAPPINGS=fhevm-config-0.13.0/=internal/.deploy-config/ \
+ *   FOUNDRY_REMAPPINGS=fhevm-config-<major.minor>.0/=internal/.deploy-config/ \
  *     forge script pkg/forge/script/VerifyFhevmDeploy.s.sol --rpc-url <rpc>
  *
  * No private key, and no required environment variables: the addresses come from the
- * `fhevm-config-0.13.0/` addresses.sol this script was compiled against, which is what makes it a check
- * of a *specific* deploy. Point it at a stack built from a different config and every address will report
- * no code — that is the correct answer, not a bug.
+ * `fhevm-config-<major.minor>.0/` addresses.sol this script was compiled against (the prefix in remappings.txt),
+ * which is what makes it a check of a *specific* deploy. Point it at a stack built from a different config and
+ * every address will report no code — that is the correct answer, not a bug.
  *
  * Optional environment variables, each pinning an identity that is not derivable from the config:
  *   ACL_OWNER_ADDRESS      — the expected ACLOwner contract (CREATE(deployer, 12) on a fresh deploy, but
@@ -223,7 +223,7 @@ contract VerifyFhevmDeploy is Script {
 
     /**
      * @dev The stack must be owned by an `ACLOwner` contract rather than an EOA. That is not cosmetic:
-     *      `updateV12ToV13` requires it, and an EOA-owned stack has no atomic upgrade path. Checked both
+     *      the generation upgrade requires it, and an EOA-owned stack has no atomic upgrade path. Checked both
      *      ways — the owner has code, and its `acl()` points back at this ACL — so an unrelated contract
      *      holding ownership is not mistaken for a correct setup.
      *

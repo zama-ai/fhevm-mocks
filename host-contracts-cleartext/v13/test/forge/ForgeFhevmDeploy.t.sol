@@ -145,9 +145,18 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
     }
 
     /// The generation, where a consumer looks for it: the ACL every `ZamaConfig` already holds. It is the one
-    /// contract that carries it — the other substitutions answer `IS_CLEARTEXT` and nothing more.
-    function test_theCleartextGenerationIsThirteen() public pure {
-        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), 13, "acl");
+    /// contract that carries it — the other substitutions answer `IS_CLEARTEXT` and nothing more. Expected:
+    /// the number in this package's folder name (`host-contracts-cleartext/v<N>`), not a copy of the constant.
+    function test_theCleartextGenerationIsThePackageFolder() public view {
+        bytes memory root = bytes(vm.projectRoot());
+        uint256 i = root.length;
+        uint256 generation;
+        for (uint256 scale = 1; i > 0 && root[i - 1] >= "0" && root[i - 1] <= "9"; scale *= 10) {
+            --i;
+            generation += (uint8(root[i]) - uint8(bytes1("0"))) * scale;
+        }
+        assertTrue(i >= 2 && root[i - 1] == "v" && root[i - 2] == "/", "the package folder is not v<N>");
+        assertEq(IForgeMarker(ACL_ADDRESS).CLEARTEXT_PROTOCOL_VERSION(), generation, "acl");
     }
 
     /**

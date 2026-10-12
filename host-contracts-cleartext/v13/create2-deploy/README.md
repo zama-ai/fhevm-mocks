@@ -195,8 +195,7 @@ What is **not** proven, and would have to be added to prove it:
 - **The rehearsal is a fork, not the chain.** anvil replays state faithfully, but block timestamps, gas
   accounting and the mempool are its own. A payload that passes on the fork can still fail live for
   reasons of gas or ordering, which is what `materialize`'s own `require`s and the post-hoc `verify` are for.
-  Verified on anvil forking anvil (`npm run test:create2-deploy-e2e`, `npm run test:upgrade`); not yet on an anvil
-  forking a public testnet.
+  Verified on anvil forking anvil (`npm run test:upgrade`); not yet on an anvil forking a public testnet.
 
 ## Checking a stage before running it
 

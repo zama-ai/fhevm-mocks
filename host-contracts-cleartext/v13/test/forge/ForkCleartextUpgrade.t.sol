@@ -49,9 +49,6 @@ abstract contract ForkCleartextUpgrade is Test {
     address internal KMS_GENERATION;
     address internal PAUSER_SET;
 
-    /// @dev `fheMulDiv`'s bitmask: bit 0 (the divisor) is always set, bit 1 marks factor2 as scalar.
-    bytes1 internal constant SCALAR_FACTOR_AND_DIVISOR = 0x03;
-
     bool internal forked;
     address internal owner;
 
@@ -118,10 +115,10 @@ abstract contract ForkCleartextUpgrade is Test {
         assertEq(ICleartextDB(dbProxy).get(handle), 7, "the DB holds the plaintext");
         assertEq(ICleartextFHEVMExecutor(EXECUTOR).plaintexts(handle), 7, "and the executor answers for it");
 
-        // NO GENERATION PROBE HERE. The line above ends this test with an operation only IT has
-        // (`fheMulDiv`), because there the upgrade is two steps and `trivialEncrypt` alone cannot tell
-        // whether the generation step really ran. Here there is only the cleartext swap, and step 4 is
-        // exactly the question that swap answers.
+        // NO GENERATION PROBE HERE. Where an upgrade is two steps (a generation step, then the cleartext
+        // swap), the test must end with an operation only the new generation has, because
+        // `trivialEncrypt` alone cannot tell whether the generation step really ran. Here there is only
+        // the cleartext swap, and step 4 is exactly the question that swap answers.
     }
 
     /// @dev One address per `FhevmAddressRole`: this chain's, not this package's.
