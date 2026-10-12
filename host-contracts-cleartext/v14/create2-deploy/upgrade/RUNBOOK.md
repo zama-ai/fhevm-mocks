@@ -4,13 +4,13 @@
 > file is the condensed checklist.
 
 Terminal commands only, in order. Every command is safe to re-run; re-running is how you resume.
-For the reasoning behind each step see [GUIDE.md](GUIDE.md) and [README.md](README.md).
+For the reasoning behind each step see [GUIDE.md](../GUIDE.md) and [README.md](../README.md).
 
 ## To test the tooling first
 
 ```sh
 npm run test:create2-deploy-e2e     # fresh v14 deploy through the CREATE2 coordinator, on a throwaway anvil
-npm run test:upgrade                # v13 deploy, then this upgrade, on a throwaway anvil
+npm run test:upgrade                # every suite needing the previous generation: a v13 deploy, then this upgrade
 ```
 
 ## 0. Prerequisites

@@ -179,7 +179,8 @@ RULES.md rule 11.
 
 ## 6. Re-point the previous generation (V(N-1))
 
-Re-point the previous generation (V(N-1))
+This section is the AUTHORING side: what the NEW generation must point at. For the other side — what
+THIS generation deletes once it stops being V(N) — see [ROTATION.md](ROTATION.md).
 
 The upgrade path and its e2e are hardcoded to a specific pair of generations. For version N the
 previous generation becomes N-1 everywhere:

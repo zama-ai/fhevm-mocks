@@ -243,8 +243,6 @@ export const UPGRADE_IMPLEMENTATIONS = [
     sourcePath: 'src/cleartext/CleartextArithmetic.sol',
   },
   { enumMember: 'CleartextDB', contractName: 'CleartextDB', sourcePath: 'src/cleartext/CleartextDB.sol' },
-  // The bootstrap proxy the two above are deployed behind. It bakes in the ACL like everything else, so on
-  // a remote stack it needs patching too, or its `onlyACLOwner` asks an address with no code.
   { enumMember: 'CleartextACL', contractName: 'CleartextACL', sourcePath: 'src/cleartext/CleartextACL.sol' },
   {
     enumMember: 'CleartextKMSVerifier',
@@ -283,6 +281,9 @@ export const UPGRADE_IMPLEMENTATIONS = [
     contractName: 'CleartextForgeHCULimit',
     sourcePath: 'src/cleartext/CleartextForgeHCULimit.sol',
   },
+  // The bootstrap proxy the store and the arithmetic are deployed behind, before their real
+  // implementations replace it. It bakes in the ACL like everything else, so on a remote stack it needs
+  // patching too, or its `onlyACLOwner` asks an address with no code.
   {
     enumMember: 'EmptyUUPSProxy',
     contractName: 'EmptyUUPSProxy',
