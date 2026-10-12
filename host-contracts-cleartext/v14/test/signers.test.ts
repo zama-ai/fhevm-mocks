@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
-import { PKG_DIR_ABS_PATH, WORKSPACE_ROOT_ABS_PATH } from '../internal/constants.ts';
+import { PACKAGE_ROOT_ABS_PATH, PKG_DIR_ABS_PATH, WORKSPACE_ROOT_ABS_PATH } from '../internal/constants.ts';
 
 // The js-sdk relayer duplicates this package's cleartext signer config (mnemonic, HD paths, pool size)
 // deep in its internals — see js-sdk .../relayer/cleartext/signers.ts. It is not exported, so we read
@@ -86,7 +86,10 @@ function countAddresses(source: string, constName: string): number {
   return [...body.matchAll(/'0x[0-9a-fA-F]{40}'/g)].length;
 }
 
-void test('js-sdk cleartext signer config matches host-contracts-cleartext/v14 constants', () => {
+/** This package as the messages name it: `host-contracts-cleartext/<its folder>`. */
+const HOST_PACKAGE = `host-contracts-cleartext/${basename(PACKAGE_ROOT_ABS_PATH)}`;
+
+void test(`js-sdk cleartext signer config matches ${HOST_PACKAGE} constants`, () => {
   const sdk = readInstalledSdkSigners();
   const host = read(HOST_CONFIG_PATH);
 
@@ -94,7 +97,7 @@ void test('js-sdk cleartext signer config matches host-contracts-cleartext/v14 c
   assert.equal(
     capture(sdk, /const FHEVM_TEST_MNEMONIC\s*=\s*'([^']+)'/, 'js-sdk FHEVM_TEST_MNEMONIC'),
     capture(host, /const FHEVM_MNEMONIC\s*=\s*'([^']+)'/, 'host FHEVM_MNEMONIC'),
-    'mnemonic mismatch between js-sdk and host-contracts-cleartext/v14',
+    `mnemonic mismatch between js-sdk and ${HOST_PACKAGE}`,
   );
 
   // HD paths. The js-sdk stores only the suffix after the shared `m/44'/60'/` prefix (it prepends the

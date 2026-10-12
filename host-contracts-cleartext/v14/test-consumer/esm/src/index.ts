@@ -55,7 +55,7 @@ async function main(): Promise<void> {
       'verify skipped checks that should run against a local Anvil deployment',
     );
 
-    console.log(`✅ deployed and verified the default v14 stack on ${ANVIL_RPC_URL}`);
+    console.log(`✅ deployed and verified the default stack on ${ANVIL_RPC_URL}`);
   } finally {
     await stopAnvil(anvil.process);
   }

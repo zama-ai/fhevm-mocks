@@ -688,8 +688,8 @@ smoke_check() {
         _smoke_fail "CleartextDB.isWriter(CleartextArithmetic) is not true"
     fi
 
-    # 4. ownership. ACL must be owned by an ACLOwner *contract*, not an EOA: updateV13ToV14 requires it and
-    #    an EOA-owned stack has no atomic upgrade path.
+    # 4. ownership. ACL must be owned by an ACLOwner *contract*, not an EOA: the generation upgrade requires
+    #    it and an EOA-owned stack has no atomic upgrade path.
     local owner
     owner="$(cast call "$ACL_ADDRESS" 'owner()(address)' --rpc-url "$RPC_URL" 2>/dev/null || echo '')"
     if [ -z "$owner" ]; then

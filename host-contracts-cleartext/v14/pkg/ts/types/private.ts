@@ -42,7 +42,7 @@ export type ContractUpgradeSpec = {
 
 /**
  * Phase 1 output for a single proxy: the freshly deployed implementation plus the calldata to point
- * the proxy at it. No transaction is sent — consumed by `deploy` / `updateV13ToV14` (via `ACLOwner`).
+ * the proxy at it. No transaction is sent — consumed by `deploy` / the generation upgrade (via `ACLOwner`).
  */
 export type DeployedImplementation = {
   readonly contractName: string;
