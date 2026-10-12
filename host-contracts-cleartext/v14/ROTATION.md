@@ -27,8 +27,8 @@ rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
 "test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
 "test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v13 && …"
 "@fhevm/host-contracts-cleartext-v13-dev": "file:../v13",
-"@fhevm/sdk": "^0.14.2",
-"@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7",
+"@fhevm/sdk": "^0.14.x",
+"@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.x",
 ```
 
 Both `test:upgrade*` scripts go: `test:upgrade:fast` is the same suite's fast lane, and it runs `test/upgrade/*`,
