@@ -217,9 +217,9 @@ void test('patched templates match a Forge build compiled with different config 
  * That constraint is not fussiness, it is the property under test. solc sorts a pooled constant table by
  * VALUE, so an address set that inverts two pooled addresses makes it emit the table — and the code that
  * indexes it — differently. Patching cannot reproduce that, and is not meant to: it rewrites values in
- * place, leaving each where its own value was, so the reads still resolve. Measured on `FHEVMExecutor`,
- * which pools ACL and HCULimit: against an inverting set the patched blob and a fresh compile differ by
- * 104 bytes, of which only 40 are addresses. Byte equality is therefore claimable exactly when the
+ * place, leaving each where its own value was, so the reads still resolve. On `FHEVMExecutor`, which
+ * pools ACL and HCULimit, an inverting set makes the patched blob and a fresh compile differ in far more
+ * bytes than the addresses themselves. Byte equality is therefore claimable exactly when the
  * ordering is preserved; for every other set the guarantee is behavioural, and
  * `test/forge/LibHostUpgradeCode.t.sol` gets it by deploying the patched implementation and asking it
  * where its siblings are.
