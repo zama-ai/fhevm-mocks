@@ -1,11 +1,11 @@
-// The CREATE2 path, fresh: a new anvil, a v13 stack deployed by this package's own `create2-deploy`
-// coordinator, and the terminal conditions read back independently of it.
+// The CREATE2 path, fresh: a new anvil, a stack of this package's generation deployed by its own
+// `create2-deploy` coordinator, and the terminal conditions read back independently of it.
 //
 // Run: npm run test:create2-deploy-e2e
 //
-// The sibling `upgrade/create2.test.ts` starts from a v12 stack and upgrades it; this one has no previous
-// generation at all. The two are separate on purpose: a broken fresh deploy and a broken upgrade are
-// different defects, and one failing must not hide the other behind a skip.
+// The sibling `upgrade/create2.test.ts` starts from the previous generation and upgrades it; this one has
+// no previous generation at all. The two are separate on purpose: a broken fresh deploy and a broken
+// upgrade are different defects, and one failing must not hide the other behind a skip.
 //
 // Same policies as the upgrade test: a private port checked for occupancy, a dedicated out-dir, skips
 // that name what is missing, and a cleanup that leaves nothing behind.
@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { Contract, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
@@ -32,6 +32,10 @@ const PORT = 8558;
 const RPC_URL = `http://127.0.0.1:${PORT}`;
 
 const DEPLOYMENT_ID = 'create2-deploy-e2e';
+
+/** This package's generation, from its folder name (`v<N>`): what the stack must call itself. */
+const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
+const PROTOCOL_VERSION = BigInt(GENERATION.slice(1));
 
 /** The operator's folder: outside the repository, created fresh, removed at the end. */
 const OPERATOR_DIR = mkdtempSync(join(tmpdir(), 'create2-deploy-e2e-'));
@@ -226,7 +230,7 @@ const VERSIONED_ROLES = [
 ] as const;
 
 void test(
-  'create2-deploy: fresh anvil, a v13 stack through the CREATE2 coordinator',
+  `create2-deploy: fresh anvil, a ${GENERATION} stack through the CREATE2 coordinator`,
   { skip: blockedReason() },
   async (t) => {
     if (await portIsOpen()) {
@@ -274,13 +278,17 @@ void test(
       });
 
       await t.test('the coordinator deploys and verifies the whole stack in one run', async () => {
-        announce(2, STEPS, 'deploy v13 with deploy-cli --stage all (3 forge builds, 22 creates, steps A-F, verify)');
+        announce(
+          2,
+          STEPS,
+          `deploy ${GENERATION} with deploy-cli --stage all (3 forge builds, 22 creates, steps A-F, verify)`,
+        );
         rmSync(outDirAbs(), { recursive: true, force: true });
         writeOperatorConfig();
         const { ok, output } = await runCoordinator([...COMMON_ARGS, '--stage', 'all']);
         if (!ok) {
           const detail = (await portIsOpen()) ? '' : ` — ${nodeGone ?? `the anvil on ${RPC_URL} stopped answering`}`;
-          assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
+          assert.fail(`${GENERATION} create2 deploy failed${detail}:\n${output.slice(-4000)}`);
         }
         assert.match(output, /OK - every terminal condition/, 'the deploy ran its own verify');
         // Every value step D seeded is checked against LibFhevmCleartextConfig, not only the signer sets.
@@ -320,7 +328,7 @@ void test(
         return true;
       };
 
-      await t.test('every contract reports its v13 version at its sealed address', async (st) => {
+      await t.test(`every contract reports its ${GENERATION} version at its sealed address`, async (st) => {
         if (needsStack(st)) return;
         announce(3, STEPS, 'read every getVersion() back against the generated table');
         assert.ok(provider);
@@ -339,7 +347,11 @@ void test(
         // and the call would revert, which is exactly the distinction a consumer needs to be able to make.
         const acl = view<AclView>(addressOf(manifest, 'ACL_ADDRESS'), ACL_ABI, provider);
         assert.equal(await acl.IS_CLEARTEXT(), true, 'ACL must advertise IS_CLEARTEXT');
-        assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 13n, 'ACL must report protocol version 13');
+        assert.equal(
+          await acl.CLEARTEXT_PROTOCOL_VERSION(),
+          PROTOCOL_VERSION,
+          `ACL must report protocol version ${PROTOCOL_VERSION}`,
+        );
         // Same for the HCU limit, the last role to stop being an upstream contract. The CREATE2 lane picks
         // its implementations independently of every forge path, so this is the only place that proves it.
         const hcuLimit = view<AclView>(addressOf(manifest, 'HCU_LIMIT_ADDRESS'), ACL_ABI, provider);

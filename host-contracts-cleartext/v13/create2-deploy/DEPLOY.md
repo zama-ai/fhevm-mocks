@@ -1,6 +1,6 @@
 # Deploy the cleartext FHEVM stack on a live testnet
 
-This guide deploys a fresh v13 cleartext FHEVM stack (ACL, executor, verifiers, KMS, `ACLOwner`, ...) on a
+This guide deploys a fresh cleartext FHEVM stack (ACL, executor, verifiers, KMS, `ACLOwner`, ...) on a
 public **testnet**, through the canonical CREATE2 factory.
 
 > ℹ️ **As an example, every command below deploys on Arbitrum Sepolia**, the Arbitrum testnet (chain id
