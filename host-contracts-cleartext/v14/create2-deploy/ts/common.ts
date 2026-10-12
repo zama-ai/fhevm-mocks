@@ -2051,12 +2051,18 @@ export function requireNoPendingTxs(ctx: Ctx, who: string): void {
  * one append-only stream across stages, tagged with which stage sent what. A transaction forge recorded
  * without a receipt is looked up on chain before it is called `unmined`.
  */
+/**
+ * The script's file name, as forge files its broadcast records under it (`broadcast/<file>/<chainId>/`): the
+ * last path segment, never the folder (`upgrade/FhevmUpgradeCreates.s.sol:…` is filed under
+ * `FhevmUpgradeCreates.s.sol`). `?? target` is unreachable in practice — a target is always `File.sol:Contract`
+ * — but noUncheckedIndexedAccess types index access as possibly-undefined.
+ */
+function scriptFileOf(target: string): string {
+  return basename(target.split(':')[0] ?? target);
+}
+
 export function recordJournal(ctx: Ctx, target: string): void {
-  // `?? target` is unreachable in practice — a forge target is always `File.sol:Contract` — but
-  // noUncheckedIndexedAccess types index access as possibly-undefined. A target without a colon IS its
-  // own file name.
-  const file = target.split(':')[0] ?? target;
-  const fresh = ingestForgeRuns(ctx, file, ctx.stageLabel, false);
+  const fresh = ingestForgeRuns(ctx, scriptFileOf(target), ctx.stageLabel, false);
 
   // A reverted transaction is not fatal on this path — a failed create does not burn its address
   // — but it must never scroll past unnoticed. Counted from what was actually appended, so a
@@ -2702,7 +2708,7 @@ export async function broadcast(
   const startNonce = captureOrFail('cast', ['nonce', from, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]);
   // Before forge can sign anything: if the run is killed the instant after it sends, this line is what
   // lets the next run find the transaction on chain (reconcileJournal).
-  recordStageStart(ctx, target.split(':')[0] ?? target, from, Number(startNonce));
+  recordStageStart(ctx, scriptFileOf(target), from, Number(startNonce));
   const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
