@@ -7,6 +7,6 @@
     "rootDir": "..",
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../internal/**/*.ts"],
+  "include": ["./**/*.ts", "../internal/**/*.ts", "../create2-deploy/ts/**/*.ts"],
   "exclude": ["./ts/**", "node_modules"]
 }
