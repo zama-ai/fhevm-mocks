@@ -30,11 +30,13 @@
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve as resolvePath } from 'node:path';
 import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
+import { assertStampedRecord, sealedManifest } from '../record.ts';
 
 /**
  * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
@@ -615,6 +617,9 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
           // names. Reusing the id is therefore correct and preferred.
           '--deployment-id',
           DEPLOYMENT_ID,
+          // The deploy's own seal, so the upgrade's links to it (the explicit addresses below still win).
+          '--previous-manifest',
+          join(outDirAbs(v13Root), 'manifest.json'),
           '--stage',
           'all',
           '--handle',
@@ -631,6 +636,27 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       st.skip(upgradeSkip ?? 'the v14 upgrade above failed');
       return true;
     };
+
+    await t.test(
+      'the upgrade record links to the deploy by sha256, and is dated by its ACLOwner.upgrade',
+      { skip: upgradeSkip },
+      (st) => {
+        if (needsV14(st)) return;
+        const outDir = outDirAbs(v14Root);
+        const before = join(outDirAbs(v13Root), 'manifest.json');
+        const previous = sealedManifest(outDir).previous as Record<string, unknown> | undefined;
+        assert.ok(previous, 'the upgrade seal has a previous block');
+        assert.equal(resolvePath(outDir, String(previous.path)), before, 'previous.path resolves to the deploy seal');
+        assert.equal(previous.sha256, createHash('sha256').update(readFileSync(before)).digest('hex'));
+        assert.equal(previous.deploymentId, DEPLOYMENT_ID);
+        assert.equal(previous.version, sealedManifest(outDirAbs(v13Root)).version);
+        const event = assertStampedRecord(outDir, v14Root, 'upgrade');
+        const report = JSON.parse(readFileSync(join(outDir, 'verify-report.json'), 'utf8')) as {
+          materializeTx?: string;
+        };
+        assert.equal(event.defining.hash, report.materializeTx, 'dated by the ACLOwner.upgrade verify found');
+      },
+    );
 
     await t.test('the seven re-pointed contracts now report v14 versions', { skip: upgradeSkip }, async (st) => {
       if (needsV14(st)) return;

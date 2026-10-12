@@ -22,7 +22,7 @@
 // anything is sent.
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import {
   appendJsonl,
@@ -79,7 +79,9 @@ import {
   SCRIPT_DIR,
   scriptEnv,
   settlementRule,
-  stampToolCommit,
+  previousLink,
+  stampSeal,
+  writeEventRecord,
   settledBlock,
   showJournal,
   stageReport,
@@ -917,7 +919,13 @@ async function stageCompute(ctx: Ctx): Promise<void> {
     await pass(2, env);
   });
   mergePreUpgradeIntoManifest(ctx);
-  stampToolCommit(ctx);
+  const previous = ctx.opt.previousManifest;
+  stampSeal(
+    ctx,
+    previous === null
+      ? null
+      : previousLink(previous.path, ctx.outDir, ctx.opt.configPath === null ? null : dirname(ctx.opt.configPath)),
+  );
   // The upgrade's seal is complete only once the pre-upgrade snapshot is merged into it.
   removeScratchIfSealed(ctx, ['preUpgrade']);
 }
@@ -1573,7 +1581,7 @@ async function stageRehearse(ctx: Ctx): Promise<void> {
       say(`    applied ACLOwner.upgrade on the fork: ${receipt.transactionHash ?? '?'}`);
     });
 
-    await step(ctx, 'rehearse', 'verify against the fork', () => stageVerify(fork));
+    await step(ctx, 'rehearse', 'verify against the fork', () => stageVerify(fork, true));
     say(
       '',
       `  REHEARSAL PASSED at block ${String(forkedAt)}: the exact payload leaves a stack that passes verify.`,
@@ -1630,7 +1638,7 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
  * Waits for the materialize block to be buried and finalized first: a verdict read off a block about to be
  * orphaned is not a verdict. Run it again later at greater depth; `verify-report.json` records each run.
  */
-async function stageVerify(ctx: Ctx): Promise<void> {
+async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
   stageBanner('verify', '✅ Verify');
   if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   await waitForMaterializeSettled(ctx);
@@ -1651,6 +1659,9 @@ async function stageVerify(ctx: Ctx): Promise<void> {
     return found;
   });
   writeVerifyReport(ctx, materialize, out);
+  // Verified, so the upgrade is complete: date the record from the chain (its ACLOwner.upgrade). Not the
+  // rehearsal's: a fork's transactions are on no chain anyone will read, and its folder is scratch.
+  if (!rehearsal) writeEventRecord(ctx, 'upgrade', materialize.hash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

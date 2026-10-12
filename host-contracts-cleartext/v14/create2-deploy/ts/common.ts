@@ -14,7 +14,8 @@
 //
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
-import { existsSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
@@ -300,9 +301,24 @@ export type Manifest = {
   readonly admin?: string;
   /** Deploy only: the optional operator pauser, the zero address when none. */
   readonly pauser0?: string;
-  /** The tool's git commit at `compute` (stampToolCommit); null when the tool is not a git checkout. */
+  /** The tool's git commit at `compute` (stampSeal); null when the tool is not a git checkout. */
   readonly toolCommit?: string | null;
+  /** The package version the tool ran at, `0.<generation>.<patch>` (stampSeal). Absent in older seals. */
+  readonly packageVersion?: string;
+  /** The record this one starts from (stampSeal); absent in a deploy. See previousLink. */
+  readonly previous?: RecordLink;
   readonly address?: Record<string, string>;
+};
+
+/** A sealed manifest's link to the record it starts from: where it is, and the hash of its exact bytes. */
+export type RecordLink = {
+  /** Relative to this manifest's folder, as the record will be archived (see previousLink). */
+  readonly path: string;
+  readonly sha256: string;
+  readonly deploymentId: string;
+  readonly chainId: number;
+  readonly version: string;
+  readonly packageVersion?: string;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1352,17 +1368,160 @@ export function toolCommit(): string | null {
   return r.ok && /^[0-9a-f]{40}$/.test(r.stdout) ? r.stdout : null;
 }
 
+/** This package's version, `pkg/package.json#version`: `0.<generation>.<patch>`. */
+export function packageVersion(): string {
+  const pkg = readJson<{ readonly version?: unknown }>(join(PACKAGE_ROOT, 'pkg', 'package.json'));
+  if (typeof pkg?.version !== 'string') fail(`Error: ${join(PACKAGE_ROOT, 'pkg', 'package.json')} has no version.`);
+  return pkg.version;
+}
+
+/** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`: an event folder of `deployments/<chain>/<stack>/`. */
+const EVENT_FOLDER = /^\d{2}-(?:deploy|upgrade|hotfix)-v(\d+)\.(\d+)-\d{4}-\d{2}-\d{2}$/;
+
 /**
- * Record the tool's git commit in the seal, so a later run can tell when the checkout has moved.
+ * The `previous` block of a seal: the record `previousManifestPath` is, by path and by the sha256 of its bytes.
  *
- * Every address is a hash of bytecode this checkout compiled; another commit can compile other
- * bytecode. `creates` would still catch the drift address by address, but only after a build, and
- * with a message about bytecode rather than about the `git pull` that caused it.
+ * The path is written AS THE NEW RECORD WILL BE ARCHIVED: next to the previous one, in the same stack folder, with
+ * the out dir at the same place inside its event folder as it is inside the operator's folder (`configDir`). So
+ * when the previous manifest sits in an event folder (`<stack>/<event>/<…>/manifest.json`), the path is
+ * `../…/<event>/<…>/manifest.json` from the new manifest's folder, whatever folder the operator works in today.
+ * Otherwise (a test, a record not archived yet) it is the plain relative path from the out dir.
  */
-export function stampToolCommit(ctx: Ctx): void {
+export function previousLink(previousManifestPath: string, outDir: string, configDir: string | null): RecordLink {
+  const bytes = readFileSync(previousManifestPath);
+  const before = JSON.parse(bytes.toString('utf8')) as Manifest & { readonly version?: unknown };
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+
+  // The event folder holding the previous manifest, if any, and the manifest's place inside it.
+  let eventDir = dirname(resolve(previousManifestPath));
+  while (!EVENT_FOLDER.test(basename(eventDir)) && dirname(eventDir) !== eventDir) eventDir = dirname(eventDir);
+  const event = EVENT_FOLDER.exec(basename(eventDir));
+  const outInside = configDir === null ? null : relative(configDir, outDir);
+  let path = relative(outDir, resolve(previousManifestPath));
+  if (event !== null && outInside !== null && outInside !== '' && !outInside.startsWith('..')) {
+    const depth = outInside.split(/[\\/]/).length;
+    path = [
+      '..',
+      ...Array<string>(depth).fill('..'),
+      basename(eventDir),
+      relative(eventDir, resolve(previousManifestPath)),
+    ]
+      .join('/')
+      .split('\\')
+      .join('/');
+  }
+
+  const beforePackage =
+    typeof before.packageVersion === 'string'
+      ? before.packageVersion
+      : event === null
+        ? undefined
+        : `0.${event[1] ?? ''}.${event[2] ?? ''}`;
+  return {
+    path,
+    sha256,
+    deploymentId: before.deploymentId ?? '',
+    chainId: before.chainId ?? 0,
+    version: typeof before.version === 'string' ? before.version : '',
+    ...(beforePackage === undefined ? {} : { packageVersion: beforePackage }),
+  };
+}
+
+/**
+ * Stamp the seal at `compute`: the tool's git commit, the package version, and for an upgrade the record it
+ * starts from.
+ *
+ * The commit lets a later run tell when the checkout has moved: every address is a hash of bytecode this
+ * checkout compiled, and another commit can compile other bytecode. `creates` would still catch the drift
+ * address by address, but only after a build, and with a message about bytecode rather than about the
+ * `git pull` that caused it. The package version and `previous` make the record's place in the stack's
+ * history checkable (`fhevm-npm check deployments`).
+ */
+export function stampSeal(ctx: Ctx, previous: RecordLink | null): void {
   const manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
   if (manifest === null) return;
-  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, toolCommit: toolCommit() }, null, 2)}\n`);
+  const stamped = {
+    ...manifest,
+    toolCommit: toolCommit(),
+    packageVersion: packageVersion(),
+    ...(previous === null ? {} : { previous }),
+  };
+  writeFileSync(manifestPath(ctx), `${JSON.stringify(stamped, null, 2)}\n`);
+}
+
+/** One of the transactions that date a record: its hash, its block, and that block's timestamp (seconds). */
+export type EventTx = { readonly hash: string; readonly block: number; readonly blockTimestamp: number };
+
+/** `record/event.json`: the transactions that date a record, read from the chain. */
+export type EventRecord = {
+  readonly kind: 'deploy' | 'upgrade' | 'hotfix' | 'aborted';
+  /** What dates the record: a deploy's last transaction, an upgrade's or hotfix's `ACLOwner.upgrade`, an attempt's first. */
+  readonly defining: EventTx;
+  readonly first: EventTx;
+  readonly last: EventTx;
+};
+
+/**
+ * The event record of a journal: its first and last mined transactions, and the defining one. Pure, so it is
+ * testable: `timestampOf` reads a block's timestamp. Returns the reason when it cannot be built.
+ */
+export function eventRecord(
+  kind: EventRecord['kind'],
+  entries: readonly JournalEntry[],
+  definingHash: string | null,
+  timestampOf: (block: number) => number | null,
+): EventRecord | string {
+  const mined = entries
+    .filter((entry): entry is JournalEntry & { hash: string; block: number } => {
+      return entry.status === 'ok' && typeof entry.hash === 'string' && typeof entry.block === 'number';
+    })
+    .map((entry, order) => ({ hash: entry.hash, block: entry.block, order }))
+    .sort((a, b) => (a.block === b.block ? a.order - b.order : a.block - b.block));
+  const first = mined[0];
+  const last = mined[mined.length - 1];
+  if (first === undefined || last === undefined) {
+    const seen = entries.map((entry) => `${entry.status}${entry.block === null ? ' (no block)' : ''}`);
+    const counts = [...new Set(seen)].map((label) => `${String(seen.filter((x) => x === label).length)} ${label}`);
+    return `the journal holds no mined transaction (${entries.length === 0 ? 'it is empty' : counts.join(', ')})`;
+  }
+  let defining = kind === 'deploy' ? last : kind === 'aborted' ? first : undefined;
+  if (defining === undefined) {
+    const wanted = definingHash?.toLowerCase();
+    defining = mined.find((tx) => tx.hash.toLowerCase() === wanted);
+    if (defining === undefined) {
+      return `the defining transaction ${definingHash ?? '(unknown)'} is not in the journal (sent from outside the tool?)`;
+    }
+  }
+  const dated = (tx: { hash: string; block: number }): EventTx | string => {
+    const seconds = timestampOf(tx.block);
+    return seconds === null
+      ? `the node did not return the timestamp of block ${String(tx.block)}`
+      : { hash: tx.hash, block: tx.block, blockTimestamp: seconds };
+  };
+  const [d, f, l] = [dated(defining), dated(first), dated(last)];
+  if (typeof d === 'string') return d;
+  if (typeof f === 'string') return f;
+  if (typeof l === 'string') return l;
+  return { kind, defining: d, first: f, last: l };
+}
+
+/**
+ * Write `record/event.json` from the journal and the chain, after the flow's last stage succeeded. When it
+ * cannot be built, says why and writes nothing: the record then lacks it, and `check deployments` refuses to
+ * archive it, rather than archiving a record dated by guesswork.
+ */
+export function writeEventRecord(ctx: Ctx, kind: EventRecord['kind'], definingHash: string | null): void {
+  const record = eventRecord(kind, readJournal(ctx), definingHash, (block) => blockTimestamp(ctx, block));
+  const path = join(ctx.outDir, 'event.json');
+  if (typeof record === 'string') {
+    warn(`not writing ${path}: ${record}.`, '       The record cannot be archived until it exists.');
+    return;
+  }
+  writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
+  const day = new Date(record.defining.blockTimestamp * 1000).toISOString().slice(0, 10);
+  say(
+    `  wrote ${path} (defining transaction ${record.defining.hash}, block ${String(record.defining.block)}, ${day} UTC)`,
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
