@@ -31,7 +31,8 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve as resolvePath } from 'node:path';
 import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
@@ -732,6 +733,51 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       assert.equal(await acl.IS_CLEARTEXT(), true, 'the upgraded ACL must still advertise IS_CLEARTEXT');
       assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 14n, 'the upgraded ACL must report 14');
     });
+
+    await t.test(
+      '--deployment takes the latest event of the stack folder, so the next upgrade starts from this record',
+      { skip: upgradeSkip },
+      async (st) => {
+        if (needsV14(st)) return;
+        // The two records as they would be archived: a stack folder, one numbered folder per event.
+        const root = mkdtempSync(join(tmpdir(), 'create2-stack-'));
+        try {
+          const stack = join(root, DEPLOYMENT_ID);
+          const archive = (event: string, kind: string, outDir: string): void => {
+            mkdirSync(join(stack, event), { recursive: true });
+            for (const file of ['manifest.json', 'addresses.sol', 'journal.jsonl']) {
+              cpSync(join(outDir, file), join(stack, event, 'record', file), { recursive: true });
+            }
+            const config = { deploymentId: DEPLOYMENT_ID, admin: sealedManifest(outDir).admin, outDir: 'record' };
+            writeFileSync(join(stack, event, `${kind}.config.json`), JSON.stringify(config));
+          };
+          archive('00-deploy-v0.0-2026-01-01', 'deploy', outDirAbs(v13Root));
+          archive('01-upgrade-v1.0-2026-01-02', 'upgrade', outDirAbs(v14Root));
+          const latest = join(stack, '01-upgrade-v1.0-2026-01-02', 'record', 'manifest.json');
+
+          const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
+            '--deployment',
+            stack,
+            '--rpc-url',
+            RPC_URL,
+            '--out-dir',
+            join(root, 'next', 'record'),
+            '--stage',
+            'compute',
+          ]);
+          // Accepted as the previous manifest, all eleven roles from it...
+          assert.ok(
+            output.includes(`previous         ${latest}`),
+            `the latest event's seal is the previous:\n${output.slice(-3000)}`,
+          );
+          assert.match(output, /11\/11 roles/);
+          // ...and then refused: the live stack is already the generation this tool upgrades to.
+          assert.ok(!ok, 'compute must refuse a stack that is already upgraded');
+        } finally {
+          rmSync(root, { recursive: true, force: true });
+        }
+      },
+    );
 
     await t.test('ownership and the pauser set survived the upgrade', { skip: upgradeSkip }, async (st) => {
       if (needsV14(st)) return;

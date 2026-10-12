@@ -79,8 +79,10 @@ import {
   SCRIPT_DIR,
   scriptEnv,
   settlementRule,
+  INVOCATION_DIR,
   previousLink,
   stampSeal,
+  writeEventConfig,
   writeEventRecord,
   settledBlock,
   showJournal,
@@ -202,6 +204,14 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
   --input-verifier 0x...         --cleartext-arithmetic 0x...
   --pauser-set 0x...             --cleartext-db 0x...
   --acl-owner 0x...
+
+  --deployment PATH    a stack folder of deployments/<chain>/ (deployments/README.md): its LATEST event is
+                       the live stack. Its sealed manifest is the previous manifest, and its config gives
+                       rpcUrl, account, adminAccount and admin, below the config file and the flags (so a
+                       fork's --rpc-url wins); the folder name is the deploymentId. Refused with
+                       --previous-manifest, for a legacy flat record, and for an out dir inside the stack.
+                       Without a config file, the event's config is written where you run, next to the
+                       out dir, ready to archive
 
   --previous-manifest PATH
                        manifest.json from the deploy that produced the live stack. Seeds all eleven
@@ -924,8 +934,13 @@ async function stageCompute(ctx: Ctx): Promise<void> {
     ctx,
     previous === null
       ? null
-      : previousLink(previous.path, ctx.outDir, ctx.opt.configPath === null ? null : dirname(ctx.opt.configPath)),
+      : previousLink(
+          previous.path,
+          ctx.outDir,
+          ctx.opt.configPath === null ? INVOCATION_DIR : dirname(ctx.opt.configPath),
+        ),
   );
+  writeEventConfig(ctx);
   // The upgrade's seal is complete only once the pre-upgrade snapshot is merged into it.
   removeScratchIfSealed(ctx, ['preUpgrade']);
 }

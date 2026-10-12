@@ -1,0 +1,97 @@
+// `--deployment <stack folder>`: the stack's latest event is the live stack, and records are never written into.
+// findLatestEvent is pure apart from reading files; the refusals are checked through deploy-cli itself, at a stage
+// that needs no chain.
+
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import test from 'node:test';
+import { findLatestEvent, RECORDS_DIR } from '../create2-deploy/ts/common.ts';
+import { PACKAGE_ROOT_ABS_PATH } from '../internal/constants.ts';
+
+const STACK = 'cleartext-v13-sepolia-2026-10-05-1';
+const ADMIN = '0xD9F9298BbcD72843586e7E08DAe577E3a0aC8866';
+
+type Files = Record<string, string>;
+
+function stackFolder(t: test.TestContext, files: Files): string {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'create2-deployment-')));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  const stack = join(root, STACK);
+  mkdirSync(stack, { recursive: true });
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(resolve(stack, path, '..'), { recursive: true });
+    writeFileSync(join(stack, path), content);
+  }
+  return stack;
+}
+
+const event = (name: string, kind: string, config: Record<string, unknown> = {}): Files => ({
+  [`${name}/${kind}.config.json`]: JSON.stringify({ deploymentId: STACK, outDir: 'record', ...config }),
+  [`${name}/record/manifest.json`]: JSON.stringify({ deploymentId: STACK, chainId: 11155111, admin: ADMIN }),
+});
+
+void test('the latest event is the highest sequence; its config and seal are what --deployment takes', (t) => {
+  const stack = stackFolder(t, {
+    ...event('00-deploy-v13.0-2026-10-05', 'deploy', { rpcUrl: 'https://deploy.example', account: 'deployer' }),
+    ...event('01-hotfix-v13.1-2026-10-20', 'hotfix', { rpcUrl: 'https://hotfix.example', adminAccount: 'admin' }),
+    'README.md': '# story\n',
+    'aborted/2026-10-30-upgrade-v14.1-1/ABORTED.md': 'why\n',
+  });
+  const latest = findLatestEvent(stack);
+  if (typeof latest === 'string') assert.fail(latest);
+  assert.equal(latest.stack, STACK);
+  assert.equal(latest.event, '01-hotfix-v13.1-2026-10-20');
+  assert.equal(latest.manifestPath, join(stack, '01-hotfix-v13.1-2026-10-20/record/manifest.json'));
+  assert.deepEqual(latest.config, { rpcUrl: 'https://hotfix.example', adminAccount: 'admin' });
+  assert.equal(latest.admin, ADMIN);
+});
+
+void test('a folder the next event could not extend soundly is refused, with the reason', (t) => {
+  const reason = (files: Files): string => {
+    const found = findLatestEvent(stackFolder(t, files));
+    return typeof found === 'string' ? found : '(found)';
+  };
+  assert.match(reason({ 'deploy.config.json': '{}', 'record/manifest.json': '{}' }), /legacy flat record/);
+  assert.match(reason(event('01-upgrade-v14.0-2026-11-02', 'upgrade')), /no 00-deploy-/);
+  assert.match(reason({ '00-deploy-v13.0-2026-10-05/record/manifest.json': '{}' }), /no readable deploy\.config\.json/);
+  assert.match(
+    reason({
+      '00-deploy-v13.0-2026-10-05/deploy.config.json': JSON.stringify({ deploymentId: STACK, outDir: 'record' }),
+    }),
+    /has no sealed manifest/,
+  );
+  assert.equal(findLatestEvent(join(tmpdir(), 'no-such-stack-folder')), 'not a folder');
+});
+
+const DEPLOY_CLI = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'deploy-cli');
+const cli = (args: readonly string[]): { status: number | null; output: string } => {
+  const run = spawnSync(DEPLOY_CLI, [...args], { encoding: 'utf8' });
+  return { status: run.status, output: `${run.stdout}${run.stderr}` };
+};
+
+void test('a deploy takes no --deployment: it creates a stack', () => {
+  const run = cli(['--deployment', tmpdir(), '--stage', 'log']);
+  assert.notEqual(run.status, 0);
+  assert.match(run.output, /a deploy creates a new one/);
+});
+
+void test('no tool writes inside deployments/, where records are archived', () => {
+  assert.equal(RECORDS_DIR, resolve(PACKAGE_ROOT_ABS_PATH, '..', '..', 'deployments'));
+  const run = cli([
+    '--rpc-url',
+    'http://127.0.0.1:1',
+    '--deployment-id',
+    'x',
+    '--out-dir',
+    join(RECORDS_DIR, 'x'),
+    '--stage',
+    'log',
+  ]);
+  assert.notEqual(run.status, 0);
+  assert.match(run.output, /is inside .*deployments, where deployment records are archived/);
+});

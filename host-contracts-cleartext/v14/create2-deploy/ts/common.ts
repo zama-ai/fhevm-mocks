@@ -15,8 +15,8 @@
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import {
   appendJsonl,
@@ -117,6 +117,8 @@ export type Options = {
   readonly existingSource: Readonly<Record<string, string>>;
   /** The previous generation's manifest, when one was given. Seeds `existing` at the lowest precedence. */
   readonly previousManifest: PreviousManifest | null;
+  /** `--deployment`: the stack folder whose latest event is the live stack, or null. See findLatestEvent. */
+  readonly deployment: LatestEvent | null;
   /** Path to the KMS migration seed, or null to reconstruct it from the live stack plus defaults. */
   readonly migrationPath: string | null;
   /** Directory containing the previous generation's ABIs for the before/after getter survey. */
@@ -186,6 +188,8 @@ export type CliArgs = {
   migrationPath: string | null;
   previousAbiDir: string | null;
   previousManifestPath: string | null;
+  /** `--deployment <stack folder>`, as typed. */
+  deploymentDir: string | null;
   handles: string[];
 };
 
@@ -452,6 +456,9 @@ export function loadAllowedChains(): readonly AllowedChain[] {
 
 /** Where the default `.out` dir lives, when neither --out-dir nor a config file names one. */
 export const FS_ROOT = DRAFT_DIR;
+
+/** Where deployment records are archived: `deployments/` at the repository root (`host-contracts-cleartext/v<N>/../..`). */
+export const RECORDS_DIR = resolve(PACKAGE_ROOT, '..', '..', 'deployments');
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -732,6 +739,7 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     migrationPath: null,
     previousAbiDir: null,
     previousManifestPath: null,
+    deploymentDir: null,
     handles: [],
   };
 
@@ -822,6 +830,10 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
         break;
       case '--previous-manifest':
         cli.previousManifestPath = need(i, a);
+        i += 1;
+        break;
+      case '--deployment':
+        cli.deploymentDir = need(i, a);
         i += 1;
         break;
       case '--handle':
@@ -927,11 +939,45 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     fail(`Error: unknown --stage '${stage}'.`, `       one of: ${flow.stages.join(', ')}`);
   }
 
-  const rpcUrl = cli.rpcUrl ?? cfg.rpcUrl ?? '';
-  const account = cli.account ?? cfg.account ?? '';
-  let admin = cli.admin ?? cfg.admin ?? '';
-  const deploymentId = cli.deploymentId ?? cfg.deploymentId ?? '';
-  const adminAccount = cli.adminAccount ?? cfg.adminAccount ?? null;
+  // --deployment: the stack folder's latest event is the live stack. Its config is the LOWEST layer (below the
+  // config file and the flags, so a fork's --rpc-url wins), and its sealed manifest is the previous one.
+  let deployment: LatestEvent | null = null;
+  if (cli.deploymentDir !== null) {
+    if (flow.name === 'deploy') {
+      fail('Error: --deployment names a deployed stack, and a deploy creates a new one. Use --deployment-id.');
+    }
+    if (cli.previousManifestPath !== null || cfg.previousManifest !== undefined) {
+      fail(
+        'Error: --deployment and a previous manifest are two answers to one question.',
+        "       --deployment takes the stack folder's latest event as the previous manifest; drop",
+        '       --previous-manifest (or "previousManifest" in the config file).',
+      );
+    }
+    const found = findLatestEvent(resolve(cli.deploymentDir));
+    if (typeof found === 'string') fail(`Error: --deployment ${cli.deploymentDir}: ${found}`);
+    deployment = found;
+  }
+  const stack: ConfigFile = deployment?.config ?? {};
+
+  const rpcUrl = cli.rpcUrl ?? cfg.rpcUrl ?? stack.rpcUrl ?? '';
+  const account = cli.account ?? cfg.account ?? stack.account ?? '';
+  let admin = cli.admin ?? cfg.admin ?? stack.admin ?? '';
+  const deploymentId = cli.deploymentId ?? cfg.deploymentId ?? deployment?.stack ?? '';
+  const adminAccount = cli.adminAccount ?? cfg.adminAccount ?? stack.adminAccount ?? null;
+  if (deployment !== null) {
+    // The stack folder IS the deploymentId, and its latest event sealed the admin: anything else typed is
+    // another stack, or a typo that would upgrade the right stack under the wrong identity.
+    if (deploymentId !== deployment.stack) {
+      fail(`Error: --deployment-id ${deploymentId} is not the stack ${deployment.stack} that --deployment names.`);
+    }
+    const sealedAdmin = deployment.admin;
+    if (admin !== '' && sealedAdmin !== null && admin.toLowerCase() !== sealedAdmin.toLowerCase()) {
+      fail(
+        `Error: --admin ${admin} is not the admin ${sealedAdmin} the latest event of ${deployment.stack} sealed.`,
+        '       An upgrade never changes the admin; a different one means a different stack.',
+      );
+    }
+  }
 
   const missing = (flag: string, key: string): string =>
     configPath === null
@@ -997,7 +1043,8 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   // A flag someone typed must never lose to a file, and the manifest is a convenience over typing nine
   // of them — so it sits at the bottom. existingSource records which layer won each role, because a
   // sealed address is only auditable if the seal says where it came from.
-  const previousManifestPath = pathOption(cli.previousManifestPath, cfg.previousManifest);
+  const previousManifestPath =
+    deployment !== null ? deployment.manifestPath : pathOption(cli.previousManifestPath, cfg.previousManifest);
   const previousManifest =
     previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId);
 
@@ -1024,6 +1071,17 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   // signer. Only for stages that reach the chain: `log` and `report` read local files and never use the
   // admin, so they must not unlock a keystore just to compute it.
   const outDirArg = pathOption(cli.outDirArg, cfg.outDir);
+  if (
+    deployment !== null &&
+    outDirArg !== null &&
+    isInside(canonicalPath(outDirArg), canonicalPath(deployment.stackDir))
+  ) {
+    fail(
+      `Error: the out dir ${outDirArg} is inside the stack folder ${deployment.stackDir}.`,
+      '       A record never changes once archived. Work in a folder of your own, outside deployments/,',
+      '       and copy it next to the earlier events once the event is final.',
+    );
+  }
   let adminDerived = false;
   if (admin === '' && flow.readOnlyStages.includes(stage)) {
     admin = readJson<Manifest>(join(resolveOutDir(outDirArg), 'manifest.json'))?.admin ?? '';
@@ -1070,6 +1128,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     existing,
     existingSource,
     previousManifest,
+    deployment,
     migrationPath: pathOption(cli.migrationPath, cfg.migration),
     previousAbiDir: pathOption(cli.previousAbiDir, cfg.previousAbiDir),
     handles: cli.handles.length > 0 ? cli.handles : (cfg.handles ?? []),
@@ -1094,6 +1153,14 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
  */
 export function resolveOutDir(outDirArg: string | null): string {
   const outDir = canonicalPath(outDirArg ?? join(FS_ROOT, '.out'));
+  const records = canonicalPath(RECORDS_DIR);
+  if (isInside(outDir, records)) {
+    fail(
+      `Error: the out dir ${outDir} is inside ${records}, where deployment records are archived.`,
+      '       A record never changes once it lands, and a tool run inside one writes scratch into it and',
+      '       clears paths there. Run from a folder of your own; to re-verify a record, copy it first.',
+    );
+  }
   if (isInside(PACKAGE_ROOT, outDir)) {
     fail(
       `Error: the out dir ${outDir} contains the package at ${PACKAGE_ROOT}.`,
@@ -1377,6 +1444,102 @@ export function packageVersion(): string {
 
 /** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`: an event folder of `deployments/<chain>/<stack>/`. */
 const EVENT_FOLDER = /^\d{2}-(?:deploy|upgrade|hotfix)-v(\d+)\.(\d+)-\d{4}-\d{2}-\d{2}$/;
+
+/** `<seq>-<kind>-v<N>.<p>-<YYYY-MM-DD>`, with its sequence and kind. */
+const EVENT_FOLDER_PARTS = /^(\d{2})-(deploy|upgrade|hotfix)-v\d+\.\d+-\d{4}-\d{2}-\d{2}$/;
+
+/** The latest event of a stack folder: the live stack, as `--deployment` takes it. */
+export type LatestEvent = {
+  /** The stack folder, absolute. */
+  readonly stackDir: string;
+  /** Its name: the stack's deploymentId. */
+  readonly stack: string;
+  /** The latest event folder's name, e.g. `01-upgrade-v14.1-2026-11-02`. */
+  readonly event: string;
+  readonly eventDir: string;
+  /** What that event was run with: the values `--deployment` supplies (rpcUrl, account, adminAccount, admin). */
+  readonly config: ConfigFile;
+  /** The admin the event sealed, or null when its manifest has none. */
+  readonly admin: string | null;
+  /** Its sealed manifest: the previous manifest of the next event. */
+  readonly manifestPath: string;
+};
+
+/**
+ * A stack folder's latest event (the highest sequence), or why there is none to take. Refuses what
+ * `fhevm-npm check deployments` would refuse to archive, so the next event can only extend a sound history:
+ * a legacy flat record (relocate it first), a folder without its `00-deploy-…`, an event without its config
+ * or its sealed manifest.
+ */
+export function findLatestEvent(stackDir: string): LatestEvent | string {
+  if (!existsSync(stackDir) || !statSync(stackDir).isDirectory()) return 'not a folder';
+  if (existsSync(join(stackDir, 'deploy.config.json'))) {
+    return 'a legacy flat record (deploy.config.json at the top). Relocate it into 00-deploy-v<N>.<p>-<YYYY-MM-DD>/ first';
+  }
+  const events = readdirSync(stackDir)
+    .map((name) => ({ name, parts: EVENT_FOLDER_PARTS.exec(name) }))
+    .filter((entry) => entry.parts !== null && statSync(join(stackDir, entry.name)).isDirectory())
+    .map((entry) => ({ name: entry.name, seq: Number(entry.parts?.[1]), kind: entry.parts?.[2] ?? '' }))
+    .sort((a, b) => a.seq - b.seq);
+  if (events[0]?.seq !== 0 || events[0].kind !== 'deploy') {
+    return 'no 00-deploy-… event folder: a stack folder starts with its deploy';
+  }
+  const latest = events[events.length - 1] ?? events[0];
+  const eventDir = join(stackDir, latest.name);
+  const configPath = join(eventDir, `${latest.kind}.config.json`);
+  const config = existsSync(configPath) ? readJson<ConfigFile>(configPath) : null;
+  if (config === null || typeof config !== 'object') return `${latest.name} has no readable ${latest.kind}.config.json`;
+  if (typeof config.outDir !== 'string' || config.outDir === '') return `${latest.name}: its config names no outDir`;
+  const sealed = join(resolve(eventDir, config.outDir), 'manifest.json');
+  const manifest = existsSync(sealed) ? readJson<Manifest>(sealed) : null;
+  if (manifest === null) return `${latest.name} has no sealed manifest at ${sealed}`;
+  const picked: ConfigFile = {
+    ...(config.rpcUrl === undefined ? {} : { rpcUrl: config.rpcUrl }),
+    ...(config.account === undefined ? {} : { account: config.account }),
+    ...(config.adminAccount === undefined ? {} : { adminAccount: config.adminAccount }),
+    ...(config.admin === undefined ? {} : { admin: config.admin }),
+  };
+  return {
+    stackDir,
+    stack: basename(stackDir),
+    event: latest.name,
+    eventDir,
+    config: picked,
+    admin: typeof manifest.admin === 'string' ? manifest.admin : null,
+    manifestPath: sealed,
+  };
+}
+
+/**
+ * With `--deployment` and no config file, write the event's config next to its out dir, in the folder the
+ * tool was run from: the record needs it to be archived (`<kind>.config.json`), and a resumed run reads it
+ * back. The RPC written is the one the stack's latest event was run with, never this invocation's (a fork,
+ * or a URL holding a key); `previousManifest` is not written, since `--deployment` already answers it.
+ */
+export function writeEventConfig(ctx: Ctx): void {
+  const latest = ctx.opt.deployment;
+  if (latest === null || ctx.opt.configPath !== null) return;
+  const path = join(INVOCATION_DIR, ctx.flow.defaultConfigName);
+  if (existsSync(path)) return;
+  const outDir = relative(INVOCATION_DIR, ctx.outDir);
+  if (outDir === '' || outDir.startsWith('..') || isAbsolute(outDir)) {
+    warn(
+      `not writing ${path}: the out dir ${ctx.outDir} is not inside the folder you ran from.`,
+      '       Archiving the record needs that folder to hold both the config and the out dir.',
+    );
+    return;
+  }
+  const config = {
+    deploymentId: ctx.opt.deploymentId,
+    admin: ctx.opt.admin,
+    ...(ctx.opt.account === '' ? {} : { account: ctx.opt.account }),
+    ...(ctx.opt.adminAccount === null ? {} : { adminAccount: ctx.opt.adminAccount }),
+    ...(latest.config.rpcUrl === undefined ? {} : { rpcUrl: latest.config.rpcUrl }),
+    outDir: outDir.split('\\').join('/'),
+  };
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+  say(`  wrote ${path} (the config this event's record is archived with)`);
+}
 
 /**
  * The `previous` block of a seal: the record `previousManifestPath` is, by path and by the sha256 of its bytes.
