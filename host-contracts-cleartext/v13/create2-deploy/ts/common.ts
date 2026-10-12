@@ -14,8 +14,8 @@
 //
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
   appendJsonl,
@@ -1066,9 +1066,14 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
  * Forge writes there through a generated config (prepareForgeConfig), not through foundry.toml. The one
  * thing refused is an out dir that CONTAINS the package: forge would be granted write access to the
  * whole source tree, and `compute` clears paths inside the out dir.
+ *
+ * The path is made CANONICAL, symlinks resolved, before anything uses it. Forge resolves the real path of
+ * every file a script touches and compares it with `fs_permissions` as written, so an out dir reached
+ * through a symlink (macOS's `/tmp`, which is `/private/tmp`) was granted under one name and refused under
+ * the other: "vm.writeFile: the path … is not allowed".
  */
 export function resolveOutDir(outDirArg: string | null): string {
-  const outDir = outDirArg ?? join(FS_ROOT, '.out');
+  const outDir = canonicalPath(outDirArg ?? join(FS_ROOT, '.out'));
   if (isInside(PACKAGE_ROOT, outDir)) {
     fail(
       `Error: the out dir ${outDir} contains the package at ${PACKAGE_ROOT}.`,
@@ -1076,6 +1081,22 @@ export function resolveOutDir(outDirArg: string | null): string {
     );
   }
   return outDir;
+}
+
+/**
+ * `path` with its symlinks resolved, whether or not it exists yet: the deepest existing ancestor goes
+ * through `realpathSync`, and the components below it, not created yet, are appended unchanged.
+ */
+export function canonicalPath(path: string): string {
+  const missing: string[] = [];
+  let existing = resolve(path);
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) return resolve(path);
+    missing.unshift(basename(existing));
+    existing = parent;
+  }
+  return join(realpathSync(existing), ...missing);
 }
 
 /**
