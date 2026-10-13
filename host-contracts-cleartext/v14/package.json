@@ -64,7 +64,7 @@
     "pack:tarball": "node ../../fhevm-npm/fhevm-npm.ts publish pack ./host-contracts-cleartext/v14",
     "prettier:check": "prettier --check \"**/*.{js,json,md,mjs,ts,yml}\"",
     "prettier:write": "prettier --write \"**/*.{js,json,md,mjs,ts,yml}\"",
-    "test": "npm run test:forge && npm run test:templates:run && npm run test:harness:run && npm run test:create2-deploy-e2e",
+    "test": "npm run test:forge && npm run test:templates:run && npm run test:harness:run && npm run test:create2-deploy-e2e && npm run test:hotfix",
     "test:consumer": "node ../../fhevm-npm/fhevm-npm.ts test-consumer ./host-contracts-cleartext/v14 --run --build-linked-dependencies",
     "test:consumer:dev": "node ../../fhevm-npm/fhevm-npm.ts test-consumer ./host-contracts-cleartext/v14/test-consumer/esm --run --ci",
     "test:create2-deploy-e2e": "node --test --test-concurrency=1 test/e2e/create2-deploy.test.ts test/e2e/create2-settlement.test.ts",
