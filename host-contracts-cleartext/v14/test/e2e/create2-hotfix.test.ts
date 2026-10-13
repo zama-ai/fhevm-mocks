@@ -275,19 +275,15 @@ void test(
 
     // 3. The next patch's hotfix-cli, from the stack folder.
     const hotfixCli = join(COPY, 'create2-deploy', 'hotfix-cli');
-    const hotfixArgs = [
-      '--deployment',
-      STACK_DIR,
-      '--out-dir',
-      'record',
-      '--confirmations',
-      '0',
-      '--no-finality',
-      '--no-git',
-    ];
+    const hotfixArgs = ['--deployment', STACK_DIR, '--confirmations', '0', '--no-finality', '--no-git'];
     const hotfixOps = join(ROOT, 'ops', 'hotfix');
-    mkdirSync(hotfixOps, { recursive: true });
-    const hotfixed = await run(hotfixCli, [...hotfixArgs, '--no-confirm', '--stage', 'all'], hotfixOps);
+    // Run from ANOTHER folder than the operator's, as an operator often does (from the repository root): the
+    // operator's folder is the out dir's parent, where the event's config and `previous.path` must point.
+    const hotfixed = await run(
+      hotfixCli,
+      [...hotfixArgs, '--out-dir', join(hotfixOps, 'record'), '--no-confirm', '--stage', 'all'],
+      ROOT,
+    );
     assert.ok(hotfixed.ok, `hotfix failed:\n${hotfixed.output.slice(-4000)}`);
     assert.match(hotfixed.output, /REHEARSAL PASSED/);
 
@@ -314,6 +310,7 @@ void test(
       );
     }
     assert.equal(readJson<{ kind: string }>(join(hotfixOps, 'record', 'event.json')).kind, 'hotfix');
+    assert.ok(existsSync(join(hotfixOps, 'hotfix.config.json')), "the event's config is in the operator's folder");
 
     // The record: archived next to the deploy, and the stack's history accepted, link by link.
     archive(hotfixOps, eventFolderName(hotfixOps, '01', 'hotfix'), gitHead());
@@ -330,7 +327,11 @@ void test(
     // A second hotfix from the same patch: the latest record is that patch now, nothing newer to bring.
     const againOps = join(ROOT, 'ops', 'hotfix-again');
     mkdirSync(againOps, { recursive: true });
-    const again = await run(hotfixCli, [...hotfixArgs, '--no-confirm', '--stage', 'compute'], againOps);
+    const again = await run(
+      hotfixCli,
+      [...hotfixArgs, '--out-dir', join(againOps, 'record'), '--no-confirm', '--stage', 'compute'],
+      againOps,
+    );
     assert.equal(again.ok, false, 'a second hotfix by the same patch must be refused');
     assert.match(
       again.output,

@@ -16,7 +16,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
   appendJsonl,
@@ -1514,24 +1514,33 @@ export function findLatestEvent(stackDir: string): LatestEvent | string {
 }
 
 /**
- * With `--deployment` and no config file, write the event's config next to its out dir, in the folder the
- * tool was run from: the record needs it to be archived (`<kind>.config.json`), and a resumed run reads it
- * back. The RPC written is the one the stack's latest event was run with, never this invocation's (a fork,
- * or a URL holding a key); `previousManifest` is not written, since `--deployment` already answers it.
+ * The operator's folder for this event: the config file's folder when there is one, else the out dir's parent.
+ * It is the folder that will be archived as the event folder, so the seal's `previous.path` is written relative
+ * to it (previousLink) and the event's config is written into it (writeEventConfig) — whatever folder the tool is
+ * run from.
+ */
+export function operatorDir(ctx: Ctx): string {
+  return ctx.opt.configPath === null ? dirname(ctx.outDir) : dirname(resolve(ctx.opt.configPath));
+}
+
+/**
+ * With `--deployment` and no config file, write the event's config into the operator's folder, next to its out
+ * dir: the record needs it to be archived (`<kind>.config.json`). The RPC written is the one the stack's latest
+ * event was run with, never this invocation's (a fork, or a URL holding a key); `previousManifest` is not
+ * written, since `--deployment` already answers it. Not written inside this package (the default out dir is
+ * there): that folder is never archived.
  */
 export function writeEventConfig(ctx: Ctx): void {
   const latest = ctx.opt.deployment;
   if (latest === null || ctx.opt.configPath !== null) return;
-  const path = join(INVOCATION_DIR, ctx.flow.defaultConfigName);
+  const folder = operatorDir(ctx);
+  const path = join(folder, ctx.flow.defaultConfigName);
   if (existsSync(path)) return;
-  const outDir = relative(INVOCATION_DIR, ctx.outDir);
-  if (outDir === '' || outDir.startsWith('..') || isAbsolute(outDir)) {
-    warn(
-      `not writing ${path}: the out dir ${ctx.outDir} is not inside the folder you ran from.`,
-      '       Archiving the record needs that folder to hold both the config and the out dir.',
-    );
+  if (isInside(folder, PACKAGE_ROOT)) {
+    warn(`not writing ${path}: the out dir is inside this package, which is never archived. Pass --out-dir.`);
     return;
   }
+  const outDir = relative(folder, ctx.outDir);
   const config = {
     deploymentId: ctx.opt.deploymentId,
     admin: ctx.opt.admin,

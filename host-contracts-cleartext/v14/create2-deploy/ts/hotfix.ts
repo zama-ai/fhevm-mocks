@@ -15,14 +15,14 @@
 // Generation-agnostic and outside upgrade/, which a rotation deletes: a generation's hotfixes outlive it.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import {
   type Ctx,
   EXISTING_ROLES,
   FHEVM_VERSION,
   type Flow,
-  INVOCATION_DIR,
+  operatorDir,
   manifestPath,
   PACKAGE_ROOT,
   packageVersion,
@@ -171,8 +171,7 @@ function validateLive(ctx: Ctx): void {
   }
   say('    ok   ACL -> ACLOwner -> admin, as recorded');
 
-  const configDir = ctx.opt.configPath === null ? INVOCATION_DIR : dirname(ctx.opt.configPath);
-  const before = previousLink(previous.path, ctx.outDir, configDir).packageVersion;
+  const before = previousLink(previous.path, ctx.outDir, operatorDir(ctx)).packageVersion;
   const refusal = hotfixVersionRefusal(before, packageVersion());
   if (refusal !== null) fail(`Error: ${refusal}.`);
   say(`    ok   package ${packageVersion()} follows ${before ?? '?'} within generation ${String(GENERATION)}`);

@@ -8,7 +8,7 @@
 //   progress  the step ledger (progress.jsonl) and its offline view
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import {
   awaitPrerequisites,
@@ -25,7 +25,7 @@ import {
   hasCodeAt,
   headBlock,
   implementationAt,
-  INVOCATION_DIR,
+  operatorDir,
   isCompleteSeal,
   journalHasSentTx,
   loadConfigFile,
@@ -776,16 +776,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
   }
   mergePreUpgradeIntoManifest(ctx);
   const previous = ctx.opt.previousManifest;
-  stampSeal(
-    ctx,
-    previous === null
-      ? null
-      : previousLink(
-          previous.path,
-          ctx.outDir,
-          ctx.opt.configPath === null ? INVOCATION_DIR : dirname(ctx.opt.configPath),
-        ),
-  );
+  stampSeal(ctx, previous === null ? null : previousLink(previous.path, ctx.outDir, operatorDir(ctx)));
   writeEventConfig(ctx);
   // The seal is complete only once the pre-upgrade snapshot is merged into it.
   removeScratchIfSealed(ctx, ['preUpgrade']);
