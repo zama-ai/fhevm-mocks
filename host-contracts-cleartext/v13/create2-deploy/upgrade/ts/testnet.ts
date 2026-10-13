@@ -24,6 +24,10 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
+// contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here.
+import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/versions.ts';
+
 import {
   appendJsonl,
   capture,
@@ -699,7 +703,7 @@ function validateExisting(ctx: Ctx): void {
     !kmsCode.ok ||
     kmsCode.stdout === '' ||
     kmsCode.stdout === '0x' ||
-    kmsVersion !== 'KMSVerifier v0.2.0' ||
+    kmsVersion !== PREVIOUS_VERSIONS.kmsVerifier ||
     kmsSigners === null ||
     kmsSigners.length === 0 ||
     kmsThreshold === null ||

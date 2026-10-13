@@ -194,7 +194,8 @@ grep -rln --exclude-dir=node_modules --exclude-dir=_types --exclude-dir=_cjs --e
 Three groups, in increasing order of effort:
 
 1. **The previous-generation edge** — the devDependency pin in `package.json`, the import specifier
-   `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`, and
+   `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts` and
+   `…/pkg/ts/versions.ts` in `create2-deploy/upgrade/ts/testnet.ts` (the live stack's expected versions), and
    `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`. Every one of them lives in
    an `upgrade/` directory that the rotation deletes whole.
 
