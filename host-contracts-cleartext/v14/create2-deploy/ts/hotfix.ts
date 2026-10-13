@@ -7,12 +7,14 @@
 //     forge side decides it from the bytecode, script/hotfix/FhevmHotfixBase.s.sol), with no init data;
 //   - what the live stack must be first: the latest record of the stack (`--deployment`), on THIS generation,
 //     owned through its ACLOwner by the admin, and run by an older package than this one;
-//   - what it refuses: a change that would need a reinitializer (a plain re-point cannot run one), and a build
-//     that changes nothing ("nothing to re-point").
+//   - what an op runs: nothing (a plain re-point), or, when a contract's REINITIALIZER_VERSION moved by exactly
+//     one, its no-argument `reinitializeV<live>()` — the codebase's convention for an upgrade with no migration;
+//   - what it refuses: any other change of reinitializer (that is a migration), and a build that changes nothing
+//     ("nothing to re-point").
 //
 // Generation-agnostic and outside upgrade/, which a rotation deletes: a generation's hotfixes outlive it.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import {
@@ -74,6 +76,29 @@ export function reinitializerVersionIn(source: string): number | null {
 export function initializedVersionIn(word: string): number | null {
   const hex = /0x[0-9a-fA-F]{64}/.exec(word)?.[0];
   return hex === undefined ? null : Number(BigInt(`0x${hex.slice(-16)}`));
+}
+
+/** What one re-pointed role's op runs, sealed as `.reinitialize.<role>` when it is a call. */
+export type ReinitializerPlan = { readonly call: string; readonly from: number; readonly to: number };
+
+/**
+ * One role's op, from its source and the live proxy's initialized version: `null` for a plain re-point (the same
+ * reinitializer on both sides), a plan when it moved by exactly one and the source declares the no-argument
+ * `reinitializeV<live>()` that runs it, else why it is refused.
+ */
+export function planReinitializer(source: string, live: number | null): ReinitializerPlan | null | string {
+  const next = reinitializerVersionIn(source);
+  if (next === null) return 'its source declares no REINITIALIZER_VERSION';
+  if (live === null) return 'its initialized version could not be read';
+  if (next === live) return null;
+  if (next !== live + 1) {
+    return `its reinitializer moves from ${String(live)} to ${String(next)}: only a move by one is a hotfix, anything else is a migration`;
+  }
+  const call = `reinitializeV${String(live)}()`;
+  if (!new RegExp(`function\\s+reinitializeV${String(live)}\\s*\\(\\s*\\)`).test(source)) {
+    return `its reinitializer moves from ${String(live)} to ${String(next)} but it declares no no-argument ${call}`;
+  }
+  return { call, from: live, to: next };
 }
 
 /**
@@ -153,37 +178,49 @@ function validateLive(ctx: Ctx): void {
   say(`    ok   package ${packageVersion()} follows ${before ?? '?'} within generation ${String(GENERATION)}`);
 }
 
-/** After compute: every op must be a plain re-point, so the build's reinitializer must be the live one. */
-function refuseReinitializers(ctx: Ctx): void {
-  const roles = sealedRepointed(ctx);
+/** The live proxy's initialized version (OpenZeppelin `Initializable`), or null when unreadable. */
+function liveInitializedVersion(ctx: Ctx, proxy: string): number | null {
+  return initializedVersionIn(
+    capture('cast', ['storage', proxy, INITIALIZABLE_STORAGE, '--rpc-url', ctx.opt.rpcUrl]).stdout,
+  );
+}
+
+/**
+ * After compute: each op is a plain re-point or one no-argument reinitializer call (planReinitializer), and the
+ * plan is sealed into the manifest (`reinitialize`), where the forge scripts read it. Anything else is refused
+ * before the seal is complete.
+ */
+function planReinitializers(ctx: Ctx): void {
+  const plans: Record<string, ReinitializerPlan> = {};
   let refused = 0;
-  for (const role of roles) {
+  for (const role of sealedRepointed(ctx)) {
     const source = REINITIALIZER_SOURCES[role];
-    const next = source === undefined ? null : reinitializerVersionIn(readFileSync(join(PACKAGE_ROOT, source), 'utf8'));
-    const word = capture('cast', [
-      'storage',
-      ctx.opt.existing[role] ?? '',
-      INITIALIZABLE_STORAGE,
-      '--rpc-url',
-      ctx.opt.rpcUrl,
-    ]).stdout;
-    const live = initializedVersionIn(word);
-    if (next === null || live === null || next !== live) {
-      say(
-        `    FAIL ${role}: this build's REINITIALIZER_VERSION is ${String(next)}, the live proxy is initialized at ${String(live)}`,
-      );
+    const plan =
+      source === undefined
+        ? `no source is known for ${role}`
+        : planReinitializer(
+            readFileSync(join(PACKAGE_ROOT, source), 'utf8'),
+            liveInitializedVersion(ctx, ctx.opt.existing[role] ?? ''),
+          );
+    if (typeof plan === 'string') {
+      say(`    FAIL ${role}: ${plan}`);
       refused += 1;
+    } else if (plan === null) {
+      say(`    ok   ${role}: a plain re-point`);
     } else {
-      say(`    ok   ${role}: a plain re-point (reinitializer ${String(next)} on both sides)`);
+      say(`    ok   ${role}: ${plan.call} (reinitializer ${String(plan.from)} -> ${String(plan.to)})`);
+      plans[role] = plan;
     }
   }
   if (refused > 0) {
     fail(
       '',
-      `Error: ${String(refused)} change(s) would need a reinitializer, which a hotfix does not run (it re-points with no`,
-      '       init data). That is a migration: it needs its own reviewed flow, not a hotfix.',
+      `Error: ${String(refused)} change(s) are not a hotfix: a hotfix re-points, at most calling one no-argument`,
+      '       reinitializer per contract. A migration needs its own reviewed flow.',
     );
   }
+  const manifest = readJson<Record<string, unknown>>(manifestPath(ctx)) ?? {};
+  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, reinitialize: plans }, null, 2)}\n`);
 }
 
 /** The labels of the surveyed contracts behind the re-pointed proxies: their `getVersion` may move. */
@@ -210,13 +247,28 @@ function verifySurveyAndHandles(ctx: Ctx): void {
   const vanished = Object.keys(before.readings).filter((key) => !(key in after));
   if (vanished.length > 0) fail('Error: getters vanished after the hotfix:', ...vanished.map((key) => `       ${key}`));
   const allowed = mayChange(ctx);
+  // A getter the old code did not have reverted before and answers now: new on a re-pointed contract, allowed.
+  const repointedLabels = new Set(
+    SURVEY_TARGETS.filter((target) => sealedRepointed(ctx).includes(target.role)).map((target) => target.label),
+  );
+  const isNew = (key: string, was: string): boolean =>
+    was === '<reverted>' && repointedLabels.has(key.split('.')[0] ?? '');
   const changed = Object.entries(before.readings)
-    .filter(([key, was]) => !allowed.has(key) && after[key] !== was)
+    .filter(([key, was]) => !allowed.has(key) && !isNew(key, was) && after[key] !== was)
     .map(([key, was]) => `${key}: ${was} -> ${String(after[key])}`);
   if (changed.length > 0)
     fail('Error: readable values changed that a hotfix must not change:', ...changed.map((v) => `       ${v}`));
   say(`    ok   ${String(Object.keys(before.readings).length)} getter readings survived`);
   verifySealedHandles(ctx, before.handles);
+
+  // Each sealed reinitializer ran: the proxy is now initialized at its new version.
+  const plans = readJson<{ readonly reinitialize?: Readonly<Record<string, ReinitializerPlan>> }>(manifestPath(ctx));
+  for (const [role, plan] of Object.entries(plans?.reinitialize ?? {})) {
+    const live = liveInitializedVersion(ctx, ctx.opt.existing[role] ?? '');
+    if (live !== plan.to)
+      fail(`Error: ${role} is initialized at ${String(live)}, not ${String(plan.to)}: ${plan.call} did not run.`);
+    say(`    ok   ${role} is initialized at ${String(plan.to)} (${plan.call} ran)`);
+  }
 }
 
 /** This generation's ABIs: a hotfix surveys the stack with the contracts it already runs. */
@@ -241,9 +293,10 @@ Hotfix a live cleartext stack within its generation, via the canonical CREATE2 f
 Usage: hotfix-cli --deployment deployments/<chain>/<stack> [--out-dir record] [options]
 
 Re-points exactly the proxies whose implementation in this build differs from the one they run, in ONE
-atomic ACLOwner.upgrade with no init data, after rehearsing it on a fork. Nothing else moves: no proxy, no
+atomic ACLOwner.upgrade, after rehearsing it on a fork. Nothing else moves: no proxy, no
 owner, no pauser, no storage. Refused: another generation (that is an upgrade), a package not newer than the
-latest record's, a change that would need a reinitializer, a build that changes nothing.
+latest record's, a reinitializer change other than a move by one (which runs the contract's no-argument
+reinitializeV<live>()), a build that changes nothing.
 
   --deployment PATH    the stack folder (deployments/README.md): its LATEST event is the live stack. Required,
                        unless --previous-manifest names that record. Its config gives rpcUrl, account,
@@ -311,7 +364,7 @@ const HOTFIX_ADAPTER: RepointAdapter = {
   verifyExtras: { label: 'survey: every getter and every sealed handle', run: verifySurveyAndHandles },
   addressesHeader: '// The live addresses, which the hotfix keeps. Generated; do not edit.',
   eventKind: 'hotfix',
-  afterCompute: refuseReinitializers,
+  afterCompute: planReinitializers,
   extraStages: { abandon: stageAbandon },
 };
 

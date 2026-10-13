@@ -63,7 +63,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
     function _initData(uint256 i, string memory role) internal view virtual returns (bytes memory);
 
     /// @dev What op `i` calls, for the gate's op listing.
-    function _initName(uint256 i, string memory role) internal pure virtual returns (string memory);
+    function _initName(uint256 i, string memory role) internal view virtual returns (string memory);
 
     /// @dev Is the live stack still what the seal planned the payload for, beyond the slots? `why` says what was
     ///      checked when it is, and what moved when it is not.

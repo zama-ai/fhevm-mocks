@@ -12,6 +12,7 @@ import {
   GENERATION,
   hotfixVersionRefusal,
   initializedVersionIn,
+  planReinitializer,
   REINITIALIZER_SOURCES,
   reinitializerVersionIn,
 } from '../create2-deploy/ts/hotfix.ts';
@@ -32,6 +33,32 @@ void test('a reinitializer version, read from a source and from a storage word',
   assert.equal(initializedVersionIn(`0x${'0'.repeat(46)}01${'0'.repeat(14)}06`), 6);
   assert.equal(initializedVersionIn(`0x${'0'.repeat(63)}7`), 7);
   assert.equal(initializedVersionIn('not a word'), null);
+});
+
+/** The refusal a plan carries, or a marker no refusal pattern matches. */
+const refusal = (plan: ReturnType<typeof planReinitializer>): string =>
+  typeof plan === 'string' ? plan : '(not refused)';
+
+void test('an op is a plain re-point, or one no-argument reinitializer when it moved by exactly one', () => {
+  const source = (version: number, extra = ''): string =>
+    `contract C {\n    uint64 private constant REINITIALIZER_VERSION = ${String(version)};\n${extra}}\n`;
+  assert.equal(planReinitializer(source(2), 2), null, 'unchanged: a plain re-point');
+  assert.deepEqual(
+    planReinitializer(
+      source(3, '    function reinitializeV2() public virtual reinitializer(REINITIALIZER_VERSION) {}\n'),
+      2,
+    ),
+    { call: 'reinitializeV2()', from: 2, to: 3 },
+  );
+  assert.match(refusal(planReinitializer(source(3), 2)), /declares no no-argument reinitializeV2\(\)/);
+  assert.match(
+    refusal(planReinitializer(source(3, '    function reinitializeV2(uint256 x) public {}\n'), 2)),
+    /declares no no-argument reinitializeV2\(\)/,
+  );
+  assert.match(refusal(planReinitializer(source(4), 2)), /only a move by one is a hotfix/);
+  assert.match(refusal(planReinitializer(source(1), 2)), /only a move by one is a hotfix/);
+  assert.match(refusal(planReinitializer('contract C {}', 2)), /declares no REINITIALIZER_VERSION/);
+  assert.match(refusal(planReinitializer(source(2), null)), /could not be read/);
 });
 
 void test('a hotfix stays in its generation and moves the patch up', () => {
