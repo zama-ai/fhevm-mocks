@@ -21,8 +21,8 @@
 // remain what they were. This is a third path, for a stack whose addresses have to be predictable before
 // anything is sent.
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
 // contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here: a copy would not
@@ -34,83 +34,23 @@ import {
   callAddresses,
   callString,
   callUint,
-  checkBuildOut,
   isAddress,
-  runReadOnly,
   sameAddressList,
-  scanLogs,
-  stageProgress,
-  step,
-  topicAddress,
+  type RepointAdapter,
+  runRepointCli,
 } from '../../ts/repoint.ts';
 
+import { capture, fail, heartbeat, pad, readJson, say, warn } from '../../ts/utils.ts';
 import {
-  capture,
-  captureOrFail,
-  ensureDir,
-  fail,
-  freePort,
-  heartbeat,
-  hexToNumber,
-  pad,
-  readJson,
-  removeIfPresent,
-  requireTool,
-  runLogged,
-  banner,
-  say,
-  sleep,
-  spawnBackground,
-  startTranscript,
-  waitUntil,
-  warn,
-} from '../../ts/utils.ts';
-import {
-  awaitPrerequisites,
-  broadcast,
-  buildContext,
   type Ctx,
   existingFlagFor,
   EXISTING_ROLES,
-  finalizedBlock,
   type Flow,
-  generatedConfigEnv,
-  hasCodeAt,
-  headBlock,
-  loadConfigFile,
-  type Manifest,
-  isCompleteSeal,
-  journalHasSentTx,
   manifestPath,
-  recordFinality,
-  removeScratchIfSealed,
-  scratchPath,
   PACKAGE_ROOT,
-  parseCliArgs,
-  preflight,
-  readJournal,
-  recordObservation,
-  requireBuiltArtifacts,
-  resolveOptions,
   ROLE_WIDTH,
-  RULE_WIDTH,
-  SCRIPT_DIR,
-  scriptEnv,
-  settlementRule,
-  INVOCATION_DIR,
-  implementationAt,
-  checkRecordedImplementations,
   sameVersionLine,
   versionLine,
-  previousLink,
-  stampSeal,
-  writeEventConfig,
-  writeEventRecord,
-  settledBlock,
-  showJournal,
-  stageReport,
-  traceArgs,
-  waitForBlock,
 } from '../../ts/common.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -155,12 +95,6 @@ const ALL_STAGES: readonly Stage[] = [
 /** What `--stage all` runs, in order. `precheck` is not listed because `materialize` always runs it first. */
 const RUN_ORDER: readonly Stage[] = ['compute', 'creates', 'rehearse', 'materialize', 'verify'];
 
-/** A stage's banner, numbered by its place in the full run (`4/5: 🧩 Materialize: …`), standalone or not. */
-function stageBanner(stage: Stage, title: string): void {
-  const at = RUN_ORDER.indexOf(stage);
-  banner(at < 0 ? title : `${String(at + 1)}/${String(RUN_ORDER.length)}: ${title}`);
-}
-
 /** The seven live proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table. */
 const UPGRADED_ROLES: readonly string[] = [
   'PROTOCOL_CONFIG_ADDRESS',
@@ -172,11 +106,8 @@ const UPGRADED_ROLES: readonly string[] = [
   'CLEARTEXT_ARITHMETIC_ADDRESS',
 ];
 
-/** The two live proxies the upgrade must leave alone: byte-identical across the two generations. */
-const UNTOUCHED_ROLES: readonly string[] = ['INPUT_VERIFIER_ADDRESS', 'CLEARTEXT_DB_ADDRESS'];
-
-/** The seven sealed creates: one implementation per op. v14 creates no proxy. */
-const CREATE_ROLES: readonly string[] = UPGRADED_ROLES.map((role) => `IMPL_${role}`);
+// The two proxies outside this table (InputVerifier, CleartextDB) are byte-identical across the two
+// generations, so the op list leaves them alone; the engine derives them, and one create per op.
 
 const REPORT_STEPS: ReadonlyArray<{ readonly label: string; readonly title: string }> = [
   { label: 'creates', title: 'every CREATE2 through the factory' },
@@ -787,173 +718,10 @@ function validateExisting(ctx: Ctx): void {
 /**
  * Give a missing source a coordinator-level error rather than Forge's less useful "script not found".
  */
-/**
- * The upgrade scripts' own subdirectory. Declared here rather than in `common.ts` because it names a
- * directory that exists only while a V(N-1) does — when the pair rotates, this file and that directory
- * go together, and the shared module is left saying nothing about a lane that no longer exists.
- */
-const UPGRADE_SCRIPT_DIR = `${SCRIPT_DIR}/upgrade`;
-
-function requireScript(name: string): string {
-  const path = join(UPGRADE_SCRIPT_DIR, name);
-  if (!existsSync(join(PACKAGE_ROOT, path))) {
-    fail(`Error: ${path} does not exist yet.`, '       Restore the upgrade script before running this stage.');
-  }
-  return path;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- * Has this upgrade already put anything on chain? Asked of the CHAIN, through the sealed manifest's own
- * addresses, so a run killed between sending and journaling still answers yes. The journal is consulted
- * too, but only as a second witness — the chain is the one that cannot be lost with a directory.
- */
-function upgradeStarted(ctx: Ctx): boolean {
-  if (journalHasSentTx(ctx)) return true;
-  const manifest = readJson<Manifest>(manifestPath(ctx));
-  if (manifest?.address === undefined) return false;
-  const head = headBlock(ctx);
-  return CREATE_ROLES.some((role) => hasCodeAt(ctx, manifest.address?.[role] ?? '', head));
-}
-
-async function stageCompute(ctx: Ctx): Promise<void> {
-  stageBanner('compute', '🍟 Compute: 2 passes, 1 rebuild');
-
-  // Same reasoning as the deploy: recomputing after transactions have been sent would move the sealed
-  // address set out from under a half-applied upgrade. An upgrade is worse than a deploy here, because
-  // `materialize` is NOT idempotent — the reinitializers are reinitializer(n)-guarded, so a second run
-  // reverts rather than no-oping. Also the snapshot block would move past the creates, and verify's event
-  // window with it.
-  if (upgradeStarted(ctx)) {
-    fail(
-      `Error: '${ctx.opt.deploymentId}' has already put contracts on chain (see ${ctx.journalPath} and --stage status),`,
-      '       so its addresses are not safe to recompute. Resume with the next stage instead.',
-      `       To discard this upgrade's record and start over: rm -rf ${ctx.outDir}`,
-    );
-  }
-
-  ensureDir(ctx.outDir);
-  removeIfPresent(
-    ctx.buildOut,
-    join(ctx.outDir, 'addresses.sol'),
-    scratchPath(ctx),
-    manifestPath(ctx),
-    preUpgradePath(ctx),
-  );
-
-  // Before anything is computed, and before any build. This is the cheap check that prevents the
-  // expensive mistake, and the only point at which the old values are still available.
-  await step(ctx, 'compute', 'validate the eleven live addresses against the stack', () => {
-    validateExisting(ctx);
-  });
-  if (ctx.opt.previousManifest !== null) {
-    await step(ctx, 'compute', 'every proxy runs the implementation the previous record sealed', () => {
-      checkRecordedImplementations(ctx);
-    });
-  }
-  await step(ctx, 'compute', 'snapshot the live stack at the settled block', () => {
-    writePreUpgrade(ctx, capturePreUpgrade(ctx));
-  });
-  writeInitialAddresses(ctx);
-
-  const script = requireScript('FhevmComputeUpgradeAddresses.s.sol');
-  const build = async (env: NodeJS.ProcessEnv): Promise<void> => {
-    if (ctx.opt.noBuild) {
-      requireBuiltArtifacts(ctx);
-      say('  (--no-build: using the artifacts already in the out dir)');
-      return;
-    }
-    if ((await runLogged('forge', ['build', '--out', ctx.buildOut, '--skip', 'test', ...ctx.forgeArgs], env)) !== 0) {
-      fail('Error: forge build failed.');
-    }
-  };
-  const pass = async (n: number, env: NodeJS.ProcessEnv): Promise<void> => {
-    // --rpc-url even though a pass sends nothing: without it forge runs against its own in-memory EVM
-    // where block.chainid is 31337, and the manifest would be sealed for the wrong chain.
-    const args = [
-      'script',
-      `${script}:FhevmComputeUpgradeAddresses`,
-      '--out',
-      ctx.buildOut,
-      ...ctx.forgeArgs,
-      '--rpc-url',
-      ctx.opt.rpcUrl,
-      ...traceArgs(ctx),
-    ];
-    if ((await runLogged('forge', args, { ...env, FHEVM_PASS: String(n) })) !== 0) {
-      fail(`Error: compute pass ${String(n)} failed.`);
-    }
-  };
-
-  // Two passes, not the deploy's three: the ACL already exists, so nothing computed here feeds
-  // anything the live stack has already fixed.
-  const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx) };
-  await step(ctx, 'compute', 'build, then pass 1: the live addresses file', async () => {
-    await build(env);
-    await pass(1, env);
-  });
-  await step(ctx, 'compute', 'rebuild, then pass 2: the seven implementations, assert, seal', async () => {
-    await build(env);
-    await pass(2, env);
-  });
-  mergePreUpgradeIntoManifest(ctx);
-  const previous = ctx.opt.previousManifest;
-  stampSeal(
-    ctx,
-    previous === null
-      ? null
-      : previousLink(
-          previous.path,
-          ctx.outDir,
-          ctx.opt.configPath === null ? INVOCATION_DIR : dirname(ctx.opt.configPath),
-        ),
-  );
-  writeEventConfig(ctx);
-  // The upgrade's seal is complete only once the pre-upgrade snapshot is merged into it.
-  removeScratchIfSealed(ctx, ['preUpgrade']);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-
-/**
- * The value of each `--handle`, read before the upgrade and required unchanged after it.
- *
- * Reported rather than silently skipped when empty, because the two situations give different guarantees
- * and conflating them in the output would overstate what `verify` proved.
- */
-function recordHandleValues(ctx: Ctx, block?: number): Readonly<Record<string, string>> {
-  const values: Record<string, string> = {};
-  if (ctx.opt.handles.length === 0) {
-    warn(
-      '  no --handle given: verify will be able to prove the stack still WORKS after the upgrade, but',
-      '  not that existing cleartext data survived it. Those are different claims.',
-    );
-    return values;
-  }
-  const db = ctx.opt.existing.CLEARTEXT_DB_ADDRESS ?? '';
-  for (const handle of ctx.opt.handles) {
-    if (!/^0x[0-9a-fA-F]{64}$/.test(handle)) fail(`Error: --handle is not bytes32: ${handle}`);
-    const r = capture('cast', [
-      'call',
-      db,
-      'get(bytes32)(uint256)',
-      handle,
-      '--rpc-url',
-      ctx.opt.rpcUrl,
-      ...atBlock(block),
-    ]);
-    if (!r.ok) {
-      fail(
-        `Error: --handle ${handle} does not resolve in the live CleartextDB at ${db}.`,
-        '       A handle that cannot be read now cannot be shown to survive.',
-      );
-    }
-    values[handle.toLowerCase()] = r.stdout;
-    say(`    ${pad(handle, ROLE_WIDTH)} = ${r.stdout}`);
-  }
-  return values;
-}
 
 function safeNumber(value: bigint, label: string): number {
   if (value > BigInt(Number.MAX_SAFE_INTEGER)) fail(`Error: ${label} exceeds JavaScript's safe integer range.`);
@@ -961,28 +729,19 @@ function safeNumber(value: bigint, label: string): number {
 }
 
 /**
- * The pre-upgrade snapshot, every reading taken at ONE settled block.
- *
- * One block, so the readings are consistent with each other; a settled one, so none of them can be
- * reorged away. A snapshot read at the head is the seal's only witness to "before", and a witness whose
- * block is later orphaned has seen a chain that no longer exists.
+ * The upgrade's part of the pre-snapshot, at the engine's settled block: the KMS and coprocessor signer sets,
+ * the migration they seed, and every v13 getter (the survey verify compares against). The engine adds the
+ * block, the admin, the handles and every proxy's implementation.
  */
-function capturePreUpgrade(ctx: Ctx): PreUpgradeSnapshot {
-  const blockNumber = settledBlock(ctx);
-  if (!Number.isSafeInteger(blockNumber) || blockNumber < 0) fail('Error: could not capture the pre-upgrade block.');
-  say(`  🔭 snapshotting the live stack at settled block ${String(blockNumber)}`);
-
+function snapshotExtras(ctx: Ctx, blockNumber: number): Readonly<Record<string, unknown>> {
   const pc = ctx.opt.existing.PROTOCOL_CONFIG_ADDRESS ?? '';
   const inputVerifier = ctx.opt.existing.INPUT_VERIFIER_ADDRESS ?? '';
-  const aclOwner = ctx.opt.existing.ACL_OWNER ?? '';
-  const admin = callAddress(ctx, aclOwner, 'owner()(address)', blockNumber);
   const kmsSigners = callAddresses(ctx, pc, 'getKmsSigners()(address[])', blockNumber);
   const kmsThresholds = readKmsThresholds(ctx, pc, blockNumber);
   const kmsContextId = callUint(ctx, pc, 'getCurrentKmsContextId()(uint256)', blockNumber);
   const coprocessorSigners = callAddresses(ctx, inputVerifier, 'getCoprocessorSigners()(address[])', blockNumber);
   const coprocessorThreshold = callUint(ctx, inputVerifier, 'getThreshold()(uint256)', blockNumber);
   if (
-    admin === null ||
     kmsSigners === null ||
     kmsThresholds === null ||
     kmsContextId === null ||
@@ -995,26 +754,13 @@ function capturePreUpgrade(ctx: Ctx): PreUpgradeSnapshot {
   const readings = surveyStack(ctx, blockNumber);
   say(`    ${String(Object.keys(readings).length)} getter readings captured at block ${String(blockNumber)}`);
 
-  // Every live proxy, including the two the upgrade must not touch: verify needs their "before" to say
-  // "unchanged", and a proxy nobody meant to re-point is exactly the one nobody thought to snapshot.
-  const implementation: Record<string, string> = {};
-  for (const role of [...UPGRADED_ROLES, ...UNTOUCHED_ROLES]) {
-    const value = implementationAt(ctx, ctx.opt.existing[role] ?? '', blockNumber);
-    if (value === null) fail(`Error: could not snapshot the implementation slot of ${role}.`);
-    implementation[role] = value;
-  }
-
   return {
-    blockNumber,
-    handles: recordHandleValues(ctx, blockNumber),
     readings,
-    admin,
     kmsSigners,
     kmsThresholds,
     coprocessorSigners,
     coprocessorThreshold: safeNumber(coprocessorThreshold, 'coprocessor threshold'),
     migration: resolveMigration(ctx, kmsContextId, kmsSigners, kmsThresholds),
-    implementation,
   };
 }
 
@@ -1027,74 +773,6 @@ function readKmsThresholds(ctx: Ctx, pc: string, block?: number): KmsThresholds 
   const mpc = read('getMpcThreshold');
   if (publicDecryption === null || userDecryption === null || kmsGen === null || mpc === null) return null;
   return { publicDecryption, userDecryption, kmsGen, mpc };
-}
-
-function preUpgradePath(ctx: Ctx): string {
-  return join(ctx.outDir, 'pre-upgrade.json');
-}
-
-function writePreUpgrade(ctx: Ctx, snapshot: PreUpgradeSnapshot): void {
-  writeFileSync(preUpgradePath(ctx), `${JSON.stringify(snapshot, null, 2)}\n`);
-}
-
-function writeInitialAddresses(ctx: Ctx): void {
-  const address = (role: string): string => ctx.opt.existing[role] ?? '';
-  const constants: ReadonlyArray<readonly [string, string]> = [
-    ['ACL_ADDRESS', address('ACL_ADDRESS')],
-    ['FHEVM_EXECUTOR_ADDRESS', address('FHEVM_EXECUTOR_ADDRESS')],
-    ['KMS_VERIFIER_ADDRESS', address('KMS_VERIFIER_ADDRESS')],
-    ['INPUT_VERIFIER_ADDRESS', address('INPUT_VERIFIER_ADDRESS')],
-    ['HCU_LIMIT_ADDRESS', address('HCU_LIMIT_ADDRESS')],
-    ['PROTOCOL_CONFIG_ADDRESS', address('PROTOCOL_CONFIG_ADDRESS')],
-    ['KMS_GENERATION_ADDRESS', address('KMS_GENERATION_ADDRESS')],
-    ['CLEARTEXT_ARITHMETIC_ADDRESS', address('CLEARTEXT_ARITHMETIC_ADDRESS')],
-    ['CLEARTEXT_DB_ADDRESS', address('CLEARTEXT_DB_ADDRESS')],
-    ['PAUSER_SET_ADDRESS', address('PAUSER_SET_ADDRESS')],
-  ];
-  const source = [
-    '// SPDX-License-Identifier: BSD-3-Clause-Clear',
-    'pragma solidity ^0.8.24;',
-    '// The live v13 addresses, which v14 keeps. Generated; do not edit.',
-    ...constants.map(
-      ([name, value]) => `address constant ${name} = address(uint160(0x00${value.toLowerCase().slice(2)}));`,
-    ),
-    '',
-  ].join('\n');
-  writeFileSync(join(ctx.outDir, 'addresses.sol'), source);
-}
-
-function mergePreUpgradeIntoManifest(ctx: Ctx): void {
-  const manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
-  const snapshot = readJson<PreUpgradeSnapshot>(preUpgradePath(ctx));
-  if (manifest === null) fail(`Error: compute did not seal ${manifestPath(ctx)}.`);
-  if (snapshot === null) fail(`Error: pre-upgrade snapshot missing at ${preUpgradePath(ctx)}.`);
-  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, preUpgrade: snapshot }, null, 2)}\n`);
-}
-
-/** The live stack, passed to the forge scripts as FHEVM_EXISTING_<ROLE>. */
-function existingEnv(ctx: Ctx): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
-  for (const role of EXISTING_ROLES) {
-    env[`FHEVM_EXISTING_${role}`] = ctx.opt.existing[role] ?? '';
-  }
-  return env;
-}
-
-function checkExistingManifestIdentity(ctx: Ctx): void {
-  const manifest = readJson<Manifest>(manifestPath(ctx));
-  if (manifest?.address === undefined) return;
-  for (const role of EXISTING_ROLES) {
-    const sealed = manifest.address[role];
-    const supplied = ctx.opt.existing[role];
-    if (sealed === undefined || supplied?.toLowerCase() !== sealed.toLowerCase()) {
-      fail(
-        `Error: ${role} differs from the live stack sealed at compute.`,
-        `         sealed:   ${sealed ?? '(missing)'}`,
-        `         supplied: ${supplied ?? '(missing)'}`,
-        '       Use the original upgrade config; a different live stack needs its own out-dir.',
-      );
-    }
-  }
 }
 
 function sealedMigrationEnv(ctx: Ctx): NodeJS.ProcessEnv {
@@ -1185,443 +863,13 @@ function verifySurveyAndHandles(ctx: Ctx): void {
   }
 }
 
-function sealedManifest(ctx: Ctx): {
-  readonly address: Readonly<Record<string, string>>;
-  readonly preUpgrade: PreUpgradeSnapshot;
-} {
-  const manifest = readJson<Manifest & { readonly preUpgrade?: PreUpgradeSnapshot }>(manifestPath(ctx));
-  if (manifest?.address === undefined || manifest.preUpgrade === undefined) {
-    fail('Error: manifest has no sealed addresses and pre-upgrade snapshot; run compute first.');
-  }
-  return { address: manifest.address, preUpgrade: manifest.preUpgrade };
-}
-
-/**
- * The upgrade's own events: the path between the two endpoints was straight.
- *
- * Slot values prove where each proxy ENDED UP. They cannot see an intermediate implementation that ran
- * for a block and was then replaced by the sealed one — code with full storage access that the endpoint
- * checks would never know about. The logs can: exactly one `Upgraded` per re-pointed proxy, to the sealed
- * implementation, all seven in ONE transaction; none at all on the two proxies the op list must not
- * touch; and seven `HostUpgraded` on the ACLOwner naming the same (proxy, implementation) pairs in op
- * order.
- *
- * That one transaction is also the materialize receipt when the admin is a multisig and no local record
- * exists — so it is written to the journal as an observation, once.
- */
-function verifyUpgradeEvents(ctx: Ctx): { readonly hash: string; readonly block: number | null } {
-  const { address, preUpgrade } = sealedManifest(ctx);
-  const fromBlock = preUpgrade.blockNumber + 1;
-  const at = (role: string): string => (address[role] ?? '').toLowerCase();
-
-  const hashes = new Set<string>();
-  let block: number | null = null;
-  for (const role of UPGRADED_ROLES) {
-    // Every op target is a live proxy, so its whole history since the seal is one `Upgraded` at materialize.
-    const expected = [at(`IMPL_${role}`)];
-    const logs = scanLogs(ctx, at(role), 'Upgraded(address)', fromBlock);
-    if (logs.length !== expected.length) {
-      fail(
-        `Error: ${role} emitted ${String(logs.length)} Upgraded event(s) since the seal; exactly ${String(expected.length)} expected.`,
-      );
-    }
-    logs.forEach((log, i) => {
-      const implementation = topicAddress(log.topics[1]);
-      if (implementation !== expected[i]) {
-        fail(
-          `Error: ${role} Upgraded[${String(i)}] points at ${implementation}, not the sealed ${expected[i] ?? '?'}.`,
-        );
-      }
-    });
-    const last = logs[logs.length - 1];
-    if (last === undefined) fail(`Error: ${role} has no Upgraded event.`);
-    hashes.add(last.transactionHash);
-    block = hexToNumber(last.blockNumber);
-  }
-  for (const role of UNTOUCHED_ROLES) {
-    if (scanLogs(ctx, at(role), 'Upgraded(address)', fromBlock).length !== 0) {
-      fail(`Error: ${role} emitted an Upgraded event; the upgrade must not touch it.`);
-    }
-  }
-  const [hash] = [...hashes];
-  if (hashes.size !== 1 || hash === undefined) {
-    fail('Error: the seven Upgraded events span more than one transaction; the upgrade was not atomic.');
-  }
-
-  const host = scanLogs(ctx, at('ACL_OWNER'), 'HostUpgraded(address,address)', fromBlock);
-  if (host.length !== UPGRADED_ROLES.length) {
-    fail(
-      `Error: ACLOwner emitted ${String(host.length)} HostUpgraded events; exactly ${String(UPGRADED_ROLES.length)} are expected.`,
-    );
-  }
-  host.forEach((log, i) => {
-    const role = UPGRADED_ROLES[i] ?? '';
-    const matches =
-      log.transactionHash === hash &&
-      topicAddress(log.topics[1]) === at(role) &&
-      topicAddress(log.topics[2]) === at(`IMPL_${role}`);
-    if (!matches) fail(`Error: HostUpgraded[${String(i)}] does not match the sealed op for ${role}.`);
-  });
-
-  say(`    ok   one atomic ACLOwner.upgrade, ${String(UPGRADED_ROLES.length)} ops: ${hash} (block ${String(block)})`);
-  recordExternalMaterialize(ctx, hash, block);
-  return { hash, block };
-}
-
-/** A materialize this tooling did not send has no local receipt; the block it landed in is still worth a line. */
-function recordExternalMaterialize(ctx: Ctx, hash: string, block: number | null): void {
-  const known = readJournal(ctx).some((row) => row.hash === hash || row.note?.includes(hash) === true);
-  if (known) return;
-  recordObservation(ctx, 'D', `ACLOwner.upgrade sent externally: ${hash}`, block ?? 0);
-}
-
-function verifyNoAuthorityEvents(ctx: Ctx): void {
-  const { address, preUpgrade } = sealedManifest(ctx);
-  const fromBlock = preUpgrade.blockNumber + 1;
-  const scans: ReadonlyArray<readonly [string, string, string]> = [
-    ['ACL ownership', address.ACL_ADDRESS ?? '', 'OwnershipTransferStarted(address,address)'],
-    ['ACL ownership', address.ACL_ADDRESS ?? '', 'OwnershipTransferred(address,address)'],
-    ['ACLOwner ownership', address.ACL_OWNER ?? '', 'OwnershipTransferStarted(address,address)'],
-    ['ACLOwner ownership', address.ACL_OWNER ?? '', 'OwnershipTransferred(address,address)'],
-    ['PauserSet', address.PAUSER_SET_ADDRESS ?? '', 'AddPauser(address)'],
-    ['PauserSet', address.PAUSER_SET_ADDRESS ?? '', 'RemovePauser(address)'],
-    ['PauserSet', address.PAUSER_SET_ADDRESS ?? '', 'SwapPauser(address,address)'],
-  ];
-  for (const [label, target, signature] of scans) {
-    if (scanLogs(ctx, target, signature, fromBlock).length > 0) {
-      fail(`Error: forbidden ${label} event emitted during upgrade: ${signature}`);
-    }
-  }
-  say('    ok   no ownership or pauser event was emitted during the upgrade');
-}
-
-/**
- * The verify's own record: at which block it passed, how deep that block was, and which transaction it
- * verified. `verify` is meant to be run again later at greater depth; this is how two runs are compared.
- */
-function writeVerifyReport(
-  ctx: Ctx,
-  materialize: { readonly hash: string; readonly block: number | null },
-  buildOut: string,
-): void {
-  const report = {
-    deploymentId: ctx.opt.deploymentId,
-    chainId: ctx.chainId,
-    verifiedAt: new Date().toISOString(),
-    verifiedAtBlock: headBlock(ctx),
-    finalizedBlock: ctx.useFinality ? finalizedBlock(ctx) : null,
-    materializeTx: materialize.hash,
-    materializeBlock: materialize.block,
-    buildOut,
-  };
-  const path = join(ctx.outDir, 'verify-report.json');
-  writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
-  say(`    wrote ${path}`);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
-
-async function stageCreates(ctx: Ctx): Promise<void> {
-  stageBanner('creates', '🥩 Creates: one CREATE2 per create, each gated on getCode');
-  ctx.stageLabel = 'creates';
-  requireScript('FhevmUpgradeCreates.s.sol');
-  await broadcast(ctx, 'upgrade/FhevmUpgradeCreates.s.sol:FhevmUpgradeCreates', undefined, undefined, existingEnv(ctx));
-}
-
-/**
- * The gate before the point of no return. Read-only; reports everything rather than stopping at the first
- * failure, so the operator sees the whole picture before the one transaction that cannot be retried.
- */
-async function stagePrecheck(ctx: Ctx): Promise<void> {
-  // A stage of its own only when asked for; inside rehearse and materialize it is one of their steps.
-  if (ctx.opt.stage === 'precheck') banner('🚧 Precheck: everything that must hold before the atomic upgrade');
-  else say('  🚧 precheck: everything that must hold before the atomic upgrade');
-  const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...sealedMigrationEnv(ctx) };
-  await step(ctx, 'precheck', 'pre-materialize check, from a fresh recompile', async () => {
-    const ok = await runReadOnly(
-      ctx,
-      requireScript('FhevmPreMaterializeCheck.s.sol'),
-      'FhevmPreMaterializeCheck',
-      checkBuildOut(ctx),
-      env,
-    );
-    if (!ok) {
-      fail('Error: the pre-materialize check failed. Nothing was sent; read the FAIL lines above before retrying.');
-    }
-  });
-}
-
-/**
- * The exact `ACLOwner.upgrade` payload, written by the materialize script itself in prepare-only mode, so
- * what a multisig signs and what a rehearsal applies is byte-identical to what a key here would send.
- */
-async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; readonly path: string }> {
-  const env = {
-    ...scriptEnv(ctx, existingEnv(ctx)),
-    ...generatedConfigEnv(ctx),
-    ...sealedMigrationEnv(ctx),
-    FHEVM_MIN_BLOCK: String(ctx.opt.minBlockOverride ?? 0),
-    FHEVM_PREPARE_ONLY: 'true',
-  };
-  const code = await runLogged(
-    'forge',
-    [
-      'script',
-      `${UPGRADE_SCRIPT_DIR}/FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade`,
-      '--rpc-url',
-      ctx.opt.rpcUrl,
-      '--out',
-      ctx.buildOut,
-      ...ctx.forgeArgs,
-      '--sender',
-      ctx.opt.admin,
-      ...traceArgs(ctx),
-    ],
-    env,
-  );
-  if (code !== 0) fail('Error: could not prepare the ACLOwner.upgrade payload.');
-  const path = join(ctx.outDir, 'materialize-calldata.txt');
-  return { calldata: readFileSync(path, 'utf8').trim(), path };
-}
-
-/**
- * The upgrade, for real, on a chain that does not matter.
- *
- * Everything before this point asks the chain and the build questions. This asks the only one that
- * matters and that no static check can answer — does the exact payload, applied to the exact live state,
- * leave a stack that passes the exact verify — and asks it where a wrong answer costs nothing: an anvil
- * forked from the live node at its head, with the admin impersonated. The verify that runs against the
- * fork is the same code, byte for byte, that will run against the live chain afterwards.
- *
- * What the fork keeps separate: its own out dir under `rehearsal/`, so the rehearsal's journal line and
- * `verify-report.json` can never be mistaken for the real ones. The manifest and generated config are
- * copied in, not moved — the seal stays where it is.
- */
-async function stageRehearse(ctx: Ctx): Promise<void> {
-  stageBanner('rehearse', '🎭 Rehearse: the upgrade on a fork of this chain');
-  requireTool('anvil');
-  if (!ctx.opt.dryRun) await waitForCreatesSettled(ctx);
-  await stagePrecheck(ctx);
-  if (isMaterialized(ctx)) {
-    say('  materialize already complete — nothing left to rehearse; run verify.');
-    return;
-  }
-  const { calldata } = await step(ctx, 'rehearse', 'prepare the exact ACLOwner.upgrade payload', () =>
-    prepareCalldata(ctx),
-  );
-
-  const forkDir = join(ctx.outDir, 'rehearsal');
-  removeIfPresent(forkDir);
-  ensureDir(forkDir);
-  copyFileSync(manifestPath(ctx), join(forkDir, 'manifest.json'));
-  copyFileSync(join(ctx.outDir, 'addresses.sol'), join(forkDir, 'addresses.sol'));
-
-  const port = await freePort();
-  const forkUrl = `http://127.0.0.1:${String(port)}`;
-  const forkedAt = headBlock(ctx);
-  say(`  ▸ fork ${ctx.opt.rpcUrl} at block ${String(forkedAt)}`);
-  const anvil = spawnBackground('anvil', [
-    '--fork-url',
-    ctx.opt.rpcUrl,
-    '--fork-block-number',
-    String(forkedAt),
-    '--port',
-    String(port),
-    '--host',
-    '127.0.0.1',
-    '--auto-impersonate',
-    '--silent',
-  ]);
-  try {
-    await waitUntil(() => capture('cast', ['chain-id', '--rpc-url', forkUrl]).ok, 60_000, `anvil fork on ${forkUrl}`);
-    // A fork mines only when sent to, so a depth wait there would never end: on the fork, settled is head.
-    const fork: Ctx = {
-      ...ctx,
-      opt: { ...ctx.opt, rpcUrl: forkUrl, minBlockOverride: null, confirmations: 0 },
-      outDir: forkDir,
-      buildOut: join(forkDir, 'build'),
-      broadcastDir: join(forkDir, 'broadcast'),
-      journalPath: join(forkDir, 'journal.jsonl'),
-      useFinality: false,
-    };
-    say(`  ✔ forked ${ctx.opt.rpcUrl} at block ${String(forkedAt)} onto ${forkUrl}`);
-
-    // A multisig admin may hold no ETH; on the fork it is given some, and its signature is not needed.
-    await step(ctx, 'rehearse', 'apply the payload on the fork as the impersonated admin', () => {
-      const admin = ctx.opt.admin;
-      const target = ctx.opt.existing.ACL_OWNER ?? '';
-      captureOrFail('cast', ['rpc', 'anvil_setBalance', admin, '0xDE0B6B3A7640000', '--rpc-url', forkUrl]);
-      const sent = capture('cast', [
-        'send',
-        '--json',
-        '--unlocked',
-        '--from',
-        admin,
-        target,
-        calldata,
-        '--rpc-url',
-        forkUrl,
-      ]);
-      if (!sent.ok) fail('Error: ACLOwner.upgrade REVERTED on the fork. The live chain is untouched.', sent.stderr);
-      const receipt = JSON.parse(sent.stdout) as { readonly status?: string; readonly transactionHash?: string };
-      if (receipt.status !== '0x1') {
-        fail(`Error: ACLOwner.upgrade failed on the fork (status ${receipt.status ?? '?'}).`);
-      }
-      say(`    applied ACLOwner.upgrade on the fork: ${receipt.transactionHash ?? '?'}`);
-    });
-
-    await step(ctx, 'rehearse', 'verify against the fork', () => stageVerify(fork, true));
-    say(
-      '',
-      `  REHEARSAL PASSED at block ${String(forkedAt)}: the exact payload leaves a stack that passes verify.`,
-      `  Nothing was sent to ${ctx.opt.rpcUrl}. Records: ${forkDir}`,
-    );
-  } finally {
-    if (anvil.exitCode === null && anvil.signalCode === null) anvil.kill('SIGTERM');
-  }
-}
-
-async function stageMaterialize(ctx: Ctx): Promise<void> {
-  stageBanner('materialize', '🧩 Materialize: one atomic ACLOwner.upgrade');
-  ctx.stageLabel = 'D';
-  requireScript('FhevmMaterializeUpgrade.s.sol');
-
-  // The gate runs at the depth the transaction will be sent at, and always — a manual `--stage
-  // materialize` gets it too. A dry run never waits, by its own rule.
-  if (!ctx.opt.dryRun) await waitForCreatesSettled(ctx);
-  await stagePrecheck(ctx);
-
-  if (ctx.opt.adminSigner === null) {
-    const { calldata, path: calldataPath } = await step(ctx, 'D', 'write the external ACLOwner.upgrade payload', () =>
-      prepareCalldata(ctx),
-    );
-    say(
-      '  external admin action required:',
-      `    target   ${ctx.opt.existing.ACL_OWNER ?? ''}`,
-      '    value    0',
-      `    calldata ${calldata}`,
-      `    keccak   ${captureOrFail('cast', ['keccak', calldata])}  <- must equal the digest precheck printed`,
-      `    saved    ${calldataPath}`,
-    );
-    if (ctx.opt.stage === 'all') {
-      fail('Error: --stage all stops until the contract/multisig admin executes the payload above.');
-    }
-    return;
-  }
-  const adminSigner = ctx.opt.adminSigner;
-  await step(ctx, 'D', 'broadcast ACLOwner.upgrade as the admin', () =>
-    broadcast(ctx, 'upgrade/FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade', adminSigner, ctx.opt.admin, {
-      ...existingEnv(ctx),
-      ...sealedMigrationEnv(ctx),
-    }),
-  );
-}
-
-/**
- * The terminal conditions, in three layers that answer three different questions:
- *
- *   Solidity   did the intended changes happen — from a fresh recompile, against the seal
- *   survey     did anything ELSE change — every v13 getter, and the sealed handles
- *   events     was the path between the two endpoints straight — one atomic upgrade, no authority moved
- *
- * Waits for the materialize block to be buried and finalized first: a verdict read off a block about to be
- * orphaned is not a verdict. Run it again later at greater depth; `verify-report.json` records each run.
- */
-async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
-  stageBanner('verify', '✅ Verify');
-  if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
-  await waitForMaterializeSettled(ctx);
-  const out = checkBuildOut(ctx);
-  // The sealed migration too: verify recomputes the context anchor hash from it and compares to the chain.
-  const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...sealedMigrationEnv(ctx) };
-  await step(ctx, 'verify', 'terminal conditions in Solidity, from a fresh recompile', async () => {
-    if (!(await runReadOnly(ctx, requireScript('FhevmVerifyUpgrade.s.sol'), 'FhevmVerifyUpgrade', out, env))) {
-      fail('Error: verify failed.');
-    }
-  });
-  await step(ctx, 'verify', 'survey: every v13 getter and every sealed handle', () => {
-    verifySurveyAndHandles(ctx);
-  });
-  const materialize = await step(ctx, 'verify', 'events: one atomic upgrade, nothing else', () => {
-    const found = verifyUpgradeEvents(ctx);
-    verifyNoAuthorityEvents(ctx);
-    return found;
-  });
-  writeVerifyReport(ctx, materialize, out);
-  // Verified, so the upgrade is complete: date the record from the chain (its ACLOwner.upgrade). Not the
-  // rehearsal's: a fork's transactions are on no chain anyone will read, and its folder is scratch.
-  if (!rehearsal) writeEventRecord(ctx, 'upgrade', materialize.hash);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Settlement — every wait derives from the chain, none from the journal
 ////////////////////////////////////////////////////////////////////////////////
-
-/** Every op target already at its sealed implementation, read at the head. */
-function isMaterialized(ctx: Ctx): boolean {
-  const { address } = sealedManifest(ctx);
-  return UPGRADED_ROLES.every(
-    (role) => implementationAt(ctx, address[role] ?? '', null) === (address[`IMPL_${role}`] ?? '').toLowerCase(),
-  );
-}
-
-/**
- * Block until every sealed create holds code at the settled block.
- *
- * The chain-side reorg gate for everything that reads the creates and then decides — precheck, rehearse,
- * materialize. It replaces "wait N blocks after the stage that sent them", which only an uninterrupted
- * `all` can know; this is answered from the chain by any invocation, days later, with no journal.
- */
-async function waitForCreatesSettled(ctx: Ctx): Promise<void> {
-  const { address } = sealedManifest(ctx);
-  await awaitPrerequisites(
-    ctx,
-    'the ten creates',
-    CREATE_ROLES.map((role) => ({
-      what: `code at ${role}`,
-      holds: (block: number | null) => hasCodeAt(ctx, address[role] ?? '', block),
-    })),
-  );
-}
-
-/**
- * Block until the materialize transaction is settled, and return its block.
- *
- * Found through `HostUpgraded` on the ACLOwner rather than through a receipt, so a multisig's transaction
- * and a run whose journal was lost are handled the same way as the happy path.
- */
-async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
-  const { address, preUpgrade } = sealedManifest(ctx);
-  const logs = scanLogs(ctx, address.ACL_OWNER ?? '', 'HostUpgraded(address,address)', preUpgrade.blockNumber + 1);
-  const block = Math.max(0, ...logs.map((log) => hexToNumber(log.blockNumber) ?? 0));
-  if (logs.length === 0 || block === 0) {
-    fail(
-      'Error: no HostUpgraded event since the seal: the upgrade has not been materialized, or its',
-      '       transaction was reorged out. --stage status says which; --stage materialize is safe to re-run.',
-    );
-  }
-  const beat = heartbeat();
-  let announced = false;
-  for (;;) {
-    const settled = settledBlock(ctx);
-    if (settled >= block) {
-      say(
-        `  the materialize block ${String(block)} is settled (${settlementRule(ctx)}, settled block ${String(settled)})`,
-      );
-      recordFinality(ctx);
-      return block;
-    }
-    if (!announced || beat.due()) {
-      say(
-        `  waiting for block ${String(block)} to settle (${settlementRule(ctx)}, settled block ${String(settled)}${announced ? `, ${beat.elapsed()}` : ''})`,
-      );
-      announced = true;
-    }
-    await sleep(12_000);
-  }
-}
 
 /**
  * `--stage params`: the init parameters this upgrade sends, decoded.
@@ -1685,111 +933,7 @@ function previewMigration(ctx: Ctx): SealedMigration {
   return resolveMigration(ctx, contextId, signers, thresholds);
 }
 
-/** `--stage progress`: the ledger, rendered. Reads local files only. */
-function stageStatus(ctx: Ctx): void {
-  const manifest = readJson<Manifest & { readonly preUpgrade?: PreUpgradeSnapshot }>(manifestPath(ctx));
-  if (manifest?.address === undefined || manifest.preUpgrade === undefined) {
-    say(`no manifest at ${manifestPath(ctx)} — run compute first.`);
-    return;
-  }
-  say('-'.repeat(RULE_WIDTH));
-  banner(`📋 Status: ${ctx.opt.deploymentId} @ v0.14`);
-  say('-'.repeat(RULE_WIDTH));
-
-  const createRoles = CREATE_ROLES;
-  let createsDone = 0;
-  for (const role of createRoles) {
-    const address = manifest.address[role] ?? '';
-    const code = capture('cast', ['code', address, '--rpc-url', ctx.opt.rpcUrl]);
-    const done = code.ok && code.stdout !== '' && code.stdout !== '0x';
-    if (done) createsDone += 1;
-    say(`  ${done ? 'done' : 'todo'}  ${pad(role, ROLE_WIDTH)} ${address}`);
-  }
-  say(`  creates: ${String(createsDone)}/${String(createRoles.length)}`);
-
-  const upgradedRoles = UPGRADED_ROLES;
-  const slotOf = (role: string): string | null => implementationAt(ctx, manifest.address?.[role] ?? '', null);
-  let complete = 0;
-  let expectedPrevious = 0;
-  let foreign = 0;
-  for (const role of upgradedRoles) {
-    const current = slotOf(role);
-    if (current === null) {
-      say(`  FATAL ${pad(role, ROLE_WIDTH)} implementation slot unreadable`);
-      foreign += 1;
-      continue;
-    }
-    const target = (manifest.address[`IMPL_${role}`] ?? '').toLowerCase();
-    const previous = (manifest.preUpgrade.implementation[role] ?? '').toLowerCase();
-    if (current === target) complete += 1;
-    else if (current === previous) expectedPrevious += 1;
-    else {
-      foreign += 1;
-      say(`  FATAL ${pad(role, ROLE_WIDTH)} unsealed implementation ${current}`);
-    }
-  }
-  if (foreign > 0) say('  materialize: FATAL — at least one proxy has a foreign implementation');
-  else if (complete === upgradedRoles.length)
-    say('  materialize: done — all seven implementation slots match the seal');
-  else if (complete > 0) say(`  materialize: FATAL — partial atomic upgrade (${String(complete)}/7 slots match)`);
-  else if (expectedPrevious === upgradedRoles.length && createsDone === createRoles.length) {
-    say('  materialize: ready — all seven creates exist and all seven slots are at their sealed previous values');
-  } else if (expectedPrevious === upgradedRoles.length) say('  materialize: BLOCKED — run creates first');
-  else say('  materialize: FATAL — slot classification is inconsistent');
-
-  // The two proxies outside the op list, which must still run what they ran at seal time.
-  for (const role of UNTOUCHED_ROLES) {
-    const current = slotOf(role);
-    const sealed = (manifest.preUpgrade.implementation[role] ?? '').toLowerCase();
-    if (current === sealed) say(`  ok    ${pad(role, ROLE_WIDTH)} untouched, still at its sealed implementation`);
-    else
-      say(
-        `  FATAL ${pad(role, ROLE_WIDTH)} implementation moved to ${current ?? '(unreadable)'} - the upgrade must not touch it`,
-      );
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-
-async function runStage(ctx: Ctx, stage: Stage): Promise<void> {
-  switch (stage) {
-    case 'compute':
-      await stageCompute(ctx);
-      return;
-    case 'creates':
-      await stageCreates(ctx);
-      return;
-    case 'precheck':
-      await stagePrecheck(ctx);
-      return;
-    case 'rehearse':
-      await stageRehearse(ctx);
-      return;
-    case 'materialize':
-      await stageMaterialize(ctx);
-      return;
-    case 'verify':
-      await stageVerify(ctx);
-      return;
-    case 'status':
-      stageStatus(ctx);
-      return;
-    case 'log':
-      showJournal(ctx);
-      return;
-    case 'report':
-      stageReport(ctx);
-      return;
-    case 'progress':
-      stageProgress(ctx);
-      return;
-    case 'params':
-      stageParams(ctx);
-      return;
-    case 'all':
-      fail("Error: 'all' is expanded by main, not run as a stage.");
-  }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1809,52 +953,26 @@ const UPGRADE_FLOW: Flow = {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-async function main(): Promise<void> {
-  const cli = parseCliArgs(UPGRADE_FLOW, process.argv.slice(2));
-  const { cfg, path: configPath } = loadConfigFile(UPGRADE_FLOW, cli.configPath);
-  const opt = resolveOptions(UPGRADE_FLOW, cli, cfg, configPath);
+/** The v13 -> v14 generation upgrade, as the re-point engine runs it. */
+const UPGRADE_ADAPTER: RepointAdapter = {
+  flow: UPGRADE_FLOW,
+  scriptDir: 'upgrade',
+  scripts: {
+    compute: 'FhevmComputeUpgradeAddresses.s.sol:FhevmComputeUpgradeAddresses',
+    creates: 'FhevmUpgradeCreates.s.sol:FhevmUpgradeCreates',
+    precheck: 'FhevmPreMaterializeCheck.s.sol:FhevmPreMaterializeCheck',
+    materialize: 'FhevmMaterializeUpgrade.s.sol:FhevmMaterializeUpgrade',
+    verify: 'FhevmVerifyUpgrade.s.sol:FhevmVerifyUpgrade',
+  },
+  computeTitle: '🍟 Compute: 2 passes, 1 rebuild',
+  repointed: () => UPGRADED_ROLES,
+  validateLive: { label: 'validate the eleven live addresses against the stack', run: validateExisting },
+  snapshotExtras,
+  sealedEnv: sealedMigrationEnv,
+  verifyExtras: { label: 'survey: every v13 getter and every sealed handle', run: verifySurveyAndHandles },
+  addressesHeader: '// The live v13 addresses, which v14 keeps. Generated; do not edit.',
+  eventKind: 'upgrade',
+  extraStages: { params: stageParams },
+};
 
-  process.chdir(PACKAGE_ROOT);
-  if (needsChain(opt.stage)) {
-    requireTool('forge');
-    requireTool('cast');
-  }
-
-  const ctx = buildContext(UPGRADE_FLOW, opt);
-  if (needsChain(opt.stage)) {
-    // Everything this invocation prints, forge's output included, kept beside the seal.
-    const logs = join(ctx.outDir, 'logs');
-    ensureDir(logs);
-    startTranscript(join(logs, `${new Date().toISOString().replace(/[:.]/g, '-')}-${opt.stage}.log`));
-    say(`📝  transcript: ${logs}`);
-    preflight(ctx);
-    checkExistingManifestIdentity(ctx);
-  }
-
-  if (opt.stage === 'all') {
-    say('🗺   plan', ...RUN_ORDER.map((stage, i) => `    ${String(i + 1)}/${String(RUN_ORDER.length)}  ${stage}`), '');
-    // Same rule as the deploy: `compute` alone is a hard error once anything was sent, but inside `all`
-    // it is incidental, so a sealed upgrade past its first transaction skips it. Otherwise `--stage all`
-    // could never resume the upgrade it started. Asked of the chain, so a run killed before it wrote its
-    // journal still resumes rather than resealing.
-    // Before anything is sent, an existing complete seal — pre-upgrade snapshot included — is reused,
-    // never recomputed: the snapshot is the only witness to "before", and the operator committed it.
-    if (upgradeStarted(ctx)) {
-      stageBanner('compute', '🍟 Compute: already sealed and past its first transaction - skipping (resume)');
-    } else if (isCompleteSeal(ctx, ['preUpgrade'])) {
-      stageBanner('compute', `🍟 Compute: using the existing seal ${manifestPath(ctx)} (--stage compute reseals)`);
-    } else {
-      await stageCompute(ctx);
-    }
-    for (const stage of RUN_ORDER.filter((s) => s !== 'compute')) {
-      await runStage(ctx, stage);
-    }
-    say('done (all)');
-    return;
-  }
-
-  await runStage(ctx, opt.stage as Stage);
-  say(`done (${opt.stage})`);
-}
-
-await main();
+await runRepointCli(UPGRADE_ADAPTER);
