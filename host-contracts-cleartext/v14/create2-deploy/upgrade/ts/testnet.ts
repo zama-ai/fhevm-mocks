@@ -167,6 +167,8 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
                        Without a config file, the event's config is written where you run, next to the
                        out dir, ready to archive
 
+  --real ID            required by a sending stage (all, creates, materialize) on a chain that is not an anvil:
+                       names the real stack it changes (its deploymentId). Refused against an anvil
   --fork URL           a SIMULATION on that anvil fork, the only send target (refused with --rpc-url, and for
                        a node that is not an anvil). Keyless unless --account / --admin-account are given:
                        creates from anvil's test account 0, the admin impersonated on the fork. Defaults to 0

@@ -180,6 +180,8 @@ export type CliArgs = {
   outDirArg: string | null;
   /** `--fork <url>`, as typed. */
   forkUrl: string | null;
+  /** `--real <deploymentId>`: the operator names the real stack a sending run changes. */
+  realStack: string | null;
   useFinality: boolean | null;
   minBlockOverride: number | null;
   stage: Stage | null;
@@ -756,6 +758,7 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     previousManifestPath: null,
     deploymentDir: null,
     forkUrl: null,
+    realStack: null,
     handles: [],
   };
 
@@ -854,6 +857,10 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
         break;
       case '--fork':
         cli.forkUrl = need(i, a);
+        i += 1;
+        break;
+      case '--real':
+        cli.realStack = need(i, a);
         i += 1;
         break;
       case '--handle':
@@ -1075,6 +1082,28 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
           : null;
 
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
+
+  // A re-point that sends to a real chain changes a real stack, and must say which, by name: reusing a record's
+  // config (its real RPC, its keystores) with a forgotten --fork or --rpc-url must stop here, not upgrade it.
+  // `--real <deploymentId>` is that statement. A deploy creates a new stack, and is not concerned.
+  if (flow.name !== 'deploy' && fork === null) {
+    const sends = !cli.dryRun && (stage === 'all' || stage === 'creates' || flow.adminSendingStages.includes(stage));
+    if (sends || cli.realStack !== null) {
+      const anvil = isAnvil(rpcUrl);
+      if (cli.realStack !== null && anvil) {
+        fail(`Error: --real names a run on a real chain, but ${rpcUrl} is an anvil. Drop --real.`);
+      }
+      if (sends && !anvil && cli.realStack !== deploymentId) {
+        fail(
+          `Error: this run sends transactions to ${rpcUrl}, which is not an anvil: it changes the REAL stack '${deploymentId}'.`,
+          '',
+          '       To simulate it first:  --fork <anvil fork url>   (anvil --fork-url <rpc> --port 8556)',
+          `       To do it for real:     --real ${deploymentId}`,
+          ...(cli.realStack === null ? [] : ['', `       (--real ${cli.realStack} does not name this stack.)`]),
+        );
+      }
+    }
+  }
 
   // A path typed on the command line is relative to the caller's directory; a path written in a config
   // file is relative to that FILE's directory, so an operator folder works wherever it is and whatever

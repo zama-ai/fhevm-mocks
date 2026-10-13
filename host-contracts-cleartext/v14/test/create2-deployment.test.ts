@@ -114,3 +114,41 @@ void test('--fork is refused for a deploy, with --rpc-url, and on a node that is
   assert.notEqual(notAnvil.status, 0);
   assert.match(notAnvil.output, /did not answer anvil_nodeInfo: it is not an anvil fork/);
 });
+
+void test('a re-point that sends to a chain that is not an anvil names the real stack: --real <deploymentId>', (t) => {
+  const flows = ['hotfix-cli', join('upgrade', 'upgrade-cli')];
+  const root = mkdtempSync(join(tmpdir(), 'create2-real-'));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+  const out = join(root, 'out');
+  for (const flow of flows) {
+    const run = (args: readonly string[]): { status: number | null; output: string } => {
+      // Nothing answers on port 1, so it is not an anvil.
+      const base = ['--rpc-url', 'http://127.0.0.1:1', '--deployment-id', 'x', '--account', 'k', '--out-dir', out];
+      const r = spawnSync(join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', flow), [...base, ...args], {
+        encoding: 'utf8',
+      });
+      return { status: r.status, output: `${r.stdout}${r.stderr}` };
+    };
+    const REFUSED = /it changes the REAL stack 'x'/;
+    for (const stage of ['all', 'creates']) {
+      const bare = run(['--stage', stage]);
+      assert.notEqual(bare.status, 0, `${flow} ${stage}`);
+      assert.match(bare.output, REFUSED, `${flow} ${stage}`);
+      assert.match(bare.output, /--real x/, `${flow} ${stage}`);
+    }
+    const wrong = run(['--stage', 'creates', '--real', 'y']);
+    assert.match(wrong.output, /--real y does not name this stack/, flow);
+    // Past the guard, the run stops at the next missing option: --admin.
+    for (const args of [
+      ['--stage', 'creates', '--real', 'x'],
+      ['--stage', 'creates', '--dry-run'],
+      ['--stage', 'verify'],
+    ]) {
+      const passed = run(args);
+      assert.doesNotMatch(passed.output, REFUSED, `${flow} ${args.join(' ')}`);
+      assert.match(passed.output, /--admin is required/, `${flow} ${args.join(' ')}`);
+    }
+  }
+});
