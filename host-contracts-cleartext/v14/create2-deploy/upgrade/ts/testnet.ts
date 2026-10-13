@@ -28,9 +28,23 @@ import { dirname, join } from 'node:path';
 // contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here: a copy would not
 // follow a v13 hotfix.
 import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/versions.ts';
+import {
+  atBlock,
+  callAddress,
+  callAddresses,
+  callString,
+  callUint,
+  checkBuildOut,
+  isAddress,
+  runReadOnly,
+  sameAddressList,
+  scanLogs,
+  stageProgress,
+  step,
+  topicAddress,
+} from '../../ts/repoint.ts';
 
 import {
-  appendJsonl,
   capture,
   captureOrFail,
   ensureDir,
@@ -40,7 +54,6 @@ import {
   hexToNumber,
   pad,
   readJson,
-  readJsonl,
   removeIfPresent,
   requireTool,
   runLogged,
@@ -85,6 +98,7 @@ import {
   scriptEnv,
   settlementRule,
   INVOCATION_DIR,
+  implementationAt,
   checkRecordedImplementations,
   sameVersionLine,
   versionLine,
@@ -296,66 +310,6 @@ from the chain — never from the journal — so an interrupted run resumes by r
 // The live stack
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- * One `cast call` returning an address, or null if the call reverted or answered zero.
- *
- * `capture`, not `captureOrFail`: a revert is a legitimate ANSWER here rather than a failure. It is what
- * a wrong address looks like when it holds no code, or holds something without that getter — and the
- * caller is what decides whether that is fatal.
- */
-/** `--block N` for a read that must be taken at the snapshot block; nothing for a read at the head. */
-function atBlock(block?: number): string[] {
-  return block === undefined ? [] : ['--block', String(block)];
-}
-
-function callAddress(ctx: Ctx, target: string, sig: string, block?: number): string | null {
-  const r = capture('cast', ['call', target, sig, '--rpc-url', ctx.opt.rpcUrl, ...atBlock(block)]);
-  if (!r.ok) return null;
-  const out = r.stdout;
-  // `cast call` answers with a 32-byte word; an address is its low 20 bytes.
-  if (out === '' || /^0x0*$/.test(out)) return null;
-  return `0x${out.slice(-40)}`;
-}
-
-/**
- * One `cast call` returning a string (`getVersion`, and the EIP-712 domain name).
- *
- * No `abi-decode` step: giving `cast call` a signature WITH the return type — `getVersion()(string)` —
- * makes it decode for us and answer `"KMSVerifier v0.2.0"`, quotes included. Decoding that again fails,
- * which reported a perfectly good KMSVerifier as uninitialized and would have blocked a correct upgrade.
- * Only the quotes need stripping.
- */
-function callString(ctx: Ctx, target: string, sig: string): string | null {
-  const r = capture('cast', ['call', target, sig, '--rpc-url', ctx.opt.rpcUrl]);
-  return r.ok ? r.stdout.replace(/^"|"$/g, '') : null;
-}
-
-function callUint(ctx: Ctx, target: string, sig: string, block?: number): bigint | null {
-  const r = capture('cast', ['call', target, sig, '--rpc-url', ctx.opt.rpcUrl, ...atBlock(block)]);
-  if (!r.ok || r.stdout === '') return null;
-  const value = /^(0x[0-9a-fA-F]+|[0-9]+)/.exec(r.stdout)?.[1];
-  if (value === undefined) return null;
-  try {
-    return BigInt(value);
-  } catch {
-    return null;
-  }
-}
-
-function callAddresses(ctx: Ctx, target: string, sig: string, block?: number): string[] | null {
-  const r = capture('cast', ['call', target, sig, '--rpc-url', ctx.opt.rpcUrl, ...atBlock(block)]);
-  if (!r.ok) return null;
-  return r.stdout.match(/0x[0-9a-fA-F]{40}/g) ?? [];
-}
-
-function isAddress(value: unknown): value is string {
-  return typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value);
-}
-
-function sameAddressList(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((value, i) => value.toLowerCase() === b[i]?.toLowerCase());
-}
-
 type MigrationNode = {
   readonly txSenderAddress: string;
   readonly signerAddress: string;
@@ -406,8 +360,6 @@ type PreUpgradeSnapshot = {
   readonly migration: SealedMigration;
   readonly implementation: Readonly<Record<string, string>>;
 };
-
-const ERC1967_IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 
 const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly role: string; readonly abi: string }> = [
   { label: 'ACL', role: 'ACL_ADDRESS', abi: 'CleartextACL.json' },
@@ -1047,7 +999,7 @@ function capturePreUpgrade(ctx: Ctx): PreUpgradeSnapshot {
   // "unchanged", and a proxy nobody meant to re-point is exactly the one nobody thought to snapshot.
   const implementation: Record<string, string> = {};
   for (const role of [...UPGRADED_ROLES, ...UNTOUCHED_ROLES]) {
-    const value = implementationSlot(ctx, ctx.opt.existing[role] ?? '', blockNumber);
+    const value = implementationAt(ctx, ctx.opt.existing[role] ?? '', blockNumber);
     if (value === null) fail(`Error: could not snapshot the implementation slot of ${role}.`);
     implementation[role] = value;
   }
@@ -1233,60 +1185,6 @@ function verifySurveyAndHandles(ctx: Ctx): void {
   }
 }
 
-type Log = {
-  readonly address: string;
-  readonly topics: readonly string[];
-  readonly blockNumber: string;
-  readonly transactionHash: string;
-};
-
-/** Blocks per `eth_getLogs` call. Public RPCs cap the range, and compute-to-verify can span days. */
-const LOG_WINDOW = 2000;
-
-/** One progress clock for every event scan of this run. See scanLogs. */
-let scanBeat: ReturnType<typeof heartbeat> | null = null;
-
-/** Every `signature` event `address` emitted from `fromBlock` to the head, fetched in RPC-sized windows. */
-function scanLogs(ctx: Ctx, address: string, signature: string, fromBlock: number): Log[] {
-  const head = headBlock(ctx);
-  const logs: Log[] = [];
-  // Days between compute and verify are thousands of blocks, in RPC-sized windows, for a dozen scans:
-  // the heartbeat is shared by all of them, or a dozen 50-second scans would never print a line.
-  scanBeat ??= heartbeat();
-  const beat = scanBeat;
-  for (let from = fromBlock; from <= head; from += LOG_WINDOW) {
-    const to = Math.min(from + LOG_WINDOW - 1, head);
-    if (beat.due()) {
-      say(
-        `    … scanning ${signature.split('(')[0] ?? signature} events: block ${String(from)} of ${String(head)} (${beat.elapsed()})`,
-      );
-    }
-    const r = capture('cast', [
-      'logs',
-      '--json',
-      '--from-block',
-      String(from),
-      '--to-block',
-      String(to),
-      '--address',
-      address,
-      signature,
-      '--rpc-url',
-      ctx.opt.rpcUrl,
-    ]);
-    if (!r.ok) {
-      fail(`Error: event scan failed for ${signature} on ${address} (blocks ${String(from)}-${String(to)}).`, r.stderr);
-    }
-    logs.push(...(JSON.parse(r.stdout === '' ? '[]' : r.stdout) as Log[]));
-  }
-  return logs;
-}
-
-/** The address an indexed `address` topic carries. */
-function topicAddress(topic: string | undefined): string {
-  return `0x${(topic ?? '').slice(-40)}`.toLowerCase();
-}
-
 function sealedManifest(ctx: Ctx): {
   readonly address: Readonly<Record<string, string>>;
   readonly preUpgrade: PreUpgradeSnapshot;
@@ -1423,45 +1321,6 @@ function writeVerifyReport(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- * A fresh `forge --out` for the read-only checks.
- *
- * Checking against the build that sealed the manifest compares the seal with itself. A recompile into an
- * empty directory makes the current checkout re-derive every init-code hash — the independent recompile
- * an auditor would do — for the price of a few seconds of solc.
- */
-function checkBuildOut(ctx: Ctx): string {
-  if (ctx.opt.noBuild) {
-    say('  (--no-build: checking against the sealed build, not a fresh recompile)');
-    return ctx.buildOut;
-  }
-  const dir = join(ctx.outDir, 'build-check');
-  removeIfPresent(dir);
-  return dir;
-}
-
-/** One read-only forge script: simulated against the head, nothing signed, nothing sent. */
-async function runReadOnly(
-  ctx: Ctx,
-  file: string,
-  contract: string,
-  out: string,
-  env: NodeJS.ProcessEnv,
-): Promise<boolean> {
-  const script = requireScript(file);
-  const args = [
-    'script',
-    `${script}:${contract}`,
-    '--out',
-    out,
-    '--rpc-url',
-    ctx.opt.rpcUrl,
-    ...ctx.forgeArgs,
-    ...traceArgs(ctx),
-  ];
-  return (await runLogged('forge', args, env)) === 0;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 async function stageCreates(ctx: Ctx): Promise<void> {
@@ -1483,7 +1342,7 @@ async function stagePrecheck(ctx: Ctx): Promise<void> {
   await step(ctx, 'precheck', 'pre-materialize check, from a fresh recompile', async () => {
     const ok = await runReadOnly(
       ctx,
-      'FhevmPreMaterializeCheck.s.sol',
+      requireScript('FhevmPreMaterializeCheck.s.sol'),
       'FhevmPreMaterializeCheck',
       checkBuildOut(ctx),
       env,
@@ -1678,7 +1537,7 @@ async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
   // The sealed migration too: verify recomputes the context anchor hash from it and compares to the chain.
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...sealedMigrationEnv(ctx) };
   await step(ctx, 'verify', 'terminal conditions in Solidity, from a fresh recompile', async () => {
-    if (!(await runReadOnly(ctx, 'FhevmVerifyUpgrade.s.sol', 'FhevmVerifyUpgrade', out, env))) {
+    if (!(await runReadOnly(ctx, requireScript('FhevmVerifyUpgrade.s.sol'), 'FhevmVerifyUpgrade', out, env))) {
       fail('Error: verify failed.');
     }
   });
@@ -1700,25 +1559,11 @@ async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
 // Settlement — every wait derives from the chain, none from the journal
 ////////////////////////////////////////////////////////////////////////////////
 
-/** The ERC-1967 implementation of `proxy`, lower-cased, at `block` or the head; null if unreadable. */
-function implementationSlot(ctx: Ctx, proxy: string, block?: number): string | null {
-  const raw = capture('cast', [
-    'storage',
-    proxy,
-    ERC1967_IMPLEMENTATION_SLOT,
-    '--rpc-url',
-    ctx.opt.rpcUrl,
-    ...atBlock(block),
-  ]);
-  const word = /0x[0-9a-fA-F]{64}/.exec(raw.stdout)?.[0];
-  return !raw.ok || word === undefined ? null : `0x${word.slice(-40)}`.toLowerCase();
-}
-
 /** Every op target already at its sealed implementation, read at the head. */
 function isMaterialized(ctx: Ctx): boolean {
   const { address } = sealedManifest(ctx);
   return UPGRADED_ROLES.every(
-    (role) => implementationSlot(ctx, address[role] ?? '') === (address[`IMPL_${role}`] ?? '').toLowerCase(),
+    (role) => implementationAt(ctx, address[role] ?? '', null) === (address[`IMPL_${role}`] ?? '').toLowerCase(),
   );
 }
 
@@ -1776,56 +1621,6 @@ async function waitForMaterializeSettled(ctx: Ctx): Promise<number> {
     }
     await sleep(12_000);
   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Progress — the ledger of every step, and the offline view of it
-////////////////////////////////////////////////////////////////////////////////
-
-type ProgressEntry = {
-  readonly ts: string;
-  readonly stage: string;
-  readonly step: string;
-  readonly status: 'start' | 'ok' | 'fail';
-  readonly block?: number | null;
-  readonly ms?: number;
-};
-
-function progressPath(ctx: Ctx): string {
-  return join(ctx.outDir, 'progress.jsonl');
-}
-
-/** The step in flight, so a `fail()` — which exits — still leaves a `fail` line behind it. */
-let openStep: { readonly ctx: Ctx; readonly stage: string; readonly step: string; readonly startedAt: number } | null =
-  null;
-
-process.on('exit', (code) => {
-  if (openStep === null || code === 0) return;
-  const { ctx, stage, step: name, startedAt } = openStep;
-  appendJsonl(progressPath(ctx), [
-    { ts: new Date().toISOString(), stage, step: name, status: 'fail', ms: Date.now() - startedAt },
-  ]);
-});
-
-/**
- * One step of a stage: announced, timed, recorded.
- *
- * The ledger is an audit trail like the journal, and like the journal nothing reads it to decide anything.
- * What it adds is the intermediate checks, which send no transaction and so leave no other trace.
- */
-async function step<T>(ctx: Ctx, stage: string, name: string, body: () => T | Promise<T>): Promise<T> {
-  const startedAt = Date.now();
-  ensureDir(ctx.outDir);
-  appendJsonl(progressPath(ctx), [{ ts: new Date().toISOString(), stage, step: name, status: 'start' }]);
-  openStep = { ctx, stage, step: name, startedAt };
-  say(`  ▸ ${name}`);
-  const result = await body();
-  const ms = Date.now() - startedAt;
-  const block = needsChain(stage) ? headBlock(ctx) : null;
-  appendJsonl(progressPath(ctx), [{ ts: new Date().toISOString(), stage, step: name, status: 'ok', ms, block }]);
-  openStep = null;
-  say(`  ✔ ${name}  (${(ms / 1000).toFixed(1)}s${block === null ? '' : `, block ${String(block)}`})`);
-  return result;
 }
 
 /**
@@ -1891,35 +1686,6 @@ function previewMigration(ctx: Ctx): SealedMigration {
 }
 
 /** `--stage progress`: the ledger, rendered. Reads local files only. */
-function stageProgress(ctx: Ctx): void {
-  const rows = readJsonl<ProgressEntry>(progressPath(ctx));
-  if (rows.length === 0) {
-    say(`No progress ledger at ${progressPath(ctx)} - nothing has run for this upgrade yet.`);
-    return;
-  }
-  banner(`📈 Progress: ${progressPath(ctx)}`);
-  say(`  ${pad('WHEN', 20)} ${pad('STAGE', 10)} ${pad('STATUS', 7)} ${pad('TOOK', 8)} ${pad('BLOCK', 9)} STEP`);
-  const when = (row: ProgressEntry): string => pad(row.ts.slice(0, 19).replace('T', ' '), 20);
-  const open = new Map<string, ProgressEntry>();
-  for (const row of rows) {
-    const key = `${row.stage}/${row.step}`;
-    if (row.status === 'start') {
-      open.set(key, row);
-      continue;
-    }
-    open.delete(key);
-    const took = row.ms === undefined ? '-' : `${(row.ms / 1000).toFixed(1)}s`;
-    const block = row.block === null || row.block === undefined ? '-' : String(row.block);
-    say(`  ${when(row)} ${pad(row.stage, 10)} ${pad(row.status, 7)} ${pad(took, 8)} ${pad(block, 9)} ${row.step}`);
-  }
-  for (const row of open.values()) {
-    say(
-      `  ${when(row)} ${pad(row.stage, 10)} ${pad('OPEN', 7)} ${pad('-', 8)} ${pad('-', 9)} ${row.step}  <- started, never finished`,
-    );
-  }
-  say('', `  transcripts: ${join(ctx.outDir, 'logs')}`);
-}
-
 function stageStatus(ctx: Ctx): void {
   const manifest = readJson<Manifest & { readonly preUpgrade?: PreUpgradeSnapshot }>(manifestPath(ctx));
   if (manifest?.address === undefined || manifest.preUpgrade === undefined) {
@@ -1942,7 +1708,7 @@ function stageStatus(ctx: Ctx): void {
   say(`  creates: ${String(createsDone)}/${String(createRoles.length)}`);
 
   const upgradedRoles = UPGRADED_ROLES;
-  const slotOf = (role: string): string | null => implementationSlot(ctx, manifest.address?.[role] ?? '');
+  const slotOf = (role: string): string | null => implementationAt(ctx, manifest.address?.[role] ?? '', null);
   let complete = 0;
   let expectedPrevious = 0;
   let foreign = 0;
