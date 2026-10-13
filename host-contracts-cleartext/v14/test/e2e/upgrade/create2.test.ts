@@ -593,6 +593,49 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       assert.match(output, /migration KMS signers do not exactly match/, output.slice(-4000));
     });
 
+    await t.test('a proxy running an implementation its record does not show is refused', async (st) => {
+      if (needsV13(st)) return;
+      announce(7, STEPS, 'negative: a proxy re-pointed behind the record must refuse (expect an Error below)');
+      // InputVerifier re-pointed to an exact copy of its own implementation, at another address: the stack
+      // behaves the same, so every other check passes, and only the record comparison can tell.
+      const cast = (...args: string[]): string => {
+        const run = spawnSync('cast', [...args, '--rpc-url', RPC_URL], { encoding: 'utf8' });
+        assert.equal(run.status, 0, `cast ${args.join(' ')}: ${run.stderr}`);
+        return run.stdout.trim();
+      };
+      const slot = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+      const proxy = addressOf(v13, 'INPUT_VERIFIER_ADDRESS');
+      const original = cast('storage', proxy, slot);
+      const recorded = `0x${original.slice(-40)}`;
+      const copy = `0x${'1c'.repeat(20)}`;
+      cast('rpc', 'anvil_setCode', copy, cast('code', recorded));
+      cast('rpc', 'anvil_setStorageAt', proxy, slot, `0x${'0'.repeat(24)}${copy.slice(2)}`);
+      try {
+        rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
+        const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
+          '--config',
+          'create2-deploy/anvil-config.json',
+          '--rpc-url',
+          RPC_URL,
+          '--out-dir',
+          outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
+          '--deployment-id',
+          DEPLOYMENT_ID,
+          '--previous-manifest',
+          join(outDirAbs(v13Root), 'manifest.json'),
+          '--stage',
+          'compute',
+          ...existingAddressArgs(v13),
+        ]);
+        assert.equal(ok, false, 'compute accepted a proxy running an unrecorded implementation');
+        assert.match(output, new RegExp(`FAIL INPUT_VERIFIER_ADDRESS\\s+runs ${copy}`, 'i'), output.slice(-4000));
+        assert.match(output, /the live stack is not the recorded one/, output.slice(-4000));
+      } finally {
+        cast('rpc', 'anvil_setStorageAt', proxy, slot, original);
+        assert.equal(cast('storage', proxy, slot), original, 'the InputVerifier slot is restored');
+      }
+    });
+
     const upgradeSkip = noStackReason();
     let v14Upgraded = false;
 

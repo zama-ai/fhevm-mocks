@@ -506,6 +506,9 @@ export const HOST_ROLES: readonly string[] = [
   'PAUSER_SET_ADDRESS',
 ];
 
+/** The stack's UUPS proxies: every host role but the PauserSet, which is not upgradeable. */
+export const PROXY_ROLES: readonly string[] = HOST_ROLES.filter((role) => role !== 'PAUSER_SET_ADDRESS');
+
 /** Widest role name is IMPL_CLEARTEXT_ARITHMETIC_ADDRESS, at 34. */
 export const ROLE_WIDTH = 34;
 
@@ -2168,6 +2171,69 @@ export function implementationAt(ctx: Ctx, proxy: string, block: number | null):
   ]);
   const word = /0x[0-9a-fA-F]{64}/.exec(r.stdout)?.[0];
   return !r.ok || word === undefined ? null : `0x${word.slice(-40)}`.toLowerCase();
+}
+
+/**
+ * What a sealed record says each proxy runs once its event is complete, lower-cased, by role: the
+ * `IMPL_<role>` the event deployed or re-pointed it to, else — for a proxy an upgrade left alone — the
+ * implementation it found live (`preUpgrade.implementation`). A role the record says nothing about is absent.
+ */
+export function recordedImplementations(manifest: Readonly<Record<string, unknown>>): Readonly<Record<string, string>> {
+  const recorded: Record<string, string> = {};
+  const preUpgrade = manifest.preUpgrade;
+  const before =
+    preUpgrade !== null && typeof preUpgrade === 'object'
+      ? (preUpgrade as { readonly implementation?: Readonly<Record<string, unknown>> }).implementation
+      : undefined;
+  const address = (manifest.address ?? {}) as Readonly<Record<string, unknown>>;
+  for (const role of PROXY_ROLES) {
+    const implementation = address[`IMPL_${role}`] ?? before?.[role];
+    if (typeof implementation === 'string' && /^0x[0-9a-fA-F]{40}$/.test(implementation)) {
+      recorded[role] = implementation.toLowerCase();
+    }
+  }
+  return recorded;
+}
+
+/**
+ * Refuse a live stack that is not the one the previous record describes: every proxy must run exactly the
+ * implementation that record sealed. Implementation addresses are CREATE2 hashes of the exact creation code,
+ * so this proves the code, which no version string can. A mismatch means an event happened that the record
+ * does not show (a hotfix not archived, a hand-made re-point): the record to start from is the latest one.
+ */
+export function checkRecordedImplementations(ctx: Ctx): void {
+  const previous = ctx.opt.previousManifest;
+  if (previous === null) return;
+  const manifest = readJson<Record<string, unknown>>(previous.path);
+  const recorded = manifest === null ? {} : recordedImplementations(manifest);
+  if (Object.keys(recorded).length === 0) {
+    warn(`${previous.path} records no implementation: the live implementations cannot be checked against it.`);
+    return;
+  }
+  let drift = 0;
+  for (const role of PROXY_ROLES) {
+    const expected = recorded[role];
+    if (expected === undefined) {
+      say(`    skip ${pad(role, ROLE_WIDTH)} the record names no implementation for it`);
+      continue;
+    }
+    const live = implementationAt(ctx, ctx.opt.existing[role] ?? '', null);
+    if (live === expected) {
+      say(`    ok   ${pad(role, ROLE_WIDTH)} runs the recorded implementation ${expected}`);
+    } else {
+      say(`    FAIL ${pad(role, ROLE_WIDTH)} runs ${live ?? '(unreadable)'}, the record says ${expected}`);
+      drift += 1;
+    }
+  }
+  if (drift > 0) {
+    fail(
+      '',
+      `Error: the live stack is not the recorded one: ${String(drift)} proxy(ies) run another implementation than`,
+      `       ${previous.path} sealed.`,
+      "       An event happened that this record does not show. Start from the stack's LATEST record",
+      '       (--deployment <stack folder> takes it), and archive any event that is missing first.',
+    );
+  }
 }
 
 /**

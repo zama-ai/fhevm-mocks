@@ -4,11 +4,18 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
-import { eventRecord, previousLink, type JournalEntry } from '../create2-deploy/ts/common.ts';
+import {
+  eventRecord,
+  previousLink,
+  PROXY_ROLES,
+  recordedImplementations,
+  type JournalEntry,
+} from '../create2-deploy/ts/common.ts';
+import { PACKAGE_ROOT_ABS_PATH } from '../internal/constants.ts';
 
 const STACK = 'cleartext-v13-sepolia-2026-10-05-1';
 
@@ -129,4 +136,26 @@ void test('event record: refused rather than guessed', () => {
     reason(eventRecord('deploy', [tx(1, 10)], null, () => null)),
     /did not return the timestamp of block 10/,
   );
+});
+
+void test('recorded implementations: a deploy seals every proxy, an upgrade keeps what it left alone', () => {
+  const a = (n: number): string => `0x${n.toString(16).padStart(40, '0')}`;
+  const deploy = { address: Object.fromEntries(PROXY_ROLES.map((role, i) => [`IMPL_${role}`, a(i + 1)])) };
+  assert.deepEqual(recordedImplementations(deploy), Object.fromEntries(PROXY_ROLES.map((role, i) => [role, a(i + 1)])));
+  // An upgrade re-points ACL only; the others are what it found live.
+  const upgrade = {
+    address: { IMPL_ACL_ADDRESS: a(100).toUpperCase().replace('0X', '0x'), ACL_ADDRESS: a(200) },
+    preUpgrade: { implementation: { ACL_ADDRESS: a(1), CLEARTEXT_DB_ADDRESS: a(9), JUNK: 'x' } },
+  };
+  assert.deepEqual(recordedImplementations(upgrade), { ACL_ADDRESS: a(100), CLEARTEXT_DB_ADDRESS: a(9) });
+  assert.deepEqual(recordedImplementations({}), {});
+});
+
+void test('the archived Sepolia deploy record names the implementation of every proxy', () => {
+  const path = join(
+    PACKAGE_ROOT_ABS_PATH,
+    '../../deployments/ethereum_sepolia/cleartext-v13-sepolia-2026-10-05-1/00-deploy-v13.0-2026-10-05/record/manifest.json',
+  );
+  const recorded = recordedImplementations(JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>);
+  assert.deepEqual(Object.keys(recorded).sort(), [...PROXY_ROLES].sort());
 });

@@ -85,6 +85,7 @@ import {
   scriptEnv,
   settlementRule,
   INVOCATION_DIR,
+  checkRecordedImplementations,
   previousLink,
   stampSeal,
   writeEventConfig,
@@ -888,6 +889,11 @@ async function stageCompute(ctx: Ctx): Promise<void> {
   await step(ctx, 'compute', 'validate the eleven live addresses against the stack', () => {
     validateExisting(ctx);
   });
+  if (ctx.opt.previousManifest !== null) {
+    await step(ctx, 'compute', 'every proxy runs the implementation the previous record sealed', () => {
+      checkRecordedImplementations(ctx);
+    });
+  }
   await step(ctx, 'compute', 'snapshot the live stack at the settled block', () => {
     writePreUpgrade(ctx, capturePreUpgrade(ctx));
   });
