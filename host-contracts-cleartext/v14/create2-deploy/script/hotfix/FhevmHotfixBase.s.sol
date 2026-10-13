@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import {FhevmRepointBase} from "../repoint/FhevmRepointBase.s.sol";
 
 /**
- *  A hotfix, as the re-point engine runs it: within one generation, re-point exactly the proxies whose
- *  implementation in this build differs from the one they run. Nothing else moves — no
+ *  A hotfix, as the re-point engine runs it: within one generation, re-point exactly the proxies whose live
+ *  implementation's code differs from this build's. Nothing else moves — no
  *  proxy, no owner, no pauser. A contract whose reinitializer moved by exactly one gets its no-argument
  *  `reinitializeV<live>()` called in its op, as the coordinator sealed it (`.reinitialize`); any other change of
  *  reinitializer is refused before anything is sealed (create2-deploy/ts/hotfix.ts).
@@ -22,9 +22,14 @@ abstract contract FhevmHotfixBase is FhevmRepointBase {
         return _allProxyRoles();
     }
 
-    /// @dev Re-pointed when this build's implementation is not the one the proxy runs.
-    function _keepRole(string memory role, address implementation) internal view override returns (bool) {
-        return _implementationOf(_existingAddress(role)) != implementation;
+    /**
+     * @dev Re-pointed when the live implementation's CODE is not this build's — compared by code, never by
+     *      address. A CREATE2 address also hashes the salt, which carries the generation: a proxy a generation
+     *      upgrade left alone still runs the previous generation's implementation, the same code at another
+     *      address, and must not count as changed.
+     */
+    function _keepRole(string memory role, address) internal view override returns (bool) {
+        return !_matchesDeployedCode(_implementationOf(_existingAddress(role)), _implArtifactFor(role));
     }
 
     /// @dev What compute sealed.
