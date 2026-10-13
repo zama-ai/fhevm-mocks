@@ -21,7 +21,7 @@
 // remain what they were. This is a third path, for a stack whose addresses have to be predictable before
 // anything is sent.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
@@ -29,7 +29,6 @@ import { join } from 'node:path';
 // follow a v13 hotfix.
 import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/versions.ts';
 import {
-  atBlock,
   callAddress,
   callAddresses,
   callString,
@@ -38,9 +37,11 @@ import {
   sameAddressList,
   type RepointAdapter,
   runRepointCli,
+  surveyStack,
+  verifySealedHandles,
 } from '../../ts/repoint.ts';
 
-import { capture, fail, heartbeat, pad, readJson, say, warn } from '../../ts/utils.ts';
+import { capture, fail, pad, readJson, say, warn } from '../../ts/utils.ts';
 import {
   type Ctx,
   existingFlagFor,
@@ -270,15 +271,6 @@ type SealedMigration = {
   readonly pcrValues: readonly PcrValues[];
 };
 
-type AbiParameter = { readonly type?: string; readonly components?: readonly AbiParameter[] };
-type AbiEntry = {
-  readonly type?: string;
-  readonly name?: string;
-  readonly stateMutability?: string;
-  readonly inputs?: readonly AbiParameter[];
-  readonly outputs?: readonly AbiParameter[];
-};
-
 type PreUpgradeSnapshot = {
   readonly blockNumber: number;
   readonly handles: Readonly<Record<string, string>>;
@@ -292,73 +284,8 @@ type PreUpgradeSnapshot = {
   readonly implementation: Readonly<Record<string, string>>;
 };
 
-const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly role: string; readonly abi: string }> = [
-  { label: 'ACL', role: 'ACL_ADDRESS', abi: 'CleartextACL.json' },
-  { label: 'FHEVMExecutor', role: 'FHEVM_EXECUTOR_ADDRESS', abi: 'CleartextFHEVMExecutor.json' },
-  { label: 'KMSVerifier', role: 'KMS_VERIFIER_ADDRESS', abi: 'CleartextKMSVerifier.json' },
-  { label: 'InputVerifier', role: 'INPUT_VERIFIER_ADDRESS', abi: 'CleartextInputVerifier.json' },
-  { label: 'HCULimit', role: 'HCU_LIMIT_ADDRESS', abi: 'CleartextHCULimit.json' },
-  { label: 'ProtocolConfig', role: 'PROTOCOL_CONFIG_ADDRESS', abi: 'ProtocolConfig.json' },
-  { label: 'KMSGeneration', role: 'KMS_GENERATION_ADDRESS', abi: 'KMSGeneration.json' },
-  { label: 'CleartextArithmetic', role: 'CLEARTEXT_ARITHMETIC_ADDRESS', abi: 'CleartextArithmetic.json' },
-  { label: 'CleartextDB', role: 'CLEARTEXT_DB_ADDRESS', abi: 'CleartextDB.json' },
-  { label: 'PauserSet', role: 'PAUSER_SET_ADDRESS', abi: 'PauserSet.json' },
-  { label: 'ACLOwner', role: 'ACL_OWNER', abi: 'ACLOwner.json' },
-];
-
-function abiType(parameter: AbiParameter): string {
-  const type = parameter.type ?? '';
-  if (!type.startsWith('tuple')) return type;
-  const suffix = type.slice('tuple'.length);
-  return `(${(parameter.components ?? []).map(abiType).join(',')})${suffix}`;
-}
-
 function previousAbiDir(ctx: Ctx): string {
   return ctx.opt.previousAbiDir ?? join(PACKAGE_ROOT, '..', 'v13', 'pkg', 'abi');
-}
-
-function surveyStack(ctx: Ctx, block?: number): Readonly<Record<string, string>> {
-  const dir = previousAbiDir(ctx);
-  const readings: Record<string, string> = {};
-  // One RPC call per getter, 60+ of them: on a slow public RPC that is a minute or more.
-  const beat = heartbeat();
-  for (const target of SURVEY_TARGETS) {
-    const path = join(dir, target.abi);
-    if (!existsSync(path)) fail(`Error: required v13 ABI is missing: ${path}`, '       Pass --previous-abi-dir PATH.');
-    const abi = JSON.parse(readFileSync(path, 'utf8')) as AbiEntry[];
-    const getters = abi.filter(
-      (entry) =>
-        entry.type === 'function' &&
-        (entry.stateMutability === 'view' || entry.stateMutability === 'pure') &&
-        (entry.inputs ?? []).length === 0 &&
-        entry.name !== undefined,
-    );
-    for (const getter of getters) {
-      const name = getter.name ?? '';
-      const returns = (getter.outputs ?? []).map(abiType).join(',');
-      const signature = returns === '' ? `${name}()` : `${name}()(${returns})`;
-      const result = capture('cast', [
-        'call',
-        ctx.opt.existing[target.role] ?? '',
-        signature,
-        '--rpc-url',
-        ctx.opt.rpcUrl,
-        ...atBlock(block),
-      ]);
-      readings[`${target.label}.${name}`] = result.ok ? result.stdout : '<reverted>';
-      if (beat.due()) {
-        say(
-          `    … ${String(Object.keys(readings).length)} getters read so far, now ${target.label} (${beat.elapsed()})`,
-        );
-      }
-    }
-  }
-  if (Object.keys(readings).length < 50) {
-    fail(
-      `Error: the v13 ABI survey produced only ${String(Object.keys(readings).length)} readings; refusing a vacuous snapshot.`,
-    );
-  }
-  return readings;
 }
 
 function solidityArray(source: string, functionName: string, quoted: boolean): string[] {
@@ -751,7 +678,7 @@ function snapshotExtras(ctx: Ctx, blockNumber: number): Readonly<Record<string, 
     fail('Error: could not capture the pre-upgrade authority and signer snapshot.');
   }
   say(`    every v13 zero-argument getter, from ${previousAbiDir(ctx)}`);
-  const readings = surveyStack(ctx, blockNumber);
+  const readings = surveyStack(ctx, previousAbiDir(ctx), 'v13', blockNumber);
   say(`    ${String(Object.keys(readings).length)} getter readings captured at block ${String(blockNumber)}`);
 
   return {
@@ -827,7 +754,7 @@ function verifySurveyAndHandles(ctx: Ctx): void {
   const manifest = readJson<{ readonly preUpgrade?: PreUpgradeSnapshot }>(manifestPath(ctx));
   const before = manifest?.preUpgrade;
   if (before === undefined) fail('Error: manifest has no pre-upgrade snapshot.');
-  const after = surveyStack(ctx);
+  const after = surveyStack(ctx, previousAbiDir(ctx), 'v13');
 
   const vanished = Object.keys(before.readings).filter((key) => !(key in after));
   if (vanished.length > 0)
@@ -846,21 +773,7 @@ function verifySurveyAndHandles(ctx: Ctx): void {
     fail('Error: survey allow-list entries did not change:', ...unused.map((key) => `       ${key}`));
   say(`    ok   ${String(Object.keys(before.readings).length)} v13 getter readings survived`);
 
-  const db = ctx.opt.existing.CLEARTEXT_DB_ADDRESS ?? '';
-  for (const [handle, was] of Object.entries(before.handles)) {
-    const result = capture('cast', ['call', db, 'get(bytes32)(uint256)', handle, '--rpc-url', ctx.opt.rpcUrl]);
-    if (!result.ok || result.stdout !== was)
-      fail(
-        `Error: cleartext handle changed: ${handle}`,
-        `         before: ${was}`,
-        `         after:  ${result.stdout}`,
-      );
-  }
-  if (Object.keys(before.handles).length > 0) {
-    say(`    ok   ${String(Object.keys(before.handles).length)} pre-upgrade cleartext handle(s) survived`);
-  } else {
-    warn('no pre-upgrade handle was sealed; existing CleartextDB data survival was not proven.');
-  }
+  verifySealedHandles(ctx, before.handles);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

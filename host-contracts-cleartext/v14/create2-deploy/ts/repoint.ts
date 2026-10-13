@@ -313,6 +313,112 @@ export function stageProgress(ctx: Ctx): void {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// The getter survey and the sealed handles: what verify compares before and after
+////////////////////////////////////////////////////////////////////////////////
+
+export type AbiParameter = { readonly type?: string; readonly components?: readonly AbiParameter[] };
+export type AbiEntry = {
+  readonly type?: string;
+  readonly name?: string;
+  readonly stateMutability?: string;
+  readonly inputs?: readonly AbiParameter[];
+  readonly outputs?: readonly AbiParameter[];
+};
+
+export const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly role: string; readonly abi: string }> = [
+  { label: 'ACL', role: 'ACL_ADDRESS', abi: 'CleartextACL.json' },
+  { label: 'FHEVMExecutor', role: 'FHEVM_EXECUTOR_ADDRESS', abi: 'CleartextFHEVMExecutor.json' },
+  { label: 'KMSVerifier', role: 'KMS_VERIFIER_ADDRESS', abi: 'CleartextKMSVerifier.json' },
+  { label: 'InputVerifier', role: 'INPUT_VERIFIER_ADDRESS', abi: 'CleartextInputVerifier.json' },
+  { label: 'HCULimit', role: 'HCU_LIMIT_ADDRESS', abi: 'CleartextHCULimit.json' },
+  { label: 'ProtocolConfig', role: 'PROTOCOL_CONFIG_ADDRESS', abi: 'ProtocolConfig.json' },
+  { label: 'KMSGeneration', role: 'KMS_GENERATION_ADDRESS', abi: 'KMSGeneration.json' },
+  { label: 'CleartextArithmetic', role: 'CLEARTEXT_ARITHMETIC_ADDRESS', abi: 'CleartextArithmetic.json' },
+  { label: 'CleartextDB', role: 'CLEARTEXT_DB_ADDRESS', abi: 'CleartextDB.json' },
+  { label: 'PauserSet', role: 'PAUSER_SET_ADDRESS', abi: 'PauserSet.json' },
+  { label: 'ACLOwner', role: 'ACL_OWNER', abi: 'ACLOwner.json' },
+];
+
+export function abiType(parameter: AbiParameter): string {
+  const type = parameter.type ?? '';
+  if (!type.startsWith('tuple')) return type;
+  const suffix = type.slice('tuple'.length);
+  return `(${(parameter.components ?? []).map(abiType).join(',')})${suffix}`;
+}
+
+/**
+ * Every zero-argument getter of every host contract, read at `block`: the ABIs come from `dir` (the generation
+ * the stack runs at the time of the reading), so a getter that exists on both sides is compared, not guessed.
+ */
+export function surveyStack(
+  ctx: Ctx,
+  dir: string,
+  generationLabel: string,
+  block?: number,
+): Readonly<Record<string, string>> {
+  const readings: Record<string, string> = {};
+  // One RPC call per getter, 60+ of them: on a slow public RPC that is a minute or more.
+  const beat = heartbeat();
+  for (const target of SURVEY_TARGETS) {
+    const path = join(dir, target.abi);
+    if (!existsSync(path))
+      fail(`Error: required ${generationLabel} ABI is missing: ${path}`, '       Pass --previous-abi-dir PATH.');
+    const abi = JSON.parse(readFileSync(path, 'utf8')) as AbiEntry[];
+    const getters = abi.filter(
+      (entry) =>
+        entry.type === 'function' &&
+        (entry.stateMutability === 'view' || entry.stateMutability === 'pure') &&
+        (entry.inputs ?? []).length === 0 &&
+        entry.name !== undefined,
+    );
+    for (const getter of getters) {
+      const name = getter.name ?? '';
+      const returns = (getter.outputs ?? []).map(abiType).join(',');
+      const signature = returns === '' ? `${name}()` : `${name}()(${returns})`;
+      const result = capture('cast', [
+        'call',
+        ctx.opt.existing[target.role] ?? '',
+        signature,
+        '--rpc-url',
+        ctx.opt.rpcUrl,
+        ...atBlock(block),
+      ]);
+      readings[`${target.label}.${name}`] = result.ok ? result.stdout : '<reverted>';
+      if (beat.due()) {
+        say(
+          `    … ${String(Object.keys(readings).length)} getters read so far, now ${target.label} (${beat.elapsed()})`,
+        );
+      }
+    }
+  }
+  if (Object.keys(readings).length < 50) {
+    fail(
+      `Error: the ${generationLabel} ABI survey produced only ${String(Object.keys(readings).length)} readings; refusing a vacuous snapshot.`,
+    );
+  }
+  return readings;
+}
+
+/** Every sealed `--handle` still resolves to the value it had before, in the live CleartextDB. */
+export function verifySealedHandles(ctx: Ctx, handles: Readonly<Record<string, string>>): void {
+  const db = ctx.opt.existing.CLEARTEXT_DB_ADDRESS ?? '';
+  for (const [handle, was] of Object.entries(handles)) {
+    const result = capture('cast', ['call', db, 'get(bytes32)(uint256)', handle, '--rpc-url', ctx.opt.rpcUrl]);
+    if (!result.ok || result.stdout !== was)
+      fail(
+        `Error: cleartext handle changed: ${handle}`,
+        `         before: ${was}`,
+        `         after:  ${result.stdout}`,
+      );
+  }
+  if (Object.keys(handles).length > 0) {
+    say(`    ok   ${String(Object.keys(handles).length)} pre-upgrade cleartext handle(s) survived`);
+  } else {
+    warn('no pre-upgrade handle was sealed; existing CleartextDB data survival was not proven.');
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // The engine: every stage of a re-point, whatever it re-points
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -351,6 +457,11 @@ export type RepointAdapter = {
   readonly addressesHeader: string;
   /** What the record's `event.json` says it is. */
   readonly eventKind: EventRecord['kind'];
+  /**
+   * Run right after the second compute pass, before the seal is completed: a flow's last word on what it is
+   * about to seal (the hotfix refuses an op that would need a reinitializer). Optional.
+   */
+  readonly afterCompute?: (ctx: Ctx) => void;
   /** Stages only this flow has (e.g. `params`), by name. */
   readonly extraStages: Readonly<Record<string, (ctx: Ctx) => void>>;
 };
@@ -657,6 +768,12 @@ async function stageCompute(ctx: Ctx): Promise<void> {
       await pass(2, env);
     },
   );
+  const after = adapter().afterCompute;
+  if (after !== undefined) {
+    await step(ctx, 'compute', `check what this ${adapter().flow.name} seals`, () => {
+      after(ctx);
+    });
+  }
   mergePreUpgradeIntoManifest(ctx);
   const previous = ctx.opt.previousManifest;
   stampSeal(
@@ -1259,4 +1376,32 @@ export async function runRepointCli(flowAdapter: RepointAdapter): Promise<void> 
 
   await runStage(ctx, opt.stage);
   say(`done (${opt.stage})`);
+}
+
+/**
+ * `--stage abandon`: an attempt that sent transactions and will not be finished. It cannot be erased — its
+ * transactions are on chain for good — so it is recorded: `event.json` (kind `aborted`, dated by its first
+ * transaction's block) is written, and the folder goes under the stack's `aborted/` (deployments/README.md).
+ * Refused for an attempt that sent nothing (nothing to record) and for one that materialized (an event, not an
+ * attempt: run verify).
+ */
+export function stageAbandon(ctx: Ctx): void {
+  banner(`🪦 Abandon: record this ${adapter().flow.name} as an attempt`);
+  if (!journalHasSentTx(ctx)) {
+    fail(
+      'Error: this attempt sent no transaction, so there is nothing to record.',
+      `       Delete ${ctx.outDir} if you do not want to finish it.`,
+    );
+  }
+  if (readJson<Manifest>(manifestPath(ctx)) !== null && isMaterialized(ctx)) {
+    fail(
+      'Error: every op target already runs its sealed implementation: this is an event, not an attempt. Run verify.',
+    );
+  }
+  writeEventRecord(ctx, 'aborted', null);
+  say(
+    '',
+    '  Archive it, unchanged, as deployments/<chain>/<stack>/aborted/<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>/, the date being',
+    "  event.json's first transaction's block day, with an ABORTED.md saying why it was abandoned.",
+  );
 }
