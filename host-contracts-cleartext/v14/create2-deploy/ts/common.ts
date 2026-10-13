@@ -2173,6 +2173,28 @@ export function implementationAt(ctx: Ctx, proxy: string, block: number | null):
   return !r.ok || word === undefined ? null : `0x${word.slice(-40)}`.toLowerCase();
 }
 
+/** `<Contract> v<major>.<minor>.<patch>`: what every host contract's `getVersion()` returns. */
+const CONTRACT_VERSION = /^(\S+) v(\d+)\.(\d+)\.(\d+)$/;
+
+/**
+ * Whether a live `getVersion()` reading is on the same line as `expected`: the same contract, the same
+ * `v<major>.<minor>`, any patch. A patch is what a hotfix may bump, and a stack deployed from an earlier patch of
+ * the line legitimately reports an older one; a different minor is another line of that contract. A reading that
+ * does not parse is never on any line.
+ */
+export function sameVersionLine(live: string | null, expected: string): boolean {
+  const got = live === null ? null : CONTRACT_VERSION.exec(live.trim());
+  const want = CONTRACT_VERSION.exec(expected);
+  if (got === null || want === null) return false;
+  return got[1] === want[1] && got[2] === want[2] && got[3] === want[3];
+}
+
+/** `KMSVerifier v0.3.0` -> `KMSVerifier v0.3.x`: a version line, for messages. */
+export function versionLine(version: string): string {
+  const m = CONTRACT_VERSION.exec(version);
+  return m === null ? version : `${m[1] ?? ''} v${m[2] ?? ''}.${m[3] ?? ''}.x`;
+}
+
 /**
  * What a sealed record says each proxy runs once its event is complete, lower-cased, by role: the
  * `IMPL_<role>` the event deployed or re-pointed it to, else — for a proxy an upgrade left alone — the

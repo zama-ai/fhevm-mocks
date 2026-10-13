@@ -86,6 +86,8 @@ import {
   settlementRule,
   INVOCATION_DIR,
   checkRecordedImplementations,
+  sameVersionLine,
+  versionLine,
   previousLink,
   stampSeal,
   writeEventConfig,
@@ -777,7 +779,7 @@ function validateExisting(ctx: Ctx): void {
     !kmsCode.ok ||
     kmsCode.stdout === '' ||
     kmsCode.stdout === '0x' ||
-    kmsVersion !== PREVIOUS_VERSIONS.kmsVerifier ||
+    !sameVersionLine(kmsVersion, PREVIOUS_VERSIONS.kmsVerifier) ||
     kmsSigners === null ||
     kmsSigners.length === 0 ||
     kmsThreshold === null ||
@@ -785,7 +787,9 @@ function validateExisting(ctx: Ctx): void {
     !domain.ok ||
     !domain.stdout.includes('Decryption')
   ) {
-    say(`    FAIL ${pad('KMS_VERIFIER_ADDRESS', ROLE_WIDTH)} not an initialized v13 Decryption KMSVerifier`);
+    say(
+      `    FAIL ${pad('KMS_VERIFIER_ADDRESS', ROLE_WIDTH)} not an initialized v13 Decryption KMSVerifier (${versionLine(PREVIOUS_VERSIONS.kmsVerifier)}); reports ${kmsVersion ?? '(nothing)'}`,
+    );
     bad += 1;
   } else {
     say(
@@ -794,8 +798,10 @@ function validateExisting(ctx: Ctx): void {
   }
   const weak = (role: string, version: string, extra: boolean): void => {
     const got = callString(ctx, at(role), 'getVersion()(string)');
-    if (got !== version || !extra) {
-      say(`    FAIL ${pad(role, ROLE_WIDTH)} not an initialized v13 ${version.split(' ')[0] ?? ''}`);
+    if (!sameVersionLine(got, version) || !extra) {
+      say(
+        `    FAIL ${pad(role, ROLE_WIDTH)} not an initialized v13 ${version.split(' ')[0] ?? ''} (${versionLine(version)}); reports ${got ?? '(nothing)'}`,
+      );
       bad += 1;
       return;
     }
