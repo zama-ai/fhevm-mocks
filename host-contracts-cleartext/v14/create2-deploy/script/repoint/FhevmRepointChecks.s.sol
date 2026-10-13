@@ -3,10 +3,7 @@ pragma solidity ^0.8.24;
 
 import {console} from "forge-std/Script.sol";
 import {FhevmVerifyBase} from "../FhevmVerifyBase.s.sol";
-import {FhevmUpgradeBase} from "./FhevmUpgradeBase.s.sol";
-import {UpgradeInitData} from "./UpgradeInitData.sol";
-import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
-import {KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
+import {FhevmRepointBase} from "./FhevmRepointBase.s.sol";
 import {
     IVersioned,
     IOwnable2Step,
@@ -19,8 +16,9 @@ import {
 } from "../Interfaces.sol";
 
 /**
- * @title  FhevmUpgradeChecks
- * @notice The upgrade's non-reverting checks, shared by the gate BEFORE materialize and the verify AFTER it.
+ * @title  FhevmRepointChecks
+ * @notice A re-point's non-reverting checks, shared by the gate BEFORE materialize and the verify AFTER it,
+ *         for every flow (a generation upgrade, a hotfix); the flow's own checks plug in through hooks.
  *
  * Both scripts ask most of the same questions of the chain — is the sealed build the one deployed, are the
  * implementations the contracts they claim to be, is authority where it was — and only differ in which
@@ -29,7 +27,7 @@ import {
  * Every check below reads the CHAIN and the BUILD, and compares them to the SEAL. Nothing here re-derives
  * an expectation from the thing under test.
  */
-abstract contract FhevmUpgradeChecks is FhevmVerifyBase, FhevmUpgradeBase {
+abstract contract FhevmRepointChecks is FhevmVerifyBase, FhevmRepointBase {
     // ---------------------------------------------------------------------------------------
     // The build against the seal, and the chain against the build
     // ---------------------------------------------------------------------------------------
@@ -85,7 +83,7 @@ abstract contract FhevmUpgradeChecks is FhevmVerifyBase, FhevmUpgradeBase {
      *      tables: it asks the code.
      */
     function _checkImplementationIdentity(string memory manifest) internal {
-        string[] memory roles = _upgradeProxyRoles();
+        string[] memory roles = _repointRoles();
         for (uint256 i; i < roles.length; i++) {
             address impl = _readManifestAddress(manifest, _implRole(roles[i]));
             _expectStr(
@@ -98,35 +96,45 @@ abstract contract FhevmUpgradeChecks is FhevmVerifyBase, FhevmUpgradeBase {
 
     /// @dev The addresses BAKED into each implementation are the live stack's, read off the implementations.
     function _checkImplementationWiring(string memory manifest) internal {
-        address acl = _readManifestAddress(manifest, _implRole(R_ACL));
-        address executor = _readManifestAddress(manifest, _implRole(R_FHEVM_EXECUTOR));
-        address hcu = _readManifestAddress(manifest, _implRole(R_HCU_LIMIT));
-        address arithmetic = _readManifestAddress(manifest, _implRole(R_CLEARTEXT_ARITHMETIC));
-
-        _expectAddr(IWiredACL(acl).getFHEVMExecutorAddress(), existingExecutor, "IMPL_ACL bakes FHEVMExecutor");
-        _expectAddr(IWiredACL(acl).getPauserSetAddress(), existingPauserSet, "IMPL_ACL bakes PauserSet");
-        _expectAddr(IWiredFHEVMExecutor(executor).getACLAddress(), existingAcl, "IMPL_FHEVM_EXECUTOR bakes ACL");
-        _expectAddr(
-            IWiredFHEVMExecutor(executor).getHCULimitAddress(), existingHcuLimit, "IMPL_FHEVM_EXECUTOR bakes HCULimit"
-        );
-        _expectAddr(
-            IWiredFHEVMExecutor(executor).getInputVerifierAddress(),
-            existingInputVerifier,
-            "IMPL_FHEVM_EXECUTOR bakes InputVerifier"
-        );
-        _expectAddr(
-            IWiredFHEVMExecutor(executor).getCleartextArithmeticAddress(),
-            existingArithmetic,
-            "IMPL_FHEVM_EXECUTOR bakes CleartextArithmetic"
-        );
-        _expectAddr(
-            IWiredHCULimit(hcu).getFHEVMExecutorAddress(), existingExecutor, "IMPL_HCU_LIMIT bakes FHEVMExecutor"
-        );
-        _expectAddr(
-            IWiredCleartextArithmetic(arithmetic).getCleartextDBAddress(),
-            existingDb,
-            "IMPL_CLEARTEXT_ARITHMETIC bakes CleartextDB"
-        );
+        string[] memory ops = _repointRoles();
+        if (_contains(ops, R_ACL)) {
+            address acl = _readManifestAddress(manifest, _implRole(R_ACL));
+            _expectAddr(IWiredACL(acl).getFHEVMExecutorAddress(), existingExecutor, "IMPL_ACL bakes FHEVMExecutor");
+            _expectAddr(IWiredACL(acl).getPauserSetAddress(), existingPauserSet, "IMPL_ACL bakes PauserSet");
+        }
+        if (_contains(ops, R_FHEVM_EXECUTOR)) {
+            address executor = _readManifestAddress(manifest, _implRole(R_FHEVM_EXECUTOR));
+            _expectAddr(IWiredFHEVMExecutor(executor).getACLAddress(), existingAcl, "IMPL_FHEVM_EXECUTOR bakes ACL");
+            _expectAddr(
+                IWiredFHEVMExecutor(executor).getHCULimitAddress(),
+                existingHcuLimit,
+                "IMPL_FHEVM_EXECUTOR bakes HCULimit"
+            );
+            _expectAddr(
+                IWiredFHEVMExecutor(executor).getInputVerifierAddress(),
+                existingInputVerifier,
+                "IMPL_FHEVM_EXECUTOR bakes InputVerifier"
+            );
+            _expectAddr(
+                IWiredFHEVMExecutor(executor).getCleartextArithmeticAddress(),
+                existingArithmetic,
+                "IMPL_FHEVM_EXECUTOR bakes CleartextArithmetic"
+            );
+        }
+        if (_contains(ops, R_HCU_LIMIT)) {
+            address hcu = _readManifestAddress(manifest, _implRole(R_HCU_LIMIT));
+            _expectAddr(
+                IWiredHCULimit(hcu).getFHEVMExecutorAddress(), existingExecutor, "IMPL_HCU_LIMIT bakes FHEVMExecutor"
+            );
+        }
+        if (_contains(ops, R_CLEARTEXT_ARITHMETIC)) {
+            address arithmetic = _readManifestAddress(manifest, _implRole(R_CLEARTEXT_ARITHMETIC));
+            _expectAddr(
+                IWiredCleartextArithmetic(arithmetic).getCleartextDBAddress(),
+                existingDb,
+                "IMPL_CLEARTEXT_ARITHMETIC bakes CleartextDB"
+            );
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -147,7 +155,7 @@ abstract contract FhevmUpgradeChecks is FhevmVerifyBase, FhevmUpgradeBase {
 
     /// @dev Before materialize: every op target still holds the implementation the seal expects it to.
     function _checkPreState(string memory manifest) internal {
-        string[] memory roles = _upgradeProxyRoles();
+        string[] memory roles = _repointRoles();
         for (uint256 i; i < roles.length; i++) {
             _expectAddr(
                 _implementationOf(_readManifestAddress(manifest, roles[i])),
@@ -205,17 +213,17 @@ abstract contract FhevmUpgradeChecks is FhevmVerifyBase, FhevmUpgradeBase {
      */
     function _printOps(string memory manifest) internal view {
         IACLOwner.Op[] memory ops = _ops(manifest);
-        string[] memory roles = _upgradeProxyRoles();
+        string[] memory roles = _repointRoles();
         console.log("");
         console.log("  ACLOwner.upgrade ops, in order:");
         for (uint256 i; i < ops.length; i++) {
             console.log(string.concat("    [", vm.toString(i), "] ", roles[i]));
             console.log("        proxy         ", ops[i].proxy);
             console.log("        implementation", ops[i].implementation);
-            console.log(string.concat("        calls          ", UpgradeInitData.initName(i)));
+            console.log(string.concat("        calls          ", _initName(i, roles[i])));
             console.log(string.concat("        initData      ", vm.toString(ops[i].initData)));
         }
-        _printMigration();
+        _printExtras();
         console.log("");
         console.log("  target  ", _readManifestAddress(manifest, R_ACL_OWNER));
         console.log(string.concat("  calldata keccak256  ", vm.toString(keccak256(_upgradeCalldata(manifest)))));
@@ -227,31 +235,6 @@ abstract contract FhevmUpgradeChecks is FhevmVerifyBase, FhevmUpgradeBase {
      *      defaults), and printed here so the operator reads them as values, not as the hex above. The
      *      context id and thresholds are not arguments: they stay on chain and only enter the anchor hash.
      */
-    function _printMigration() internal view {
-        KmsNodeParams[] memory nodes = _migrationNodes();
-        PcrValues[] memory pcrs = _migrationPcrValues();
-        IProtocolConfig.KmsThresholds memory t = _migrationThresholds();
-        console.log("");
-        console.log("  init parameters (ProtocolConfig.reinitializeV2):");
-        console.log("    live contextId    ", _migrationContextId());
-        for (uint256 i; i < nodes.length; i++) {
-            console.log(string.concat("    kmsNodeParams[", vm.toString(i), "]"));
-            console.log("        signer        ", nodes[i].signerAddress);
-            console.log("        txSender      ", nodes[i].txSenderAddress);
-            console.log(string.concat("        ip             ", nodes[i].ipAddress));
-            console.log(string.concat("        storage        ", nodes[i].storageUrl));
-            console.log("        partyId       ", vm.toString(nodes[i].partyId));
-            console.log(string.concat("        mpcIdentity    ", nodes[i].mpcIdentity));
-            console.log(string.concat("        caCert         ", vm.toString(nodes[i].caCert)));
-            console.log(string.concat("        storagePrefix  ", nodes[i].storagePrefix));
-        }
-        console.log(string.concat("    softwareVersion   ", _migrationSoftwareVersion()));
-        console.log("    pcrValues         ", pcrs.length);
-        console.log("    thresholds  publicDecryption", t.publicDecryption);
-        console.log("                userDecryption  ", t.userDecryption);
-        console.log("                kmsGen          ", t.kmsGen);
-        console.log("                mpc             ", t.mpc);
-        console.log(string.concat("    anchor contextInfoHash  ", vm.toString(_migrationContextInfoHash())));
-        console.log("    the six other ops take no arguments (reinitializers)");
-    }
+    /// @dev What the gate prints after the op list. Default: nothing; the upgrade prints its migration.
+    function _printExtras() internal view virtual {}
 }

@@ -55,13 +55,14 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 | [script/FhevmAcceptOwnershipAsAdmin.s.sol](script/FhevmAcceptOwnershipAsAdmin.s.sol) | §7 | step F — the admin accepts. The only script **not** sent by the deployer |
 | [script/FhevmStatus.s.sol](script/FhevmStatus.s.sol) | — | what's done, what's left, and why. Read-only, never reverts |
 | [script/FhevmVerify.s.sol](script/FhevmVerify.s.sol) | §7, §11 R1 | the terminal conditions; reverts non-zero if any is unmet |
-| [script/upgrade/FhevmUpgradeBase.s.sol](script/upgrade/FhevmUpgradeBase.s.sol) | upgrade plan §5–§6 | the upgrade's 7-create and 7-op role/artifact tables |
-| [script/upgrade/FhevmComputeUpgradeAddresses.s.sol](script/upgrade/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | two-pass computation over the eleven live addresses; v14 creates no proxy |
+| [script/repoint/FhevmRepointBase.s.sol](script/repoint/FhevmRepointBase.s.sol) | — | the re-point engine's forge base, for every flow that re-points a live stack (upgrade, hotfix): roles, creates, ops, and the hooks a flow implements |
+| [script/repoint/](script/repoint/) `FhevmRepoint{ComputeAddresses,Creates,Checks,PreMaterializeCheck,Materialize,Verify}.s.sol` | — | the engine's abstract scripts: two-pass compute and seal, resumable creates, the shared non-reverting checks, the gate, the one atomic `ACLOwner.upgrade`, the terminal conditions |
+| [script/upgrade/FhevmUpgradeBase.s.sol](script/upgrade/FhevmUpgradeBase.s.sol) | upgrade plan §5–§6 | the upgrade's hooks: its 7-op role/artifact table, reinitializers and KMS migration |
+| [script/upgrade/FhevmComputeUpgradeAddresses.s.sol](script/upgrade/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | the engine's compute with the upgrade's hooks; v14 creates no proxy |
 | [script/upgrade/FhevmUpgradeCreates.s.sol](script/upgrade/FhevmUpgradeCreates.s.sol) | upgrade plan §5 | the seven resumable factory CREATE2 calls |
-| [script/upgrade/FhevmUpgradeChecks.s.sol](script/upgrade/FhevmUpgradeChecks.s.sol) | — | the upgrade's non-reverting checks, shared by the gate before materialize and the verify after |
-| [script/upgrade/FhevmPreMaterializeCheck.s.sol](script/upgrade/FhevmPreMaterializeCheck.s.sol) | — | the gate before the point of no return: build, bytecode, implementation identity, pre-state, migration freshness. Read-only |
+| [script/upgrade/FhevmPreMaterializeCheck.s.sol](script/upgrade/FhevmPreMaterializeCheck.s.sol) | — | the gate before the point of no return, plus the sealed migration's freshness and printout. Read-only |
 | [script/upgrade/FhevmMaterializeUpgrade.s.sol](script/upgrade/FhevmMaterializeUpgrade.s.sol) | upgrade plan §6 | one admin-authorized atomic `ACLOwner.upgrade`, re-asserting the gate's load-bearing subset as `require`s |
-| [script/upgrade/FhevmVerifyUpgrade.s.sol](script/upgrade/FhevmVerifyUpgrade.s.sol) | upgrade plan §7 | version, wiring, migration and authority terminal conditions, from a fresh recompile |
+| [script/upgrade/FhevmVerifyUpgrade.s.sol](script/upgrade/FhevmVerifyUpgrade.s.sol) | upgrade plan §7 | the engine's terminal conditions plus the migration's: signers and thresholds survived, the context promoted |
 | [script/Interfaces.sol](script/Interfaces.sol) | — | minimal local views so the draft needs only `forge-std` |
 | [script/MaterializeInitData.sol](script/MaterializeInitData.sol) | §10 | step D's initializer payloads, from `LocalHostBootstrap` |
 

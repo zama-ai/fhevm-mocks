@@ -1,48 +1,22 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {FhevmCreate2Base} from "../FhevmCreate2Base.s.sol";
+import {console} from "forge-std/Script.sol";
+import {FhevmRepointBase} from "../repoint/FhevmRepointBase.s.sol";
 import {UpgradeInitData} from "./UpgradeInitData.sol";
-import {IACLOwner, IWiredProtocolConfig} from "../Interfaces.sol";
-import {LocalHostVersions} from "../../../pkg/forge/src/_internal/LocalHostVersions.sol";
+import {IWiredProtocolConfig} from "../Interfaces.sol";
 import {ProtocolConfig} from "../../../pkg/src/contracts/ProtocolConfig.sol";
 import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
 import {KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
 
 /**
- *  Shared role, artifact, create, version and migration tables for the v13 -> v14 CREATE2 upgrade.
+ *  The v13 -> v14 CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
+ *  with this generation's table, its reinitializers and its KMS migration.
  *
- *  Every script of the upgrade — compute, creates, precheck, materialize, verify — reads its tables from
- *  here, so a check and the operation it checks cannot disagree about what "the upgrade" is.
+ *  Every script of the upgrade — compute, creates, precheck, materialize, verify — is the engine's script with
+ *  these hooks, so a check and the operation it checks cannot disagree about what "the upgrade" is.
  */
-abstract contract FhevmUpgradeBase is FhevmCreate2Base {
-    address internal existingAcl;
-    address internal existingExecutor;
-    address internal existingKmsVerifier;
-    address internal existingInputVerifier;
-    address internal existingHcuLimit;
-    address internal existingProtocolConfig;
-    address internal existingKmsGeneration;
-    address internal existingArithmetic;
-    address internal existingDb;
-    address internal existingPauserSet;
-    address internal existingAclOwner;
-
-    function _loadUpgradeConfig() internal {
-        _loadConfig();
-        existingAcl = vm.envAddress("FHEVM_EXISTING_ACL_ADDRESS");
-        existingExecutor = vm.envAddress("FHEVM_EXISTING_FHEVM_EXECUTOR_ADDRESS");
-        existingKmsVerifier = vm.envAddress("FHEVM_EXISTING_KMS_VERIFIER_ADDRESS");
-        existingInputVerifier = vm.envAddress("FHEVM_EXISTING_INPUT_VERIFIER_ADDRESS");
-        existingHcuLimit = vm.envAddress("FHEVM_EXISTING_HCU_LIMIT_ADDRESS");
-        existingProtocolConfig = vm.envAddress("FHEVM_EXISTING_PROTOCOL_CONFIG_ADDRESS");
-        existingKmsGeneration = vm.envAddress("FHEVM_EXISTING_KMS_GENERATION_ADDRESS");
-        existingArithmetic = vm.envAddress("FHEVM_EXISTING_CLEARTEXT_ARITHMETIC_ADDRESS");
-        existingDb = vm.envAddress("FHEVM_EXISTING_CLEARTEXT_DB_ADDRESS");
-        existingPauserSet = vm.envAddress("FHEVM_EXISTING_PAUSER_SET_ADDRESS");
-        existingAclOwner = vm.envAddress("FHEVM_EXISTING_ACL_OWNER");
-    }
-
+abstract contract FhevmUpgradeBase is FhevmRepointBase {
     // ---------------------------------------------------------------------------------------
     // Roles
     // ---------------------------------------------------------------------------------------
@@ -61,13 +35,7 @@ abstract contract FhevmUpgradeBase is FhevmCreate2Base {
         roles[6] = R_CLEARTEXT_ARITHMETIC;
     }
 
-    /// @dev The two live proxies the op list must NOT touch: byte-identical across the two generations.
-    function _untouchedProxyRoles() internal pure returns (string[] memory roles) {
-        roles = new string[](2);
-        roles[0] = R_INPUT_VERIFIER;
-        roles[1] = R_CLEARTEXT_DB;
-    }
-
+    /// @dev The table's artifacts, index-aligned with `_upgradeProxyRoles()`: the deploy path's own, by role.
     function _upgradeImplArtifact(uint256 i) internal pure returns (string memory) {
         if (i == 0) return "pkg/src/contracts/ProtocolConfig.sol:ProtocolConfig";
         if (i == 1) return "pkg/src/contracts/KMSGeneration.sol:KMSGeneration";
@@ -79,130 +47,39 @@ abstract contract FhevmUpgradeBase is FhevmCreate2Base {
         revert("FhevmUpgradeBase: implementation index out of range");
     }
 
-    /**
-     * @dev The `getVersion()` string a proxy role must report once it runs this generation's code. Read
-     *      from the generated `LocalHostVersions`, never a literal. Called on an IMPLEMENTATION address it
-     *      says which contract that implementation is — `getVersion` is pure, so no proxy is needed.
-     */
-    function _versionFor(string memory role) internal pure returns (string memory) {
-        bytes32 key = keccak256(bytes(role));
-        if (key == keccak256(bytes(R_ACL))) return LocalHostVersions.ACL;
-        if (key == keccak256(bytes(R_FHEVM_EXECUTOR))) return LocalHostVersions.FHEVM_EXECUTOR;
-        if (key == keccak256(bytes(R_HCU_LIMIT))) return LocalHostVersions.HCU_LIMIT;
-        if (key == keccak256(bytes(R_KMS_VERIFIER))) return LocalHostVersions.KMS_VERIFIER;
-        if (key == keccak256(bytes(R_CLEARTEXT_ARITHMETIC))) return LocalHostVersions.CLEARTEXT_ARITHMETIC;
-        if (key == keccak256(bytes(R_PROTOCOL_CONFIG))) return LocalHostVersions.PROTOCOL_CONFIG;
-        if (key == keccak256(bytes(R_KMS_GENERATION))) return LocalHostVersions.KMS_GENERATION;
-        if (key == keccak256(bytes(R_INPUT_VERIFIER))) return LocalHostVersions.INPUT_VERIFIER;
-        if (key == keccak256(bytes(R_CLEARTEXT_DB))) return LocalHostVersions.CLEARTEXT_DB;
-        if (key == keccak256(bytes(R_PAUSER_SET))) return LocalHostVersions.PAUSER_SET;
-        revert("FhevmUpgradeBase: no version for role");
-    }
-
-    function _existingAddress(string memory role) internal view returns (address) {
-        bytes32 key = keccak256(bytes(role));
-        if (key == keccak256(bytes(R_ACL))) return existingAcl;
-        if (key == keccak256(bytes(R_FHEVM_EXECUTOR))) return existingExecutor;
-        if (key == keccak256(bytes(R_KMS_VERIFIER))) return existingKmsVerifier;
-        if (key == keccak256(bytes(R_INPUT_VERIFIER))) return existingInputVerifier;
-        if (key == keccak256(bytes(R_HCU_LIMIT))) return existingHcuLimit;
-        if (key == keccak256(bytes(R_PROTOCOL_CONFIG))) return existingProtocolConfig;
-        if (key == keccak256(bytes(R_KMS_GENERATION))) return existingKmsGeneration;
-        if (key == keccak256(bytes(R_CLEARTEXT_ARITHMETIC))) return existingArithmetic;
-        if (key == keccak256(bytes(R_CLEARTEXT_DB))) return existingDb;
-        if (key == keccak256(bytes(R_PAUSER_SET))) return existingPauserSet;
-        if (key == keccak256(bytes(R_ACL_OWNER))) return existingAclOwner;
-        revert("FhevmUpgradeBase: unknown existing role");
-    }
-
     // ---------------------------------------------------------------------------------------
-    // The seven creates
+    // The engine's hooks
     // ---------------------------------------------------------------------------------------
 
-    /// @dev One create with the artifact it was built from, so a check can ask the artifact what the
-    ///      chain should hold. `Create` (role, initCode) is what the deploy path's loop consumes.
-    struct UpgradeCreate {
-        string role;
-        string artifact;
-        bytes initCode;
+    function _flowName() internal pure override returns (string memory) {
+        return "upgrade";
     }
 
-    /**
-     * The seven permissionless CREATE2 operations, one implementation per op, each with its artifact.
-     */
-    function _upgradeCreateTable() internal view returns (UpgradeCreate[] memory t) {
-        string[] memory roles = _upgradeProxyRoles();
-        t = new UpgradeCreate[](roles.length);
-        for (uint256 i; i < roles.length; i++) {
-            string memory artifact = _upgradeImplArtifact(i);
-            t[i] = UpgradeCreate(_implRole(roles[i]), artifact, _initCode(artifact));
-        }
+    /// @dev The table, whatever the live stack runs: every one of the seven moves to this generation.
+    function _candidateRoles() internal pure override returns (string[] memory) {
+        return _upgradeProxyRoles();
     }
 
-    function _upgradeCreates() internal view returns (Create[] memory creates) {
-        UpgradeCreate[] memory t = _upgradeCreateTable();
-        creates = new Create[](t.length);
-        for (uint256 i; i < t.length; i++) {
-            creates[i] = Create(t[i].role, t[i].initCode);
-        }
-    }
-
-    // ---------------------------------------------------------------------------------------
-    // The pre-upgrade state the seal recorded
-    // ---------------------------------------------------------------------------------------
-
-    /// @dev The implementation a live proxy ran when `compute` sealed, from `.preUpgrade.implementation`.
-    function _sealedPreviousImplementation(string memory manifest, string memory role) internal pure returns (address) {
-        return vm.parseJsonAddress(manifest, string.concat(".preUpgrade.implementation.", role));
-    }
-
-    /**
-     * @dev Does the code at `a` equal the artifact's deployed bytecode, allowing only the UUPS `__self`
-     *      immutable to differ: 32 zero bytes in the artifact, `a` itself on chain. Anything else — a stale
-     *      build, another contract, a patched byte — is a mismatch.
-     */
-    function _matchesDeployedCode(address a, string memory artifact) internal view returns (bool) {
-        bytes memory want = vm.getDeployedCode(artifact);
-        bytes memory got = a.code;
-        if (want.length == 0 || got.length != want.length) return false;
-
-        bytes32 self = bytes32(uint256(uint160(a)));
-        uint256 firstNonZero;
-        while (firstNonZero < 32 && self[firstNonZero] == 0) firstNonZero++;
-
-        for (uint256 i; i < want.length; i++) {
-            if (got[i] == want[i]) continue;
-            // The first differing byte is the address's first non-zero byte; the window starts before it.
-            if (i < firstNonZero || i - firstNonZero + 32 > want.length) return false;
-            uint256 start = i - firstNonZero;
-            for (uint256 j; j < 32; j++) {
-                if (want[start + j] != 0 || got[start + j] != self[j]) return false;
-            }
-            i = start + 31;
-        }
+    function _keepRole(string memory, address) internal pure override returns (bool) {
         return true;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // The seven ops
-    // ---------------------------------------------------------------------------------------
-
-    function _ops(string memory manifest) internal view returns (IACLOwner.Op[] memory ops) {
-        string[] memory roles = _upgradeProxyRoles();
-        ops = new IACLOwner.Op[](roles.length);
-        bytes memory protocolConfigInit = _protocolConfigInit();
-        for (uint256 i; i < roles.length; i++) {
-            ops[i] = IACLOwner.Op({
-                proxy: _readManifestAddress(manifest, roles[i]),
-                implementation: _readManifestAddress(manifest, _implRole(roles[i])),
-                initData: UpgradeInitData.initData(i, protocolConfigInit)
-            });
-        }
+    function _repointRoles() internal pure override returns (string[] memory) {
+        return _upgradeProxyRoles();
     }
 
-    /// @dev The exact `ACLOwner.upgrade` payload, whether sent by a key here or by a multisig elsewhere.
-    function _upgradeCalldata(string memory manifest) internal view returns (bytes memory) {
-        return abi.encodeCall(IACLOwner.upgrade, (_ops(manifest)));
+    /// @dev Op i's reinitializer; op 0's carries the sealed migration.
+    function _initData(uint256 i, string memory) internal view override returns (bytes memory) {
+        return UpgradeInitData.initData(i, i == 0 ? _protocolConfigInit() : bytes(""));
+    }
+
+    function _initName(uint256 i, string memory) internal pure override returns (string memory) {
+        return UpgradeInitData.initName(i);
+    }
+
+    function _liveStateFresh() internal view override returns (bool ok, string memory why) {
+        (ok, why) = _migrationMatchesLive();
+        if (ok) why = "sealed KMS migration still matches the live ProtocolConfig";
     }
 
     /// @dev Op 0's payload: `reinitializeV2` promotes the live context into the epoch model, no context id.
@@ -311,5 +188,34 @@ abstract contract FhevmUpgradeBase is FhevmCreate2Base {
             return (false, "sealed migration thresholds differ from live ProtocolConfig");
         }
         return (true, "");
+    }
+
+    /// @dev The sealed migration, printed by the gate after the op list.
+    function _printMigration() internal view {
+        KmsNodeParams[] memory nodes = _migrationNodes();
+        PcrValues[] memory pcrs = _migrationPcrValues();
+        IProtocolConfig.KmsThresholds memory t = _migrationThresholds();
+        console.log("");
+        console.log("  init parameters (ProtocolConfig.reinitializeV2):");
+        console.log("    live contextId    ", _migrationContextId());
+        for (uint256 i; i < nodes.length; i++) {
+            console.log(string.concat("    kmsNodeParams[", vm.toString(i), "]"));
+            console.log("        signer        ", nodes[i].signerAddress);
+            console.log("        txSender      ", nodes[i].txSenderAddress);
+            console.log(string.concat("        ip             ", nodes[i].ipAddress));
+            console.log(string.concat("        storage        ", nodes[i].storageUrl));
+            console.log("        partyId       ", vm.toString(nodes[i].partyId));
+            console.log(string.concat("        mpcIdentity    ", nodes[i].mpcIdentity));
+            console.log(string.concat("        caCert         ", vm.toString(nodes[i].caCert)));
+            console.log(string.concat("        storagePrefix  ", nodes[i].storagePrefix));
+        }
+        console.log(string.concat("    softwareVersion   ", _migrationSoftwareVersion()));
+        console.log("    pcrValues         ", pcrs.length);
+        console.log("    thresholds  publicDecryption", t.publicDecryption);
+        console.log("                userDecryption  ", t.userDecryption);
+        console.log("                kmsGen          ", t.kmsGen);
+        console.log("                mpc             ", t.mpc);
+        console.log(string.concat("    anchor contextInfoHash  ", vm.toString(_migrationContextInfoHash())));
+        console.log("    the six other ops take no arguments (reinitializers)");
     }
 }

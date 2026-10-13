@@ -61,7 +61,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
     }
 
     /// The untouched set and the op set partition the nine live proxies.
-    function test_untouchedAndUpgradedRolesPartitionTheStack() public pure {
+    function test_untouchedAndUpgradedRolesPartitionTheStack() public view {
         string[] memory untouched = _untouchedProxyRoles();
         assertEq(untouched.length, 2, "untouched count");
         assertEq(untouched[0], "INPUT_VERIFIER_ADDRESS");
