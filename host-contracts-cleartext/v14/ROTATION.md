@@ -47,8 +47,8 @@ Nothing else in `package.json` changes.
 
 ## 3. Delete two lines in the forge config
 
-The forge side of the same edge: `test/upgrade/CleartextGenerationUpgrade.t.sol` compiles against v13's forge
-payload through these, and it is gone after step 1.
+The forge side of the same edge: `test/upgrade/CleartextGenerationUpgrade.t.sol` and `PreviousLineCeilings.t.sol`
+compile against v13's forge payload through these, and they are gone after step 1.
 
 ```sh
 # remappings.txt

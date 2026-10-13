@@ -204,7 +204,7 @@ Three groups, in increasing order of effort:
    `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`. Every one of them lives in
    an `upgrade/` directory that the rotation deletes whole, except the forge side of the same edge: the
    `@fhevm/host-contracts-cleartext-v13-dev/` line in `remappings.txt` and `allow_paths` in `foundry.toml`,
-   which `test/upgrade/CleartextGenerationUpgrade.t.sol` compiles through. `ROTATION.md` lists those two.
+   which `test/upgrade/CleartextGenerationUpgrade.t.sol` and `PreviousLineCeilings.t.sol` compile through. `ROTATION.md` lists those two.
 
    Much smaller than it used to be. The e2e once built v(N-1), packed it, and extracted it under an
    alias in `test/ts/node_modules` just to obtain an importable copy — a whole `prepareTestV13Consumer`

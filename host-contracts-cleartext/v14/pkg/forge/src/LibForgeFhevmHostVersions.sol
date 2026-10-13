@@ -102,7 +102,8 @@ library LibForgeFhevmHostVersions {
     // 0.13 line is closed. Its generation lives on here as V(N-1) and rule 3.4.6 forbids editing it, so
     // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v0.13.0 for the
     // floors, and the last 0.13 release for the ceilings — only `FHEVMExecutor` moved across the line,
-    // from v0.4.0 to v0.5.0 at 0.13.6.
+    // from v0.4.0 to v0.5.0 at 0.13.6. The ceilings are checked against the versions the previous
+    // generation's package vendors by `test/upgrade/PreviousLineCeilings.t.sol`.
 
     string internal constant PREVIOUS_ACL_FLOOR = "ACL v0.4.0";
     string internal constant PREVIOUS_ACL_CEILING = "ACL v0.4.0";
