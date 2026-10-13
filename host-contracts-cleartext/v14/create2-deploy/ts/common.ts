@@ -15,7 +15,8 @@
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
@@ -96,6 +97,8 @@ export type Options = {
   readonly confirmations: number;
   readonly minBlockOverride: number | null;
   readonly outDirArg: string | null;
+  /** `--fork <url>`: a simulation against that anvil fork, which is then the only send target; else null. */
+  readonly fork: string | null;
   readonly stage: Stage;
   readonly dryRun: boolean;
   readonly useFinality: boolean;
@@ -175,6 +178,8 @@ export type CliArgs = {
   adminAccount: string | null;
   confirmations: number | null;
   outDirArg: string | null;
+  /** `--fork <url>`, as typed. */
+  forkUrl: string | null;
   useFinality: boolean | null;
   minBlockOverride: number | null;
   stage: Stage | null;
@@ -662,7 +667,10 @@ export function loadPreviousManifest(path: string, deploymentId: string): Previo
  * can mint the `anvil` variant, and it refuses unless the node answers `anvil_nodeInfo`.
  */
 export type Signer =
-  { readonly kind: 'keystore'; readonly account: string } | { readonly kind: 'anvil'; readonly index: number };
+  | { readonly kind: 'keystore'; readonly account: string }
+  | { readonly kind: 'anvil'; readonly index: number }
+  /** `--fork` without keys: the address itself, impersonated on the fork (forge `--unlocked`). */
+  | { readonly kind: 'impersonated'; readonly address: string };
 
 /**
  * Flags for `forge script`. Note the PLURAL names: forge takes `--mnemonics` / `--mnemonic-indexes`,
@@ -670,6 +678,7 @@ export type Signer =
  * and passing the wrong pair fails with an unhelpful clap error.
  */
 export function forgeSignerArgs(signer: Signer): string[] {
+  if (signer.kind === 'impersonated') return ['--unlocked'];
   return signer.kind === 'keystore'
     ? ['--account', signer.account]
     : ['--mnemonics', ANVIL_MNEMONIC, '--mnemonic-indexes', String(signer.index)];
@@ -677,16 +686,19 @@ export function forgeSignerArgs(signer: Signer): string[] {
 
 /** Flags for `cast wallet address` — the singular spellings. */
 export function castSignerArgs(signer: Signer): string[] {
+  if (signer.kind === 'impersonated') fail('Error: internal: an impersonated signer has no key to ask cast about.');
   return signer.kind === 'keystore'
     ? ['--account', signer.account]
     : ['--mnemonic', ANVIL_MNEMONIC, '--mnemonic-index', String(signer.index)];
 }
 
 export function signerAddress(signer: Signer): string {
+  if (signer.kind === 'impersonated') return signer.address;
   return captureOrFail('cast', ['wallet', 'address', ...castSignerArgs(signer)]);
 }
 
 export function describeSigner(signer: Signer): string {
+  if (signer.kind === 'impersonated') return `${signer.address}, impersonated on the fork`;
   return signer.kind === 'keystore' ? `keystore '${signer.account}'` : `anvil account ${String(signer.index)}`;
 }
 
@@ -743,6 +755,7 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     previousAbiDir: null,
     previousManifestPath: null,
     deploymentDir: null,
+    forkUrl: null,
     handles: [],
   };
 
@@ -837,6 +850,10 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
         break;
       case '--deployment':
         cli.deploymentDir = need(i, a);
+        i += 1;
+        break;
+      case '--fork':
+        cli.forkUrl = need(i, a);
         i += 1;
         break;
       case '--handle':
@@ -962,11 +979,28 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   }
   const stack: ConfigFile = deployment?.config ?? {};
 
-  const rpcUrl = cli.rpcUrl ?? cfg.rpcUrl ?? stack.rpcUrl ?? '';
-  const account = cli.account ?? cfg.account ?? stack.account ?? '';
+  // --fork: a simulation. The fork is the ONLY send target, so it must be an anvil (a real node never is),
+  // and a config's or a record's accounts are ignored: without --account / --admin-account it runs keyless,
+  // creates from anvil's test account 0 and the admin impersonated on the fork.
+  const fork = cli.forkUrl;
+  if (fork !== null) {
+    if (flow.name === 'deploy') {
+      fail('Error: --fork simulates a re-point of a deployed stack (upgrade, hotfix), not a deploy.');
+    }
+    if (cli.rpcUrl !== null) fail('Error: --fork is the send target of a simulation; drop --rpc-url.');
+    if (!isAnvil(fork)) {
+      fail(
+        `Error: --fork ${fork} did not answer anvil_nodeInfo: it is not an anvil fork.`,
+        '       A simulation must never reach a real chain. Start one: anvil --fork-url <rpc> --port <port>',
+      );
+    }
+  }
+  const rpcUrl = fork ?? cli.rpcUrl ?? cfg.rpcUrl ?? stack.rpcUrl ?? '';
+  const account = fork !== null ? (cli.account ?? '') : (cli.account ?? cfg.account ?? stack.account ?? '');
   let admin = cli.admin ?? cfg.admin ?? stack.admin ?? '';
   const deploymentId = cli.deploymentId ?? cfg.deploymentId ?? deployment?.stack ?? '';
-  const adminAccount = cli.adminAccount ?? cfg.adminAccount ?? stack.adminAccount ?? null;
+  const adminAccount =
+    fork !== null ? (cli.adminAccount ?? null) : (cli.adminAccount ?? cfg.adminAccount ?? stack.adminAccount ?? null);
   if (deployment !== null) {
     // The stack folder IS the deploymentId, and its latest event sealed the admin: anything else typed is
     // another stack, or a typo that would upgrade the right stack under the wrong identity.
@@ -1026,12 +1060,19 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   // Step F is sent by the admin. With a keystore that is --admin-account; on anvil it is simply the
   // next account, so the rehearsal completes unattended instead of stopping to poll for a transaction
   // no one is going to send.
+  if (fork !== null && adminAccount === null && admin === '' && flow.needsChain(stage)) {
+    fail(
+      'Error: a keyless --fork simulation impersonates the admin, so it needs its address: --deployment or --admin.',
+    );
+  }
   const adminSigner: Signer | null =
     adminAccount !== null
       ? { kind: 'keystore', account: adminAccount }
-      : signer?.kind === 'anvil'
-        ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
-        : null;
+      : fork !== null && admin !== ''
+        ? { kind: 'impersonated', address: admin }
+        : signer?.kind === 'anvil'
+          ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
+          : null;
 
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
 
@@ -1073,7 +1114,10 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   // deployer, so it never unlocks the admin keystore; before anything is sealed it falls back to the
   // signer. Only for stages that reach the chain: `log` and `report` read local files and never use the
   // admin, so they must not unlock a keystore just to compute it.
-  const outDirArg = pathOption(cli.outDirArg, cfg.outDir);
+  // A simulation's records go to a fresh temporary folder unless one is named: they are not evidence of anything.
+  const outDirArg =
+    pathOption(cli.outDirArg, cfg.outDir) ??
+    (fork === null ? null : join(mkdtempSync(join(tmpdir(), `fhevm-${flow.name}-fork-`)), 'record'));
   if (
     deployment !== null &&
     outDirArg !== null &&
@@ -1115,14 +1159,15 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     deploymentId,
     adminAccount,
     pauser: cli.pauser ?? cfg.pauser ?? null,
-    confirmations: cli.confirmations ?? cfg.confirmations ?? 3,
+    confirmations: fork !== null ? (cli.confirmations ?? 0) : (cli.confirmations ?? cfg.confirmations ?? 3),
     minBlockOverride: cli.minBlockOverride,
     outDirArg,
+    fork,
     stage,
     dryRun: cli.dryRun,
-    useFinality: cli.useFinality ?? cfg.finality ?? true,
+    useFinality: fork !== null ? (cli.useFinality ?? false) : (cli.useFinality ?? cfg.finality ?? true),
     noConfirm: cli.noConfirm,
-    requireGitSeal: cli.requireGitSeal ?? cfg.git ?? true,
+    requireGitSeal: fork !== null ? false : (cli.requireGitSeal ?? cfg.git ?? true),
     noBuild: cli.noBuild,
     verbose: cli.verbose,
     configPath,
@@ -1620,6 +1665,8 @@ export function stampSeal(ctx: Ctx, previous: RecordLink | null): void {
     toolCommit: toolCommit(),
     packageVersion: packageVersion(),
     ...(previous === null ? {} : { previous }),
+    // A fork simulation's seal says so, and `fhevm-npm check deployments` refuses to archive it.
+    ...(ctx.opt.fork === null ? {} : { simulation: { fork: ctx.opt.fork } }),
   };
   writeFileSync(manifestPath(ctx), `${JSON.stringify(stamped, null, 2)}\n`);
 }
@@ -1692,7 +1739,8 @@ export function writeEventRecord(ctx: Ctx, kind: EventRecord['kind'], definingHa
     warn(`not writing ${path}: ${record}.`, '       The record cannot be archived until it exists.');
     return;
   }
-  writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`);
+  const marked = ctx.opt.fork === null ? record : { ...record, simulation: { fork: ctx.opt.fork } };
+  writeFileSync(path, `${JSON.stringify(marked, null, 2)}\n`);
   const day = new Date(record.defining.blockTimestamp * 1000).toISOString().slice(0, 10);
   say(
     `  wrote ${path} (defining transaction ${record.defining.hash}, block ${String(record.defining.block)}, ${day} UTC)`,
@@ -1932,6 +1980,26 @@ export function checkAdminAccount(ctx: Ctx): void {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * `--fork`: say loudly that this is a simulation, and make the fork able to send as an impersonated admin —
+ * told to impersonate it, and given ETH when it holds none (a multisig often holds none; on a fork it costs
+ * nothing). Nothing here can reach a real chain: resolveOptions accepted the fork only as an anvil.
+ */
+function prepareSimulation(ctx: Ctx): void {
+  const fork = ctx.opt.fork ?? '';
+  say(
+    `  SIMULATION (fork) on ${fork}: every transaction goes to that anvil, none to a real chain.`,
+    '  Its records are marked `simulation` and are never archived (fhevm-npm check deployments refuses them).',
+  );
+  const admin = ctx.opt.adminSigner;
+  if (admin?.kind !== 'impersonated') return;
+  captureOrFail('cast', ['rpc', 'anvil_impersonateAccount', admin.address, '--rpc-url', fork]);
+  if (/^0(\.0*)?$/.test(etherBalance(ctx, admin.address))) {
+    captureOrFail('cast', ['rpc', 'anvil_setBalance', admin.address, '0xDE0B6B3A7640000', '--rpc-url', fork]);
+  }
+  say(`  admin ${admin.address}: impersonated on the fork (no key needed)`);
+}
+
+/**
  * Hard gate. A different contract squatting 0x4e59… on some testnet is the one realistic way
  * a fatal mismatch actually fires, and it would produce addresses nothing was compiled for.
  */
@@ -2029,6 +2097,7 @@ function previousManifestLines(ctx: Ctx): string[] {
  */
 export function preflight(ctx: Ctx): void {
   banner('🍖 Preflight');
+  if (ctx.opt.fork !== null) prepareSimulation(ctx);
 
   prepareForgeConfig(ctx);
   ctx.chainId = captureOrFail('cast', ['chain-id', '--rpc-url', ctx.opt.rpcUrl]);

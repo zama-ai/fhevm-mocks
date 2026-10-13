@@ -306,6 +306,11 @@ reinitializeV<live>()), a build that changes nothing.
   --account NAME       keystore of the account sending the creates (any funded account)
   --admin-account NAME keystore of the admin, which sends the one ACLOwner.upgrade
   --rpc-url URL        overrides the latest record's RPC (e.g. a fork)
+  --fork URL           a SIMULATION on that anvil fork, the only send target (refused with --rpc-url, and for
+                       a node that is not an anvil). Keyless unless --account / --admin-account are given:
+                       creates from anvil's test account 0, the admin impersonated on the fork. Defaults to 0
+                       confirmations, no finality, no git seal and a temporary out dir; the record is marked
+                       \`simulation\` and never archived
   --confirmations N, --no-finality, --no-git, --no-confirm, --dry-run, --no-build, -v
                        as for upgrade-cli
 

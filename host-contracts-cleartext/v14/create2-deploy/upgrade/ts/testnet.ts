@@ -167,6 +167,12 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
                        Without a config file, the event's config is written where you run, next to the
                        out dir, ready to archive
 
+  --fork URL           a SIMULATION on that anvil fork, the only send target (refused with --rpc-url, and for
+                       a node that is not an anvil). Keyless unless --account / --admin-account are given:
+                       creates from anvil's test account 0, the admin impersonated on the fork. Defaults to 0
+                       confirmations, no finality, no git seal and a temporary out dir; the record is marked
+                       \`simulation\` and never archived. With --deployment: the real upgrade, rehearsed
+
   --previous-manifest PATH
                        manifest.json from the deploy that produced the live stack. Seeds all eleven
                        roles above from its "address" block, and is cross-checked FIRST: its chainId

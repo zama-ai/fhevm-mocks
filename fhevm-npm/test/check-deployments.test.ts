@@ -265,6 +265,15 @@ test('per folder: files, identity, scratch, tool commit', () => {
   );
 });
 
+test("a fork simulation's record is never archived", () => {
+  expectOne(
+    edit(history(), `${S}/${HOTFIX}/record/manifest.json`, (m) => {
+      m['simulation'] = { fork: 'http://127.0.0.1:8556' };
+    }),
+    /is a fork simulation's seal/,
+  );
+});
+
 test('the chain folder must be a known host chain, matching every sealed chain id', () => {
   const moved: Files = {};
   for (const [path, content] of Object.entries(history()))

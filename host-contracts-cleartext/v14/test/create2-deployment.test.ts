@@ -95,3 +95,22 @@ void test('no tool writes inside deployments/, where records are archived', () =
   assert.notEqual(run.status, 0);
   assert.match(run.output, /is inside .*deployments, where deployment records are archived/);
 });
+
+void test('--fork is refused for a deploy, with --rpc-url, and on a node that is not an anvil', () => {
+  const hotfix = (args: readonly string[]): { status: number | null; output: string } => {
+    const r = spawnSync(join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'hotfix-cli'), [...args], { encoding: 'utf8' });
+    return { status: r.status, output: `${r.stdout}${r.stderr}` };
+  };
+  const deploy = cli(['--fork', 'http://127.0.0.1:1', '--stage', 'log']);
+  assert.notEqual(deploy.status, 0);
+  assert.match(deploy.output, /--fork simulates a re-point of a deployed stack/);
+
+  const both = hotfix(['--fork', 'http://127.0.0.1:1', '--rpc-url', 'http://127.0.0.1:1', '--stage', 'log']);
+  assert.notEqual(both.status, 0);
+  assert.match(both.output, /drop --rpc-url/);
+
+  // Nothing answers on port 1, so it is not an anvil: refused before anything else is resolved.
+  const notAnvil = hotfix(['--fork', 'http://127.0.0.1:1', '--stage', 'log']);
+  assert.notEqual(notAnvil.status, 0);
+  assert.match(notAnvil.output, /did not answer anvil_nodeInfo: it is not an anvil fork/);
+});

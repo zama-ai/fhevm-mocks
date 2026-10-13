@@ -235,6 +235,12 @@ function inspectFolder(
   if (manifest['deploymentId'] !== stack) {
     fail(`manifest.json: deploymentId is '${String(manifest['deploymentId'])}', the stack is '${stack}'`);
   }
+  if (manifest['simulation'] !== undefined) {
+    fail(
+      "manifest.json is a fork simulation's seal (`simulation`): its transactions happened on a fork, not on the " +
+        'chain. A simulation is never a record; archive the real run',
+    );
+  }
   if (typeof manifest['toolCommit'] === 'string' && toolCommit !== undefined && manifest['toolCommit'] !== toolCommit) {
     fail(`${RECORD_TOOL_COMMIT_FILE} names ${toolCommit}, the seal was made by ${manifest['toolCommit']}`);
   }

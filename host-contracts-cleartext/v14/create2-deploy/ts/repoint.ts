@@ -1200,6 +1200,7 @@ function writeVerifyReport(
     finalizedBlock: ctx.useFinality ? finalizedBlock(ctx) : null,
     materializeTx: materialize.hash,
     materializeBlock: materialize.block,
+    ...(ctx.opt.fork === null ? {} : { simulation: { fork: ctx.opt.fork } }),
     buildOut,
   };
   const path = join(ctx.outDir, 'verify-report.json');
@@ -1361,12 +1362,20 @@ export async function runRepointCli(flowAdapter: RepointAdapter): Promise<void> 
     for (const stage of FLOW.runOrder.filter((s) => s !== 'compute')) {
       await runStage(ctx, stage);
     }
-    say('done (all)');
+    say(
+      ctx.opt.fork === null
+        ? 'done (all)'
+        : `done (all) — SIMULATION on the fork ${ctx.opt.fork}, nothing sent to a real chain`,
+    );
     return;
   }
 
   await runStage(ctx, opt.stage);
-  say(`done (${opt.stage})`);
+  say(
+    ctx.opt.fork === null
+      ? `done (${opt.stage})`
+      : `done (${opt.stage}) — SIMULATION on the fork ${ctx.opt.fork}, nothing sent to a real chain`,
+  );
 }
 
 /**
