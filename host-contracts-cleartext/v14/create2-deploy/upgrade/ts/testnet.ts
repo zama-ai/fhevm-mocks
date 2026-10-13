@@ -24,6 +24,11 @@
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+// The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
+// contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here: a copy would not
+// follow a v13 hotfix.
+import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/versions.ts';
+
 import {
   appendJsonl,
   capture,
@@ -771,7 +776,7 @@ function validateExisting(ctx: Ctx): void {
     !kmsCode.ok ||
     kmsCode.stdout === '' ||
     kmsCode.stdout === '0x' ||
-    kmsVersion !== 'KMSVerifier v0.3.0' ||
+    kmsVersion !== PREVIOUS_VERSIONS.kmsVerifier ||
     kmsSigners === null ||
     kmsSigners.length === 0 ||
     kmsThreshold === null ||
@@ -798,10 +803,10 @@ function validateExisting(ctx: Ctx): void {
   const pcSigners = callAddresses(ctx, at('PROTOCOL_CONFIG_ADDRESS'), 'getKmsSigners()(address[])');
   weak(
     'PROTOCOL_CONFIG_ADDRESS',
-    'ProtocolConfig v0.1.0',
+    PREVIOUS_VERSIONS.protocolConfig,
     pcSigners !== null && sameAddressList(pcSigners, kmsSigners ?? []),
   );
-  weak('KMS_GENERATION_ADDRESS', 'KMSGeneration v0.1.0', true);
+  weak('KMS_GENERATION_ADDRESS', PREVIOUS_VERSIONS.kmsGeneration, true);
   warn('       KMS_VERIFIER, PROTOCOL_CONFIG and KMS_GENERATION are the addresses the live stack cannot confirm.');
 
   if (bad > 0) {
