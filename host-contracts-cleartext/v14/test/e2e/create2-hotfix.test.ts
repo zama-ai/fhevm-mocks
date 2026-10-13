@@ -11,7 +11,8 @@
 //      answers `helloWorld()`; the record is archived as `01-hotfix-…` and `check deployments` accepts the
 //      stack's history; a second run is refused (nothing newer than the latest record)
 //
-// Run: npm run test:hotfix. Opt-in: a deploy, a second build in the copy and a hotfix take a few minutes.
+// Run: npm run test:create2-hotfix-e2e (also the last step of the package's `test`): a deploy, a second
+// build in the copy and a hotfix take a few minutes.
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
