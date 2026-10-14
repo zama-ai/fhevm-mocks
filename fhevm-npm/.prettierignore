@@ -1,0 +1,3 @@
+# Scratch workspaces fhevm-npm tests create under the CLI root (the root .gitignore ignores them too); a run
+# that is killed before its cleanup leaves one behind, and it must not fail the format check.
+.tmp-*/
