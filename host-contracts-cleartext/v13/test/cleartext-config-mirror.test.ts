@@ -24,7 +24,8 @@ import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import test from 'node:test';
 import { HDNodeWallet, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from 'ethers';
-import { FHEVM_CONFIG_REMAPPING_PREFIX, PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
+import { fhevmConfigRemappingPrefix } from '../internal/configRemapping.ts';
+import { PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
 
 /**
  * The JSON sits ABOVE every generation, at the `sdk/` root — it is shared by v12 and v13, so it cannot
@@ -60,8 +61,8 @@ const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
  * a generation must be checkable from its own checkout, and `../v12` may not be there.
  */
 function generationKey(): string {
-  const m = /^fhevm-config-(\d+\.\d+\.\d+)\/$/.exec(FHEVM_CONFIG_REMAPPING_PREFIX);
-  assert.ok(m, `cannot read a generation out of ${FHEVM_CONFIG_REMAPPING_PREFIX}`);
+  const m = /^fhevm-config-(\d+\.\d+\.\d+)\/$/.exec(fhevmConfigRemappingPrefix());
+  assert.ok(m, `cannot read a generation out of ${fhevmConfigRemappingPrefix()}`);
   return m[1] ?? '';
 }
 

@@ -73,7 +73,8 @@ import {
   resolveOptions,
   SCRIPT_DIR,
   scriptEnv,
-  stampToolCommit,
+  stampSeal,
+  writeEventRecord,
   showJournal,
   stageReport,
   traceArgs,
@@ -359,7 +360,7 @@ function stageCompute(ctx: Ctx): void {
 
   // `forge script` can report success for a run that reverted, so check the artifact, not the code.
   if (!existsSync(manifestPath(ctx))) fail('Error: pass 3 wrote no manifest.json.');
-  stampToolCommit(ctx);
+  stampSeal(ctx, null);
   removeScratchIfSealed(ctx);
   say('', `  sealed: ${manifestPath(ctx)}`);
   // Run on its own, the next thing is the operator's: `--stage all` checks the seal is committed anyway.
@@ -668,6 +669,8 @@ async function stageVerify(ctx: Ctx): Promise<void> {
     { ...scriptEnv(ctx), ...generatedConfigEnv(ctx) },
   );
   if (code !== 0) process.exit(code);
+  // Verified, so the deploy is complete: date the record from the chain (its last transaction).
+  writeEventRecord(ctx, 'deploy', null);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -768,6 +771,7 @@ const DEPLOY_FLOW: Flow = {
   needsDeployerKey,
   adminSendingStages: ['accept-admin'],
   readOnlyStages: ['verify', 'status'],
+  existingRoles: [],
 };
 
 ////////////////////////////////////////////////////////////////////////////////
