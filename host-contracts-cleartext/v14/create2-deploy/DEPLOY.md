@@ -36,7 +36,8 @@ Both paths are examples: put them wherever you like.
 >
 > See [Warnings](#3-warnings-and-security-notes).
 
-To upgrade a stack that is already running, see [UPGRADE.md](UPGRADE.md). For the reasoning behind each
+To upgrade a stack that is already running, see [UPGRADE.md](UPGRADE.md); to hotfix one, see
+[Hotfix a deployed stack](#5-hotfix-a-deployed-stack). For the reasoning behind each
 step, see [GUIDE.md](GUIDE.md) and [README.md](README.md).
 
 ## Contents
@@ -60,6 +61,7 @@ step, see [GUIDE.md](GUIDE.md) and [README.md](README.md).
    - [If something goes wrong](#if-something-goes-wrong)
 3. [Warnings and security notes](#3-warnings-and-security-notes)
 4. [Stages](#4-stages)
+5. [Hotfix a deployed stack](#5-hotfix-a-deployed-stack)
 
 ## 1. Requirements
 
@@ -335,3 +337,31 @@ Run one with `deploy-cli --stage <stage>`. Every stage can be run again: what is
 | `log`          |      | every transaction sent, in order. Local files only, no network                      | no tx    |
 
 Add `--dry-run` to any single stage to simulate it without sending anything.
+
+## 5. Hotfix a deployed stack
+
+A hotfix applies **the contracts of your tool checkout** to a stack that is already running, within its
+generation. Only the proxies whose code changed are re-pointed, in one atomic `ACLOwner.upgrade` sent by
+the admin. The stack must be archived under `deployments/<chain>/<deploymentId>/` in the tool folder
+([deployments/README.md](../../../deployments/README.md)).
+
+```sh
+# 1. the tool at the release that carries the fix (a higher patch of the same generation)
+cd ~/src/fhevm-mocks && git pull && make install
+
+# 2. a new folder of yours, outside deployments/
+mkdir -p ~/fhevm-deployments/<deploymentId>-hotfix && cd ~/fhevm-deployments/<deploymentId>-hotfix
+STACK=~/src/fhevm-mocks/deployments/<chain>/<deploymentId>
+
+# 3. rehearse it on a fork of the chain: keyless, nothing is sent to the real chain
+anvil --fork-url <rpc> --port 8556          # in a second terminal, left running
+hotfix-cli --deployment $STACK --fork http://127.0.0.1:8556
+
+# 4. for real: --real names the stack it changes
+hotfix-cli --deployment $STACK --out-dir record \
+  --account fhevm-deployer --admin-account fhevm-admin --real <deploymentId>
+```
+
+You should see `done (all)`. Then archive `record/` and `hotfix.config.json` as the stack's next event,
+`deployments/<chain>/<deploymentId>/<NN>-hotfix-v<N>.<p>-<date>/`, as
+[deployments/README.md](../../../deployments/README.md) describes, and run `make check`.
