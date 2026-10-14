@@ -1,4 +1,4 @@
-// D5a2: the HCU engine. Unit: the price bridge answers every priced event and refuses the rest, the
+// The HCU engine. Unit: the price bridge answers every priced event and refuses the rest, the
 // handle parser reads the protocol layout, a synthetic receipt walks depth through a chain. Live: a
 // `trivialEncrypt` receipt costs exactly the table's price.
 //

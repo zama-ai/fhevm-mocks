@@ -1,4 +1,4 @@
-// D4a1: the error table is well-formed data and the template engine fills it the way v2 did.
+// The error table is well-formed data and the template engine fills it the way v2 did.
 //
 // Tests import the BUILT payload (pkg/_esm); see connection.test.ts.
 

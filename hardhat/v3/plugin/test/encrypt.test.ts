@@ -1,4 +1,4 @@
-// D1: encryption over the cleartext client of an in-process development connection — the client's
+// Encryption over the cleartext client of an in-process development connection — the client's
 // batch call and the per-type helpers, plus the guards that fail by name before any RPC.
 //
 // Tests import the BUILT payload (pkg/_esm); see connection.test.ts.

@@ -1,4 +1,4 @@
-// D4b: the operator-event vocabulary matches the executor ABI, and `parseCoprocessorEvents` decodes the
+// The operator-event vocabulary matches the executor ABI, and `parseCoprocessorEvents` decodes the
 // executor's logs — hand-encoded in both log shapes, then live off a `trivialEncrypt` receipt.
 //
 // Tests import the BUILT payload (pkg/_esm); see connection.test.ts.

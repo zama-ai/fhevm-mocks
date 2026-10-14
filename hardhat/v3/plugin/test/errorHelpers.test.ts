@@ -1,4 +1,4 @@
-// D4a3: the two error helpers, now internal. `createErrorInterface` hands chai an ethers-shaped
+// The two error helpers, now internal. `createErrorInterface` hands chai an ethers-shaped
 // interface backed by viem; `parseFhevmError` structures an InputVerifier `InvalidSigner` revert and
 // answers undefined for everything else. Both were `fhevm.*` methods before the surface shrank.
 //
