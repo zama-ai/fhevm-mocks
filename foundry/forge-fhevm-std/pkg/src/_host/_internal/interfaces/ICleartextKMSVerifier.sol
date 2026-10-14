@@ -11,14 +11,20 @@ interface ICleartextKMSVerifier {
     }
 
     error AddressEmptyCode(address target);
+    error CleartextErrorCiphertextNotFound(bytes32 handle);
     error CleartextErrorContractAddressNotAuthorized(address contractAddress);
     error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
+    error CleartextErrorEmptyCtHandles();
+    error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
     error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
     error CleartextErrorHandleNotDelegatedForUserDecryption(
         bytes32 handle, address contractAddress, address delegator, address delegate
     );
+    error CleartextErrorHandleUninitialized(bytes32 handle);
     error CleartextErrorInvalidKmsContext(uint256 kmsContextId);
     error CleartextErrorInvalidUserDecryptSignature();
+    error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
+    error CleartextErrorUnsupportedFheType(bytes32 handle, uint8 fheType);
     error CleartextErrorUserAddressEqualsContractAddress();
     error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
     error DeserializingDecryptionProofFail();

@@ -758,6 +758,17 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorCiphertextNotFound",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorContractAddressNotAuthorized",
     "inputs": [
       {
@@ -780,6 +791,32 @@
         "name": "contractAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorEmptyCtHandles",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorHandleChainIdMismatch",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "handleChainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockChainId",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ]
   },
@@ -822,6 +859,17 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorHandleUninitialized",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorInvalidKmsContext",
     "inputs": [
       {
@@ -835,6 +883,38 @@
     "type": "error",
     "name": "CleartextErrorInvalidUserDecryptSignature",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorMaxDecryptionRequestBitSizeExceeded",
+    "inputs": [
+      {
+        "name": "maxBitSize",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalBitSize",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUnsupportedFheType",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "fheType",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
   },
   {
     "type": "error",

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {FheType} from "./LibFheType.sol";
 import {IDecryptionPermissions} from "./interfaces/IDecryptionPermissions.sol";
 import {IPlaintexts} from "./interfaces/IPlaintexts.sol";
+import {LibFhevmHandle} from "./LibFhevmHandle.sol";
 
 /**
  * @notice One handle bound to the contract it was authorised for.
@@ -528,6 +529,75 @@ library LibKmsVerifier {
         }
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Request conformance: the gateway's checks on the handles of a decryption request
+    // ---------------------------------------------------------------------------------------------
+
+    /// @dev GW `MAX_DECRYPTION_REQUEST_BITS`, summed over `FHETypeBitSizes` (a Bool counts 2 bits).
+    uint256 internal constant MAX_DECRYPTION_REQUEST_BITS = 2048;
+
+    /// @notice GW `EmptyCtHandles` / KW: a request must name at least one handle.
+    error CleartextErrorEmptyCtHandles();
+
+    /// @notice GW `InvalidFHEType` / `UnsupportedFHEType`: only Bool and Uint8..Uint256 decrypt.
+    error CleartextErrorUnsupportedFheType(bytes32 handle, uint8 fheType);
+
+    /// @notice GW `MaxDecryptionRequestBitSizeExceeded`.
+    error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
+
+    /// @notice GW `CiphertextMaterialNotFound` / KW `CiphertextNotFound`: this stack never minted the handle.
+    error CleartextErrorCiphertextNotFound(bytes32 handle);
+
+    /// @notice GW `_extractCtHandlesCheckConformanceUser` + `getSnsCiphertextMaterials`: at least one pair,
+    ///         every handle conformant, at most `MAX_DECRYPTION_REQUEST_BITS` in total.
+    function requireConformantPairs(address plaintextsAddress, HandleContractPair[] memory pairs) internal view {
+        uint256 n = pairs.length;
+        if (n == 0) revert CleartextErrorEmptyCtHandles();
+        uint256 totalBitSize;
+        for (uint256 i = 0; i < n; ++i) {
+            totalBitSize += requireConformantHandle(plaintextsAddress, pairs[i].handle);
+        }
+        requireTotalBitSize(totalBitSize);
+    }
+
+    /// @notice GW `MaxDecryptionRequestBitSizeExceeded`: a request decrypts at most `MAX_DECRYPTION_REQUEST_BITS`.
+    function requireTotalBitSize(uint256 totalBitSize) internal pure {
+        if (totalBitSize > MAX_DECRYPTION_REQUEST_BITS) {
+            revert CleartextErrorMaxDecryptionRequestBitSizeExceeded(MAX_DECRYPTION_REQUEST_BITS, totalBitSize);
+        }
+    }
+
+    /// @notice One handle of a request: non-zero and on this chain (GW chain-id check, as
+    ///         `LibFhevmHandle.checkChainId`), of a decryptable type, and known to `plaintextsAddress` (GW
+    ///         `CiphertextMaterialNotFound`, which on a cleartext stack means the executor never minted it).
+    ///         Returns the bits it counts.
+    function requireConformantHandle(address plaintextsAddress, bytes32 handle)
+        internal
+        view
+        returns (uint256 bitSize)
+    {
+        LibFhevmHandle.checkChainId(handle);
+        bitSize = decryptableBitSize(handle);
+        if (!IPlaintexts(plaintextsAddress).hasPlaintext(handle)) revert CleartextErrorCiphertextNotFound(handle);
+    }
+
+    /// @notice The bits `handle` counts in a decryption request (GW `FHETypeBitSizes.getBitSize`); reverts for
+    ///         a type that does not decrypt. A Bool counts 2 here, 1 in `LibFheType.bitWidthForType`.
+    /// @dev    Read from the raw byte, so an out-of-range type reverts with a named error rather than an
+    ///         enum-conversion panic.
+    function decryptableBitSize(bytes32 handle) internal pure returns (uint256) {
+        uint8 t = uint8(handle[30]);
+        if (t == uint8(FheType.Bool)) return 2;
+        if (t == uint8(FheType.Uint8)) return 8;
+        if (t == uint8(FheType.Uint16)) return 16;
+        if (t == uint8(FheType.Uint32)) return 32;
+        if (t == uint8(FheType.Uint64)) return 64;
+        if (t == uint8(FheType.Uint128)) return 128;
+        if (t == uint8(FheType.Uint160)) return 160;
+        if (t == uint8(FheType.Uint256)) return 256;
+        revert CleartextErrorUnsupportedFheType(handle, t);
+    }
+
     /**
      * @notice The public-decryption payload: read every cleartext, encode it, and hash what the KMS
      *         nodes will sign. The third path, beside the two payload builders below.
@@ -562,15 +632,16 @@ library LibKmsVerifier {
      *      appear together. Keeping them here also keeps the ORDER — every pair authorised before any
      *      value is read — which is a property of the sequence, not of any one step.
      *
-     *      EVERY CHECK IS HERE TOO — the delegate's signature and the pair/contract coverage — so the
-     *      order cannot be got wrong by a caller: nothing is read until the request is proven. The
-     *      caller supplies the domain and typehash because only it knows which chain id its verifier
-     *      signs under.
+     *      EVERY CHECK IS HERE TOO — the pairs' conformance, the delegate's signature and the pair/contract
+     *      coverage — so the order cannot be got wrong by a caller: nothing is read until the request is
+     *      proven. The caller supplies the domain and typehash because only it knows which chain id its
+     *      verifier signs under.
      */
     function delegatedUserDecryptPayloadV1(
         HandleContractPair[] memory pairs,
         DelegatedUserDecryptPayloadArgsV1 memory p
     ) internal view returns (bytes memory payload) {
+        requireConformantPairs(p.plaintextsAddress, pairs);
         requireSigner(
             delegatedUserDecryptionDigestV1(p.domainHash, p.request, p.delegator, p.extraData),
             p.delegate.signature,
@@ -591,6 +662,7 @@ library LibKmsVerifier {
         view
         returns (bytes memory payload)
     {
+        requireConformantPairs(p.plaintextsAddress, pairs);
         requireSigner(userDecryptionDigestV1(p.domainHash, p.request, p.extraData), p.user.signature, p.user.signer);
         requireAllPairsAuthorized(pairs, p.request.contractAddresses);
 
@@ -644,8 +716,9 @@ library LibKmsVerifier {
      *      `userDecrypt` does not exist. Everything it WOULD have supplied is taken from elsewhere —
      *      the permission walk from the forked ACL, the values from whatever implements `IPlaintexts`
      *      (on a fork, the event processor), the domain and the signer set from the verifier's own
-     *      public surface. The checks are not skipped: `userDecryptPayloadV1` still verifies the
-     *      user's signature and still requires every pair to be authorised, against the REAL ACL.
+     *      public surface. The checks are not skipped: `userDecryptPayloadV1` still checks the pairs'
+     *      conformance (the gateway's rules, against the fork's plaintext source), verifies the user's
+     *      signature and requires every pair to be authorised, against the REAL ACL.
      *
      * @dev WHAT IS NOT CHECKED is the mock's `contractAddresses.length > 10` policy. That is the
      *      cleartext verifier's own rule, not the protocol's, and imposing it here would make a fork
