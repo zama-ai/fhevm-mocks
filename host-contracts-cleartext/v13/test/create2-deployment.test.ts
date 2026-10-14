@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -122,7 +122,11 @@ void test('--fork is refused for a deploy, with --rpc-url, and on a node that is
 });
 
 void test('a re-point that sends to a chain that is not an anvil names the real stack: --real <deploymentId>', (t) => {
-  const flows = ['hotfix-cli', join('upgrade', 'upgrade-cli')];
+  // The upgrade lane exists only while the generation carries one: the rotation deletes `upgrade/` (ROTATION.md).
+  const flows = ['hotfix-cli', join('upgrade', 'upgrade-cli')].filter((flow) =>
+    existsSync(join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', flow)),
+  );
+  assert.ok(flows.includes('hotfix-cli'), 'hotfix-cli is part of every generation');
   const root = mkdtempSync(join(tmpdir(), 'create2-real-'));
   t.after(() => {
     rmSync(root, { recursive: true, force: true });
