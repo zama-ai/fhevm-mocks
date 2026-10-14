@@ -175,6 +175,81 @@ interface IKmsVerifierView {
  *      `block.chainid`.
  */
 library LibKmsVerifier {
+    // ---------------------------------------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------------------------------------
+
+    /// @notice The verifier's EIP-712 domain is not the plain four-field one this library can rebuild.
+    error UnsupportedEip712Domain(bytes1 fields);
+
+    /// @notice The handle was never made publicly decryptable.
+    error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
+
+    /// @notice The delegation the request relies on was never granted.
+    error CleartextErrorHandleNotDelegatedForUserDecryption(
+        bytes32 handle, address contractAddress, address delegator, address delegate
+    );
+
+    /// @notice A pair naming the user as its own contract, which no grant can cover.
+    error CleartextErrorUserAddressEqualsContractAddress();
+
+    /// @notice The user was never granted persistent access to the handle.
+    error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
+
+    /// @notice The contract was never granted persistent access to the handle.
+    error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
+
+    /// @notice A pair naming a contract the request does not cover.
+    error CleartextErrorContractAddressNotAuthorized(address contractAddress);
+
+    /// @notice The signature does not recover to the address it is claimed for.
+    error CleartextErrorInvalidUserDecryptSignature();
+
+    /// @notice A signature that is not 65 bytes, or whose `v` is neither 27 nor 28.
+    error MalformedSignature();
+
+    /// @notice The transport public key was too short to take a 32-byte mask from.
+    error PublicKeyTooShort(uint256 length);
+
+    /// @notice GW `EmptyCtHandles` / KW: a request must name at least one handle.
+    error CleartextErrorEmptyCtHandles();
+
+    /// @notice GW `InvalidFHEType` / `UnsupportedFHEType`: only Bool and Uint8..Uint256 decrypt.
+    error CleartextErrorUnsupportedFheType(bytes32 handle, uint8 fheType);
+
+    /// @notice GW `MaxDecryptionRequestBitSizeExceeded`.
+    error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
+
+    /// @notice GW `CiphertextMaterialNotFound` / KW `CiphertextNotFound`: this stack never minted the handle.
+    error CleartextErrorCiphertextNotFound(bytes32 handle);
+
+    /// @notice GW `EmptyContractAddresses`.
+    error CleartextErrorEmptyContractAddresses();
+
+    /// @notice GW `ContractAddressesMaxLengthExceeded`.
+    error CleartextErrorContractAddressesMaxLengthExceeded(uint256 maxLength, uint256 length);
+
+    /// @notice GW `UserAddressInContractAddresses` / `DelegatorAddressInContractAddresses`.
+    error CleartextErrorAccountInContractAddresses(address account);
+
+    /// @notice GW `InvalidNullDurationDays`.
+    error CleartextErrorInvalidNullDurationDays();
+
+    /// @notice GW `MaxDurationDaysExceeded`.
+    error CleartextErrorMaxDurationDaysExceeded(uint256 maxDurationDays, uint256 durationDays);
+
+    /// @notice GW `StartTimestampInFuture`.
+    error CleartextErrorStartTimestampInFuture(uint256 currentTimestamp, uint256 startTimestamp);
+
+    /// @notice GW `UserDecryptionRequestExpired`.
+    error CleartextErrorUserDecryptionRequestExpired(
+        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationDays
+    );
+
+    // ---------------------------------------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------------------------------------
+
     /// @dev `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`
     bytes32 private constant EIP712_DOMAIN_TYPEHASH =
         0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
@@ -199,8 +274,18 @@ library LibKmsVerifier {
         "DelegatedUserDecryptRequestVerification(bytes publicKey,address[] contractAddresses,address delegatorAddress,uint256 startTimestamp,uint256 durationDays,bytes extraData)"
     );
 
-    /// @notice The verifier's EIP-712 domain is not the plain four-field one this library can rebuild.
-    error UnsupportedEip712Domain(bytes1 fields);
+    /// @dev GW `MAX_DECRYPTION_REQUEST_BITS`, summed over `FHETypeBitSizes` (a Bool counts 2 bits).
+    uint256 internal constant MAX_DECRYPTION_REQUEST_BITS = 2048;
+
+    /// @dev GW `MAX_USER_DECRYPT_CONTRACT_ADDRESSES`.
+    uint256 internal constant MAX_USER_DECRYPT_CONTRACT_ADDRESSES = 10;
+
+    /// @dev GW `MAX_USER_DECRYPT_DURATION_DAYS`.
+    uint256 internal constant MAX_USER_DECRYPT_DURATION_DAYS = 365;
+
+    // ---------------------------------------------------------------------------------------------
+    // Public functions (`internal`: what an importer calls)
+    // ---------------------------------------------------------------------------------------------
 
     /**
      * @notice What `CleartextKMSVerifier.publicDecrypt` would have returned, minus the values.
@@ -232,35 +317,6 @@ library LibKmsVerifier {
         signers = v.getKmsSigners();
         threshold = v.getThreshold();
     }
-
-    /// @notice The handle was never made publicly decryptable.
-    error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
-
-    /// @notice The delegation the request relies on was never granted.
-    error CleartextErrorHandleNotDelegatedForUserDecryption(
-        bytes32 handle, address contractAddress, address delegator, address delegate
-    );
-
-    /// @notice A pair naming the user as its own contract, which no grant can cover.
-    error CleartextErrorUserAddressEqualsContractAddress();
-
-    /// @notice The user was never granted persistent access to the handle.
-    error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
-
-    /// @notice The contract was never granted persistent access to the handle.
-    error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
-
-    /// @notice A pair naming a contract the request does not cover.
-    error CleartextErrorContractAddressNotAuthorized(address contractAddress);
-
-    /// @notice The signature does not recover to the address it is claimed for.
-    error CleartextErrorInvalidUserDecryptSignature();
-
-    /// @notice A signature that is not 65 bytes, or whose `v` is neither 27 nor 28.
-    error MalformedSignature();
-
-    /// @notice The transport public key was too short to take a 32-byte mask from.
-    error PublicKeyTooShort(uint256 length);
 
     /**
      * @notice What `CleartextKMSVerifier.userDecrypt` would have returned, minus the values.
@@ -529,53 +585,7 @@ library LibKmsVerifier {
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    // Request conformance: the gateway's checks on the handles of a decryption request
-    // ---------------------------------------------------------------------------------------------
-
-    /// @dev GW `MAX_DECRYPTION_REQUEST_BITS`, summed over `FHETypeBitSizes` (a Bool counts 2 bits).
-    uint256 internal constant MAX_DECRYPTION_REQUEST_BITS = 2048;
-
-    /// @notice GW `EmptyCtHandles` / KW: a request must name at least one handle.
-    error CleartextErrorEmptyCtHandles();
-
-    /// @notice GW `InvalidFHEType` / `UnsupportedFHEType`: only Bool and Uint8..Uint256 decrypt.
-    error CleartextErrorUnsupportedFheType(bytes32 handle, uint8 fheType);
-
-    /// @notice GW `MaxDecryptionRequestBitSizeExceeded`.
-    error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
-
-    /// @notice GW `CiphertextMaterialNotFound` / KW `CiphertextNotFound`: this stack never minted the handle.
-    error CleartextErrorCiphertextNotFound(bytes32 handle);
-
-    /// @dev GW `MAX_USER_DECRYPT_CONTRACT_ADDRESSES`.
-    uint256 internal constant MAX_USER_DECRYPT_CONTRACT_ADDRESSES = 10;
-
-    /// @dev GW `MAX_USER_DECRYPT_DURATION_DAYS`.
-    uint256 internal constant MAX_USER_DECRYPT_DURATION_DAYS = 365;
-
-    /// @notice GW `EmptyContractAddresses`.
-    error CleartextErrorEmptyContractAddresses();
-
-    /// @notice GW `ContractAddressesMaxLengthExceeded`.
-    error CleartextErrorContractAddressesMaxLengthExceeded(uint256 maxLength, uint256 length);
-
-    /// @notice GW `UserAddressInContractAddresses` / `DelegatorAddressInContractAddresses`.
-    error CleartextErrorAccountInContractAddresses(address account);
-
-    /// @notice GW `InvalidNullDurationDays`.
-    error CleartextErrorInvalidNullDurationDays();
-
-    /// @notice GW `MaxDurationDaysExceeded`.
-    error CleartextErrorMaxDurationDaysExceeded(uint256 maxDurationDays, uint256 durationDays);
-
-    /// @notice GW `StartTimestampInFuture`.
-    error CleartextErrorStartTimestampInFuture(uint256 currentTimestamp, uint256 startTimestamp);
-
-    /// @notice GW `UserDecryptionRequestExpired`.
-    error CleartextErrorUserDecryptionRequestExpired(
-        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationDays
-    );
+    // --- Request conformance: the gateway's checks on the handles of a decryption request ---
 
     /// @notice GW: 1 to `MAX_USER_DECRYPT_CONTRACT_ADDRESSES` contract addresses, none of which is `account`
     ///         (the user, or the delegator of a delegated request). Stricter than the per-pair
@@ -734,9 +744,7 @@ library LibKmsVerifier {
         return abi.encode(maskWithPublicKey(p.request.transportPublicKey, raw), p.extraData);
     }
 
-    // ---------------------------------------------------------------------------------------------
-    // Against a verifier that cannot answer for itself
-    // ---------------------------------------------------------------------------------------------
+    // --- Against a verifier that cannot answer for itself ---
 
     /**
      * @notice The public-decryption answer from whichever stack `kmsVerifier` belongs to.
@@ -886,46 +894,6 @@ library LibKmsVerifier {
             ICleartextKmsVerifierCall(kmsVerifier).publicDecrypt(handles);
     }
 
-    /// @dev FRAMES. Unpacking the request into the verifier's seven and eight arguments alongside the
-    ///      caller's own parameters and four returns overflows solc's legacy codegen.
-    function _cleartextUserDecrypt(
-        address kmsVerifier,
-        HandleContractPair[] memory pairs,
-        UserDecryptRequestV1 memory request,
-        SignerSignaturePair memory user
-    ) private view returns (bytes memory, address[] memory, uint256, bytes memory) {
-        return ICleartextKmsVerifierCall(kmsVerifier)
-            .userDecrypt(
-                pairs,
-                user.signer,
-                request.transportPublicKey,
-                request.contractAddresses,
-                request.startTimestamp,
-                request.durationDays,
-                user.signature
-            );
-    }
-
-    function _cleartextDelegatedUserDecrypt(
-        address kmsVerifier,
-        HandleContractPair[] memory pairs,
-        UserDecryptRequestV1 memory request,
-        address delegator,
-        SignerSignaturePair memory delegate
-    ) private view returns (bytes memory, address[] memory, uint256, bytes memory) {
-        return ICleartextKmsVerifierCall(kmsVerifier)
-            .delegatedUserDecrypt(
-                pairs,
-                delegator,
-                delegate.signer,
-                request.transportPublicKey,
-                request.contractAddresses,
-                request.startTimestamp,
-                request.durationDays,
-                delegate.signature
-            );
-    }
-
     /// @notice Splits a 65-byte `r ‖ s ‖ v`, normalising a `v` of 0/1 to 27/28.
     function decodeSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
         if (signature.length != 65) revert MalformedSignature();
@@ -1056,5 +1024,49 @@ library LibKmsVerifier {
             mstore(add(ptr, 0x22), structHash)
             typedDataHash := keccak256(ptr, 0x42)
         }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Private functions
+    // ---------------------------------------------------------------------------------------------
+
+    /// @dev FRAMES. Unpacking the request into the verifier's seven and eight arguments alongside the
+    ///      caller's own parameters and four returns overflows solc's legacy codegen.
+    function _cleartextUserDecrypt(
+        address kmsVerifier,
+        HandleContractPair[] memory pairs,
+        UserDecryptRequestV1 memory request,
+        SignerSignaturePair memory user
+    ) private view returns (bytes memory, address[] memory, uint256, bytes memory) {
+        return ICleartextKmsVerifierCall(kmsVerifier)
+            .userDecrypt(
+                pairs,
+                user.signer,
+                request.transportPublicKey,
+                request.contractAddresses,
+                request.startTimestamp,
+                request.durationDays,
+                user.signature
+            );
+    }
+
+    function _cleartextDelegatedUserDecrypt(
+        address kmsVerifier,
+        HandleContractPair[] memory pairs,
+        UserDecryptRequestV1 memory request,
+        address delegator,
+        SignerSignaturePair memory delegate
+    ) private view returns (bytes memory, address[] memory, uint256, bytes memory) {
+        return ICleartextKmsVerifierCall(kmsVerifier)
+            .delegatedUserDecrypt(
+                pairs,
+                delegator,
+                delegate.signer,
+                request.transportPublicKey,
+                request.contractAddresses,
+                request.startTimestamp,
+                request.durationDays,
+                delegate.signature
+            );
     }
 }
