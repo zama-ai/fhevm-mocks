@@ -5,9 +5,43 @@ pragma solidity ^0.8.24;
 // DO NOT EDIT — your changes will be overwritten. See internal/generateLocalHostBytecode.ts.
 
 interface ICleartextKMSVerifier {
+    struct DelegatedUserDecryptPermitV1 {
+        address delegateAddress;
+        bytes publicKey;
+        address[] contractAddresses;
+        address delegatorAddress;
+        uint256 startTimestamp;
+        uint256 durationDays;
+        bytes extraData;
+    }
+
     struct HandleContractPair {
         bytes32 handle;
         address contractAddress;
+    }
+
+    struct HandleEntry {
+        bytes32 handle;
+        address contractAddress;
+        address ownerAddress;
+    }
+
+    struct UserDecryptPermitV1 {
+        address userAddress;
+        bytes publicKey;
+        address[] contractAddresses;
+        uint256 startTimestamp;
+        uint256 durationDays;
+        bytes extraData;
+    }
+
+    struct UserDecryptPermitV2 {
+        address userAddress;
+        bytes publicKey;
+        address[] allowedContracts;
+        uint256 startTimestamp;
+        uint256 durationSeconds;
+        bytes extraData;
     }
 
     error AddressEmptyCode(address target);
@@ -24,17 +58,34 @@ interface ICleartextKMSVerifier {
     );
     error CleartextErrorHandleUninitialized(bytes32 handle);
     error CleartextErrorInvalidKmsContext(uint256 kmsContextId);
+    error CleartextErrorInvalidKmsEpoch(uint256 kmsContextId, uint256 epochId);
     error CleartextErrorInvalidNullDurationDays();
+    error CleartextErrorInvalidNullDurationSeconds();
     error CleartextErrorInvalidUserDecryptSignature();
+    error CleartextErrorInvalidUserDecryptSignatureV2(address userAddress);
     error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
     error CleartextErrorMaxDurationDaysExceeded(uint256 maxDurationDays, uint256 durationDays);
+    error CleartextErrorMaxDurationSecondsExceeded(uint256 maxDurationSeconds, uint256 durationSeconds);
+    error CleartextErrorNoAllowedContractForHandle(bytes32 handle);
     error CleartextErrorStartTimestampInFuture(uint256 currentTimestamp, uint256 startTimestamp);
     error CleartextErrorUnsupportedFheType(bytes32 handle, uint8 fheType);
     error CleartextErrorUserAddressEqualsContractAddress();
+    error CleartextErrorUserAddressInAllowedContracts(address userAddress);
+    error CleartextErrorUserAddressIsVerifyingContract(address userAddress);
+    error CleartextErrorUserDecryptSignatureInvalidated(
+        address userAddress, uint256 startTimestamp, uint256 invalidatedBefore
+    );
     error CleartextErrorUserDecryptionRequestExpired(
         uint256 currentTimestamp, uint256 startTimestamp, uint256 durationDays
     );
+    error CleartextErrorUserDecryptionRequestExpiredSeconds(
+        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationSeconds
+    );
+    error CleartextErrorUserNotAllowed(bytes32 handle, address userAddress);
     error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
+    error CleartextErrorUserNotDelegated(
+        bytes32 handle, address ownerAddress, address userAddress, address contractAddress
+    );
     error DeserializingDecryptionProofFail();
     error DeserializingExtraDataFail();
     error ECDSAInvalidSignature();
@@ -75,16 +126,10 @@ interface ICleartextKMSVerifier {
         uint256 durationDays,
         bytes memory delegateSignature
     ) external view returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData);
-    function delegatedUserDecrypt(
+    function delegatedUserDecryptV1(
         HandleContractPair[] memory pairs,
-        address delegator,
-        address delegate,
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays,
-        bytes memory delegateSignature,
-        bytes memory extraData
+        DelegatedUserDecryptPermitV1 memory permit,
+        bytes memory signature
     )
         external
         view
@@ -143,21 +188,16 @@ interface ICleartextKMSVerifier {
         address[] memory contractAddresses,
         uint256 startTimestamp,
         uint256 durationDays,
-        bytes memory userSignature,
-        bytes memory extraData
-    )
+        bytes memory userSignature
+    ) external view returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData);
+    function userDecryptV1(HandleContractPair[] memory pairs, UserDecryptPermitV1 memory permit, bytes memory signature)
         external
         view
         returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData);
-    function userDecrypt(
-        HandleContractPair[] memory pairs,
-        address userAddress,
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays,
-        bytes memory userSignature
-    ) external view returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData);
+    function userDecryptV2(HandleEntry[] memory handles, UserDecryptPermitV2 memory permit, bytes memory signature)
+        external
+        view
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData);
     function verifyDecryptionEIP712KMSSignatures(
         bytes32[] memory handlesList,
         bytes memory decryptedResult,

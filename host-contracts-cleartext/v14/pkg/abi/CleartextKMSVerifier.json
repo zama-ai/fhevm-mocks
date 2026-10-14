@@ -134,7 +134,7 @@
   },
   {
     "type": "function",
-    "name": "delegatedUserDecrypt",
+    "name": "delegatedUserDecryptV1",
     "inputs": [
       {
         "name": "pairs",
@@ -154,42 +154,49 @@
         ]
       },
       {
-        "name": "delegator",
-        "type": "address",
-        "internalType": "address"
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct DelegatedUserDecryptPermitV1",
+        "components": [
+          {
+            "name": "delegateAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "publicKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "contractAddresses",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "delegatorAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "startTimestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "durationDays",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
       },
       {
-        "name": "delegate",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "publicKey",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "contractAddresses",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "startTimestamp",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "durationDays",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "delegateSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "extraData",
+        "name": "signature",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -577,9 +584,92 @@
         "name": "userSignature",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "payload",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "signers",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "threshold",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "extraData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "userDecryptV1",
+    "inputs": [
+      {
+        "name": "pairs",
+        "type": "tuple[]",
+        "internalType": "struct HandleContractPair[]",
+        "components": [
+          {
+            "name": "handle",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contractAddress",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct UserDecryptPermitV1",
+        "components": [
+          {
+            "name": "userAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "publicKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "contractAddresses",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "startTimestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "durationDays",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      },
+      {
+        "name": "signature",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -610,12 +700,12 @@
   },
   {
     "type": "function",
-    "name": "userDecrypt",
+    "name": "userDecryptV2",
     "inputs": [
       {
-        "name": "pairs",
+        "name": "handles",
         "type": "tuple[]",
-        "internalType": "struct HandleContractPair[]",
+        "internalType": "struct HandleEntry[]",
         "components": [
           {
             "name": "handle",
@@ -626,36 +716,53 @@
             "name": "contractAddress",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "ownerAddress",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       },
       {
-        "name": "userAddress",
-        "type": "address",
-        "internalType": "address"
+        "name": "permit",
+        "type": "tuple",
+        "internalType": "struct UserDecryptPermitV2",
+        "components": [
+          {
+            "name": "userAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "publicKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "allowedContracts",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "startTimestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "durationSeconds",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
       },
       {
-        "name": "publicKey",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "contractAddresses",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "startTimestamp",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "durationDays",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "userSignature",
+        "name": "signature",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -677,7 +784,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "extraData",
+        "name": "signedExtraData",
         "type": "bytes",
         "internalType": "bytes"
       }
@@ -902,13 +1009,45 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorInvalidKmsEpoch",
+    "inputs": [
+      {
+        "name": "kmsContextId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "epochId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorInvalidNullDurationDays",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidNullDurationSeconds",
     "inputs": []
   },
   {
     "type": "error",
     "name": "CleartextErrorInvalidUserDecryptSignature",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidUserDecryptSignatureV2",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -939,6 +1078,33 @@
         "name": "durationDays",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorMaxDurationSecondsExceeded",
+    "inputs": [
+      {
+        "name": "maxDurationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorNoAllowedContractForHandle",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },
@@ -981,6 +1147,49 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorUserAddressInAllowedContracts",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserAddressIsVerifyingContract",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserDecryptSignatureInvalidated",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "invalidatedBefore",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorUserDecryptionRequestExpired",
     "inputs": [
       {
@@ -1002,6 +1211,43 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorUserDecryptionRequestExpiredSeconds",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserNotAllowed",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorUserNotAuthorizedForDecrypt",
     "inputs": [
       {
@@ -1011,6 +1257,32 @@
       },
       {
         "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserNotDelegated",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "ownerAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "contractAddress",
         "type": "address",
         "internalType": "address"
       }

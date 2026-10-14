@@ -28,8 +28,9 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  * extraData. So:
  *   - `publicDecrypt(handles, extraData)` must sign over exactly the requested extraData, and the proof built from
  *     its answer must pass the on-chain KMSVerifier;
- *   - `userDecrypt(..., extraData)` must verify the permit over exactly the extraData the user signed, which may
- *     name a context that is no longer the current one (a permit is reusable until it expires);
+ *   - `userDecryptV1(pairs, permit, signature)` (the permit carries its extraData) must verify the permit over
+ *     exactly the extraData the user signed, which may name a context that is no longer the current one (a permit
+ *     is reusable until it expires);
  *   - the overloads WITHOUT extraData (published sdk releases do not pass it) can only guess: `publicDecrypt`
  *     signs v1 (TEMPORARY, see the banner in CleartextKMSVerifier), `userDecrypt` tries v2 then v1 for the
  *     current context and epoch, and refuses a permit signed before a KMS rotation.
@@ -154,9 +155,8 @@ contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
         bytes32 handle = _grantedToAlice(7);
         bytes memory v2 = _currentV2();
 
-        (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData) = kms.userDecrypt(
-            _pairs(handle), alice, publicKey, contractAddresses, block.timestamp, 1, _permit(ALICE_PK, v2), v2
-        );
+        (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData) =
+            kms.userDecryptV1(_pairs(handle), _v1Permit(alice, v2), _permit(ALICE_PK, v2));
 
         uint256 contextId = protocolConfig.getCurrentKmsContextId();
         assertEq(signedExtraData, v2, "the given extraData was not used verbatim");
@@ -173,7 +173,7 @@ contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
 
         // Arguments are computed above: `expectRevert` applies to the NEXT external call, and both helpers make one.
         vm.expectRevert(LibKmsVerifier.CleartextErrorInvalidUserDecryptSignature.selector);
-        kms.userDecrypt(_pairs(handle), alice, publicKey, contractAddresses, block.timestamp, 1, signedOverV1, v2);
+        kms.userDecryptV1(_pairs(handle), _v1Permit(alice, v2), signedOverV1);
     }
 
     /// A permit signed before a KMS rotation names the previous context and epoch. The overload that takes the
@@ -189,9 +189,8 @@ contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
         assertTrue(protocolConfig.getCurrentKmsContextId() != previousContextId, "the rotation did not happen");
         assertTrue(protocolConfig.isValidKmsContext(previousContextId), "the previous context is no longer valid");
 
-        (bytes memory payload, address[] memory signers,,) = kms.userDecrypt(
-            _pairs(handle), alice, publicKey, contractAddresses, block.timestamp, 1, permit, signedBefore
-        );
+        (bytes memory payload, address[] memory signers,,) =
+            kms.userDecryptV1(_pairs(handle), _v1Permit(alice, signedBefore), permit);
         assertEq(_unmask(payload), 7, "wrong cleartext");
         assertEq(signers, protocolConfig.getKmsSignersForContext(previousContextId), "not the previous signers");
 
@@ -214,9 +213,8 @@ contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
         assertEq(guessedExtraData, v2, "the guess did not settle on v2");
         assertEq(_unmask(guessed), 7, "wrong cleartext (guessing overload)");
 
-        (bytes memory given,,, bytes memory givenExtraData) = kms.delegatedUserDecrypt(
-            _pairs(handle), alice, bob, publicKey, contractAddresses, block.timestamp, 1, permit, v2
-        );
+        (bytes memory given,,, bytes memory givenExtraData) =
+            kms.delegatedUserDecryptV1(_pairs(handle), _delegatedV1Permit(bob, alice, v2), permit);
         assertEq(givenExtraData, v2, "the given extraData was not used verbatim");
         assertEq(_unmask(given), 7, "wrong cleartext (extraData overload)");
     }
@@ -270,6 +268,39 @@ contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
             contractAddresses: contractAddresses,
             startTimestamp: block.timestamp,
             durationDays: 1
+        });
+    }
+
+    /// @dev The v1 permit `userDecryptV1` takes: `_request()`'s fields, its signer, and the extraData it was signed over.
+    function _v1Permit(address user, bytes memory extraData)
+        private
+        view
+        returns (ICleartextKMSVerifier.UserDecryptPermitV1 memory)
+    {
+        return ICleartextKMSVerifier.UserDecryptPermitV1({
+            userAddress: user,
+            publicKey: publicKey,
+            contractAddresses: contractAddresses,
+            startTimestamp: block.timestamp,
+            durationDays: 1,
+            extraData: extraData
+        });
+    }
+
+    /// @dev The same, for `delegatedUserDecryptV1`: the delegate signs, naming the delegator.
+    function _delegatedV1Permit(address delegate, address delegator, bytes memory extraData)
+        private
+        view
+        returns (ICleartextKMSVerifier.DelegatedUserDecryptPermitV1 memory)
+    {
+        return ICleartextKMSVerifier.DelegatedUserDecryptPermitV1({
+            delegateAddress: delegate,
+            publicKey: publicKey,
+            contractAddresses: contractAddresses,
+            delegatorAddress: delegator,
+            startTimestamp: block.timestamp,
+            durationDays: 1,
+            extraData: extraData
         });
     }
 
