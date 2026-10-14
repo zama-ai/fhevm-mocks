@@ -307,10 +307,7 @@ test('rule 3.3.4 treats an npm alias as its own pin, keyed by the alias name, ne
     violations.map((violation) => violation.packageKey),
     ['./plugin/package.json', './plugin/pkg/package.json'],
   );
-  assert.match(
-    violations[0]?.message ?? '',
-    /is "npm:@scope\/pkg@\^0\.13\.6"; .*requires "npm:@scope\/pkg@\^1\.1\.7"/,
-  );
+  assert.match(violations[0]?.message ?? '', /is "npm:@scope\/pkg@\^0\.13\.6"; .*requires "npm:@scope\/pkg@\^1\.1\.7"/);
 });
 
 test('the manifest accepts an npm alias of an exact, caret or tilde version', () => {
