@@ -1,4 +1,4 @@
-// D2 guards: the zero handle and a handle nobody made publicly decryptable both fail before or inside
+// Guards: the zero handle and a handle nobody made publicly decryptable both fail before or inside
 // the SDK with a message that names the cause. The success path needs a contract, so it lives in the
 // e2e counter test.
 //
