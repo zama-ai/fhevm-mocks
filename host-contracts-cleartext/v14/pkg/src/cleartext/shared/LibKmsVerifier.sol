@@ -152,6 +152,62 @@ interface IKmsVerifierView {
 }
 
 /**
+ * @notice One handle of a unified (RFC-016) user-decryption request, as the gateway's `HandleEntry`.
+ * @dev    `ownerAddress == userAddress` is a direct decryption; anything else is a decryption delegated by
+ *         `ownerAddress` to the user, for `contractAddress`.
+ */
+struct HandleEntry {
+    bytes32 handle;
+    address contractAddress;
+    address ownerAddress;
+}
+
+/**
+ * @notice A unified (v2, RFC-016) user-decryption permit: the signed fields, as the gateway's
+ *         `UserDecryptionRequestPayload` minus the signature (passed beside it).
+ * @dev    Fields: the type's fields in the type's order (`userAddress` is signed in v2). A struct so the entry
+ *         point stays under the stack limit, the reason the gateway packs it too.
+ */
+struct UserDecryptPermitV2 {
+    address userAddress;
+    bytes publicKey;
+    address[] allowedContracts;
+    uint256 startTimestamp;
+    uint256 durationSeconds;
+    bytes extraData;
+}
+
+/// @dev The ACL views the kms-worker reads for a unified request, beyond `IDecryptionPermissions`.
+interface IUserDecryptionPermissionsV2 {
+    function isAllowed(bytes32 handle, address account) external view returns (bool);
+    function isHandleDelegatedForUserDecryption(
+        address delegator,
+        address delegate,
+        address contractAddress,
+        bytes32 handle
+    ) external view returns (bool);
+    function decryptionSignatureInvalidatedBefore(address account) external view returns (uint256);
+}
+
+/// @dev ERC-1271, as the kms-worker calls it.
+interface IERC1271 {
+    function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4 magicValue);
+}
+
+/**
+ * @notice Everything `userDecryptPayloadV2` needs, except the handles.
+ * @dev    `domainHash` is the host chain id with the gateway `Decryption` contract as verifying contract, the
+ *         domain a v2 permit is signed under; only the caller knows it.
+ */
+struct UserDecryptPayloadArgsV2 {
+    address aclAddress;
+    address plaintextsAddress;
+    bytes32 domainHash;
+    UserDecryptPermitV2 permit;
+    bytes signature;
+}
+
+/**
  * @title LibKmsVerifier
  * @notice Reproduces the public-decryption PROOF against a `KMSVerifier` that has no cleartext helper —
  *         i.e. a real one, on a forked chain. The sibling of `LibInputVerifier`, for the other
@@ -243,6 +299,39 @@ library LibKmsVerifier {
         uint256 currentTimestamp, uint256 startTimestamp, uint256 durationDays
     );
 
+    /// @notice GW `InvalidNullDurationSeconds`.
+    error CleartextErrorInvalidNullDurationSeconds();
+
+    /// @notice GW `MaxDurationSecondsExceeded`.
+    error CleartextErrorMaxDurationSecondsExceeded(uint256 maxDurationSeconds, uint256 durationSeconds);
+
+    /// @notice GW `UserDecryptionRequestExpiredSeconds`.
+    error CleartextErrorUserDecryptionRequestExpiredSeconds(
+        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationSeconds
+    );
+
+    /// @notice KW: the user may not list itself in `allowedContracts`.
+    error CleartextErrorUserAddressInAllowedContracts(address userAddress);
+
+    /// @notice KW `verify_signature`: neither `ecrecover` nor ERC-1271 accepted the signature.
+    error CleartextErrorInvalidUserDecryptSignatureV2(address userAddress);
+
+    /// @notice KW: the user invalidated every permit that starts before `invalidatedBefore`.
+    error CleartextErrorUserDecryptSignatureInvalidated(
+        address userAddress, uint256 startTimestamp, uint256 invalidatedBefore
+    );
+
+    /// @notice KW direct ownership: `isAllowed(handle, user)` is false.
+    error CleartextErrorUserNotAllowed(bytes32 handle, address userAddress);
+
+    /// @notice KW delegated ownership: `isHandleDelegatedForUserDecryption` is false.
+    error CleartextErrorUserNotDelegated(
+        bytes32 handle, address ownerAddress, address userAddress, address contractAddress
+    );
+
+    /// @notice KW: `allowedContracts` is non-empty and none of them is allowed on the handle.
+    error CleartextErrorNoAllowedContractForHandle(bytes32 handle);
+
     // ---------------------------------------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------------------------------------
@@ -279,6 +368,20 @@ library LibKmsVerifier {
 
     /// @dev GW `MAX_USER_DECRYPT_DURATION_DAYS`.
     uint256 internal constant MAX_USER_DECRYPT_DURATION_DAYS = 365;
+
+    /// @dev The unified permit's EIP-712 type, `shared/user-decryption-signature` in the connector.
+    bytes32 internal constant USER_DECRYPT_REQUEST_V2_TYPEHASH = keccak256(
+        "UserDecryptRequestVerification(address userAddress,bytes publicKey,address[] allowedContracts,uint256 startTimestamp,uint256 durationSeconds,bytes extraData)"
+    );
+
+    /// @dev GW `MAX_USER_DECRYPT_DURATION_SECONDS`.
+    uint256 internal constant MAX_USER_DECRYPT_DURATION_SECONDS = MAX_USER_DECRYPT_DURATION_DAYS * 1 days;
+
+    /// @dev KW `erc1271_gas_limit` default.
+    uint256 private constant ERC1271_GAS_LIMIT = 250_000;
+
+    /// @dev `bytes4(keccak256("isValidSignature(bytes32,bytes)"))`.
+    bytes4 private constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
 
     // ---------------------------------------------------------------------------------------------
     // Public functions (`internal`: what an importer calls)
@@ -1029,6 +1132,175 @@ library LibKmsVerifier {
             mstore(add(ptr, 0x02), domainHash)
             mstore(add(ptr, 0x22), structHash)
             typedDataHash := keccak256(ptr, 0x42)
+        }
+    }
+
+    // --- Unified (RFC-016) user decryption: permit v2 ---
+
+    /**
+     * @notice The unified (v2, RFC-016) user-decryption payload: every check the v14 gateway and kms-worker make, in
+     *         their order, then read, mask, encode.
+     *
+     * @dev On v14 the gateway (`Decryption.userDecryptionRequest(HandleEntry[], ...)`) only checks the request's
+     *      shape and limits; authorisation moved to the kms-worker (`check_user_decryption_request_v2`). This
+     *      mirrors both, so a client that signs a v2 permit is held to exactly what the connector enforces.
+     *
+     * @dev THE CALLER KEEPS WHAT IS ITS OWN, checked before this call: the KMS context (and epoch) the permit's
+     *      extraData names (KMSVerifier), and that the user is not its own verifying contract (KMS core).
+     */
+    function userDecryptPayloadV2(HandleEntry[] memory handles, UserDecryptPayloadArgsV2 memory p)
+        internal
+        view
+        returns (bytes memory payload)
+    {
+        UserDecryptPermitV2 memory permit = p.permit;
+
+        // --- Gateway `userDecryptionRequest(HandleEntry[], ...)`, in its order ---
+        if (handles.length == 0) revert CleartextErrorEmptyCtHandles();
+        // Empty `allowedContracts` is permissive mode; only the upper bound is enforced.
+        if (permit.allowedContracts.length > MAX_USER_DECRYPT_CONTRACT_ADDRESSES) {
+            revert CleartextErrorContractAddressesMaxLengthExceeded(
+                MAX_USER_DECRYPT_CONTRACT_ADDRESSES, permit.allowedContracts.length
+            );
+        }
+        requireValidRequestWindowSeconds(permit.startTimestamp, permit.durationSeconds);
+        requireConformantHandleEntries(handles);
+
+        // --- kms-worker `check_user_decryption_request_v2` (the window is the gateway's, enforced above) ---
+        for (uint256 i = 0; i < permit.allowedContracts.length; ++i) {
+            if (permit.allowedContracts[i] == permit.userAddress) {
+                revert CleartextErrorUserAddressInAllowedContracts(permit.userAddress);
+            }
+        }
+        requireUserSignatureV2(p.domainHash, permit, p.signature);
+        requireNotInvalidated(p.aclAddress, permit.userAddress, permit.startTimestamp);
+        requireHandleEntriesAuthorized(p.aclAddress, handles, permit.userAddress, permit.allowedContracts);
+
+        // --- Every check passed: read, mask, encode, as the v1 paths do ---
+        uint256 n = handles.length;
+        uint256[] memory cleartexts = new uint256[](n);
+        for (uint256 i = 0; i < n; ++i) {
+            cleartexts[i] = IPlaintexts(p.plaintextsAddress).plaintexts(handles[i].handle);
+        }
+        return abi.encode(maskWithPublicKey(permit.publicKey, cleartexts), permit.extraData);
+    }
+
+    /// @dev GW `_checkUserDecryptionRequestValiditySeconds`, in the same order.
+    function requireValidRequestWindowSeconds(uint256 startTimestamp, uint256 durationSeconds) internal view {
+        if (durationSeconds == 0) revert CleartextErrorInvalidNullDurationSeconds();
+        if (durationSeconds > MAX_USER_DECRYPT_DURATION_SECONDS) {
+            revert CleartextErrorMaxDurationSecondsExceeded(MAX_USER_DECRYPT_DURATION_SECONDS, durationSeconds);
+        }
+        if (startTimestamp > block.timestamp) {
+            revert CleartextErrorStartTimestampInFuture(block.timestamp, startTimestamp);
+        }
+        if (startTimestamp + durationSeconds < block.timestamp) {
+            revert CleartextErrorUserDecryptionRequestExpiredSeconds(block.timestamp, startTimestamp, durationSeconds);
+        }
+    }
+
+    /// @dev GW `_extractCtHandlesCheckConformanceHandleEntry`: one chain (this
+    ///      one), decryptable types, at most `MAX_DECRYPTION_REQUEST_BITS`.
+    function requireConformantHandleEntries(HandleEntry[] memory handles) internal view {
+        uint256 totalBitSize;
+        for (uint256 i = 0; i < handles.length; ++i) {
+            totalBitSize += requireConformantHandle(handles[i].handle);
+        }
+        requireTotalBitSize(totalBitSize);
+    }
+
+    /// @dev KW `verify_signature` (RFC-012): a non-empty signature that `ecrecover`s to the user is accepted
+    ///      with no call; anything else (empty, wrong length, unparsable, other signer) falls through to
+    ///      `IERC1271(user).isValidSignature(digest, signature)`, gas-capped, which must return at least 32
+    ///      bytes starting with the magic value. An EOA answers with empty returndata, and is refused.
+    ///      `domainHash`: the host chain id with the gateway `Decryption` contract as verifying contract.
+    function requireUserSignatureV2(bytes32 domainHash, UserDecryptPermitV2 memory permit, bytes memory signature)
+        internal
+        view
+    {
+        bytes32 digest = toTypedDataHash(
+            domainHash,
+            keccak256(
+                abi.encode(
+                    USER_DECRYPT_REQUEST_V2_TYPEHASH,
+                    permit.userAddress,
+                    keccak256(permit.publicKey),
+                    keccak256(abi.encodePacked(permit.allowedContracts)),
+                    permit.startTimestamp,
+                    permit.durationSeconds,
+                    keccak256(permit.extraData)
+                )
+            )
+        );
+
+        // `tryRecover` answers zero for an empty or bad signature: zero must never match, even a zero user.
+        address recovered = tryRecover(digest, signature);
+        if (recovered != address(0) && recovered == permit.userAddress) return;
+
+        (bool ok, bytes memory ret) = permit.userAddress.staticcall{gas: ERC1271_GAS_LIMIT}(
+            abi.encodeCall(IERC1271.isValidSignature, (digest, signature))
+        );
+        if (!ok || ret.length < 32 || bytes4(ret) != ERC1271_MAGIC_VALUE) {
+            revert CleartextErrorInvalidUserDecryptSignatureV2(permit.userAddress);
+        }
+    }
+
+    /// @dev `ecrecover` that never reverts: zero for anything but a well-formed 65-byte `r ‖ s ‖ v`
+    ///      (`v` of 0/1 or 27/28), so a bad signature reaches the ERC-1271 fallback as in the connector.
+    function tryRecover(bytes32 digest, bytes memory signature) internal pure returns (address) {
+        if (signature.length != 65) return address(0);
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(signature, 0x20))
+            s := mload(add(signature, 0x40))
+            v := byte(0, mload(add(signature, 0x60)))
+        }
+        if (v < 27) v += 27;
+        if (v != 27 && v != 28) return address(0);
+        return ecrecover(digest, v, r, s);
+    }
+
+    /// @dev KW: `startTimestamp >= ACL.decryptionSignatureInvalidatedBefore(user)`.
+    function requireNotInvalidated(address aclAddress, address userAddress, uint256 startTimestamp) internal view {
+        uint256 invalidatedBefore =
+            IUserDecryptionPermissionsV2(aclAddress).decryptionSignatureInvalidatedBefore(userAddress);
+        if (startTimestamp < invalidatedBefore) {
+            revert CleartextErrorUserDecryptSignatureInvalidated(userAddress, startTimestamp, invalidatedBefore);
+        }
+    }
+
+    /// @dev KW per-handle ownership and `allowedContracts` checks. NOTE, as in the connector: a direct
+    ///      handle checks `isAllowed(handle, user)` only, NOT `isAllowed(handle, entry.contractAddress)`;
+    ///      the contract side is the `allowedContracts` check, a no-op when the list is empty.
+    function requireHandleEntriesAuthorized(
+        address aclAddress,
+        HandleEntry[] memory handles,
+        address userAddress,
+        address[] memory allowedContracts
+    ) internal view {
+        IUserDecryptionPermissionsV2 acl = IUserDecryptionPermissionsV2(aclAddress);
+        for (uint256 i = 0; i < handles.length; ++i) {
+            HandleEntry memory e = handles[i];
+            if (e.ownerAddress == userAddress) {
+                if (!acl.isAllowed(e.handle, userAddress)) revert CleartextErrorUserNotAllowed(e.handle, userAddress);
+            } else if (!acl.isHandleDelegatedForUserDecryption(
+                    e.ownerAddress, userAddress, e.contractAddress, e.handle
+                )) {
+                revert CleartextErrorUserNotDelegated(e.handle, e.ownerAddress, userAddress, e.contractAddress);
+            }
+
+            if (allowedContracts.length != 0) {
+                bool anyAllowed;
+                for (uint256 j = 0; j < allowedContracts.length; ++j) {
+                    if (acl.isAllowed(e.handle, allowedContracts[j])) {
+                        anyAllowed = true;
+                        break;
+                    }
+                }
+                if (!anyAllowed) revert CleartextErrorNoAllowedContractForHandle(e.handle);
+            }
         }
     }
 
