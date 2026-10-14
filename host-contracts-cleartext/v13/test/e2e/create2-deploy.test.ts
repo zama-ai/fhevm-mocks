@@ -22,6 +22,7 @@ import { basename, join } from 'node:path';
 import test from 'node:test';
 import { Contract, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
+import { assertStampedRecord } from './record.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
@@ -327,6 +328,11 @@ void test(
         st.skip('the deploy above failed, so there is no stack to inspect');
         return true;
       };
+
+      await t.test('the record is stamped for the archive: package version, event.json dated by the chain', (st) => {
+        if (needsStack(st)) return;
+        assertStampedRecord(outDirAbs(), PACKAGE_ROOT_ABS_PATH, 'deploy');
+      });
 
       await t.test(`every contract reports its ${GENERATION} version at its sealed address`, async (st) => {
         if (needsStack(st)) return;

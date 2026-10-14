@@ -22,7 +22,7 @@
 // anything is sent.
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 // The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
 // contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here.
@@ -57,7 +57,6 @@ import {
   buildContext,
   type Ctx,
   existingFlagFor,
-  EXISTING_ROLES,
   finalizedBlock,
   type Flow,
   generatedConfigEnv,
@@ -83,7 +82,9 @@ import {
   SCRIPT_DIR,
   scriptEnv,
   settlementRule,
-  stampToolCommit,
+  previousLink,
+  stampSeal,
+  writeEventRecord,
   settledBlock,
   showJournal,
   stageReport,
@@ -138,6 +139,22 @@ function stageBanner(stage: Stage, title: string): void {
   const at = RUN_ORDER.indexOf(stage);
   banner(at < 0 ? title : `${String(at + 1)}/${String(RUN_ORDER.length)}: ${title}`);
 }
+
+/**
+ * The previous generation's live stack, in the order the help and the banner list them: what an upgrade must be
+ * given. The previous generation's own roles, not this one's (EXISTING_ROLES): a generation may add a contract.
+ */
+const PREVIOUS_ROLES: readonly string[] = [
+  'ACL_ADDRESS',
+  'FHEVM_EXECUTOR_ADDRESS',
+  'KMS_VERIFIER_ADDRESS',
+  'INPUT_VERIFIER_ADDRESS',
+  'HCU_LIMIT_ADDRESS',
+  'CLEARTEXT_ARITHMETIC_ADDRESS',
+  'CLEARTEXT_DB_ADDRESS',
+  'PAUSER_SET_ADDRESS',
+  'ACL_OWNER',
+];
 
 /** The seven proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table. */
 const UPGRADED_ROLES: readonly string[] = [
@@ -592,7 +609,7 @@ function resolveMigration(
 function validateExisting(ctx: Ctx): void {
   const existing = ctx.opt.existing;
 
-  const missing = EXISTING_ROLES.filter((role) => (existing[role] ?? '') === '');
+  const missing = PREVIOUS_ROLES.filter((role) => (existing[role] ?? '') === '');
   if (missing.length > 0) {
     const previous = ctx.opt.previousManifest;
     const fromManifest =
@@ -600,7 +617,7 @@ function validateExisting(ctx: Ctx): void {
         ? []
         : ['', `       --previous-manifest supplied ${String(Object.keys(previous.address).length)} of them.`];
     fail(
-      `Error: the live stack is not fully specified — ${String(missing.length)} of ${String(EXISTING_ROLES.length)} addresses missing:`,
+      `Error: the live stack is not fully specified — ${String(missing.length)} of ${String(PREVIOUS_ROLES.length)} addresses missing:`,
       ...missing.map((role) => `         ${existingFlagFor(role)}  (${role})`),
       ...fromManifest,
       '',
@@ -729,7 +746,7 @@ function validateExisting(ctx: Ctx): void {
       '       cleanly and fails only in use.',
     );
   }
-  say(`    ${String(EXISTING_ROLES.length)} addresses verified against the live stack`);
+  say(`    ${String(PREVIOUS_ROLES.length)} addresses verified against the live stack`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -845,7 +862,13 @@ async function stageCompute(ctx: Ctx): Promise<void> {
     await pass(2, env);
   });
   mergePreUpgradeIntoManifest(ctx);
-  stampToolCommit(ctx);
+  const previous = ctx.opt.previousManifest;
+  stampSeal(
+    ctx,
+    previous === null
+      ? null
+      : previousLink(previous.path, ctx.outDir, ctx.opt.configPath === null ? null : dirname(ctx.opt.configPath)),
+  );
   // The upgrade's seal is complete only once the pre-upgrade snapshot is merged into it.
   removeScratchIfSealed(ctx, ['preUpgrade']);
 }
@@ -999,7 +1022,7 @@ function mergePreUpgradeIntoManifest(ctx: Ctx): void {
 /** The live stack, passed to the forge scripts as FHEVM_EXISTING_<ROLE>. */
 function existingEnv(ctx: Ctx): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const role of EXISTING_ROLES) {
+  for (const role of PREVIOUS_ROLES) {
     env[`FHEVM_EXISTING_${role}`] = ctx.opt.existing[role] ?? '';
   }
   return env;
@@ -1008,7 +1031,7 @@ function existingEnv(ctx: Ctx): NodeJS.ProcessEnv {
 function checkExistingManifestIdentity(ctx: Ctx): void {
   const manifest = readJson<Manifest>(manifestPath(ctx));
   if (manifest?.address === undefined) return;
-  for (const role of EXISTING_ROLES) {
+  for (const role of PREVIOUS_ROLES) {
     const sealed = manifest.address[role];
     const supplied = ctx.opt.existing[role];
     if (sealed === undefined || supplied?.toLowerCase() !== sealed.toLowerCase()) {
@@ -1477,7 +1500,7 @@ async function stageRehearse(ctx: Ctx): Promise<void> {
       say(`    applied ACLOwner.upgrade on the fork: ${receipt.transactionHash ?? '?'}`);
     });
 
-    await step(ctx, 'rehearse', 'verify against the fork', () => stageVerify(fork));
+    await step(ctx, 'rehearse', 'verify against the fork', () => stageVerify(fork, true));
     say(
       '',
       `  REHEARSAL PASSED at block ${String(forkedAt)}: the exact payload leaves a stack that passes verify.`,
@@ -1534,7 +1557,7 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
  * Waits for the materialize block to be buried and finalized first: a verdict read off a block about to be
  * orphaned is not a verdict. Run it again later at greater depth; `verify-report.json` records each run.
  */
-async function stageVerify(ctx: Ctx): Promise<void> {
+async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
   stageBanner('verify', '✅ Verify');
   if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   await waitForMaterializeSettled(ctx);
@@ -1554,6 +1577,9 @@ async function stageVerify(ctx: Ctx): Promise<void> {
     return found;
   });
   writeVerifyReport(ctx, materialize, out);
+  // Verified, so the upgrade is complete: date the record from the chain (its ACLOwner.upgrade). Not the
+  // rehearsal's: a fork's transactions are on no chain anyone will read, and its folder is scratch.
+  if (!rehearsal) writeEventRecord(ctx, 'upgrade', materialize.hash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1896,6 +1922,7 @@ const UPGRADE_FLOW: Flow = {
   needsDeployerKey,
   adminSendingStages: ['materialize'],
   readOnlyStages: ['precheck', 'verify', 'status'],
+  existingRoles: PREVIOUS_ROLES,
 };
 
 ////////////////////////////////////////////////////////////////////////////////

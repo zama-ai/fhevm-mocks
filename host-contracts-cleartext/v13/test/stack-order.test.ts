@@ -77,6 +77,11 @@ const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path:
   // The upgrade path deploys fresh implementations too. Left out at first, and it was the one layer
   // still reaching for the plain ACL — an upgraded stack would have lost the marker it deployed with.
   { label: 'pkg/ts/upgrade.ts', path: 'pkg/ts/upgrade.ts' },
+  // The re-point engine's forge base: every flow that re-points a live stack (upgrade, hotfix) creates through it.
+  {
+    label: 'create2-deploy/script/repoint/FhevmRepointBase.s.sol',
+    path: 'create2-deploy/script/repoint/FhevmRepointBase.s.sol',
+  },
   {
     label: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
     path: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
