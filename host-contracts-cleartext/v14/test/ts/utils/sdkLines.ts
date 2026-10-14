@@ -143,11 +143,10 @@ export const CHAIN_VARIANTS = [
 ] as const;
 export type ChainVariant = (typeof CHAIN_VARIANTS)[number];
 
-/** The sdk chain definition, as plain data: what `defineFhevmChain` takes, and what crosses into another process. */
-function chainDefinition(stack: Stack, variant: ChainVariant): object {
+function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unknown {
   const contract = (address: string) => ({ address: getAddress(address) });
   const { fhevmAddresses } = stack;
-  return {
+  return sdk.defineChain({
     id: foundry.id,
     fhevm: {
       contracts: {
@@ -166,7 +165,7 @@ function chainDefinition(stack: Stack, variant: ChainVariant): object {
         },
       },
     },
-  };
+  });
 }
 
 /** How many lines back a declared name is: `@fhevm/sdk` is 0, `@fhevm/sdk-prev<k>` is k. */
@@ -192,7 +191,7 @@ export async function connect(
   variant: ChainVariant,
 ): Promise<{ sdk: SdkLine; client: SdkClient }> {
   const sdk = await loadSdkLine(sdkName);
-  const client = sdk.createClient(env.publicClient, sdk.defineChain(chainDefinition(env.stack, variant)));
+  const client = sdk.createClient(env.publicClient, cleartextChain(sdk, env.stack, variant));
   await client.ready;
   return { sdk, client };
 }
@@ -320,10 +319,9 @@ export function probe(): Probe {
   }
 }
 
-const ALICE_ADDRESS_INDEX = 7;
 const account = (addressIndex: number): LocalAccount => mnemonicToAccount(MNEMONIC, { addressIndex });
 const signerOf = (user: LocalAccount) => ({ signTypedData: (data: unknown) => user.signTypedData(data as never) });
-export const alice = account(ALICE_ADDRESS_INDEX);
+export const alice = account(7);
 export const bob = account(8);
 
 /** One anvil with a deployed cleartext host. */
@@ -452,35 +450,6 @@ export type StoredPermit = {
     delegatorAddress?: string;
   };
 };
-
-/**
- * Has alice sign a permit for `contractAddress` with `sdkName`, in a separate `node` process
- * (utils/signPermitInAnotherProcess.ts), and returns it as an app would store it. This process's sdk is not touched.
- */
-export async function signPermitInAnotherProcess(
-  env: Env,
-  sdkName: string,
-  variant: ChainVariant,
-  contractAddress: Address,
-): Promise<StoredPermit> {
-  const { timestamp } = await env.publicClient.getBlock();
-  const input = {
-    sdkName,
-    rpcUrl: env.rpcUrl,
-    chain: chainDefinition(env.stack, variant),
-    mnemonic: MNEMONIC,
-    addressIndex: ALICE_ADDRESS_INDEX,
-    contractAddress,
-    startTimestamp: Number(timestamp),
-    durationSeconds: DAY,
-  };
-  const script = join(PACKAGE_ROOT_ABS_PATH, 'test', 'ts', 'utils', 'signPermitInAnotherProcess.ts');
-  const out = execFileSync(process.execPath, [script, JSON.stringify(input)], {
-    cwd: PACKAGE_ROOT_ABS_PATH,
-    encoding: 'utf8',
-  });
-  return JSON.parse(out) as StoredPermit;
-}
 
 /** Stores a permit the way an app does: the sdk's own serialization, through JSON. */
 export async function storePermit(client: SdkClient, permit: Permit): Promise<StoredPermit> {
