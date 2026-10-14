@@ -548,6 +548,64 @@ library LibKmsVerifier {
     /// @notice GW `CiphertextMaterialNotFound` / KW `CiphertextNotFound`: this stack never minted the handle.
     error CleartextErrorCiphertextNotFound(bytes32 handle);
 
+    /// @dev GW `MAX_USER_DECRYPT_CONTRACT_ADDRESSES`.
+    uint256 internal constant MAX_USER_DECRYPT_CONTRACT_ADDRESSES = 10;
+
+    /// @dev GW `MAX_USER_DECRYPT_DURATION_DAYS`.
+    uint256 internal constant MAX_USER_DECRYPT_DURATION_DAYS = 365;
+
+    /// @notice GW `EmptyContractAddresses`.
+    error CleartextErrorEmptyContractAddresses();
+
+    /// @notice GW `ContractAddressesMaxLengthExceeded`.
+    error CleartextErrorContractAddressesMaxLengthExceeded(uint256 maxLength, uint256 length);
+
+    /// @notice GW `UserAddressInContractAddresses` / `DelegatorAddressInContractAddresses`.
+    error CleartextErrorAccountInContractAddresses(address account);
+
+    /// @notice GW `InvalidNullDurationDays`.
+    error CleartextErrorInvalidNullDurationDays();
+
+    /// @notice GW `MaxDurationDaysExceeded`.
+    error CleartextErrorMaxDurationDaysExceeded(uint256 maxDurationDays, uint256 durationDays);
+
+    /// @notice GW `StartTimestampInFuture`.
+    error CleartextErrorStartTimestampInFuture(uint256 currentTimestamp, uint256 startTimestamp);
+
+    /// @notice GW `UserDecryptionRequestExpired`.
+    error CleartextErrorUserDecryptionRequestExpired(
+        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationDays
+    );
+
+    /// @notice GW: 1 to `MAX_USER_DECRYPT_CONTRACT_ADDRESSES` contract addresses, none of which is `account`
+    ///         (the user, or the delegator of a delegated request). Stricter than the per-pair
+    ///         `user != contract` check below, which only looks at the contracts the pairs name.
+    function requireValidContractAddresses(address[] memory contractAddresses, address account) internal pure {
+        uint256 n = contractAddresses.length;
+        if (n == 0) revert CleartextErrorEmptyContractAddresses();
+        if (n > MAX_USER_DECRYPT_CONTRACT_ADDRESSES) {
+            revert CleartextErrorContractAddressesMaxLengthExceeded(MAX_USER_DECRYPT_CONTRACT_ADDRESSES, n);
+        }
+        for (uint256 i = 0; i < n; ++i) {
+            if (contractAddresses[i] == account) revert CleartextErrorAccountInContractAddresses(account);
+        }
+    }
+
+    /// @notice GW `_checkUserDecryptionRequestValidity`, in the same order: a non-zero duration of at most
+    ///         `MAX_USER_DECRYPT_DURATION_DAYS`, started, not expired.
+    function requireValidRequestWindow(uint256 startTimestamp, uint256 durationDays) internal view {
+        if (durationDays == 0) revert CleartextErrorInvalidNullDurationDays();
+        if (durationDays > MAX_USER_DECRYPT_DURATION_DAYS) {
+            revert CleartextErrorMaxDurationDaysExceeded(MAX_USER_DECRYPT_DURATION_DAYS, durationDays);
+        }
+        if (startTimestamp > block.timestamp) {
+            revert CleartextErrorStartTimestampInFuture(block.timestamp, startTimestamp);
+        }
+        if (startTimestamp + durationDays * 1 days < block.timestamp) {
+            revert CleartextErrorUserDecryptionRequestExpired(block.timestamp, startTimestamp, durationDays);
+        }
+    }
+
     /// @notice GW `_extractCtHandlesCheckConformanceUser` + `getSnsCiphertextMaterials`: at least one pair,
     ///         every handle conformant, at most `MAX_DECRYPTION_REQUEST_BITS` in total.
     function requireConformantPairs(address plaintextsAddress, HandleContractPair[] memory pairs) internal view {
@@ -632,8 +690,8 @@ library LibKmsVerifier {
      *      appear together. Keeping them here also keeps the ORDER — every pair authorised before any
      *      value is read — which is a property of the sequence, not of any one step.
      *
-     *      EVERY CHECK IS HERE TOO — the pairs' conformance, the delegate's signature and the pair/contract
-     *      coverage — so the order cannot be got wrong by a caller: nothing is read until the request is
+     *      EVERY CHECK IS HERE TOO — the request's contract addresses and window, the pairs' conformance,
+     *      the delegate's signature and the pair/contract coverage — so the order cannot be got wrong by a caller: nothing is read until the request is
      *      proven. The caller supplies the domain and typehash because only it knows which chain id its
      *      verifier signs under.
      */
@@ -641,6 +699,9 @@ library LibKmsVerifier {
         HandleContractPair[] memory pairs,
         DelegatedUserDecryptPayloadArgsV1 memory p
     ) internal view returns (bytes memory payload) {
+        // GW checks the DELEGATOR against the contract list; the KMS checks the client, the delegate.
+        requireValidContractAddresses(p.request.contractAddresses, p.delegator);
+        requireValidRequestWindow(p.request.startTimestamp, p.request.durationDays);
         requireConformantPairs(p.plaintextsAddress, pairs);
         requireSigner(
             delegatedUserDecryptionDigestV1(p.domainHash, p.request, p.delegator, p.extraData),
@@ -662,6 +723,8 @@ library LibKmsVerifier {
         view
         returns (bytes memory payload)
     {
+        requireValidContractAddresses(p.request.contractAddresses, p.user.signer);
+        requireValidRequestWindow(p.request.startTimestamp, p.request.durationDays);
         requireConformantPairs(p.plaintextsAddress, pairs);
         requireSigner(userDecryptionDigestV1(p.domainHash, p.request, p.extraData), p.user.signature, p.user.signer);
         requireAllPairsAuthorized(pairs, p.request.contractAddresses);
@@ -716,13 +779,14 @@ library LibKmsVerifier {
      *      `userDecrypt` does not exist. Everything it WOULD have supplied is taken from elsewhere —
      *      the permission walk from the forked ACL, the values from whatever implements `IPlaintexts`
      *      (on a fork, the event processor), the domain and the signer set from the verifier's own
-     *      public surface. The checks are not skipped: `userDecryptPayloadV1` still checks the pairs'
-     *      conformance (the gateway's rules, against the fork's plaintext source), verifies the user's
+     *      public surface. The checks are not skipped: `userDecryptPayloadV1` still checks the request's
+     *      contract addresses and window and the pairs' conformance (the gateway's rules, the plaintexts
+     *      against the fork's plaintext source), verifies the user's
      *      signature and requires every pair to be authorised, against the REAL ACL.
      *
-     * @dev WHAT IS NOT CHECKED is the mock's `contractAddresses.length > 10` policy. That is the
-     *      cleartext verifier's own rule, not the protocol's, and imposing it here would make a fork
-     *      refuse a request the chain itself would accept.
+     * @dev THE GATEWAY'S LIMITS APPLY HERE TOO, the cap of `MAX_USER_DECRYPT_CONTRACT_ADDRESSES` contract
+     *      addresses included: the gateway's `Decryption` contract refuses a request beyond it, so a request
+     *      the fork accepted, the chain would refuse.
      */
     function userDecryptV1OnForkStack(
         address kmsVerifier,

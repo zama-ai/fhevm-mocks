@@ -758,6 +758,17 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorAccountInContractAddresses",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorCiphertextNotFound",
     "inputs": [
       {
@@ -780,6 +791,22 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorContractAddressesMaxLengthExceeded",
+    "inputs": [
+      {
+        "name": "maxLength",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorContractNotAuthorizedForDecrypt",
     "inputs": [
       {
@@ -793,6 +820,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorEmptyContractAddresses",
+    "inputs": []
   },
   {
     "type": "error",
@@ -881,6 +913,11 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorInvalidNullDurationDays",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorInvalidUserDecryptSignature",
     "inputs": []
   },
@@ -895,6 +932,38 @@
       },
       {
         "name": "totalBitSize",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorMaxDurationDaysExceeded",
+    "inputs": [
+      {
+        "name": "maxDurationDays",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationDays",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorStartTimestampInFuture",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -920,6 +989,27 @@
     "type": "error",
     "name": "CleartextErrorUserAddressEqualsContractAddress",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserDecryptionRequestExpired",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationDays",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

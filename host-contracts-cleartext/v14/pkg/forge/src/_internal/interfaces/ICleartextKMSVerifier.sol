@@ -11,9 +11,12 @@ interface ICleartextKMSVerifier {
     }
 
     error AddressEmptyCode(address target);
+    error CleartextErrorAccountInContractAddresses(address account);
     error CleartextErrorCiphertextNotFound(bytes32 handle);
     error CleartextErrorContractAddressNotAuthorized(address contractAddress);
+    error CleartextErrorContractAddressesMaxLengthExceeded(uint256 maxLength, uint256 length);
     error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
+    error CleartextErrorEmptyContractAddresses();
     error CleartextErrorEmptyCtHandles();
     error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
     error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
@@ -22,10 +25,16 @@ interface ICleartextKMSVerifier {
     );
     error CleartextErrorHandleUninitialized(bytes32 handle);
     error CleartextErrorInvalidKmsContext(uint256 kmsContextId);
+    error CleartextErrorInvalidNullDurationDays();
     error CleartextErrorInvalidUserDecryptSignature();
     error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
+    error CleartextErrorMaxDurationDaysExceeded(uint256 maxDurationDays, uint256 durationDays);
+    error CleartextErrorStartTimestampInFuture(uint256 currentTimestamp, uint256 startTimestamp);
     error CleartextErrorUnsupportedFheType(bytes32 handle, uint8 fheType);
     error CleartextErrorUserAddressEqualsContractAddress();
+    error CleartextErrorUserDecryptionRequestExpired(
+        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationDays
+    );
     error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
     error DeserializingDecryptionProofFail();
     error DeserializingExtraDataFail();
