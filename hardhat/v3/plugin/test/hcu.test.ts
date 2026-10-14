@@ -141,7 +141,10 @@ void test('FheMulDiv is priced on factor2 alone, in its own scalar encoding', as
     assert.notEqual(priceOf(true), priceOf(false), 'the two columns must differ for this test to mean anything');
 
     // The flag every other operator uses is not a valid fheMulDiv flag: a log carrying it is malformed.
-    assert.throws(() => computeReceiptHCU(executor, receipt(mulDiv('0x00', handle(5, FhevmType.euint32)))), isPluginError);
+    assert.throws(
+      () => computeReceiptHCU(executor, receipt(mulDiv('0x00', handle(5, FhevmType.euint32)))),
+      isPluginError,
+    );
   });
 });
 
