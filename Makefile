@@ -418,7 +418,7 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 #   - `clean` and the spotless-worktree guard — you have uncommitted work, that is the point;
 #   - `check-generated` — it deletes and regenerates every generated file (a full `generate`, forge
 #     included) and needs a spotless tree to judge the result;
-#   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e`, `test:upgrade`'s second half) —
+#   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e` and `test:create2-hotfix-e2e`, `test:upgrade`'s second half) —
 #     ~4 minutes each of `forge script` recompiles, replaced by `test:upgrade:fast` (see that target);
 #   - `test-consumer-ci` — installs every registered consumer from scratch.
 # What stays catches everything the dropped gates have caught so far, in a few minutes instead of many.

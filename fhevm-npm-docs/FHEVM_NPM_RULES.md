@@ -1568,3 +1568,63 @@ inventory complete.
 > **Implemented.** `fhevm-npm check manifest-coverage` performs repository-aware discovery, excludes its own autonomous package
 > tree and the paths listed by `inventory.exclude`, adds explicit standalone roots, compares the result with the
 > manifest and checks realpath containment.
+
+## 8. Deployment records
+
+`deployments/` holds the evidence of on-chain transactions: one folder per deployed stack, one numbered folder per
+event. The layout and the operator's side are in `deployments/README.md`; this section states what is enforced.
+
+### 8.1 Layout and names
+
+**8.1.1 One folder per stack.** `deployments/<chain>/<stack>/`, where `<chain>` is a host chain of
+`fhevm-chains.config.json` and `<stack>` the stack's `deploymentId`. Under a stack: event folders, `aborted/` and a
+`README.md`, nothing else.
+
+**8.1.2 Event folders are numbered.** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`, the sequence contiguous
+from `00`, exactly one `deploy`, first. `v<N>.<p>` is the package version the tool ran at; the date is the UTC day of
+the block holding the event's defining transaction (an upgrade's or hotfix's `ACLOwner.upgrade`, a deploy's last
+transaction), as recorded in `record/event.json`.
+
+**8.1.3 Attempts are outside the sequence.** An attempt that sent transactions and was not finished goes under
+`aborted/<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>/`, dated by its first transaction. It never carries a `verify-report.json`
+and is never a `previous`.
+
+### 8.2 Each record
+
+**8.2.1 Complete and self-consistent.** `<kind>.config.json` with `deploymentId` = the stack and a relative `outDir`
+inside the folder; `tool-commit.txt` whose first line is a full commit (equal to the manifest's `toolCommit` when it
+has one); the out dir holds `manifest.json`, `addresses.sol`, `journal.jsonl`, `event.json`, and for an upgrade or
+hotfix `progress.jsonl` and `verify-report.json`; no forge scratch, no `.git`.
+
+**8.2.2 Identity.** The manifest's `deploymentId` is the stack, its `chainId` the chain folder's, the config's `admin`
+the sealed one. Its `version` is `0.<N>` and its `packageVersion` `0.<N>.<p>`, as the folder name says.
+
+**8.2.3 Dated by the chain.** `event.json`'s `defining`, `first` and `last` transactions are in the journal at the
+blocks it claims, in that order of blocks; `defining` is `last` for a deploy and `first` for an attempt. The folder's
+date is `defining`'s block day. The journal's own timestamps are the operator's clock and date nothing.
+
+### 8.3 The history
+
+**8.3.1 Kinds move versions one way.** An upgrade moves exactly one generation up; a hotfix stays in its generation
+with a higher patch. Over the sequence, `(generation, patch)` strictly increases, dates never go back and defining
+blocks strictly increase.
+
+**8.3.2 Each event links to the one before.** A deploy has no `previous`. Every other event's manifest has
+`previous.path` resolving to the previous event's manifest, `previous.sha256` equal to that file's bytes, and
+`previous.deploymentId`, `chainId`, `version`, `packageVersion` equal to it. An attempt links the same way to the event
+it started from.
+
+### 8.4 Frozen
+
+**8.4.1 A record never changes.** Against a base ref, nothing under an event or attempt folder that exists at the
+merge base may be added, modified, deleted, renamed or retyped, committed or not. New event folders, new stacks and
+READMEs are free.
+
+**8.4.2 One exception: the legacy relocation.** A flat record (`<stack>/deploy.config.json`, the layout before events
+had folders) may move into `<stack>/00-deploy-v<N>.<p>-<YYYY-MM-DD>/` once, as a pure move: every file renamed with
+identical bytes to the same relative path under one such folder, nothing added to it. Until then it is checked as a
+record and reported as a note.
+
+> **Implemented.** `fhevm-npm check deployments` (8.1–8.3, and the legacy note) and `fhevm-npm check deployments --base
+<ref>` (8.4); the first runs in `make check-pre`, the second in the `sdk-cleartext-deployments` workflow on every pull
+> request. Both are generation-free.
