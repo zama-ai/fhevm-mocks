@@ -59,7 +59,6 @@ import {
   type ContractName,
   DEPLOYER_ADDRESS_INDEX,
   DEPLOYER_START_NONCE,
-  FHEVM_CONFIG_REMAPPING_PREFIX,
   MNEMONIC,
   PACKAGE_ROOT_ABS_PATH,
   ZAMA_LOCAL_CONFIG,
@@ -69,6 +68,7 @@ import {
   UNNAMED_NONCE_CONTRACTS,
   type AddressName,
 } from './constants.ts';
+import { fhevmConfigRemappingPrefix } from './configRemapping.ts';
 import { SIGNER_SETS, deriveSigners } from './generateSigners.ts';
 import { TARGET_CONTRACTS } from './generateTemplates.ts';
 import { placeholderFor } from './generatePlaceholders.ts';
@@ -1008,8 +1008,8 @@ export function writeLocalHostBytecode(): LocalHostBytecodeResult {
       originalRemappings.replace(
         // replaceAll, not replace: the prefix has three dots and replace() only escapes the first, leaving
         // `.` free to match any character.
-        new RegExp(`^${FHEVM_CONFIG_REMAPPING_PREFIX.replaceAll('.', '\\.')}=.*$`, 'm'),
-        `${FHEVM_CONFIG_REMAPPING_PREFIX}=${relative(PACKAGE_ROOT_ABS_PATH, TMP_DIR)}/`,
+        new RegExp(`^${fhevmConfigRemappingPrefix().replaceAll('.', '\\.')}=.*$`, 'm'),
+        `${fhevmConfigRemappingPrefix()}=${relative(PACKAGE_ROOT_ABS_PATH, TMP_DIR)}/`,
       ),
       'utf8',
     );

@@ -2,8 +2,11 @@
 // any patch. A hotfix may bump a patch, and a stack deployed from an earlier patch reports an older one.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
-import { sameVersionLine, versionLine } from '../create2-deploy/ts/common.ts';
+import { FHEVM_VERSION, majorMinorOf, sameVersionLine, versionLine } from '../create2-deploy/ts/common.ts';
+import { PACKAGE_ROOT_ABS_PATH } from '../internal/constants.ts';
 
 void test('same contract, same major.minor, any patch', () => {
   assert.equal(sameVersionLine('KMSVerifier v0.3.0', 'KMSVerifier v0.3.0'), true);
@@ -25,4 +28,13 @@ void test('another minor, major or contract is another line; garbage is no line'
 void test('a version line, for messages', () => {
   assert.equal(versionLine('KMSVerifier v0.3.0'), 'KMSVerifier v0.3.x');
   assert.equal(versionLine('not a version'), 'not a version');
+});
+
+void test("the salt's version is the package's MAJOR.MINOR, and names the contracts' generation", () => {
+  assert.equal(majorMinorOf('0.14.2'), '0.14');
+  assert.equal(majorMinorOf('1.0.0'), '1.0');
+  const acl = readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'pkg/src/cleartext/CleartextACL.sol'), 'utf8');
+  const generation = /uint256 public constant CLEARTEXT_PROTOCOL_VERSION = (\d+);/.exec(acl)?.[1];
+  assert.ok(generation !== undefined, 'CleartextACL declares CLEARTEXT_PROTOCOL_VERSION');
+  assert.equal(FHEVM_VERSION, `0.${generation}`);
 });

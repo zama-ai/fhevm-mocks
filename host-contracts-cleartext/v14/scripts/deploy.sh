@@ -85,8 +85,10 @@ DEPLOYER="$(cast wallet address --private-key "$PRIVATE_KEY")"
 # pkg/forge bytecode are built from — overwriting it would silently corrupt both.
 CONFIG_DIR="internal/.deploy-config"
 BUILD_OUT="$CONFIG_DIR/out"
-# Must match remappings.txt and FHEVM_CONFIG_REMAPPING_PREFIX in internal/constants.ts.
-CONFIG_PREFIX="fhevm-config-0.14.0/"
+# Read from the import the contracts compile through, never typed here (internal/configRemapping.ts does the same).
+CONFIG_PREFIX="$(sed -n 's|.*from "\(fhevm-config-[0-9]*\.[0-9]*\.[0-9]*/\)addresses\.sol";.*|\1|p' \
+    pkg/src/addresses/FHEVMHostAddresses.sol)"
+[ -n "$CONFIG_PREFIX" ] || { echo "Error: no fhevm-config-<version>/ import in pkg/src/addresses/FHEVMHostAddresses.sol." >&2; exit 1; }
 
 export DEPLOYER_PRIVATE_KEY="$PRIVATE_KEY"
 

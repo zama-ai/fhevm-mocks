@@ -40,6 +40,7 @@ import {
   transcriptActive,
   warn,
 } from './utils.ts';
+import { fhevmConfigRemappingPrefix } from '../../internal/configRemapping.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -358,9 +359,11 @@ export const PACKAGE_ROOT = dirname(DRAFT_DIR);
 /** Relative on purpose: forge resolves script paths against the project root it runs in. */
 export const SCRIPT_DIR = 'create2-deploy/script';
 
-/** Baked into every salt. MAJOR_MINOR only — a patch release must not move the addresses. */
-export const FHEVM_VERSION = '0.14';
-export const CONFIG_PREFIX = `fhevm-config-${FHEVM_VERSION}.0/`;
+/**
+ * Baked into every salt: `0.<generation>`, MAJOR_MINOR only — a patch release must not move the addresses. Read
+ * from the package's own version (`pkg/package.json`, written by `fhevm-npm version apply`), never typed here.
+ */
+export const FHEVM_VERSION = majorMinorOf(packageVersion());
 
 export const FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -1513,6 +1516,13 @@ export function packageVersion(): string {
   return pkg.version;
 }
 
+/** `0.14.2` -> `0.14`. */
+export function majorMinorOf(version: string): string {
+  const parts = /^(\d+\.\d+)\.\d+$/.exec(version);
+  if (parts?.[1] === undefined) fail(`Error: the package version '${version}' is not MAJOR.MINOR.PATCH.`);
+  return parts[1];
+}
+
 /** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`: an event folder of `deployments/<chain>/<stack>/`. */
 const EVENT_FOLDER = /^\d{2}-(?:deploy|upgrade|hotfix)-v(\d+)\.(\d+)-\d{4}-\d{2}-\d{2}$/;
 
@@ -1822,7 +1832,7 @@ export function traceArgs(ctx: Ctx): readonly string[] {
  * remappings.txt is never edited and there is no restore-on-failure to get wrong.
  */
 export function generatedConfigEnv(ctx: Ctx): NodeJS.ProcessEnv {
-  return { FOUNDRY_REMAPPINGS: `${CONFIG_PREFIX}=${ctx.outDir}/` };
+  return { FOUNDRY_REMAPPINGS: `${fhevmConfigRemappingPrefix()}=${ctx.outDir}/` };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
