@@ -12,7 +12,6 @@ interface ICleartextKMSVerifier {
 
     error AddressEmptyCode(address target);
     error CleartextErrorAccountInContractAddresses(address account);
-    error CleartextErrorCiphertextNotFound(bytes32 handle);
     error CleartextErrorContractAddressNotAuthorized(address contractAddress);
     error CleartextErrorContractAddressesMaxLengthExceeded(uint256 maxLength, uint256 length);
     error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);

@@ -220,9 +220,6 @@ library LibKmsVerifier {
     /// @notice GW `MaxDecryptionRequestBitSizeExceeded`.
     error CleartextErrorMaxDecryptionRequestBitSizeExceeded(uint256 maxBitSize, uint256 totalBitSize);
 
-    /// @notice GW `CiphertextMaterialNotFound` / KW `CiphertextNotFound`: this stack never minted the handle.
-    error CleartextErrorCiphertextNotFound(bytes32 handle);
-
     /// @notice GW `EmptyContractAddresses`.
     error CleartextErrorEmptyContractAddresses();
 
@@ -616,14 +613,26 @@ library LibKmsVerifier {
         }
     }
 
-    /// @notice GW `_extractCtHandlesCheckConformanceUser` + `getSnsCiphertextMaterials`: at least one pair,
+    /// @notice GW `_extractCtHandlesCheckConformance`, for a public decryption: at
+    ///         least one handle, every handle conformant, at most `MAX_DECRYPTION_REQUEST_BITS` in total.
+    function requireConformantHandles(bytes32[] memory handles) internal view {
+        uint256 n = handles.length;
+        if (n == 0) revert CleartextErrorEmptyCtHandles();
+        uint256 totalBitSize;
+        for (uint256 i = 0; i < n; ++i) {
+            totalBitSize += requireConformantHandle(handles[i]);
+        }
+        requireTotalBitSize(totalBitSize);
+    }
+
+    /// @notice GW `_extractCtHandlesCheckConformanceUser`: at least one pair,
     ///         every handle conformant, at most `MAX_DECRYPTION_REQUEST_BITS` in total.
-    function requireConformantPairs(address plaintextsAddress, HandleContractPair[] memory pairs) internal view {
+    function requireConformantPairs(HandleContractPair[] memory pairs) internal view {
         uint256 n = pairs.length;
         if (n == 0) revert CleartextErrorEmptyCtHandles();
         uint256 totalBitSize;
         for (uint256 i = 0; i < n; ++i) {
-            totalBitSize += requireConformantHandle(plaintextsAddress, pairs[i].handle);
+            totalBitSize += requireConformantHandle(pairs[i].handle);
         }
         requireTotalBitSize(totalBitSize);
     }
@@ -636,17 +645,14 @@ library LibKmsVerifier {
     }
 
     /// @notice One handle of a request: non-zero and on this chain (GW chain-id check, as
-    ///         `LibFhevmHandle.checkChainId`), of a decryptable type, and known to `plaintextsAddress` (GW
-    ///         `CiphertextMaterialNotFound`, which on a cleartext stack means the executor never minted it).
-    ///         Returns the bits it counts.
-    function requireConformantHandle(address plaintextsAddress, bytes32 handle)
-        internal
-        view
-        returns (uint256 bitSize)
-    {
+    ///         `LibFhevmHandle.checkChainId`), and of a decryptable type. Returns the bits it counts.
+    /// @dev    NOT CHECKED: that the handle exists (GW `CiphertextMaterialNotFound`). "Not in the cleartext store"
+    ///         does not mean "never minted" on a fork, where handles older than the cleartext layer exist but the
+    ///         fresh store holds none of them. A handle that was truly never minted is refused anyway, by the ACL
+    ///         walk: nothing can be allowed on it.
+    function requireConformantHandle(bytes32 handle) internal view returns (uint256 bitSize) {
         LibFhevmHandle.checkChainId(handle);
         bitSize = decryptableBitSize(handle);
-        if (!IPlaintexts(plaintextsAddress).hasPlaintext(handle)) revert CleartextErrorCiphertextNotFound(handle);
     }
 
     /// @notice The bits `handle` counts in a decryption request (GW `FHETypeBitSizes.getBitSize`); reverts for
@@ -673,8 +679,9 @@ library LibKmsVerifier {
      * @dev NOT the verifier's `publicDecrypt`, which also answers with the signer set and threshold.
      *      This is only the half that depends on the handles.
      *
-     * @dev Nothing is checked here and nothing can be: a public decryption is public, so the ACL walk
-     *      inside `plaintextsForPublicDecryption` is the whole of the authorisation.
+     * @dev The handles' conformance first (the gateway's rules: `requireConformantHandles`). Nothing else is
+     *      checked and nothing can be: a public decryption is public, so the ACL walk inside
+     *      `plaintextsForPublicDecryption` is the whole of the authorisation.
      *
      * @dev `extraData` is carried in rather than derived, because it comes from the verifier's own
      *      KMS context id — an internal read the caller makes far more cheaply than a staticcall back
@@ -686,9 +693,9 @@ library LibKmsVerifier {
         view
         returns (bytes memory abiEncodedCleartexts, bytes32 digest)
     {
-        abiEncodedCleartexts = encodeTypedCleartexts(
-            handles, plaintextsForPublicDecryption(p.aclAddress, p.plaintextsAddress, handles)
-        );
+        requireConformantHandles(handles);
+        abiEncodedCleartexts =
+            encodeTypedCleartexts(handles, plaintextsForPublicDecryption(p.aclAddress, p.plaintextsAddress, handles));
         digest = publicDecryptionDigest(p.domainHash, p.typeHash, handles, abiEncodedCleartexts, p.extraData);
     }
 
@@ -712,7 +719,7 @@ library LibKmsVerifier {
         // GW checks the DELEGATOR against the contract list; the KMS checks the client, the delegate.
         requireValidContractAddresses(p.request.contractAddresses, p.delegator);
         requireValidRequestWindow(p.request.startTimestamp, p.request.durationDays);
-        requireConformantPairs(p.plaintextsAddress, pairs);
+        requireConformantPairs(pairs);
         requireSigner(
             delegatedUserDecryptionDigestV1(p.domainHash, p.request, p.delegator, p.extraData),
             p.delegate.signature,
@@ -735,7 +742,7 @@ library LibKmsVerifier {
     {
         requireValidContractAddresses(p.request.contractAddresses, p.user.signer);
         requireValidRequestWindow(p.request.startTimestamp, p.request.durationDays);
-        requireConformantPairs(p.plaintextsAddress, pairs);
+        requireConformantPairs(pairs);
         requireSigner(userDecryptionDigestV1(p.domainHash, p.request, p.extraData), p.user.signature, p.user.signer);
         requireAllPairsAuthorized(pairs, p.request.contractAddresses);
 
@@ -788,8 +795,7 @@ library LibKmsVerifier {
      *      the permission walk from the forked ACL, the values from whatever implements `IPlaintexts`
      *      (on a fork, the event processor), the domain and the signer set from the verifier's own
      *      public surface. The checks are not skipped: `userDecryptPayloadV1` still checks the request's
-     *      contract addresses and window and the pairs' conformance (the gateway's rules, the plaintexts
-     *      against the fork's plaintext source), verifies the user's
+     *      contract addresses and window and the pairs' conformance (the gateway's rules), verifies the user's
      *      signature and requires every pair to be authorised, against the REAL ACL.
      *
      * @dev THE GATEWAY'S LIMITS APPLY HERE TOO, the cap of `MAX_USER_DECRYPT_CONTRACT_ADDRESSES` contract
