@@ -5,7 +5,7 @@ import {console} from "forge-std/Script.sol";
 import {FhevmRepointBase} from "./FhevmRepointBase.s.sol";
 
 /**
- *  Permissionlessly deploys the six sealed CREATE2 implementations required by the upgrade.
+ *  Permissionlessly deploys the sealed CREATE2 implementations the re-point requires.
  */
 abstract contract FhevmRepointCreates is FhevmRepointBase {
     uint256 private created;

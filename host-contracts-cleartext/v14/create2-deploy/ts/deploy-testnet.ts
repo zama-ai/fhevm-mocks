@@ -771,6 +771,7 @@ const DEPLOY_FLOW: Flow = {
   needsDeployerKey,
   adminSendingStages: ['accept-admin'],
   readOnlyStages: ['verify', 'status'],
+  existingRoles: [],
 };
 
 ////////////////////////////////////////////////////////////////////////////////

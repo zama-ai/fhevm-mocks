@@ -24,6 +24,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  readdirSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -163,8 +164,11 @@ function copyPackage(): void {
   cpSync(join(WORKSPACE_ROOT_ABS_PATH, 'package.json'), join(COPY_REPO, 'package.json'));
   // The shared forge settings the package's foundry.toml extends.
   cpSync(join(WORKSPACE_ROOT_ABS_PATH, 'foundry.base.toml'), join(COPY_REPO, 'foundry.base.toml'));
-  const sibling = join(dirname(PACKAGE_ROOT_ABS_PATH), 'v13');
-  if (existsSync(sibling)) symlinkSync(sibling, join(dirname(COPY), 'v13'));
+  // The other generations beside it: the previous one is a workspace dependency, and forge's remapping reaches it.
+  for (const sibling of readdirSync(dirname(PACKAGE_ROOT_ABS_PATH))) {
+    if (sibling === basename(PACKAGE_ROOT_ABS_PATH)) continue;
+    symlinkSync(join(dirname(PACKAGE_ROOT_ABS_PATH), sibling), join(dirname(COPY), sibling));
+  }
 }
 
 /** What the next patch changes in CleartextDB, from the numbers it has now. */

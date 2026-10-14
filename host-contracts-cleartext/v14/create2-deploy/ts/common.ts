@@ -79,6 +79,12 @@ export type Flow = {
    * from the manifest, and the admin keystore is not checked against `admin` (nothing is signed with it).
    */
   readonly readOnlyStages: readonly Stage[];
+  /**
+   * The roles of the live stack this flow changes, in the order the help and the banner list them: the previous
+   * generation's for an upgrade, this generation's (EXISTING_ROLES) for a hotfix, none for a deploy. Only these
+   * are accepted as flags, read from a previous manifest, and handed to the forge scripts.
+   */
+  readonly existingRoles: readonly string[];
 };
 
 export type Options = {
@@ -155,13 +161,13 @@ export type ConfigFile = {
   readonly finality?: boolean;
   /** Positive form of --no-git: `false` means this deployment needs no committed seal. */
   readonly git?: boolean;
-  /** Upgrade only: the live stack's addresses. Eleven flags is unreasonable to retype. */
+  /** Re-points only: the live stack's addresses. Too many flags to retype. */
   readonly existing?: ExistingAddresses;
   /** Upgrade only: path to the KMS migration seed. */
   readonly migration?: string;
   /** Upgrade only: previous generation ABI directory. */
   readonly previousAbiDir?: string;
-  /** Upgrade only: the previous generation's sealed manifest, seeding the eleven addresses above. */
+  /** Re-points only: the live stack's sealed manifest, seeding the addresses above. */
   readonly previousManifest?: string;
   /** Upgrade only: handles whose cleartext values must survive. */
   readonly handles?: readonly string[];
@@ -536,9 +542,9 @@ export const ANVIL_DEPLOYER_INDEX = 0;
 export const ANVIL_ADMIN_INDEX = 1;
 
 /**
- * The nine addresses of a stack that ALREADY EXISTS, supplied by the operator.
+ * The addresses of a stack that ALREADY EXISTS, supplied by the operator.
  *
- * Only the upgrade uses this; a deploy derives every address it needs. Keyed by the role names the
+ * Only a re-point (an upgrade or a hotfix) uses this; a deploy derives every address it needs. Keyed by the role names the
  * manifest and the generated `addresses.sol` use, so a value read here can be written straight out
  * without a second naming convention to keep in step.
  *
@@ -565,26 +571,14 @@ export type PreviousManifest = {
   readonly deploymentId: string;
   readonly deployer: string | null;
   readonly admin: string | null;
-  /** Only the EXISTING_ROLES keys. A deploy manifest also names roles an upgrade must not be given. */
+  /** Only the flow's existingRoles. A deploy manifest also names roles a re-point must not be given. */
   readonly address: ExistingAddresses;
 };
 
-/** The role names an upgrade must be given, in the order the help and the banner list them. */
-export const EXISTING_ROLES: readonly string[] = [
-  'ACL_ADDRESS',
-  'FHEVM_EXECUTOR_ADDRESS',
-  'KMS_VERIFIER_ADDRESS',
-  'INPUT_VERIFIER_ADDRESS',
-  'HCU_LIMIT_ADDRESS',
-  'PROTOCOL_CONFIG_ADDRESS',
-  'KMS_GENERATION_ADDRESS',
-  'CLEARTEXT_ARITHMETIC_ADDRESS',
-  'CLEARTEXT_DB_ADDRESS',
-  'PAUSER_SET_ADDRESS',
-  'ACL_OWNER',
-];
+/** This generation's live stack: every host role, then the ACLOwner. What a hotfix must be given. */
+export const EXISTING_ROLES: readonly string[] = [...HOST_ROLES, 'ACL_OWNER'];
 
-/** `--acl` -> `ACL_ADDRESS`. The CLI spelling of each role above. */
+/** `--acl` -> `ACL_ADDRESS`. The CLI spelling of each role above; a flow accepts those of its existingRoles. */
 export const EXISTING_FLAGS: Readonly<Record<string, string>> = {
   '--acl': 'ACL_ADDRESS',
   '--fhevm-executor': 'FHEVM_EXECUTOR_ADDRESS',
@@ -608,14 +602,14 @@ export function existingFlagFor(role: string): string {
  * Read a previous generation's manifest, and refuse one that is not this deployment's.
  *
  * A manifest from a different stack names addresses that are all real and all wrong, and they get baked
- * into the new implementations' creation code — the one failure mode this flag adds over typing the nine
+ * into the new implementations' creation code — the one failure mode this flag adds over typing the
  * flags. It is also the one a manifest can answer about itself, so deploymentId is checked here, before
  * anything touches a node. The chain half is checkPreviousManifest, which needs one.
  *
  * Missing roles are NOT an error: the config file and the flags layer over this, and validateExisting is
- * what decides whether the nine ended up complete.
+ * what decides whether the roles ended up complete.
  */
-export function loadPreviousManifest(path: string, deploymentId: string): PreviousManifest {
+export function loadPreviousManifest(path: string, deploymentId: string, roles: readonly string[]): PreviousManifest {
   if (!existsSync(path)) fail(`Error: no manifest at ${path} (--previous-manifest).`);
   const raw = readJson<Manifest>(path);
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -626,7 +620,7 @@ export function loadPreviousManifest(path: string, deploymentId: string): Previo
     fail(
       `Error: ${path} is missing chainId or deploymentId.`,
       '       Both are what make a manifest checkable rather than merely readable, so a file without',
-      '       them is not accepted as one. Pass the nine addresses as flags instead.',
+      '       them is not accepted as one. Pass the addresses as flags instead.',
     );
   }
 
@@ -636,13 +630,13 @@ export function loadPreviousManifest(path: string, deploymentId: string): Previo
       `         manifest deploymentId  ${raw.deploymentId}`,
       `         --deployment-id        ${deploymentId}`,
       '',
-      '       A manifest from a different stack names nine live addresses that are all real and all',
+      '       A manifest from a different stack names live addresses that are all real and all',
       '       wrong. Point at the deploy that produced the stack you are upgrading.',
     );
   }
 
   const address: Record<string, string> = {};
-  for (const role of EXISTING_ROLES) {
+  for (const role of roles) {
     const value = raw.address?.[role];
     if (value === undefined || value === '') continue;
     if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
@@ -878,9 +872,9 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
       // The directive has to be the line immediately before `default`, or it applies to a comment.
       // eslint-disable-next-line no-fallthrough
       default: {
-        // The nine `existing` address flags, from one table rather than nine cases.
+        // The flow's `existing` address flags, from one table rather than a case each.
         const role = EXISTING_FLAGS[a];
-        if (role !== undefined) {
+        if (role !== undefined && flow.existingRoles.includes(role)) {
           cli.existing[role] = need(i, a);
           i += 1;
           break;
@@ -1113,13 +1107,13 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     fromCli !== null ? resolve(fromCli) : fromConfig !== undefined ? resolve(configDir, fromConfig) : null;
 
   // The live stack, lowest layer first: a previous manifest, then the config file, then the flags.
-  // A flag someone typed must never lose to a file, and the manifest is a convenience over typing nine
+  // A flag someone typed must never lose to a file, and the manifest is a convenience over typing all
   // of them — so it sits at the bottom. existingSource records which layer won each role, because a
   // sealed address is only auditable if the seal says where it came from.
   const previousManifestPath =
     deployment !== null ? deployment.manifestPath : pathOption(cli.previousManifestPath, cfg.previousManifest);
   const previousManifest =
-    previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId);
+    previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId, flow.existingRoles);
 
   const existing: Record<string, string> = {};
   const existingSource: Record<string, string> = {};
@@ -2111,7 +2105,7 @@ function previousManifestLines(ctx: Ctx): string[] {
   return [
     `  previous         ${previous.path}`,
     `                   chain ${String(previous.chainId)}, id ${previous.deploymentId}, ` +
-      `${String(supplied)}/${String(EXISTING_ROLES.length)} roles, sealed by ${previous.deployer ?? '-'}`,
+      `${String(supplied)}/${String(ctx.flow.existingRoles.length)} roles, sealed by ${previous.deployer ?? '-'}`,
   ];
 }
 

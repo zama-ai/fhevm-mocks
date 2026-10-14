@@ -45,7 +45,6 @@ import { capture, fail, pad, readJson, say, warn } from '../../ts/utils.ts';
 import {
   type Ctx,
   existingFlagFor,
-  EXISTING_ROLES,
   type Flow,
   manifestPath,
   PACKAGE_ROOT,
@@ -95,6 +94,24 @@ const ALL_STAGES: readonly Stage[] = [
 
 /** What `--stage all` runs, in order. `precheck` is not listed because `materialize` always runs it first. */
 const RUN_ORDER: readonly Stage[] = ['compute', 'creates', 'rehearse', 'materialize', 'verify'];
+
+/**
+ * The previous generation's live stack, in the order the help and the banner list them: what an upgrade must be
+ * given. The previous generation's own roles, not this one's (EXISTING_ROLES): a generation may add a contract.
+ */
+const PREVIOUS_ROLES: readonly string[] = [
+  'ACL_ADDRESS',
+  'FHEVM_EXECUTOR_ADDRESS',
+  'KMS_VERIFIER_ADDRESS',
+  'INPUT_VERIFIER_ADDRESS',
+  'HCU_LIMIT_ADDRESS',
+  'PROTOCOL_CONFIG_ADDRESS',
+  'KMS_GENERATION_ADDRESS',
+  'CLEARTEXT_ARITHMETIC_ADDRESS',
+  'CLEARTEXT_DB_ADDRESS',
+  'PAUSER_SET_ADDRESS',
+  'ACL_OWNER',
+];
 
 /** The seven live proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table. */
 const UPGRADED_ROLES: readonly string[] = [
@@ -485,7 +502,7 @@ function parseMigrationNode(entry: unknown, label: string): MigrationNode {
 function validateExisting(ctx: Ctx): void {
   const existing = ctx.opt.existing;
 
-  const missing = EXISTING_ROLES.filter((role) => (existing[role] ?? '') === '');
+  const missing = PREVIOUS_ROLES.filter((role) => (existing[role] ?? '') === '');
   if (missing.length > 0) {
     const previous = ctx.opt.previousManifest;
     const fromManifest =
@@ -493,7 +510,7 @@ function validateExisting(ctx: Ctx): void {
         ? []
         : ['', `       --previous-manifest supplied ${String(Object.keys(previous.address).length)} of them.`];
     fail(
-      `Error: the live stack is not fully specified — ${String(missing.length)} of ${String(EXISTING_ROLES.length)} addresses missing:`,
+      `Error: the live stack is not fully specified — ${String(missing.length)} of ${String(PREVIOUS_ROLES.length)} addresses missing:`,
       ...missing.map((role) => `         ${existingFlagFor(role)}  (${role})`),
       ...fromManifest,
       '',
@@ -643,7 +660,7 @@ function validateExisting(ctx: Ctx): void {
       '       cleanly and fails only in use.',
     );
   }
-  say(`    ${String(EXISTING_ROLES.length)} addresses verified against the live stack`);
+  say(`    ${String(PREVIOUS_ROLES.length)} addresses verified against the live stack`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -870,6 +887,7 @@ const UPGRADE_FLOW: Flow = {
   needsDeployerKey,
   adminSendingStages: ['materialize'],
   readOnlyStages: ['precheck', 'verify', 'status'],
+  existingRoles: PREVIOUS_ROLES,
 };
 
 ////////////////////////////////////////////////////////////////////////////////

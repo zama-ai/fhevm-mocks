@@ -291,8 +291,9 @@ Hotfix a live cleartext stack within its generation, via the canonical CREATE2 f
 
 Usage: hotfix-cli --deployment deployments/<chain>/<stack> [--out-dir record] [options]
 
-Re-points exactly the proxies whose implementation in this build differs from the one they run, in ONE
-atomic ACLOwner.upgrade, after rehearsing it on a fork. Nothing else moves: no proxy, no
+Applies THIS checkout's contracts (the package hotfix-cli belongs to, wherever you run it from) to the live
+stack named by --deployment. Re-points exactly the proxies whose implementation in this build differs from
+the one they run, in ONE atomic ACLOwner.upgrade, after rehearsing it on a fork. Nothing else moves: no proxy, no
 owner, no pauser, no storage. Refused: another generation (that is an upgrade), a package not newer than the
 latest record's, a reinitializer change other than a move by one (which runs the contract's no-argument
 reinitializeV<live>()), a build that changes nothing.
@@ -349,6 +350,7 @@ const HOTFIX_FLOW: Flow = {
   needsDeployerKey: (stage) => stage === 'compute' || stage === 'creates' || stage === 'all',
   adminSendingStages: ['materialize'],
   readOnlyStages: ['precheck', 'verify', 'status'],
+  existingRoles: EXISTING_ROLES,
 };
 
 /** A hotfix, as the re-point engine runs it. */

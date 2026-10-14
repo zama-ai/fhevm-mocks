@@ -6,7 +6,7 @@ import {FhevmRepointBase} from "./FhevmRepointBase.s.sol";
 import {IACLOwner, IOwnable2Step, IVersioned} from "../Interfaces.sol";
 
 /**
- *  Applies the seven reinitializations in one admin-owned ACLOwner call.
+ *  Applies every re-point, with its reinitialization if any, in one admin-owned ACLOwner call.
  *
  *  The `require`s here are the load-bearing subset of `FhevmPreMaterializeCheck`, repeated because forge
  *  simulates this script before it broadcasts: a failed require ends the run before a transaction exists,

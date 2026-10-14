@@ -80,6 +80,12 @@ void test('a deploy takes no --deployment: it creates a stack', () => {
   assert.match(run.output, /a deploy creates a new one/);
 });
 
+void test("a flow takes only its own live stack's address flags: a deploy takes none", () => {
+  const run = cli(['--acl', `0x${'0'.repeat(39)}1`, '--stage', 'log']);
+  assert.notEqual(run.status, 0);
+  assert.match(run.output, /unknown argument '--acl'/);
+});
+
 void test('no tool writes inside deployments/, where records are archived', () => {
   assert.equal(RECORDS_DIR, resolve(PACKAGE_ROOT_ABS_PATH, '..', '..', 'deployments'));
   const run = cli([

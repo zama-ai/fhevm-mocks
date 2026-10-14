@@ -17,7 +17,6 @@ import {
   checkRecordedImplementations,
   type Ctx,
   type EventRecord,
-  EXISTING_ROLES,
   FHEVM_VERSION,
   finalizedBlock,
   type Flow,
@@ -579,7 +578,7 @@ function repointStarted(ctx: Ctx): boolean {
 /** The live stack, passed to the forge scripts as FHEVM_EXISTING_<ROLE>. */
 function existingEnv(ctx: Ctx): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const role of EXISTING_ROLES) {
+  for (const role of ctx.flow.existingRoles) {
     env[`FHEVM_EXISTING_${role}`] = ctx.opt.existing[role] ?? '';
   }
   return env;
@@ -588,7 +587,7 @@ function existingEnv(ctx: Ctx): NodeJS.ProcessEnv {
 function checkExistingManifestIdentity(ctx: Ctx): void {
   const manifest = readJson<Manifest>(manifestPath(ctx));
   if (manifest?.address === undefined) return;
-  for (const role of EXISTING_ROLES) {
+  for (const role of ctx.flow.existingRoles) {
     const sealed = manifest.address[role];
     const supplied = ctx.opt.existing[role];
     if (sealed === undefined || supplied?.toLowerCase() !== sealed.toLowerCase()) {
@@ -1049,7 +1048,7 @@ async function stageMaterialize(ctx: Ctx): Promise<void> {
  * The terminal conditions, in three layers that answer three different questions:
  *
  *   Solidity   did the intended changes happen — from a fresh recompile, against the seal
- *   survey     did anything ELSE change — every v13 getter, and the sealed handles
+ *   survey     did anything ELSE change — every getter of the live stack, and the sealed handles
  *   events     was the path between the two endpoints straight — one atomic upgrade, no authority moved
  *
  * Waits for the materialize block to be buried and finalized first: a verdict read off a block about to be
@@ -1087,8 +1086,8 @@ async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
  * Slot values prove where each proxy ENDED UP. They cannot see an intermediate implementation that ran
  * for a block and was then replaced by the sealed one — code with full storage access that the endpoint
  * checks would never know about. The logs can: exactly one `Upgraded` per re-pointed proxy, to the sealed
- * implementation, all seven in ONE transaction; none at all on the two proxies the op list must not
- * touch; and seven `HostUpgraded` on the ACLOwner naming the same (proxy, implementation) pairs in op
+ * implementation, all of them in ONE transaction; none at all on the proxies the op list must not
+ * touch; and one `HostUpgraded` per op on the ACLOwner naming the same (proxy, implementation) pairs in op
  * order.
  *
  * That one transaction is also the materialize receipt when the admin is a multisig and no local record

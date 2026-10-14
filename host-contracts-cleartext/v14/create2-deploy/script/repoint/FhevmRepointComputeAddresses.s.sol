@@ -5,11 +5,11 @@ import {console} from "forge-std/Script.sol";
 import {FhevmRepointBase} from "./FhevmRepointBase.s.sol";
 
 /**
- *  Two-pass CREATE2 computation for upgrading a supplied live v13 stack.
+ *  Two-pass CREATE2 computation for re-pointing a supplied live stack.
  *
- *  v14 creates no proxy, so pass 1 has nothing to predict: it writes the addresses file the
- *  implementations are compiled against (all nine live proxies) and records its hash. Pass 2, after the
- *  rebuild, asserts that file did not move, predicts the seven implementations and seals the manifest.
+ *  A re-point creates no proxy, so pass 1 has nothing to predict: it writes the addresses file the
+ *  implementations are compiled against (every live proxy) and records its hash. Pass 2, after the
+ *  rebuild, asserts that file did not move, predicts the implementations and seals the manifest.
  */
 abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
     function run() external {

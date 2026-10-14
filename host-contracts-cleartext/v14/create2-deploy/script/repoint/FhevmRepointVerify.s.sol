@@ -81,7 +81,7 @@ abstract contract FhevmRepointVerify is FhevmRepointChecks {
         _checkLiveCode(manifest);
 
         // Unlike a deploy, "not materialized" is not a state to report and carry on from — the stack is
-        // then still the previous generation, and every check below would be answering about v13. Say so
+        // then still on its previous implementations, and every check below would be answering about those. Say so
         // once and stop, rather than emitting a wall of failures that all have one cause.
         console.log("--- the re-pointed slots ---");
         if (_expectImplementations(manifest, _repointRoles()) != 0) {
@@ -113,7 +113,7 @@ abstract contract FhevmRepointVerify is FhevmRepointChecks {
      *      On a deploy, no code at a role means "not deployed yet"; here it means the operator pointed
      *      `--acl` (or another flag) at something that is not a contract, which the supplied-address
      *      validation should have caught before any transaction. Re-asserting it lets this script stand
-     *      alone as a statement about the chain. The seven creates are covered by `_checkSealedBuild`.
+     *      alone as a statement about the chain. The creates are covered by `_checkSealedBuild`.
      */
     function _checkLiveCode(string memory manifest) private {
         _expectCodeAt(manifest, _allProxyRoles());
