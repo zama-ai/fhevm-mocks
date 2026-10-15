@@ -101,8 +101,8 @@ abstract contract ForgeFhevmDeploy is ForgeVmBase {
     /// @dev The standing ACLOwner, remembered at deploy time. Read it through `fhevmACLOwner()`.
     ///
     ///      Deliberately runtime state rather than a generated constant. On a fresh deploy it happens to be
-    ///      CREATE(deployer, 12), but the ACLOwner *survives an upgrade*: `updateV12ToV13` takes the standing
-    ///      one as a parameter and deploys none, so on an upgraded stack it came from the previous
+    ///      CREATE(deployer, 12), but the ACLOwner *survives an upgrade*: the generation upgrade takes the
+    ///      standing one as a parameter and deploys none, so on an upgraded stack it came from the previous
     ///      generation's deploy at an unrelated nonce. A constant would be right here and wrong there.
     address private _fhevmACLOwner;
 

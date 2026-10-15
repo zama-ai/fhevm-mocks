@@ -1,4 +1,4 @@
-// D5b: the consumer-contract config reader and the init assertion. The plugin tests carry no consumer
+// The consumer-contract config reader and the init assertion. The plugin tests carry no consumer
 // contract, so `hardhat_setStorageAt` writes the three ERC-7201 slots of an arbitrary address: an empty
 // config, the deployed stack's config, and a foreign one exercise all three outcomes.
 //

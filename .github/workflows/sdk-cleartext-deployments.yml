@@ -2,7 +2,7 @@ name: sdk-cleartext-deployments
 
 # Deployment records are frozen.
 #
-# A record under deployments/<chain>/<deploymentId>/ is evidence of on-chain transactions: once it is on
+# A record under deployments/<chain>/<stack>/<event>/ is evidence of on-chain transactions: once it is on
 # the base branch, nothing in it may change, and a later event gets a new folder (deployments/README.md).
 # This workflow proves it for every pull request, and checks each record for completeness and consistency.
 #

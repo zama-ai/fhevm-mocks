@@ -4,9 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { validatePinnedDependencies } from '../base/checks/pinned-dependencies.ts';
+import { type LockfileReader, validatePinnedDependencies } from '../base/checks/pinned-dependencies.ts';
 import type { LoadedPackage, PackageJson } from '../base/npm.ts';
-import { applyPinnedEdits, planPinnedSync, renderPinnedEdits } from '../base/sync-pinned.ts';
+import {
+  applyPinnedEdits,
+  planPinRaises,
+  planPinnedSync,
+  renderPinRaises,
+  renderPinnedEdits,
+  withRaisedPins,
+} from '../base/sync-pinned.ts';
 import { parseCliOptions } from '../cli-options.ts';
 import { loadedPackage, parseTestNpmManifest } from './helpers.ts';
 
@@ -106,6 +113,29 @@ test('rendering replaces exactly the planned specs and leaves the file otherwise
   assert.deepEqual(planPinnedSync(manifest, [synced]), []);
 });
 
+test('rendering rewrites an npm alias spec like any other, and leaves the bare name next to it alone', () => {
+  const manifest = manifestWithPins({ '@scope/pkg': '^1.2.2', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' });
+  const text = `{
+  "name": "plugin",
+  "private": true,
+  "devDependencies": {
+    "@scope/pkg": "^1.2.2",
+    "@scope/pkg-prev1": "npm:@scope/pkg@^0.13.6"
+  }
+}
+`;
+  const pkg = loadedPackage('./plugin/pkg', manifest.packages['./plugin/pkg']!, JSON.parse(text) as PackageJson);
+  const edits = planPinnedSync(manifest, [pkg]);
+  assert.deepEqual(
+    edits.map(({ name, from, to }) => ({ name, from, to })),
+    [{ name: '@scope/pkg-prev1', from: 'npm:@scope/pkg@^0.13.6', to: 'npm:@scope/pkg@^1.1.7' }],
+  );
+  assert.equal(
+    renderPinnedEdits('package.json', text, edits),
+    text.replace('"npm:@scope/pkg@^0.13.6"', '"npm:@scope/pkg@^1.1.7"'),
+  );
+});
+
 test('rendering refuses a file it cannot edit unambiguously, rather than guessing', () => {
   const edit = {
     file: 'package.json',
@@ -160,6 +190,84 @@ test('after a sync the package.json half of check pinned-dependencies passes, an
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('a pin behind what a lockfile resolves is raised to the newest resolved version, operator and alias kept', () => {
+  const manifest = manifestWithPins({
+    '@scope/pkg': '^1.2.2',
+    '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7',
+    '@fhevm/solidity': '^0.13.4',
+    exact: '5.1.0',
+  });
+  const packages = [
+    loadedPackage('.', manifest.packages['.']!, { name: 'workspace', private: true }),
+    loadedPackage('./plugin', manifest.packages['./plugin']!, { name: 'plugin-dev', private: true }),
+  ];
+  const locks = new Map<string, Record<string, Record<string, unknown>>>([
+    [
+      '/workspace/package-lock.json',
+      {
+        '': {},
+        'node_modules/@scope/pkg': { version: '1.2.3' },
+        'node_modules/@scope/pkg-prev1': { name: '@scope/pkg', version: '1.1.8' },
+        'node_modules/@fhevm/solidity': { version: '0.13.4' },
+        'node_modules/exact': { version: '5.1.1' },
+      },
+    ],
+    [
+      '/workspace/plugin/package-lock.json',
+      { '': {}, 'node_modules/dep/node_modules/@scope/pkg': { version: '1.2.4' } },
+    ],
+  ]);
+  const readLockfile: LockfileReader = (file) => locks.get(file);
+
+  assert.deepEqual(planPinRaises(manifest, packages, readLockfile), [
+    // The newest copy across every lockfile wins, nested ones included.
+    { name: '@scope/pkg', from: '^1.2.2', to: '^1.2.4' },
+    { name: '@scope/pkg-prev1', from: 'npm:@scope/pkg@^1.1.7', to: 'npm:@scope/pkg@^1.1.8' },
+    { name: 'exact', from: '5.1.0', to: '5.1.1' },
+  ]);
+});
+
+test('a pin at or ahead of every resolved copy is not raised', () => {
+  const manifest = manifestWithPins({ '@scope/pkg': '^1.2.3' });
+  const packages = [loadedPackage('.', manifest.packages['.']!, { name: 'workspace', private: true })];
+  const readLockfile = () => ({ '': {}, 'node_modules/@scope/pkg': { version: '1.2.2' } });
+  // An OLDER copy is a lockfile left behind, npm's to re-lock; lowering the pin to it would undo a deliberate move.
+  assert.deepEqual(planPinRaises(manifest, packages, readLockfile), []);
+});
+
+test('raising rewrites only the pinned lines of npm-manifest.json, and the package.json plan follows it', () => {
+  const text = `{
+  "dependencies": {
+    "forbidden": ["solhint"],
+    "pinned": {
+      "@scope/pkg": "^1.2.2",
+      "@scope/pkg-prev1": "npm:@scope/pkg@^1.1.7"
+    }
+  }
+}
+`;
+  const raises = [{ name: '@scope/pkg', from: '^1.2.2', to: '^1.2.3' }];
+  assert.equal(
+    renderPinRaises('npm-manifest.json', text, raises),
+    text.replace('"@scope/pkg": "^1.2.2"', '"@scope/pkg": "^1.2.3"'),
+  );
+  assert.throws(
+    () => renderPinRaises('npm-manifest.json', text, [{ name: '@scope/pkg', from: '^1.2.1', to: '^1.2.3' }]),
+    /expected exactly one "@scope\/pkg": "\^1\.2\.1" in "pinned", found 0/,
+  );
+
+  const manifest = manifestWithPins({ '@scope/pkg': '^1.2.2' });
+  const pkg = loadedPackage('./plugin', manifest.packages['./plugin']!, {
+    name: 'plugin-dev',
+    private: true,
+    devDependencies: { '@scope/pkg': '^1.2.2' },
+  });
+  assert.deepEqual(
+    planPinnedSync(withRaisedPins(manifest, raises), [pkg]).map(({ name, from, to }) => ({ name, from, to })),
+    [{ name: '@scope/pkg', from: '^1.2.2', to: '^1.2.3' }],
+  );
 });
 
 test("'sync pinned' parses with and without --check", () => {

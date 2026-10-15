@@ -1,8 +1,61 @@
 use std::fmt;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+
+// Every progress note and case result also goes to a log file, each line stamped with the time since
+// the run started. An FHE run always writes one (see `main`), so a long run can be followed with
+// `tail -f` and survives the terminal that started it.
+static LOG: OnceLock<Mutex<fs::File>> = OnceLock::new();
+static RUN_START: OnceLock<Instant> = OnceLock::new();
+
+fn log_line(line: &str) {
+    if let Some(file) = LOG.get() {
+        if let Ok(mut file) = file.lock() {
+            let elapsed = RUN_START.get_or_init(Instant::now).elapsed();
+            let _ = writeln!(file, "[{}] {line}", fmt_duration(elapsed));
+        }
+    }
+}
+
+// Progress notes: stderr and the log.
+macro_rules! note {
+    ($($t:tt)*) => {{
+        let line = format!($($t)*);
+        eprintln!("{line}");
+        log_line(&line);
+    }};
+}
+
+// Case results and summaries: stdout and the log.
+macro_rules! out {
+    ($($t:tt)*) => {{
+        let line = format!($($t)*);
+        println!("{line}");
+        log_line(&line);
+    }};
+}
+
+// The case under FHE right now. One case can run for minutes (a 60-element 256-bit isin is 60 wide
+// comparisons), and the progress line only moves when a case ends, so a heartbeat says which case is
+// still running and for how long.
+static CURRENT: Mutex<Option<(String, Instant)>> = Mutex::new(None);
+const HEARTBEAT: Duration = Duration::from_secs(30);
+
+fn start_heartbeat() {
+    std::thread::spawn(|| loop {
+        std::thread::sleep(HEARTBEAT);
+        let current = CURRENT.lock().map(|c| c.clone()).unwrap_or(None);
+        if let Some((id, since)) = current {
+            if since.elapsed() >= HEARTBEAT {
+                note!("      still on {id} ({})", fmt_duration(since.elapsed()));
+            }
+        }
+    });
+}
 
 use serde::Deserialize;
 use tfhe::integer::U256;
@@ -20,6 +73,8 @@ struct Vectors {
     semantics: String,
     encoding: String,
     #[serde(default)]
+    operands: Option<Vec<String>>,
+    #[serde(default)]
     verified: Vec<Verified>,
     cases: Vec<Case>,
 }
@@ -31,9 +86,17 @@ fn two() -> u32 {
 #[derive(Deserialize)]
 struct Case {
     id: String,
-    lhs: Operand,
+    lhs: Option<Operand>,
     rhs: Option<Operand>,
+    values: Option<Vec<Operand>>,
     result: Operand,
+}
+
+impl Case {
+    // Unary and binary operators always carry `lhs`; `run_part` checks it before anything reads it.
+    fn lhs(&self) -> &Operand {
+        self.lhs.as_ref().expect("lhs presence is checked before use")
+    }
 }
 
 #[derive(Deserialize)]
@@ -104,6 +167,8 @@ fn expected_semantics(op: &str) -> Option<&'static str> {
         "not" => "bitwise-complement",
         "shl" | "shr" => SHIFT_SEMANTICS,
         "rotl" | "rotr" => "amount-mod-width",
+        "sum" => "wrapping",
+        "isin" => "membership",
         _ => return None,
     })
 }
@@ -111,8 +176,8 @@ fn expected_semantics(op: &str) -> Option<&'static str> {
 fn expected_result_bits(op: &str, case: &Case) -> u32 {
     match op {
         "eq" | "ne" | "lt" | "le" | "gt" | "ge" => 1,
-        "not" | "neg" => case.lhs.bits,
-        _ => case.lhs.bits.max(case.rhs.as_ref().map_or(0, |r| r.bits)),
+        "not" | "neg" => case.lhs().bits,
+        _ => case.lhs().bits.max(case.rhs.as_ref().map_or(0, |r| r.bits)),
     }
 }
 
@@ -249,7 +314,7 @@ fn rhs_big(case: &Case) -> Result<Big, String> {
 // (euintN, euint8), (euintN, uint8) for shifts/rotates; unary for not.
 macro_rules! fhe_check {
     ($T:ty, $S:ty, $D:ty, $op:expr, $case:expr, $a:expr, $expected:expr, $ck:expr) => {{
-        let ea: $T = encrypt($case.lhs.bits, $a, $ck).cast_to();
+        let ea: $T = encrypt($case.lhs().bits, $a, $ck).cast_to();
         let dec = |r: $T| -> Big { <$D as ToBig>::to_big(r.decrypt($ck)) };
         let got: Vec<(&str, Big)> = match $op {
             "not" => vec![("enc", dec(!&ea))],
@@ -372,7 +437,7 @@ fn bool_check(op: &str, case: &Case, a: Big, expected: Big, ck: &ClientKey) -> R
 
 fn fhe_check(op: &str, case: &Case, a: Big, expected: Big, ck: &ClientKey) -> Result<(), String> {
     // Operands are cast to the widest operand width, as FHE.sol does before dispatching.
-    let width = case.lhs.bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
+    let width = case.lhs().bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
     match width {
         1 => bool_check(op, case, a, expected, ck),
         8 => fhe_check!(FheUint8, u8, u128, op, case, a, expected, ck),
@@ -383,6 +448,139 @@ fn fhe_check(op: &str, case: &Case, a: Big, expected: Big, ck: &ClientKey) -> Re
         160 => fhe_check!(FheUint160, U256, U256, op, case, a, expected, ck),
         256 => fhe_check!(FheUint256, U256, U256, op, case, a, expected, ck),
         w => Err(format!("unsupported operand width {w}")),
+    }
+}
+
+// sum, isin: a collection operand. The header's "operands" names the fields every case carries, and
+// all of a case's operands share one width (the executor rejects mixed types for both).
+fn nary_operands(op: &str) -> Option<&'static [&'static str]> {
+    Some(match op {
+        "sum" => &["values"],
+        "isin" => &["lhs", "values"],
+        _ => return None,
+    })
+}
+
+// FHEVMExecutor's FHE_COLLECTION_NARROW_MAX_SIZE (8..32 bits) and FHE_COLLECTION_WIDE_MAX_SIZE.
+fn collection_max(bits: u32) -> usize {
+    if bits <= 32 { 100 } else { 60 }
+}
+
+fn nary_widths(op: &str) -> &'static [u32] {
+    match op {
+        "sum" => &[8, 16, 32, 64, 128],
+        "isin" => &[8, 16, 32, 64, 128, 160, 256],
+        _ => &[],
+    }
+}
+
+struct Nary {
+    width: u32,
+    lhs: Option<Big>,
+    values: Vec<Big>,
+}
+
+// Structural checks first: which fields are present, one shared width, the executor's size cap and
+// supported widths.
+fn nary_shape(op: &str, case: &Case) -> Result<Nary, String> {
+    let fields = nary_operands(op).unwrap();
+    let present = |name: &str| match name {
+        "lhs" => case.lhs.is_some(),
+        "rhs" => case.rhs.is_some(),
+        _ => case.values.is_some(),
+    };
+    for name in ["lhs", "rhs", "values"] {
+        if present(name) != fields.contains(&name) {
+            return Err(format!("{op}: field {name} must {}be present", if present(name) { "not " } else { "" }));
+        }
+    }
+    // An empty collection carries no operand width, so a sum's width comes from its result.
+    let width = match op {
+        "sum" => case.result.bits,
+        _ => case.lhs().bits,
+    };
+    if !nary_widths(op).contains(&width) {
+        return Err(format!("{op}: unsupported width {width}"));
+    }
+    let singles = [&case.lhs, &case.rhs];
+    let all = singles.iter().filter_map(|o| o.as_ref()).chain(case.values.iter().flatten());
+    if let Some(o) = all.clone().find(|o| o.bits != width) {
+        return Err(format!("{op}: operand of {} bits in a {width}-bit case", o.bits));
+    }
+    let values: Vec<Big> = case.values.iter().flatten().map(Operand::parse).collect::<Result<_, _>>()?;
+    if values.len() > collection_max(width) {
+        return Err(format!("{op}: {} elements, the {width}-bit maximum is {}", values.len(), collection_max(width)));
+    }
+    let want_bits = if op == "isin" { 1 } else { width };
+    if case.result.bits != want_bits {
+        return Err(format!("result.bits {} != {want_bits}", case.result.bits));
+    }
+    let parse = |o: &Option<Operand>| o.as_ref().map(Operand::parse).transpose();
+    Ok(Nary { width, lhs: parse(&case.lhs)?, values })
+}
+
+// Clear reference. isin compares at any width; sum stays at or under 128 bits.
+fn nary_clear(op: &str, s: &Nary) -> Big {
+    // Only sum uses the mask, and it stops at 128 bits; isin reaches 256 and ignores it.
+    let mask = if s.width >= 128 { u128::MAX } else { (1u128 << s.width) - 1 };
+    match op {
+        "sum" => s.values.iter().fold(0u128, |acc, v| acc.wrapping_add(v.lo)).to_big_masked(mask),
+        _ => Big::from_bool(s.values.contains(&s.lhs.unwrap())),
+    }
+}
+
+trait Masked {
+    fn to_big_masked(self, mask: u128) -> Big;
+}
+impl Masked for u128 {
+    fn to_big_masked(self, mask: u128) -> Big {
+        Big { lo: self & mask, hi: 0 }
+    }
+}
+
+// The same tfhe-rs calls the coprocessor makes (fhevm-engine-common/src/tfhe_ops.rs):
+// sum = Iterator::sum, isin = FheUint::contains. Empty collections go through tfhe-rs too: it returns
+// a trivial zero for an empty sum and a trivial false for an empty contains.
+macro_rules! nary_fhe {
+    ($T:ty, $D:ty, $op:expr, $s:expr, $ck:expr) => {{
+        let enc = |v: Big| -> $T { encrypt($s.width, v, $ck).cast_to() };
+        let dec = |r: $T| -> Big { <$D as ToBig>::to_big(r.decrypt($ck)) };
+        let vals: Vec<$T> = $s.values.iter().map(|v| enc(*v)).collect();
+        match $op {
+            "sum" => vec![("enc[]", dec(vals.iter().sum::<$T>()))],
+            _ => {
+                let r = <$T>::contains(&vals, &enc($s.lhs.unwrap()));
+                vec![("enc,enc[]", Big::from_bool(r.decrypt($ck)))]
+            }
+        }
+    }};
+}
+
+// Per-type dispatch. Each arm names only the operators tfhe-rs and the executor support at that width.
+fn nary_fhe(op: &str, s: &Nary, ck: &ClientKey) -> Result<Vec<(&'static str, Big)>, String> {
+    Ok(match (s.width, op) {
+        (8, _) => nary_fhe!(FheUint8, u128, op, s, ck),
+        (16, _) => nary_fhe!(FheUint16, u128, op, s, ck),
+        (32, _) => nary_fhe!(FheUint32, u128, op, s, ck),
+        (64, _) => nary_fhe!(FheUint64, u128, op, s, ck),
+        (128, "sum" | "isin") => nary_fhe!(FheUint128, u128, op, s, ck),
+        (160, "isin") => nary_fhe!(FheUint160, U256, op, s, ck),
+        (256, "isin") => nary_fhe!(FheUint256, U256, op, s, ck),
+        (w, _) => return Err(format!("{op}: no tfhe-rs dispatch for width {w}")),
+    })
+}
+
+fn nary_case(op: &str, case: &Case, ck: Option<&ClientKey>) -> Result<(), String> {
+    let shape = nary_shape(op, case)?;
+    let expected = case.result.parse()?;
+    // isin checks at every width; sum never exceeds 128 bits (nary_widths).
+    let clear = nary_clear(op, &shape);
+    if clear != expected {
+        return Err(format!("clear: got {clear}, json says {expected}"));
+    }
+    match ck {
+        Some(ck) => compare(nary_fhe(op, &shape, ck)?, expected),
+        None => Ok(()),
     }
 }
 
@@ -414,7 +612,7 @@ impl Progress {
         self.last = now;
         let elapsed = now.duration_since(self.start);
         let eta = elapsed.mul_f64((self.total - done) as f64 / done as f64);
-        eprintln!(
+        note!(
             "[{:5.1}%] {}/{}  elapsed {}  eta {}",
             100.0 * done as f64 / self.total as f64,
             done,
@@ -431,6 +629,8 @@ struct Index {
     #[serde(default = "two")]
     arity: u32,
     semantics: String,
+    #[serde(default)]
+    operands: Option<Vec<String>>,
     parts: Vec<Part>,
 }
 
@@ -488,7 +688,7 @@ fn load(path: &Path) -> Result<Vec<LoadedPart>, String> {
     for part in &index.parts {
         let part_path = path.join(&part.file);
         let v = parse_file(&part_path)?;
-        if v.op != index.op || v.semantics != index.semantics || v.arity != index.arity {
+        if v.op != index.op || v.semantics != index.semantics || v.arity != index.arity || v.operands != index.operands {
             return Err(format!("{}: header differs from index.json", part.file));
         }
         parts.push(LoadedPart { path: part_path, index: Some(index_path.clone()), vectors: v });
@@ -572,8 +772,18 @@ fn record_verified(part: &LoadedPart) -> Result<(), String> {
 fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, progress: &mut Progress) -> usize {
     let mut failures = 0;
     for case in &vectors.cases {
+        let started = Instant::now();
+        if ck.is_some() {
+            *CURRENT.lock().unwrap() = Some((case.id.clone(), started));
+        }
         let outcome = (|| -> Result<(), String> {
-            let a = case.lhs.parse()?;
+            if nary_operands(op).is_some() {
+                return nary_case(op, case, ck);
+            }
+            if case.values.is_some() {
+                return Err(format!("{op} takes no values"));
+            }
+            let a = case.lhs.as_ref().ok_or("missing lhs")?.parse()?;
             let expected = case.result.parse()?;
             let b = match (&case.rhs, arity) {
                 (Some(r), 2) => Some(r.parse()?),
@@ -587,7 +797,7 @@ fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, pro
             if case.result.bits != want_bits {
                 return Err(format!("result.bits {} != {want_bits}", case.result.bits));
             }
-            let width = case.lhs.bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
+            let width = case.lhs().bits.max(case.rhs.as_ref().map_or(0, |r| r.bits));
             if width <= 128 {
                 let clear = clear_op(op, a.lo, b.map_or(0, |b| b.lo), width).to_big();
                 if clear != expected {
@@ -599,11 +809,17 @@ fn run_part(op: &str, arity: u32, vectors: &Vectors, ck: Option<&ClientKey>, pro
                 None => Ok(()),
             }
         })();
+        let took = if ck.is_some() {
+            *CURRENT.lock().unwrap() = None;
+            format!("  ({:.1}s)", started.elapsed().as_secs_f64())
+        } else {
+            String::new()
+        };
         match outcome {
-            Ok(()) => println!("ok    {}", case.id),
+            Ok(()) => out!("ok    {}{took}", case.id),
             Err(e) => {
                 failures += 1;
-                println!("FAIL  {}: {e}", case.id);
+                out!("FAIL  {}: {e}{took}", case.id);
             }
         }
         if ck.is_some() {
@@ -628,9 +844,18 @@ fn validate(set: &[LoadedPart]) -> Result<(String, u32), String> {
             first.vectors.semantics, semantics
         ));
     }
-    let expected_arity = if matches!(op.as_str(), "not" | "neg") { 1 } else { 2 };
+    let expected_operands = nary_operands(&op);
+    let expected_arity = match expected_operands {
+        Some(fields) => fields.len() as u32,
+        None if matches!(op.as_str(), "not" | "neg") => 1,
+        None => 2,
+    };
     if arity != expected_arity {
         return Err(format!("{op}: arity {arity} declared, {expected_arity} expected"));
+    }
+    let declared: Option<Vec<&str>> = first.vectors.operands.as_ref().map(|v| v.iter().map(String::as_str).collect());
+    if declared.as_deref() != expected_operands {
+        return Err(format!("{op}: operands {declared:?} declared, {expected_operands:?} expected"));
     }
     Ok((op, arity))
 }
@@ -640,16 +865,32 @@ fn main() -> ExitCode {
     let no_fhe = args.iter().any(|a| a == "--no-fhe");
     let no_record = args.iter().any(|a| a == "--no-record");
     let force = args.iter().any(|a| a == "--force");
+    let log_arg = args.iter().find_map(|a| a.strip_prefix("--log="));
     let Some(path) = args.iter().find(|a| !a.starts_with("--")) else {
-        eprintln!("usage: tfhe-vectors-check [--no-fhe] [--no-record] [--force] <data-root | op-dir | part.json>");
+        eprintln!(
+            "usage: tfhe-vectors-check [--no-fhe] [--no-record] [--force] [--log=FILE] <data-root | op-dir | part.json>"
+        );
         return ExitCode::from(2);
     };
-    eprintln!("tfhe-rs {} (shl/shr: {SHIFT_SEMANTICS})", env!("TFHE_VERSION"));
+    RUN_START.get_or_init(Instant::now);
+    // An FHE run always logs, to ./tfhe-vectors-check.log unless --log=FILE says otherwise. A --no-fhe
+    // run takes under a second and logs only when asked.
+    if let Some(log_path) = log_arg.or((!no_fhe).then_some("tfhe-vectors-check.log")) {
+        match fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            Ok(file) => {
+                let _ = LOG.set(Mutex::new(file));
+                log_line(&format!("==== {} tfhe-vectors-check {}", today(), args.join(" ")));
+                eprintln!("progress log: {log_path}  (follow with: tail -f {log_path})");
+            }
+            Err(e) => eprintln!("could not open progress log {log_path}: {e}"),
+        }
+    }
+    note!("tfhe-rs {} (shl/shr: {SHIFT_SEMANTICS})", env!("TFHE_VERSION"));
 
     let sets = match load_sets(Path::new(path)) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("{path}: {e}");
+            note!("{path}: {e}");
             return ExitCode::from(2);
         }
     };
@@ -662,12 +903,12 @@ fn main() -> ExitCode {
             Ok((op, arity)) => runnable.push((op, arity, set)),
             Err(e) => {
                 skipped += 1;
-                eprintln!("skipping: {e}");
+                note!("skipping: {e}");
             }
         }
     }
     if runnable.is_empty() {
-        eprintln!("nothing to run");
+        note!("nothing to run");
         return ExitCode::from(2);
     }
 
@@ -686,9 +927,10 @@ fn main() -> ExitCode {
     let ck = if no_fhe || total == 0 {
         None
     } else {
-        eprintln!("generating keys...");
+        note!("generating keys... ({total} cases to check)");
         let (ck, sk) = generate_keys(ConfigBuilder::default().build());
         set_server_key(sk);
+        start_heartbeat();
         Some(ck)
     };
 
@@ -701,25 +943,28 @@ fn main() -> ExitCode {
         for part in set.iter() {
             if already_verified(part) {
                 reused += 1;
-                println!("skip  {} already verified with tfhe-rs {}", part.path.display(), env!("TFHE_VERSION"));
+                out!("skip  {} already verified with tfhe-rs {}", part.path.display(), env!("TFHE_VERSION"));
                 continue;
             }
             op_checked += part.vectors.cases.len();
+            if ck.is_some() {
+                note!("part  {}  ({} cases)", part.path.display(), part.vectors.cases.len());
+            }
             let part_failures = run_part(op, *arity, &part.vectors, ck.as_ref(), &mut progress);
             op_failures += part_failures;
             if ck.is_some() && part_failures == 0 && !no_record {
                 match record_verified(part) {
-                    Ok(()) => eprintln!("recorded tfhe-rs {} in {}", env!("TFHE_VERSION"), part.path.display()),
-                    Err(e) => eprintln!("could not record verification: {e}"),
+                    Ok(()) => note!("recorded tfhe-rs {} in {}", env!("TFHE_VERSION"), part.path.display()),
+                    Err(e) => note!("could not record verification: {e}"),
                 }
             }
         }
-        println!("{op}: {op_checked} cases checked, {op_failures} failed");
+        out!("{op}: {op_checked} cases checked, {op_failures} failed");
         failures += op_failures;
     }
 
     if runnable.len() > 1 || skipped > 0 || reused > 0 {
-        println!(
+        out!(
             "total: {} sets, {total} cases checked, {failures} failed, {skipped} sets skipped, {reused} parts already verified",
             runnable.len()
         );

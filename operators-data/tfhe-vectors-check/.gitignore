@@ -1,1 +1,3 @@
 target/
+# Progress log written by every FHE run (see README).
+tfhe-vectors-check.log

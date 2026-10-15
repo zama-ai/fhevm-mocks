@@ -162,12 +162,13 @@ grep -rn --exclude-dir=node_modules --exclude-dir=_cjs --exclude-dir=_esm --excl
   'fhevm-config-' .
 ```
 
-Sweep the whole tree, not just `remappings.txt` and `pkg/src`: there are **four** executable sites —
-those two plus `internal/constants.ts` (`FHEVM_CONFIG_REMAPPING_PREFIX`) and `scripts/deploy.sh`
-(`CONFIG_PREFIX`) — and two more in prose, the `FOUNDRY_REMAPPINGS=` usage lines in
-`pkg/forge/script/FhevmDeployScript.s.sol` and `VerifyFhevmDeploy.s.sol`. A narrower grep found only the
-first two and left `deploy.sh` pointing at the previous generation, which fails at _run_ time rather than
-compile time. The consuming layer (`forge-fhevm`) declares the new prefix for its own consumers — see
+Two executable sites carry it: the import in `pkg/src/addresses/FHEVMHostAddresses.sol` and
+`remappings.txt`. Everything else reads the first — `fhevmConfigRemappingPrefix()` (`internal/configRemapping.ts`),
+the create2 tool, `scripts/deploy.sh` — and `test/config-remapping.test.ts` checks the second against it. The
+grep also finds prose to update: the `FOUNDRY_REMAPPINGS=` usage lines in
+`pkg/forge/script/FhevmDeployScript.s.sol` and `VerifyFhevmDeploy.s.sol`, and the generated
+`pkg/forge/script/ComputeAddresses.s.sol` (`npm run generate`). The consuming layer (`forge-fhevm`)
+declares the new prefix for its own consumers — see
 RULES.md rule 11.
 
 ## 6. Re-point the previous generation (V(N-1))
@@ -194,7 +195,8 @@ grep -rln --exclude-dir=node_modules --exclude-dir=_types --exclude-dir=_cjs --e
 Three groups, in increasing order of effort:
 
 1. **The previous-generation edge** — the devDependency pin in `package.json`, the import specifier
-   `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`, and
+   `@fhevm/host-contracts-cleartext-v12-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts` and
+   `…/pkg/ts/versions.ts` in `create2-deploy/upgrade/ts/testnet.ts` (the live stack's expected versions), and
    `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`. Every one of them lives in
    an `upgrade/` directory that the rotation deletes whole.
 

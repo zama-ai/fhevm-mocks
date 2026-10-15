@@ -6,6 +6,23 @@ and an `index.json` listing the parts. Pass the data root, one operator director
 single part file. With the root, sets written for the other tfhe-rs semantics are
 skipped (reported, not failed) and keys are generated once for everything.
 
+## Collection operators
+
+`sum` and `isin` do not fit `lhs`/`rhs`. Their headers carry `"operands"`, the fields every
+case holds, and all operands of a case share one width:
+
+| op | operands | result | widths | tfhe-rs call |
+|---|---|---|---|---|
+| `sum` | `values` | wraps at the width | 8–128 | `Iterator::sum` |
+| `isin` | `lhs`, `values` | 1 bit | 8–256, 160 = eaddress | `FheUint::contains` |
+
+These are the calls the coprocessor makes. The checker also enforces the executor's rules:
+collections of at most 100 elements up to 32 bits and 60 above. Empty collections are real
+cases. tfhe-rs returns 0 for an empty sum and false for an empty `contains`.
+
+Cases whose id contains `e2e_` are the upstream end-to-end tests, listed in
+`../e2e-sum-isin-vectors.md`. Generate with `scripts/gen-op-cases.py sum` (or `isin`).
+
 ## tfhe-rs 1.7.x (default)
 
 ```sh
@@ -32,6 +49,34 @@ cargo run   --manifest-path tfhe16/Cargo.toml -- ../data/shl.amount-mod-width
 - `--no-record`: do not write verification records.
 - `--force`: re-check parts already verified by this build's tfhe-rs release. Without it an
   FHE run skips them, so re-running the root after an interruption only does what is left.
+- `--log=FILE`: where the progress log goes. An FHE run always writes one, by default to
+  `./tfhe-vectors-check.log` (gitignored). A `--no-fhe` run writes one only with this option.
+
+## Progress log
+
+An FHE run can take a long time: one 60-element 256-bit `isin` case can take minutes. The log
+is appended to, never truncated, and every line is stamped with the time since the run started. The shape looks like this; the timings are illustrative, not measured:
+
+```text
+[0m00s] ==== 2026-09-26 tfhe-vectors-check ../data/isin
+[0m00s] generating keys... (340 cases to check)
+[0m04s] part  ../data/isin/256.normal.json  (13 cases)
+[0m34s]       still on isin_256_e2e_i16 (0m30s)
+[0m51s] ok    isin_256_e2e_i16  (47.2s)
+[0m51s] [  0.3%] 1/340  elapsed 0m51s  eta 288m09s
+[2m16s] recorded tfhe-rs 1.7.1 in ../data/isin/256.normal.json
+```
+
+A `part` line marks the start of each part file, and `recorded` marks it verified. Each case line
+carries its duration. A `still on` line appears every 30 s while one case is running.
+
+Follow it from another terminal:
+
+```sh
+tail -f tfhe-vectors-check.log
+```
+
+An interrupted run loses only the part it was in. Parts already recorded are skipped on the next run.
 
 ## Verification records
 

@@ -6,7 +6,10 @@ const PREFIXED_PATH = /^\.(?:\/(?!\.{1,2}(?:\/|$))[A-Za-z0-9._-]+)+$/;
 const UNPREFIXED_PATH = /^(?!\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/(?!\.{1,2}(?:\/|$))[A-Za-z0-9._-]+)*$/;
 const FILE_NAME = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
 const HTTPS_URL = /^https:\/\/[^\s]+$/;
-const DEPENDENCY_PIN = /^[~^]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+// An exact, caret or tilde version, optionally behind an npm alias (`npm:<name>@`) so one installation can hold two
+// versions of the same package under two names.
+const DEPENDENCY_PIN =
+  /^(?:npm:(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*@)?[~^]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 export const packageKinds = [
   'published',
@@ -71,7 +74,12 @@ const dependencyPolicySchema = z
     pinned: z
       .record(
         z.string().min(1),
-        z.string().regex(DEPENDENCY_PIN, 'must be an exact, caret, or tilde version such as ^1.2.3'),
+        z
+          .string()
+          .regex(
+            DEPENDENCY_PIN,
+            'must be an exact, caret, or tilde version such as ^1.2.3, optionally as an npm alias such as npm:pkg@^1.2.3',
+          ),
       )
       .refine((value) => Object.keys(value).length > 0, 'must pin at least one package')
       .optional(),

@@ -58,7 +58,7 @@ async function main() {
     );
 
     console.log(`✅ require resolved ${resolvedPackage}`);
-    console.log(`✅ deployed and verified the default v13 stack through CommonJS on ${ANVIL_RPC_URL}`);
+    console.log(`✅ deployed and verified the default stack through CommonJS on ${ANVIL_RPC_URL}`);
   } finally {
     await stopAnvil(anvil.process);
   }

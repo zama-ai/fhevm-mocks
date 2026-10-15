@@ -1,4 +1,4 @@
-// D3b guards: the zero handle, a mistyped handle and a bad contract or user address fail by name
+// Guards: the zero handle, a mistyped handle and a bad contract or user address fail by name
 // before any permit is signed; a valid address then signs a permit the stack accepts, and the decrypt
 // fails on the ACL (nothing allowed this user), which proves the signing path. The success path needs
 // a contract that calls `FHE.allow`, so it lives in the e2e counter test.

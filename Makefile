@@ -262,8 +262,10 @@ install-ci: ## Install every installation root from its committed lockfile (npm 
 	npm --prefix $(DIR_HH_V3) ci --no-audit --no-fund
 	$(call run-fhevm-npm,install-forge-dependencies)
 
-# Move a pinned dependency: edit its spec in npm-manifest.json#dependencies.pinned, then run this.
-#   1. `sync pinned` copies every pin into each package.json that declares it, and `sync hh-v2-constants`
+# Move a pinned dependency: edit its spec in npm-manifest.json#dependencies.pinned, then run this. It also
+# catches a pin left behind a release: when a lockfile already resolves a newer version, step 1 raises the pin.
+#   1. `sync pinned` raises every pin a lockfile resolves newer than (in npm-manifest.json), then copies every
+#      pin into each package.json that declares it, and `sync hh-v2-constants`
 #      records the @fhevm/solidity pin in the Hardhat 2 plugin's constants (a no-op for any other pin).
 #   2. `npm install --package-lock-only` rewrites each install root's lockfile, and nothing else: no
 #      node_modules, no install scripts. Already-locked versions that still satisfy their ranges stay, so
@@ -416,7 +418,7 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 #   - `clean` and the spotless-worktree guard — you have uncommitted work, that is the point;
 #   - `check-generated` — it deletes and regenerates every generated file (a full `generate`, forge
 #     included) and needs a spotless tree to judge the result;
-#   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e`, `test:upgrade`'s second half) —
+#   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e` and `test:create2-hotfix-e2e`, `test:upgrade`'s second half) —
 #     ~4 minutes each of `forge script` recompiles, replaced by `test:upgrade:fast` (see that target);
 #   - `test-consumer-ci` — installs every registered consumer from scratch.
 # What stays catches everything the dropped gates have caught so far, in a few minutes instead of many.

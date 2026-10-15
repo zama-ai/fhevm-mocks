@@ -55,6 +55,9 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 | [script/FhevmAcceptOwnershipAsAdmin.s.sol](script/FhevmAcceptOwnershipAsAdmin.s.sol) | §7 | step F — the admin accepts. The only script **not** sent by the deployer |
 | [script/FhevmStatus.s.sol](script/FhevmStatus.s.sol) | — | what's done, what's left, and why. Read-only, never reverts |
 | [script/FhevmVerify.s.sol](script/FhevmVerify.s.sol) | §7, §11 R1 | the terminal conditions; reverts non-zero if any is unmet |
+| [script/repoint/FhevmRepointBase.s.sol](script/repoint/FhevmRepointBase.s.sol) | — | the re-point engine's forge base, for every flow that re-points a live stack (upgrade, hotfix): roles, creates, ops, and the hooks a flow implements |
+| [script/repoint/](script/repoint/) `FhevmRepoint{ComputeAddresses,Creates,Checks,PreMaterializeCheck,Materialize,Verify}.s.sol` | — | the engine's abstract scripts: two-pass compute and seal, resumable creates, the shared non-reverting checks, the gate, the one atomic `ACLOwner.upgrade`, the terminal conditions |
+| [script/hotfix/](script/hotfix/) `FhevmHotfixBase.s.sol` and its five scripts | — | the hotfix's hooks (every proxy a candidate, re-pointed when this build's implementation differs, no init data) and the engine's scripts with them; run by `hotfix-cli` (`ts/hotfix.ts`) |
 | [script/upgrade/FhevmUpgradeBase.s.sol](script/upgrade/FhevmUpgradeBase.s.sol) | upgrade plan §5–§6 | the upgrade's 10-create and 7-op role/artifact tables |
 | [script/upgrade/FhevmComputeUpgradeAddresses.s.sol](script/upgrade/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | two-pass computation over the live v12 addresses and two new proxies |
 | [script/upgrade/FhevmUpgradeCreates.s.sol](script/upgrade/FhevmUpgradeCreates.s.sol) | upgrade plan §5 | the ten resumable factory CREATE2 calls |
@@ -195,8 +198,7 @@ What is **not** proven, and would have to be added to prove it:
 - **The rehearsal is a fork, not the chain.** anvil replays state faithfully, but block timestamps, gas
   accounting and the mempool are its own. A payload that passes on the fork can still fail live for
   reasons of gas or ordering, which is what `materialize`'s own `require`s and the post-hoc `verify` are for.
-  Verified on anvil forking anvil (`npm run test:create2-deploy-e2e`, `npm run test:upgrade`); not yet on an anvil
-  forking a public testnet.
+  Verified on anvil forking anvil (`npm run test:upgrade`); not yet on an anvil forking a public testnet.
 
 ## Checking a stage before running it
 

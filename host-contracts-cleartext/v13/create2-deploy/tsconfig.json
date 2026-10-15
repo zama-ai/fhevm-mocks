@@ -11,7 +11,8 @@
     "The overrides below are the whole exception list, and each is forced rather than chosen:",
     "  types            base is [] so the published payload cannot reach Node APIs; this IS a node",
     "                   script, so it needs them (same override as internal/tsconfig.json)",
-    "  rootDir          base says `src`, which does not exist here",
+    "  rootDir          base says `src`, which does not exist here; the package root, because common.ts",
+    "                   reads the config remapping prefix through internal/configRemapping.ts",
     "  noEmit           nothing is emitted, and it is what allowImportingTsExtensions requires",
     "  allowImportingTs the source says `./utils.ts`, which node requires for relative imports and tsc",
     "  Extensions       would otherwise reject",
@@ -24,7 +25,7 @@
   ],
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "..",
     "types": ["node"],
     "noEmit": true,
     "allowImportingTsExtensions": true,

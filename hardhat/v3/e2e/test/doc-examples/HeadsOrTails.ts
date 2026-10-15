@@ -35,6 +35,24 @@ const kmsVerifier = (): { interface: InstanceType<typeof ethers.Interface> } => 
 });
 
 /**
+ * Flips the least significant byte of the first KMS signature's `s`: proof byte 64, i.e. one byte of signer
+ * count, then 63 bytes into the first 65-byte signature (`r` is bytes 0-31 of it, `s` bytes 32-63). Unlike
+ * appending bytes, this keeps the proof well-formed — every length check passes — so the verifier reaches
+ * signature recovery and gets an address that is not a registered KMS signer. `s` rather than `r` on
+ * purpose: any `s` in range recovers to SOME address, whereas `r` must be an on-curve x-coordinate, which a
+ * flipped `r` is only about half the time — the other half fails earlier, as `ECDSAInvalidSignature`.
+ *
+ * Appended bytes would land in the proof's extraData, and what a KMSVerifier does with malformed extraData
+ * depends on the protocol line (a strict parser refuses it before any signature is checked), so this test does
+ * not rely on it: a corrupted signature is refused as `KMSInvalidSigner` by every line.
+ */
+function withCorruptedFirstSignature(decryptionProof: string): string {
+  const at = 2 + 2 * 64; // '0x', then byte 64 as two hex characters
+  const flipped = (parseInt(decryptionProof.slice(at, at + 2), 16) ^ 0xff).toString(16).padStart(2, '0');
+  return decryptionProof.slice(0, at) + flipped + decryptionProof.slice(at + 2);
+}
+
+/**
  * The `HeadsOrTails` example showcases the public decryption mechanism and
  * its corresponding on-chain verification in the case of a single value.
  * The core assertion is to guarantee that a single given cleartext is the
@@ -177,7 +195,7 @@ describe('HeadsOrTails', function () {
       contract.recordAndVerifyWinner(
         gameCreatedEvent.gameId,
         checkSignaturesArgs.abiEncodedCleartexts,
-        `${checkSignaturesArgs.decryptionProof}dead`,
+        withCorruptedFirstSignature(checkSignaturesArgs.decryptionProof),
       ),
     ).to.be.revertedWithCustomError(kmsVerifier(), 'KMSInvalidSigner');
   });

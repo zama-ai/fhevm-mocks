@@ -1,4 +1,4 @@
-// D6: `fhevm.cleartextDb` reads a handle's cleartext straight off CleartextDB with no ACL, after
+// `fhevm.cleartextDb` reads a handle's cleartext straight off CleartextDB with no ACL, after
 // checking the type byte. Values come from `trivialEncrypt` sent straight to the executor, so no
 // consumer contract is needed; a caller with no permission at all still reads them.
 //

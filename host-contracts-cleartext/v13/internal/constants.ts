@@ -28,18 +28,10 @@ export const PKG_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg');
 export { DEPLOYER_ADDRESS_INDEX, MNEMONIC, ZAMA_LOCAL_CONFIG, ERC_1967_IMPL_SLOT } from '@fhevm/sdk-common-dev';
 
 /**
- * The Solidity import prefix the contracts read their address set through — the left side of a Foundry
- * remapping, as in `fhevm-config-0.13.0/=internal/placeholders/`. Not a directory: what it maps *to*
- * varies by who is compiling, which is the whole point.
- *
- * Version-pinned, so two protocol generations can coexist in one project without their address sets
- * colliding — which also means it moves when the protocol minor does (README step 5).
- *
- * Only the TS copy lives here. `remappings.txt` and `pkg/src/addresses/FHEVMHostAddresses.sol` carry the
- * same string and cannot import a constant; they stay the authoritative pair, and a mismatch surfaces as
- * a compile error there or, for this script, as surviving placeholder markers.
+ * The one Solidity source that imports the address set through the config remapping
+ * (`fhevm-config-<version>/addresses.sol`): the source of truth `fhevmConfigRemappingPrefix()` reads.
  */
-export const FHEVM_CONFIG_REMAPPING_PREFIX = 'fhevm-config-0.13.0/';
+export const FHEVM_HOST_ADDRESSES_SOL_ABS_PATH = join(PKG_DIR_ABS_PATH, 'src', 'addresses', 'FHEVMHostAddresses.sol');
 
 /**
  * Nonce the deploy sequence starts from — 0, i.e. an account that has sent no transaction.

@@ -29,8 +29,8 @@ function at(handles: readonly Hex[], i: number): Hex {
  * `fhevm.helpers.decryptPublicXxx({ eXxx })`, which returns the cleartext itself rather than a
  * handle-keyed map — a number for euint8/16/32, a bigint above that.
  *
- * Upstream's `mulDiv` and `toExternalE*` tests are deliberately absent: those operators are not in
- * 0.13.3 and are expected in v14, so the contract does not declare them either.
+ * Upstream's tests for operators 0.13.3 does not expose (`toExternalE*` among them) are deliberately
+ * absent, so the contract does not declare those operators either.
  */
 
 const UINT64_MASK = (1n << 64n) - 1n;

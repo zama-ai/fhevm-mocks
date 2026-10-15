@@ -18,6 +18,7 @@ export function checkDeployments(options: {
       command: 'check deployments',
       checkedPackageKeys: consistency.checkedRecordKeys,
       checkedItemLabel: 'deployment record(s)',
+      ...(consistency.notes === undefined ? {} : { notes: consistency.notes }),
       violations: consistency.violations,
     };
   }
@@ -27,10 +28,12 @@ export function checkDeployments(options: {
     command: `check deployments --base ${options.base}`,
     checkedPackageKeys: [...new Set([...consistency.checkedRecordKeys, ...frozen.checkedRecordKeys])].sort(),
     checkedItemLabel: 'deployment record(s)',
-    notes:
-      frozen.checkedRecordKeys.length === 0
+    notes: [
+      ...(consistency.notes ?? []),
+      ...(frozen.checkedRecordKeys.length === 0
         ? [`no deployment record exists at the merge base ${frozen.mergeBase.slice(0, 12)}: nothing is frozen yet`]
-        : undefined,
+        : []),
+    ],
     violations: [...consistency.violations, ...frozen.violations],
   };
 }

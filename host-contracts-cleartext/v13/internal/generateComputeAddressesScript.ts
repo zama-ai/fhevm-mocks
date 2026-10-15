@@ -30,7 +30,6 @@ import { join } from 'node:path';
 import {
   ADDRESSED_NONCE_COUNT,
   ADDRESS_NAMES,
-  FHEVM_CONFIG_REMAPPING_PREFIX,
   NONCE_LABEL,
   NONCE_OFFSET,
   PACKAGE_ROOT_ABS_PATH,
@@ -38,6 +37,7 @@ import {
   UNNAMED_NONCE_CONTRACTS,
   type AddressName,
 } from './constants.ts';
+import { fhevmConfigRemappingPrefix } from './configRemapping.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -181,7 +181,7 @@ export function renderNonceLayoutComment(): string {
 /** Every `{{NAME}}` the template may contain, and what it is replaced with. */
 export function substitutions(): ReadonlyMap<string, string> {
   return new Map<string, string>([
-    ['CONFIG_REMAPPING_PREFIX', FHEVM_CONFIG_REMAPPING_PREFIX],
+    ['CONFIG_REMAPPING_PREFIX', fhevmConfigRemappingPrefix()],
     ['NONCE_LAYOUT_COMMENT', renderNonceLayoutComment()],
     // The nonce offsets reach the output through these three blocks now, not as individual holes: the
     // set of addresses is itself derived, so the template cannot carry one line per address.

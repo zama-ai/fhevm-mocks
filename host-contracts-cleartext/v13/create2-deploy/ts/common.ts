@@ -14,8 +14,10 @@
 //
 // Distinct from `utils.ts`, which is dependency-free and knows nothing about this deploy at all.
 
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import {
   appendJsonl,
@@ -77,6 +79,12 @@ export type Flow = {
    * from the manifest, and the admin keystore is not checked against `admin` (nothing is signed with it).
    */
   readonly readOnlyStages: readonly Stage[];
+  /**
+   * The roles of the live stack this flow changes, in the order the help and the banner list them: the previous
+   * generation's for an upgrade, this generation's (EXISTING_ROLES) for a hotfix, none for a deploy. Only these
+   * are accepted as flags, read from a previous manifest, and handed to the forge scripts.
+   */
+  readonly existingRoles: readonly string[];
 };
 
 export type Options = {
@@ -95,6 +103,8 @@ export type Options = {
   readonly confirmations: number;
   readonly minBlockOverride: number | null;
   readonly outDirArg: string | null;
+  /** `--fork <url>`: a simulation against that anvil fork, which is then the only send target; else null. */
+  readonly fork: string | null;
   readonly stage: Stage;
   readonly dryRun: boolean;
   readonly useFinality: boolean;
@@ -116,6 +126,8 @@ export type Options = {
   readonly existingSource: Readonly<Record<string, string>>;
   /** The previous generation's manifest, when one was given. Seeds `existing` at the lowest precedence. */
   readonly previousManifest: PreviousManifest | null;
+  /** `--deployment`: the stack folder whose latest event is the live stack, or null. See findLatestEvent. */
+  readonly deployment: LatestEvent | null;
   /** Path to the KMS migration seed, or null to reconstruct it from the live stack plus defaults. */
   readonly migrationPath: string | null;
   /** Directory containing the previous generation's ABIs for the before/after getter survey. */
@@ -149,13 +161,13 @@ export type ConfigFile = {
   readonly finality?: boolean;
   /** Positive form of --no-git: `false` means this deployment needs no committed seal. */
   readonly git?: boolean;
-  /** Upgrade only: the live stack's addresses. Nine flags is unreasonable to retype. */
+  /** Re-points only: the live stack's addresses. Too many flags to retype. */
   readonly existing?: ExistingAddresses;
   /** Upgrade only: path to the KMS migration seed. */
   readonly migration?: string;
   /** Upgrade only: previous generation ABI directory. */
   readonly previousAbiDir?: string;
-  /** Upgrade only: the previous generation's sealed manifest, seeding the nine addresses above. */
+  /** Re-points only: the live stack's sealed manifest, seeding the addresses above. */
   readonly previousManifest?: string;
   /** Upgrade only: handles whose cleartext values must survive. */
   readonly handles?: readonly string[];
@@ -172,6 +184,10 @@ export type CliArgs = {
   adminAccount: string | null;
   confirmations: number | null;
   outDirArg: string | null;
+  /** `--fork <url>`, as typed. */
+  forkUrl: string | null;
+  /** `--real <deploymentId>`: the operator names the real stack a sending run changes. */
+  realStack: string | null;
   useFinality: boolean | null;
   minBlockOverride: number | null;
   stage: Stage | null;
@@ -185,6 +201,8 @@ export type CliArgs = {
   migrationPath: string | null;
   previousAbiDir: string | null;
   previousManifestPath: string | null;
+  /** `--deployment <stack folder>`, as typed. */
+  deploymentDir: string | null;
   handles: string[];
 };
 
@@ -300,9 +318,24 @@ export type Manifest = {
   readonly admin?: string;
   /** Deploy only: the optional operator pauser, the zero address when none. */
   readonly pauser0?: string;
-  /** The tool's git commit at `compute` (stampToolCommit); null when the tool is not a git checkout. */
+  /** The tool's git commit at `compute` (stampSeal); null when the tool is not a git checkout. */
   readonly toolCommit?: string | null;
+  /** The package version the tool ran at, `0.<generation>.<patch>` (stampSeal). Absent in older seals. */
+  readonly packageVersion?: string;
+  /** The record this one starts from (stampSeal); absent in a deploy. See previousLink. */
+  readonly previous?: RecordLink;
   readonly address?: Record<string, string>;
+};
+
+/** A sealed manifest's link to the record it starts from: where it is, and the hash of its exact bytes. */
+export type RecordLink = {
+  /** Relative to this manifest's folder, as the record will be archived (see previousLink). */
+  readonly path: string;
+  readonly sha256: string;
+  readonly deploymentId: string;
+  readonly chainId: number;
+  readonly version: string;
+  readonly packageVersion?: string;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -325,8 +358,11 @@ export const PACKAGE_ROOT = dirname(DRAFT_DIR);
 /** Relative on purpose: forge resolves script paths against the project root it runs in. */
 export const SCRIPT_DIR = 'create2-deploy/script';
 
-/** Baked into every salt. MAJOR_MINOR only — a patch release must not move the addresses. */
-export const FHEVM_VERSION = '0.13';
+/**
+ * Baked into every salt: `0.<generation>`, MAJOR_MINOR only — a patch release must not move the addresses. Read
+ * from the package's own version (`pkg/package.json`, written by `fhevm-npm version apply`), never typed here.
+ */
+export const FHEVM_VERSION = majorMinorOf(packageVersion());
 export const CONFIG_PREFIX = `fhevm-config-${FHEVM_VERSION}.0/`;
 
 export const FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
@@ -437,6 +473,9 @@ export function loadAllowedChains(): readonly AllowedChain[] {
 /** Where the default `.out` dir lives, when neither --out-dir nor a config file names one. */
 export const FS_ROOT = DRAFT_DIR;
 
+/** Where deployment records are archived: `deployments/` at the repository root (`host-contracts-cleartext/v<N>/../..`). */
+export const RECORDS_DIR = resolve(PACKAGE_ROOT, '..', '..', 'deployments');
+
 ////////////////////////////////////////////////////////////////////////////////
 
 export const CONFIG_KEYS: readonly string[] = [
@@ -483,6 +522,9 @@ export const HOST_ROLES: readonly string[] = [
   'PAUSER_SET_ADDRESS',
 ];
 
+/** The stack's UUPS proxies: every host role but the PauserSet, which is not upgradeable. */
+export const PROXY_ROLES: readonly string[] = HOST_ROLES.filter((role) => role !== 'PAUSER_SET_ADDRESS');
+
 /** Widest role name is IMPL_CLEARTEXT_ARITHMETIC_ADDRESS, at 34. */
 export const ROLE_WIDTH = 34;
 
@@ -503,9 +545,9 @@ export const ANVIL_DEPLOYER_INDEX = 0;
 export const ANVIL_ADMIN_INDEX = 1;
 
 /**
- * The nine addresses of a stack that ALREADY EXISTS, supplied by the operator.
+ * The addresses of a stack that ALREADY EXISTS, supplied by the operator.
  *
- * Only the upgrade uses this; a deploy derives every address it needs. Keyed by the role names the
+ * Only a re-point (an upgrade or a hotfix) uses this; a deploy derives every address it needs. Keyed by the role names the
  * manifest and the generated `addresses.sol` use, so a value read here can be written straight out
  * without a second naming convention to keep in step.
  *
@@ -532,30 +574,22 @@ export type PreviousManifest = {
   readonly deploymentId: string;
   readonly deployer: string | null;
   readonly admin: string | null;
-  /** Only the EXISTING_ROLES keys. A deploy manifest also names roles an upgrade must not be given. */
+  /** Only the flow's existingRoles. A deploy manifest also names roles a re-point must not be given. */
   readonly address: ExistingAddresses;
 };
 
-/** The role names an upgrade must be given, in the order the help and the banner list them. */
-export const EXISTING_ROLES: readonly string[] = [
-  'ACL_ADDRESS',
-  'FHEVM_EXECUTOR_ADDRESS',
-  'KMS_VERIFIER_ADDRESS',
-  'INPUT_VERIFIER_ADDRESS',
-  'HCU_LIMIT_ADDRESS',
-  'CLEARTEXT_ARITHMETIC_ADDRESS',
-  'CLEARTEXT_DB_ADDRESS',
-  'PAUSER_SET_ADDRESS',
-  'ACL_OWNER',
-];
+/** This generation's live stack: every host role, then the ACLOwner. What a hotfix must be given. */
+export const EXISTING_ROLES: readonly string[] = [...HOST_ROLES, 'ACL_OWNER'];
 
-/** `--acl` -> `ACL_ADDRESS`. The CLI spelling of each role above. */
+/** `--acl` -> `ACL_ADDRESS`. The CLI spelling of each role above; a flow accepts those of its existingRoles. */
 export const EXISTING_FLAGS: Readonly<Record<string, string>> = {
   '--acl': 'ACL_ADDRESS',
   '--fhevm-executor': 'FHEVM_EXECUTOR_ADDRESS',
   '--kms-verifier': 'KMS_VERIFIER_ADDRESS',
   '--input-verifier': 'INPUT_VERIFIER_ADDRESS',
   '--hcu-limit': 'HCU_LIMIT_ADDRESS',
+  '--protocol-config': 'PROTOCOL_CONFIG_ADDRESS',
+  '--kms-generation': 'KMS_GENERATION_ADDRESS',
   '--cleartext-arithmetic': 'CLEARTEXT_ARITHMETIC_ADDRESS',
   '--cleartext-db': 'CLEARTEXT_DB_ADDRESS',
   '--pauser-set': 'PAUSER_SET_ADDRESS',
@@ -571,14 +605,14 @@ export function existingFlagFor(role: string): string {
  * Read a previous generation's manifest, and refuse one that is not this deployment's.
  *
  * A manifest from a different stack names addresses that are all real and all wrong, and they get baked
- * into the new implementations' creation code — the one failure mode this flag adds over typing the nine
+ * into the new implementations' creation code — the one failure mode this flag adds over typing the
  * flags. It is also the one a manifest can answer about itself, so deploymentId is checked here, before
  * anything touches a node. The chain half is checkPreviousManifest, which needs one.
  *
  * Missing roles are NOT an error: the config file and the flags layer over this, and validateExisting is
- * what decides whether the nine ended up complete.
+ * what decides whether the roles ended up complete.
  */
-export function loadPreviousManifest(path: string, deploymentId: string): PreviousManifest {
+export function loadPreviousManifest(path: string, deploymentId: string, roles: readonly string[]): PreviousManifest {
   if (!existsSync(path)) fail(`Error: no manifest at ${path} (--previous-manifest).`);
   const raw = readJson<Manifest>(path);
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -589,7 +623,7 @@ export function loadPreviousManifest(path: string, deploymentId: string): Previo
     fail(
       `Error: ${path} is missing chainId or deploymentId.`,
       '       Both are what make a manifest checkable rather than merely readable, so a file without',
-      '       them is not accepted as one. Pass the nine addresses as flags instead.',
+      '       them is not accepted as one. Pass the addresses as flags instead.',
     );
   }
 
@@ -599,13 +633,13 @@ export function loadPreviousManifest(path: string, deploymentId: string): Previo
       `         manifest deploymentId  ${raw.deploymentId}`,
       `         --deployment-id        ${deploymentId}`,
       '',
-      '       A manifest from a different stack names nine live addresses that are all real and all',
+      '       A manifest from a different stack names live addresses that are all real and all',
       '       wrong. Point at the deploy that produced the stack you are upgrading.',
     );
   }
 
   const address: Record<string, string> = {};
-  for (const role of EXISTING_ROLES) {
+  for (const role of roles) {
     const value = raw.address?.[role];
     if (value === undefined || value === '') continue;
     if (!/^0x[0-9a-fA-F]{40}$/.test(value)) {
@@ -632,7 +666,10 @@ export function loadPreviousManifest(path: string, deploymentId: string): Previo
  * can mint the `anvil` variant, and it refuses unless the node answers `anvil_nodeInfo`.
  */
 export type Signer =
-  { readonly kind: 'keystore'; readonly account: string } | { readonly kind: 'anvil'; readonly index: number };
+  | { readonly kind: 'keystore'; readonly account: string }
+  | { readonly kind: 'anvil'; readonly index: number }
+  /** `--fork` without keys: the address itself, impersonated on the fork (forge `--unlocked`). */
+  | { readonly kind: 'impersonated'; readonly address: string };
 
 /**
  * Flags for `forge script`. Note the PLURAL names: forge takes `--mnemonics` / `--mnemonic-indexes`,
@@ -640,6 +677,7 @@ export type Signer =
  * and passing the wrong pair fails with an unhelpful clap error.
  */
 export function forgeSignerArgs(signer: Signer): string[] {
+  if (signer.kind === 'impersonated') return ['--unlocked'];
   return signer.kind === 'keystore'
     ? ['--account', signer.account]
     : ['--mnemonics', ANVIL_MNEMONIC, '--mnemonic-indexes', String(signer.index)];
@@ -647,16 +685,19 @@ export function forgeSignerArgs(signer: Signer): string[] {
 
 /** Flags for `cast wallet address` — the singular spellings. */
 export function castSignerArgs(signer: Signer): string[] {
+  if (signer.kind === 'impersonated') fail('Error: internal: an impersonated signer has no key to ask cast about.');
   return signer.kind === 'keystore'
     ? ['--account', signer.account]
     : ['--mnemonic', ANVIL_MNEMONIC, '--mnemonic-index', String(signer.index)];
 }
 
 export function signerAddress(signer: Signer): string {
+  if (signer.kind === 'impersonated') return signer.address;
   return captureOrFail('cast', ['wallet', 'address', ...castSignerArgs(signer)]);
 }
 
 export function describeSigner(signer: Signer): string {
+  if (signer.kind === 'impersonated') return `${signer.address}, impersonated on the fork`;
   return signer.kind === 'keystore' ? `keystore '${signer.account}'` : `anvil account ${String(signer.index)}`;
 }
 
@@ -712,6 +753,9 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     migrationPath: null,
     previousAbiDir: null,
     previousManifestPath: null,
+    deploymentDir: null,
+    forkUrl: null,
+    realStack: null,
     handles: [],
   };
 
@@ -804,6 +848,18 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
         cli.previousManifestPath = need(i, a);
         i += 1;
         break;
+      case '--deployment':
+        cli.deploymentDir = need(i, a);
+        i += 1;
+        break;
+      case '--fork':
+        cli.forkUrl = need(i, a);
+        i += 1;
+        break;
+      case '--real':
+        cli.realStack = need(i, a);
+        i += 1;
+        break;
       case '--handle':
         // Repeatable rather than comma-separated: a handle is 66 characters and a missed comma would
         // produce one unusable value instead of an error.
@@ -819,9 +875,9 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
       // The directive has to be the line immediately before `default`, or it applies to a comment.
       // eslint-disable-next-line no-fallthrough
       default: {
-        // The nine `existing` address flags, from one table rather than nine cases.
+        // The flow's `existing` address flags, from one table rather than a case each.
         const role = EXISTING_FLAGS[a];
-        if (role !== undefined) {
+        if (role !== undefined && flow.existingRoles.includes(role)) {
           cli.existing[role] = need(i, a);
           i += 1;
           break;
@@ -907,11 +963,62 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     fail(`Error: unknown --stage '${stage}'.`, `       one of: ${flow.stages.join(', ')}`);
   }
 
-  const rpcUrl = cli.rpcUrl ?? cfg.rpcUrl ?? '';
-  const account = cli.account ?? cfg.account ?? '';
-  let admin = cli.admin ?? cfg.admin ?? '';
-  const deploymentId = cli.deploymentId ?? cfg.deploymentId ?? '';
-  const adminAccount = cli.adminAccount ?? cfg.adminAccount ?? null;
+  // --deployment: the stack folder's latest event is the live stack. Its config is the LOWEST layer (below the
+  // config file and the flags, so a fork's --rpc-url wins), and its sealed manifest is the previous one.
+  let deployment: LatestEvent | null = null;
+  if (cli.deploymentDir !== null) {
+    if (flow.name === 'deploy') {
+      fail('Error: --deployment names a deployed stack, and a deploy creates a new one. Use --deployment-id.');
+    }
+    if (cli.previousManifestPath !== null || cfg.previousManifest !== undefined) {
+      fail(
+        'Error: --deployment and a previous manifest are two answers to one question.',
+        "       --deployment takes the stack folder's latest event as the previous manifest; drop",
+        '       --previous-manifest (or "previousManifest" in the config file).',
+      );
+    }
+    const found = findLatestEvent(resolve(cli.deploymentDir));
+    if (typeof found === 'string') fail(`Error: --deployment ${cli.deploymentDir}: ${found}`);
+    deployment = found;
+  }
+  const stack: ConfigFile = deployment?.config ?? {};
+
+  // --fork: a simulation. The fork is the ONLY send target, so it must be an anvil (a real node never is),
+  // and a config's or a record's accounts are ignored: without --account / --admin-account it runs keyless,
+  // creates from anvil's test account 0 and the admin impersonated on the fork.
+  const fork = cli.forkUrl;
+  if (fork !== null) {
+    if (flow.name === 'deploy') {
+      fail('Error: --fork simulates a re-point of a deployed stack (upgrade, hotfix), not a deploy.');
+    }
+    if (cli.rpcUrl !== null) fail('Error: --fork is the send target of a simulation; drop --rpc-url.');
+    if (!isAnvil(fork)) {
+      fail(
+        `Error: --fork ${fork} did not answer anvil_nodeInfo: it is not an anvil fork.`,
+        '       A simulation must never reach a real chain. Start one: anvil --fork-url <rpc> --port <port>',
+      );
+    }
+  }
+  const rpcUrl = fork ?? cli.rpcUrl ?? cfg.rpcUrl ?? stack.rpcUrl ?? '';
+  const account = fork !== null ? (cli.account ?? '') : (cli.account ?? cfg.account ?? stack.account ?? '');
+  let admin = cli.admin ?? cfg.admin ?? stack.admin ?? '';
+  const deploymentId = cli.deploymentId ?? cfg.deploymentId ?? deployment?.stack ?? '';
+  const adminAccount =
+    fork !== null ? (cli.adminAccount ?? null) : (cli.adminAccount ?? cfg.adminAccount ?? stack.adminAccount ?? null);
+  if (deployment !== null) {
+    // The stack folder IS the deploymentId, and its latest event sealed the admin: anything else typed is
+    // another stack, or a typo that would upgrade the right stack under the wrong identity.
+    if (deploymentId !== deployment.stack) {
+      fail(`Error: --deployment-id ${deploymentId} is not the stack ${deployment.stack} that --deployment names.`);
+    }
+    const sealedAdmin = deployment.admin;
+    if (admin !== '' && sealedAdmin !== null && admin.toLowerCase() !== sealedAdmin.toLowerCase()) {
+      fail(
+        `Error: --admin ${admin} is not the admin ${sealedAdmin} the latest event of ${deployment.stack} sealed.`,
+        '       An upgrade never changes the admin; a different one means a different stack.',
+      );
+    }
+  }
 
   const missing = (flag: string, key: string): string =>
     configPath === null
@@ -957,14 +1064,43 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   // Step F is sent by the admin. With a keystore that is --admin-account; on anvil it is simply the
   // next account, so the rehearsal completes unattended instead of stopping to poll for a transaction
   // no one is going to send.
+  if (fork !== null && adminAccount === null && admin === '' && flow.needsChain(stage)) {
+    fail(
+      'Error: a keyless --fork simulation impersonates the admin, so it needs its address: --deployment or --admin.',
+    );
+  }
   const adminSigner: Signer | null =
     adminAccount !== null
       ? { kind: 'keystore', account: adminAccount }
-      : signer?.kind === 'anvil'
-        ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
-        : null;
+      : fork !== null && admin !== ''
+        ? { kind: 'impersonated', address: admin }
+        : signer?.kind === 'anvil'
+          ? { kind: 'anvil', index: ANVIL_ADMIN_INDEX }
+          : null;
 
   if (deploymentId === '') fail(missing('--deployment-id', 'deploymentId'));
+
+  // A re-point that sends to a real chain changes a real stack, and must say which, by name: reusing a record's
+  // config (its real RPC, its keystores) with a forgotten --fork or --rpc-url must stop here, not upgrade it.
+  // `--real <deploymentId>` is that statement. A deploy creates a new stack, and is not concerned.
+  if (flow.name !== 'deploy' && fork === null) {
+    const sends = !cli.dryRun && (stage === 'all' || stage === 'creates' || flow.adminSendingStages.includes(stage));
+    if (sends || cli.realStack !== null) {
+      const anvil = isAnvil(rpcUrl);
+      if (cli.realStack !== null && anvil) {
+        fail(`Error: --real names a run on a real chain, but ${rpcUrl} is an anvil. Drop --real.`);
+      }
+      if (sends && !anvil && cli.realStack !== deploymentId) {
+        fail(
+          `Error: this run sends transactions to ${rpcUrl}, which is not an anvil: it changes the REAL stack '${deploymentId}'.`,
+          '',
+          '       To simulate it first:  --fork <anvil fork url>   (anvil --fork-url <rpc> --port 8556)',
+          `       To do it for real:     --real ${deploymentId}`,
+          ...(cli.realStack === null ? [] : ['', `       (--real ${cli.realStack} does not name this stack.)`]),
+        );
+      }
+    }
+  }
 
   // A path typed on the command line is relative to the caller's directory; a path written in a config
   // file is relative to that FILE's directory, so an operator folder works wherever it is and whatever
@@ -974,12 +1110,13 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     fromCli !== null ? resolve(fromCli) : fromConfig !== undefined ? resolve(configDir, fromConfig) : null;
 
   // The live stack, lowest layer first: a previous manifest, then the config file, then the flags.
-  // A flag someone typed must never lose to a file, and the manifest is a convenience over typing nine
+  // A flag someone typed must never lose to a file, and the manifest is a convenience over typing all
   // of them — so it sits at the bottom. existingSource records which layer won each role, because a
   // sealed address is only auditable if the seal says where it came from.
-  const previousManifestPath = pathOption(cli.previousManifestPath, cfg.previousManifest);
+  const previousManifestPath =
+    deployment !== null ? deployment.manifestPath : pathOption(cli.previousManifestPath, cfg.previousManifest);
   const previousManifest =
-    previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId);
+    previousManifestPath === null ? null : loadPreviousManifest(previousManifestPath, deploymentId, flow.existingRoles);
 
   const existing: Record<string, string> = {};
   const existingSource: Record<string, string> = {};
@@ -1003,7 +1140,21 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
   // deployer, so it never unlocks the admin keystore; before anything is sealed it falls back to the
   // signer. Only for stages that reach the chain: `log` and `report` read local files and never use the
   // admin, so they must not unlock a keystore just to compute it.
-  const outDirArg = pathOption(cli.outDirArg, cfg.outDir);
+  // A simulation's records go to a fresh temporary folder unless one is named: they are not evidence of anything.
+  const outDirArg =
+    pathOption(cli.outDirArg, cfg.outDir) ??
+    (fork === null ? null : join(mkdtempSync(join(tmpdir(), `fhevm-${flow.name}-fork-`)), 'record'));
+  if (
+    deployment !== null &&
+    outDirArg !== null &&
+    isInside(canonicalPath(outDirArg), canonicalPath(deployment.stackDir))
+  ) {
+    fail(
+      `Error: the out dir ${outDirArg} is inside the stack folder ${deployment.stackDir}.`,
+      '       A record never changes once archived. Work in a folder of your own, outside deployments/,',
+      '       and copy it next to the earlier events once the event is final.',
+    );
+  }
   let adminDerived = false;
   if (admin === '' && flow.readOnlyStages.includes(stage)) {
     admin = readJson<Manifest>(join(resolveOutDir(outDirArg), 'manifest.json'))?.admin ?? '';
@@ -1034,14 +1185,15 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     deploymentId,
     adminAccount,
     pauser: cli.pauser ?? cfg.pauser ?? null,
-    confirmations: cli.confirmations ?? cfg.confirmations ?? 3,
+    confirmations: fork !== null ? (cli.confirmations ?? 0) : (cli.confirmations ?? cfg.confirmations ?? 3),
     minBlockOverride: cli.minBlockOverride,
     outDirArg,
+    fork,
     stage,
     dryRun: cli.dryRun,
-    useFinality: cli.useFinality ?? cfg.finality ?? true,
+    useFinality: fork !== null ? (cli.useFinality ?? false) : (cli.useFinality ?? cfg.finality ?? true),
     noConfirm: cli.noConfirm,
-    requireGitSeal: cli.requireGitSeal ?? cfg.git ?? true,
+    requireGitSeal: fork !== null ? false : (cli.requireGitSeal ?? cfg.git ?? true),
     noBuild: cli.noBuild,
     verbose: cli.verbose,
     configPath,
@@ -1050,6 +1202,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     existing,
     existingSource,
     previousManifest,
+    deployment,
     migrationPath: pathOption(cli.migrationPath, cfg.migration),
     previousAbiDir: pathOption(cli.previousAbiDir, cfg.previousAbiDir),
     handles: cli.handles.length > 0 ? cli.handles : (cfg.handles ?? []),
@@ -1066,9 +1219,22 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
  * Forge writes there through a generated config (prepareForgeConfig), not through foundry.toml. The one
  * thing refused is an out dir that CONTAINS the package: forge would be granted write access to the
  * whole source tree, and `compute` clears paths inside the out dir.
+ *
+ * The path is made CANONICAL, symlinks resolved, before anything uses it. Forge resolves the real path of
+ * every file a script touches and compares it with `fs_permissions` as written, so an out dir reached
+ * through a symlink (macOS's `/tmp`, which is `/private/tmp`) was granted under one name and refused under
+ * the other: "vm.writeFile: the path … is not allowed".
  */
 export function resolveOutDir(outDirArg: string | null): string {
-  const outDir = outDirArg ?? join(FS_ROOT, '.out');
+  const outDir = canonicalPath(outDirArg ?? join(FS_ROOT, '.out'));
+  const records = canonicalPath(RECORDS_DIR);
+  if (isInside(outDir, records)) {
+    fail(
+      `Error: the out dir ${outDir} is inside ${records}, where deployment records are archived.`,
+      '       A record never changes once it lands, and a tool run inside one writes scratch into it and',
+      '       clears paths there. Run from a folder of your own; to re-verify a record, copy it first.',
+    );
+  }
   if (isInside(PACKAGE_ROOT, outDir)) {
     fail(
       `Error: the out dir ${outDir} contains the package at ${PACKAGE_ROOT}.`,
@@ -1076,6 +1242,22 @@ export function resolveOutDir(outDirArg: string | null): string {
     );
   }
   return outDir;
+}
+
+/**
+ * `path` with its symlinks resolved, whether or not it exists yet: the deepest existing ancestor goes
+ * through `realpathSync`, and the components below it, not created yet, are appended unchanged.
+ */
+export function canonicalPath(path: string): string {
+  const missing: string[] = [];
+  let existing = resolve(path);
+  while (!existsSync(existing)) {
+    const parent = dirname(existing);
+    if (parent === existing) return resolve(path);
+    missing.unshift(basename(existing));
+    existing = parent;
+  }
+  return join(realpathSync(existing), ...missing);
 }
 
 /**
@@ -1091,13 +1273,15 @@ export function resolveOutDir(outDirArg: string | null): string {
  *
  * Every path in it is written ABSOLUTE, resolved against the package root. Forge resolves the relative
  * paths of a `--config-path` file against that file's directory, not against `--root` — so a relative
- * `libs` or remapping would point into the out dir, and solc would find nothing. Absolute paths are what
+ * `libs` or remapping would point into the out dir, and solc would find nothing, and a relative `skip`
+ * glob would match nothing, so a source the repository skips would be compiled after all. Absolute paths are what
  * forge computes internally from the original file anyway.
  *
  * The generated file must change NOTHING else, because every CREATE2 address is a hash of the compiled
  * bytecode. So it is not trusted: both configs are resolved again, every path made absolute the same
- * way, and compared — everything but the two permission fields and the cache location, none of which
- * reaches the bytecode. Any difference stops the run before a single build.
+ * way, and compared — everything but the two permission fields, the cache location and remapping
+ * auto-detection (off, the dumped remappings being already resolved), none of which reaches the bytecode
+ * except through `remappings`, which is compared. Any difference stops the run before a single build.
  */
 export function prepareForgeConfig(ctx: Ctx): void {
   const dir = join(ctx.outDir, '.foundry');
@@ -1116,13 +1300,17 @@ export function prepareForgeConfig(ctx: Ctx): void {
     new RegExp(`^(${FORGE_PATH_KEYS.join('|')}) = "(.*)"$`, 'gm'),
     (_m, key: string, value: string) => `${key} = ${JSON.stringify(absolutePath(value))}`,
   );
-  profile = profile.replace(/^(libs|remappings) = \[([\s\S]*?)\]$/gm, (_m, key: string, body: string) => {
+  profile = profile.replace(/^(libs|remappings|skip) = \[([\s\S]*?)\]$/gm, (_m, key: string, body: string) => {
     const entries = [...body.matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? '');
-    const absolute = entries.map((entry) => (key === 'libs' ? absolutePath(entry) : absoluteRemapping(entry)));
+    const absolute = entries.map((entry) => (key === 'remappings' ? absoluteRemapping(entry) : absolutePath(entry)));
     return `${key} = [${absolute.map((entry) => JSON.stringify(entry)).join(', ')}]`;
   });
 
   profile = profile.replace(/^cache_path = .*$/m, `cache_path = ${JSON.stringify(cachePath)}`);
+  // The dumped remappings are already the resolved set. Detecting again from the moved config walks the
+  // symlinked node_modules anew and, on some filesystems, finds an extra `@fhevm/=` remapping.
+  if (!/^auto_detect_remappings = /m.test(profile)) fail('Error: `forge config` printed no auto_detect_remappings.');
+  profile = profile.replace(/^auto_detect_remappings = .*$/m, 'auto_detect_remappings = false');
 
   const allowPaths = /^allow_paths = \[(.*)\]$/m;
   const inner = allowPaths.exec(profile)?.[1];
@@ -1149,7 +1337,7 @@ export function prepareForgeConfig(ctx: Ctx): void {
   if (differing.length > 0) {
     fail(
       `Error: the generated forge config ${path} changes more than the out dir permission:`,
-      ...differing.map((key) => `         ${key}`),
+      ...differing.flatMap((key) => describeForgeDifference(key, want[key], got[key])),
       '       Every address depends on the compiled bytecode, so nothing else may differ.',
     );
   }
@@ -1161,8 +1349,32 @@ export function prepareForgeConfig(ctx: Ctx): void {
   ctx.forgeArgs = ['--root', PACKAGE_ROOT, '--config-path', path];
 }
 
+/** One differing key, both resolved values in full, and for lists what is missing, added or reordered. */
+function describeForgeDifference(key: string, want: unknown, got: unknown): string[] {
+  const lines = [`         ${key}`];
+  if (Array.isArray(want) && Array.isArray(got)) {
+    const wantItems = want.map(stableJson);
+    const gotItems = got.map(stableJson);
+    const missing = wantItems.filter((item) => !gotItems.includes(item));
+    const added = gotItems.filter((item) => !wantItems.includes(item));
+    lines.push(...missing.map((item) => `           - missing: ${item}`));
+    lines.push(...added.map((item) => `           + added:   ${item}`));
+    if (missing.length === 0 && added.length === 0) lines.push('           same entries, different order');
+    lines.push('           repository config:', ...wantItems.map((item, i) => `             [${String(i)}] ${item}`));
+    lines.push('           generated config:', ...gotItems.map((item, i) => `             [${String(i)}] ${item}`));
+  } else {
+    lines.push(`           repository config: ${stableJson(want)}`, `           generated config:  ${stableJson(got)}`);
+  }
+  return lines;
+}
+
 /** The keys the generated forge config sets on purpose; none of them reaches the bytecode. */
-const GENERATED_FORGE_KEYS: ReadonlySet<string> = new Set(['fs_permissions', 'allow_paths', 'cache_path']);
+const GENERATED_FORGE_KEYS: ReadonlySet<string> = new Set([
+  'fs_permissions',
+  'allow_paths',
+  'cache_path',
+  'auto_detect_remappings',
+]);
 
 /** The single-path keys of a forge profile. `libs` and `remappings` are handled as lists. */
 const FORGE_PATH_KEYS: readonly string[] = [
@@ -1198,6 +1410,8 @@ function normalizeForgePaths(config: Record<string, unknown>): Record<string, un
     if (typeof value === 'string') out[key] = absolutePath(value);
   }
   if (Array.isArray(out.libs)) out.libs = out.libs.map((v: unknown) => (typeof v === 'string' ? absolutePath(v) : v));
+  // `skip` holds globs, relative like the rest; a relative one would match nothing once the config moves.
+  if (Array.isArray(out.skip)) out.skip = out.skip.map((v: unknown) => (typeof v === 'string' ? absolutePath(v) : v));
   if (Array.isArray(out.remappings)) {
     out.remappings = out.remappings.map((v: unknown) => (typeof v === 'string' ? absoluteRemapping(v) : v));
   }
@@ -1324,17 +1538,275 @@ export function toolCommit(): string | null {
   return r.ok && /^[0-9a-f]{40}$/.test(r.stdout) ? r.stdout : null;
 }
 
+/** This package's version, `pkg/package.json#version`: `0.<generation>.<patch>`. */
+export function packageVersion(): string {
+  const pkg = readJson<{ readonly version?: unknown }>(join(PACKAGE_ROOT, 'pkg', 'package.json'));
+  if (typeof pkg?.version !== 'string') fail(`Error: ${join(PACKAGE_ROOT, 'pkg', 'package.json')} has no version.`);
+  return pkg.version;
+}
+
+/** `0.14.2` -> `0.14`. */
+export function majorMinorOf(version: string): string {
+  const parts = /^(\d+\.\d+)\.\d+$/.exec(version);
+  if (parts?.[1] === undefined) fail(`Error: the package version '${version}' is not MAJOR.MINOR.PATCH.`);
+  return parts[1];
+}
+
+/** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`: an event folder of `deployments/<chain>/<stack>/`. */
+const EVENT_FOLDER = /^\d{2}-(?:deploy|upgrade|hotfix)-v(\d+)\.(\d+)-\d{4}-\d{2}-\d{2}$/;
+
+/** `<seq>-<kind>-v<N>.<p>-<YYYY-MM-DD>`, with its sequence and kind. */
+const EVENT_FOLDER_PARTS = /^(\d{2})-(deploy|upgrade|hotfix)-v\d+\.\d+-\d{4}-\d{2}-\d{2}$/;
+
+/** The latest event of a stack folder: the live stack, as `--deployment` takes it. */
+export type LatestEvent = {
+  /** The stack folder, absolute. */
+  readonly stackDir: string;
+  /** Its name: the stack's deploymentId. */
+  readonly stack: string;
+  /** The latest event folder's name, e.g. `01-upgrade-v14.1-2026-11-02`. */
+  readonly event: string;
+  readonly eventDir: string;
+  /** What that event was run with: the values `--deployment` supplies (rpcUrl, account, adminAccount, admin). */
+  readonly config: ConfigFile;
+  /** The admin the event sealed, or null when its manifest has none. */
+  readonly admin: string | null;
+  /** Its sealed manifest: the previous manifest of the next event. */
+  readonly manifestPath: string;
+};
+
 /**
- * Record the tool's git commit in the seal, so a later run can tell when the checkout has moved.
- *
- * Every address is a hash of bytecode this checkout compiled; another commit can compile other
- * bytecode. `creates` would still catch the drift address by address, but only after a build, and
- * with a message about bytecode rather than about the `git pull` that caused it.
+ * A stack folder's latest event (the highest sequence), or why there is none to take. Refuses what
+ * `fhevm-npm check deployments` would refuse to archive, so the next event can only extend a sound history:
+ * a legacy flat record (relocate it first), a folder without its `00-deploy-…`, an event without its config
+ * or its sealed manifest.
  */
-export function stampToolCommit(ctx: Ctx): void {
+export function findLatestEvent(stackDir: string): LatestEvent | string {
+  if (!existsSync(stackDir) || !statSync(stackDir).isDirectory()) return 'not a folder';
+  if (existsSync(join(stackDir, 'deploy.config.json'))) {
+    return 'a legacy flat record (deploy.config.json at the top). Relocate it into 00-deploy-v<N>.<p>-<YYYY-MM-DD>/ first';
+  }
+  const events = readdirSync(stackDir)
+    .map((name) => ({ name, parts: EVENT_FOLDER_PARTS.exec(name) }))
+    .filter((entry) => entry.parts !== null && statSync(join(stackDir, entry.name)).isDirectory())
+    .map((entry) => ({ name: entry.name, seq: Number(entry.parts?.[1]), kind: entry.parts?.[2] ?? '' }))
+    .sort((a, b) => a.seq - b.seq);
+  if (events[0]?.seq !== 0 || events[0].kind !== 'deploy') {
+    return 'no 00-deploy-… event folder: a stack folder starts with its deploy';
+  }
+  const latest = events[events.length - 1] ?? events[0];
+  const eventDir = join(stackDir, latest.name);
+  const configPath = join(eventDir, `${latest.kind}.config.json`);
+  const config = existsSync(configPath) ? readJson<ConfigFile>(configPath) : null;
+  if (config === null || typeof config !== 'object') return `${latest.name} has no readable ${latest.kind}.config.json`;
+  if (typeof config.outDir !== 'string' || config.outDir === '') return `${latest.name}: its config names no outDir`;
+  const sealed = join(resolve(eventDir, config.outDir), 'manifest.json');
+  const manifest = existsSync(sealed) ? readJson<Manifest>(sealed) : null;
+  if (manifest === null) return `${latest.name} has no sealed manifest at ${sealed}`;
+  const picked: ConfigFile = {
+    ...(config.rpcUrl === undefined ? {} : { rpcUrl: config.rpcUrl }),
+    ...(config.account === undefined ? {} : { account: config.account }),
+    ...(config.adminAccount === undefined ? {} : { adminAccount: config.adminAccount }),
+    ...(config.admin === undefined ? {} : { admin: config.admin }),
+  };
+  return {
+    stackDir,
+    stack: basename(stackDir),
+    event: latest.name,
+    eventDir,
+    config: picked,
+    admin: typeof manifest.admin === 'string' ? manifest.admin : null,
+    manifestPath: sealed,
+  };
+}
+
+/**
+ * The operator's folder for this event: the config file's folder when there is one, else the out dir's parent.
+ * It is the folder that will be archived as the event folder, so the seal's `previous.path` is written relative
+ * to it (previousLink) and the event's config is written into it (writeEventConfig) — whatever folder the tool is
+ * run from.
+ */
+export function operatorDir(ctx: Ctx): string {
+  return ctx.opt.configPath === null ? dirname(ctx.outDir) : dirname(resolve(ctx.opt.configPath));
+}
+
+/**
+ * With `--deployment` and no config file, write the event's config into the operator's folder, next to its out
+ * dir: the record needs it to be archived (`<kind>.config.json`). The RPC written is the one the stack's latest
+ * event was run with, never this invocation's (a fork, or a URL holding a key); `previousManifest` is not
+ * written, since `--deployment` already answers it. Not written inside this package (the default out dir is
+ * there): that folder is never archived.
+ */
+export function writeEventConfig(ctx: Ctx): void {
+  const latest = ctx.opt.deployment;
+  if (latest === null || ctx.opt.configPath !== null) return;
+  const folder = operatorDir(ctx);
+  const path = join(folder, ctx.flow.defaultConfigName);
+  if (existsSync(path)) return;
+  if (isInside(folder, PACKAGE_ROOT)) {
+    warn(`not writing ${path}: the out dir is inside this package, which is never archived. Pass --out-dir.`);
+    return;
+  }
+  const outDir = relative(folder, ctx.outDir);
+  const config = {
+    deploymentId: ctx.opt.deploymentId,
+    admin: ctx.opt.admin,
+    ...(ctx.opt.account === '' ? {} : { account: ctx.opt.account }),
+    ...(ctx.opt.adminAccount === null ? {} : { adminAccount: ctx.opt.adminAccount }),
+    ...(latest.config.rpcUrl === undefined ? {} : { rpcUrl: latest.config.rpcUrl }),
+    outDir: outDir.split('\\').join('/'),
+  };
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+  say(`  wrote ${path} (the config this event's record is archived with)`);
+}
+
+/**
+ * The `previous` block of a seal: the record `previousManifestPath` is, by path and by the sha256 of its bytes.
+ *
+ * The path is written AS THE NEW RECORD WILL BE ARCHIVED: next to the previous one, in the same stack folder, with
+ * the out dir at the same place inside its event folder as it is inside the operator's folder (`configDir`). So
+ * when the previous manifest sits in an event folder (`<stack>/<event>/<…>/manifest.json`), the path is
+ * `../…/<event>/<…>/manifest.json` from the new manifest's folder, whatever folder the operator works in today.
+ * Otherwise (a test, a record not archived yet) it is the plain relative path from the out dir.
+ */
+export function previousLink(previousManifestPath: string, outDir: string, configDir: string | null): RecordLink {
+  const bytes = readFileSync(previousManifestPath);
+  const before = JSON.parse(bytes.toString('utf8')) as Manifest & { readonly version?: unknown };
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+
+  // The event folder holding the previous manifest, if any, and the manifest's place inside it.
+  let eventDir = dirname(resolve(previousManifestPath));
+  while (!EVENT_FOLDER.test(basename(eventDir)) && dirname(eventDir) !== eventDir) eventDir = dirname(eventDir);
+  const event = EVENT_FOLDER.exec(basename(eventDir));
+  const outInside = configDir === null ? null : relative(configDir, outDir);
+  let path = relative(outDir, resolve(previousManifestPath));
+  if (event !== null && outInside !== null && outInside !== '' && !outInside.startsWith('..')) {
+    const depth = outInside.split(/[\\/]/).length;
+    path = [
+      '..',
+      ...Array<string>(depth).fill('..'),
+      basename(eventDir),
+      relative(eventDir, resolve(previousManifestPath)),
+    ]
+      .join('/')
+      .split('\\')
+      .join('/');
+  }
+
+  const beforePackage =
+    typeof before.packageVersion === 'string'
+      ? before.packageVersion
+      : event === null
+        ? undefined
+        : `0.${event[1] ?? ''}.${event[2] ?? ''}`;
+  return {
+    path,
+    sha256,
+    deploymentId: before.deploymentId ?? '',
+    chainId: before.chainId ?? 0,
+    version: typeof before.version === 'string' ? before.version : '',
+    ...(beforePackage === undefined ? {} : { packageVersion: beforePackage }),
+  };
+}
+
+/**
+ * Stamp the seal at `compute`: the tool's git commit, the package version, and for an upgrade the record it
+ * starts from.
+ *
+ * The commit lets a later run tell when the checkout has moved: every address is a hash of bytecode this
+ * checkout compiled, and another commit can compile other bytecode. `creates` would still catch the drift
+ * address by address, but only after a build, and with a message about bytecode rather than about the
+ * `git pull` that caused it. The package version and `previous` make the record's place in the stack's
+ * history checkable (`fhevm-npm check deployments`).
+ */
+export function stampSeal(ctx: Ctx, previous: RecordLink | null): void {
   const manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
   if (manifest === null) return;
-  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, toolCommit: toolCommit() }, null, 2)}\n`);
+  const stamped = {
+    ...manifest,
+    toolCommit: toolCommit(),
+    packageVersion: packageVersion(),
+    ...(previous === null ? {} : { previous }),
+    // A fork simulation's seal says so, and `fhevm-npm check deployments` refuses to archive it.
+    ...(ctx.opt.fork === null ? {} : { simulation: { fork: ctx.opt.fork } }),
+  };
+  writeFileSync(manifestPath(ctx), `${JSON.stringify(stamped, null, 2)}\n`);
+}
+
+/** One of the transactions that date a record: its hash, its block, and that block's timestamp (seconds). */
+export type EventTx = { readonly hash: string; readonly block: number; readonly blockTimestamp: number };
+
+/** `record/event.json`: the transactions that date a record, read from the chain. */
+export type EventRecord = {
+  readonly kind: 'deploy' | 'upgrade' | 'hotfix' | 'aborted';
+  /** What dates the record: a deploy's last transaction, an upgrade's or hotfix's `ACLOwner.upgrade`, an attempt's first. */
+  readonly defining: EventTx;
+  readonly first: EventTx;
+  readonly last: EventTx;
+};
+
+/**
+ * The event record of a journal: its first and last mined transactions, and the defining one. Pure, so it is
+ * testable: `timestampOf` reads a block's timestamp. Returns the reason when it cannot be built.
+ */
+export function eventRecord(
+  kind: EventRecord['kind'],
+  entries: readonly JournalEntry[],
+  definingHash: string | null,
+  timestampOf: (block: number) => number | null,
+): EventRecord | string {
+  const mined = entries
+    .filter((entry): entry is JournalEntry & { hash: string; block: number } => {
+      return entry.status === 'ok' && typeof entry.hash === 'string' && typeof entry.block === 'number';
+    })
+    .map((entry, order) => ({ hash: entry.hash, block: entry.block, order }))
+    .sort((a, b) => (a.block === b.block ? a.order - b.order : a.block - b.block));
+  const first = mined[0];
+  const last = mined[mined.length - 1];
+  if (first === undefined || last === undefined) {
+    const seen = entries.map((entry) => `${entry.status}${entry.block === null ? ' (no block)' : ''}`);
+    const counts = [...new Set(seen)].map((label) => `${String(seen.filter((x) => x === label).length)} ${label}`);
+    return `the journal holds no mined transaction (${entries.length === 0 ? 'it is empty' : counts.join(', ')})`;
+  }
+  let defining = kind === 'deploy' ? last : kind === 'aborted' ? first : undefined;
+  if (defining === undefined) {
+    const wanted = definingHash?.toLowerCase();
+    defining = mined.find((tx) => tx.hash.toLowerCase() === wanted);
+    if (defining === undefined) {
+      return `the defining transaction ${definingHash ?? '(unknown)'} is not in the journal (sent from outside the tool?)`;
+    }
+  }
+  const dated = (tx: { hash: string; block: number }): EventTx | string => {
+    const seconds = timestampOf(tx.block);
+    return seconds === null
+      ? `the node did not return the timestamp of block ${String(tx.block)}`
+      : { hash: tx.hash, block: tx.block, blockTimestamp: seconds };
+  };
+  const [d, f, l] = [dated(defining), dated(first), dated(last)];
+  if (typeof d === 'string') return d;
+  if (typeof f === 'string') return f;
+  if (typeof l === 'string') return l;
+  return { kind, defining: d, first: f, last: l };
+}
+
+/**
+ * Write `record/event.json` from the journal and the chain, after the flow's last stage succeeded. When it
+ * cannot be built, says why and writes nothing: the record then lacks it, and `check deployments` refuses to
+ * archive it, rather than archiving a record dated by guesswork.
+ */
+export function writeEventRecord(ctx: Ctx, kind: EventRecord['kind'], definingHash: string | null): void {
+  const record = eventRecord(kind, readJournal(ctx), definingHash, (block) => blockTimestamp(ctx, block));
+  const path = join(ctx.outDir, 'event.json');
+  if (typeof record === 'string') {
+    warn(`not writing ${path}: ${record}.`, '       The record cannot be archived until it exists.');
+    return;
+  }
+  const marked = ctx.opt.fork === null ? record : { ...record, simulation: { fork: ctx.opt.fork } };
+  writeFileSync(path, `${JSON.stringify(marked, null, 2)}\n`);
+  const day = new Date(record.defining.blockTimestamp * 1000).toISOString().slice(0, 10);
+  say(
+    `  wrote ${path} (defining transaction ${record.defining.hash}, block ${String(record.defining.block)}, ${day} UTC)`,
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1570,6 +2042,26 @@ export function checkAdminAccount(ctx: Ctx): void {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * `--fork`: say loudly that this is a simulation, and make the fork able to send as an impersonated admin —
+ * told to impersonate it, and given ETH when it holds none (a multisig often holds none; on a fork it costs
+ * nothing). Nothing here can reach a real chain: resolveOptions accepted the fork only as an anvil.
+ */
+function prepareSimulation(ctx: Ctx): void {
+  const fork = ctx.opt.fork ?? '';
+  say(
+    `  SIMULATION (fork) on ${fork}: every transaction goes to that anvil, none to a real chain.`,
+    '  Its records are marked `simulation` and are never archived (fhevm-npm check deployments refuses them).',
+  );
+  const admin = ctx.opt.adminSigner;
+  if (admin?.kind !== 'impersonated') return;
+  captureOrFail('cast', ['rpc', 'anvil_impersonateAccount', admin.address, '--rpc-url', fork]);
+  if (/^0(\.0*)?$/.test(etherBalance(ctx, admin.address))) {
+    captureOrFail('cast', ['rpc', 'anvil_setBalance', admin.address, '0xDE0B6B3A7640000', '--rpc-url', fork]);
+  }
+  say(`  admin ${admin.address}: impersonated on the fork (no key needed)`);
+}
+
+/**
  * Hard gate. A different contract squatting 0x4e59… on some testnet is the one realistic way
  * a fatal mismatch actually fires, and it would produce addresses nothing was compiled for.
  */
@@ -1652,7 +2144,7 @@ function previousManifestLines(ctx: Ctx): string[] {
   return [
     `  previous         ${previous.path}`,
     `                   chain ${String(previous.chainId)}, id ${previous.deploymentId}, ` +
-      `${String(supplied)}/${String(EXISTING_ROLES.length)} roles, sealed by ${previous.deployer ?? '-'}`,
+      `${String(supplied)}/${String(ctx.flow.existingRoles.length)} roles, sealed by ${previous.deployer ?? '-'}`,
   ];
 }
 
@@ -1667,6 +2159,7 @@ function previousManifestLines(ctx: Ctx): string[] {
  */
 export function preflight(ctx: Ctx): void {
   banner('🍖 Preflight');
+  if (ctx.opt.fork !== null) prepareSimulation(ctx);
 
   prepareForgeConfig(ctx);
   ctx.chainId = captureOrFail('cast', ['chain-id', '--rpc-url', ctx.opt.rpcUrl]);
@@ -1818,6 +2311,91 @@ export function implementationAt(ctx: Ctx, proxy: string, block: number | null):
   ]);
   const word = /0x[0-9a-fA-F]{64}/.exec(r.stdout)?.[0];
   return !r.ok || word === undefined ? null : `0x${word.slice(-40)}`.toLowerCase();
+}
+
+/** `<Contract> v<major>.<minor>.<patch>`: what every host contract's `getVersion()` returns. */
+const CONTRACT_VERSION = /^(\S+) v(\d+)\.(\d+)\.(\d+)$/;
+
+/**
+ * Whether a live `getVersion()` reading is on the same line as `expected`: the same contract, the same
+ * `v<major>.<minor>`, any patch. A patch is what a hotfix may bump, and a stack deployed from an earlier patch of
+ * the line legitimately reports an older one; a different minor is another line of that contract. A reading that
+ * does not parse is never on any line.
+ */
+export function sameVersionLine(live: string | null, expected: string): boolean {
+  const got = live === null ? null : CONTRACT_VERSION.exec(live.trim());
+  const want = CONTRACT_VERSION.exec(expected);
+  if (got === null || want === null) return false;
+  return got[1] === want[1] && got[2] === want[2] && got[3] === want[3];
+}
+
+/** `KMSVerifier v0.3.0` -> `KMSVerifier v0.3.x`: a version line, for messages. */
+export function versionLine(version: string): string {
+  const m = CONTRACT_VERSION.exec(version);
+  return m === null ? version : `${m[1] ?? ''} v${m[2] ?? ''}.${m[3] ?? ''}.x`;
+}
+
+/**
+ * What a sealed record says each proxy runs once its event is complete, lower-cased, by role: the
+ * `IMPL_<role>` the event deployed or re-pointed it to, else — for a proxy an upgrade left alone — the
+ * implementation it found live (`preUpgrade.implementation`). A role the record says nothing about is absent.
+ */
+export function recordedImplementations(manifest: Readonly<Record<string, unknown>>): Readonly<Record<string, string>> {
+  const recorded: Record<string, string> = {};
+  const preUpgrade = manifest.preUpgrade;
+  const before =
+    preUpgrade !== null && typeof preUpgrade === 'object'
+      ? (preUpgrade as { readonly implementation?: Readonly<Record<string, unknown>> }).implementation
+      : undefined;
+  const address = (manifest.address ?? {}) as Readonly<Record<string, unknown>>;
+  for (const role of PROXY_ROLES) {
+    const implementation = address[`IMPL_${role}`] ?? before?.[role];
+    if (typeof implementation === 'string' && /^0x[0-9a-fA-F]{40}$/.test(implementation)) {
+      recorded[role] = implementation.toLowerCase();
+    }
+  }
+  return recorded;
+}
+
+/**
+ * Refuse a live stack that is not the one the previous record describes: every proxy must run exactly the
+ * implementation that record sealed. Implementation addresses are CREATE2 hashes of the exact creation code,
+ * so this proves the code, which no version string can. A mismatch means an event happened that the record
+ * does not show (a hotfix not archived, a hand-made re-point): the record to start from is the latest one.
+ */
+export function checkRecordedImplementations(ctx: Ctx): void {
+  const previous = ctx.opt.previousManifest;
+  if (previous === null) return;
+  const manifest = readJson<Record<string, unknown>>(previous.path);
+  const recorded = manifest === null ? {} : recordedImplementations(manifest);
+  if (Object.keys(recorded).length === 0) {
+    warn(`${previous.path} records no implementation: the live implementations cannot be checked against it.`);
+    return;
+  }
+  let drift = 0;
+  for (const role of PROXY_ROLES) {
+    const expected = recorded[role];
+    if (expected === undefined) {
+      say(`    skip ${pad(role, ROLE_WIDTH)} the record names no implementation for it`);
+      continue;
+    }
+    const live = implementationAt(ctx, ctx.opt.existing[role] ?? '', null);
+    if (live === expected) {
+      say(`    ok   ${pad(role, ROLE_WIDTH)} runs the recorded implementation ${expected}`);
+    } else {
+      say(`    FAIL ${pad(role, ROLE_WIDTH)} runs ${live ?? '(unreadable)'}, the record says ${expected}`);
+      drift += 1;
+    }
+  }
+  if (drift > 0) {
+    fail(
+      '',
+      `Error: the live stack is not the recorded one: ${String(drift)} proxy(ies) run another implementation than`,
+      `       ${previous.path} sealed.`,
+      "       An event happened that this record does not show. Start from the stack's LATEST record",
+      '       (--deployment <stack folder> takes it), and archive any event that is missing first.',
+    );
+  }
 }
 
 /**
@@ -2023,12 +2601,18 @@ export function requireNoPendingTxs(ctx: Ctx, who: string): void {
  * one append-only stream across stages, tagged with which stage sent what. A transaction forge recorded
  * without a receipt is looked up on chain before it is called `unmined`.
  */
+/**
+ * The script's file name, as forge files its broadcast records under it (`broadcast/<file>/<chainId>/`): the
+ * last path segment, never the folder (`upgrade/FhevmUpgradeCreates.s.sol:…` is filed under
+ * `FhevmUpgradeCreates.s.sol`). `?? target` is unreachable in practice — a target is always `File.sol:Contract`
+ * — but noUncheckedIndexedAccess types index access as possibly-undefined.
+ */
+function scriptFileOf(target: string): string {
+  return basename(target.split(':')[0] ?? target);
+}
+
 export function recordJournal(ctx: Ctx, target: string): void {
-  // `?? target` is unreachable in practice — a forge target is always `File.sol:Contract` — but
-  // noUncheckedIndexedAccess types index access as possibly-undefined. A target without a colon IS its
-  // own file name.
-  const file = target.split(':')[0] ?? target;
-  const fresh = ingestForgeRuns(ctx, file, ctx.stageLabel, false);
+  const fresh = ingestForgeRuns(ctx, scriptFileOf(target), ctx.stageLabel, false);
 
   // A reverted transaction is not fatal on this path — a failed create does not burn its address
   // — but it must never scroll past unnoticed. Counted from what was actually appended, so a
@@ -2674,7 +3258,7 @@ export async function broadcast(
   const startNonce = captureOrFail('cast', ['nonce', from, '--block', 'latest', '--rpc-url', ctx.opt.rpcUrl]);
   // Before forge can sign anything: if the run is killed the instant after it sends, this line is what
   // lets the next run find the transaction on chain (reconcileJournal).
-  recordStageStart(ctx, target.split(':')[0] ?? target, from, Number(startNonce));
+  recordStageStart(ctx, scriptFileOf(target), from, Number(startNonce));
   const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
