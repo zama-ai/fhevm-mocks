@@ -1279,8 +1279,9 @@ export function canonicalPath(path: string): string {
  *
  * The generated file must change NOTHING else, because every CREATE2 address is a hash of the compiled
  * bytecode. So it is not trusted: both configs are resolved again, every path made absolute the same
- * way, and compared — everything but the two permission fields and the cache location, none of which
- * reaches the bytecode. Any difference stops the run before a single build.
+ * way, and compared — everything but the two permission fields, the cache location and remapping
+ * auto-detection (off, the dumped remappings being already resolved), none of which reaches the bytecode
+ * except through `remappings`, which is compared. Any difference stops the run before a single build.
  */
 export function prepareForgeConfig(ctx: Ctx): void {
   const dir = join(ctx.outDir, '.foundry');
@@ -1306,6 +1307,10 @@ export function prepareForgeConfig(ctx: Ctx): void {
   });
 
   profile = profile.replace(/^cache_path = .*$/m, `cache_path = ${JSON.stringify(cachePath)}`);
+  // The dumped remappings are already the resolved set. Detecting again from the moved config walks the
+  // symlinked node_modules anew and, on some filesystems, finds an extra `@fhevm/=` remapping.
+  if (!/^auto_detect_remappings = /m.test(profile)) fail('Error: `forge config` printed no auto_detect_remappings.');
+  profile = profile.replace(/^auto_detect_remappings = .*$/m, 'auto_detect_remappings = false');
 
   const allowPaths = /^allow_paths = \[(.*)\]$/m;
   const inner = allowPaths.exec(profile)?.[1];
@@ -1364,7 +1369,12 @@ function describeForgeDifference(key: string, want: unknown, got: unknown): stri
 }
 
 /** The keys the generated forge config sets on purpose; none of them reaches the bytecode. */
-const GENERATED_FORGE_KEYS: ReadonlySet<string> = new Set(['fs_permissions', 'allow_paths', 'cache_path']);
+const GENERATED_FORGE_KEYS: ReadonlySet<string> = new Set([
+  'fs_permissions',
+  'allow_paths',
+  'cache_path',
+  'auto_detect_remappings',
+]);
 
 /** The single-path keys of a forge profile. `libs` and `remappings` are handled as lists. */
 const FORGE_PATH_KEYS: readonly string[] = [
