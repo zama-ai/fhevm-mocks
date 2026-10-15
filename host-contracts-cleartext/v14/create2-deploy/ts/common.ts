@@ -1332,7 +1332,7 @@ export function prepareForgeConfig(ctx: Ctx): void {
   if (differing.length > 0) {
     fail(
       `Error: the generated forge config ${path} changes more than the out dir permission:`,
-      ...differing.map((key) => `         ${key}`),
+      ...differing.flatMap((key) => describeForgeDifference(key, want[key], got[key])),
       '       Every address depends on the compiled bytecode, so nothing else may differ.',
     );
   }
@@ -1342,6 +1342,25 @@ export function prepareForgeConfig(ctx: Ctx): void {
     fail(`Error: the generated forge config ${path} does not move the cache to ${cachePath}.`);
 
   ctx.forgeArgs = ['--root', PACKAGE_ROOT, '--config-path', path];
+}
+
+/** One differing key, both resolved values in full, and for lists what is missing, added or reordered. */
+function describeForgeDifference(key: string, want: unknown, got: unknown): string[] {
+  const lines = [`         ${key}`];
+  if (Array.isArray(want) && Array.isArray(got)) {
+    const wantItems = want.map(stableJson);
+    const gotItems = got.map(stableJson);
+    const missing = wantItems.filter((item) => !gotItems.includes(item));
+    const added = gotItems.filter((item) => !wantItems.includes(item));
+    lines.push(...missing.map((item) => `           - missing: ${item}`));
+    lines.push(...added.map((item) => `           + added:   ${item}`));
+    if (missing.length === 0 && added.length === 0) lines.push('           same entries, different order');
+    lines.push('           repository config:', ...wantItems.map((item, i) => `             [${String(i)}] ${item}`));
+    lines.push('           generated config:', ...gotItems.map((item, i) => `             [${String(i)}] ${item}`));
+  } else {
+    lines.push(`           repository config: ${stableJson(want)}`, `           generated config:  ${stableJson(got)}`);
+  }
+  return lines;
 }
 
 /** The keys the generated forge config sets on purpose; none of them reaches the bytecode. */
