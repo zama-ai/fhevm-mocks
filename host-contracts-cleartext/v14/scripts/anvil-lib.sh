@@ -74,7 +74,8 @@ SIG_INIT="initializeFromEmptyProxy()"
 SIG_INIT_KMS_VERIFIER="initializeFromEmptyProxy(address,uint64)"
 SIG_INIT_INPUT_VERIFIER="initializeFromEmptyProxy(address,uint64,address[],uint256)"
 SIG_INIT_HCU_LIMIT="initializeFromEmptyProxy(uint48,uint48,uint48)"
-SIG_INIT_PROTOCOL_CONFIG="initializeFromEmptyProxy((address,address,string,string)[],(uint256,uint256,uint256,uint256))"
+# (KmsNodeParams[], KmsThresholds, string softwareVersion, PcrValues[])
+SIG_INIT_PROTOCOL_CONFIG="initializeFromEmptyProxy((address,address,string,string,int32,string,bytes,string)[],(uint256,uint256,uint256,uint256),string,(bytes,bytes,bytes)[])"
 SIG_INIT_CLEARTEXT_DB="initializeFromEmptyProxy(address)"
 SIG_UPGRADE="upgrade((address,address,bytes)[])"
 
@@ -344,7 +345,8 @@ read_bootstrap_array() {
 # and from LocalHostBootstrap.sol — the Solidity mirror of DEFAULT_BOOTSTRAP_CONFIG:
 #   GATEWAY_CHAIN_ID DECRYPTION_ADDRESS INPUT_VERIFICATION_ADDRESS COPROCESSOR_THRESHOLD KMS_NODE_COUNT
 #   HCU_CAP_PER_BLOCK MAX_HCU_DEPTH_PER_TX MAX_HCU_PER_TX
-#   COPROCESSOR_SIGNERS KMS_SIGNERS KMS_TX_SENDERS KMS_IPS KMS_URLS   (comma-joined lists)
+#   COPROCESSOR_SIGNERS KMS_SIGNERS KMS_TX_SENDERS KMS_IPS KMS_URLS KMS_MPC_IDENTITIES
+#   KMS_STORAGE_PREFIXES   (comma-joined lists)
 #
 # ANVIL_MNEMONIC in particular is a contract with start_anvil, which reads it.
 #
@@ -381,6 +383,8 @@ load_generated_addresses_and_bootstrap() {
     KMS_TX_SENDERS="$(read_bootstrap_array kmsTxSenders)"
     KMS_IPS="$(read_bootstrap_array kmsIpAddresses)"
     KMS_URLS="$(read_bootstrap_array kmsStorageUrls)"
+    KMS_MPC_IDENTITIES="$(read_bootstrap_array kmsMpcIdentities)"
+    KMS_STORAGE_PREFIXES="$(read_bootstrap_array kmsStoragePrefixes)"
 
     [ -n "$ACL_ADDRESS" ] && [ -n "$DEPLOYER_ADDRESS" ] && [ -n "$ANVIL_MNEMONIC" ] \
         && [ -n "$KMS_SIGNERS" ] && [ -n "$GATEWAY_CHAIN_ID" ] || {
@@ -515,19 +519,24 @@ build_initializer_calldata() {
         "$HCU_CAP_PER_BLOCK" "$MAX_HCU_DEPTH_PER_TX" "$MAX_HCU_PER_TX")"
     INIT_CLEARTEXT_DB="$(cast calldata "$SIG_INIT_CLEARTEXT_DB" "$CLEARTEXT_ARITHMETIC_ADDRESS")"
 
-    # KmsNode[] paired by index from the four parallel arrays, in the order LocalHostBootstrap pairs them.
-    # read_bootstrap_array returns strings unquoted, so the ip and url fields are requoted per element.
-    local nodes="" index tx_sender signer ip url
+    # KmsNodeParams[] paired by index from the parallel arrays, in the order LocalHostBootstrap pairs them.
+    # read_bootstrap_array returns strings unquoted, so the string fields are requoted per element. partyId
+    # is one-based (node i is party i + 1), and every node shares the one CA cert, as kmsPartyIds() and
+    # KMS_NODE_CA_CERT have it.
+    local nodes="" index tx_sender signer ip url identity prefix
     for index in $(seq 1 "$KMS_NODE_COUNT"); do
         tx_sender="$(printf '%s' "$KMS_TX_SENDERS" | cut -d, -f"$index")"
         signer="$(printf '%s' "$KMS_SIGNERS" | cut -d, -f"$index")"
         ip="$(printf '%s' "$KMS_IPS" | cut -d, -f"$index")"
         url="$(printf '%s' "$KMS_URLS" | cut -d, -f"$index")"
-        nodes="${nodes}${nodes:+,}($tx_sender,$signer,\"$ip\",\"$url\")"
+        identity="$(printf '%s' "$KMS_MPC_IDENTITIES" | cut -d, -f"$index")"
+        prefix="$(printf '%s' "$KMS_STORAGE_PREFIXES" | cut -d, -f"$index")"
+        nodes="${nodes}${nodes:+,}($tx_sender,$signer,\"$ip\",\"$url\",$index,\"$identity\",$CLEARTEXT_KMS_NODE_CA_CERT,\"$prefix\")"
     done
-    # DEFAULT_KMS_THRESHOLDS sets every threshold to the node count.
+    # DEFAULT_KMS_THRESHOLDS sets every threshold to the node count; a cleartext stack has no PCR values.
     local n="$KMS_NODE_COUNT"
-    INIT_PROTOCOL_CONFIG="$(cast calldata "$SIG_INIT_PROTOCOL_CONFIG" "[$nodes]" "($n,$n,$n,$n)")"
+    INIT_PROTOCOL_CONFIG="$(cast calldata "$SIG_INIT_PROTOCOL_CONFIG" \
+        "[$nodes]" "($n,$n,$n,$n)" "$CLEARTEXT_KMS_SOFTWARE_VERSION" "[]")"
 }
 
 # Materializes every proxy in ONE ACLOwner.upgrade, mirroring pkg/ts/deploy.ts and FhevmCleartextDeploy.sol.
