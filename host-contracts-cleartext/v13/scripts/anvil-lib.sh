@@ -225,7 +225,9 @@ send_tx() {
         echo "$output" >&2
         exit 1
     }
-    printf '%s' "$output" | grep -q '^status  *1' || {
+    # A here-string, not `printf | grep -q`: grep -q exits on the first match, and under pipefail the
+    # SIGPIPE that kills printf mid-receipt fails the pipeline, reporting a successful transaction as reverted.
+    grep -q '^status  *1' <<<"$output" || {
         echo "Error: $sig on $target reverted:" >&2
         echo "$output" >&2
         exit 1
@@ -243,7 +245,7 @@ deploy_contract() {
         echo "$output" >&2
         exit 1
     }
-    printf '%s' "$output" | grep -q '^status  *1' || {
+    grep -q '^status  *1' <<<"$output" || {
         echo "Error: deploying $what reverted:" >&2
         echo "$output" >&2
         exit 1
