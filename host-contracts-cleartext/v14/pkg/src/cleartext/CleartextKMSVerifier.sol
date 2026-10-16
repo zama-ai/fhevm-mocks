@@ -295,9 +295,9 @@ contract CleartextKMSVerifier is KMSVerifier {
     // Private helpers
     // ---------------------------------------------------------------------------------------------
 
-    /// @dev The public-decryption answer for `requestedExtraData`, with the signers and threshold of the
+    /// @dev The public-decryption answer for `extraData`, with the signers and threshold of the
     ///      KMS context it names.
-    function _publicDecrypt(bytes32[] memory handles, bytes memory requestedExtraData)
+    function _publicDecrypt(bytes32[] memory handles, bytes memory extraData)
         private
         view
         returns (
@@ -305,19 +305,19 @@ contract CleartextKMSVerifier is KMSVerifier {
             bytes32 digest,
             address[] memory signers,
             uint256 threshold,
-            bytes memory extraData
+            bytes memory signedExtraData
         )
     {
-        uint256 kmsContextId = _validKmsContextId(requestedExtraData);
+        uint256 kmsContextId = _validKmsContextId(extraData);
 
         PublicDecryptPayloadArgs memory p;
         p.aclAddress = aclAdd;
         p.plaintextsAddress = fhevmExecutorAdd;
         p.domainHash = _domainHashWithGatewayChainId();
         p.typeHash = DECRYPTION_RESULT_TYPEHASH;
-        p.extraData = _signedExtraData(requestedExtraData);
+        p.extraData = _signedExtraData(extraData);
 
-        extraData = p.extraData;
+        signedExtraData = p.extraData;
         // The handles' conformance, the ACL walk, then reads.
         (abiEncodedCleartexts, digest) = LibKmsVerifier.publicDecryptPayload(handles, p);
 
