@@ -593,6 +593,57 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       assert.match(output, /migration KMS signers do not exactly match/, output.slice(-4000));
     });
 
+    await t.test('a migration seed with the live signers but a wrong stored node field is rejected', async (st) => {
+      if (needsV13(st)) return;
+      announce(7, STEPS, 'negative: compute with a --migration whose node storageUrl is wrong (expect an Error below)');
+      const cast = (...args: string[]): string => {
+        const run = spawnSync('cast', [...args, '--rpc-url', RPC_URL], { encoding: 'utf8' });
+        assert.equal(run.status, 0, `cast ${args.join(' ')}: ${run.stderr}`);
+        return run.stdout.trim();
+      };
+      // The live nodes, so the signers (and every other check) pass and only the stored-field comparison can
+      // tell: before it, an anchor over a node set the chain does not hold went through compute and verify.
+      const pc = addressOf(v13, 'PROTOCOL_CONFIG_ADDRESS');
+      const contextId = cast('call', pc, 'getCurrentKmsContextId()(uint256)').split(' ')[0] ?? '';
+      const live = cast('call', pc, 'getKmsNodesForContext(uint256)((address,address,string,string)[])', contextId);
+      const nodes = [...live.matchAll(/\((0x[0-9a-fA-F]{40}), (0x[0-9a-fA-F]{40}), "([^"]*)", "([^"]*)"\)/g)].map(
+        ([, txSenderAddress, signerAddress, ipAddress, storageUrl], i) => ({
+          txSenderAddress,
+          signerAddress,
+          ipAddress,
+          storageUrl: i === 0 ? `${storageUrl ?? ''}-intentionally-wrong` : storageUrl,
+          partyId: i + 1,
+          mpcIdentity: `kms-core-${String(i + 1)}`,
+          caCert: '0x',
+          storagePrefix: `cleartext-${String(i + 1)}`,
+        }),
+      );
+      assert.ok(nodes.length > 0, `could not parse the live KMS nodes: ${live}`);
+      const migrationPath = join(v14Root, 'create2-deploy', WRONG_MIGRATION_FILE);
+      writeFileSync(
+        migrationPath,
+        `${JSON.stringify({ kmsNodeParams: nodes, softwareVersion: '0.0.0-wrong', pcrValues: [] }, null, 2)}\n`,
+      );
+      rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
+      const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
+        '--config',
+        'create2-deploy/anvil-config.json',
+        '--rpc-url',
+        RPC_URL,
+        '--out-dir',
+        outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
+        '--deployment-id',
+        `${DEPLOYMENT_ID}-wrong-node-field`,
+        '--stage',
+        'compute',
+        '--migration',
+        migrationPath,
+        ...existingAddressArgs(v13),
+      ]);
+      assert.equal(ok, false, 'compute accepted a migration seed whose storageUrl the chain does not hold');
+      assert.match(output, /migration kmsNodeParams do not match the live v13 nodes/, output.slice(-4000));
+    });
+
     await t.test('a proxy running an implementation its record does not show is refused', async (st) => {
       if (needsV13(st)) return;
       announce(7, STEPS, 'negative: a proxy re-pointed behind the record must refuse (expect an Error below)');

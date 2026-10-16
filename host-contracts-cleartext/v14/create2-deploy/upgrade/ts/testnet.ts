@@ -29,6 +29,7 @@ import { join } from 'node:path';
 // follow a v13 hotfix.
 import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/versions.ts';
 import {
+  atBlock,
   callAddress,
   callAddresses,
   callString,
@@ -214,7 +215,8 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
                        Keys are ProtocolConfig.reinitializeV2's parameter names, verbatim:
                        kmsNodeParams[], softwareVersion, pcrValues[]. The context id and thresholds
                        are read off the chain, not from this file. Inside each node signerAddress,
-                       txSenderAddress, ipAddress and storageUrl are what the live v13 context holds;
+                       txSenderAddress, ipAddress and storageUrl must be what the live v13 context
+                       holds, in order (compute, precheck, materialize and verify each refuse otherwise);
                        partyId, mpcIdentity, caCert (hex) and storagePrefix are new in v14 and, with
                        softwareVersion and pcrValues[{pcr0,pcr1,pcr2}], are what this file is for
   --previous-abi-dir PATH
@@ -706,14 +708,52 @@ function snapshotExtras(ctx: Ctx, blockNumber: number): Readonly<Record<string, 
   const readings = surveyStack(ctx, previousAbiDir(ctx), 'v13', blockNumber);
   say(`    ${String(Object.keys(readings).length)} getter readings captured at block ${String(blockNumber)}`);
 
+  const migration = resolveMigration(ctx, kmsContextId, kmsSigners, kmsThresholds);
+  requireMigrationNodesMatchLive(ctx, pc, migration, blockNumber);
+
   return {
     readings,
     kmsSigners,
     kmsThresholds,
     coprocessorSigners,
     coprocessorThreshold: safeNumber(coprocessorThreshold, 'coprocessor threshold'),
-    migration: resolveMigration(ctx, kmsContextId, kmsSigners, kmsThresholds),
+    migration,
   };
+}
+
+/**
+ * The four node fields v13 stores — tx sender, signer, ip, storage url — must be exactly what the live context
+ * holds, in order. `reinitializeV2` writes none of them; it anchors and announces them, so a sealed value the
+ * chain does not hold would describe a node set nobody runs. Compared as ABI encodings: the live
+ * `getKmsNodesForContext` return data against `cast abi-encode` of the same four fields from the migration.
+ * FhevmUpgradeBase._migrationNodesMatch repeats this at precheck, materialize and verify.
+ */
+function requireMigrationNodesMatchLive(ctx: Ctx, pc: string, migration: SealedMigration, block: number): void {
+  const sig = 'getKmsNodesForContext(uint256)';
+  const live = capture('cast', [
+    'call',
+    pc,
+    sig,
+    migration.existingContextId,
+    '--rpc-url',
+    ctx.opt.rpcUrl,
+    ...atBlock(block),
+  ]);
+  if (!live.ok || live.stdout === '') fail('Error: could not read the live v13 KMS nodes (getKmsNodesForContext).');
+  const tuples = migration.kmsNodeParams.map(
+    (node) =>
+      `(${node.txSenderAddress},${node.signerAddress},${JSON.stringify(node.ipAddress)},${JSON.stringify(node.storageUrl)})`,
+  );
+  const sealed = capture('cast', ['abi-encode', 'f((address,address,string,string)[])', `[${tuples.join(',')}]`]);
+  if (!sealed.ok) fail('Error: could not ABI-encode the migration KMS nodes.', `       ${sealed.stderr}`);
+  if (sealed.stdout.toLowerCase() !== live.stdout.toLowerCase()) {
+    const decoded = capture('cast', ['abi-decode', `${sig}((address,address,string,string)[])`, live.stdout]);
+    fail(
+      'Error: migration kmsNodeParams do not match the live v13 nodes (txSenderAddress, signerAddress, ipAddress, ' +
+        'storageUrl, including order).',
+      `       live: ${decoded.ok ? decoded.stdout : live.stdout}`,
+    );
+  }
 }
 
 /** The four per-operation KMS thresholds of the live `ProtocolConfig`, or null if any is unreadable. */

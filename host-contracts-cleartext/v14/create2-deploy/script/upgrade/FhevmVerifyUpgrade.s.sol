@@ -23,6 +23,13 @@ contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
             vm.parseJsonAddressArray(manifest, ".preUpgrade.kmsSigners"),
             "ProtocolConfig.getKmsSigners() == the pre-upgrade KMS set"
         );
+        (bool nodesMatch, string memory why) = _migrationNodesMatch(pc.getKmsNodesForContext(_migrationContextId()));
+        _expect(
+            nodesMatch,
+            nodesMatch
+                ? "ProtocolConfig.getKmsNodesForContext(contextId) == the sealed migration's stored node fields"
+                : why
+        );
         _expectUint(
             pc.getCurrentKmsContextId(),
             vm.parseUint(vm.parseJsonString(manifest, ".preUpgrade.migration.existingContextId")),

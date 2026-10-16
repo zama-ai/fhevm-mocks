@@ -7,7 +7,7 @@ import {UpgradeInitData} from "./UpgradeInitData.sol";
 import {IWiredProtocolConfig} from "../Interfaces.sol";
 import {ProtocolConfig} from "../../../pkg/src/contracts/ProtocolConfig.sol";
 import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
-import {KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
+import {KmsNode, KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
 
 /**
  *  The v13 -> v14 CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
@@ -186,6 +186,36 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
                 || t.mpc != live.getMpcThreshold()
         ) {
             return (false, "sealed migration thresholds differ from live ProtocolConfig");
+        }
+        return _migrationNodesMatch(live.getKmsNodesForContext(_migrationContextId()));
+    }
+
+    /**
+     * @dev Do the sealed nodes describe `liveNodes`, index by index? The four fields v13 stores per node —
+     *      signer, tx sender, ip and storage url — must be exactly what the chain holds: `reinitializeV2`
+     *      writes none of them, it only anchors and announces them, so a sealed value the chain does not
+     *      hold would make the anchor and the NewKmsContext event describe a node set nobody runs. The
+     *      four v14 members are not stored anywhere and remain the operator's to review at the gate.
+     */
+    function _migrationNodesMatch(KmsNode[] memory liveNodes) internal view returns (bool ok, string memory why) {
+        KmsNodeParams[] memory nodes = _migrationNodes();
+        if (liveNodes.length != nodes.length) {
+            return (false, "sealed migration node count differs from live ProtocolConfig");
+        }
+        for (uint256 i; i < nodes.length; i++) {
+            string memory n = string.concat("sealed migration node ", vm.toString(i), " ");
+            if (liveNodes[i].signerAddress != nodes[i].signerAddress) {
+                return (false, string.concat(n, "signerAddress differs from live ProtocolConfig"));
+            }
+            if (liveNodes[i].txSenderAddress != nodes[i].txSenderAddress) {
+                return (false, string.concat(n, "txSenderAddress differs from live ProtocolConfig"));
+            }
+            if (keccak256(bytes(liveNodes[i].ipAddress)) != keccak256(bytes(nodes[i].ipAddress))) {
+                return (false, string.concat(n, "ipAddress differs from live ProtocolConfig"));
+            }
+            if (keccak256(bytes(liveNodes[i].storageUrl)) != keccak256(bytes(nodes[i].storageUrl))) {
+                return (false, string.concat(n, "storageUrl differs from live ProtocolConfig"));
+            }
         }
         return (true, "");
     }
