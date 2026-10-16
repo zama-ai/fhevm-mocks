@@ -302,10 +302,6 @@ read_address() { sed -n "s/^address constant $1 = \(0x[0-9a-fA-F]*\);.*/\1/p" "$
 #   read_scalar DEPLOYER_START_NONCE   -> 0
 read_scalar() { sed -n "s/^[a-z0-9]* constant $1 = \([^;]*\);.*/\1/p" "$ADDRESSES_SOL"; }
 
-# The mnemonic the blobs were generated for, unquoted and ready to pass to anvil or `cast wallet`.
-#   ANVIL_MNEMONIC="$(read_mnemonic)"  -> adapt mosquito move limb …
-read_mnemonic() { sed -n 's/^string constant MNEMONIC = "\(.*\)";.*/\1/p' "$ADDRESSES_SOL"; }
-
 # One scalar from LocalHostBootstrap.sol — the mirror of DEFAULT_BOOTSTRAP_CONFIG. Matches any
 # visibility, so `internal constant` is found too. Values come back in the source's own form: decimal for
 # The numeric ones, 0x-prefixed for addresses.
@@ -338,7 +334,11 @@ read_bootstrap_array() {
 # Sets, from LocalHostAddresses.sol:
 #   ACL_ADDRESS FHEVM_EXECUTOR_ADDRESS KMS_VERIFIER_ADDRESS INPUT_VERIFIER_ADDRESS HCU_LIMIT_ADDRESS
 #   PAUSER_SET_ADDRESS CLEARTEXT_ARITHMETIC_ADDRESS
-#   CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ANVIL_MNEMONIC ACCOUNT_INDEX START_NONCE
+#   CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ACCOUNT_INDEX START_NONCE
+#
+# from scripts/cleartext-config.sh, the shell face of the source of truth — not parsed out of generated
+# Solidity, whose line wrapping is forge fmt's to choose:
+#   ANVIL_MNEMONIC
 #
 # and from LocalHostBootstrap.sol — the Solidity mirror of DEFAULT_BOOTSTRAP_CONFIG:
 #   GATEWAY_CHAIN_ID DECRYPTION_ADDRESS INPUT_VERIFICATION_ADDRESS COPROCESSOR_THRESHOLD KMS_NODE_COUNT
@@ -360,7 +360,7 @@ load_generated_addresses_and_bootstrap() {
     CLEARTEXT_ARITHMETIC_ADDRESS="$(read_address CLEARTEXT_ARITHMETIC_ADDRESS)"
     CLEARTEXT_DB_ADDRESS="$(read_address CLEARTEXT_DB_ADDRESS)"
     DEPLOYER_ADDRESS="$(read_address DEPLOYER_ADDRESS)"
-    ANVIL_MNEMONIC="$(read_mnemonic)"
+    ANVIL_MNEMONIC="$MNEMONIC"
     ACCOUNT_INDEX="$(read_scalar DEPLOYER_ADDRESS_INDEX)"
     START_NONCE="$(read_scalar DEPLOYER_START_NONCE)"
 
