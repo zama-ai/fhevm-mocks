@@ -151,12 +151,17 @@ COMPILE_PACKAGES := \
 
 compile: $(COMPILE_PACKAGES) ## Compile every package, in dependency order
 
-# The everyday sweep, in lifecycle order. ONE sub-make with three goals, deliberately: goals run left
+# The everyday sweep, in lifecycle order. ONE sub-make with four goals, deliberately: goals run left
 # to right in a single invocation, so the compiles `lint` triggers are not re-run by `compile`.
 # Overloading `build` fails in the safe direction — muscle-memory `make build` still produces every
 # artifact, it just gates them behind formatting and lint first.
-build: ## fmt-check, then lint, then compile — everything, gated
-	$(MAKE) fmt-check lint compile
+#
+# `compile-forge` goes BEFORE `lint`: on a tree with no fresh forge cache, `forge lint` compiles without
+# codegen and writes ABI-only artifacts into `out/`, which `check-post`'s contract-size check then reads
+# as "no deployable contracts". A full build first leaves lint nothing to recompile. It used to be a
+# side effect of `check-generated` in `ci`, which `ci-fast` does not run.
+build: ## fmt-check, then forge compile, then lint, then compile — everything, gated
+	$(MAKE) fmt-check compile-forge lint compile
 
 lint: lint-shared lint-cleartext lint-forge-std lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
 
@@ -417,21 +422,40 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 # rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
 #   - `clean` and the spotless-worktree guard — you have uncommitted work, that is the point;
 #   - `check-generated` — it deletes and regenerates every generated file (a full `generate`, forge
-#     included) and needs a spotless tree to judge the result;
+#     included) and needs a spotless tree to judge the result. Its in-place half stays: `generate`
+#     runs over the tree as it is, and the lane fails if that changed anything. In sync, it rewrites
+#     identical bytes; out of sync, it leaves the regenerated files in your tree — the ones to commit;
 #   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e` and `test:create2-hotfix-e2e`, `test:upgrade`'s second half) —
 #     ~4 minutes each of `forge script` recompiles, replaced by `test:upgrade:fast` (see that target);
-#   - `test-consumer-ci` — installs every registered consumer from scratch.
-# What stays catches everything the dropped gates have caught so far, in a few minutes instead of many.
+#   - `test-consumer-ci` — installs every registered consumer from scratch;
+#   - V(N-1)'s tests (`test-cleartext-v-prev`, ~15 min, ~12 of them its create2 e2es). V(N-1) cannot
+#     change on this branch — `generation-parity` in `check-pre` holds it to the release branch that
+#     owns it, whose own ci runs those tests. What V(N) needs from it is still exercised here: V(N-1) is
+#     built, generated and checked, and V(N)'s `test:upgrade:fast` deploys and upgrades it. Lost: a
+#     SHARED change (common, common-vendored, fhevm-npm, root pins) that breaks only V(N-1)'s own tests
+#     — `ci` still runs them. So the lane runs `test-fast` minus that one target, spelled out below
+#     rather than by changing `test-fast`, whose meaning stays the same.
+# What stays catches everything the dropped gates have caught so far, in a fraction of `ci`'s time.
 # `test-anvil-ci` stays: it is seconds, and it is the only lane here that exercises the SDK against a
-# real node rather than an in-process one. It sits beside `test-fast` rather than inside it for the same
+# real node rather than an in-process one. It sits beside the tests rather than inside them for the same
 # reason it sits beside `test` in `ci` — the node-backed suites are their own tier, not part of `test`.
 # Run `ci` before you push.
-ci-fast: ## Every ci gate that reads the tree as it is: checks, build, check-post, fast tests, anvil suite — no clean, no create2, no consumers
+ci-fast: ## Every ci gate that reads the tree as it is: checks, build, generated drift, check-post, V(N) fast tests, anvil suite — no clean, no create2, no consumers, no V(N-1) tests
 	$(MAKE) check-pre
 	$(MAKE) check-vendored-origin
 	$(MAKE) build
+	@snapshot() { { git status --porcelain=v1 -uall; git diff HEAD --binary; } | git hash-object --stdin; }; \
+	  before="$$(snapshot)"; \
+	  $(MAKE) generate || exit 1; \
+	  if [ "$$(snapshot)" != "$$before" ]; then \
+	    echo ""; \
+	    echo "🛑  FAILED — \`make generate\` changed the tree: committed generated files are out of sync."; \
+	    echo "   The regenerated files are now in your working tree; review and commit them:"; \
+	    git status --porcelain=v1 -uall | sed 's/^/      /'; \
+	    exit 1; \
+	  fi
 	$(MAKE) check-post
-	$(MAKE) test-fast
+	$(MAKE) test-cleartext-v-cur-fast $(TEST_SUITES_TAIL)
 	$(MAKE) test-anvil-ci
 
 # Two sub-makes rather than `rebuild: clean build`: prerequisites of one target may run in any order
@@ -532,7 +556,7 @@ graph: ## Print the dependency graph for TARGET (default: compile)
 # both @fhevm/hardhat-plugin (= plugin/pkg) and @fhevm/host-contracts-cleartext.
 ########################################################################################################
 
-.PHONY: compile-package compile-cleartext-v-prev compile-cleartext-v-cur compile-forge-std compile-hh-v2-plugin compile-hh-v2-template
+.PHONY: compile-package compile-forge compile-cleartext-v-prev compile-cleartext-v-cur compile-forge-std compile-hh-v2-plugin compile-hh-v2-template
 .PHONY: compile-hh-v2-e2e compile-hh-v3-plugin compile-hh-v3-template compile-hh-v3-e2e
 
 # Public bridge for tools that discover a package by manifest path while keeping this file authoritative
@@ -551,6 +575,17 @@ compile-package: ## Compile PACKAGE and its prerequisites
 	  *) echo "Unsupported build package '$(PACKAGE)'" >&2; exit 2 ;; \
 	esac; \
 	$(MAKE) --no-print-directory "$$target"
+
+# The forge builds alone (`forge build --skip test`, default profile, into each package's `out/`), in
+# dependency order. `generate` runs the same build between its pre and post steps; this is that build
+# without the rewrite, for lanes that read the tree as it is.
+compile-forge: ## Forge-build V(N-1), V(N) and forge-fhevm-std into their out/ (no TS, no generate)
+	@echo "==> forge build $(DIR_CLEARTEXT_V_PREV)"
+	$(call run,$(W_CLEARTEXT_V_PREV),compile:forge)
+	@echo "==> forge build $(DIR_CLEARTEXT_V_CUR)"
+	$(call run,$(W_CLEARTEXT_V_CUR),compile:forge)
+	@echo "==> forge build $(DIR_FORGE_STD)"
+	$(call run,$(W_FORGE_STD),compile:forge)
 
 compile-cleartext-v-prev: check-npm-cli-pre-build ## Compile the previous cleartext generation, V(N-1)
 	@echo "==> compile $(DIR_CLEARTEXT_V_PREV)"
@@ -750,7 +785,7 @@ test-cleartext-v-cur: compile-cleartext-v-cur ## Current cleartext generation, V
 	$(call run,$(W_CLEARTEXT_V_CUR),test)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
 
-# V(N-1)'s `test` is already the fast shape (no create2 e2e: a retired generation deploys nothing new).
+# V(N-1) has no `-fast` target here: `ci-fast` does not run V(N-1)'s tests at all (see that target).
 test-cleartext-v-cur-fast: compile-cleartext-v-cur ## Current cleartext generation, V(N): unit + forge + harness, then the upgrade's fast lane
 	$(call run,$(W_CLEARTEXT_V_CUR),test:fast)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
