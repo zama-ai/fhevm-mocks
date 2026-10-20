@@ -30,11 +30,34 @@
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve as resolvePath } from 'node:path';
 import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
-import { PACKAGE_ROOT_ABS_PATH, PREVIOUS_GENERATION_DIR_ABS_PATH } from '../../../internal/constants.ts';
+import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
+import { assertStampedRecord, sealedManifest } from '../record.ts';
+
+/**
+ * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
+ * processes, and cleaning its build output. Declared here because this file is its only caller, and
+ * both go when the pair rotates.
+ *
+ * TypeScript that merely wants v13's code must NOT come through here. v13 is a workspace member, so
+ * it is imported like any dependency — `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts`,
+ * resolved through the link npm created, with types and go-to-definition intact. The upgrade e2e used
+ * to build v13, pack it and extract it under an alias in `test/ts/node_modules` purely to get an
+ * importable copy; a workspace link does that already, and the whole apparatus is gone.
+ *
+ * A tarball is for testing the PUBLISH CONTRACT — `files` omissions, undeclared deps, stale output —
+ * and it is worth its cost only when the packed artifact is what is on trial. Using one to obtain a
+ * sibling's source code buys nothing and pays a build, a pack and an install for it.
+ */
+const PREVIOUS_GENERATION_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', 'v13');
+
+/** v14's upgrade entry point. */
+const UPGRADE_CLI = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'upgrade', 'upgrade-cli');
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
@@ -54,11 +77,12 @@ const RPC_URL = `http://127.0.0.1:${PORT}`;
  * A dedicated out-dir per generation, so a run never touches the `.out-anvil` a developer's manual
  * rehearsal uses. `.out-*` is gitignored in both generations; `.test-*` (the file below) in this one.
  *
- * Passed to `--out-dir` as a BARE name, because the coordinator resolves that flag against `FS_ROOT` —
- * the `create2-deploy/` directory — not against the package root. It has to: `foundry.toml`'s
- * `fs_permissions` grants forge write access to exactly `./create2-deploy`, so a manifest outside it
- * cannot be sealed at all. Passing `create2-deploy/.out-…` here nests it one level too deep, which is
- * silent — the coordinator still exits 0, and only the missing manifest gives it away.
+ * The two coordinators read `--out-dir` differently, which is why the calls below differ:
+ *
+ *   v13   relative to the caller's directory too, but run from its `create2-deploy/`, so a BARE name lands
+ *         there (its foundry.toml grants forge write access to exactly that folder).
+ *   v14   any path, relative to the caller's directory. Passed ABSOLUTE here (outDirAbs), so it lands in
+ *         `create2-deploy/` like v13's and is cleaned up the same way.
  */
 const OUT_DIR_ARG = '.out-test-create2-e2e';
 const NEGATIVE_OUT_DIR_ARG = '.out-test-create2-e2e-negative';
@@ -86,7 +110,7 @@ function blockedReason(): string | undefined {
   for (const bin of ['anvil', 'forge'] as const) {
     if (!haveBinary(bin)) return `${bin} not found — install foundry (https://getfoundry.sh)`;
   }
-  if (!existsSync(join(PREVIOUS_GENERATION_DIR_ABS_PATH, 'create2-deploy', 'deploy-testnet.ts'))) {
+  if (!existsSync(join(PREVIOUS_GENERATION_DIR_ABS_PATH, 'create2-deploy', 'deploy-cli'))) {
     return `the sibling v13 package has no create2-deploy coordinator at ${PREVIOUS_GENERATION_DIR_ABS_PATH}`;
   }
   return undefined;
@@ -154,9 +178,13 @@ function note(what: string): void {
  * The coordinators use anvil's public mnemonic when they detect anvil (via anvil_nodeInfo), so no
  * keystore and no password prompt. FHEVM_* env is left untouched: the config file carries everything.
  */
-function runCoordinator(cwd: string, args: readonly string[]): Promise<{ ok: boolean; output: string }> {
+function runCoordinator(
+  cwd: string,
+  command: string,
+  args: readonly string[],
+): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn('node', args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     const onData = (chunk: Buffer): void => {
       const text = chunk.toString();
@@ -356,30 +384,31 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
     let v13Deployed = false;
 
     await t.test('v13 deploys from scratch through its own CREATE2 coordinator', async () => {
-      announce(
-        2,
-        STEPS,
-        'deploy v13 with ../v13 deploy-testnet.ts --stage all (3 forge builds, 22 creates, steps A-F)',
-      );
+      announce(2, STEPS, 'deploy v13 with ../v13 deploy-cli --stage all (3 forge builds, 22 creates, steps A-F)');
       rmSync(outDirAbs(v13Root), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v13Root, [
-        'create2-deploy/deploy-testnet.ts',
-        '--config',
-        'create2-deploy/anvil-config.json',
-        // --rpc-url beats the config file (common.ts resolveOptions), which is what lets this run on a
-        // private port while reusing the checked-in rehearsal config for everything else.
-        '--rpc-url',
-        RPC_URL,
-        '--out-dir',
-        OUT_DIR_ARG,
-        '--deployment-id',
-        DEPLOYMENT_ID,
-        '--stage',
-        'all',
-      ]);
+      // v13 has an operator entry point (`deploy-cli`, run from its create2-deploy/ folder, where its relative
+      // --out-dir lands); v12, the generation v13 upgrades from, predated it and was run as `node <file>.ts`.
+      const { ok, output } = await runCoordinator(
+        join(v13Root, 'create2-deploy'),
+        join(v13Root, 'create2-deploy', 'deploy-cli'),
+        [
+          '--config',
+          'anvil-config.json',
+          // --rpc-url beats the config file (common.ts resolveOptions), which is what lets this run on a
+          // private port while reusing the checked-in rehearsal config for everything else.
+          '--rpc-url',
+          RPC_URL,
+          '--out-dir',
+          OUT_DIR_ARG,
+          '--deployment-id',
+          DEPLOYMENT_ID,
+          '--stage',
+          'all',
+        ],
+      );
       if (!ok) {
-        // The node is PROBED rather than read off the child's `exit` event: `runCoordinator` uses
-        // spawnSync, so that event is still queued here and would report a live node as dead.
+        // The node is PROBED rather than judged from `nodeGone` alone: the probe says whether it answers
+        // right now, whatever order the child-process events arrived in.
         const detail = (await portIsOpen()) ? '' : ` — ${nodeGone ?? `the anvil on ${RPC_URL} stopped answering`}`;
         assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
       }
@@ -500,14 +529,13 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       announce(6, STEPS, 'negative: compute with a wrong ACL address must refuse (expect an Error below)');
       const wrong = { ...v13, ACL_ADDRESS: ZERO };
       rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v14Root, [
-        'create2-deploy/upgrade/testnet.ts',
+      const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         RPC_URL,
         '--out-dir',
-        NEGATIVE_OUT_DIR_ARG,
+        outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
         '--deployment-id',
         `${DEPLOYMENT_ID}-wrong-address`,
         '--stage',
@@ -546,14 +574,13 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         )}\n`,
       );
       rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
-      const { ok, output } = await runCoordinator(v14Root, [
-        'create2-deploy/upgrade/testnet.ts',
+      const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         RPC_URL,
         '--out-dir',
-        NEGATIVE_OUT_DIR_ARG,
+        outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
         '--deployment-id',
         `${DEPLOYMENT_ID}-wrong-migration`,
         '--stage',
@@ -566,6 +593,100 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       assert.match(output, /migration KMS signers do not exactly match/, output.slice(-4000));
     });
 
+    await t.test('a migration seed with the live signers but a wrong stored node field is rejected', async (st) => {
+      if (needsV13(st)) return;
+      announce(7, STEPS, 'negative: compute with a --migration whose node storageUrl is wrong (expect an Error below)');
+      const cast = (...args: string[]): string => {
+        const run = spawnSync('cast', [...args, '--rpc-url', RPC_URL], { encoding: 'utf8' });
+        assert.equal(run.status, 0, `cast ${args.join(' ')}: ${run.stderr}`);
+        return run.stdout.trim();
+      };
+      // The live nodes, so the signers (and every other check) pass and only the stored-field comparison can
+      // tell: before it, an anchor over a node set the chain does not hold went through compute and verify.
+      const pc = addressOf(v13, 'PROTOCOL_CONFIG_ADDRESS');
+      const contextId = cast('call', pc, 'getCurrentKmsContextId()(uint256)').split(' ')[0] ?? '';
+      const live = cast('call', pc, 'getKmsNodesForContext(uint256)((address,address,string,string)[])', contextId);
+      const nodes = [...live.matchAll(/\((0x[0-9a-fA-F]{40}), (0x[0-9a-fA-F]{40}), "([^"]*)", "([^"]*)"\)/g)].map(
+        ([, txSenderAddress, signerAddress, ipAddress, storageUrl], i) => ({
+          txSenderAddress,
+          signerAddress,
+          ipAddress,
+          storageUrl: i === 0 ? `${storageUrl ?? ''}-intentionally-wrong` : storageUrl,
+          partyId: i + 1,
+          mpcIdentity: `kms-core-${String(i + 1)}`,
+          caCert: '0x',
+          storagePrefix: `cleartext-${String(i + 1)}`,
+        }),
+      );
+      assert.ok(nodes.length > 0, `could not parse the live KMS nodes: ${live}`);
+      const migrationPath = join(v14Root, 'create2-deploy', WRONG_MIGRATION_FILE);
+      writeFileSync(
+        migrationPath,
+        `${JSON.stringify({ kmsNodeParams: nodes, softwareVersion: '0.0.0-wrong', pcrValues: [] }, null, 2)}\n`,
+      );
+      rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
+      const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
+        '--config',
+        'create2-deploy/anvil-config.json',
+        '--rpc-url',
+        RPC_URL,
+        '--out-dir',
+        outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
+        '--deployment-id',
+        `${DEPLOYMENT_ID}-wrong-node-field`,
+        '--stage',
+        'compute',
+        '--migration',
+        migrationPath,
+        ...existingAddressArgs(v13),
+      ]);
+      assert.equal(ok, false, 'compute accepted a migration seed whose storageUrl the chain does not hold');
+      assert.match(output, /migration kmsNodeParams do not match the live v13 nodes/, output.slice(-4000));
+    });
+
+    await t.test('a proxy running an implementation its record does not show is refused', async (st) => {
+      if (needsV13(st)) return;
+      announce(7, STEPS, 'negative: a proxy re-pointed behind the record must refuse (expect an Error below)');
+      // InputVerifier re-pointed to an exact copy of its own implementation, at another address: the stack
+      // behaves the same, so every other check passes, and only the record comparison can tell.
+      const cast = (...args: string[]): string => {
+        const run = spawnSync('cast', [...args, '--rpc-url', RPC_URL], { encoding: 'utf8' });
+        assert.equal(run.status, 0, `cast ${args.join(' ')}: ${run.stderr}`);
+        return run.stdout.trim();
+      };
+      const slot = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+      const proxy = addressOf(v13, 'INPUT_VERIFIER_ADDRESS');
+      const original = cast('storage', proxy, slot);
+      const recorded = `0x${original.slice(-40)}`;
+      const copy = `0x${'1c'.repeat(20)}`;
+      cast('rpc', 'anvil_setCode', copy, cast('code', recorded));
+      cast('rpc', 'anvil_setStorageAt', proxy, slot, `0x${'0'.repeat(24)}${copy.slice(2)}`);
+      try {
+        rmSync(outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG), { recursive: true, force: true });
+        const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
+          '--config',
+          'create2-deploy/anvil-config.json',
+          '--rpc-url',
+          RPC_URL,
+          '--out-dir',
+          outDirAbs(v14Root, NEGATIVE_OUT_DIR_ARG),
+          '--deployment-id',
+          DEPLOYMENT_ID,
+          '--previous-manifest',
+          join(outDirAbs(v13Root), 'manifest.json'),
+          '--stage',
+          'compute',
+          ...existingAddressArgs(v13),
+        ]);
+        assert.equal(ok, false, 'compute accepted a proxy running an unrecorded implementation');
+        assert.match(output, new RegExp(`FAIL INPUT_VERIFIER_ADDRESS\\s+runs ${copy}`, 'i'), output.slice(-4000));
+        assert.match(output, /the live stack is not the recorded one/, output.slice(-4000));
+      } finally {
+        cast('rpc', 'anvil_setStorageAt', proxy, slot, original);
+        assert.equal(cast('storage', proxy, slot), original, 'the InputVerifier slot is restored');
+      }
+    });
+
     const upgradeSkip = noStackReason();
     let v14Upgraded = false;
 
@@ -576,22 +697,24 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         announce(
           8,
           STEPS,
-          'upgrade with upgrade/testnet.ts --stage all (compute, creates, rehearse on a fork, materialize, verify)',
+          'upgrade with upgrade-cli --stage all (compute, creates, rehearse on a fork, materialize, verify)',
         );
         rmSync(outDirAbs(v14Root), { recursive: true, force: true });
-        const { ok, output } = await runCoordinator(v14Root, [
-          'create2-deploy/upgrade/testnet.ts',
+        const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
           RPC_URL,
           '--out-dir',
-          OUT_DIR_ARG,
+          outDirAbs(v14Root),
           // The SAME deployment id as the deploy, deliberately: `_salt` mixes `cfg.version`, so "0.14"
           // against the v13 deploy's "0.13" already yields a disjoint salt namespace for the same role
           // names. Reusing the id is therefore correct and preferred.
           '--deployment-id',
           DEPLOYMENT_ID,
+          // The deploy's own seal, so the upgrade's links to it (the explicit addresses below still win).
+          '--previous-manifest',
+          join(outDirAbs(v13Root), 'manifest.json'),
           '--stage',
           'all',
           '--handle',
@@ -608,6 +731,27 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       st.skip(upgradeSkip ?? 'the v14 upgrade above failed');
       return true;
     };
+
+    await t.test(
+      'the upgrade record links to the deploy by sha256, and is dated by its ACLOwner.upgrade',
+      { skip: upgradeSkip },
+      (st) => {
+        if (needsV14(st)) return;
+        const outDir = outDirAbs(v14Root);
+        const before = join(outDirAbs(v13Root), 'manifest.json');
+        const previous = sealedManifest(outDir).previous as Record<string, unknown> | undefined;
+        assert.ok(previous, 'the upgrade seal has a previous block');
+        assert.equal(resolvePath(outDir, String(previous.path)), before, 'previous.path resolves to the deploy seal');
+        assert.equal(previous.sha256, createHash('sha256').update(readFileSync(before)).digest('hex'));
+        assert.equal(previous.deploymentId, DEPLOYMENT_ID);
+        assert.equal(previous.version, sealedManifest(outDirAbs(v13Root)).version);
+        const event = assertStampedRecord(outDir, v14Root, 'upgrade');
+        const report = JSON.parse(readFileSync(join(outDir, 'verify-report.json'), 'utf8')) as {
+          materializeTx?: string;
+        };
+        assert.equal(event.defining.hash, report.materializeTx, 'dated by the ACLOwner.upgrade verify found');
+      },
+    );
 
     await t.test('the seven re-pointed contracts now report v14 versions', { skip: upgradeSkip }, async (st) => {
       if (needsV14(st)) return;
@@ -684,6 +828,51 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 14n, 'the upgraded ACL must report 14');
     });
 
+    await t.test(
+      '--deployment takes the latest event of the stack folder, so the next upgrade starts from this record',
+      { skip: upgradeSkip },
+      async (st) => {
+        if (needsV14(st)) return;
+        // The two records as they would be archived: a stack folder, one numbered folder per event.
+        const root = mkdtempSync(join(tmpdir(), 'create2-stack-'));
+        try {
+          const stack = join(root, DEPLOYMENT_ID);
+          const archive = (event: string, kind: string, outDir: string): void => {
+            mkdirSync(join(stack, event), { recursive: true });
+            for (const file of ['manifest.json', 'addresses.sol', 'journal.jsonl']) {
+              cpSync(join(outDir, file), join(stack, event, 'record', file), { recursive: true });
+            }
+            const config = { deploymentId: DEPLOYMENT_ID, admin: sealedManifest(outDir).admin, outDir: 'record' };
+            writeFileSync(join(stack, event, `${kind}.config.json`), JSON.stringify(config));
+          };
+          archive('00-deploy-v0.0-2026-01-01', 'deploy', outDirAbs(v13Root));
+          archive('01-upgrade-v1.0-2026-01-02', 'upgrade', outDirAbs(v14Root));
+          const latest = join(stack, '01-upgrade-v1.0-2026-01-02', 'record', 'manifest.json');
+
+          const { ok, output } = await runCoordinator(v14Root, UPGRADE_CLI, [
+            '--deployment',
+            stack,
+            '--rpc-url',
+            RPC_URL,
+            '--out-dir',
+            join(root, 'next', 'record'),
+            '--stage',
+            'compute',
+          ]);
+          // Accepted as the previous manifest, all eleven roles from it...
+          assert.ok(
+            output.includes(`previous         ${latest}`),
+            `the latest event's seal is the previous:\n${output.slice(-3000)}`,
+          );
+          assert.match(output, /11\/11 roles/);
+          // ...and then refused: the live stack is already the generation this tool upgrades to.
+          assert.ok(!ok, 'compute must refuse a stack that is already upgraded');
+        } finally {
+          rmSync(root, { recursive: true, force: true });
+        }
+      },
+    );
+
     await t.test('ownership and the pauser set survived the upgrade', { skip: upgradeSkip }, async (st) => {
       if (needsV14(st)) return;
       assert.ok(provider);
@@ -716,13 +905,12 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       async (st) => {
         if (needsV14(st)) return;
         const common = [
-          'create2-deploy/upgrade/testnet.ts',
           '--config',
           'create2-deploy/anvil-config.json',
           '--rpc-url',
           RPC_URL,
           '--out-dir',
-          OUT_DIR_ARG,
+          outDirAbs(v14Root),
           '--deployment-id',
           DEPLOYMENT_ID,
           ...existingAddressArgs(v13),
@@ -733,9 +921,15 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
           STEPS,
           're-run --stage all on the upgraded stack (must resume and send nothing), status, compute must refuse',
         );
-        const again = await runCoordinator(v14Root, [...common, '--stage', 'all', '--handle', handleBefore]);
+        const again = await runCoordinator(v14Root, UPGRADE_CLI, [
+          ...common,
+          '--stage',
+          'all',
+          '--handle',
+          handleBefore,
+        ]);
         assert.ok(again.ok, `second --stage all failed:\n${again.output.slice(-4000)}`);
-        assert.match(again.output, /compute already sealed .* skipping/, 'compute is skipped, from the chain');
+        assert.match(again.output, /Compute: already sealed .* skipping/, 'compute is skipped, from the chain');
         assert.match(again.output, /already present 7/, 'no create is re-sent');
         assert.match(again.output, /already materialized; run verify/, 'the gate recognizes the upgraded stack');
         assert.match(again.output, /nothing left to rehearse/, 'the rehearsal steps aside');
@@ -743,21 +937,21 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
         assert.match(again.output, /OK - every terminal condition for the upgrade/, 'verify still holds');
 
         note('status');
-        const status = await runCoordinator(v14Root, [...common, '--stage', 'status']);
+        const status = await runCoordinator(v14Root, UPGRADE_CLI, [...common, '--stage', 'status']);
         assert.ok(status.ok, status.output.slice(-2000));
         assert.match(status.output, /materialize: done/, status.output.slice(-2000));
 
         // The sealed init parameters are the package defaults: what a stack deployed from anvil's mnemonic
         // must have been given, and what the anchor hash verify checked was computed from.
         note('params');
-        const params = await runCoordinator(v14Root, [...common, '--stage', 'params']);
+        const params = await runCoordinator(v14Root, UPGRADE_CLI, [...common, '--stage', 'params']);
         assert.ok(params.ok, params.output.slice(-2000));
         assert.match(params.output, /mpcIdentity\s+kms-core-1-cleartext-core-1/, params.output.slice(-2000));
         assert.match(params.output, /storagePrefix\s+cleartext-1/, params.output.slice(-2000));
         assert.match(params.output, /softwareVersion\s+0\.0\.0-cleartext/, params.output.slice(-2000));
 
         note('compute must refuse (expect an Error below)');
-        const recompute = await runCoordinator(v14Root, [...common, '--stage', 'compute']);
+        const recompute = await runCoordinator(v14Root, UPGRADE_CLI, [...common, '--stage', 'compute']);
         assert.equal(recompute.ok, false, 'compute must refuse once contracts are on chain');
         assert.match(recompute.output, /already put contracts on chain/, recompute.output.slice(-2000));
       },

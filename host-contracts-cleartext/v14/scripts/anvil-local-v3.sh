@@ -70,7 +70,7 @@ print_usage() {
     cat <<'EOF'
 Usage: ./scripts/anvil-local-v3.sh [options]
 
-Start anvil and deploy the cleartext v14 stack onto it with no Solidity
+Start anvil and deploy the cleartext stack onto it with no Solidity
 compilation, using anvil_setCode/anvil_setStorageAt plus one real
 upgradeToAndCall per proxy.
 
@@ -202,7 +202,7 @@ main() {
     resolve_deployer
 
     echo ""
-    echo "🚀 deploying the cleartext v14 stack (setCode + one atomic ACLOwner.upgrade, no solc)"
+    echo "🚀 deploying the cleartext stack (setCode + one atomic ACLOwner.upgrade, no solc)"
     deploy_empty_acl_implementation
     deploy_empty_implementation
     deploy_real_implementations

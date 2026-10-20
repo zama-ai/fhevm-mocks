@@ -1,0 +1,131 @@
+{
+  "op": "isin",
+  "arity": 2,
+  "operands": ["lhs", "values"],
+  "semantics": "membership",
+  "encoding": "hex-string",
+  "width": 256,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-26"}],
+  "cases": [
+    {
+      "id": "isin_256_e2e_i16",
+      "lhs": { "bits": 256, "value": "0x2a" },
+      "values": [
+        { "bits": 256, "value": "0x1" },
+        { "bits": 256, "value": "0x2a" },
+        { "bits": 256, "value": "0x64" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_e2e_i17",
+      "lhs": { "bits": 256, "value": "0x63" },
+      "values": [
+        { "bits": 256, "value": "0x1" },
+        { "bits": 256, "value": "0x2" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_256_found_middle",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "values": [
+        { "bits": 256, "value": "0x17" },
+        { "bits": 256, "value": "0x64" },
+        { "bits": 256, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_not_found",
+      "lhs": { "bits": 256, "value": "0x1e" },
+      "values": [
+        { "bits": 256, "value": "0x17" },
+        { "bits": 256, "value": "0x64" },
+        { "bits": 256, "value": "0x7" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_256_mid_found",
+      "lhs": { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_mid_not_found",
+      "lhs": { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_256_pattern_found",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "values": [
+        { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+        { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_pattern_vs_inverse",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "values": [
+        { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" }
+      ],
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "isin_256_sized_8_found",
+      "lhs": { "bits": 256, "value": "0x6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0x6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_sized_16_found",
+      "lhs": { "bits": 256, "value": "0x6b6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0x6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_sized_32_found",
+      "lhs": { "bits": 256, "value": "0x6b6b6b6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0x6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_sized_64_found",
+      "lhs": { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "isin_256_sized_128_found",
+      "lhs": { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" },
+      "values": [
+        { "bits": 256, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+        { "bits": 256, "value": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b" }
+      ],
+      "result": { "bits": 1, "value": "0x1" }
+    }
+  ]
+}

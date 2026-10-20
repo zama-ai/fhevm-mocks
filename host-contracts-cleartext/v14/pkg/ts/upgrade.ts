@@ -1,7 +1,7 @@
 import { abi as aclAbi, template as aclTemplate } from './artifacts/CleartextACL.js';
 import { abi as fhevmExecutorAbi, template as fhevmExecutorTemplate } from './artifacts/CleartextFHEVMExecutor.js';
 import { abi as kmsVerifierAbi, template as kmsVerifierTemplate } from './artifacts/CleartextKMSVerifier.js';
-import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/HCULimit.js';
+import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/CleartextHCULimit.js';
 import { abi as protocolConfigAbi, template as protocolConfigTemplate } from './artifacts/ProtocolConfig.js';
 import { abi as kmsGenerationAbi, template as kmsGenerationTemplate } from './artifacts/KMSGeneration.js';
 import {
@@ -32,8 +32,8 @@ import { DEFAULT_BOOTSTRAP_CONFIG, generateFromExistingDefaultKmsNodes } from '.
  *   - `ProtocolConfig.reinitializeV2(kmsNodeParams, softwareVersion, pcrValues)`, which re-declares the
  *     current KMS context with the v14 per-node metadata (party id, MPC identity, CA cert, storage prefix)
  *     and records the KMS software version + PCR values,
- *   - `KMSGeneration.reinitializeV2()`, `ACL`/`FHEVMExecutor` `reinitializeV5()`, `HCULimit`/`KMSVerifier`
- *     `reinitializeV4()` — all no-arg,
+ *   - `KMSGeneration.reinitializeV2()`, `ACL.reinitializeV5()`, `FHEVMExecutor.reinitializeV6()`,
+ *     `HCULimit`/`KMSVerifier` `reinitializeV4()` — all no-arg,
  *   - `CleartextArithmetic.reinitializeV3()`: v14 adds `fheMulDiv`, whose cleartext `recordMulDiv` hook is
  *     a new selector the v13 arithmetic lacks.
  * `InputVerifier` is untouched (its v14 bytecode is identical and its version did not bump).
@@ -173,7 +173,7 @@ async function buildUpdateV13ToV14Plan(parameters: {
       proxyAddress: addr.fhevmExecutorAddress,
       template: fhevmExecutorTemplate,
       abi: fhevmExecutorAbi,
-      spec: noArgs('reinitializeV5'),
+      spec: noArgs('reinitializeV6'),
     },
     {
       contractName: 'HCULimit',

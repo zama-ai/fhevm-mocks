@@ -3,7 +3,7 @@
 
 import { HardhatPluginError } from 'hardhat/plugins';
 
-import { FhevmType } from '../../types.js';
+import { FhevmType } from '../../types-p.js';
 import { PLUGIN_ID } from '../constants.js';
 import type { FheTypeName } from '../vendored/priceTypes.js';
 

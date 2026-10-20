@@ -1,0 +1,119 @@
+{
+  "op": "rem",
+  "arity": 2,
+  "semantics": "unsigned-divisor-nonzero",
+  "encoding": "hex-string",
+  "width": 128,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "rem_128_128_zero_by_one",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_zero_by_small",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x17" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_small_by_one",
+      "lhs": { "bits": 128, "value": "0x64" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_equal",
+      "lhs": { "bits": 128, "value": "0x7" },
+      "rhs": { "bits": 128, "value": "0x7" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_one_by_max",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "rem_128_128_max_by_one",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_max_by_two",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x2" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "rem_128_128_max_by_small",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x17" },
+      "result": { "bits": 128, "value": "0xc" }
+    },
+    {
+      "id": "rem_128_128_max_by_top_bit",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "result": { "bits": 128, "value": "0x7fffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "rem_128_128_max_by_max_minus_1",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0xfffffffffffffffffffffffffffffffe" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "rem_128_128_max_by_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_max_minus_1_by_max",
+      "lhs": { "bits": 128, "value": "0xfffffffffffffffffffffffffffffffe" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xfffffffffffffffffffffffffffffffe" }
+    },
+    {
+      "id": "rem_128_128_top_bit_by_two",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "rhs": { "bits": 128, "value": "0x2" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_top_bit_by_top_bit",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "rhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "rem_128_128_mid_by_top_bit",
+      "lhs": { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" },
+      "rhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "result": { "bits": 128, "value": "0x2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "rem_128_128_pattern_by_255",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x5a" }
+    },
+    {
+      "id": "rem_128_128_max_by_half_power_of_two",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x10000000000000000" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "rem_128_128_pattern_by_half_power_of_two",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0x10000000000000000" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5" }
+    }
+  ]
+}

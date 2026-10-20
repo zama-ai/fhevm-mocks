@@ -1,0 +1,31 @@
+{
+  "op": "neg",
+  "arity": 1,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 256,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "neg_256_two",
+      "lhs": { "bits": 256, "value": "0x2" },
+      "result": { "bits": 256, "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe" }
+    },
+    {
+      "id": "neg_256_small",
+      "lhs": { "bits": 256, "value": "0x64" },
+      "result": { "bits": 256, "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff9c" }
+    },
+    {
+      "id": "neg_256_pattern",
+      "lhs": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "result": { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5b" }
+    },
+    {
+      "id": "neg_256_inverse_pattern",
+      "lhs": { "bits": 256, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" },
+      "result": { "bits": 256, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a6" }
+    }
+  ]
+}

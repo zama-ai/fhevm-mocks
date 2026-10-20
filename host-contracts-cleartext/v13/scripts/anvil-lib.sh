@@ -225,7 +225,9 @@ send_tx() {
         echo "$output" >&2
         exit 1
     }
-    printf '%s' "$output" | grep -q '^status  *1' || {
+    # A here-string, not `printf | grep -q`: grep -q exits on the first match, and under pipefail the
+    # SIGPIPE that kills printf mid-receipt fails the pipeline, reporting a successful transaction as reverted.
+    grep -q '^status  *1' <<<"$output" || {
         echo "Error: $sig on $target reverted:" >&2
         echo "$output" >&2
         exit 1
@@ -243,7 +245,7 @@ deploy_contract() {
         echo "$output" >&2
         exit 1
     }
-    printf '%s' "$output" | grep -q '^status  *1' || {
+    grep -q '^status  *1' <<<"$output" || {
         echo "Error: deploying $what reverted:" >&2
         echo "$output" >&2
         exit 1
@@ -303,10 +305,6 @@ read_address() { sed -n "s/^address constant $1 = \(0x[0-9a-fA-F]*\);.*/\1/p" "$
 #   read_scalar DEPLOYER_START_NONCE   -> 0
 read_scalar() { sed -n "s/^[a-z0-9]* constant $1 = \([^;]*\);.*/\1/p" "$ADDRESSES_SOL"; }
 
-# The mnemonic the blobs were generated for, unquoted and ready to pass to anvil or `cast wallet`.
-#   ANVIL_MNEMONIC="$(read_mnemonic)"  -> adapt mosquito move limb …
-read_mnemonic() { sed -n 's/^string constant MNEMONIC = "\(.*\)";.*/\1/p' "$ADDRESSES_SOL"; }
-
 # One scalar from LocalHostBootstrap.sol — the mirror of DEFAULT_BOOTSTRAP_CONFIG. Matches any
 # visibility, so `internal constant` is found too. Values come back in the source's own form: decimal for
 # the numeric ones, 0x-prefixed for addresses.
@@ -339,7 +337,11 @@ read_bootstrap_array() {
 # Sets, from LocalHostAddresses.sol:
 #   ACL_ADDRESS FHEVM_EXECUTOR_ADDRESS KMS_VERIFIER_ADDRESS INPUT_VERIFIER_ADDRESS HCU_LIMIT_ADDRESS
 #   PROTOCOL_CONFIG_ADDRESS KMS_GENERATION_ADDRESS PAUSER_SET_ADDRESS CLEARTEXT_ARITHMETIC_ADDRESS
-#   CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ANVIL_MNEMONIC ACCOUNT_INDEX START_NONCE
+#   CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ACCOUNT_INDEX START_NONCE
+#
+# from scripts/cleartext-config.sh, the shell face of the source of truth — not parsed out of generated
+# Solidity, whose line wrapping is forge fmt's to choose:
+#   ANVIL_MNEMONIC
 #
 # and from LocalHostBootstrap.sol — the Solidity mirror of DEFAULT_BOOTSTRAP_CONFIG:
 #   GATEWAY_CHAIN_ID DECRYPTION_ADDRESS INPUT_VERIFICATION_ADDRESS COPROCESSOR_THRESHOLD KMS_NODE_COUNT
@@ -363,7 +365,7 @@ load_generated_addresses_and_bootstrap() {
     CLEARTEXT_ARITHMETIC_ADDRESS="$(read_address CLEARTEXT_ARITHMETIC_ADDRESS)"
     CLEARTEXT_DB_ADDRESS="$(read_address CLEARTEXT_DB_ADDRESS)"
     DEPLOYER_ADDRESS="$(read_address DEPLOYER_ADDRESS)"
-    ANVIL_MNEMONIC="$(read_mnemonic)"
+    ANVIL_MNEMONIC="$MNEMONIC"
     ACCOUNT_INDEX="$(read_scalar DEPLOYER_ADDRESS_INDEX)"
     START_NONCE="$(read_scalar DEPLOYER_START_NONCE)"
 
@@ -454,7 +456,7 @@ deploy_real_implementations() {
     IMPL_EXECUTOR="$(deploy_contract "0x$(read_blob CLEARTEXT_FHEVM_EXECUTOR_CREATION_CODE)" "CleartextFHEVMExecutor impl")"
     IMPL_KMS_VERIFIER="$(deploy_contract "0x$(read_blob CLEARTEXT_KMS_VERIFIER_CREATION_CODE)" "CleartextKMSVerifier impl")"
     IMPL_INPUT_VERIFIER="$(deploy_contract "0x$(read_blob CLEARTEXT_INPUT_VERIFIER_CREATION_CODE)" "CleartextInputVerifier impl")"
-    IMPL_HCU_LIMIT="$(deploy_contract "0x$(read_blob HCU_LIMIT_CREATION_CODE)" "HCULimit impl")"
+    IMPL_HCU_LIMIT="$(deploy_contract "0x$(read_blob CLEARTEXT_HCU_LIMIT_CREATION_CODE)" "CleartextHCULimit impl")"
     IMPL_PROTOCOL_CONFIG="$(deploy_contract "0x$(read_blob PROTOCOL_CONFIG_CREATION_CODE)" "ProtocolConfig impl")"
     IMPL_KMS_GENERATION="$(deploy_contract "0x$(read_blob KMS_GENERATION_CREATION_CODE)" "KMSGeneration impl")"
     IMPL_ARITHMETIC="$(deploy_contract "0x$(read_blob CLEARTEXT_ARITHMETIC_CREATION_CODE)" "CleartextArithmetic impl")"
@@ -601,6 +603,11 @@ _smoke_expect_uint() {
     fi
 }
 
+# A `bool` return, which cast renders as "true" / "false".
+_smoke_expect_bool() {
+    _smoke_expect_uint "$@"
+}
+
 # Element count of an `address[]` return, which cast renders as "[0xa, 0xb, …]".
 _smoke_expect_array_len() {
     local label="$1" target="$2" sig="$3" expected="$4" raw count
@@ -683,8 +690,8 @@ smoke_check() {
         _smoke_fail "CleartextDB.isWriter(CleartextArithmetic) is not true"
     fi
 
-    # 4. ownership. ACL must be owned by an ACLOwner *contract*, not an EOA: updateV12ToV13 requires it and
-    #    an EOA-owned stack has no atomic upgrade path.
+    # 4. ownership. ACL must be owned by an ACLOwner *contract*, not an EOA: the generation upgrade requires
+    #    it and an EOA-owned stack has no atomic upgrade path.
     local owner
     owner="$(cast call "$ACL_ADDRESS" 'owner()(address)' --rpc-url "$RPC_URL" 2>/dev/null || echo '')"
     if [ -z "$owner" ]; then
@@ -721,6 +728,9 @@ smoke_check() {
         'getKmsSigners()(address[])' "$KMS_NODE_COUNT"
     _smoke_expect_uint "ProtocolConfig.getPublicDecryptionThreshold()" "$PROTOCOL_CONFIG_ADDRESS" \
         'getPublicDecryptionThreshold()(uint256)' "$KMS_NODE_COUNT"
+    # The cleartext marker, on the one contract that was an upstream implementation until it was not: this
+    # broadcast path picks its own blobs, so nothing the forge suites assert reaches it.
+    _smoke_expect_bool "HCULimit.IS_CLEARTEXT()" "$HCU_LIMIT_ADDRESS" 'IS_CLEARTEXT()(bool)' true
     _smoke_expect_uint "HCULimit.getGlobalHCUCapPerBlock()" "$HCU_LIMIT_ADDRESS" \
         'getGlobalHCUCapPerBlock()(uint48)' "$HCU_CAP_PER_BLOCK"
     _smoke_expect_uint "HCULimit.getMaxHCUDepthPerTx()" "$HCU_LIMIT_ADDRESS" \

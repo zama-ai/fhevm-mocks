@@ -1,6 +1,6 @@
 // `sdk/cleartext-config.json` is the source of truth for the cleartext stack's shared values;
 // `pkg/ts/cleartext-config.ts` (generated from the JSON, synced from common-vendored/src) and
-// `pkg/forge/src/FhevmCleartextConfig.sol` (generated directly) are faces of it — same names,
+// `pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol` (generated directly) are faces of it — same names,
 // same order, equal values. A face is only safe because it is CHECKED — generated or not, this file is
 // what proves the committed copies match the JSON and the JSON matches its own formulas.
 //
@@ -24,7 +24,8 @@ import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import test from 'node:test';
 import { HDNodeWallet, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from 'ethers';
-import { FHEVM_CONFIG_REMAPPING_PREFIX, PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
+import { fhevmConfigRemappingPrefix } from '../internal/configRemapping.ts';
+import { PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
 
 /**
  * The JSON sits ABOVE every generation, at the `sdk/` root — it is shared by v12 and v13, so it cannot
@@ -34,7 +35,7 @@ import { FHEVM_CONFIG_REMAPPING_PREFIX, PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG
  */
 const JSON_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', '..', 'cleartext-config.json');
 const TS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'cleartext-config.ts');
-const SOL_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'forge', 'src', 'FhevmCleartextConfig.sol');
+const SOL_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'src', 'cleartext', 'shared', 'LibFhevmCleartextConfig.sol');
 const LOCAL_HOST_ADDRESSES_PATH = join(
   PACKAGE_ROOT_ABS_PATH,
   'pkg',
@@ -44,7 +45,7 @@ const LOCAL_HOST_ADDRESSES_PATH = join(
   'LocalHostAddresses.sol',
 );
 /**
- * This package's generation key, `v14` — the directory name, which is also its npm-manifest.json key and
+ * This package's generation key, `v<N>` — the directory name, which is also its npm-manifest.json key and
  * the value a constant's `generations` list names.
  */
 const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
@@ -52,16 +53,16 @@ const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
 /**
  * Which generation's `localhost` table this package is.
  *
- * Taken from the config remapping prefix — `fhevm-config-0.14.0/` — rather than from a constant added for
- * this test. That prefix already moves with the protocol minor and is already load-bearing, so it cannot
- * be stale while the package builds; a second declaration of "which generation am I" could be.
+ * Taken from the config remapping prefix — `fhevm-config-<major>.<minor>.0/` — rather than from a constant
+ * added for this test. That prefix already moves with the protocol minor and is already load-bearing, so it
+ * cannot be stale while the package builds; a second declaration of "which generation am I" could be.
  *
  * Reading the SIBLING generation's table would be the stronger check, but this test deliberately does not:
  * a generation must be checkable from its own checkout, and `../v12` may not be there.
  */
 function generationKey(): string {
-  const m = /^fhevm-config-(\d+\.\d+\.\d+)\/$/.exec(FHEVM_CONFIG_REMAPPING_PREFIX);
-  assert.ok(m, `cannot read a generation out of ${FHEVM_CONFIG_REMAPPING_PREFIX}`);
+  const m = /^fhevm-config-(\d+\.\d+\.\d+)\/$/.exec(fhevmConfigRemappingPrefix());
+  assert.ok(m, `cannot read a generation out of ${fhevmConfigRemappingPrefix()}`);
   return m[1] ?? '';
 }
 
@@ -324,7 +325,7 @@ void test('the Solidity face matches the source of truth', () => {
   assert.deepEqual(
     [...face.keys()],
     [...truth.keys()],
-    `pkg/forge/src/FhevmCleartextConfig.sol declares a different set of constants, or in a\n` +
+    `pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol declares a different set of constants, or in a\n` +
       `different order, than sdk/cleartext-config.json. The file is generated: rerun \`make generate\`,\n` +
       `never edit it. The mirror is COMPLETE, not trimmed to what today's scripts use — and a\n` +
       `Solidity-only value (a role name, an artifact path) does not belong in the JSON at all.`,
@@ -346,7 +347,7 @@ void test('the Solidity face matches the source of truth', () => {
   assert.deepEqual(
     diffs,
     [],
-    `value drift between sdk/cleartext-config.json and FhevmCleartextConfig.sol.\n` +
+    `value drift between sdk/cleartext-config.json and LibFhevmCleartextConfig.sol.\n` +
       `A trailing "/" on a mnemonic path is compared exactly and is load-bearing: vm.deriveKey derives at\n` +
       `{path}{index}, so dropping it derives a real key at the wrong path.`,
   );

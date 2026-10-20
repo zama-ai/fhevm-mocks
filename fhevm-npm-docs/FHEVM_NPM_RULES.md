@@ -354,6 +354,23 @@ copies are therefore checked against the pin too, `node_modules` entries exclude
 than a declared spec. Regenerate an installation root with `npm install --package-lock-only`, and an isolated consumer
 fixture with `fhevm-npm test-consumer-regenerate-package-lock`.
 
+The pin also names the version the workspace develops and releases against: `^1.2.2` says 1.2.2. A range is
+resolved when a lockfile is written, so a root locked after a newer release silently takes it instead; the pin then
+misstates what is installed, and roots locked at different times resolve different copies. Every copy a lockfile
+resolves for a pinned name is therefore checked too — top-level or nested under another dependency, in an
+installation root or a consumer fixture, and an npm alias under its alias name — and each must be **exactly the
+pinned version**. A newer copy means the pin is behind: `make sync-pinned` moves it up (its `sync pinned` step raises
+the manifest pin to the newest version a lockfile resolves, and `sync pinned --check` fails until it has), so a
+release always carries the most recent package. An older copy means a lockfile was left behind a moved pin: npm
+keeps a locked version while it still satisfies the range, so delete its entry and let npm resolve it again (`npm
+install --package-lock-only` in an installation root, `fhevm-npm test-consumer-regenerate-package-lock <fixture>` for
+a consumer fixture; `npm update` fails with ERESOLVE in a workspace whose members declare the package as a peer).
+
+```text
+❌ ./package-lock.json: '@scope/pkg' resolves to 1.2.3 at 'node_modules/@scope/pkg', newer than its pin "^1.2.2":
+   the pin is behind what is installed. Move it to "^1.2.3" in npm-manifest.json#dependencies.pinned
+```
+
 ```jsonc
 // ✅ One spec named once, repeated by every consumer whatever its kind or dependency section.
 {
@@ -367,6 +384,24 @@ fixture with `fhevm-npm test-consumer-regenerate-package-lock`.
 
 // ❌ A stale patch level no other package uses.
 "devDependencies": { "@fhevm/sdk": "^0.13.2" }
+```
+
+A pin may be an npm alias, `npm:<name>@<version>`, so that one installation holds two versions of the same package
+under two names, for instance a test that runs against two lines of a dependency. The alias is pinned under its own
+name, with its full spec, and is compared like any other pin: the target is part of the spec. When the aliases name
+roles rather than versions (`<name>` for the current line, `<name>-prev<k>` for k lines back), the specs move forward
+together at each generation rotation, and only V(N) may declare them: V(N-1) drops them, so no name ever carries two
+specs.
+
+```jsonc
+// ✅ The current line under its own name, the previous line under an alias.
+{
+  "dependencies": { "pinned": { "@scope/pkg": "^1.2.2", "@scope/pkg-prev1": "npm:@scope/pkg@^1.1.7" } }
+}
+"devDependencies": { "@scope/pkg": "^1.2.2", "@scope/pkg-prev1": "npm:@scope/pkg@^1.1.7" }
+
+// ❌ The range without `npm:`: npm would fetch a registry package actually named @scope/pkg-prev1.
+"devDependencies": { "@scope/pkg-prev1": "^1.1.7" }
 ```
 
 ### 3.4 Depending across generations
@@ -536,6 +571,20 @@ unguarded — those two rules own its content, and every nested `package.json` b
 # ❌ host-contracts-cleartext/v13/INVENTED.md: present in v13 here but absent from release/0.13.x
 ```
 
+`FHEVM_PARITY_REF_<GENERATION>` names a different ref to compare that generation against. It is for the window where
+V(N-1) is brought across while the work it comes from is still on a topic branch, unmerged into the release branch
+that owns it: until that merge lands the derived ref is the wrong baseline, and the honest alternative — turning the
+check off — compares nothing at all. Two rules stop it becoming a mute button. An override is REPORTED on every run
+that uses it, as a note rather than a verbose success, because a green run that never looked at the release branch has
+not proved what this rule is about. And an override that does not resolve FAILS rather than skips: the skip above is
+for a branch nobody created, whereas a ref someone typed is a ref they expect to exist.
+
+```sh
+FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity
+# ⚠️  ./host-contracts-cleartext/v13: compared with 'devex/alexb/v13/forge-fhevm-std-v2' because
+#     FHEVM_PARITY_REF_V13 is set — this run does NOT prove parity with 'release/0.13.x'
+```
+
 ## 4. Where a version lives
 
 Which rules apply depends on the kind of package, as named in § 1.1.
@@ -570,6 +619,11 @@ sdk/some-package/.foundry-version
 script has a `foundry.toml` in the same directory. Every `foundry.toml` declares `[profile.default].extends` for
 `sdk/foundry.base.toml`; `check-foundry` verifies that ownership and compares every project's effective `[fmt]`
 values with the shared file. Package-specific `[fmt].ignore` values are exempt.
+
+The one exception to `extends` is a `standalone` project: the consumer runner copies it out of the workspace and
+installs it on its own, so where it runs there is no shared file to extend (forge treats a missing `extends`
+target as a hard error). It restates the `[fmt]` policy inline instead, and `check-foundry` still compares its
+effective values with the shared file — the exemption is from the mechanism, never from the policy.
 
 ```toml
 # ✅ Package-local paths and compiler settings remain local; formatting policy is inherited.
@@ -698,14 +752,22 @@ $EDITOR sdk/versions.json && make version-plan && make version-apply && git add 
 npm --prefix hardhat/v3/plugin/pkg version patch
 ```
 
-**4.3.4 A rendered dependency range is the target's generation: `^0.<generation>.0`.** The generation is the minor of
-the target's central version, so generation 13 renders as `^0.13.0` whether that version is `0.13.0` or `0.13.4`: this
-generation, any patch, never the next one, and a contracts patch never forces a plugin re-render. A prerelease central
-version renders exactly, since a caret range does not match prereleases. This is the one range policy; there is no
-per-edge configuration.
+**4.3.4 A rendered dependency range is a caret on the target's central version: `^<version>`.** A payload built
+against contracts `0.13.4` renders `^0.13.4`: at least the version it was built and tested against, up to the next
+generation, which the caret on a `0.x` version excludes. The floor is never lower than that version: a lower one lets a
+consumer who upgrades the payload keep, from their lockfile, an older dependency that may lack a fix the payload relies
+on. A contracts patch still never forces a payload release; the payload raises its floor on its next release. A
+prerelease central version renders exactly, since a caret range does not match prereleases. This is the one range
+policy; there is no per-edge configuration.
+
+The floor makes the publish order binding: `publish check --check-npmjs` requires a published version that satisfies
+the range, so the target's version must be on npmjs.com before the payload that renders it.
 
 ```jsonc
 // ✅ In the v3 plugin's tarball, rendered from the file: link by `publish pack` (target central 0.13.4).
+"@fhevm/host-contracts-cleartext": "^0.13.4"
+
+// ❌ The generation floor: a consumer upgrading the plugin can keep contracts 0.13.0-0.13.3 and miss a fix.
 "@fhevm/host-contracts-cleartext": "^0.13.0"
 
 // ❌ Exact: every contracts patch would force a plugin release, or leave consumers with two copies.
@@ -786,9 +848,15 @@ git, a network call, or the upstream repository being present anywhere. That las
 exists: reading the commit itself only ever worked in this repository, because the sdk vendors from the repository it
 lives in. Copied out — which is how a mocks workspace is made — every pinned entry failed.
 
-The digest is printed, never written. `npm-manifest.json` is hand-edited, and a value that gates every build belongs
-in a diff somebody read. `sync vendored --digest` downloads each pinned tree and prints the digest it implies;
-`--check` prints the one the local copies produce.
+The digest is never typed by hand, and `sync vendored` never writes it: a value that gates every build belongs in a
+diff somebody read, and the sync's job is to make the copies match the manifest, not the other way round.
+`sync vendored --digest` downloads each pinned tree and prints the digest it implies; `--check` prints the one the
+local copies produce. THE ONE WRITER is `bump vendored <package> --tag <tag>`: it moves every pin under that package
+key (a generation and its nested `pkg`) to the tag — commit resolved from the tag, digest computed from upstream,
+copies rewritten, each owning `package.json#fhevm.vendoredFrom` regenerated — as ONE change, which is the diff to
+read. Scoped by package on purpose, and all of a package's pins together: a generation's contracts and config must
+sit at one commit (two pins from one upstream at two commits is the drift a hand edit produces), while two
+GENERATIONS pin that same upstream at deliberately different tags, so "every pin from this repository" would be wrong.
 
 Two consequences worth knowing. The digest proves the copies match what was RECORDED, not what upstream holds — the
 provenance check is `sync vendored` itself, the only command that reaches the network, so a release should run it and
@@ -1500,3 +1568,63 @@ inventory complete.
 > **Implemented.** `fhevm-npm check manifest-coverage` performs repository-aware discovery, excludes its own autonomous package
 > tree and the paths listed by `inventory.exclude`, adds explicit standalone roots, compares the result with the
 > manifest and checks realpath containment.
+
+## 8. Deployment records
+
+`deployments/` holds the evidence of on-chain transactions: one folder per deployed stack, one numbered folder per
+event. The layout and the operator's side are in `deployments/README.md`; this section states what is enforced.
+
+### 8.1 Layout and names
+
+**8.1.1 One folder per stack.** `deployments/<chain>/<stack>/`, where `<chain>` is a host chain of
+`fhevm-chains.config.json` and `<stack>` the stack's `deploymentId`. Under a stack: event folders, `aborted/` and a
+`README.md`, nothing else.
+
+**8.1.2 Event folders are numbered.** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`, the sequence contiguous
+from `00`, exactly one `deploy`, first. `v<N>.<p>` is the package version the tool ran at; the date is the UTC day of
+the block holding the event's defining transaction (an upgrade's or hotfix's `ACLOwner.upgrade`, a deploy's last
+transaction), as recorded in `record/event.json`.
+
+**8.1.3 Attempts are outside the sequence.** An attempt that sent transactions and was not finished goes under
+`aborted/<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>/`, dated by its first transaction. It never carries a `verify-report.json`
+and is never a `previous`.
+
+### 8.2 Each record
+
+**8.2.1 Complete and self-consistent.** `<kind>.config.json` with `deploymentId` = the stack and a relative `outDir`
+inside the folder; `tool-commit.txt` whose first line is a full commit (equal to the manifest's `toolCommit` when it
+has one); the out dir holds `manifest.json`, `addresses.sol`, `journal.jsonl`, `event.json`, and for an upgrade or
+hotfix `progress.jsonl` and `verify-report.json`; no forge scratch, no `.git`.
+
+**8.2.2 Identity.** The manifest's `deploymentId` is the stack, its `chainId` the chain folder's, the config's `admin`
+the sealed one. Its `version` is `0.<N>` and its `packageVersion` `0.<N>.<p>`, as the folder name says.
+
+**8.2.3 Dated by the chain.** `event.json`'s `defining`, `first` and `last` transactions are in the journal at the
+blocks it claims, in that order of blocks; `defining` is `last` for a deploy and `first` for an attempt. The folder's
+date is `defining`'s block day. The journal's own timestamps are the operator's clock and date nothing.
+
+### 8.3 The history
+
+**8.3.1 Kinds move versions one way.** An upgrade moves exactly one generation up; a hotfix stays in its generation
+with a higher patch. Over the sequence, `(generation, patch)` strictly increases, dates never go back and defining
+blocks strictly increase.
+
+**8.3.2 Each event links to the one before.** A deploy has no `previous`. Every other event's manifest has
+`previous.path` resolving to the previous event's manifest, `previous.sha256` equal to that file's bytes, and
+`previous.deploymentId`, `chainId`, `version`, `packageVersion` equal to it. An attempt links the same way to the event
+it started from.
+
+### 8.4 Frozen
+
+**8.4.1 A record never changes.** Against a base ref, nothing under an event or attempt folder that exists at the
+merge base may be added, modified, deleted, renamed or retyped, committed or not. New event folders, new stacks and
+READMEs are free.
+
+**8.4.2 One exception: the legacy relocation.** A flat record (`<stack>/deploy.config.json`, the layout before events
+had folders) may move into `<stack>/00-deploy-v<N>.<p>-<YYYY-MM-DD>/` once, as a pure move: every file renamed with
+identical bytes to the same relative path under one such folder, nothing added to it. Until then it is checked as a
+record and reported as a note.
+
+> **Implemented.** `fhevm-npm check deployments` (8.1–8.3, and the legacy note) and `fhevm-npm check deployments --base
+<ref>` (8.4); the first runs in `make check-pre`, the second in the `sdk-cleartext-deployments` workflow on every pull
+> request. Both are generation-free.

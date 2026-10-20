@@ -1,0 +1,21 @@
+{
+  "op": "not",
+  "arity": 1,
+  "semantics": "bitwise-complement",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "not_64_small",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "result": { "bits": 64, "value": "0xffffffffffffff9b" }
+    },
+    {
+      "id": "not_64_pattern",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "result": { "bits": 64, "value": "0x5a5a5a5a5a5a5a5a" }
+    }
+  ]
+}

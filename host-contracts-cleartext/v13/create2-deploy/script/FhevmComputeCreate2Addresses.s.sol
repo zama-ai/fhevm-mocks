@@ -79,7 +79,7 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
      *      ACLOwner initcode ← aclAdd. Steps B and C are structural, not ceremony.
      */
     function _pass1() private {
-        _banner("pass 1/3 - ACL");
+        _banner("Pass 1/3: ACL");
 
         (address impl1, address aclAdd) = _computeAcl();
 
@@ -90,7 +90,6 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
 
         console.log("");
         console.log("  wrote", _addressesPath());
-        console.log("  next: rebuild against it, then FHEVM_PASS=2");
     }
 
     /// @dev Deliberately re-derived in every pass rather than carried in the scratch file: both
@@ -109,7 +108,7 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
     // =======================================================================================
 
     function _pass2() private {
-        _banner("pass 2/3 - proxies, PauserSet, ACLOwner");
+        _banner("Pass 2/3: proxies, PauserSet, ACLOwner");
 
         (address impl1, address aclAdd) = _computeAcl();
 
@@ -164,7 +163,6 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
 
         console.log("");
         console.log("  wrote", _addressesPath());
-        console.log("  next: rebuild against it, then FHEVM_PASS=3");
     }
 
     // =======================================================================================
@@ -172,7 +170,7 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
     // =======================================================================================
 
     function _pass3() private {
-        _banner("pass 3/3 - implementations, assert, seal");
+        _banner("Pass 3/3: implementations, assert, seal");
 
         string memory scratch = vm.readFile(_scratchPath());
 
@@ -223,7 +221,6 @@ contract FhevmComputeCreate2Addresses is FhevmCreate2Base {
 
         console.log("");
         console.log("  wrote", _manifestPath());
-        console.log("  next: commit and PUSH the manifest, then deploy");
     }
 
     function _computeImplementations() private view returns (address[] memory impls) {

@@ -46,8 +46,7 @@ const EVENT_NAME_BY_OPERATOR: Readonly<Record<FheOperatorName, string>> = {
   fheRandBounded: 'FheRandBounded',
   fheSum: 'FheSum',
   fheIsIn: 'FheIsIn',
-  // No `FheMulDiv` event exists in v13 — @fhevm/solidity does not expose `FHE.mulDiv` yet — but the
-  // price is already published, so it is carried through and will light up when the event arrives.
+  // `FheMulDiv` is emitted from the 0.14 protocol line on; the price is published either way, so it is carried.
   fheMulDiv: 'FheMulDiv',
 };
 

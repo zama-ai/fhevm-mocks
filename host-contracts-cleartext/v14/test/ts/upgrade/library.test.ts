@@ -13,11 +13,12 @@
 // specifier is what says which generation this is, not the type name. Aliased on the way in, because
 // this file is the one place where both generations are in scope at once.
 import {
+  CONTRACT_VERSIONS as CONTRACT_VERSIONS_V13,
   deploy as deployV13,
   precomputeAddresses as precomputeV13,
   type BootstrapConfig as BootstrapConfigV13,
 } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts';
-import { updateV13ToV14 } from '../../../pkg/ts/index.ts';
+import { CONTRACT_VERSIONS, updateV13ToV14 } from '../../../pkg/ts/index.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -98,7 +99,11 @@ function surveyTargets(deployed: {
       abiFile: 'CleartextInputVerifier.json',
       address: deployed.fhevmAddresses.inputVerifierAddress as Address,
     },
-    { label: 'HCULimit', abiFile: 'HCULimit.json', address: deployed.fhevmAddresses.hcuLimitAddress as Address },
+    {
+      label: 'HCULimit',
+      abiFile: 'CleartextHCULimit.json',
+      address: deployed.fhevmAddresses.hcuLimitAddress as Address,
+    },
     {
       label: 'ProtocolConfig',
       abiFile: 'ProtocolConfig.json',
@@ -494,16 +499,19 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
       cleartextArithmetic: await version(v13.cleartextAddresses.cleartextArithmeticAddress),
     });
 
-    // The freshly deployed stack reports v13 versions across every host + cleartext contract.
+    // The freshly deployed stack reports v13 versions across every host + cleartext contract — the ones
+    // v13's package ships, read from its generated `CONTRACT_VERSIONS` rather than restated here, so a
+    // patch bump of the previous generation (0.13.6 moved FHEVMExecutor to v0.5.0) moves the expectation
+    // with it.
     expect(await versions()).toEqual({
-      acl: 'ACL v0.4.0',
-      fhevmExecutor: 'FHEVMExecutor v0.4.0',
-      kmsVerifier: 'KMSVerifier v0.3.0',
-      inputVerifier: 'InputVerifier v0.2.0',
-      hcuLimit: 'HCULimit v0.3.0',
-      protocolConfig: 'ProtocolConfig v0.1.0',
-      kmsGeneration: 'KMSGeneration v0.1.0',
-      cleartextArithmetic: 'CleartextArithmetic v0.4.0',
+      acl: CONTRACT_VERSIONS_V13.acl,
+      fhevmExecutor: CONTRACT_VERSIONS_V13.fhevmExecutor,
+      kmsVerifier: CONTRACT_VERSIONS_V13.kmsVerifier,
+      inputVerifier: CONTRACT_VERSIONS_V13.inputVerifier,
+      hcuLimit: CONTRACT_VERSIONS_V13.hcuLimit,
+      protocolConfig: CONTRACT_VERSIONS_V13.protocolConfig,
+      kmsGeneration: CONTRACT_VERSIONS_V13.kmsGeneration,
+      cleartextArithmetic: CONTRACT_VERSIONS_V13.cleartextArithmetic,
     });
 
     // The v13 stack already carries the marker, and reports 13. Asserted before the upgrade as well as
@@ -660,17 +668,19 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
         'cleartextArithmeticAddress',
       ].sort(),
     );
-    // Every re-pointed proxy now reports its v14 version; InputVerifier is intentionally left where it was
-    // (its v14 bytecode is unchanged).
+    // Every re-pointed proxy now reports the version THIS package ships, read from the generated
+    // `CONTRACT_VERSIONS` rather than restated here — a patch bump upstream then changes the expectation
+    // and the contracts together. InputVerifier is intentionally left where it was (its v14 bytecode is
+    // unchanged).
     expect(await versions()).toEqual({
-      acl: 'ACL v0.5.0',
-      fhevmExecutor: 'FHEVMExecutor v0.5.0',
-      kmsVerifier: 'KMSVerifier v0.4.0',
-      inputVerifier: 'InputVerifier v0.2.0',
-      hcuLimit: 'HCULimit v0.4.0',
-      protocolConfig: 'ProtocolConfig v0.2.0',
-      kmsGeneration: 'KMSGeneration v0.2.0',
-      cleartextArithmetic: 'CleartextArithmetic v0.5.0',
+      acl: CONTRACT_VERSIONS.acl,
+      fhevmExecutor: CONTRACT_VERSIONS.fhevmExecutor,
+      kmsVerifier: CONTRACT_VERSIONS.kmsVerifier,
+      inputVerifier: CONTRACT_VERSIONS.inputVerifier,
+      hcuLimit: CONTRACT_VERSIONS.hcuLimit,
+      protocolConfig: CONTRACT_VERSIONS.protocolConfig,
+      kmsGeneration: CONTRACT_VERSIONS.kmsGeneration,
+      cleartextArithmetic: CONTRACT_VERSIONS.cleartextArithmetic,
     });
 
     // The ACL still advertises itself as cleartext after the migration, and now reports v14. A consumer

@@ -1,0 +1,755 @@
+{
+  "op": "xor",
+  "arity": 2,
+  "semantics": "bitwise",
+  "encoding": "hex-string",
+  "width": 128,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "xor_128_128_zero_zero",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_128_one_one",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_128_one_zero",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_128_zero_one",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_128_zero_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_128_lhs_max_vs_zero",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_128_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_128_pattern_vs_zero",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "xor_128_128_pattern_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" }
+    },
+    {
+      "id": "xor_128_128_top_bit_top_bit",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "rhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_128_top_bit_vs_one",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x80000000000000000000000000000001" }
+    },
+    {
+      "id": "xor_128_128_top_bit_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x7fffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_64_zero_zero",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_64_one_one",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_64_one_zero",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 64, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_64_zero_one",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_64_zero_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_64_lhs_max_vs_zero",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_64_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff0000000000000000" }
+    },
+    {
+      "id": "xor_128_64_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_64_pattern_vs_zero",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "xor_128_64_pattern_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a" }
+    },
+    {
+      "id": "xor_128_64_top_bit_top_bit",
+      "lhs": { "bits": 128, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_64_top_bit_vs_one",
+      "lhs": { "bits": 128, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x8000000000000001" }
+    },
+    {
+      "id": "xor_128_64_top_bit_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0x8000000000000000" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x7fffffffffffffff" }
+    },
+    {
+      "id": "xor_128_64_same_low_bits",
+      "lhs": { "bits": 128, "value": "0x1ffffffffffffffff" },
+      "rhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x10000000000000000" }
+    },
+    {
+      "id": "xor_128_32_zero_zero",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_32_one_one",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 32, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_32_one_zero",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_32_zero_one",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_32_zero_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0xffffffff" }
+    },
+    {
+      "id": "xor_128_32_lhs_max_vs_zero",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_32_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffff00000000" }
+    },
+    {
+      "id": "xor_128_32_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xffffffff" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_32_pattern_vs_zero",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5" }
+    },
+    {
+      "id": "xor_128_32_pattern_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a" }
+    },
+    {
+      "id": "xor_128_32_top_bit_top_bit",
+      "lhs": { "bits": 128, "value": "0x80000000" },
+      "rhs": { "bits": 32, "value": "0x80000000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_32_top_bit_vs_one",
+      "lhs": { "bits": 128, "value": "0x80000000" },
+      "rhs": { "bits": 32, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x80000001" }
+    },
+    {
+      "id": "xor_128_32_top_bit_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0x80000000" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x7fffffff" }
+    },
+    {
+      "id": "xor_128_32_same_low_bits",
+      "lhs": { "bits": 128, "value": "0x1ffffffff" },
+      "rhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x100000000" }
+    },
+    {
+      "id": "xor_128_16_zero_zero",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_16_one_one",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_16_one_zero",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_16_zero_one",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_16_zero_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0xffff" }
+    },
+    {
+      "id": "xor_128_16_lhs_max_vs_zero",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_16_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffff0000" }
+    },
+    {
+      "id": "xor_128_16_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xffff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_16_pattern_vs_zero",
+      "lhs": { "bits": 128, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5" }
+    },
+    {
+      "id": "xor_128_16_pattern_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xa5a5" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x5a5a" }
+    },
+    {
+      "id": "xor_128_16_top_bit_top_bit",
+      "lhs": { "bits": 128, "value": "0x8000" },
+      "rhs": { "bits": 16, "value": "0x8000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_16_top_bit_vs_one",
+      "lhs": { "bits": 128, "value": "0x8000" },
+      "rhs": { "bits": 16, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x8001" }
+    },
+    {
+      "id": "xor_128_16_top_bit_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0x8000" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x7fff" }
+    },
+    {
+      "id": "xor_128_16_same_low_bits",
+      "lhs": { "bits": 128, "value": "0x1ffff" },
+      "rhs": { "bits": 16, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x10000" }
+    },
+    {
+      "id": "xor_128_8_zero_zero",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_8_one_one",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_8_one_zero",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_8_zero_one",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_128_8_zero_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 128, "value": "0xff" }
+    },
+    {
+      "id": "xor_128_8_lhs_max_vs_zero",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_128_8_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffff00" }
+    },
+    {
+      "id": "xor_128_8_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_8_pattern_vs_zero",
+      "lhs": { "bits": 128, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5" }
+    },
+    {
+      "id": "xor_128_8_pattern_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x5a" }
+    },
+    {
+      "id": "xor_128_8_top_bit_top_bit",
+      "lhs": { "bits": 128, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_128_8_top_bit_vs_one",
+      "lhs": { "bits": 128, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x81" }
+    },
+    {
+      "id": "xor_128_8_top_bit_vs_narrow_max",
+      "lhs": { "bits": 128, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x7f" }
+    },
+    {
+      "id": "xor_128_8_same_low_bits",
+      "lhs": { "bits": 128, "value": "0x1ff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x100" }
+    },
+    {
+      "id": "xor_64_128_zero_zero",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_64_128_one_one",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_64_128_one_zero",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_64_128_zero_one",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_64_128_zero_vs_rhs_max",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_64_128_lhs_max_vs_zero",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "xor_64_128_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff0000000000000000" }
+    },
+    {
+      "id": "xor_64_128_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_64_128_pattern_vs_zero",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5a5a5a5a5" }
+    },
+    {
+      "id": "xor_64_128_pattern_vs_narrow_max",
+      "lhs": { "bits": 64, "value": "0xa5a5a5a5a5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a5a5a5a5a" }
+    },
+    {
+      "id": "xor_64_128_top_bit_top_bit",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 128, "value": "0x8000000000000000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_64_128_top_bit_vs_one",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x8000000000000001" }
+    },
+    {
+      "id": "xor_64_128_top_bit_vs_narrow_max",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x7fffffffffffffff" }
+    },
+    {
+      "id": "xor_64_128_same_low_bits",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "rhs": { "bits": 128, "value": "0x1ffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x10000000000000000" }
+    },
+    {
+      "id": "xor_32_128_zero_zero",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_32_128_one_one",
+      "lhs": { "bits": 32, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_32_128_one_zero",
+      "lhs": { "bits": 32, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_32_128_zero_one",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_32_128_zero_vs_rhs_max",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_32_128_lhs_max_vs_zero",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffffffff" }
+    },
+    {
+      "id": "xor_32_128_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffff00000000" }
+    },
+    {
+      "id": "xor_32_128_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 128, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_32_128_pattern_vs_zero",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5a5a5" }
+    },
+    {
+      "id": "xor_32_128_pattern_vs_narrow_max",
+      "lhs": { "bits": 32, "value": "0xa5a5a5a5" },
+      "rhs": { "bits": 128, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x5a5a5a5a" }
+    },
+    {
+      "id": "xor_32_128_top_bit_top_bit",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "rhs": { "bits": 128, "value": "0x80000000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_32_128_top_bit_vs_one",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x80000001" }
+    },
+    {
+      "id": "xor_32_128_top_bit_vs_narrow_max",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "rhs": { "bits": 128, "value": "0xffffffff" },
+      "result": { "bits": 128, "value": "0x7fffffff" }
+    },
+    {
+      "id": "xor_32_128_same_low_bits",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "rhs": { "bits": 128, "value": "0x1ffffffff" },
+      "result": { "bits": 128, "value": "0x100000000" }
+    },
+    {
+      "id": "xor_16_128_zero_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_16_128_one_one",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_16_128_one_zero",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_16_128_zero_one",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_16_128_zero_vs_rhs_max",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_16_128_lhs_max_vs_zero",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xffff" }
+    },
+    {
+      "id": "xor_16_128_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffff0000" }
+    },
+    {
+      "id": "xor_16_128_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 128, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_16_128_pattern_vs_zero",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5a5" }
+    },
+    {
+      "id": "xor_16_128_pattern_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 128, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x5a5a" }
+    },
+    {
+      "id": "xor_16_128_top_bit_top_bit",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 128, "value": "0x8000" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_16_128_top_bit_vs_one",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x8001" }
+    },
+    {
+      "id": "xor_16_128_top_bit_vs_narrow_max",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 128, "value": "0xffff" },
+      "result": { "bits": 128, "value": "0x7fff" }
+    },
+    {
+      "id": "xor_16_128_same_low_bits",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 128, "value": "0x1ffff" },
+      "result": { "bits": 128, "value": "0x10000" }
+    },
+    {
+      "id": "xor_8_128_zero_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_8_128_one_one",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_8_128_one_zero",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_8_128_zero_one",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "xor_8_128_zero_vs_rhs_max",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "xor_8_128_lhs_max_vs_zero",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xff" }
+    },
+    {
+      "id": "xor_8_128_lhs_max_vs_rhs_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffff00" }
+    },
+    {
+      "id": "xor_8_128_narrow_max_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 128, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_8_128_pattern_vs_zero",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0xa5" }
+    },
+    {
+      "id": "xor_8_128_pattern_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 128, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x5a" }
+    },
+    {
+      "id": "xor_8_128_top_bit_top_bit",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 128, "value": "0x80" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "xor_8_128_top_bit_vs_one",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0x81" }
+    },
+    {
+      "id": "xor_8_128_top_bit_vs_narrow_max",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 128, "value": "0xff" },
+      "result": { "bits": 128, "value": "0x7f" }
+    },
+    {
+      "id": "xor_8_128_same_low_bits",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 128, "value": "0x1ff" },
+      "result": { "bits": 128, "value": "0x100" }
+    }
+  ]
+}

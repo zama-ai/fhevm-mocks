@@ -603,17 +603,6 @@
   },
   {
     "type": "error",
-    "name": "CleartextErrorPublicKeyTooShort",
-    "inputs": [
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "CleartextErrorUserAddressEqualsContractAddress",
     "inputs": []
   },
@@ -730,6 +719,11 @@
   },
   {
     "type": "error",
+    "name": "MalformedSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotHostOwner",
     "inputs": [
       {
@@ -748,6 +742,17 @@
     "type": "error",
     "name": "NotInitializingFromEmptyProxy",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PublicKeyTooShort",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

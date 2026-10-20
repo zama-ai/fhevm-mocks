@@ -58,6 +58,25 @@
   },
   {
     "type": "function",
+    "name": "hasPlaintext",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initializeFromEmptyProxy",
     "inputs": [],
     "outputs": [],
@@ -102,7 +121,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       },
       {
         "name": "result",
@@ -163,7 +182,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       },
       {
         "name": "result",
@@ -242,7 +261,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       },
       {
         "name": "result",
@@ -298,7 +317,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       },
       {
         "name": "result",
@@ -432,12 +451,50 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorHandleUninitialized",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorNotABoolean",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorPlaintextTooWide",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "fheType",
+        "type": "uint8",
+        "internalType": "enum FheType"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorUnsupportedBinaryOp",
     "inputs": [
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       }
     ]
   },
@@ -448,7 +505,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       }
     ]
   },
@@ -459,7 +516,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       }
     ]
   },
@@ -475,7 +532,7 @@
       {
         "name": "op",
         "type": "uint8",
-        "internalType": "enum FHEVMExecutor.Operators"
+        "internalType": "enum Operators"
       }
     ]
   },

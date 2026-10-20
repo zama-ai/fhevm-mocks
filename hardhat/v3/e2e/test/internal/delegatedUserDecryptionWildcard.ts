@@ -1,4 +1,3 @@
-import { FhevmType } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -149,11 +148,13 @@ describe('Delegated user decryption — wildcard', function () {
   // The counter's `increment` runs FHE.allow(_count, msg.sender); routing it through the wallet makes
   // the WALLET the owner, which is what a delegator has to be.
   async function incrementThroughWallet(value: number): Promise<void> {
-    const encrypted = await fhevm.createEncryptedInput(counterAddress, smartWalletAddress).add32(value).encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
+    const encrypted = await fhevm.helpers.encryptUint32({
+      value,
+      contractAddress: counterAddress,
+      userAddress: smartWalletAddress,
+    });
 
-    const data = counter.interface.encodeFunctionData('increment', [handle, encrypted.inputProof]);
+    const data = counter.interface.encodeFunctionData('increment', [encrypted.externalEuint32, encrypted.inputProof]);
     const proposeTx = await smartWallet.connect(signers.bob).proposeTx(counterAddress, data);
     await proposeTx.wait();
     const txId = await smartWallet.txCounter();
@@ -169,13 +170,12 @@ describe('Delegated user decryption — wildcard', function () {
     await target.waitForDeployment();
     const address = (await target.getAddress()) as Hex;
 
-    const encrypted = await fhevm
-      .createEncryptedInput(address, signers.alice.address as Hex)
-      .add64(value)
-      .encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
-    await (await target.connect(signers.alice).deposit(owner, handle, encrypted.inputProof)).wait();
+    const encrypted = await fhevm.helpers.encryptUint64({
+      value,
+      contractAddress: address,
+      userAddress: signers.alice.address,
+    });
+    await (await target.connect(signers.alice).deposit(owner, encrypted.externalEuint64, encrypted.inputProof)).wait();
 
     return { address, handle: (await target.euint64Of(owner)) as Hex };
   }
@@ -199,10 +199,13 @@ describe('Delegated user decryption — wildcard', function () {
     await waitNBlocks(connection, PROPAGATION_BLOCKS);
   }
 
-  async function readCounter(as: keyof Accounts, delegator: Hex = smartWalletAddress): Promise<unknown> {
+  async function readCounter(as: keyof Accounts, delegator: Hex = smartWalletAddress): Promise<number> {
     const handle = (await counter.getCount()) as Hex;
-    return fhevm.userDecryptEuint(FhevmType.euint32, handle, counterAddress, accounts[as], {
-      delegatorAddress: delegator,
+    return fhevm.helpers.decryptUint32({
+      euint32: handle,
+      contractAddress: counterAddress,
+      userAddress: accounts[as].address,
+      options: { delegatorAddress: delegator },
     });
   }
 
@@ -211,9 +214,12 @@ describe('Delegated user decryption — wildcard', function () {
     handle: Hex,
     contractAddress: Hex,
     delegator: Hex = smartWalletAddress,
-  ): Promise<unknown> {
-    return fhevm.userDecryptEuint(FhevmType.euint64, handle, contractAddress, accounts[as], {
-      delegatorAddress: delegator,
+  ): Promise<bigint> {
+    return fhevm.helpers.decryptUint64({
+      euint64: handle,
+      contractAddress,
+      userAddress: accounts[as].address,
+      options: { delegatorAddress: delegator },
     });
   }
 
@@ -225,7 +231,7 @@ describe('Delegated user decryption — wildcard', function () {
     it('one wildcard delegation covers handles on two distinct contracts', async function () {
       await delegate(signers.bob.address, wildcardAddress);
 
-      expect(await readCounter('bob')).to.equal(BigInt(COUNTER_VALUE));
+      expect(await readCounter('bob')).to.equal(COUNTER_VALUE);
       expect(await readTarget('bob', handleOnB, targetBAddress)).to.equal(TARGET_B_VALUE);
     });
 
@@ -242,7 +248,7 @@ describe('Delegated user decryption — wildcard', function () {
       await delegate(signers.bob.address, counterAddress);
       await delegate(signers.bob.address, wildcardAddress);
 
-      expect(await readCounter('bob')).to.equal(BigInt(COUNTER_VALUE));
+      expect(await readCounter('bob')).to.equal(COUNTER_VALUE);
       expect(await readTarget('bob', handleOnB, targetBAddress)).to.equal(TARGET_B_VALUE);
     });
   });
@@ -283,8 +289,11 @@ describe('Delegated user decryption — wildcard', function () {
       // delegate, not the app contract's access.
       const countHandle = (await counter.getCount()) as Hex;
       await expectRejectedWith(
-        fhevm.userDecryptEuint(FhevmType.euint32, countHandle, targetBAddress, accounts.bob, {
-          delegatorAddress: smartWalletAddress,
+        fhevm.helpers.decryptUint32({
+          euint32: countHandle,
+          contractAddress: targetBAddress,
+          userAddress: accounts.bob.address,
+          options: { delegatorAddress: smartWalletAddress },
         }),
         NOT_DELEGATED,
       );
@@ -310,7 +319,7 @@ describe('Delegated user decryption — wildcard', function () {
       await revoke(signers.carol.address, wildcardAddress);
 
       // The counter still resolves through the surviving per-contract entry.
-      expect(await readCounter('carol')).to.equal(BigInt(COUNTER_VALUE));
+      expect(await readCounter('carol')).to.equal(COUNTER_VALUE);
       // B has no entry of its own, so it goes with the wildcard.
       await expectRejectedWith(readTarget('carol', handleOnB, targetBAddress), NOT_DELEGATED);
     });
@@ -320,7 +329,7 @@ describe('Delegated user decryption — wildcard', function () {
       await delegate(signers.carol.address, counterAddress);
       await revoke(signers.carol.address, counterAddress);
 
-      expect(await readCounter('carol')).to.equal(BigInt(COUNTER_VALUE));
+      expect(await readCounter('carol')).to.equal(COUNTER_VALUE);
       expect(await readTarget('carol', handleOnB, targetBAddress)).to.equal(TARGET_B_VALUE);
     });
 

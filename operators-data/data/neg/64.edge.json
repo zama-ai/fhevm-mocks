@@ -1,0 +1,71 @@
+{
+  "op": "neg",
+  "arity": 1,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "neg_64_zero",
+      "lhs": { "bits": 64, "value": "0x0" },
+      "result": { "bits": 64, "value": "0x0" }
+    },
+    {
+      "id": "neg_64_one",
+      "lhs": { "bits": 64, "value": "0x1" },
+      "result": { "bits": 64, "value": "0xffffffffffffffff" }
+    },
+    {
+      "id": "neg_64_max",
+      "lhs": { "bits": 64, "value": "0xffffffffffffffff" },
+      "result": { "bits": 64, "value": "0x1" }
+    },
+    {
+      "id": "neg_64_max_minus_1",
+      "lhs": { "bits": 64, "value": "0xfffffffffffffffe" },
+      "result": { "bits": 64, "value": "0x2" }
+    },
+    {
+      "id": "neg_64_max_minus_small",
+      "lhs": { "bits": 64, "value": "0xffffffffffffff9b" },
+      "result": { "bits": 64, "value": "0x65" }
+    },
+    {
+      "id": "neg_64_top_bit",
+      "lhs": { "bits": 64, "value": "0x8000000000000000" },
+      "result": { "bits": 64, "value": "0x8000000000000000" }
+    },
+    {
+      "id": "neg_64_top_bit_minus_1",
+      "lhs": { "bits": 64, "value": "0x7fffffffffffffff" },
+      "result": { "bits": 64, "value": "0x8000000000000001" }
+    },
+    {
+      "id": "neg_64_top_bit_plus_1",
+      "lhs": { "bits": 64, "value": "0x8000000000000001" },
+      "result": { "bits": 64, "value": "0x7fffffffffffffff" }
+    },
+    {
+      "id": "neg_64_low_half_max",
+      "lhs": { "bits": 64, "value": "0xffffffff" },
+      "result": { "bits": 64, "value": "0xffffffff00000001" }
+    },
+    {
+      "id": "neg_64_low_half_carry",
+      "lhs": { "bits": 64, "value": "0x100000000" },
+      "result": { "bits": 64, "value": "0xffffffff00000000" }
+    },
+    {
+      "id": "neg_64_low_byte_zero",
+      "lhs": { "bits": 64, "value": "0xffffffffffffff00" },
+      "result": { "bits": 64, "value": "0x100" }
+    },
+    {
+      "id": "neg_64_only_low_byte",
+      "lhs": { "bits": 64, "value": "0xff" },
+      "result": { "bits": 64, "value": "0xffffffffffffff01" }
+    }
+  ]
+}

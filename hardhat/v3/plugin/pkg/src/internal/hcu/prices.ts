@@ -42,7 +42,7 @@ const EVENT_NAME_BY_OPERATOR: Readonly<Record<FheOperatorName, string>> = {
   fheRandBounded: 'FheRandBounded',
   fheSum: 'FheSum',
   fheIsIn: 'FheIsIn',
-  // No `FheMulDiv` event exists in v13 yet; the price is published, so it is carried through.
+  // `FheMulDiv` is emitted from the 0.14 protocol line on; the price is published either way, so it is carried.
   fheMulDiv: 'FheMulDiv',
 };
 

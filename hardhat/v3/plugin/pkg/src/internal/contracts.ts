@@ -29,7 +29,7 @@ const ABI_FILE: Readonly<Record<FhevmContractName, string>> = {
   FHEVMExecutor: 'CleartextFHEVMExecutor',
   InputVerifier: 'CleartextInputVerifier',
   KMSVerifier: 'CleartextKMSVerifier',
-  HCULimit: 'HCULimit',
+  HCULimit: 'CleartextHCULimit',
   ProtocolConfig: 'ProtocolConfig',
   KMSGeneration: 'KMSGeneration',
   CleartextArithmetic: 'CleartextArithmetic',

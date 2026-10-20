@@ -780,7 +780,13 @@ function validateRunnableConsumer(fixture: LoadedPackage, violations: Violation[
 }
 
 function invokesNodeTest(command: string): boolean {
-  return /(?:^|\s)node(?:\s+[^&|;\n]+)*\s--test(?:\s|$)/.test(command);
+  // Scan each shell segment separately so an operator ('&', '|', ';', newline)
+  // ends the current command; linear in the length of `command`.
+  return command.split(/[&|;\n]/).some((segment) => {
+    const tokens = segment.split(/\s+/).filter((token) => token !== '');
+    const nodeIndex = tokens.indexOf('node');
+    return nodeIndex !== -1 && tokens.indexOf('--test', nodeIndex + 1) !== -1;
+  });
 }
 
 function existingFile(file: string): boolean {

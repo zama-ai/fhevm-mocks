@@ -1,0 +1,61 @@
+{
+  "op": "neg",
+  "arity": 1,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "neg_8_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "neg_8_one",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "neg_8_max",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0x1" }
+    },
+    {
+      "id": "neg_8_max_minus_1",
+      "lhs": { "bits": 8, "value": "0xfe" },
+      "result": { "bits": 8, "value": "0x2" }
+    },
+    {
+      "id": "neg_8_max_minus_small",
+      "lhs": { "bits": 8, "value": "0x9b" },
+      "result": { "bits": 8, "value": "0x65" }
+    },
+    {
+      "id": "neg_8_top_bit",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "result": { "bits": 8, "value": "0x80" }
+    },
+    {
+      "id": "neg_8_top_bit_minus_1",
+      "lhs": { "bits": 8, "value": "0x7f" },
+      "result": { "bits": 8, "value": "0x81" }
+    },
+    {
+      "id": "neg_8_top_bit_plus_1",
+      "lhs": { "bits": 8, "value": "0x81" },
+      "result": { "bits": 8, "value": "0x7f" }
+    },
+    {
+      "id": "neg_8_low_half_max",
+      "lhs": { "bits": 8, "value": "0xf" },
+      "result": { "bits": 8, "value": "0xf1" }
+    },
+    {
+      "id": "neg_8_low_half_carry",
+      "lhs": { "bits": 8, "value": "0x10" },
+      "result": { "bits": 8, "value": "0xf0" }
+    }
+  ]
+}

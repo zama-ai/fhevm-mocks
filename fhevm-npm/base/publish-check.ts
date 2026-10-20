@@ -17,7 +17,7 @@ import { type LoadedPackage, type PackageJson, dependencyDeclarations, loadPacka
 import { tarballsOutDir } from './pack-tarball.ts';
 import { type RegistryFetch, npmjsPackageUrl, npmjsStatus } from './package-versions.ts';
 import { isNpmDistributedPayload, resolvePayload } from './publish-render.ts';
-import { generationRange, parseVersion, satisfiesGenerationRange } from './semver.ts';
+import { dependencyRange, parseVersion, satisfiesDependencyRange } from './semver.ts';
 import { type VersionsFile, loadVersions } from './versions.ts';
 
 export const RULE = '5.3.10';
@@ -176,7 +176,7 @@ function expectedRange(name: string, packages: readonly LoadedPackage[], version
   const target = candidates.find((pkg) => pkg.inventory.member) ?? candidates[0];
   const central = target === undefined ? undefined : versions.packages[target.key];
   const parsed = central === undefined ? undefined : parseVersion(central);
-  return parsed === undefined ? undefined : generationRange(parsed);
+  return parsed === undefined ? undefined : dependencyRange(parsed);
 }
 
 /** Rendered dependencies must be satisfiable on npmjs.com (retried); the payload's own version must be absent. */
@@ -214,7 +214,7 @@ async function rangeSatisfied(name: string, range: string, fetchRegistry: Regist
   const versions = (await response.json()) as { versions?: Record<string, unknown> };
   return Object.keys(versions.versions ?? {}).some((published) => {
     const parsed = parseVersion(published);
-    return parsed !== undefined && satisfiesGenerationRange(parsed, range);
+    return parsed !== undefined && satisfiesDependencyRange(parsed, range);
   });
 }
 

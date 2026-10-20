@@ -1,0 +1,107 @@
+{
+  "op": "rotl",
+  "arity": 2,
+  "semantics": "amount-mod-width",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "rotl_8_8_zero_by_zero",
+      "lhs": { "bits": 8, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 8, "value": "0x0" }
+    },
+    {
+      "id": "rotl_8_8_by_zero",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 8, "value": "0x64" }
+    },
+    {
+      "id": "rotl_8_8_max_by_zero",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "rotl_8_8_one_by_one",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0x2" }
+    },
+    {
+      "id": "rotl_8_8_two_by_one",
+      "lhs": { "bits": 8, "value": "0x2" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0x4" }
+    },
+    {
+      "id": "rotl_8_8_max_by_one",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "rotl_8_8_top_bit_by_one",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 8, "value": "0x1" }
+    },
+    {
+      "id": "rotl_8_8_one_by_w_minus_1",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 8, "value": "0x80" }
+    },
+    {
+      "id": "rotl_8_8_top_bit_by_w_minus_1",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 8, "value": "0x40" }
+    },
+    {
+      "id": "rotl_8_8_max_by_w_minus_1",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x7" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "rotl_8_8_one_by_w",
+      "lhs": { "bits": 8, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x8" },
+      "result": { "bits": 8, "value": "0x1" }
+    },
+    {
+      "id": "rotl_8_8_top_bit_by_w",
+      "lhs": { "bits": 8, "value": "0x80" },
+      "rhs": { "bits": 8, "value": "0x8" },
+      "result": { "bits": 8, "value": "0x80" }
+    },
+    {
+      "id": "rotl_8_8_max_by_w",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x8" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "rotl_8_8_max_by_w_plus_1",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0x9" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "rotl_8_8_max_by_255",
+      "lhs": { "bits": 8, "value": "0xff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0xff" }
+    },
+    {
+      "id": "rotl_8_8_pattern_by_255",
+      "lhs": { "bits": 8, "value": "0xa5" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 8, "value": "0xd2" }
+    }
+  ]
+}

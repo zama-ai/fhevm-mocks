@@ -90,13 +90,14 @@ export function inspectFoundry(
     });
   }
 
-  validateForgeFmtConfig(workspaceRoot, fmtPackageKeys, violations, readForgeConfig);
+  validateForgeFmtConfig(workspaceRoot, manifest, fmtPackageKeys, violations, readForgeConfig);
 
   return { actualVersion, fmtPackageKeys, violations };
 }
 
 function validateForgeFmtConfig(
   workspaceRoot: string,
+  manifest: NpmManifest,
   packageKeys: readonly string[],
   violations: Violation[],
   readForgeConfig: ForgeConfigReader,
@@ -131,7 +132,11 @@ function validateForgeFmtConfig(
     const directory = packageDirectory(workspaceRoot, key);
     const configFile = join(directory, 'foundry.toml');
 
-    if (!extendsSharedFoundryConfig(configFile, sharedFile)) {
+    // A standalone project is copied OUT of the workspace by the consumer runner and installed on its
+    // own, so there is no shared file to extend from where it runs; it restates the policy inline, and
+    // the effective-settings comparison below is what holds it to the shared values.
+    const standalone = manifest.packages[key]?.kind === 'standalone';
+    if (!standalone && !extendsSharedFoundryConfig(configFile, sharedFile)) {
       violations.push({
         rule: '4.1.3',
         packageKey: fileInPackage(key, 'foundry.toml'),

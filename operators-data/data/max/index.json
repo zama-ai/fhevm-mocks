@@ -1,0 +1,18 @@
+{
+  "op": "max",
+  "arity": 2,
+  "semantics": "unsigned",
+  "encoding": "hex-string",
+  "parts": [
+    { "width": 128, "kind": "normal", "file": "128.normal.json", "cases": 152, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 128, "kind": "edge", "file": "128.edge.json", "cases": 107, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 64, "kind": "normal", "file": "64.normal.json", "cases": 88, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 64, "kind": "edge", "file": "64.edge.json", "cases": 83, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 32, "kind": "normal", "file": "32.normal.json", "cases": 46, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 32, "kind": "edge", "file": "32.edge.json", "cases": 59, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 16, "kind": "normal", "file": "16.normal.json", "cases": 20, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 16, "kind": "edge", "file": "16.edge.json", "cases": 35, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 8, "kind": "normal", "file": "8.normal.json", "cases": 4, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 8, "kind": "edge", "file": "8.edge.json", "cases": 11, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] }
+  ]
+}

@@ -26,6 +26,7 @@ export const commandNames = [
   'cleartext-config',
   'generations',
   'generation-parity',
+  'forge-fhevm-std-parity',
   'extraneous',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
@@ -34,6 +35,7 @@ export type CliOptions = {
   readonly command:
     | CommandName
     | 'check-fhevm-chains-origin'
+    | 'check-deployments'
     | 'check-mirror'
     | 'check-vendored-origin'
     | 'clean-forge-dependencies'
@@ -51,7 +53,10 @@ export type CliOptions = {
     | 'publish-pack'
     | 'publish-render'
     | 'sync-fhevm-chains'
+    | 'sync-hh-v2-constants' // hh-v2-constants
     | 'sync-vendored'
+    | 'sync-pinned'
+    | 'bump-vendored'
     | 'test-consumer'
     | 'test-consumer-regenerate-package-lock';
   readonly workspaceRoot: string;
@@ -100,9 +105,24 @@ export type CliOptions = {
   | { readonly command: 'version-check' }
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
+  | { readonly command: 'check-deployments'; readonly base?: string }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
+  | { readonly command: 'sync-hh-v2-constants'; readonly check: boolean } // hh-v2-constants
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
-  | { readonly command: 'test-consumer-regenerate-package-lock'; readonly packageSelector?: string }
+  | { readonly command: 'sync-pinned'; readonly check: boolean }
+  | {
+      readonly command: 'bump-vendored';
+      readonly selector: string;
+      readonly repository?: string;
+      readonly tag: string;
+      readonly commit?: string;
+      readonly check: boolean;
+    }
+  | {
+      readonly command: 'test-consumer-regenerate-package-lock';
+      readonly packageSelector?: string;
+      readonly fresh: boolean;
+    }
   | {
       readonly command: 'test-consumer';
       readonly packageSelector?: string;
@@ -180,9 +200,22 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
       }
     | undefined;
   let syncVendored: { readonly check: boolean; readonly digest: boolean } | undefined;
+  let syncPinned: { readonly check: boolean } | undefined;
+  let bumpVendored:
+    | {
+        readonly selector: string;
+        readonly repository?: string;
+        readonly tag: string;
+        readonly commit?: string;
+        readonly check: boolean;
+      }
+    | undefined;
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
+  let checkDeployments: { readonly base?: string } | undefined;
+  let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
   let regenerateConsumerPackageLocks = false;
+  let regenerateConsumerPackageLocksFresh = false;
   let regenerateConsumerPackageLockSelector: string | undefined;
   let testConsumer:
     | {
@@ -268,6 +301,12 @@ Prerequisite:
     .description('Check that the previous generation is byte-identical to its own release branch.')
     .action(() => {
       selected = 'generation-parity';
+    });
+  check
+    .command('forge-fhevm-std-parity')
+    .description("Check that forge-fhevm-std's published package is identical across generations.")
+    .action(() => {
+      selected = 'forge-fhevm-std-parity';
     });
   check
     .command('ownership')
@@ -437,12 +476,60 @@ Why:
       syncVendored = { check: options.check, digest: options.digest };
     });
   sync
+    .command('pinned')
+    .description(
+      "Raise any pin a lockfile resolves newer than, then copy npm-manifest.json's pinned specs into every package.json that declares them.",
+    )
+    .option('--check', 'compare instead of writing, and fail on any difference', false)
+    .action((options: { readonly check: boolean }) => {
+      syncPinned = { check: options.check };
+    });
+  // Distinct from `sync`: this MOVES a pin, then syncs what follows from it.
+  const bump = program.command('bump').description('Move a recorded pin, and everything derived from it.');
+  bump
+    .command('vendored <package>')
+    .description(
+      'Move every pinned vendored source under a package (key or key prefix) to a tag: manifest, digests, copies, package.json.',
+    )
+    .requiredOption('--tag <tag>', 'the upstream tag to pin')
+    .option('--repository <url>', 'which upstream, when the selection pins more than one')
+    .option('--commit <sha>', 'pin this commit instead of resolving the tag (full 40-hex sha)')
+    .option('--check', 'resolve and compare, and fail on any difference, writing nothing', false)
+    .action(
+      (
+        selector: string,
+        options: {
+          readonly tag: string;
+          readonly repository?: string;
+          readonly commit?: string;
+          readonly check: boolean;
+        },
+      ) => {
+        bumpVendored = { selector, ...options };
+      },
+    );
+  sync
     .command('fhevm-chains')
     .description('Fetch the latest chain addresses from the protocol registry.')
     .option('--latest', "pin to the registry's current HEAD", false)
     .option('--commit <sha>', 'pin to an explicit registry commit (full 40-hex sha)')
     .action((options: { readonly latest: boolean; readonly commit?: string }) => {
       syncFhevmChains = { commit: options.commit, latest: options.latest };
+    });
+  // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2.
+  sync
+    .command('hh-v2-constants')
+    .description("Set the Hardhat 2 plugin's host-contracts-cleartext version in constants.ts from versions.json.")
+    .option('--check', 'compare instead of writing, and fail on any difference', false)
+    .action((options: { readonly check: boolean }) => {
+      syncHhV2Constants = { check: options.check };
+    });
+  check
+    .command('deployments')
+    .description('Check every deployment record under deployments/; with --base, also that none of them changed.')
+    .option('--base <ref>', 'fail if a record folder that exists at the merge base with this ref changed in any way')
+    .action((options: { readonly base?: string }) => {
+      checkDeployments = { base: options.base };
     });
   check
     .command('fhevm-chains-origin')
@@ -621,9 +708,15 @@ Why:
   program
     .command('test-consumer-regenerate-package-lock [package]')
     .description('Rebuild the package-lock.json of the standalone test projects.')
-    .action((packageSelector: string | undefined) => {
+    .option(
+      '--fresh',
+      'resolve every dependency again from no lock, instead of updating the committed one; moves every in-range version',
+      false,
+    )
+    .action((packageSelector: string | undefined, options: { readonly fresh: boolean }) => {
       regenerateConsumerPackageLocks = true;
       regenerateConsumerPackageLockSelector = packageSelector;
+      regenerateConsumerPackageLocksFresh = options.fresh;
     });
 
   program.parse([...argv], { from: 'user' });
@@ -647,17 +740,31 @@ Why:
     !regenerateConsumerPackageLocks &&
     testConsumer === undefined &&
     syncVendored === undefined &&
+    syncPinned === undefined &&
+    bumpVendored === undefined &&
     generateExports === undefined &&
     generateCleartextConfig === undefined &&
     generateChainConstants === undefined &&
     syncFhevmChains === undefined &&
-    !checkFhevmChainsOrigin
+    syncHhV2Constants === undefined && // hh-v2-constants
+    !checkFhevmChainsOrigin &&
+    checkDeployments === undefined
   ) {
     program.help({ error: true });
     throw new Error('unreachable');
   }
   const options = program.opts<RawOptions>();
   const workspaceRoot = resolve(options.root);
+  if (syncPinned !== undefined) {
+    return {
+      command: 'sync-pinned',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...syncPinned,
+    };
+  }
   if (syncVendored !== undefined) {
     return {
       command: 'sync-vendored',
@@ -668,6 +775,16 @@ Why:
       ...syncVendored,
     };
   }
+  if (bumpVendored !== undefined) {
+    return {
+      command: 'bump-vendored',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...bumpVendored,
+    };
+  }
   if (syncFhevmChains !== undefined) {
     return {
       command: 'sync-fhevm-chains',
@@ -676,6 +793,27 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...syncFhevmChains,
+    };
+  }
+  // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2.
+  if (syncHhV2Constants !== undefined) {
+    return {
+      command: 'sync-hh-v2-constants',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...syncHhV2Constants,
+    };
+  }
+  if (checkDeployments !== undefined) {
+    return {
+      command: 'check-deployments',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...checkDeployments,
     };
   }
   if (checkFhevmChainsOrigin) {
@@ -725,6 +863,7 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       packageSelector: regenerateConsumerPackageLockSelector,
+      fresh: regenerateConsumerPackageLocksFresh,
     };
   }
   if (mirrorPackageSelector !== undefined) {

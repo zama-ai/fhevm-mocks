@@ -93,9 +93,11 @@ TARBALL="$OUT_DIR/$FILENAME"
 [ -f "$TARBALL" ] || { echo "Error: npm pack reported $FILENAME but $TARBALL does not exist." >&2; exit 1; }
 
 # A tarball missing src/ still installs and still fails later, at `forge install` time in a consumer —
-# far from here. Cheap to rule out now.
+# far from here. Cheap to rule out now. Listed once and searched as a here-string: `tar | grep -q` would let
+# grep exit on the first match and, under pipefail, fail on the SIGPIPE that kills tar mid-listing.
+LISTING="$(tar -tzf "$TARBALL")"
 for required in package/package.json package/src; do
-    tar -tzf "$TARBALL" | grep -q "^${required}" || {
+    grep -q "^${required}" <<<"$LISTING" || {
         echo "Error: $FILENAME does not contain $required." >&2
         exit 1
     }

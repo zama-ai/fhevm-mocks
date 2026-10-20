@@ -38,6 +38,19 @@ function _getScalarOperatorHCU(op: HCUOperator, typeName: FheTypeName): number {
   return op.scalar?.[typeName] ?? 0;
 }
 
+// fheMulDiv's scalarByte is not the usual flag (HCULimit.sol: FHE_MUL_DIV_FACTOR2_ENCRYPTED = 0x01,
+// FHE_MUL_DIV_FACTOR2_SCALAR = 0x03). Read as the usual `=== '0x01'`, it would price an ENCRYPTED factor2 as scalar.
+const FHE_MUL_DIV_FACTOR2_ENCRYPTED = '0x01';
+const FHE_MUL_DIV_FACTOR2_SCALAR = '0x03';
+
+function mulDivFactor2IsScalar(scalarByte: string): boolean {
+  if (scalarByte === FHE_MUL_DIV_FACTOR2_SCALAR) return true;
+  if (scalarByte === FHE_MUL_DIV_FACTOR2_ENCRYPTED) return false;
+  throw new HardhatFhevmError(
+    `FheMulDiv: expected scalarByte ${FHE_MUL_DIV_FACTOR2_ENCRYPTED} or ${FHE_MUL_DIV_FACTOR2_SCALAR}, got ${scalarByte}`,
+  );
+}
+
 // `op` is the price entry this log's event resolved to, carried so callers need not re-index
 // `HCUByOperator`, whose string index signature makes every lookup optional again.
 type FHELogEntry = { name: keyof typeof HCUByOperator; args: EthersT.Result; op: HCUOperator };
@@ -362,6 +375,38 @@ export function getTxHCUFromTxReceipt(
 
         hcuMap[resultBytes32] =
           hcuConsumed + Math.max(readFromHCUMap(valueBytes32), ...values.map((v) => readFromHCUMap(v)));
+        break;
+      }
+
+      case 'FheMulDiv': {
+        // event FheMulDiv(address indexed caller, bytes32 factor1, bytes32 factor2, bytes32 divisor, bytes1 scalarByte, bytes32 result);
+        // (factor1 * factor2) / divisor. The divisor is always a plain value, never a handle, and the scalar
+        // flag speaks about factor2 alone — in its own encoding, not the 0x01 every other operator uses.
+        const factor1Bytes32: unknown = event.args[1 as keyof typeof event.args];
+        const factor2Bytes32: unknown = event.args[2 as keyof typeof event.args];
+        const divisorBytes32: unknown = event.args[3 as keyof typeof event.args];
+        const scalarBytes1: unknown = event.args[4 as keyof typeof event.args];
+        const resultBytes32: unknown = event.args[5 as keyof typeof event.args];
+
+        assertEventArgIsBytes32String(factor1Bytes32, event.name, 1);
+        assertEventArgIsBytes32String(factor2Bytes32, event.name, 2);
+        assertEventArgIsBytes32String(divisorBytes32, event.name, 3);
+        assertEventArgIsBytes1String(scalarBytes1, event.name, 4);
+        assertEventArgIsBytes32String(resultBytes32, event.name, 5);
+
+        const factor2IsScalar = mulDivFactor2IsScalar(scalarBytes1);
+
+        // HCU is computed using the result bytes32 type
+        const resultFheTypeName: FheTypeName = getFheTypeName(parseFhevmHandle(resultBytes32).fhevmType);
+
+        hcuConsumed = _getOperatorHCU(event.op, factor2IsScalar, resultFheTypeName);
+        totalHCUConsumed += hcuConsumed;
+
+        hcuMap[resultBytes32] =
+          hcuConsumed +
+          (factor2IsScalar
+            ? readFromHCUMap(factor1Bytes32)
+            : Math.max(readFromHCUMap(factor1Bytes32), readFromHCUMap(factor2Bytes32)));
         break;
       }
     }

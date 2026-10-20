@@ -51,7 +51,7 @@ import {
 /** The harness root, two levels up from `test/ts`. The coordinator must be spawned from there. */
 const PACKAGE_ROOT = join(import.meta.dirname, '..', '..');
 
-/** Resolved by the coordinator against `create2-deploy/`, the only directory forge may write to. */
+/** Passed absolute: the coordinator resolves a relative --out-dir against the caller's directory. */
 const OUT_DIR_ARG = '.out-test-create2-precompute';
 const OUT_DIR_ABS = join(PACKAGE_ROOT, 'create2-deploy', OUT_DIR_ARG);
 
@@ -92,7 +92,10 @@ type Manifest = {
  * whole payload, then one per broadcasting stage. The transactions are the cheap part.
  */
 async function runCoordinator(args: readonly string[], started: number): Promise<{ status: number; output: string }> {
-  const child = spawn('node', [...args], { cwd: PACKAGE_ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(join(PACKAGE_ROOT, 'create2-deploy', 'deploy-cli'), [...args], {
+    cwd: PACKAGE_ROOT,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   let output = '';
   let last = 'starting';
   const keep = (chunk: Buffer): void => {
@@ -148,13 +151,12 @@ test('precomputeCreate2Addresses predicts where a real create2 deploy actually l
     step(t0, 'anvil up — running the create2 coordinator: 12 solc runs (3 compute passes + 9 stages), ~40s');
     const run = await runCoordinator(
       [
-        'create2-deploy/deploy-testnet.ts',
         '--config',
         'create2-deploy/anvil-config.json',
         '--rpc-url',
         anvil.rpcUrl,
         '--out-dir',
-        OUT_DIR_ARG,
+        OUT_DIR_ABS,
         '--deployment-id',
         'precompute-parity',
         '--stage',

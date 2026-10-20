@@ -81,7 +81,7 @@ contract FhevmDeployCreates is FhevmCreate2Base {
         // compiled for. Requires `--sender` alongside `--account`.
         require(msg.sender == cfg.deployer, "FhevmDeployCreates: broadcast sender is not FHEVM_DEPLOYER");
 
-        _banner("creates");
+        _banner("Creates");
 
         // The work list, and its order, live in the base — FhevmStatus reports on the same table.
         Create[] memory creates = _allCreates(manifest);
@@ -95,9 +95,6 @@ contract FhevmDeployCreates is FhevmCreate2Base {
         console.log("");
         console.log("  created", _created);
         console.log("  already present", _skipped);
-        console.log("  next: FhevmRegisterPausers (A/A'), FhevmOfferACLOwnership (B),");
-        console.log("        FhevmAcceptACLOwnership (C),");
-        console.log("        FhevmMaterializeStack (D), FhevmOfferACLOwnerToAdmin (E)");
     }
 
     /**

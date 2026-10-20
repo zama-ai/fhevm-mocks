@@ -1,4 +1,4 @@
-import { FhevmType, type HardhatFhevmRuntimeEnvironment } from '@fhevm/hardhat-plugin-v3';
+import { type HardhatFhevmRuntimeEnvironment } from '@fhevm/hardhat-plugin-v3';
 import type { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types';
 import { expect } from 'chai';
 import { network } from 'hardhat';
@@ -64,17 +64,22 @@ describe('EncryptMultipleValues', function () {
     // to perform FHEVM input encryptions.
     const fhevm: HardhatFhevmRuntimeEnvironment = connection.fhevm;
 
-    const input = fhevm.createEncryptedInput(contractAddress, signers.alice.address as Hex);
+    // Three values under ONE input proof, so this goes through the SDK client rather than
+    // `fhevm.helpers`, which encrypts a single value at a time. Each entry names its Solidity type.
+    const enc = await fhevm.client.encryptValues({
+      values: [
+        { type: 'bool', value: true },
+        { type: 'uint32', value: 123456 },
+        { type: 'address', value: signers.owner.address },
+      ],
+      contractAddress: contractAddress,
+      userAddress: signers.alice.address,
+    });
 
-    input.addBool(true);
-    input.add32(123456);
-    input.addAddress(signers.owner.address as Hex);
-
-    const enc = await input.encrypt();
-
-    const [inputEbool, inputEuint32, inputEaddress] = enc.handles;
+    // `encryptedValues` is ORDERED: one handle per value, in the order they were listed above.
+    const [inputEbool, inputEuint32, inputEaddress] = enc.encryptedValues;
     if (inputEbool === undefined || inputEuint32 === undefined || inputEaddress === undefined) {
-      throw new Error('encrypt() returned fewer than three handles');
+      throw new Error('encryptValues() returned fewer than three handles');
     }
     const inputProof = enc.inputProof;
 
@@ -87,24 +92,23 @@ describe('EncryptMultipleValues', function () {
     const encryptedUint32 = (await contract.encryptedUint32()) as Hex;
     const encryptedAddress = (await contract.encryptedAddress()) as Hex;
 
-    const clearBool = await fhevm.userDecryptEbool(
-      encryptedBool,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearBool = await fhevm.helpers.decryptBool({
+      ebool: encryptedBool,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
-    const clearUint32 = await fhevm.userDecryptEuint(
-      FhevmType.euint32, // Specify the encrypted type
-      encryptedUint32,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearUint32 = await fhevm.helpers.decryptUint32({
+      euint32: encryptedUint32,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
-    const clearAddress = await fhevm.userDecryptEaddress(
-      encryptedAddress,
-      contractAddress, // The contract address
-      accounts.alice, // The user account
-    );
+    const clearAddress = await fhevm.helpers.decryptAddress({
+      eaddress: encryptedAddress,
+      contractAddress: contractAddress,
+      userAddress: accounts.alice.address,
+    });
 
     expect(clearBool).to.equal(true);
     expect(clearUint32).to.equal(123456n);

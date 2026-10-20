@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Start a fresh anvil node, deploy a full cleartext v14 stack onto it with scripts/deploy.sh, and keep the
+# Start a fresh anvil node, deploy a full cleartext stack onto it with scripts/deploy.sh, and keep the
 # node running so you can point tests, scripts or a dApp at it. Ctrl-C stops anvil.
 #
 # Usage: ./scripts/anvil.sh [--port PORT] [--mnemonic "..."] [--account-index N] [--no-deploy]
@@ -134,7 +134,7 @@ verify_zama_local_config() {
 }
 
 if [ "$DEPLOY" -eq 1 ]; then
-    echo "🚀 deploying the cleartext v14 stack"
+    echo "🚀 deploying the cleartext stack"
     ./scripts/deploy.sh \
         --rpc-url "$RPC_URL" \
         --mnemonic "$ANVIL_MNEMONIC" \

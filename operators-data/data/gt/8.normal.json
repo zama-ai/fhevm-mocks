@@ -1,0 +1,35 @@
+{
+  "op": "gt",
+  "arity": 2,
+  "semantics": "boolean",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "gt_8_8_small_vs_smaller",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "gt_8_8_smaller_vs_small",
+      "lhs": { "bits": 8, "value": "0x17" },
+      "rhs": { "bits": 8, "value": "0x64" },
+      "result": { "bits": 1, "value": "0x0" }
+    },
+    {
+      "id": "gt_8_8_mid_vs_mid",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 1, "value": "0x1" }
+    },
+    {
+      "id": "gt_8_8_mid_vs_mid_reversed",
+      "lhs": { "bits": 8, "value": "0x2d" },
+      "rhs": { "bits": 8, "value": "0x6b" },
+      "result": { "bits": 1, "value": "0x0" }
+    }
+  ]
+}

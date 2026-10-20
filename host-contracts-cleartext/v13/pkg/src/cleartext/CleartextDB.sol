@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {ICleartextDB} from "./ICleartextDB.sol";
+import {ICleartextDB} from "./shared/interfaces/ICleartextDB.sol";
 import {UUPSUpgradeableEmptyProxy} from "../contracts/shared/UUPSUpgradeableEmptyProxy.sol";
 import {ACLOwnable, aclAdd} from "../contracts/shared/ACLOwnable.sol";
 
@@ -46,6 +46,9 @@ contract CleartextDB is ICleartextDB, UUPSUpgradeableEmptyProxy, ACLOwnable {
     struct CleartextDBStorage {
         mapping(bytes32 handle => uint256 value) plaintexts;
         mapping(address account => bool isWriter) writers;
+        /// @dev Appended, so the layout of everything above is untouched. Without it `get` cannot tell
+        ///      a handle worth zero from one that was never written, and both are common.
+        mapping(bytes32 handle => bool written) has;
     }
 
     /// @dev Restricts a function to registered writers.
@@ -101,8 +104,15 @@ contract CleartextDB is ICleartextDB, UUPSUpgradeableEmptyProxy, ACLOwnable {
     }
 
     /// @inheritdoc ICleartextDB
+    function has(bytes32 handle) external view override returns (bool) {
+        return _getCleartextDBStorage().has[handle];
+    }
+
+    /// @inheritdoc ICleartextDB
     function set(bytes32 handle, uint256 value) external override onlyWriter {
-        _getCleartextDBStorage().plaintexts[handle] = value;
+        CleartextDBStorage storage $ = _getCleartextDBStorage();
+        $.plaintexts[handle] = value;
+        $.has[handle] = true;
     }
 
     /// @inheritdoc ICleartextDB

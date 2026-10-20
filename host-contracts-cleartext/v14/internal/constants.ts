@@ -4,7 +4,7 @@
 // This module is deliberately dependency-free: paths and literals only, no imports from generateTemplates
 // or its siblings. Everything in internal/ may import it, so a dependency of its own would risk a cycle.
 import { findWorkspaceRootAbsPath } from '@fhevm/sdk-common-dev';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -23,39 +23,15 @@ export const WORKSPACE_ROOT_ABS_PATH = findWorkspaceRootAbsPath(PACKAGE_ROOT_ABS
 /** The pkg/ directory — the published payload, and the only part of the tree that ships. */
 export const PKG_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, 'pkg');
 
-/**
- * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
- * processes, and cleaning its build output. `test/e2e/upgrade/create2.test.ts` is the only caller.
- *
- * TypeScript that merely wants v13's code must NOT come through here. v13 is a workspace member, so
- * it is imported like any dependency — `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts`,
- * resolved through the link npm created, with types and go-to-definition intact. The upgrade e2e used
- * to build the predecessor, pack it and extract it under an alias in `test/ts/node_modules` purely to get an
- * importable copy; a workspace link does that already, and the whole apparatus is gone.
- *
- * A tarball is for testing the PUBLISH CONTRACT — `files` omissions, undeclared deps, stale output —
- * and it is worth its cost only when the packed artifact is what is on trial. Using one to obtain a
- * sibling's source code buys nothing and pays a build, a pack and an install for it.
- */
-export const PREVIOUS_GENERATION_DIR_ABS_PATH = resolve(PACKAGE_ROOT_ABS_PATH, '..', 'v13');
-
 // The local stack's deploy identity, defined in @fhevm/sdk-common-dev because every generation shares it.
 // Re-exported so all of internal/ keeps one import point for constants.
 export { DEPLOYER_ADDRESS_INDEX, MNEMONIC, ZAMA_LOCAL_CONFIG, ERC_1967_IMPL_SLOT } from '@fhevm/sdk-common-dev';
 
 /**
- * The Solidity import prefix the contracts read their address set through — the left side of a Foundry
- * remapping, as in `fhevm-config-0.14.0/=internal/placeholders/`. Not a directory: what it maps *to*
- * varies by who is compiling, which is the whole point.
- *
- * Version-pinned, so two protocol generations can coexist in one project without their address sets
- * colliding — which also means it moves when the protocol minor does (README step 5).
- *
- * Only the TS copy lives here. `remappings.txt` and `pkg/src/addresses/FHEVMHostAddresses.sol` carry the
- * same string and cannot import a constant; they stay the authoritative pair, and a mismatch surfaces as
- * a compile error there or, for this script, as surviving placeholder markers.
+ * The one Solidity source that imports the address set through the config remapping
+ * (`fhevm-config-<version>/addresses.sol`): the source of truth `fhevmConfigRemappingPrefix()` reads.
  */
-export const FHEVM_CONFIG_REMAPPING_PREFIX = 'fhevm-config-0.14.0/';
+export const FHEVM_HOST_ADDRESSES_SOL_ABS_PATH = join(PKG_DIR_ABS_PATH, 'src', 'addresses', 'FHEVMHostAddresses.sol');
 
 /**
  * Nonce the deploy sequence starts from — 0, i.e. an account that has sent no transaction.
@@ -212,12 +188,12 @@ export const CONSTANT_NAMES = {
   CleartextArithmetic: 'CLEARTEXT_ARITHMETIC',
   CleartextDB: 'CLEARTEXT_DB',
   CleartextFHEVMExecutor: 'CLEARTEXT_FHEVM_EXECUTOR',
+  CleartextHCULimit: 'CLEARTEXT_HCU_LIMIT',
   CleartextInputVerifier: 'CLEARTEXT_INPUT_VERIFIER',
   CleartextKMSVerifier: 'CLEARTEXT_KMS_VERIFIER',
   EmptyUUPSProxy: 'EMPTY_UUPS_PROXY',
   EmptyUUPSProxyACL: 'EMPTY_UUPS_PROXY_ACL',
   ERC1967Proxy: 'ERC1967_PROXY',
-  HCULimit: 'HCU_LIMIT',
   KMSGeneration: 'KMS_GENERATION',
   PauserSet: 'PAUSER_SET',
   ProtocolConfig: 'PROTOCOL_CONFIG',

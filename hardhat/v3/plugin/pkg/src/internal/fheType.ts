@@ -1,7 +1,8 @@
 // Helpers over the public `FhevmType` enum. `fhevmTypeToSdkType` is the bridge to @fhevm/sdk, whose
 // encrypt actions take the type NAME; the SDK has no euint4, so that one is refused here, by name.
 
-import { FhevmType, type FhevmTypeEuint, type FhevmTypeName } from '../types.js';
+import { type FhevmTypeName } from '../types.js';
+import { FhevmType, type FhevmTypeEuint } from '../types-p.js';
 
 export const FhevmTypeNameMap: Readonly<Record<FhevmType, FhevmTypeName>> = Object.freeze({
   [FhevmType.ebool]: 'ebool',

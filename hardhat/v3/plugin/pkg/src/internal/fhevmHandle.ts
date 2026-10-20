@@ -3,7 +3,8 @@
 import { HardhatPluginError } from 'hardhat/plugins';
 import { type Hex, isHex, size, toHex } from 'viem';
 
-import { FhevmType, type FhevmTypeName } from '../types.js';
+import { type FhevmTypeName } from '../types.js';
+import { FhevmType } from '../types-p.js';
 import { PLUGIN_ID } from './constants.js';
 import { getFhevmTypeName } from './fheType.js';
 
@@ -61,4 +62,19 @@ export function parseFhevmHandle(handle: Hex): FhevmHandleInfo {
     computed: byte(21) === 255,
     version: byte(31),
   };
+}
+
+/**
+ * Fails when `handle` was minted on a different chain. Bytes 22-29 carry the chain id, and nothing
+ * else checks it: the type byte and the length can both be right on a handle that belongs to another
+ * network. Left unchecked it does not raise — `CleartextDB.get` returns 0 for a key it has never seen,
+ * so a foreign handle reads back as a plausible zero instead of an error.
+ */
+export function assertHandleChainId(method: string, info: FhevmHandleInfo, chainId: number): void {
+  if (info.chainId !== chainId) {
+    throw new HardhatPluginError(
+      PLUGIN_ID,
+      `${method}: handle '${info.handleBytes32Hex}' was minted on chain ${String(info.chainId)}, but this connection is chain ${String(chainId)}.`,
+    );
+  }
 }

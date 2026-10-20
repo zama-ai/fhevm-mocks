@@ -94,12 +94,12 @@ test('publish order lists dependencies first and refuses a cycle', () => {
   assert.throws(() => topologicalOrder(cycle), /dependency cycle among a, b/);
 });
 
-test('rendering replaces each file: link by the generation range of its target, and nothing else', () => {
+test('rendering replaces each file: link by a caret on its target central version, and nothing else', () => {
   const rendered = renderPackageJson(plugin, packages, central);
   assert.deepEqual(rendered.replacements, [
-    { field: 'dependencies', name: '@scope/library', from: 'file:../../../library/pkg', to: '^0.13.0' },
+    { field: 'dependencies', name: '@scope/library', from: 'file:../../../library/pkg', to: '^0.13.4' },
   ]);
-  assert.deepEqual(rendered.packageJson['dependencies'], { '@scope/library': '^0.13.0', hardhat: '^3.0.0' });
+  assert.deepEqual(rendered.packageJson['dependencies'], { '@scope/library': '^0.13.4', hardhat: '^3.0.0' });
   assert.deepEqual(rendered.packageJson['peerDependencies'], { '@scope/sdk': '^0.13.3' });
   // The source object is untouched: render is pure.
   assert.equal(plugin.packageJson.dependencies?.['@scope/library'], 'file:../../../library/pkg');
@@ -109,7 +109,7 @@ test('rendering replaces each file: link by the generation range of its target, 
       '--- ./cluster/plugin/pkg/package.json',
       '+++ rendered',
       '-    "@scope/library": "file:../../../library/pkg",',
-      '+    "@scope/library": "^0.13.0",',
+      '+    "@scope/library": "^0.13.4",',
     ].join('\n'),
   );
 });

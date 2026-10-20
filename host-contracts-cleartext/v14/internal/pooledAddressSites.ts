@@ -65,13 +65,13 @@
 // byte-identical to a direct compile — which matters for anything defined over exact bytes, such as a
 // CREATE2 address or a source-verification match.
 //
-// WHY THIS APPEARED IN v14 AND NOT BEFORE
+// WHEN THIS APPEARS
 //
-// In v13, `CleartextFHEVMExecutor` referenced ACL and HCULimit as inline operands at 60 sites each.
-// v14 restructured those reads, and solc moved both into the pool — the patch-site counts fell from 60
-// to 2, which is the visible trace of exactly this change. That is why `internal/placeholders/
-// patch-sites.json` is worth keeping: a large count collapsing is the signal that an address changed
-// how it is stored.
+// Inline or pooled is solc's choice, and it can change whenever the code that reads an address changes:
+// a restructured read can move an address from dozens of inline sites into the pool. That is why
+// `internal/placeholders/patch-sites.json` is worth keeping: a large count collapsing (say from 60 to 2)
+// is the visible trace of exactly this change, the signal that an address changed how it is stored. The
+// tables at the end of this file say where it has happened in this generation.
 //
 // HOW A SITE IS CLASSIFIED
 //
@@ -137,7 +137,7 @@ export const EXPECTED_POOLED_SITES: Readonly<Record<string, Readonly<Partial<Rec
   // Two pooled addresses — the one contract in the stack whose table can be reordered.
   CleartextFHEVMExecutor: { ACL_ADDRESS: 1, HCU_LIMIT_ADDRESS: 1 },
   // One pooled address, so its table has nothing to permute.
-  HCULimit: { FHEVM_EXECUTOR_ADDRESS: 1 },
+  CleartextHCULimit: { FHEVM_EXECUTOR_ADDRESS: 1 },
 };
 
 /**

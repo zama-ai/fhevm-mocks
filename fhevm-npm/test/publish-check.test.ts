@@ -95,16 +95,17 @@ test('a dependency on another payload must carry exactly the range its central v
   const shipped = (spec: string) =>
     ({ name: '@scope/plugin', dependencies: { '@scope/library': spec, hardhat: '^3.0.0' } }) as never;
 
-  // 0.13.4 renders to ^0.13.0: the generation, any patch.
-  assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.0'), [library, plugin], central), []);
-  for (const wrong of ['^0.13.4', '0.13.4', '^0.12.0', '^0.14.0', 'not-a-version']) {
+  // 0.13.4 renders to ^0.13.4: the version the plugin was built against, up to the next generation.
+  assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.4'), [library, plugin], central), []);
+  // ^0.13.0 is what the old generation-floor rule rendered: it would let 0.13.0-0.13.3 in.
+  for (const wrong of ['^0.13.0', '0.13.4', '^0.12.0', '^0.14.0', 'not-a-version']) {
     const violations = validateRenderedRanges(plugin, shipped(wrong), [library, plugin], central);
     assert.equal(violations.length, 1, wrong);
     assert.equal(violations[0]?.rule, '5.3.10');
-    assert.match(violations[0]?.message ?? '', /its central version renders to "\^0\.13\.0"/);
+    assert.match(violations[0]?.message ?? '', /its central version renders to "\^0\.13\.4"/);
   }
   // An external dependency is not ours to judge, and a name that is no payload is left alone.
-  assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.0'), [library, plugin], central), []);
+  assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.4'), [library, plugin], central), []);
   assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.0'), [plugin], central), []);
 });
 
@@ -185,6 +186,18 @@ test('registry: a rendered range needs a satisfying published version, retried; 
   assert.deepEqual(calls.filter((url) => url.endsWith('library')).length, 3);
   assert.deepEqual(calls.filter((url) => url.endsWith('plugin')).length, 1);
 
+  // Only patches below the floor are published: the fix the plugin was built against is not on npmjs.com yet.
+  const belowFloor = await checkRegistry(
+    plugin,
+    shipped('^0.13.4'),
+    [library, plugin],
+    registry(['0.13.0', '0.13.3'], []),
+  );
+  assert.deepEqual(
+    belowFloor.map((v) => v.message),
+    ['npmjs.com has no version of @scope/library satisfying ^0.13.4'],
+  );
+
   // A dependency that only has the next generation does not satisfy this one.
   const wrongGeneration = await checkRegistry(plugin, shipped('^0.13.0'), [library, plugin], registry(['0.14.0'], []));
   assert.equal(wrongGeneration.length, 1);
@@ -252,14 +265,14 @@ test('end to end on a real tarball: the packed manifest is read with tar and jud
       mkdirSync(join(root, 'tarballs'), { recursive: true });
       execFileSync('tar', ['-czf', join(root, 'tarballs', 'scope-plugin-0.13.0.tgz'), '-C', staging, 'package']);
     };
-    tarball('^0.13.0');
+    tarball('^0.13.4');
     assert.deepEqual(
       tarballPackageJson(join(root, 'tarballs', 'scope-plugin-0.13.0.tgz')).dependencies,
-      shipped('^0.13.0').dependencies,
+      shipped('^0.13.4').dependencies,
     );
     assert.deepEqual((await inspectPublishedTarball(root, manifest, './plugin/pkg')).violations, []);
     const withRegistry = await inspectPublishedTarball(root, manifest, 'plugin/pkg', {
-      registry: registry(['0.13.0'], []),
+      registry: registry(['0.13.4'], []),
     });
     assert.deepEqual(withRegistry.violations, []);
 
@@ -269,7 +282,7 @@ test('end to end on a real tarball: the packed manifest is read with tar and jud
     assert.match(unrendered.violations[0]?.message ?? '', /render it/);
 
     // The entry point is declared but was not packed: caught on the artifact, where publint never looks.
-    tarball('^0.13.0', false);
+    tarball('^0.13.4', false);
     const hollow = await inspectPublishedTarball(root, manifest, './plugin/pkg');
     assert.deepEqual(
       hollow.violations.map((v) => v.message),

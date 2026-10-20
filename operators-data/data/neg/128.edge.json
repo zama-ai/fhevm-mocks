@@ -1,0 +1,71 @@
+{
+  "op": "neg",
+  "arity": 1,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 128,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "neg_128_zero",
+      "lhs": { "bits": 128, "value": "0x0" },
+      "result": { "bits": 128, "value": "0x0" }
+    },
+    {
+      "id": "neg_128_one",
+      "lhs": { "bits": 128, "value": "0x1" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "neg_128_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x1" }
+    },
+    {
+      "id": "neg_128_max_minus_1",
+      "lhs": { "bits": 128, "value": "0xfffffffffffffffffffffffffffffffe" },
+      "result": { "bits": 128, "value": "0x2" }
+    },
+    {
+      "id": "neg_128_max_minus_small",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffff9b" },
+      "result": { "bits": 128, "value": "0x65" }
+    },
+    {
+      "id": "neg_128_top_bit",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000000" },
+      "result": { "bits": 128, "value": "0x80000000000000000000000000000000" }
+    },
+    {
+      "id": "neg_128_top_bit_minus_1",
+      "lhs": { "bits": 128, "value": "0x7fffffffffffffffffffffffffffffff" },
+      "result": { "bits": 128, "value": "0x80000000000000000000000000000001" }
+    },
+    {
+      "id": "neg_128_top_bit_plus_1",
+      "lhs": { "bits": 128, "value": "0x80000000000000000000000000000001" },
+      "result": { "bits": 128, "value": "0x7fffffffffffffffffffffffffffffff" }
+    },
+    {
+      "id": "neg_128_low_half_max",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff0000000000000001" }
+    },
+    {
+      "id": "neg_128_low_half_carry",
+      "lhs": { "bits": 128, "value": "0x10000000000000000" },
+      "result": { "bits": 128, "value": "0xffffffffffffffff0000000000000000" }
+    },
+    {
+      "id": "neg_128_low_byte_zero",
+      "lhs": { "bits": 128, "value": "0xffffffffffffffffffffffffffffff00" },
+      "result": { "bits": 128, "value": "0x100" }
+    },
+    {
+      "id": "neg_128_only_low_byte",
+      "lhs": { "bits": 128, "value": "0xff" },
+      "result": { "bits": 128, "value": "0xffffffffffffffffffffffffffffff01" }
+    }
+  ]
+}

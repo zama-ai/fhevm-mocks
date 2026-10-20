@@ -1,24 +1,27 @@
 # Upgrade run-book: v13 → v14, CREATE2 path
 
+> **Start here instead:** [UPGRADE.md](../UPGRADE.md) is the step-by-step guide, with the warnings. This
+> file is the condensed checklist.
+
 Terminal commands only, in order. Every command is safe to re-run; re-running is how you resume.
-For the reasoning behind each step see [GUIDE.md](GUIDE.md) and [README.md](README.md).
+For the reasoning behind each step see [GUIDE.md](../GUIDE.md) and [README.md](../README.md).
 
 ## To test the tooling first
 
 ```sh
 npm run test:create2-deploy-e2e     # fresh v14 deploy through the CREATE2 coordinator, on a throwaway anvil
-npm run test:upgrade                # v13 deploy, then this upgrade, on a throwaway anvil
+npm run test:upgrade                # every suite needing the previous generation: a v13 deploy, then this upgrade
 ```
 
 ## 0. Prerequisites
 
 ```sh
-which forge cast anvil node          # foundry + node >= 22.6
+which forge cast anvil node          # foundry + node >= 22.18
 cast wallet list                     # the deployer keystore must be listed
-cd sdk/host-contracts-cleartext/v14
+cd host-contracts-cleartext/v14/create2-deploy
 ```
 
-Create `create2-deploy/upgrade.config.json`:
+Create `upgrade.config.json`, in `create2-deploy/`:
 
 ```json
 {
@@ -28,16 +31,19 @@ Create `create2-deploy/upgrade.config.json`:
   "deploymentId": "<same id as the v13 deploy>",
   "outDir": ".out-upgrade-<chain>-<date>",
   "confirmations": 3,
-  "previousManifest": "../v13/create2-deploy/<v13 out dir>/manifest.json",
+  "previousManifest": "../../v13/create2-deploy/<v13 out dir>/manifest.json",
   "handles": ["0x<a cleartext handle that exists in the live CleartextDB>"]
 }
 ```
+
+Relative paths in it (`outDir`, `previousManifest`, `migration`) are relative to this file's folder,
+`create2-deploy/`.
 
 The upgrade sends one set of init parameters: the live KMS context re-declared with v14's per-node
 metadata, passed to `ProtocolConfig.reinitializeV2`. Signers, thresholds and context id are read off the
 live `ProtocolConfig`; **each node's party id, MPC identity, CA certificate and storage prefix, plus the
 KMS software version and enclave PCR values, are not on the v13 chain** and must come from whoever runs
-the KMS nodes. Write them to `create2-deploy/kms-migration.json`:
+the KMS nodes. Write them to `kms-migration.json`, next to `upgrade.config.json`:
 
 ```json
 {
@@ -61,7 +67,7 @@ the KMS nodes. Write them to `create2-deploy/kms-migration.json`:
 and add it to the config:
 
 ```json
-  "migration": "create2-deploy/kms-migration.json"
+  "migration": "kms-migration.json"
 ```
 
 `compute` refuses the file if its signers differ from the live chain, in order. The keys are the contract's
@@ -71,8 +77,7 @@ the four v14 members, the software version (`0.0.0-cleartext`) and an empty PCR 
 the package defaults, which match a stack deployed from the same mnemonic and nothing else.
 
 ```sh
-U="node create2-deploy/upgrade/testnet.ts --config create2-deploy/upgrade.config.json"
-$U --stage params
+./upgrade/upgrade-cli --stage params
 ```
 
 Prints the init parameters exactly as `compute` will seal them: signers, thresholds and context id from the
@@ -82,13 +87,13 @@ from the package defaults if none is configured. Read it before step 1.
 ## 1. Compute and seal
 
 ```sh
-$U --stage compute
+./upgrade/upgrade-cli --stage compute
 ```
 
 Good: `11 addresses verified against the live stack`, then `wrote .../manifest.json`.
 
 ```sh
-git add -f create2-deploy/.out-upgrade-*/manifest.json create2-deploy/.out-upgrade-*/addresses.sol
+git add -f .out-upgrade-*/manifest.json .out-upgrade-*/addresses.sol
 git commit -m "seal: upgrade <deploymentId>"
 git push
 ```
@@ -96,7 +101,7 @@ git push
 ## 2. Deploy the seven creates
 
 ```sh
-$U --stage creates
+./upgrade/upgrade-cli --stage creates
 ```
 
 Good: `created 7` (or `already present N` on a re-run), no `REVERTED`.
@@ -104,7 +109,7 @@ Good: `created 7` (or `already present N` on a re-run), no `REVERTED`.
 ## 3. Gate
 
 ```sh
-$U --stage precheck
+./upgrade/upgrade-cli --stage precheck
 ```
 
 Good: `OK - every pre-materialize condition`. Any `FAIL` line: stop, fix, re-run. Nothing has been sent.
@@ -116,18 +121,18 @@ and what the atomic call will send. The other six ops take no arguments. `preche
 `contextInfoHash` the chain must anchor; `verify` recomputes it from the seal and compares.
 
 ```sh
-$U --stage params          # the sealed init parameters, decoded
-$U --stage precheck        # the same values re-derived at send time, with every op around them
+./upgrade/upgrade-cli --stage params          # the sealed init parameters, decoded
+./upgrade/upgrade-cli --stage precheck        # the same values re-derived at send time, with every op around them
 ```
 
 If the party ids, MPC identities, CA certificates or storage prefixes shown are not your KMS nodes', stop:
-fix the migration file, then start over with a new `deploymentId` and `outDir` (the seal cannot be
+fix the migration file, then start over with a new `outDir` and the same `deploymentId` (the seal cannot be
 recomputed once creates are on chain).
 
 ## 4. Rehearse on a fork
 
 ```sh
-$U --stage rehearse
+./upgrade/upgrade-cli --stage rehearse
 ```
 
 Good: `REHEARSAL PASSED at block N`. The live chain is untouched.
@@ -137,13 +142,13 @@ Good: `REHEARSAL PASSED at block N`. The live chain is untouched.
 If you hold the admin key in a keystore:
 
 ```sh
-$U --stage materialize --admin-account <admin keystore name>
+./upgrade/upgrade-cli --stage materialize --admin-account <admin keystore name>
 ```
 
 If the admin is a multisig:
 
 ```sh
-$U --stage materialize
+./upgrade/upgrade-cli --stage materialize
 ```
 
 Copy `target`, `value 0` and `calldata` into the multisig. Before signing, check that the `keccak` shown
@@ -154,7 +159,7 @@ Good: `seven proxies upgraded atomically` (key path), or the multisig transactio
 ## 6. Verify
 
 ```sh
-$U --stage verify
+./upgrade/upgrade-cli --stage verify
 ```
 
 Waits until the materialize block is finalized, then checks. Good: `OK - every terminal condition for the
@@ -163,25 +168,25 @@ upgrade`, `N v13 getter readings survived`, `one atomic ACLOwner.upgrade`, `wrot
 Run it again later, at greater depth:
 
 ```sh
-$U --stage verify
+./upgrade/upgrade-cli --stage verify
 ```
 
 ## 7. Read back
 
 ```sh
-$U --stage progress        # every step, when, how long, at which block (offline)
-$U --stage params          # the init parameters that were sent
-$U --stage status          # what the chain says is done
-$U --stage log             # every transaction sent
-$U --report                # steps and their transactions
-ls create2-deploy/.out-upgrade-*/logs/   # one transcript per invocation
+./upgrade/upgrade-cli --stage progress        # every step, when, how long, at which block (offline)
+./upgrade/upgrade-cli --stage params          # the init parameters that were sent
+./upgrade/upgrade-cli --stage status          # what the chain says is done
+./upgrade/upgrade-cli --stage log             # every transaction sent
+./upgrade/upgrade-cli --report                # steps and their transactions
+ls .out-upgrade-*/logs/   # one transcript per invocation
 ```
 
 Commit the record:
 
 ```sh
-git add -f create2-deploy/.out-upgrade-*/journal.jsonl create2-deploy/.out-upgrade-*/progress.jsonl \
-           create2-deploy/.out-upgrade-*/verify-report.json
+git add -f .out-upgrade-*/journal.jsonl .out-upgrade-*/progress.jsonl \
+           .out-upgrade-*/verify-report.json
 git commit -m "record: upgrade <deploymentId>"
 git push
 ```
@@ -195,12 +200,12 @@ git push
 | `materialize` reverted in simulation   | nothing was sent; the message names the `require`                                 |
 | `verify` says `no HostUpgraded event`  | the upgrade did not land or was reorged out; `--stage status`, then re-run step 5 |
 | `compute` refuses                      | contracts are already on chain; resume from step 2, never reseal                  |
-| you need to start over                 | new `deploymentId` and new `outDir`; the old stack stays as it is                 |
+| you need to start over                 | new `outDir`, same `deploymentId` (it must match the v13 manifest)                |
 
 ## All at once
 
 Only if the admin key is a keystore:
 
 ```sh
-$U --stage all --admin-account <admin keystore name>
+./upgrade/upgrade-cli --stage all --admin-account <admin keystore name>
 ```

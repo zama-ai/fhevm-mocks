@@ -20,7 +20,7 @@ library LocalHostVersions {
     string internal constant CLEARTEXT_DB = "CleartextDB v0.1.0";
 
     /// @dev src/contracts/FHEVMExecutor.sol
-    string internal constant FHEVM_EXECUTOR = "FHEVMExecutor v0.5.0";
+    string internal constant FHEVM_EXECUTOR = "FHEVMExecutor v0.6.0";
 
     /// @dev src/contracts/HCULimit.sol
     string internal constant HCU_LIMIT = "HCULimit v0.4.0";

@@ -82,11 +82,12 @@ describe('ConfidentialVestingWalletCliff', function () {
     let tx = await confidentialERC20.connect(signers.alice).mint(signers.alice, amount);
     await tx.wait();
 
-    const input = fhevm.createEncryptedInput(confidentialERC20Address, signers.alice.address as Hex);
-    input.add64(amount);
-    const encryptedTransferAmount = await input.encrypt();
-    const [transferHandle] = encryptedTransferAmount.handles;
-    if (transferHandle === undefined) throw new Error('encrypt() returned no handle');
+    const encryptedTransferAmount = await fhevm.helpers.encryptUint64({
+      value: amount,
+      contractAddress: confidentialERC20Address,
+      userAddress: signers.alice.address,
+    });
+    const transferHandle = encryptedTransferAmount.externalEuint64;
 
     tx = await confidentialERC20
       .connect(signers.alice)

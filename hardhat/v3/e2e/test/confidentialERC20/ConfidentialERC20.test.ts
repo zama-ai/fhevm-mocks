@@ -30,9 +30,12 @@ describe('ConfidentialERC20', function () {
 
   // One euint64 input for `user`; `handles` is `Hex[]`, so the single handle is narrowed here once.
   async function encrypt64(user: Hex, value: number | bigint): Promise<{ handle: Hex; inputProof: Hex }> {
-    const encrypted = await fhevm.createEncryptedInput(confidentialERC20Address, user).add64(value).encrypt();
-    const [handle] = encrypted.handles;
-    if (handle === undefined) throw new Error('encrypt() returned no handle');
+    const encrypted = await fhevm.helpers.encryptUint64({
+      value: value,
+      contractAddress: confidentialERC20Address,
+      userAddress: user,
+    });
+    const handle = encrypted.externalEuint64;
     return { handle, inputProof: encrypted.inputProof };
   }
 
@@ -57,7 +60,7 @@ describe('ConfidentialERC20', function () {
     expect(await confidentialERC20.symbol()).to.equal('NARA');
     expect(await confidentialERC20.decimals()).to.be.eq(BigInt(6));
 
-    await fhevm.assertCoprocessorInitialized(confidentialERC20, 'TestConfidentialERC20Mintable');
+    await fhevm.assertCoprocessorInitialized(confidentialERC20Address, 'TestConfidentialERC20Mintable');
   });
 
   it('should mint the contract', async function () {

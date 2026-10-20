@@ -1,0 +1,8 @@
+# Forge scratch the deploy tool writes into a record's out dir when it is run inside a record folder.
+# Never commit it: cache/ may hold the RPC URL with an API key. `fhevm-npm check deployments` also
+# fails while any of it is on disk, because running the tool inside a record is the mistake itself.
+build/
+broadcast/
+cache/
+.foundry/
+pass2.json

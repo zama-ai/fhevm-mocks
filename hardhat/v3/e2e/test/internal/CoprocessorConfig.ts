@@ -16,10 +16,11 @@ describe('CoprocessorConfig', function () {
     }
     const factory: FHECounterPublicDecrypt__factory = await ethers.getContractFactory('FHECounterPublicDecrypt');
     const counter = await factory.deploy();
+    const counterAddress = await counter.getAddress();
 
-    await fhevm.assertCoprocessorInitialized(counter, 'FHECounterPublicDecrypt');
+    await fhevm.assertCoprocessorInitialized(counterAddress, 'FHECounterPublicDecrypt');
 
-    const config = await fhevm.getCoprocessorConfig(counter);
+    const config = await fhevm.getCoprocessorConfig(counterAddress);
     expect(config.ACLAddress).to.not.eq(ethers.ZeroAddress);
     expect(config.CoprocessorAddress).to.not.eq(ethers.ZeroAddress);
     expect(config.KMSVerifierAddress).to.not.eq(ethers.ZeroAddress);

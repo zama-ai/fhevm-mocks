@@ -18,7 +18,6 @@ interface ICleartextKMSVerifier {
         bytes32 handle, address contractAddress, address delegator, address delegate
     );
     error CleartextErrorInvalidUserDecryptSignature();
-    error CleartextErrorPublicKeyTooShort(uint256 length);
     error CleartextErrorUserAddressEqualsContractAddress();
     error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
     error DeserializingDecryptionProofFail();
@@ -34,9 +33,11 @@ interface ICleartextKMSVerifier {
     error KMSInvalidSigner(address invalidSigner);
     error KMSSignatureThresholdNotReached(uint256 numSignatures);
     error KMSZeroSignature();
+    error MalformedSignature();
     error NotHostOwner(address sender);
     error NotInitializing();
     error NotInitializingFromEmptyProxy();
+    error PublicKeyTooShort(uint256 length);
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
     error UnsupportedExtraDataVersion(uint8 version);

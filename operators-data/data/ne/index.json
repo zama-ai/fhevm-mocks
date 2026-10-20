@@ -1,0 +1,23 @@
+{
+  "op": "ne",
+  "arity": 2,
+  "semantics": "boolean",
+  "encoding": "hex-string",
+  "parts": [
+    { "width": 256, "kind": "normal", "file": "256.normal.json", "cases": 11, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 256, "kind": "edge", "file": "256.edge.json", "cases": 119, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 160, "kind": "normal", "file": "160.normal.json", "cases": 1, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 160, "kind": "edge", "file": "160.edge.json", "cases": 9, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 128, "kind": "normal", "file": "128.normal.json", "cases": 9, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 128, "kind": "edge", "file": "128.edge.json", "cases": 97, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 64, "kind": "normal", "file": "64.normal.json", "cases": 7, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 64, "kind": "edge", "file": "64.edge.json", "cases": 75, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 32, "kind": "normal", "file": "32.normal.json", "cases": 5, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 32, "kind": "edge", "file": "32.edge.json", "cases": 53, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 16, "kind": "normal", "file": "16.normal.json", "cases": 3, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 16, "kind": "edge", "file": "16.edge.json", "cases": 31, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 8, "kind": "normal", "file": "8.normal.json", "cases": 1, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 8, "kind": "edge", "file": "8.edge.json", "cases": 9, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] },
+    { "width": 1, "kind": "edge", "file": "1.edge.json", "cases": 4, "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}] }
+  ]
+}

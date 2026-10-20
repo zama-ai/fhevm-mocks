@@ -1,4 +1,4 @@
-import { FhevmType, timestampNow } from '@fhevm/hardhat-plugin-v3';
+import { timestampNow } from '@fhevm/hardhat-plugin-v3';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
@@ -42,12 +42,12 @@ describe('FHECounterUserDecrypt', function () {
   });
 
   it('increment the counter by 1 multiple times - userDecrypt multiple values', async function () {
-    const encryptedOne = await fhevm
-      .createEncryptedInput(fheCounterContractAddress, signers.alice.address as Hex)
-      .add32(1)
-      .encrypt();
-    const [encryptedOneHandle] = encryptedOne.handles;
-    if (encryptedOneHandle === undefined) throw new Error('encrypt() returned no handle');
+    const encryptedOne = await fhevm.helpers.encryptUint32({
+      value: 1,
+      contractAddress: fheCounterContractAddress,
+      userAddress: signers.alice.address,
+    });
+    const encryptedOneHandle = encryptedOne.externalEuint32;
 
     let tx = await fheCounterContract.connect(signers.alice).increment(encryptedOneHandle, encryptedOne.inputProof);
     await tx.wait();
@@ -59,18 +59,16 @@ describe('FHECounterUserDecrypt', function () {
 
     const encryptedCountAfterInc2 = (await fheCounterContract.getCount()) as Hex;
 
-    const clearCountAfterInc1 = await fhevm.userDecryptEuint(
-      FhevmType.euint32,
-      encryptedCountAfterInc1,
-      fheCounterContractAddress,
-      accounts.alice,
-    );
-    const clearCountAfterInc2 = await fhevm.userDecryptEuint(
-      FhevmType.euint32,
-      encryptedCountAfterInc2,
-      fheCounterContractAddress,
-      accounts.alice,
-    );
+    const clearCountAfterInc1 = await fhevm.helpers.decryptUint32({
+      euint32: encryptedCountAfterInc1,
+      contractAddress: fheCounterContractAddress,
+      userAddress: accounts.alice.address,
+    });
+    const clearCountAfterInc2 = await fhevm.helpers.decryptUint32({
+      euint32: encryptedCountAfterInc2,
+      contractAddress: fheCounterContractAddress,
+      userAddress: accounts.alice.address,
+    });
 
     const transportKeyPairAlice = await fhevm.client.generateTransportKeyPair();
 

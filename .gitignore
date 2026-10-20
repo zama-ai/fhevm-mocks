@@ -56,6 +56,17 @@ out/
 temp/
 tmp/
 
+# fhevm-npm scratch written inside the tree. Every one is removed in a `finally` when its run ends, so they
+# only survive an interrupted run (Ctrl-C ends node without running `finally`). Nothing tracked matches.
+#   .fhevm-npm-lock-*/        test-consumer-regenerate-package-lock: the staging copy of a consumer fixture.
+#                             It sits beside the fixture, not in the system temp dir, so the fixture's
+#                             relative file: links to the payloads still resolve.
+#   .package-lock.json.*.tmp  the same command: the new lockfile, written beside the old one and renamed over it.
+#   fhevm-npm/.tmp-*/         fhevm-npm tests that need a scratch workspace under the CLI's own root.
+.fhevm-npm-lock-*/
+.package-lock.json.*.tmp
+fhevm-npm/.tmp-*/
+
 # Forge scratch output from the create2-deploy scripts. Each cleartext generation already ignores these,
 # but npm-manifest.json reserves v14 and v15, and a generation added without its own .gitignore would
 # otherwise leak them.

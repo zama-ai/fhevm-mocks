@@ -1,0 +1,41 @@
+{
+  "op": "sub",
+  "arity": 2,
+  "semantics": "wrapping",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "sub_32_32_plain",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x17" },
+      "result": { "bits": 32, "value": "0x4d" }
+    },
+    {
+      "id": "sub_32_16_plain",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x17" },
+      "result": { "bits": 32, "value": "0x4d" }
+    },
+    {
+      "id": "sub_32_8_plain",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 32, "value": "0x4d" }
+    },
+    {
+      "id": "sub_16_32_plain",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x17" },
+      "result": { "bits": 32, "value": "0x4d" }
+    },
+    {
+      "id": "sub_8_32_plain",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x17" },
+      "result": { "bits": 32, "value": "0x4d" }
+    }
+  ]
+}

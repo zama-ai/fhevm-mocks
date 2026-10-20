@@ -1,0 +1,17 @@
+{
+  "op": "ne",
+  "arity": 2,
+  "semantics": "boolean",
+  "encoding": "hex-string",
+  "width": 8,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "ne_8_8_not_equal_small",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 1, "value": "0x1" }
+    }
+  ]
+}

@@ -1,6 +1,10 @@
 [profile.default]
 extends = "../../foundry.base.toml"
 libs = ["dependencies", "node_modules", "../../node_modules"]
+# Lets test/upgrade/CleartextGenerationUpgrade.t.sol compile against the previous generation's forge
+# payload, through the `@fhevm/host-contracts-cleartext-v13-dev/` remapping. Upgrade code: ROTATION.md
+# deletes this line and the remapping together.
+allow_paths = ["../v13"]
 solc_version = '0.8.24'
 optimizer = true
 optimizer_runs = 800
@@ -46,6 +50,7 @@ exclude_lints = [
     "mixed-case-function", 
     "named-struct-fields", 
     "screaming-snake-case-const",
+    "screaming-snake-case-immutable",
     "pascal-case-struct",
     "asm-keccak256",
     "unwrapped-modifier-logic",

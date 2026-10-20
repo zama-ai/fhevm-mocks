@@ -4,7 +4,7 @@
 
 import { type Hex, decodeEventLog, isHex } from 'viem';
 
-import type { CoprocessorEvent, CoprocessorEventName, FhevmLog } from '../types.js';
+import type { CoprocessorEvent, CoprocessorEventName, FhevmLog } from '../types-p.js';
 import type { FhevmContractWrapper } from './contracts.js';
 
 /** Every event `FHEVMExecutor` emits for an operator or an input, per the host contracts' `FHEEvents.sol`. */

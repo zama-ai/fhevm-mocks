@@ -1,4 +1,5 @@
-// Run: npm run list:upgrade-ops -- ../v12
+// Run: npm run list:upgrade-ops -- ../v12            (report; exit 0 whatever it finds)
+//      npm run list:upgrade-ops -- ../v12 --strict   (exit 1 when any contract is flagged ⚠)
 //
 // Read-only: writes nothing, compiles nothing, reads only committed JSON.
 //
@@ -29,9 +30,11 @@ function _initializerCell(op: UpgradeOp): string {
   return `${op.previousReinitializer ?? '-'} -> ${op.currentReinitializer ?? '-'}`;
 }
 
-const previous = process.argv[2];
+const args = process.argv.slice(2);
+const strict = args.includes('--strict');
+const previous = args.find((arg) => !arg.startsWith('--'));
 if (previous === undefined || previous === '') {
-  console.error('usage: npm run list:upgrade-ops -- <path to previous generation package>');
+  console.error('usage: npm run list:upgrade-ops -- <path to previous generation package> [--strict]');
   console.error('   eg: npm run list:upgrade-ops -- ../v12');
   process.exit(1);
 }
@@ -56,4 +59,7 @@ const suspect = ops.filter((op) => SUSPECT.has(op.verdict));
 console.log(`\n  ${count('materialize')} materializations, ${count('reinitialize')} reinitializations`);
 if (suspect.length > 0) {
   console.log(`  ⚠ ${String(suspect.length)} contract(s) need a look — see README step 7.`);
+  // A flag is a decision the operator owes, not a failure of the tool — so the default exit is 0 and
+  // the report is what a bump reads. `--strict` is for a lane that wants every open decision to be red.
+  if (strict) process.exit(1);
 }

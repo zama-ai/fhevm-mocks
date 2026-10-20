@@ -1,4 +1,4 @@
-// D4a2: the error engine. Unit: the decoder owns exactly one contract per selector, the formatter fills
+// The error engine. Unit: the decoder owns exactly one contract per selector, the formatter fills
 // the table from ABI-named arguments, the extractor reads both hardhat 3 error shapes. Live: a revert
 // inside the deployed ACL reaches the caller with the FHEVM message, on the SAME error object.
 //

@@ -20,15 +20,21 @@ rm -rf test/e2e/upgrade                # upgrades a real v12 stack through the C
 rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
 ```
 
-## 2. Delete two lines in `package.json`
+## 2. Delete three lines in `package.json`
 
 ```jsonc
-"test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts"
+"test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
+"test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v12 && …"
 "@fhevm/host-contracts-cleartext-v12-dev": "file:../v12",
 ```
 
-`test:upgrade` is the last entry in `scripts`, so drop the comma on the line above it. Nothing else in
-`package.json` changes.
+Both `test:upgrade*` scripts go: `test:upgrade:fast` is the same suite's fast lane, and it runs `test/upgrade/*`,
+`test/ts/upgrade` and `list:upgrade-ops -- ../v12`, all of which are gone after step 1. Delete every script whose
+name starts with `test:upgrade`, not only the one called that.
+
+`test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`.
+
+Nothing else in `package.json` changes.
 
 ## 3. Keep these
 
@@ -36,7 +42,7 @@ They mention v12, but they are not going anywhere:
 
 - `pkg/` — `updateV12ToV13` and its types. v13 still upgrades v12 deployments; only the test is going.
 - `internal/listUpgradeOps.ts` and `list:upgrade-ops` — you pass it a folder, so it fits any generation.
-- `create2-deploy/common.ts`, `utils.ts`, `deploy-testnet.ts`, `script/*.sol` outside `script/upgrade/`,
+- `create2-deploy/deploy-cli`, `create2-deploy/ts/`, `script/*.sol` outside `script/upgrade/`,
   and `test/Create2Ordinals.t.sol`.
 
 Other files mention v12 too. They describe what v13 upgrades _from_, which stays true.

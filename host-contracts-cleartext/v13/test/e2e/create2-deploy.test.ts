@@ -1,22 +1,28 @@
-// The CREATE2 path, fresh: a new anvil, a v13 stack deployed by this package's own `create2-deploy`
-// coordinator, and the terminal conditions read back independently of it.
+// The CREATE2 path, fresh: a new anvil, a stack of this package's generation deployed by its own
+// `create2-deploy` coordinator, and the terminal conditions read back independently of it.
 //
 // Run: npm run test:create2-deploy-e2e
 //
-// The sibling `upgrade/create2.test.ts` starts from a v12 stack and upgrades it; this one has no previous
-// generation at all. The two are separate on purpose: a broken fresh deploy and a broken upgrade are
-// different defects, and one failing must not hide the other behind a skip.
+// The sibling `upgrade/create2.test.ts` starts from the previous generation and upgrades it; this one has
+// no previous generation at all. The two are separate on purpose: a broken fresh deploy and a broken
+// upgrade are different defects, and one failing must not hide the other behind a skip.
 //
 // Same policies as the upgrade test: a private port checked for occupancy, a dedicated out-dir, skips
 // that name what is missing, and a cleanup that leaves nothing behind.
+//
+// It runs the way an OPERATOR does: from a folder of its own, outside the repository, holding a config
+// file whose `"outDir": "out"` resolves against that folder. The upgrade test keeps its out dir inside
+// `create2-deploy/`, so the two layouts are both exercised.
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { Contract, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
+import { assertStampedRecord } from './record.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
@@ -26,12 +32,31 @@ import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
 const PORT = 8558;
 const RPC_URL = `http://127.0.0.1:${PORT}`;
 
-/** Bare name: the coordinator resolves `--out-dir` against `create2-deploy/`, where forge may write. */
-const OUT_DIR_ARG = '.out-test-create2-deploy';
 const DEPLOYMENT_ID = 'create2-deploy-e2e';
 
+/** This package's generation, from its folder name (`v<N>`): what the stack must call itself. */
+const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
+const PROTOCOL_VERSION = BigInt(GENERATION.slice(1));
+
+/** The operator's folder: outside the repository, created fresh, removed at the end. */
+const OPERATOR_DIR = mkdtempSync(join(tmpdir(), 'create2-deploy-e2e-'));
+const CONFIG_NAME = 'deploy.config.json';
+
+/** `"outDir": "out"` in the config, which must land beside the config file, not in the repository. */
 function outDirAbs(): string {
-  return join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', OUT_DIR_ARG);
+  return join(OPERATOR_DIR, 'out');
+}
+
+function writeOperatorConfig(): void {
+  const config = {
+    rpcUrl: RPC_URL,
+    deploymentId: DEPLOYMENT_ID,
+    outDir: 'out',
+    confirmations: 0,
+    finality: false,
+    git: false,
+  };
+  writeFileSync(join(OPERATOR_DIR, CONFIG_NAME), `${JSON.stringify(config, null, 2)}\n`);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,8 +123,8 @@ function note(what: string): void {
  */
 function runCoordinator(args: readonly string[]): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
-    const child = spawn('node', ['create2-deploy/deploy-testnet.ts', ...args], {
-      cwd: PACKAGE_ROOT_ABS_PATH,
+    const child = spawn(join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'deploy-cli'), args, {
+      cwd: OPERATOR_DIR,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -119,16 +144,11 @@ function runCoordinator(args: readonly string[]): Promise<{ ok: boolean; output:
 
 const STEPS = 5;
 
-const COMMON_ARGS = [
-  '--config',
-  'create2-deploy/anvil-config.json',
-  '--rpc-url',
-  RPC_URL,
-  '--out-dir',
-  OUT_DIR_ARG,
-  '--deployment-id',
-  DEPLOYMENT_ID,
-] as const;
+/**
+ * Nothing: run from OPERATOR_DIR, `deploy-cli` finds `./deploy.config.json` by itself — exactly what an
+ * operator types.
+ */
+const COMMON_ARGS = [] as const;
 
 function manifestAddresses(): Readonly<Record<string, string>> {
   const path = join(outDirAbs(), 'manifest.json');
@@ -211,7 +231,7 @@ const VERSIONED_ROLES = [
 ] as const;
 
 void test(
-  'create2-deploy: fresh anvil, a v13 stack through the CREATE2 coordinator',
+  `create2-deploy: fresh anvil, a ${GENERATION} stack through the CREATE2 coordinator`,
   { skip: blockedReason() },
   async (t) => {
     if (await portIsOpen()) {
@@ -239,19 +259,64 @@ void test(
       let manifest: Readonly<Record<string, string>> = {};
       let deployed = false;
 
+      // Preflight only, so seconds: no build, no transaction. On anvil the admin signs as account 1, so any
+      // other --admin is a mismatch, and root must never be handed to an address the signer is not.
+      await t.test('an --admin that is not the admin signer is refused before anything runs', async () => {
+        writeOperatorConfig();
+        const outDir = join(OPERATOR_DIR, 'wrong-admin');
+        const { ok, output } = await runCoordinator([
+          ...COMMON_ARGS,
+          '--admin',
+          '0x000000000000000000000000000000000000dEaD',
+          '--out-dir',
+          outDir,
+          '--stage',
+          'compute',
+        ]);
+        assert.equal(ok, false, 'a mismatched --admin was accepted');
+        assert.match(output, /They have to be the same account/, output.slice(-2000));
+        assert.ok(!existsSync(join(outDir, 'manifest.json')), 'nothing may be sealed for a refused admin');
+      });
+
       await t.test('the coordinator deploys and verifies the whole stack in one run', async () => {
         announce(
           2,
           STEPS,
-          'deploy v13 with deploy-testnet.ts --stage all (3 forge builds, 22 creates, steps A-F, verify)',
+          `deploy ${GENERATION} with deploy-cli --stage all (3 forge builds, 22 creates, steps A-F, verify)`,
         );
         rmSync(outDirAbs(), { recursive: true, force: true });
+        writeOperatorConfig();
         const { ok, output } = await runCoordinator([...COMMON_ARGS, '--stage', 'all']);
         if (!ok) {
           const detail = (await portIsOpen()) ? '' : ` — ${nodeGone ?? `the anvil on ${RPC_URL} stopped answering`}`;
-          assert.fail(`v13 create2 deploy failed${detail}:\n${output.slice(-4000)}`);
+          assert.fail(`${GENERATION} create2 deploy failed${detail}:\n${output.slice(-4000)}`);
         }
         assert.match(output, /OK - every terminal condition/, 'the deploy ran its own verify');
+        // Every value step D seeded is checked against LibFhevmCleartextConfig, not only the signer sets.
+        for (const check of [
+          'InputVerifier EIP-712 domain chainId (gateway chain)',
+          'KMSVerifier EIP-712 domain verifyingContract',
+          'ProtocolConfig KMS nodes - txSenderAddress',
+          'KMS node 4 storageUrl',
+          'HCULimit.getMaxHCUPerTx()',
+        ]) {
+          assert.ok(output.includes(`ok   ${check}`), `verify checked: ${check}`);
+        }
+        // The config names no admin: it is derived from the admin signer, and preflight says so.
+        assert.match(
+          output,
+          new RegExp(`admin\\s+${ANVIL_ADMIN}\\s+\\(from anvil account 1\\)`, 'i'),
+          'the admin address derived from the admin signer',
+        );
+        // Forge wrote outside the repository through the config the coordinator generated there.
+        assert.ok(existsSync(join(outDirAbs(), '.foundry', 'foundry.toml')), 'generated forge config in the out dir');
+        // Forge's "sensitive values" copy of each broadcast (the RPC URL) belongs to the deployment too.
+        assert.ok(
+          existsSync(join(outDirAbs(), 'cache', 'FhevmDeployCreates.s.sol')),
+          "forge's broadcast cache in the out dir, not in the tool checkout",
+        );
+        // compute's scratch file goes once the seal is complete: nothing after compute reads it.
+        assert.ok(!existsSync(join(outDirAbs(), 'pass2.json')), 'pass2.json left behind after a complete seal');
         manifest = manifestAddresses();
         for (const [role] of VERSIONED_ROLES) addressOf(manifest, role);
         addressOf(manifest, 'ACL_OWNER');
@@ -264,7 +329,12 @@ void test(
         return true;
       };
 
-      await t.test('every contract reports its v13 version at its sealed address', async (st) => {
+      await t.test('the record is stamped for the archive: package version, event.json dated by the chain', (st) => {
+        if (needsStack(st)) return;
+        assertStampedRecord(outDirAbs(), PACKAGE_ROOT_ABS_PATH, 'deploy');
+      });
+
+      await t.test(`every contract reports its ${GENERATION} version at its sealed address`, async (st) => {
         if (needsStack(st)) return;
         announce(3, STEPS, 'read every getVersion() back against the generated table');
         assert.ok(provider);
@@ -283,7 +353,15 @@ void test(
         // and the call would revert, which is exactly the distinction a consumer needs to be able to make.
         const acl = view<AclView>(addressOf(manifest, 'ACL_ADDRESS'), ACL_ABI, provider);
         assert.equal(await acl.IS_CLEARTEXT(), true, 'ACL must advertise IS_CLEARTEXT');
-        assert.equal(await acl.CLEARTEXT_PROTOCOL_VERSION(), 13n, 'ACL must report protocol version 13');
+        assert.equal(
+          await acl.CLEARTEXT_PROTOCOL_VERSION(),
+          PROTOCOL_VERSION,
+          `ACL must report protocol version ${PROTOCOL_VERSION}`,
+        );
+        // Same for the HCU limit, the last role to stop being an upstream contract. The CREATE2 lane picks
+        // its implementations independently of every forge path, so this is the only place that proves it.
+        const hcuLimit = view<AclView>(addressOf(manifest, 'HCU_LIMIT_ADDRESS'), ACL_ABI, provider);
+        assert.equal(await hcuLimit.IS_CLEARTEXT(), true, 'HCULimit must advertise IS_CLEARTEXT');
       });
 
       await t.test('the admin holds root through ACLOwner, with nothing dangling', async (st) => {
@@ -329,11 +407,42 @@ void test(
         assert.doesNotMatch(status.output, /^\s+(todo|DRIFT|NO CODE|TOO BIG)\s+[A-Z_]/m, status.output.slice(-3000));
         assert.doesNotMatch(status.output, /BLOCKED|FATAL|WAITING/, status.output.slice(-3000));
       });
+
+      await t.test('verify is read-only: it never unlocks the admin keystore, and names the addresses', async (st) => {
+        if (needsStack(st)) return;
+        note('verify with no admin and an adminAccount whose keystore does not exist');
+        // Unlocking it would fail (no such keystore, and stdin is not a terminal to prompt on), so this
+        // passes only if verify takes the admin, like the deployer, from the manifest.
+        const readOnlyConfig = 'readonly.config.json';
+        writeFileSync(
+          join(OPERATOR_DIR, readOnlyConfig),
+          `${JSON.stringify(
+            {
+              rpcUrl: RPC_URL,
+              deploymentId: DEPLOYMENT_ID,
+              outDir: 'out',
+              confirmations: 0,
+              finality: false,
+              git: false,
+              adminAccount: 'no-such-keystore',
+            },
+            null,
+            2,
+          )}\n`,
+        );
+        const verify = await runCoordinator(['--config', readOnlyConfig, '--stage', 'verify']);
+        assert.ok(verify.ok, `read-only verify failed:\n${verify.output.slice(-3000)}`);
+        assert.match(verify.output, /OK - every terminal condition/);
+        // Every address a consumer configures is printed, as the manifest seals it.
+        for (const role of ['ACL_ADDRESS', 'KMS_VERIFIER_ADDRESS', 'PAUSER_SET_ADDRESS', 'ACL_OWNER']) {
+          assert.match(verify.output, new RegExp(`${role}\\s+${addressOf(manifest, role)}`, 'i'), role);
+        }
+      });
     } finally {
       provider?.destroy();
       killNode();
       process.off('exit', killNode);
-      rmSync(outDirAbs(), { recursive: true, force: true });
+      rmSync(OPERATOR_DIR, { recursive: true, force: true });
     }
   },
 );

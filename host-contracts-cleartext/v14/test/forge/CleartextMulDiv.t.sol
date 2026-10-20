@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FhevmCleartextDeploy} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {ICleartextDB} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/FhevmCleartextDeploy.sol";
-import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
+import {ForgeFhevmDeploy} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {CLEARTEXT_DB_ADDRESS, FHEVM_EXECUTOR_ADDRESS} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextDB} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
  * The v14 operator `fheMulDiv`, end to end: executor -> CleartextArithmetic -> CleartextDB.
@@ -23,7 +23,7 @@ import {FheType} from "../../pkg/src/contracts/shared/FheType.sol";
  * Foundry rather than test/ts for the reason `CleartextNaryOps.t.sol` gives: `trivialEncrypt` grants only
  * a transient allowance, so composing handles has to happen inside one transaction.
  */
-contract CleartextMulDivTest is Test, FhevmCleartextDeploy {
+contract CleartextMulDivTest is Test, ForgeFhevmDeploy {
     bytes1 internal constant FACTOR2_ENCRYPTED = 0x01;
     bytes1 internal constant FACTOR2_SCALAR = 0x03;
 

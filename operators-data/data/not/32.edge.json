@@ -1,0 +1,36 @@
+{
+  "op": "not",
+  "arity": 1,
+  "semantics": "bitwise-complement",
+  "encoding": "hex-string",
+  "width": 32,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "not_32_zero",
+      "lhs": { "bits": 32, "value": "0x0" },
+      "result": { "bits": 32, "value": "0xffffffff" }
+    },
+    {
+      "id": "not_32_one",
+      "lhs": { "bits": 32, "value": "0x1" },
+      "result": { "bits": 32, "value": "0xfffffffe" }
+    },
+    {
+      "id": "not_32_max",
+      "lhs": { "bits": 32, "value": "0xffffffff" },
+      "result": { "bits": 32, "value": "0x0" }
+    },
+    {
+      "id": "not_32_max_minus_1",
+      "lhs": { "bits": 32, "value": "0xfffffffe" },
+      "result": { "bits": 32, "value": "0x1" }
+    },
+    {
+      "id": "not_32_top_bit",
+      "lhs": { "bits": 32, "value": "0x80000000" },
+      "result": { "bits": 32, "value": "0x7fffffff" }
+    }
+  ]
+}

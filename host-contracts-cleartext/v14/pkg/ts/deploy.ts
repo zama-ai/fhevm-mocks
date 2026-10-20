@@ -2,7 +2,7 @@ import { deployACLProxy, deployEmptyUUPSProxy, deployEmptyUUPSProxyACL, deployER
 import { abi as aclAbi, template as aclTemplate } from './artifacts/CleartextACL.js';
 import { abi as fhevmExecutorAbi, template as fhevmExecutorTemplate } from './artifacts/CleartextFHEVMExecutor.js';
 import { abi as kmsVerifierAbi, template as kmsVerifierTemplate } from './artifacts/CleartextKMSVerifier.js';
-import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/HCULimit.js';
+import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/CleartextHCULimit.js';
 import { abi as inputVerifierAbi, template as inputVerifierTemplate } from './artifacts/CleartextInputVerifier.js';
 import { abi as protocolConfigAbi, template as protocolConfigTemplate } from './artifacts/ProtocolConfig.js';
 import { abi as kmsGenerationAbi, template as kmsGenerationTemplate } from './artifacts/KMSGeneration.js';

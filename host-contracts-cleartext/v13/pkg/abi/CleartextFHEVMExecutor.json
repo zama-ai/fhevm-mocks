@@ -51,6 +51,24 @@
   },
   {
     "type": "function",
+    "name": "checkHandleType",
+    "inputs": [
+      {
+        "name": "handle",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedType",
+        "type": "uint8",
+        "internalType": "enum FheType"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "fheAdd",
     "inputs": [
       {
@@ -872,6 +890,25 @@
   },
   {
     "type": "function",
+    "name": "hasPlaintext",
+    "inputs": [
+      {
+        "name": "result",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initializeFromEmptyProxy",
     "inputs": [],
     "outputs": [],
@@ -911,7 +948,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV4",
+    "name": "reinitializeV5",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -2192,6 +2229,11 @@
   {
     "type": "error",
     "name": "ScalarByteIsNotBoolean",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ScalarOutOfRange",
     "inputs": []
   },
   {

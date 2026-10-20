@@ -1,0 +1,29 @@
+{
+  "op": "shr",
+  "arity": 2,
+  "semantics": "overshift-zero",
+  "encoding": "hex-string",
+  "width": 16,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "shr_16_8_pattern_by_3",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 8, "value": "0x3" },
+      "result": { "bits": 16, "value": "0x14b4" }
+    },
+    {
+      "id": "shr_16_8_pattern_by_4",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 8, "value": "0x4" },
+      "result": { "bits": 16, "value": "0xa5a" }
+    },
+    {
+      "id": "shr_16_8_pattern_by_half",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 8, "value": "0x8" },
+      "result": { "bits": 16, "value": "0xa5" }
+    }
+  ]
+}

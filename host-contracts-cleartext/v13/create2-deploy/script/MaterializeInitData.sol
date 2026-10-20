@@ -101,6 +101,8 @@ library MaterializeInitData {
 
     function _hcuLimit() private pure returns (bytes memory) {
         return abi.encodeCall(
+            // The implementation deployed here is CleartextHCULimit; the payload is encoded against HCULimit,
+            // which declares the function — solc cannot form a pointer to an inherited member. Same selector.
             HCULimit.initializeFromEmptyProxy,
             (
                 LocalHostBootstrap.HCU_CAP_PER_BLOCK,

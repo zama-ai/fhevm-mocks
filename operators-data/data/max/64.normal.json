@@ -1,0 +1,539 @@
+{
+  "op": "max",
+  "arity": 2,
+  "semantics": "unsigned",
+  "encoding": "hex-string",
+  "width": 64,
+  "kind": "normal",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "max_64_64_small_vs_smaller",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_64_smaller_vs_small",
+      "lhs": { "bits": 64, "value": "0x17" },
+      "rhs": { "bits": 64, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_64_mid_vs_mid",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_64_mid_vs_mid_reversed",
+      "lhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "rhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_64_sized_8_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d" }
+    },
+    {
+      "id": "max_64_64_sized_8_vs_sized_32",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_64_64_sized_8_vs_sized_64",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_64_64_sized_16_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_64_64_sized_16_vs_sized_32",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_64_64_sized_16_vs_sized_64",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_64_64_sized_32_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_64_sized_32_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_64_sized_32_vs_sized_64",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_64_64_sized_64_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_64_sized_64_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_64_sized_64_vs_sized_32",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_small_vs_smaller",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 32, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_32_smaller_vs_small",
+      "lhs": { "bits": 64, "value": "0x17" },
+      "rhs": { "bits": 32, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_32_mid_vs_mid",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_mid_vs_mid_reversed",
+      "lhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "rhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_64_32_wide_in_narrow_range_gt",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_wide_in_narrow_range_lt",
+      "lhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "rhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_sized_8_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d" }
+    },
+    {
+      "id": "max_64_32_sized_8_vs_sized_32",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_64_32_sized_16_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_64_32_sized_16_vs_sized_32",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_64_32_sized_32_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_sized_32_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_sized_64_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_sized_64_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_32_sized_64_vs_sized_32",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_16_small_vs_smaller",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 16, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_16_smaller_vs_small",
+      "lhs": { "bits": 64, "value": "0x17" },
+      "rhs": { "bits": 16, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_16_mid_vs_mid",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_16_mid_vs_mid_reversed",
+      "lhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "rhs": { "bits": 16, "value": "0x6b6b" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_64_16_wide_in_narrow_range_gt",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_64_16_wide_in_narrow_range_lt",
+      "lhs": { "bits": 64, "value": "0x2d2d" },
+      "rhs": { "bits": 16, "value": "0x6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_64_16_sized_8_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d" }
+    },
+    {
+      "id": "max_64_16_sized_16_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_64_16_sized_32_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_16_sized_32_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_16_sized_64_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_16_sized_64_vs_sized_16",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 16, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_8_small_vs_smaller",
+      "lhs": { "bits": 64, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_8_smaller_vs_small",
+      "lhs": { "bits": 64, "value": "0x17" },
+      "rhs": { "bits": 8, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_64_8_mid_vs_mid",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_64_8_mid_vs_mid_reversed",
+      "lhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "rhs": { "bits": 8, "value": "0x6b" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_64_8_wide_in_narrow_range_gt",
+      "lhs": { "bits": 64, "value": "0x6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b" }
+    },
+    {
+      "id": "max_64_8_wide_in_narrow_range_lt",
+      "lhs": { "bits": 64, "value": "0x2d" },
+      "rhs": { "bits": 8, "value": "0x6b" },
+      "result": { "bits": 64, "value": "0x6b" }
+    },
+    {
+      "id": "max_64_8_sized_16_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_64_8_sized_32_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_64_8_sized_64_vs_sized_8",
+      "lhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "rhs": { "bits": 8, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_32_64_small_vs_smaller",
+      "lhs": { "bits": 32, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_32_64_smaller_vs_small",
+      "lhs": { "bits": 32, "value": "0x17" },
+      "rhs": { "bits": 64, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_32_64_mid_vs_mid",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_32_64_mid_vs_mid_reversed",
+      "lhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "rhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_32_64_wide_in_narrow_range_gt",
+      "lhs": { "bits": 32, "value": "0x2d2d2d2d" },
+      "rhs": { "bits": 64, "value": "0x6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_32_64_wide_in_narrow_range_lt",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_32_64_sized_8_vs_sized_16",
+      "lhs": { "bits": 32, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d" }
+    },
+    {
+      "id": "max_32_64_sized_8_vs_sized_32",
+      "lhs": { "bits": 32, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_32_64_sized_8_vs_sized_64",
+      "lhs": { "bits": 32, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_32_64_sized_16_vs_sized_8",
+      "lhs": { "bits": 32, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_32_64_sized_16_vs_sized_32",
+      "lhs": { "bits": 32, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_32_64_sized_16_vs_sized_64",
+      "lhs": { "bits": 32, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_32_64_sized_32_vs_sized_8",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_32_64_sized_32_vs_sized_16",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b" }
+    },
+    {
+      "id": "max_32_64_sized_32_vs_sized_64",
+      "lhs": { "bits": 32, "value": "0x6b6b6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_16_64_small_vs_smaller",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_16_64_smaller_vs_small",
+      "lhs": { "bits": 16, "value": "0x17" },
+      "rhs": { "bits": 64, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_16_64_mid_vs_mid",
+      "lhs": { "bits": 16, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_16_64_mid_vs_mid_reversed",
+      "lhs": { "bits": 16, "value": "0x2d2d" },
+      "rhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_16_64_wide_in_narrow_range_gt",
+      "lhs": { "bits": 16, "value": "0x2d2d" },
+      "rhs": { "bits": 64, "value": "0x6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_16_64_wide_in_narrow_range_lt",
+      "lhs": { "bits": 16, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_16_64_sized_8_vs_sized_16",
+      "lhs": { "bits": 16, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d" }
+    },
+    {
+      "id": "max_16_64_sized_8_vs_sized_32",
+      "lhs": { "bits": 16, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_16_64_sized_8_vs_sized_64",
+      "lhs": { "bits": 16, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_16_64_sized_16_vs_sized_8",
+      "lhs": { "bits": 16, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b6b" }
+    },
+    {
+      "id": "max_16_64_sized_16_vs_sized_32",
+      "lhs": { "bits": 16, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_16_64_sized_16_vs_sized_64",
+      "lhs": { "bits": 16, "value": "0x6b6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_8_64_small_vs_smaller",
+      "lhs": { "bits": 8, "value": "0x64" },
+      "rhs": { "bits": 64, "value": "0x17" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_8_64_smaller_vs_small",
+      "lhs": { "bits": 8, "value": "0x17" },
+      "rhs": { "bits": 64, "value": "0x64" },
+      "result": { "bits": 64, "value": "0x64" }
+    },
+    {
+      "id": "max_8_64_mid_vs_mid",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    },
+    {
+      "id": "max_8_64_mid_vs_mid_reversed",
+      "lhs": { "bits": 8, "value": "0x2d" },
+      "rhs": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" },
+      "result": { "bits": 64, "value": "0x6b6b6b6b6b6b6b6b" }
+    },
+    {
+      "id": "max_8_64_wide_in_narrow_range_gt",
+      "lhs": { "bits": 8, "value": "0x2d" },
+      "rhs": { "bits": 64, "value": "0x6b" },
+      "result": { "bits": 64, "value": "0x6b" }
+    },
+    {
+      "id": "max_8_64_wide_in_narrow_range_lt",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d" },
+      "result": { "bits": 64, "value": "0x6b" }
+    },
+    {
+      "id": "max_8_64_sized_8_vs_sized_16",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d" }
+    },
+    {
+      "id": "max_8_64_sized_8_vs_sized_32",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d" }
+    },
+    {
+      "id": "max_8_64_sized_8_vs_sized_64",
+      "lhs": { "bits": 8, "value": "0x6b" },
+      "rhs": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" },
+      "result": { "bits": 64, "value": "0x2d2d2d2d2d2d2d2d" }
+    }
+  ]
+}

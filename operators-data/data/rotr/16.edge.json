@@ -1,0 +1,107 @@
+{
+  "op": "rotr",
+  "arity": 2,
+  "semantics": "amount-mod-width",
+  "encoding": "hex-string",
+  "width": 16,
+  "kind": "edge",
+  "verified": [{"tfhe-rs": "1.7.1", "date": "2026-09-13"}],
+  "cases": [
+    {
+      "id": "rotr_16_8_zero_by_zero",
+      "lhs": { "bits": 16, "value": "0x0" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x0" }
+    },
+    {
+      "id": "rotr_16_8_by_zero",
+      "lhs": { "bits": 16, "value": "0x64" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0x64" }
+    },
+    {
+      "id": "rotr_16_8_max_by_zero",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x0" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "rotr_16_8_one_by_one",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "rotr_16_8_two_by_one",
+      "lhs": { "bits": 16, "value": "0x2" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x1" }
+    },
+    {
+      "id": "rotr_16_8_max_by_one",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "rotr_16_8_top_bit_by_one",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 8, "value": "0x1" },
+      "result": { "bits": 16, "value": "0x4000" }
+    },
+    {
+      "id": "rotr_16_8_one_by_w_minus_1",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0xf" },
+      "result": { "bits": 16, "value": "0x2" }
+    },
+    {
+      "id": "rotr_16_8_top_bit_by_w_minus_1",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 8, "value": "0xf" },
+      "result": { "bits": 16, "value": "0x1" }
+    },
+    {
+      "id": "rotr_16_8_max_by_w_minus_1",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0xf" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "rotr_16_8_one_by_w",
+      "lhs": { "bits": 16, "value": "0x1" },
+      "rhs": { "bits": 8, "value": "0x10" },
+      "result": { "bits": 16, "value": "0x1" }
+    },
+    {
+      "id": "rotr_16_8_top_bit_by_w",
+      "lhs": { "bits": 16, "value": "0x8000" },
+      "rhs": { "bits": 8, "value": "0x10" },
+      "result": { "bits": 16, "value": "0x8000" }
+    },
+    {
+      "id": "rotr_16_8_max_by_w",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x10" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "rotr_16_8_max_by_w_plus_1",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0x11" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "rotr_16_8_max_by_255",
+      "lhs": { "bits": 16, "value": "0xffff" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0xffff" }
+    },
+    {
+      "id": "rotr_16_8_pattern_by_255",
+      "lhs": { "bits": 16, "value": "0xa5a5" },
+      "rhs": { "bits": 8, "value": "0xff" },
+      "result": { "bits": 16, "value": "0x4b4b" }
+    }
+  ]
+}

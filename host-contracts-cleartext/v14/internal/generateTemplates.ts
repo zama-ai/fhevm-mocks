@@ -65,7 +65,7 @@ export const TARGET_CONTRACTS: TargetContract[] = [
     kind: 'proxy',
     sourcePath: 'src/cleartext/CleartextInputVerifier.sol',
   },
-  { contractName: 'HCULimit', kind: 'proxy', sourcePath: 'src/contracts/HCULimit.sol' },
+  { contractName: 'CleartextHCULimit', kind: 'proxy', sourcePath: 'src/cleartext/CleartextHCULimit.sol' },
   // v0.13.0
   { contractName: 'ProtocolConfig', kind: 'proxy', sourcePath: 'src/contracts/ProtocolConfig.sol' },
   { contractName: 'KMSGeneration', kind: 'proxy', sourcePath: 'src/contracts/KMSGeneration.sol' },

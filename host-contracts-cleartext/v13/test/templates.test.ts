@@ -8,6 +8,8 @@ import {
   ADDRESSES_OUTPUT_PATH as LOCAL_HOST_ADDRESSES_PATH,
   OUTPUT_PATH as LOCAL_HOST_BYTECODE_PATH,
   localHostAddresses,
+  AUTHENTIC_CONTRACTS,
+  UPGRADE_IMPLEMENTATIONS,
 } from '../internal/generateLocalHostBytecode.ts';
 import {
   ADDRESS_NAMES,
@@ -27,6 +29,12 @@ import {
 } from '../internal/generateTemplates.ts';
 import { normalizeHex, readJson } from '../internal/utils.ts';
 import { derivePlaceholder } from '../internal/generatePlaceholders.ts';
+import {
+  EXPECTED_POOLED_SITES,
+  POOL_REORDER_EXEMPT,
+  canPoolReorder,
+  classifyAddressSites,
+} from '../internal/pooledAddressSites.ts';
 import {
   OUTPUT_PATH as COMPUTE_ADDRESSES_PATH,
   computeAddressesScript,
@@ -202,6 +210,87 @@ void test('patched templates match a Forge build compiled with different config 
   }
 });
 
+/**
+ * Order-preserving synthetic addresses: the same RELATIVE order as the localhost set the upgrade blobs
+ * ship holding, so the compiler lays the contracts out the same way for both.
+ *
+ * That constraint is not fussiness, it is the property under test. solc sorts a pooled constant table by
+ * VALUE, so an address set that inverts two pooled addresses makes it emit the table — and the code that
+ * indexes it — differently. Patching cannot reproduce that, and is not meant to: it rewrites values in
+ * place, leaving each where its own value was, so the reads still resolve. On `FHEVMExecutor`, which
+ * pools ACL and HCULimit, an inverting set makes the patched blob and a fresh compile differ in far more
+ * bytes than the addresses themselves. Byte equality is therefore claimable exactly when the
+ * ordering is preserved; for every other set the guarantee is behavioural, and
+ * `test/forge/LibHostUpgradeCode.t.sol` gets it by deploying the patched implementation and asking it
+ * where its siblings are.
+ */
+const ORDER_PRESERVING_ADDRESSES = ((): Record<AddressName, HexString> => {
+  const canonical = localHostAddresses().byName;
+  const ascending = [...ADDRESS_NAMES].sort((left, right) =>
+    BigInt(canonical[left]) < BigInt(canonical[right]) ? -1 : 1,
+  );
+  // 11..20 → two digits each, so twenty repeats is exactly 40 hex digits and the values ascend with the
+  // index. Assigning them in canonical order is what preserves the order.
+  return Object.fromEntries(ascending.map((name, index) => [name, `0x${String(11 + index).repeat(20)}`])) as Record<
+    AddressName,
+    HexString
+  >;
+})();
+
+/** `NAME_UPGRADE_SITES` from the committed generated file. */
+function upgradeSites(source: string, enumMember: string): string {
+  const found = new RegExp(`${enumMember.toUpperCase()}_UPGRADE_SITES =\\s*hex"([0-9a-f]*)"`).exec(source);
+  assert.ok(found !== null, `${enumMember}_UPGRADE_SITES missing from LocalHostBytecode.sol`);
+  return found[1] ?? '';
+}
+
+/** The TS twin of `LibHostUpgradeCode.patch`, kept here so the test does not ask the code under test. */
+function patchUpgradeBlob(hex: string, sites: string, addresses: Record<AddressName, HexString>): string {
+  let patched = hex;
+  for (let at = 0; at < sites.length; at += 10) {
+    const role = Number.parseInt(sites.slice(at, at + 2), 16);
+    const offset = Number.parseInt(sites.slice(at + 2, at + 10), 16);
+    const name = ADDRESS_NAMES[role];
+    assert.ok(name !== undefined, `patch site names role ${String(role)}, which no address has`);
+    const value = normalizeHex(addresses[name], 'address');
+    patched = patched.slice(0, offset * 2) + value + patched.slice(offset * 2 + 40);
+  }
+  return patched;
+}
+
+void test('upgrade blobs patched to an address set match a Forge build compiled with it', () => {
+  // THE test for the patch tables: not self-consistency, but agreement with an independent compile.
+  // Everything else about them — the counts, the readback, the round trip — only proves the table
+  // describes its own bytes. This proves those bytes are the ones solc would have produced.
+  const originalConfig = readFileSync(CONFIG_PATH, 'utf8');
+
+  try {
+    writeFileSync(CONFIG_PATH, addressConfigSource(ORDER_PRESERVING_ADDRESSES));
+    forge(['clean']);
+    forge(['build']);
+
+    const source = readFileSync(LOCAL_HOST_BYTECODE_PATH, 'utf8');
+    const blobs = declaredBlobs(source);
+
+    for (const target of UPGRADE_IMPLEMENTATIONS) {
+      const blob = blobs.get(`${target.enumMember.toUpperCase()}_UPGRADE`);
+      assert.ok(blob !== undefined, `${target.contractName} upgrade blob missing`);
+
+      const artifact = readJson<{ readonly bytecode: { readonly object: HexString } }>(
+        join(PACKAGE_ROOT_ABS_PATH, 'out', basename(target.sourcePath), `${target.contractName}.json`),
+      );
+
+      assert.equal(
+        patchUpgradeBlob(blob.hex, upgradeSites(source, target.enumMember), ORDER_PRESERVING_ADDRESSES),
+        normalizeHex(artifact.bytecode.object, 'bytecode'),
+        `${target.contractName}: patching the shipped blob must reproduce a build compiled with those addresses`,
+      );
+    }
+  } finally {
+    restoreConfigAndGeneratedArtifacts(originalConfig);
+  }
+});
+
 void test('patch-site counts match the committed baseline', () => {
   // A review tripwire (see PATCH_SITES_PATH in internal/generateTemplates.ts). Nothing here knows
   // whether a placeholder *should* be patched — that needs per-contract AST resolution. What this does
@@ -353,7 +442,7 @@ void test('LocalHostBytecode.sol declares the ZamaConfig localhost addresses', (
 
 /**
  * The cheatcode-calling cleartext variants, which LocalHostBytecode.sol carries ALONGSIDE the standard
- * blobs so `FhevmCleartextDeploy.sol` can use them while `DeployLocalStack.s.sol` keeps the plain ones.
+ * blobs so `ForgeFhevmDeploy.sol` can use them while `DeployLocalStack.s.sol` keeps the plain ones.
  *
  * They have no committed template, and should not: `TARGET_CONTRACTS` drives `pkg/ts/artifacts`, and a
  * contract that reverts outside forge has no business shipping to a TypeScript consumer. So they are
@@ -365,6 +454,7 @@ const FORGE_BLOBS: ReadonlyArray<{ readonly constantName: string; readonly stand
   { constantName: 'CLEARTEXT_FORGE_ARITHMETIC', standardOf: 'CLEARTEXT_ARITHMETIC' },
   { constantName: 'CLEARTEXT_FORGE_FHEVM_EXECUTOR', standardOf: 'CLEARTEXT_FHEVM_EXECUTOR' },
   { constantName: 'CLEARTEXT_FORGE_ACL', standardOf: 'CLEARTEXT_ACL' },
+  { constantName: 'CLEARTEXT_FORGE_HCU_LIMIT', standardOf: 'CLEARTEXT_HCU_LIMIT' },
 ];
 
 void test('LocalHostBytecode.sol carries the Forge cleartext variants alongside the standard blobs', () => {
@@ -385,19 +475,74 @@ void test('LocalHostBytecode.sol carries the Forge cleartext variants alongside 
   }
 });
 
+// The bytecode-layout constraint these three tests defend is explained, with pictures, in
+// internal/pooledAddressSites.ts. Read that first; it is the only place the knowledge lives.
+void test('address patch sites are inline operands, except the committed pooled ones', () => {
+  const measured: Record<string, Partial<Record<AddressName, number>>> = {};
+
+  for (const target of TARGET_CONTRACTS) {
+    const template = readTemplate(target.contractName);
+    const field = CODE_KIND[target.contractName] === 'runtime' ? 'deployedBytecode' : 'bytecode';
+    const offsetField = field === 'bytecode' ? 'bytecodeOffsets' : 'deployedBytecodeOffsets';
+    const hex = normalizeHex(template[field], `${target.contractName}.${field}`);
+
+    for (const name of ADDRESS_NAMES) {
+      const { pooled } = classifyAddressSites(hex, getAddressReference(template, name)[offsetField]);
+      if (pooled > 0) (measured[target.contractName] ??= {})[name] = pooled;
+    }
+  }
+
+  assert.deepEqual(
+    measured,
+    EXPECTED_POOLED_SITES,
+    'the set of POOLED address sites moved. An address stored in the shared constant table instead of\n' +
+      'inline is what makes patched bytecode diverge from a direct compile — see\n' +
+      'internal/pooledAddressSites.ts. Two or more pooled addresses in ONE contract is the case that\n' +
+      'actually breaks; update the table there, and the exemption list with it, once understood.',
+  );
+});
+
+void test('only the exempted contracts can have their constant table reordered', () => {
+  const canReorder = Object.entries(EXPECTED_POOLED_SITES)
+    .filter(([, counts]) => canPoolReorder(counts))
+    .map(([contractName]) => contractName)
+    .sort();
+
+  assert.deepEqual(
+    canReorder,
+    Object.keys(POOL_REORDER_EXEMPT).sort(),
+    'the exemption list must be EXACTLY the contracts with two or more pooled addresses — derived from\n' +
+      'the rule, never hand-extended, so it cannot quietly grow to hide a new divergence.',
+  );
+});
+
 void test('LocalHostBytecode.sol blobs equal the committed templates patched with those addresses', () => {
   // Ties the two pipelines together. The generated file is compiled against real addresses; the
   // templates are compiled against markers and patched. Test 5 above proves those are equivalent, so
   // these must agree exactly — and if the sources moved without regenerating, they will not.
+  //
+  // Skips the contracts whose constant table can be reordered by substitution, where byte-identity is
+  // not achievable at all; the test below covers those with the strongest property that still holds.
   const source = readFileSync(LOCAL_HOST_BYTECODE_PATH, 'utf8');
   const declared = declaredAddresses(source);
   const blobs = declaredBlobs(source);
 
   assert.equal(
     blobs.size,
-    TARGET_CONTRACTS.length + FORGE_BLOBS.length,
-    'one blob per target contract, plus the Forge cleartext variants',
+    TARGET_CONTRACTS.length + FORGE_BLOBS.length + UPGRADE_IMPLEMENTATIONS.length,
+    'one blob per target contract, plus the Forge cleartext variants, plus the upgrade implementations',
   );
+
+  // The upgrade implementations are VENDORED host contracts, deployed only to re-point a remote stack's
+  // proxies. They have no committed template, so the loop below cannot reach them and this file is not
+  // where they are checked: the generator measures their patch sites in the very bytes it emits and
+  // refuses a count the placeholder build disagrees with, and `test/forge/LocalHostUpgradeTables.t.sol`
+  // reads every address back out of the emitted bytecode.
+  for (const target of UPGRADE_IMPLEMENTATIONS) {
+    const blob = blobs.get(`${target.enumMember.toUpperCase()}_UPGRADE`);
+    assert.ok(blob !== undefined, `${target.contractName} missing its upgrade blob in LocalHostBytecode.sol`);
+    assert.equal(blob.suffix, 'CREATION', `${target.contractName} upgrade blob must be creation code`);
+  }
 
   for (const target of TARGET_CONTRACTS) {
     // CONSTANT_NAMES is total over ContractName, so completeness is a compile-time property here.
@@ -407,6 +552,8 @@ void test('LocalHostBytecode.sol blobs equal the committed templates patched wit
 
     const kind = CODE_KIND[target.contractName];
     assert.equal(blob.suffix, kind === 'runtime' ? 'RUNTIME' : 'CREATION', `${target.contractName} code kind`);
+
+    if (POOL_REORDER_EXEMPT[target.contractName] !== undefined) continue;
 
     const field = kind === 'runtime' ? 'deployedBytecode' : 'bytecode';
     // `hex"…"` literals carry no 0x prefix; patchBytecode returns one.
@@ -426,15 +573,54 @@ void test('LocalHostBytecode.sol blobs equal the committed templates patched wit
   }
 });
 
+void test('an exempted contract carries exactly the same address constants as a direct compile', () => {
+  // What survives when byte-identity cannot: the patched artifact must be the same LENGTH and must
+  // contain each address exactly as many times as the compiled one. Only the slots the two sit in may
+  // differ. That still catches an address dropped, duplicated, or written with the wrong value —
+  // everything except the permutation the compiler is entitled to choose.
+  const source = readFileSync(LOCAL_HOST_BYTECODE_PATH, 'utf8');
+  const declared = declaredAddresses(source);
+  const blobs = declaredBlobs(source);
+
+  for (const contractName of Object.keys(POOL_REORDER_EXEMPT)) {
+    const target = TARGET_CONTRACTS.find((candidate) => candidate.contractName === contractName);
+    assert.ok(target, `${contractName} is exempted but is not a target contract`);
+
+    const blob = blobs.get(CONSTANT_NAMES[target.contractName]);
+    assert.ok(blob !== undefined, `${contractName} missing from LocalHostBytecode.sol`);
+
+    const field = CODE_KIND[target.contractName] === 'runtime' ? 'deployedBytecode' : 'bytecode';
+    const patched = normalizeHex(patchBytecode(readTemplate(contractName), field, declared), 'patched');
+
+    assert.equal(blob.hex.length, patched.length, `${contractName}: patched and compiled differ in LENGTH`);
+
+    for (const name of ADDRESS_NAMES) {
+      const address = normalizeHex(declared[name], name).toLowerCase();
+      assert.equal(
+        occurrences(blob.hex, address),
+        occurrences(patched, address),
+        `${contractName}: ${name} appears a different number of times in the patched and compiled code`,
+      );
+    }
+  }
+});
+
+/** Non-overlapping occurrences of `needle` in `haystack`. */
+function occurrences(haystack: string, needle: string): number {
+  let count = 0;
+  for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + needle.length)) count++;
+  return count;
+}
+
 void test('generated interfaces cover every target and share one FheType', () => {
   const interfaceDir = join(PKG_DIR_ABS_PATH, 'forge', 'src', '_internal', 'interfaces');
 
-  for (const target of TARGET_CONTRACTS) {
+  for (const target of [...TARGET_CONTRACTS, ...AUTHENTIC_CONTRACTS]) {
     const path = join(interfaceDir, `I${target.contractName}.sol`);
     const source = readFileSync(path, 'utf8');
 
     assert.match(source, /^\/\/ SPDX-License-Identifier: BSD-3-Clause-Clear\n/, `${path}: SPDX`);
-    // ^0.8.24: the payload's own floor, and what the harness pins so test/forge/FhevmCleartextDeploy.t.sol can compile
+    // ^0.8.24: the payload's own floor, and what the harness pins so test/forge/ForgeFhevmDeploy.t.sol can compile
     // these files. It also accepts every consumer a ^0.8.27 pragma would.
     assert.match(source, /^pragma solidity \^0\.8\.24;$/m, `${path}: pragma`);
     assert.match(source, new RegExp(`interface I${target.contractName} \\{`), `${path}: interface name`);
@@ -443,17 +629,17 @@ void test('generated interfaces cover every target and share one FheType', () =>
     // The generator rewrites it to the shared enum; if that ever stops firing the types stop unifying.
     assert.doesNotMatch(source, /type FheType is uint8;/, `${path}: local FheType must be rewritten`);
     if (/\bFheType\b/.test(source)) {
-      assert.match(
-        source,
-        /import \{FheType\} from "\.\.\/\.\.\/\.\.\/\.\.\/src\/contracts\/shared\/FheType\.sol";/,
-        `${path}: import`,
-      );
+      // The PAYLOAD's copy, reached through LibFheType, not the vendored original. pkg/forge/src ships
+      // self-contained — generate:forge-shared puts FheType under shared/ — so an interface importing
+      // the vendored file would put a SECOND declaration in the same compilation, and two FheType
+      // enums do not convert. Every payload-facing test fails loudly when that happens.
+      assert.match(source, /import \{FheType\} from "\.\.\/\.\.\/shared\/LibFheType\.sol";/, `${path}: import`);
     }
   }
 
   assert.equal(
     readdirSync(interfaceDir).filter((name) => name.endsWith('.sol')).length,
-    TARGET_CONTRACTS.length,
+    TARGET_CONTRACTS.length + AUTHENTIC_CONTRACTS.length,
     'no stale interfaces left behind',
   );
 });
@@ -461,11 +647,11 @@ void test('generated interfaces cover every target and share one FheType', () =>
 /**
  * The two hand-written files in the forge payload, and the reason it needs no forge-std.
  *
- * Both sit directly under `src/`, beside `FhevmCleartextDeploy.sol`, rather than in `_internal/`: that directory
+ * Both sit directly under `src/`, beside `ForgeFhevmDeploy.sol`, rather than in `_internal/`: that directory
  * is for generated files, and the generator wipes `_internal/interfaces/` on every run. Nothing re-derives
  * either of these, so their shape is checked here.
  */
-void test('the vendored forge cheatcode files are hand-written and cover what FhevmCleartextDeploy calls', () => {
+void test('the vendored forge cheatcode files are hand-written and cover what ForgeFhevmDeploy calls', () => {
   const forgeSrc = join(PKG_DIR_ABS_PATH, 'forge', 'src');
   const iface = readFileSync(join(forgeSrc, 'IForgeVm.sol'), 'utf8');
   const base = readFileSync(join(forgeSrc, 'ForgeVmBase.sol'), 'utf8');
@@ -486,7 +672,7 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fh
   // library can bind it too, and ForgeVmBase pulls it in alongside the interface.
   assert.match(base, /import \{[^}]*\bIForgeVm\b[^}]*\} from "\.\/IForgeVm\.sol";/, 'ForgeVmBase.sol: import');
 
-  // Every cheatcode FhevmCleartextDeploy and the emulation libraries reach for. A missing one is a compile error
+  // Every cheatcode ForgeFhevmDeploy and the emulation libraries reach for. A missing one is a compile error
   // there, but this names them.
   for (const cheatcode of [
     'getNonce',
@@ -498,6 +684,12 @@ void test('the vendored forge cheatcode files are hand-written and cover what Fh
     'stopPrank',
     'pauseGasMetering',
     'resumeGasMetering',
+    // The fork upgrade's four: three to read a `getVersion()` string apart, and the grant without which a
+    // forge-only implementation behind a FORKED proxy is refused its cheatcodes.
+    'split',
+    'parseUint',
+    'toString',
+    'allowCheatcodes',
   ]) {
     assert.match(iface, new RegExp(`function ${cheatcode}\\(`), `IForgeVm.sol declares ${cheatcode}`);
   }

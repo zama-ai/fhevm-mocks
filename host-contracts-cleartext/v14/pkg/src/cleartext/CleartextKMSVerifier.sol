@@ -2,36 +2,52 @@
 pragma solidity ^0.8.24;
 
 import {KMSVerifier} from "../contracts/KMSVerifier.sol";
-import {FheType} from "../contracts/shared/FheType.sol";
-import {aclAdd, fhevmExecutorAdd} from "../addresses/FHEVMHostAddresses.sol";
+import {IProtocolConfig} from "../contracts/interfaces/IProtocolConfig.sol";
+import {EXTRA_DATA_V2} from "../contracts/shared/Constants.sol";
+import {aclAdd, fhevmExecutorAdd, protocolConfigAdd} from "../addresses/FHEVMHostAddresses.sol";
+import {
+    DelegatedUserDecryptPayloadArgsV1,
+    HandleContractPair,
+    HandleEntry,
+    LibKmsVerifier,
+    PublicDecryptPayloadArgs,
+    SignerSignaturePair,
+    UserDecryptPayloadArgsV1,
+    UserDecryptPayloadArgsV2,
+    UserDecryptPermitV2,
+    UserDecryptRequestV1
+} from "./shared/LibKmsVerifier.sol";
 
-interface IACL {
-    /// @notice Returns whether `handle` is publicly decryptable.
-    function isAllowedForDecryption(bytes32 handle) external view returns (bool);
-
-    /// @notice Returns whether `account` is persistently allowed to access `handle`.
-    function persistAllowed(bytes32 handle, address account) external view returns (bool);
-
-    /// @notice Returns whether `delegate` may decrypt `handle` for `delegator`.
-    function isHandleDelegatedForUserDecryption(
-        address delegator,
-        address delegate,
-        address contractAddress,
-        bytes32 handle
-    ) external view returns (bool);
+/**
+ * @notice A legacy (v1) user-decryption permit: every field the user signs (`UserDecryptRequestVerification`), plus
+ *         the signer, minus the signature (passed beside it). The v1 type does not sign `userAddress`: the signer
+ *         is recovered and must equal it.
+ * @dev    Fields: the signer, then the type's fields in the type's order. A struct so the entry point stays
+ *         under the stack limit, as `UserDecryptPermitV2`.
+ */
+struct UserDecryptPermitV1 {
+    address userAddress;
+    bytes publicKey;
+    address[] contractAddresses;
+    uint256 startTimestamp;
+    uint256 durationDays;
+    bytes extraData;
 }
 
-interface ICleartextFHEVMExecutor {
-    /// @notice Returns the cleartext value recorded for `handle`.
-    function plaintexts(bytes32 handle) external view returns (uint256);
-}
-
-/// @notice (handle, contractAddress) pair used by user-decryption APIs so each
-///         requested handle can be bound to the specific contract the user
-///         authorized for it, rather than applying one contract to every handle.
-struct HandleContractPair {
-    bytes32 handle;
-    address contractAddress;
+/**
+ * @notice A legacy (v1) delegated user-decryption permit: every field the delegate signs
+ *         (`DelegatedUserDecryptRequestVerification`, which names the delegator), plus the delegate, the signer,
+ *         minus the signature (passed beside it).
+ * @dev    Fields: the signer (the delegate), then the type's fields in the type's order.
+ */
+struct DelegatedUserDecryptPermitV1 {
+    address delegateAddress;
+    bytes publicKey;
+    address[] contractAddresses;
+    address delegatorAddress;
+    uint256 startTimestamp;
+    uint256 durationDays;
+    bytes extraData;
 }
 
 /**
@@ -42,73 +58,429 @@ contract CleartextKMSVerifier is KMSVerifier {
     ///         consumer can probe it to tell a cleartext stack from a production deployment.
     bool public constant IS_CLEARTEXT = true;
 
-    IACL private constant ACL_CONTRACT = IACL(aclAdd);
-    ICleartextFHEVMExecutor private constant FHEVM_EXECUTOR = ICleartextFHEVMExecutor(fhevmExecutorAdd);
+    // ---------------------------------------------------------------------------------------------
+    // Private constants
+    // ---------------------------------------------------------------------------------------------
 
     /// @notice EIP-712 domain typehash.
     bytes32 private constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    /// @notice UserDecryptRequestVerification typehash.
-    bytes32 internal constant USER_DECRYPT_REQUEST_TYPEHASH = keccak256(
-        "UserDecryptRequestVerification(bytes publicKey,address[] contractAddresses,uint256 startTimestamp,uint256 durationDays,bytes extraData)"
-    );
-    bytes32 internal constant DELEGATED_USER_DECRYPT_REQUEST_TYPEHASH = keccak256(
-        "DelegatedUserDecryptRequestVerification(bytes publicKey,address[] contractAddresses,address delegatorAddress,uint256 startTimestamp,uint256 durationDays,bytes extraData)"
-    );
-    error CleartextErrorInvalidUserDecryptSignature();
-    error CleartextErrorContractAddressNotAuthorized(address contractAddress);
-    error CleartextErrorHandleNotAllowedForPublicDecryption(bytes32 handle);
-    error CleartextErrorHandleNotDelegatedForUserDecryption(
-        bytes32 handle, address contractAddress, address delegator, address delegate
-    );
-    error CleartextErrorUserAddressEqualsContractAddress();
-    error CleartextErrorUserNotAuthorizedForDecrypt(bytes32 handle, address userAddress);
-    error CleartextErrorContractNotAuthorizedForDecrypt(bytes32 handle, address contractAddress);
 
-    /// @notice Serializes the v1 extraData layout consumed by the KMS verifier.
-    /// @dev Wire format (33 bytes):
-    ///        [byte 0     : version = 0x01]
-    ///        [bytes 1..32: contextId (uint256, big-endian)]
-    ///      Memory layout after `new bytes(33)` (free memory pointer base = `extraData`):
-    ///        [extraData .. +31]   length = 33
-    ///        [+32]                version byte
-    ///        [+33 .. +64]         contextId (32 bytes)
-    ///      Inverse of the parse routine that does `mload(add(extraData, 33))`
-    ///      after validating the version byte.
-    function _buildCurrentExtradata() internal view returns (bytes memory extraData) {
-        uint256 contextId = getCurrentKmsContextId();
-        extraData = new bytes(33);
-        extraData[0] = 0x01;
-        assembly {
-            mstore(add(extraData, 33), contextId)
+    // ---------------------------------------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------------------------------------
+
+    /// @notice KMS: the client address must differ from the EIP-712 domain's verifying contract.
+    error CleartextErrorUserAddressIsVerifyingContract(address userAddress);
+
+    /// @notice KW `KmsContextInvalid`: a v2 extraData names an epoch that is not active for its context.
+    error CleartextErrorInvalidKmsEpoch(uint256 kmsContextId, uint256 epochId);
+
+    /// @notice The extraData a public-decryption request names refers to no valid KMS context.
+    error CleartextErrorInvalidKmsContext(uint256 kmsContextId);
+
+    // ---------------------------------------------------------------------------------------------
+    // Legacy decrypt functions
+    // ---------------------------------------------------------------------------------------------
+
+    /// @notice Returns cleartexts and KMS metadata for public decryption, signed over the CURRENT KMS
+    ///         context (extraData v1, `0x01 | contextId`). TEMPORARY: see the warning in the body.
+    /// @dev    For sdks whose cleartext path does not pass the extraData they will verify the proof against
+    ///         (FHEVM SDK 0.13.x and 0.14.x call `publicDecrypt(handles)`). The overload below, which takes the
+    ///         extraData, serves any requested version.
+    function publicDecrypt(bytes32[] memory handles)
+        external
+        view
+        virtual
+        returns (
+            bytes memory abiEncodedCleartexts,
+            bytes32 digest,
+            address[] memory signers,
+            uint256 threshold,
+            bytes memory extraData
+        )
+    {
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // !!! TEMPORARY — REMOVE WHEN THE PATCHED FHEVM SDK RELEASES ARE PINNED !!!
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // extraData v1 on purpose. On a v14 chain the right default is v2 (`0x02 | contextId | epochId`),
+        // which is what SDK 0.14 requests. But the hardhat plugins temporarily hide `protocolConfig` from the
+        // SDK's chain definition (the "no protocolConfig address" trick), so SDK 0.14 requests v1 like SDK
+        // 0.13, and this one-argument call must sign v1 for both to verify the proof.
+        // EXIT: once the SDKs call `publicDecrypt(handles, extraData)` and the plugins restore
+        // `protocolConfig`, replace the line below with:
+        //     return _publicDecrypt(handles, _currentExtraDataV2());
+        // Counterparts of this trick: cleartextChain() in hardhat/v3/plugin/pkg/src/internal/chains.ts and
+        // localCleartext in hardhat/v2/plugin/pkg/src/internal/chains.ts, which omit protocolConfig.
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        return _publicDecrypt(handles, LibKmsVerifier.extraDataForContext(getCurrentKmsContextId()));
+    }
+
+    /// @notice Returns user-decryption payload and KMS metadata after verifying the user's signature.
+    function userDecrypt(
+        HandleContractPair[] calldata pairs,
+        address userAddress,
+        bytes memory publicKey,
+        address[] memory contractAddresses,
+        uint256 startTimestamp,
+        uint256 durationDays,
+        bytes memory userSignature
+    )
+        external
+        view
+        virtual
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData)
+    {
+        UserDecryptPayloadArgsV1 memory p = _userDecryptArgsV1(
+            userAddress, UserDecryptRequestV1(publicKey, contractAddresses, startTimestamp, durationDays), userSignature
+        );
+        p.extraData = _userDecryptExtraData(p);
+        return _userDecryptV1(pairs, p);
+    }
+
+    /// @notice Returns delegated user-decryption payload and KMS metadata after verifying the delegate's signature.
+    /// @dev The parameters are assembled into one struct rather than passed loose; see
+    ///      `DelegatedUserDecryptPayloadArgsV1` for why the stack requires it.
+    function delegatedUserDecrypt(
+        HandleContractPair[] calldata pairs,
+        address delegator,
+        address delegate,
+        bytes memory publicKey,
+        address[] memory contractAddresses,
+        uint256 startTimestamp,
+        uint256 durationDays,
+        bytes memory delegateSignature
+    )
+        external
+        view
+        virtual
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData)
+    {
+        DelegatedUserDecryptPayloadArgsV1 memory p = _delegatedUserDecryptArgsV1(
+            delegator,
+            delegate,
+            UserDecryptRequestV1(publicKey, contractAddresses, startTimestamp, durationDays),
+            delegateSignature
+        );
+        p.extraData = _delegatedUserDecryptExtraData(p);
+        return _delegatedUserDecryptV1(pairs, p);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // New decrypt functions
+    // ---------------------------------------------------------------------------------------------
+
+    /// @notice Same, signed over exactly the `extraData` the requester names, as a real relayer has the KMS
+    ///         sign over the extraData the request carries.
+    /// @dev    v14 only. The sdk decides which KMS committee must sign and verifies the proof against its own
+    ///         extraData, ignoring the one returned here. So the digest must be built over the REQUESTED
+    ///         extraData: v0 (empty or `0x00`: the current context), v1 (`0x01 | contextId`) or v2
+    ///         (`0x02 | contextId | epochId`). Parsed by KMSVerifier's own `_extractKmsContextId`, which rejects
+    ///         a malformed or unsupported one; the context it names must be valid. The epoch id of a v2 is not
+    ///         checked, as KMSVerifier does not check it when it verifies the proof either.
+    function publicDecrypt(bytes32[] memory handles, bytes memory extraData)
+        external
+        view
+        virtual
+        returns (
+            bytes memory abiEncodedCleartexts,
+            bytes32 digest,
+            address[] memory signers,
+            uint256 threshold,
+            bytes memory signedExtraData
+        )
+    {
+        return _publicDecrypt(handles, extraData);
+    }
+
+    /// @notice Same as the legacy `userDecrypt`, verified against exactly the `extraData` the user signed their
+    ///         permit over.
+    /// @dev    v14 only. A permit is reusable until it expires, and its extraData names the KMS context (and, in
+    ///         v2, epoch) current WHEN IT WAS SIGNED, which may no longer be the current one; the sdk resolves
+    ///         the signers of that context, not of the current one. So the host must not guess it: the caller
+    ///         passes the permit's `message.extraData`, verbatim. Parsed by KMSVerifier's own
+    ///         `_extractKmsContextId`; the context it names must be valid. Returns that context's signers and
+    ///         threshold.
+    /// @param pairs     The handles, each with the contract it is held under.
+    /// @param permit    The permit's signed fields and its signer, `extraData` verbatim.
+    /// @param signature The user's 65-byte EOA signature over the permit.
+    function userDecryptV1(
+        HandleContractPair[] calldata pairs,
+        UserDecryptPermitV1 memory permit,
+        bytes memory signature
+    )
+        external
+        view
+        virtual
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData)
+    {
+        UserDecryptPayloadArgsV1 memory p = _userDecryptArgsV1(
+            permit.userAddress,
+            UserDecryptRequestV1(
+                permit.publicKey, permit.contractAddresses, permit.startTimestamp, permit.durationDays
+            ),
+            signature
+        );
+        p.extraData = permit.extraData;
+        return _userDecryptV1(pairs, p);
+    }
+
+    /// @notice Same as the legacy `delegatedUserDecrypt`, verified against exactly the `extraData` the delegate
+    ///         signed their permit over.
+    /// @dev    v14 only; see `userDecryptV1`.
+    /// @param permit    The permit's signed fields (the delegator included) and its signer, the delegate.
+    /// @param signature The delegate's 65-byte EOA signature over the permit.
+    function delegatedUserDecryptV1(
+        HandleContractPair[] calldata pairs,
+        DelegatedUserDecryptPermitV1 memory permit,
+        bytes memory signature
+    )
+        external
+        view
+        virtual
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData)
+    {
+        DelegatedUserDecryptPayloadArgsV1 memory p = _delegatedUserDecryptArgsV1(
+            permit.delegatorAddress,
+            permit.delegateAddress,
+            UserDecryptRequestV1(
+                permit.publicKey, permit.contractAddresses, permit.startTimestamp, permit.durationDays
+            ),
+            signature
+        );
+        p.extraData = permit.extraData;
+        return _delegatedUserDecryptV1(pairs, p);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Unified (RFC-016) user decryption: permit v2, `durationSeconds` + `allowedContracts`.
+    //
+    // On v14 the gateway (`Decryption.userDecryptionRequest(HandleEntry[], ...)`) only checks the
+    // request's shape and limits; authorisation moved to the kms-worker
+    // (`check_user_decryption_request_v2`). `LibKmsVerifier.userDecryptPayloadV2` mirrors both, in their
+    // order; the verifier checks what is its own first (the KMS context, its verifying contract).
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * @notice Unified user decryption: returns the user-decryption payload and KMS metadata once the request
+     *         passes every check the v14 gateway and kms-worker make.
+     * @param handles   The handles, each with the contract it is held under and its owner.
+     * @param permit    The signed fields of the permit, verbatim (`extraData` included).
+     * @param signature A 65-byte EOA signature, an ERC-1271 blob, or empty for a smart account.
+     */
+    function userDecryptV2(HandleEntry[] calldata handles, UserDecryptPermitV2 memory permit, bytes memory signature)
+        external
+        view
+        virtual
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData)
+    {
+        // Its own first: the KMS context (and epoch) the permit names, and that the user is not this verifier.
+        uint256 kmsContextId = _validKmsContextId(permit.extraData);
+        _requireNotVerifyingContract(permit.userAddress);
+
+        UserDecryptPayloadArgsV2 memory p;
+        p.aclAddress = aclAdd;
+        p.plaintextsAddress = fhevmExecutorAdd;
+        p.domainHash = _domainHashWithHostChainId();
+        p.permit = permit;
+        p.signature = signature;
+
+        // The gateway's then the kms-worker's checks, in their order, then reads.
+        signedExtraData = permit.extraData;
+        payload = LibKmsVerifier.userDecryptPayloadV2(handles, p);
+        (signers, threshold) = _signersAndThreshold(kmsContextId, true);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Private helpers
+    // ---------------------------------------------------------------------------------------------
+
+    /// @dev The public-decryption answer for `extraData`, with the signers and threshold of the
+    ///      KMS context it names.
+    function _publicDecrypt(bytes32[] memory handles, bytes memory extraData)
+        private
+        view
+        returns (
+            bytes memory abiEncodedCleartexts,
+            bytes32 digest,
+            address[] memory signers,
+            uint256 threshold,
+            bytes memory signedExtraData
+        )
+    {
+        uint256 kmsContextId = _validKmsContextId(extraData);
+
+        PublicDecryptPayloadArgs memory p;
+        p.aclAddress = aclAdd;
+        p.plaintextsAddress = fhevmExecutorAdd;
+        p.domainHash = _domainHashWithGatewayChainId();
+        p.typeHash = DECRYPTION_RESULT_TYPEHASH;
+        p.extraData = _signedExtraData(extraData);
+
+        signedExtraData = p.extraData;
+        // The handles' conformance, the ACL walk, then reads.
+        (abiEncodedCleartexts, digest) = LibKmsVerifier.publicDecryptPayload(handles, p);
+
+        (signers, threshold) = _signersAndThreshold(kmsContextId, false);
+    }
+
+    /// @dev The user-decryption answer for a permit whose signed extraData is `p.extraData`.
+    function _userDecryptV1(HandleContractPair[] calldata pairs, UserDecryptPayloadArgsV1 memory p)
+        private
+        view
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData)
+    {
+        uint256 kmsContextId = _validKmsContextId(p.extraData);
+        _requireNotVerifyingContract(p.user.signer);
+        signedExtraData = p.extraData;
+        // The request's contract addresses and window, the pairs' conformance, the user's signature over `p.extraData` (`requireSigner`), the pairs'
+        // authorisation, then reads.
+        payload = LibKmsVerifier.userDecryptPayloadV1(pairs, p);
+        (signers, threshold) = _signersAndThreshold(kmsContextId, true);
+    }
+
+    /// @dev The same, for a delegate's permit.
+    function _delegatedUserDecryptV1(HandleContractPair[] calldata pairs, DelegatedUserDecryptPayloadArgsV1 memory p)
+        private
+        view
+        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory signedExtraData)
+    {
+        uint256 kmsContextId = _validKmsContextId(p.extraData);
+        _requireNotVerifyingContract(p.delegate.signer);
+        signedExtraData = p.extraData;
+        // The request's contract addresses and window, the pairs' conformance, the delegate's signature over `p.extraData` (`requireSigner`), the pairs'
+        // authorisation, then reads.
+        payload = LibKmsVerifier.delegatedUserDecryptPayloadV1(pairs, p);
+        (signers, threshold) = _signersAndThreshold(kmsContextId, true);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    /// @dev The request and signer of a user decryption, everything but `extraData`.
+    function _userDecryptArgsV1(address userAddress, UserDecryptRequestV1 memory request, bytes memory userSignature)
+        private
+        view
+        returns (UserDecryptPayloadArgsV1 memory p)
+    {
+        p.aclAddress = aclAdd;
+        p.plaintextsAddress = fhevmExecutorAdd;
+        p.request = request;
+        p.user = SignerSignaturePair(userAddress, userSignature);
+        p.domainHash = _domainHashWithHostChainId();
+    }
+
+    /// @dev The same, for a delegated user decryption.
+    function _delegatedUserDecryptArgsV1(
+        address delegator,
+        address delegate,
+        UserDecryptRequestV1 memory request,
+        bytes memory delegateSignature
+    ) private view returns (DelegatedUserDecryptPayloadArgsV1 memory p) {
+        p.aclAddress = aclAdd;
+        p.plaintextsAddress = fhevmExecutorAdd;
+        p.request = request;
+        p.delegator = delegator;
+        p.delegate = SignerSignaturePair(delegate, delegateSignature);
+        p.domainHash = _domainHashWithHostChainId();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Private Helpers
+    // ---------------------------------------------------------------------------------------------
+
+    /// @dev The KMS context `extraData` names, parsed by KMSVerifier's own `_extractKmsContextId` (which
+    ///      rejects a malformed or unsupported extraData); it must be a valid context. For a v2 extraData
+    ///      the epoch must also be active for that context, as the kms-worker checks
+    ///      (`isValidEpochForContext`) although KMSVerifier does not when it verifies the proof.
+    function _validKmsContextId(bytes memory extraData) private view returns (uint256 kmsContextId) {
+        kmsContextId = _extractKmsContextId(extraData);
+        IProtocolConfig protocolConfig = IProtocolConfig(protocolConfigAdd);
+        if (!protocolConfig.isValidKmsContext(kmsContextId)) {
+            revert CleartextErrorInvalidKmsContext(kmsContextId);
+        }
+        // `_extractKmsContextId` has already enforced the exact 65-byte length of a v2.
+        if (extraData.length != 0 && uint8(extraData[0]) == EXTRA_DATA_V2) {
+            uint256 epochId;
+            assembly {
+                epochId := mload(add(extraData, 65))
+            }
+            if (!protocolConfig.isValidEpochForContext(kmsContextId, epochId)) {
+                revert CleartextErrorInvalidKmsEpoch(kmsContextId, epochId);
+            }
         }
     }
 
-    /// @notice Builds the heterogeneous-tuple encoding of cleartext values keyed by handle type.
-    /// @dev Equivalent to `abi.encode(v0, v1, ..., v_{n-1})` where each `v_i` is the cleartext
-    ///      cast to its FHE-natural Solidity type (bool for `Bool`, address for `Uint160`,
-    ///      uint256 otherwise). Each value is right-aligned into a 32-byte word; the result is
-    ///      `n * 32` bytes long with no length/offset header. Suitable for `keccak256` over the
-    ///      EIP-712 PublicDecryptVerification payload.
-    function _encodeTypedCleartexts(bytes32[] memory handles, uint256[] memory cleartexts)
+    /// @dev A KMS context's signers and threshold: the public-decryption one, or the user-decryption one
+    ///      the gateway applies to user-decryption responses (`getUserDecryptionThresholdForContext`).
+    function _signersAndThreshold(uint256 kmsContextId, bool userDecryption)
         private
-        pure
-        returns (bytes memory encoded)
+        view
+        returns (address[] memory signers, uint256 threshold)
     {
-        uint256 n = handles.length;
-        encoded = new bytes(32 * n);
-        for (uint256 i = 0; i < n; ++i) {
-            FheType t = FheType(uint8(handles[i][30]));
-            uint256 w = cleartexts[i];
-            if (t == FheType.Bool) {
-                w = w != 0 ? 1 : 0;
-            } else if (t == FheType.Uint160) {
-                w = uint256(uint160(w));
-            }
-            assembly {
-                mstore(add(encoded, add(32, mul(i, 32))), w)
-            }
+        IProtocolConfig protocolConfig = IProtocolConfig(protocolConfigAdd);
+        signers = protocolConfig.getKmsSignersForContext(kmsContextId);
+        threshold = userDecryption
+            ? protocolConfig.getUserDecryptionThresholdForContext(kmsContextId)
+            : protocolConfig.getPublicDecryptionThresholdForContext(kmsContextId);
+    }
+
+    /// @dev KMS `compute_link_checked`: the client address is not the domain's verifying contract.
+    function _requireNotVerifyingContract(address userAddress) private view {
+        (,,,, address verifyingContract,,) = eip712Domain();
+        if (userAddress == verifyingContract) revert CleartextErrorUserAddressIsVerifyingContract(userAddress);
+    }
+
+    /// @dev For the overloads WITHOUT `extraData` (published sdk releases do not pass it): the extraData a user
+    ///      signed their permit over, guessed as v2 (current context and epoch, what an sdk on protocol API 0.14
+    ///      signs) if the signature matches it, otherwise v1 (current context, what an sdk capped at protocol API
+    ///      0.13 signs). If neither matches, `LibKmsVerifier.userDecryptPayloadV1` refuses the signature as
+    ///      before. LIMITATION: only a permit signed while the current context and epoch were already current
+    ///      can match; one signed before a KMS context or epoch change is refused although it is valid. The
+    ///      overload that takes `extraData` has no such limitation.
+    function _userDecryptExtraData(UserDecryptPayloadArgsV1 memory p) private view returns (bytes memory) {
+        bytes memory extraDataV2 = _currentExtraDataV2();
+        bytes32 digestV2 = LibKmsVerifier.userDecryptionDigestV1(p.domainHash, p.request, extraDataV2);
+        if (_isSignedBy(digestV2, p.user.signature, p.user.signer)) return extraDataV2;
+        return LibKmsVerifier.extraDataForContext(getCurrentKmsContextId());
+    }
+
+    /// @dev The same, for a delegate's permit.
+    function _delegatedUserDecryptExtraData(DelegatedUserDecryptPayloadArgsV1 memory p)
+        private
+        view
+        returns (bytes memory)
+    {
+        bytes memory extraDataV2 = _currentExtraDataV2();
+        bytes32 digestV2 =
+            LibKmsVerifier.delegatedUserDecryptionDigestV1(p.domainHash, p.request, p.delegator, extraDataV2);
+        if (_isSignedBy(digestV2, p.delegate.signature, p.delegate.signer)) return extraDataV2;
+        return LibKmsVerifier.extraDataForContext(getCurrentKmsContextId());
+    }
+
+    /// @dev extraData v2 for the current KMS context and epoch: `0x02 | contextId | epochId`, 65 bytes.
+    function _currentExtraDataV2() private view returns (bytes memory extraData) {
+        (uint256 contextId, uint256 epochId) = IProtocolConfig(protocolConfigAdd).getCurrentKmsContextAndEpoch();
+        extraData = new bytes(65);
+        extraData[0] = bytes1(EXTRA_DATA_V2);
+        assembly {
+            mstore(add(extraData, 33), contextId)
+            mstore(add(extraData, 65), epochId)
         }
+    }
+
+    /// @dev The bytes a v0 extraData is signed as: empty, never `0x00`, as the sdk signs it. v1 and v2 are
+    ///      signed as they are.
+    function _signedExtraData(bytes memory extraData) private pure returns (bytes memory) {
+        if (extraData.length == 0 || uint8(extraData[0]) == 0x00) return new bytes(0);
+        return extraData;
+    }
+
+    /// @dev Whether `signature` over `digest` recovers to `signer`. Never reverts: a malformed signature is
+    ///      simply not a match (`LibKmsVerifier.tryRecover`), so the extraData guess cannot report it ahead of the request
+    ///      checks that come first. `LibKmsVerifier.requireSigner` refuses it later, with `MalformedSignature`.
+    function _isSignedBy(bytes32 digest, bytes memory signature, address signer) private pure returns (bool) {
+        address recovered = LibKmsVerifier.tryRecover(digest, signature);
+        return recovered != address(0) && recovered == signer;
     }
 
     /// @notice EIP-712 domain separator for this KMS verifier, read from `eip712Domain()`.
@@ -132,352 +504,6 @@ contract CleartextKMSVerifier is KMSVerifier {
 
         uint256 domainChainId = overrideChainId == 0 ? gatewayChainId : overrideChainId;
 
-        return keccak256(
-            abi.encode(
-                EIP712_DOMAIN_TYPEHASH,
-                keccak256(bytes(name)),
-                keccak256(bytes(version)),
-                domainChainId,
-                verifyingContract
-            )
-        );
-    }
-
-    /// @notice EIP-712 typed-data hash: `keccak256("\x19\x01" ‖ domainHash ‖ structHash)`.
-    function _toTypedDataHash(bytes32 domainHash, bytes32 structHash) private pure returns (bytes32 typedDataHash) {
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(ptr, hex"1901")
-            mstore(add(ptr, 0x02), domainHash)
-            mstore(add(ptr, 0x22), structHash)
-            typedDataHash := keccak256(ptr, 0x42)
-        }
-    }
-
-    /// @notice Hashes a public-decrypt response for KMS signer verification.
-    function _hashPublicDecryptionResult(
-        bytes32[] memory ctHandles,
-        bytes memory decryptedResult,
-        bytes memory extraData
-    ) private view returns (bytes32) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                DECRYPTION_RESULT_TYPEHASH,
-                keccak256(abi.encodePacked(ctHandles)),
-                keccak256(decryptedResult),
-                keccak256(abi.encodePacked(extraData))
-            )
-        );
-        return _toTypedDataHash(_domainHashWithGatewayChainId(), structHash);
-    }
-
-    /// @notice Hashes a user-decrypt request for user signature verification.
-    function _hashUserDecryptionResult(
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays,
-        bytes memory extraData
-    ) private view returns (bytes32) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                USER_DECRYPT_REQUEST_TYPEHASH,
-                keccak256(publicKey),
-                keccak256(abi.encodePacked(contractAddresses)),
-                startTimestamp,
-                durationDays,
-                keccak256(extraData)
-            )
-        );
-        return _toTypedDataHash(_domainHashWithHostChainId(), structHash);
-    }
-
-    /// @notice Hashes a delegated user-decrypt request for delegate signature verification.
-    function _hashDelegatedUserDecryptionResult(
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        address delegatorAddress,
-        uint256 startTimestamp,
-        uint256 durationDays,
-        bytes memory extraData
-    ) private view returns (bytes32) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                DELEGATED_USER_DECRYPT_REQUEST_TYPEHASH,
-                keccak256(publicKey),
-                keccak256(abi.encodePacked(contractAddresses)),
-                delegatorAddress,
-                startTimestamp,
-                durationDays,
-                keccak256(extraData)
-            )
-        );
-        return _toTypedDataHash(_domainHashWithHostChainId(), structHash);
-    }
-
-    error CleartextErrorPublicKeyTooShort(uint256 length);
-
-    /// @notice Mock "encrypt-for-user": XORs each cleartext with the first 32 bytes of `publicKey`.
-    /// @dev NOT real encryption. A reversible mask used only by the cleartext/debug KMS
-    ///      verifier to simulate the user-decryption wire format without implementing
-    ///      ECIES / AES. The client reverses it by XORing the received values with the
-    ///      same 32 bytes from their own public key.
-    ///
-    ///      Reverts with `CleartextErrorPublicKeyTooShort(publicKey.length)` if `publicKey` is shorter
-    ///      than 32 bytes.
-    /// @param publicKey The user's public key; only the first 32 bytes are used as mask.
-    /// @param cleartexts Values to mask in-place of a copy returned to the caller.
-    /// @return masked Masked values, one per input.
-    function _xorMaskWithPublicKey(bytes memory publicKey, uint256[] memory cleartexts)
-        private
-        pure
-        returns (uint256[] memory masked)
-    {
-        if (publicKey.length < 32) revert CleartextErrorPublicKeyTooShort(publicKey.length);
-
-        bytes32 mask;
-        assembly {
-            // mload at publicKey+32 = first 32 bytes of the data region (skip length prefix).
-            mask := mload(add(publicKey, 32))
-        }
-
-        uint256 n = cleartexts.length;
-        masked = new uint256[](n);
-        for (uint256 i = 0; i < n; ++i) {
-            masked[i] = cleartexts[i] ^ uint256(mask);
-        }
-    }
-
-    /// @notice Returns cleartexts and KMS metadata for public decryption.
-    function publicDecrypt(bytes32[] memory handles)
-        external
-        view
-        virtual
-        returns (
-            bytes memory abiEncodedCleartexts,
-            bytes32 digest,
-            address[] memory signers,
-            uint256 threshold,
-            bytes memory extraData
-        )
-    {
-        uint256[] memory cleartexts = _plaintextForPublicDecryption(handles);
-        abiEncodedCleartexts = _encodeTypedCleartexts(handles, cleartexts);
-        extraData = _buildCurrentExtradata();
-        digest = _hashPublicDecryptionResult(handles, abiEncodedCleartexts, extraData);
-        signers = getKmsSigners();
-        threshold = getThreshold();
-    }
-
-    /// @notice Returns user-decryption payload and KMS metadata after verifying the user's signature.
-    function userDecrypt(
-        HandleContractPair[] calldata pairs,
-        address userAddress,
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays,
-        bytes memory userSignature
-    )
-        external
-        view
-        virtual
-        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData)
-    {
-        if (contractAddresses.length > 10) {
-            revert("Too many contracts");
-        }
-
-        // Missing startTimestamp / durationDays test
-        extraData = _buildCurrentExtradata();
-        {
-            uint256[] memory rawCleartexts = _plaintextForUserDecryption(pairs, userAddress);
-            uint256[] memory cryptedCleartexts = _xorMaskWithPublicKey(publicKey, rawCleartexts);
-
-            payload = abi.encode(cryptedCleartexts, extraData);
-        }
-
-        _verifySignature(
-            _hashUserDecryptionResult(publicKey, contractAddresses, startTimestamp, durationDays, extraData),
-            userSignature,
-            userAddress
-        );
-        _requireAllPairsAuthorized(pairs, contractAddresses);
-
-        signers = getKmsSigners();
-        threshold = getThreshold();
-    }
-
-    /// @notice Returns delegated user-decryption payload and KMS metadata after verifying the delegate's signature.
-    function delegatedUserDecrypt(
-        HandleContractPair[] calldata pairs,
-        address delegator,
-        address delegate,
-        bytes memory publicKey,
-        address[] memory contractAddresses,
-        uint256 startTimestamp,
-        uint256 durationDays,
-        bytes memory delegateSignature
-    )
-        external
-        view
-        virtual
-        returns (bytes memory payload, address[] memory signers, uint256 threshold, bytes memory extraData)
-    {
-        if (contractAddresses.length > 10) {
-            revert("Too many contracts");
-        }
-
-        // Missing startTimestamp / durationDays test
-        extraData = _buildCurrentExtradata();
-        {
-            uint256[] memory rawCleartexts = _plaintextForDelegatedUserDecryption(pairs, delegator, delegate);
-            uint256[] memory cryptedCleartexts = _xorMaskWithPublicKey(publicKey, rawCleartexts);
-
-            payload = abi.encode(cryptedCleartexts, extraData);
-        }
-
-        _verifySignature(
-            _hashDelegatedUserDecryptionResult(
-                publicKey, contractAddresses, delegator, startTimestamp, durationDays, extraData
-            ),
-            delegateSignature,
-            delegate
-        );
-        _requireAllPairsAuthorized(pairs, contractAddresses);
-
-        signers = getKmsSigners();
-        threshold = getThreshold();
-    }
-
-    /// @notice Validates public-decrypt access for all handles, then reads their cleartexts.
-    function _plaintextForPublicDecryption(bytes32[] memory handles)
-        private
-        view
-        returns (uint256[] memory cleartexts)
-    {
-        uint256 n = handles.length;
-
-        for (uint256 i = 0; i < n; ++i) {
-            bytes32 handle = handles[i];
-
-            if (!ACL_CONTRACT.isAllowedForDecryption(handle)) {
-                revert CleartextErrorHandleNotAllowedForPublicDecryption(handle);
-            }
-        }
-
-        cleartexts = new uint256[](n);
-        for (uint256 i = 0; i < n; ++i) {
-            bytes32 handle = handles[i];
-            cleartexts[i] = FHEVM_EXECUTOR.plaintexts(handle);
-        }
-    }
-
-    /// @notice Validates user-decrypt access for all handle/contract pairs, then reads their cleartexts.
-    function _plaintextForUserDecryption(HandleContractPair[] calldata pairs, address userAddress)
-        private
-        view
-        returns (uint256[] memory cleartexts)
-    {
-        uint256 n = pairs.length;
-
-        for (uint256 i = 0; i < n; ++i) {
-            bytes32 handle = pairs[i].handle;
-            address contractAddress = pairs[i].contractAddress;
-
-            if (userAddress == contractAddress) {
-                revert CleartextErrorUserAddressEqualsContractAddress();
-            }
-            if (!ACL_CONTRACT.persistAllowed(handle, userAddress)) {
-                revert CleartextErrorUserNotAuthorizedForDecrypt(handle, userAddress);
-            }
-            if (!ACL_CONTRACT.persistAllowed(handle, contractAddress)) {
-                revert CleartextErrorContractNotAuthorizedForDecrypt(handle, contractAddress);
-            }
-        }
-
-        cleartexts = new uint256[](n);
-        for (uint256 i = 0; i < n; ++i) {
-            bytes32 handle = pairs[i].handle;
-            cleartexts[i] = FHEVM_EXECUTOR.plaintexts(handle);
-        }
-    }
-
-    /// @notice Validates delegated user-decrypt access for all pairs, then reads their cleartexts.
-    function _plaintextForDelegatedUserDecryption(
-        HandleContractPair[] calldata pairs,
-        address delegator,
-        address delegate
-    ) private view returns (uint256[] memory cleartexts) {
-        uint256 n = pairs.length;
-
-        for (uint256 i = 0; i < n; ++i) {
-            bytes32 handle = pairs[i].handle;
-            address contractAddress = pairs[i].contractAddress;
-
-            if (!ACL_CONTRACT.isHandleDelegatedForUserDecryption(delegator, delegate, contractAddress, handle)) {
-                revert CleartextErrorHandleNotDelegatedForUserDecryption(handle, contractAddress, delegator, delegate);
-            }
-        }
-
-        cleartexts = new uint256[](n);
-        for (uint256 i = 0; i < n; ++i) {
-            bytes32 handle = pairs[i].handle;
-            cleartexts[i] = FHEVM_EXECUTOR.plaintexts(handle);
-        }
-    }
-
-    /// @notice Recovers a signer from `signature` over `digest` and reverts if the
-    ///         result is not `expectedSigner` (or if the recovery fails outright).
-    function _verifySignature(bytes32 digest, bytes memory signature, address expectedSigner) private pure {
-        (uint8 v, bytes32 r, bytes32 s) = _decodeSignature(signature);
-        address recoveredSigner = ecrecover(digest, v, r, s);
-        if (recoveredSigner == address(0) || recoveredSigner != expectedSigner) {
-            revert CleartextErrorInvalidUserDecryptSignature();
-        }
-    }
-
-    /// @notice Asserts every `pairs[i].contractAddress` appears in `contractAddresses`.
-    /// @dev O(N·M) nested scan — acceptable while both dimensions stay small
-    ///      (a handful of pairs, ≤10 authorized contracts). If either grows, switch
-    ///      to a sorted `contractAddresses` + binary search, or a hash-set.
-    function _requireAllPairsAuthorized(HandleContractPair[] calldata pairs, address[] memory contractAddresses)
-        private
-        pure
-    {
-        uint256 authCount = contractAddresses.length;
-        for (uint256 p = 0; p < pairs.length; ++p) {
-            address c = pairs[p].contractAddress;
-            bool authorized;
-            for (uint256 i = 0; i < authCount; ++i) {
-                if (contractAddresses[i] == c) {
-                    authorized = true;
-                    break;
-                }
-            }
-            if (!authorized) {
-                revert CleartextErrorContractAddressNotAuthorized(c);
-            }
-        }
-    }
-
-    /// @notice Decodes an ECDSA signature into `(v, r, s)` components.
-    function _decodeSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
-        if (signature.length != 65) {
-            revert CleartextErrorInvalidUserDecryptSignature();
-        }
-
-        assembly {
-            r := mload(add(signature, 0x20))
-            s := mload(add(signature, 0x40))
-            v := byte(0, mload(add(signature, 0x60)))
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-        if (v != 27 && v != 28) {
-            revert CleartextErrorInvalidUserDecryptSignature();
-        }
+        return LibKmsVerifier.domainSeparatorFrom(name, version, domainChainId, verifyingContract);
     }
 }

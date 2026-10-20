@@ -1,3 +1,4 @@
+@fhevm/host-contracts-cleartext-v13-dev/=../v13/
 fhevm-config-0.14.0/=internal/placeholders/
 forge-std-1.11.0/=dependencies/forge-std-1.11.0/
 forge-std/=dependencies/forge-std-1.11.0/src/
