@@ -11,7 +11,7 @@ pragma solidity ^0.8.24;
 
 library LocalHostVersions {
     /// @dev src/contracts/ACL.sol
-    string internal constant ACL = "ACL v0.5.0";
+    string internal constant ACL = "ACL v0.6.0";
 
     /// @dev src/cleartext/CleartextArithmetic.sol
     string internal constant CLEARTEXT_ARITHMETIC = "CleartextArithmetic v0.5.0";
@@ -20,23 +20,23 @@ library LocalHostVersions {
     string internal constant CLEARTEXT_DB = "CleartextDB v0.1.0";
 
     /// @dev src/contracts/FHEVMExecutor.sol
-    string internal constant FHEVM_EXECUTOR = "FHEVMExecutor v0.6.0";
+    string internal constant FHEVM_EXECUTOR = "FHEVMExecutor v0.7.0";
 
     /// @dev src/contracts/HCULimit.sol
     string internal constant HCU_LIMIT = "HCULimit v0.4.0";
 
     /// @dev src/contracts/InputVerifier.sol
-    string internal constant INPUT_VERIFIER = "InputVerifier v0.2.0";
+    string internal constant INPUT_VERIFIER = "InputVerifier v0.3.0";
 
     /// @dev src/contracts/KMSGeneration.sol
-    string internal constant KMS_GENERATION = "KMSGeneration v0.2.0";
+    string internal constant KMS_GENERATION = "KMSGeneration v0.3.0";
 
     /// @dev src/contracts/KMSVerifier.sol
-    string internal constant KMS_VERIFIER = "KMSVerifier v0.4.0";
+    string internal constant KMS_VERIFIER = "KMSVerifier v0.5.0";
 
     /// @dev src/contracts/immutable/PauserSet.sol
     string internal constant PAUSER_SET = "PauserSet v0.1.0";
 
     /// @dev src/contracts/ProtocolConfig.sol
-    string internal constant PROTOCOL_CONFIG = "ProtocolConfig v0.2.0";
+    string internal constant PROTOCOL_CONFIG = "ProtocolConfig v0.3.0";
 }

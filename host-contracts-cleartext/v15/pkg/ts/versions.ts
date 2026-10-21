@@ -7,14 +7,14 @@
 // ACLOwner is absent because it exposes no `getVersion` at all.
 
 export const CONTRACT_VERSIONS = {
-  acl: 'ACL v0.5.0',
+  acl: 'ACL v0.6.0',
   cleartextArithmetic: 'CleartextArithmetic v0.5.0',
   cleartextDB: 'CleartextDB v0.1.0',
-  fhevmExecutor: 'FHEVMExecutor v0.6.0',
+  fhevmExecutor: 'FHEVMExecutor v0.7.0',
   hcuLimit: 'HCULimit v0.4.0',
-  inputVerifier: 'InputVerifier v0.2.0',
-  kmsGeneration: 'KMSGeneration v0.2.0',
-  kmsVerifier: 'KMSVerifier v0.4.0',
+  inputVerifier: 'InputVerifier v0.3.0',
+  kmsGeneration: 'KMSGeneration v0.3.0',
+  kmsVerifier: 'KMSVerifier v0.5.0',
   pauserSet: 'PauserSet v0.1.0',
-  protocolConfig: 'ProtocolConfig v0.2.0',
+  protocolConfig: 'ProtocolConfig v0.3.0',
 } as const;

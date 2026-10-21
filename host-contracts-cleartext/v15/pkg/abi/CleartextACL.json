@@ -513,7 +513,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV5",
+    "name": "reinitializeV6",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"

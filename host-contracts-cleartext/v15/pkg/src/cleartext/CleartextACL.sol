@@ -22,5 +22,5 @@ contract CleartextACL is ACL {
     bool public constant IS_CLEARTEXT = true;
 
     /// @notice The host-contracts generation this cleartext stack implements.
-    uint256 public constant CLEARTEXT_PROTOCOL_VERSION = 14;
+    uint256 public constant CLEARTEXT_PROTOCOL_VERSION = 15;
 }

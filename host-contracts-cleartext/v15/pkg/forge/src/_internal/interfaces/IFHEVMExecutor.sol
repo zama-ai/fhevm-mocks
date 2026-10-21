@@ -113,7 +113,7 @@ interface IFHEVMExecutor {
     function getVersion() external pure returns (string memory);
     function initializeFromEmptyProxy() external;
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV6() external;
+    function reinitializeV7() external;
     function trivialEncrypt(uint256 pt, FheType toType) external returns (bytes32 result);
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function verifyInput(bytes32 inputHandle, address userAddress, bytes memory inputProof, FheType inputType)

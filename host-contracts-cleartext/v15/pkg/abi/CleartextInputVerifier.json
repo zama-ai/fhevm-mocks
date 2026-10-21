@@ -277,19 +277,8 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV2",
-    "inputs": [
-      {
-        "name": "newSignersSet",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "reinitializeV3",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },

@@ -422,6 +422,11 @@
         "name": "paramsType",
         "type": "uint8",
         "internalType": "enum IKMSGeneration.ParamsType"
+      },
+      {
+        "name": "existingKeyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -495,7 +500,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV2",
+    "name": "reinitializeV3",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -575,6 +580,12 @@
     "inputs": [
       {
         "name": "keyId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "existingKeyId",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -704,6 +715,12 @@
         "internalType": "uint256"
       },
       {
+        "name": "existingKeyId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "extraData",
         "type": "bytes",
         "indexed": false,
@@ -770,6 +787,12 @@
         "type": "uint8",
         "indexed": false,
         "internalType": "enum IKMSGeneration.ParamsType"
+      },
+      {
+        "name": "existingKeyId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "extraData",
@@ -870,6 +893,17 @@
         "name": "target",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CompressedKeyMaterialsAlreadyAdded",
+    "inputs": [
+      {
+        "name": "keyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -983,8 +1017,40 @@
   },
   {
     "type": "error",
+    "name": "InvalidCompressedKeySetDigest",
+    "inputs": [
+      {
+        "name": "migrationRequestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidMigrationParamsType",
+    "inputs": [
+      {
+        "name": "keyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expected",
+        "type": "uint8",
+        "internalType": "enum IKMSGeneration.ParamsType"
+      },
+      {
+        "name": "provided",
+        "type": "uint8",
+        "internalType": "enum IKMSGeneration.ParamsType"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1096,6 +1162,17 @@
         "name": "txSenderAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotActiveKey",
+    "inputs": [
+      {
+        "name": "keyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

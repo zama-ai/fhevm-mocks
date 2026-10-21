@@ -1125,155 +1125,8 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV2",
-    "inputs": [
-      {
-        "name": "kmsNodeParams",
-        "type": "tuple[]",
-        "internalType": "struct KmsNodeParams[]",
-        "components": [
-          {
-            "name": "txSenderAddress",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "signerAddress",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "ipAddress",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "storageUrl",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "partyId",
-            "type": "int32",
-            "internalType": "int32"
-          },
-          {
-            "name": "mpcIdentity",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "caCert",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "storagePrefix",
-            "type": "string",
-            "internalType": "string"
-          }
-        ]
-      },
-      {
-        "name": "softwareVersion",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "pcrValues",
-        "type": "tuple[]",
-        "internalType": "struct PcrValues[]",
-        "components": [
-          {
-            "name": "pcr0",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "pcr1",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "pcr2",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateKmsGenThresholdForContext",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateMpcThresholdForContext",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updatePublicDecryptionThresholdForContext",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateUserDecryptionThresholdForContext",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "name": "reinitializeV3",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -1533,25 +1386,6 @@
   },
   {
     "type": "event",
-    "name": "KmsGenThresholdUpdated",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "MirrorKmsContextAndEpoch",
     "inputs": [
       {
@@ -1688,25 +1522,6 @@
         "name": "epochId",
         "type": "uint256",
         "indexed": true,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "MpcThresholdUpdated",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "indexed": false,
         "internalType": "uint256"
       }
     ],
@@ -1875,25 +1690,6 @@
   },
   {
     "type": "event",
-    "name": "PublicDecryptionThresholdUpdated",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "Upgraded",
     "inputs": [
       {
@@ -1901,25 +1697,6 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "UserDecryptionThresholdUpdated",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -2187,17 +1964,6 @@
   },
   {
     "type": "error",
-    "name": "KmsContextNotCreated",
-    "inputs": [
-      {
-        "name": "kmsContextId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "KmsContextNotPending",
     "inputs": [
       {
@@ -2345,27 +2111,6 @@
     "type": "error",
     "name": "NotInitializingFromEmptyProxy",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ThresholdExceedsProofFormatLimit",
-    "inputs": [
-      {
-        "name": "thresholdName",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "threshold",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "maxAllowed",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",

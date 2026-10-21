@@ -179,7 +179,7 @@ interface ICleartextKMSVerifier {
             uint256 threshold,
             bytes memory extraData
         );
-    function reinitializeV4() external;
+    function reinitializeV5() external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function userDecrypt(
         HandleContractPair[] memory pairs,

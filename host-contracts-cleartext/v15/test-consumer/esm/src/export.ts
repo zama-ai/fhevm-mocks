@@ -211,7 +211,7 @@ const dummyVerifyParameters: VerifyParameters = {
 };
 const dummyCreate2Parameters: Create2Parameters = {
   ethUtils: dummyAbstractEthereumUtils,
-  version: '0.14',
+  version: '0.15',
   deploymentId: 'export-test',
   deployer: ADDRESS,
   factory: CREATE2_FACTORY,

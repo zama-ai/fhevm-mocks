@@ -982,7 +982,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV6",
+    "name": "reinitializeV7",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"

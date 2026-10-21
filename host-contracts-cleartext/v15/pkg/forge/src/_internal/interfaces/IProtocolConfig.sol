@@ -89,7 +89,6 @@ interface IProtocolConfig {
     error InvalidProposalId();
     error KmsContextCreationAlreadyConfirmed(address txSender, uint256 kmsContextId);
     error KmsContextCreationUnauthorized(address caller, uint256 kmsContextId);
-    error KmsContextNotCreated(uint256 kmsContextId);
     error KmsContextNotPending(uint256 kmsContextId);
     error KmsLifecycleOperationInFlight(uint256 kmsContextId, uint256 epochId);
     error KmsNodeNullSigner();
@@ -104,7 +103,6 @@ interface IProtocolConfig {
     error NotHostOwner(address sender);
     error NotInitializing();
     error NotInitializingFromEmptyProxy();
-    error ThresholdExceedsProofFormatLimit(string thresholdName, uint256 threshold, uint256 maxAllowed);
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
     error ZeroChainId();
@@ -130,7 +128,6 @@ interface IProtocolConfig {
     );
     event KmsContextDestroyed(uint256 indexed kmsContextId);
     event KmsEpochDestroyed(uint256 indexed epochId);
-    event KmsGenThresholdUpdated(uint256 indexed kmsContextId, uint256 threshold);
     event MirrorKmsContextAndEpoch(
         uint256 indexed contextId,
         uint256 indexed epochId,
@@ -140,7 +137,6 @@ interface IProtocolConfig {
         PcrValues[] pcrValues
     );
     event MirrorKmsEpoch(uint256 indexed contextId, uint256 indexed epochId);
-    event MpcThresholdUpdated(uint256 indexed kmsContextId, uint256 threshold);
     event NewKmsContext(
         uint256 indexed contextId,
         uint256 indexed previousContextId,
@@ -156,9 +152,7 @@ interface IProtocolConfig {
         uint256 previousEpochId,
         uint256 materialBlockNumber
     );
-    event PublicDecryptionThresholdUpdated(uint256 indexed kmsContextId, uint256 threshold);
     event Upgraded(address indexed implementation);
-    event UserDecryptionThresholdUpdated(uint256 indexed kmsContextId, uint256 threshold);
 
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function confirmEpochActivation(uint256 epochId, EpochKeyResult[] memory keys, EpochCrsResult[] memory crsList)
@@ -228,14 +222,6 @@ interface IProtocolConfig {
         uint64 gwStartBlock
     ) external;
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV2(
-        KmsNodeParams[] memory kmsNodeParams,
-        string memory softwareVersion,
-        PcrValues[] memory pcrValues
-    ) external;
-    function updateKmsGenThresholdForContext(uint256 kmsContextId, uint256 threshold) external;
-    function updateMpcThresholdForContext(uint256 kmsContextId, uint256 threshold) external;
-    function updatePublicDecryptionThresholdForContext(uint256 kmsContextId, uint256 threshold) external;
-    function updateUserDecryptionThresholdForContext(uint256 kmsContextId, uint256 threshold) external;
+    function reinitializeV3() external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
 }

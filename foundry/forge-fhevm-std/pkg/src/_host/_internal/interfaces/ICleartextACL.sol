@@ -106,7 +106,7 @@ interface ICleartextACL {
     function pendingOwner() external view returns (address);
     function persistAllowed(bytes32 handle, address account) external view returns (bool);
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV5() external;
+    function reinitializeV6() external;
     function renounceOwnership() external;
     function revokeDelegationForUserDecryption(address delegate, address contractAddress) external;
     function transferOwnership(address newOwner) external;

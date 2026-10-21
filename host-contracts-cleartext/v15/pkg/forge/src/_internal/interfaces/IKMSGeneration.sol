@@ -25,6 +25,7 @@ interface IKMSGeneration {
     error AbortKeygenAlreadyDone(uint256 prepKeygenId);
     error AbortKeygenInvalidId(uint256 prepKeygenId);
     error AddressEmptyCode(address target);
+    error CompressedKeyMaterialsAlreadyAdded(uint256 keyId);
     error CrsAborted(uint256 crsId);
     error CrsNotGenerated(uint256 crsId);
     error CrsgenNotRequested(uint256 crsId);
@@ -37,7 +38,9 @@ interface IKMSGeneration {
     error ERC1967NonPayable();
     error EmptyKeyDigests(uint256 keyId);
     error FailedCall();
+    error InvalidCompressedKeySetDigest(uint256 migrationRequestId);
     error InvalidInitialization();
+    error InvalidMigrationParamsType(uint256 keyId, ParamsType expected, ParamsType provided);
     error KeyAborted(uint256 keyId);
     error KeyManagementRequestPending();
     error KeyNotGenerated(uint256 keyId);
@@ -47,6 +50,7 @@ interface IKMSGeneration {
     error KmsAlreadySignedForKeygen(uint256 keyId, address kmsSigner);
     error KmsAlreadySignedForPrepKeygen(uint256 prepKeygenId, address kmsSigner);
     error KmsSignerDoesNotMatchTxSender(address signerAddress, address txSenderAddress);
+    error NotActiveKey(uint256 keyId);
     error NotHostOwner(address sender);
     error NotInitializing();
     error NotInitializingFromEmptyProxy();
@@ -60,14 +64,14 @@ interface IKMSGeneration {
     event AbortCrsgen(uint256 crsId);
     event AbortKeygen(uint256 prepKeygenId);
     event ActivateCrs(uint256 crsId, string[] kmsNodeStorageUrls, bytes crsDigest);
-    event ActivateKey(uint256 keyId, string[] kmsNodeStorageUrls, KeyDigest[] keyDigests);
+    event ActivateKey(uint256 keyId, uint256 existingKeyId, string[] kmsNodeStorageUrls, KeyDigest[] keyDigests);
     event CrsgenRequest(uint256 crsId, uint256 maxBitLength, ParamsType paramsType, bytes extraData);
     event CrsgenResponse(uint256 crsId, bytes crsDigest, bytes signature, address kmsTxSender);
     event EIP712DomainChanged();
     event Initialized(uint64 version);
-    event KeygenRequest(uint256 prepKeygenId, uint256 keyId, bytes extraData);
+    event KeygenRequest(uint256 prepKeygenId, uint256 keyId, uint256 existingKeyId, bytes extraData);
     event KeygenResponse(uint256 keyId, KeyDigest[] keyDigests, bytes signature, address kmsTxSender);
-    event PrepKeygenRequest(uint256 prepKeygenId, ParamsType paramsType, bytes extraData);
+    event PrepKeygenRequest(uint256 prepKeygenId, ParamsType paramsType, uint256 existingKeyId, bytes extraData);
     event PrepKeygenResponse(uint256 prepKeygenId, bytes signature, address kmsTxSender);
     event Upgraded(address indexed implementation);
 
@@ -103,10 +107,10 @@ interface IKMSGeneration {
     function getVersion() external pure returns (string memory);
     function initializeFromEmptyProxy() external;
     function isRequestDone(uint256 requestId) external view returns (bool);
-    function keygen(ParamsType paramsType) external;
+    function keygen(ParamsType paramsType, uint256 existingKeyId) external;
     function keygenResponse(uint256 keyId, KeyDigest[] memory keyDigests, bytes memory signature) external;
     function prepKeygenResponse(uint256 prepKeygenId, bytes memory signature) external;
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV2() external;
+    function reinitializeV3() external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
 }
