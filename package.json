@@ -8,9 +8,9 @@
   "workspaces": [
     "common",
     "common-vendored",
-    "host-contracts-cleartext/v13",
     "host-contracts-cleartext/v14",
-    "host-contracts-cleartext/v14/pkg",
+    "host-contracts-cleartext/v15",
+    "host-contracts-cleartext/v15/pkg",
     "foundry/forge-fhevm-std",
     "foundry/forge-fhevm-std/pkg"
   ],
