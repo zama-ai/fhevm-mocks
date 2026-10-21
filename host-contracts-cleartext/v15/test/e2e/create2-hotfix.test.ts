@@ -69,6 +69,17 @@ function blockedReason(): string | undefined {
   for (const bin of ['anvil', 'forge', 'cast'] as const) {
     if (spawnSync(bin, ['--version'], { stdio: 'ignore' }).status !== 0) return `${bin} not found — install foundry`;
   }
+  // HOTFIXES ARE RELEASE-TO-RELEASE. The scenario is "a stack the current release deployed, hotfixed by the next
+  // patch", and the record system has no prerelease slot: event folders are `-v<N>.<p>-`, `check deployments`
+  // matches `packageVersion` against them, and `hotfixVersionRefusal` refuses a prerelease package on purpose.
+  // While this package is a prerelease the scenario cannot happen for real, so the test is PARKED — loudly — and
+  // runs again by itself once `pkg/package.json` carries a release version.
+  const version = readJson<{ version: string }>(join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'package.json')).version;
+  if (!/^0\.\d+\.\d+$/.test(version)) {
+    const reason = `PARKED: pkg/package.json is the prerelease ${version}; a hotfix is release-to-release (0.<N>.<p> -> 0.<N>.<p+1>), so this runs again once the package carries a release version`;
+    console.log(`\n!!! HOTFIX E2E ${reason}\n`);
+    return reason;
+  }
   return undefined;
 }
 
