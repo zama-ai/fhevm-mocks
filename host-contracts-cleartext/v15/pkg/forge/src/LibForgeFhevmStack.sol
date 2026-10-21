@@ -530,6 +530,20 @@ library LibForgeFhevmStack {
      *      has its own `ProtocolConfig`, and mainnet's is not Sepolia's.
      */
     function defineCleartextKmsContext(address protocolConfig, address acl) internal {
+        defineCleartextKmsContext(protocolConfig, acl, cleartextKmsThresholds());
+    }
+
+    /**
+     * @notice The same rotation, with thresholds of the caller's choosing.
+     * @dev WHY THIS EXISTS. Since v15 a context's thresholds are fixed when it is defined: upstream dropped
+     *      the `update*ThresholdForContext` setters, so the only way to a stack whose thresholds differ —
+     *      a user-decryption threshold that is not the public one, say — is a new context that carries them.
+     */
+    function defineCleartextKmsContext(
+        address protocolConfig,
+        address acl,
+        IProtocolConfig.KmsThresholds memory thresholds
+    ) internal {
         IProtocolConfig pc = IProtocolConfig(protocolConfig);
         uint256 previousContextId = pc.getCurrentKmsContextId();
         uint256 epochsBefore = epochCounter(protocolConfig);
@@ -537,10 +551,7 @@ library LibForgeFhevmStack {
         // 1. Propose.
         fvm.prank(aclOwner(acl));
         pc.defineNewKmsContextAndEpoch(
-            cleartextKmsNodes(),
-            cleartextKmsThresholds(),
-            LocalHostBootstrap.KMS_SOFTWARE_VERSION,
-            new IProtocolConfig.PcrValues[](0)
+            cleartextKmsNodes(), thresholds, LocalHostBootstrap.KMS_SOFTWARE_VERSION, new IProtocolConfig.PcrValues[](0)
         );
         // The proposal took the next id off the counter; that is the context the committees now confirm.
         uint256 contextId = pc.getCurrentKmsContextIdCounter();

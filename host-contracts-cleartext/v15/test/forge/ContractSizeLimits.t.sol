@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 /**
- * @notice EIP-170 applies to one of the cleartext executors and deliberately not to the other.
+ * @notice EIP-170 applies to the deployable cleartext stack, and deliberately not to the forge variants.
  *
  * @dev `CleartextFHEVMExecutor` is deployed by ordinary transactions, so 24,576 bytes is a hard
  *      ceiling for it — exceeding it makes the contract undeployable on any EVM chain, and the failure
@@ -13,9 +13,10 @@ import {Test} from "forge-std/Test.sol";
  *      as a separate contract for exactly this reason.
  *
  *      `CleartextForgeFHEVMExecutor` is the test-only variant. It is never deployed by a transaction —
- *      only `_create`d inside a forge test, where the limit is not enforced — so it is allowed over,
- *      and today it is. That exemption is a decision, not an oversight, which is why it is asserted
- *      here rather than left for `forge build --sizes` to report at no one.
+ *      only `_create`d inside a forge test, where the limit is not enforced — so it is allowed over.
+ *      Up to v14 it was (26.3 KB); upstream v0.15.0-3 shrank the executor and it now fits (24.3 KB), so
+ *      nothing here asserts either way. The exemption itself stays a decision, recorded with the other
+ *      forge-only variants in `internal/checkContractSizes.ts` (`CONTRACT_SIZE_EXCEPTIONS`).
  */
 contract ContractSizeLimitsTest is Test {
     /// @dev EIP-170.
@@ -42,13 +43,5 @@ contract ContractSizeLimitsTest is Test {
             MAX_RUNTIME_SIZE,
             "CleartextInputVerifier"
         );
-    }
-
-    /// THE ONE THAT NEED NOT. Asserted so the exemption is recorded, and so that a future change making
-    /// it fit is noticed rather than silently relied upon.
-    function test_cleartextForgeFhevmExecutorIsExemptAndOver() public view {
-        uint256 size = _runtimeSize("CleartextForgeFHEVMExecutor.sol:CleartextForgeFHEVMExecutor");
-
-        assertGt(size, MAX_RUNTIME_SIZE, "the forge variant now fits; drop this test and the exemption");
     }
 }

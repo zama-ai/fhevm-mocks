@@ -13,6 +13,7 @@ import {
 import {ICleartextACL, ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {LibForgeFhevmEncrypt} from "../../pkg/forge/src/LibForgeFhevmEncrypt.sol";
 import {LibForgeFhevmSigners} from "../../pkg/forge/src/LibForgeFhevmSigners.sol";
+import {LibForgeFhevmStack} from "../../pkg/forge/src/LibForgeFhevmStack.sol";
 import {ICleartextKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/ICleartextKMSVerifier.sol";
 import {IProtocolConfig} from "../../pkg/forge/src/_internal/interfaces/IProtocolConfig.sol";
 import {LibKmsVerifier, UserDecryptRequestV1} from "../../pkg/forge/src/shared/LibKmsVerifier.sol";
@@ -320,8 +321,23 @@ contract CleartextKMSVerifierRequestChecksTest is Test, ForgeFhevmDeploy {
         uint256 signerCount = protocolConfig.getKmsSignersForContext(contextId).length;
         vm.skip(signerCount < 2);
         uint256 userThreshold = publicThreshold == 1 ? 2 : 1;
-        vm.prank(ICleartextACL(ACL_ADDRESS).owner());
-        protocolConfig.updateUserDecryptionThresholdForContext(contextId, userThreshold);
+        // A context's thresholds are fixed since v15 (no `update*ThresholdForContext`), so the user
+        // threshold moves by rotating to a context that carries it, the public one kept as it was.
+        LibForgeFhevmStack.defineCleartextKmsContext(
+            PROTOCOL_CONFIG_ADDRESS,
+            ACL_ADDRESS,
+            IProtocolConfig.KmsThresholds({
+                publicDecryption: publicThreshold,
+                userDecryption: userThreshold,
+                kmsGen: protocolConfig.getKmsGenThresholdForContext(contextId),
+                mpc: protocolConfig.getMpcThresholdForContext(contextId)
+            })
+        );
+        assertEq(
+            protocolConfig.getUserDecryptionThresholdForContext(protocolConfig.getCurrentKmsContextId()),
+            userThreshold,
+            "the new context carries the user threshold"
+        );
 
         bytes32 handle = _grantedTo(alice, 7);
         UserDecryptRequestV1 memory request = _request(_self(), block.timestamp, 1);

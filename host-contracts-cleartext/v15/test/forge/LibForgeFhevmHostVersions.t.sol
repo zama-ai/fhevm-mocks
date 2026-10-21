@@ -11,7 +11,8 @@ import {
 } from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
 import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions.sol";
 
-/// The version gate accepts a LINE, not a release: floor (fhevm v0.14.0) to ceiling (the vendored release).
+/// The version gate accepts a LINE, not a release: floor (fhevm v0.15.0-3, provisional) to ceiling (the vendored
+/// release).
 /// `FLOOR` and `CEILING` below are a hypothetical line, so the boundaries can be exercised on both sides.
 contract LibForgeFhevmHostVersionsTest is Test {
     string internal constant FLOOR = "FHEVMExecutor v0.4.0";
@@ -90,16 +91,19 @@ contract LibForgeFhevmHostVersionsTest is Test {
         assertFalse(LibForgeFhevmHostVersions.accepts("", FLOOR, CEILING), "no answer at all");
     }
 
-    /// The floors are the 0.14.0 tag, and every generated ceiling lies on or above its floor: a regeneration
-    /// from another line, or a floor left behind by a line change, is caught here rather than on a fork.
+    /// The floors are the v0.15.0-3 tag (provisional until v0.15.0), and every generated ceiling lies on or
+    /// above its floor: a regeneration from another line, or a floor left behind by a line change, is caught
+    /// here rather than on a fork.
     function test_theFloorsAndCeilingsDescribeOneLine() public pure {
-        _line(LibForgeFhevmHostVersions.ACL_FLOOR, "ACL v0.5.0", LocalHostVersions.ACL);
-        _line(LibForgeFhevmHostVersions.FHEVM_EXECUTOR_FLOOR, "FHEVMExecutor v0.5.0", LocalHostVersions.FHEVM_EXECUTOR);
-        _line(LibForgeFhevmHostVersions.INPUT_VERIFIER_FLOOR, "InputVerifier v0.2.0", LocalHostVersions.INPUT_VERIFIER);
-        _line(LibForgeFhevmHostVersions.KMS_VERIFIER_FLOOR, "KMSVerifier v0.4.0", LocalHostVersions.KMS_VERIFIER);
+        _line(LibForgeFhevmHostVersions.ACL_FLOOR, "ACL v0.6.0", LocalHostVersions.ACL);
+        _line(LibForgeFhevmHostVersions.FHEVM_EXECUTOR_FLOOR, "FHEVMExecutor v0.7.0", LocalHostVersions.FHEVM_EXECUTOR);
+        _line(LibForgeFhevmHostVersions.INPUT_VERIFIER_FLOOR, "InputVerifier v0.3.0", LocalHostVersions.INPUT_VERIFIER);
+        _line(LibForgeFhevmHostVersions.KMS_VERIFIER_FLOOR, "KMSVerifier v0.5.0", LocalHostVersions.KMS_VERIFIER);
         _line(
-            LibForgeFhevmHostVersions.PROTOCOL_CONFIG_FLOOR, "ProtocolConfig v0.2.0", LocalHostVersions.PROTOCOL_CONFIG
+            LibForgeFhevmHostVersions.PROTOCOL_CONFIG_FLOOR, "ProtocolConfig v0.3.0", LocalHostVersions.PROTOCOL_CONFIG
         );
+        _line(LibForgeFhevmHostVersions.HCU_LIMIT_FLOOR, "HCULimit v0.4.0", LocalHostVersions.HCU_LIMIT);
+        _line(LibForgeFhevmHostVersions.KMS_GENERATION_FLOOR, "KMSGeneration v0.3.0", LocalHostVersions.KMS_GENERATION);
     }
 
     function _line(string memory floor, string memory expectedFloor, string memory ceiling) private pure {
@@ -122,27 +126,8 @@ contract LibForgeFhevmHostVersionsTest is Test {
     // stack, so every case below is a real release of a real line, spelled out.
     // ---------------------------------------------------------------------------------------------
 
-    /// fhevm v0.13.0, the first release of the previous line.
+    /// fhevm v0.14.0, the first release of the previous line.
     function _previousLineFirstRelease() private pure returns (HostVersions memory) {
-        return HostVersions({
-            acl: "ACL v0.4.0",
-            fhevmExecutor: "FHEVMExecutor v0.4.0",
-            kmsVerifier: "KMSVerifier v0.3.0",
-            inputVerifier: "InputVerifier v0.2.0",
-            hcuLimit: "HCULimit v0.3.0",
-            protocolConfig: "ProtocolConfig v0.1.0",
-            kmsGeneration: "KMSGeneration v0.1.0"
-        });
-    }
-
-    /// fhevm v0.13.6, the last one: only the executor moved, v0.4.0 -> v0.5.0.
-    function _previousLineLastRelease() private pure returns (HostVersions memory versions) {
-        versions = _previousLineFirstRelease();
-        versions.fhevmExecutor = "FHEVMExecutor v0.5.0";
-    }
-
-    /// fhevm v0.14.0.
-    function _currentLineFirstRelease() private pure returns (HostVersions memory) {
         return HostVersions({
             acl: "ACL v0.5.0",
             fhevmExecutor: "FHEVMExecutor v0.5.0",
@@ -154,6 +139,25 @@ contract LibForgeFhevmHostVersionsTest is Test {
         });
     }
 
+    /// fhevm v0.14.3, the last one: only the executor moved, v0.5.0 -> v0.6.0.
+    function _previousLineLastRelease() private pure returns (HostVersions memory versions) {
+        versions = _previousLineFirstRelease();
+        versions.fhevmExecutor = "FHEVMExecutor v0.6.0";
+    }
+
+    /// fhevm v0.15.0-3, the floor this line records until a stable v0.15.0 is tagged.
+    function _currentLineFirstRelease() private pure returns (HostVersions memory) {
+        return HostVersions({
+            acl: "ACL v0.6.0",
+            fhevmExecutor: "FHEVMExecutor v0.7.0",
+            kmsVerifier: "KMSVerifier v0.5.0",
+            inputVerifier: "InputVerifier v0.3.0",
+            hcuLimit: "HCULimit v0.4.0",
+            protocolConfig: "ProtocolConfig v0.3.0",
+            kmsGeneration: "KMSGeneration v0.3.0"
+        });
+    }
+
     /// What this SDK vendors right now, read from the generated ceilings rather than restated.
     function _currentLineVendoredRelease() private pure returns (HostVersions memory) {
         return HostVersions({
@@ -161,9 +165,9 @@ contract LibForgeFhevmHostVersionsTest is Test {
             fhevmExecutor: LibForgeFhevmHostVersions.fhevmExecutorCeiling(),
             kmsVerifier: LibForgeFhevmHostVersions.kmsVerifierCeiling(),
             inputVerifier: LibForgeFhevmHostVersions.inputVerifierCeiling(),
-            hcuLimit: "HCULimit v0.4.0",
+            hcuLimit: LibForgeFhevmHostVersions.hcuLimitCeiling(),
             protocolConfig: LibForgeFhevmHostVersions.protocolConfigCeiling(),
-            kmsGeneration: "KMSGeneration v0.2.0"
+            kmsGeneration: LibForgeFhevmHostVersions.kmsGenerationCeiling()
         });
     }
 
@@ -171,12 +175,12 @@ contract LibForgeFhevmHostVersionsTest is Test {
         assertEq(
             uint8(LibForgeFhevmHostVersions.classify(_previousLineFirstRelease())),
             uint8(FhevmGeneration.Previous),
-            "0.13.0"
+            "0.14.0"
         );
         assertEq(
             uint8(LibForgeFhevmHostVersions.classify(_previousLineLastRelease())),
             uint8(FhevmGeneration.Previous),
-            "0.13.6"
+            "0.14.3"
         );
     }
 
@@ -184,7 +188,7 @@ contract LibForgeFhevmHostVersionsTest is Test {
         assertEq(
             uint8(LibForgeFhevmHostVersions.classify(_currentLineFirstRelease())),
             uint8(FhevmGeneration.Current),
-            "0.14.0"
+            "0.15.0-3"
         );
         assertEq(
             uint8(LibForgeFhevmHostVersions.classify(_currentLineVendoredRelease())),
@@ -196,14 +200,28 @@ contract LibForgeFhevmHostVersionsTest is Test {
     /// A patch release moves no minor, so it must land on the same line.
     function test_aPatchReleaseChangesNothing() public pure {
         HostVersions memory patched = _previousLineLastRelease();
-        patched.acl = "ACL v0.4.7";
-        patched.kmsVerifier = "KMSVerifier v0.3.99";
-        assertEq(uint8(LibForgeFhevmHostVersions.classify(patched)), uint8(FhevmGeneration.Previous), "still 0.13");
+        patched.acl = "ACL v0.5.7";
+        patched.kmsVerifier = "KMSVerifier v0.4.99";
+        assertEq(uint8(LibForgeFhevmHostVersions.classify(patched)), uint8(FhevmGeneration.Previous), "still 0.14");
     }
 
-    /// The line before the previous one: no ProtocolConfig, no KMSGeneration, and older everything else.
-    /// Refused without this file knowing a single thing about 0.12.
+    /// The line before the previous one, 0.13: every contract present, every one a minor behind 0.14.
+    /// Refused by the ranges alone — nothing in the library names 0.13 any more.
     function test_theLineBeforeTheLastIsUnknown() public pure {
+        HostVersions memory v13 = HostVersions({
+            acl: "ACL v0.4.0",
+            fhevmExecutor: "FHEVMExecutor v0.5.0",
+            kmsVerifier: "KMSVerifier v0.3.0",
+            inputVerifier: "InputVerifier v0.2.0",
+            hcuLimit: "HCULimit v0.3.0",
+            protocolConfig: "ProtocolConfig v0.1.0",
+            kmsGeneration: "KMSGeneration v0.1.0"
+        });
+        assertEq(uint8(LibForgeFhevmHostVersions.classify(v13)), uint8(FhevmGeneration.Unknown), "0.13");
+    }
+
+    /// Older still: no ProtocolConfig, no KMSGeneration. Refused without this file knowing a thing about 0.12.
+    function test_twoLinesBackIsUnknown() public pure {
         HostVersions memory v12 = HostVersions({
             acl: "ACL v0.3.0",
             fhevmExecutor: "FHEVMExecutor v0.3.0",
@@ -219,12 +237,14 @@ contract LibForgeFhevmHostVersionsTest is Test {
     /// A line this SDK has not seen. Newer is refused exactly like older: it cannot know the ABI.
     function test_theNextLineIsUnknown() public pure {
         HostVersions memory next = _currentLineFirstRelease();
-        next.acl = "ACL v0.6.0";
-        next.kmsVerifier = "KMSVerifier v0.5.0";
+        next.acl = "ACL v0.7.0";
+        next.fhevmExecutor = "FHEVMExecutor v0.8.0";
+        next.kmsVerifier = "KMSVerifier v0.6.0";
+        next.inputVerifier = "InputVerifier v0.4.0";
         next.hcuLimit = "HCULimit v0.5.0";
-        next.protocolConfig = "ProtocolConfig v0.3.0";
-        next.kmsGeneration = "KMSGeneration v0.3.0";
-        assertEq(uint8(LibForgeFhevmHostVersions.classify(next)), uint8(FhevmGeneration.Unknown), "0.15");
+        next.protocolConfig = "ProtocolConfig v0.4.0";
+        next.kmsGeneration = "KMSGeneration v0.4.0";
+        assertEq(uint8(LibForgeFhevmHostVersions.classify(next)), uint8(FhevmGeneration.Unknown), "0.16");
     }
 
     /// One contract missing is enough to refuse: a half-read stack is not a stack we can classify.
@@ -237,7 +257,7 @@ contract LibForgeFhevmHostVersionsTest is Test {
     /// A stack mid-upgrade, half on each line, belongs to neither.
     function test_aMixedStackIsUnknown() public pure {
         HostVersions memory mixed = _previousLineLastRelease();
-        mixed.acl = "ACL v0.5.0";
+        mixed.acl = "ACL v0.6.0";
         assertEq(uint8(LibForgeFhevmHostVersions.classify(mixed)), uint8(FhevmGeneration.Unknown), "half upgraded");
     }
 
@@ -247,36 +267,28 @@ contract LibForgeFhevmHostVersionsTest is Test {
         assertEq(uint8(LibForgeFhevmHostVersions.classify(nothing)), uint8(FhevmGeneration.Unknown), "all empty");
 
         HostVersions memory oneBad = _previousLineLastRelease();
-        oneBad.hcuLimit = "HCULimit 0.3.0";
+        oneBad.hcuLimit = "HCULimit 0.4.0";
         assertEq(uint8(LibForgeFhevmHostVersions.classify(oneBad)), uint8(FhevmGeneration.Unknown), "missing the v");
     }
 
-    /// The overlap is real, and the conjunction is what resolves it: neither of the two contracts that
-    /// span both lines can decide alone.
+    /// The overlap is real, and the conjunction is what resolves it: the contract that spans both lines
+    /// cannot decide alone.
     function test_theContractsThatOverlapCannotDecideAlone() public pure {
         assertTrue(
             LibForgeFhevmHostVersions.acceptsLine(
-                "FHEVMExecutor v0.5.0",
-                LibForgeFhevmHostVersions.PREVIOUS_FHEVM_EXECUTOR_FLOOR,
-                LibForgeFhevmHostVersions.PREVIOUS_FHEVM_EXECUTOR_CEILING
+                "HCULimit v0.4.0",
+                LibForgeFhevmHostVersions.PREVIOUS_HCU_LIMIT_FLOOR,
+                LibForgeFhevmHostVersions.PREVIOUS_HCU_LIMIT_CEILING
             ),
-            "the executor at v0.5.0 fits the previous line"
+            "HCULimit at v0.4.0 fits the previous line"
         );
         assertTrue(
             LibForgeFhevmHostVersions.acceptsLine(
-                "FHEVMExecutor v0.5.0",
-                LibForgeFhevmHostVersions.FHEVM_EXECUTOR_FLOOR,
-                LibForgeFhevmHostVersions.fhevmExecutorCeiling()
+                "HCULimit v0.4.0",
+                LibForgeFhevmHostVersions.HCU_LIMIT_FLOOR,
+                LibForgeFhevmHostVersions.hcuLimitCeiling()
             ),
-            "and this one"
-        );
-        assertTrue(
-            LibForgeFhevmHostVersions.acceptsLine(
-                "InputVerifier v0.2.0",
-                LibForgeFhevmHostVersions.PREVIOUS_INPUT_VERIFIER_FLOOR,
-                LibForgeFhevmHostVersions.PREVIOUS_INPUT_VERIFIER_CEILING
-            ),
-            "the input verifier never moved at all"
+            "and this one: it never moved at all"
         );
     }
 

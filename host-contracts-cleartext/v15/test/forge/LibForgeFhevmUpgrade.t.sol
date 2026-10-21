@@ -28,12 +28,12 @@ import {
 contract LibForgeFhevmUpgradeTest is Test {
     /// Written out rather than looped: the pairing is the thing under test, so it is stated, not derived.
     function test_everyOpNamesOneContractInAllThreeTables() public pure {
-        _assertOp(0, FhevmAddressRole.ProtocolConfig, FhevmHostContracts.ProtocolConfig, "reinitializeV2");
-        _assertOp(1, FhevmAddressRole.KMSGeneration, FhevmHostContracts.KMSGeneration, "reinitializeV2");
-        _assertOp(2, FhevmAddressRole.ACL, FhevmHostContracts.ACL, "reinitializeV5");
-        _assertOp(3, FhevmAddressRole.FHEVMExecutor, FhevmHostContracts.FHEVMExecutor, "reinitializeV6");
-        _assertOp(4, FhevmAddressRole.HCULimit, FhevmHostContracts.HCULimit, "reinitializeV4");
-        _assertOp(5, FhevmAddressRole.KMSVerifier, FhevmHostContracts.KMSVerifier, "reinitializeV4");
+        _assertOp(0, FhevmAddressRole.ACL, FhevmHostContracts.ACL, "reinitializeV6");
+        _assertOp(1, FhevmAddressRole.FHEVMExecutor, FhevmHostContracts.FHEVMExecutor, "reinitializeV7");
+        _assertOp(2, FhevmAddressRole.KMSVerifier, FhevmHostContracts.KMSVerifier, "reinitializeV5");
+        _assertOp(3, FhevmAddressRole.InputVerifier, FhevmHostContracts.InputVerifier, "reinitializeV3");
+        _assertOp(4, FhevmAddressRole.ProtocolConfig, FhevmHostContracts.ProtocolConfig, "reinitializeV3");
+        _assertOp(5, FhevmAddressRole.KMSGeneration, FhevmHostContracts.KMSGeneration, "reinitializeV3");
     }
 
     function test_theOpCountIsWhatTheTablesHold() public {
@@ -77,18 +77,17 @@ contract LibForgeFhevmUpgradeTest is Test {
     }
 
     /**
-     * The three contracts the list deliberately leaves out, each for its own reason. Stated here because
-     * "absent" is a decision, and the next person to compare this table with `pkg/ts/upgrade.ts` will
-     * find one more entry there and need to know why.
+     * The contracts the list deliberately leaves out, each for its own reason. Stated here because
+     * "absent" is a decision, and the next person to compare this table with upstream's
+     * `upgrade-manifest.json` will find `HCULimit` there and need to know why it is not here.
      */
     function test_theDeliberateOmissions() public pure {
         for (uint256 index = 0; index < LibForgeFhevmUpgrade.OP_COUNT; index++) {
             FhevmAddressRole role = LibForgeFhevmUpgrade.opProxyRole(index);
-            // Its bytecode is identical across the two generations, so re-pointing it would consume a
-            // reinitializer and change nothing.
-            assertTrue(role != FhevmAddressRole.InputVerifier, "InputVerifier is not upgraded");
-            // Neither exists on a real deployment; the TypeScript upgrade re-points the first only
-            // because it runs against a cleartext stack.
+            // Its reinitializer and bytecode are identical across the two generations, so re-pointing it
+            // would change nothing — upstream's own CI skips it for the same reason.
+            assertTrue(role != FhevmAddressRole.HCULimit, "HCULimit is not upgraded");
+            // Neither exists on a real deployment, and neither changes across the two generations.
             assertTrue(role != FhevmAddressRole.CleartextArithmetic, "CleartextArithmetic is not on a real chain");
             assertTrue(role != FhevmAddressRole.CleartextDB, "CleartextDB is not on a real chain");
             assertTrue(role != FhevmAddressRole.PauserSet, "PauserSet is not a proxy");
@@ -131,11 +130,9 @@ contract LibForgeFhevmUpgradeTest is Test {
         assertTrue(vm.contains(LibForgeFhevmUpgrade.opName(index), expectedInitializer), "name matches selector");
     }
 
-    /// @dev Only `ProtocolConfig.reinitializeV2` takes arguments; every other op is no-arg.
+    /// @dev Every op is no-arg: v14 -> v15 migrates nothing. Its payload is the selector and nothing else.
     function _signature(uint256 index) private pure returns (string memory) {
-        if (index == 0) {
-            return "((address,address,string,string,int32,string,bytes,string)[],string,(bytes,bytes,bytes)[])";
-        }
+        assertEq(LibForgeFhevmUpgrade.opInitData(index).length, 4, "no reinitializer takes arguments");
         return "()";
     }
 }
