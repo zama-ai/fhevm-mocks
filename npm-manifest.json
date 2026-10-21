@@ -8,7 +8,7 @@
     "pinned": {
       "@fhevm/sdk": "^0.15.0-3",
       "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.14.3",
-      "@fhevm/sdk-prev2": "npm:@fhevm/sdk@^0.13.7",
+      "@fhevm/sdk-prev2": "npm:@fhevm/sdk@^0.13.8",
       "@fhevm/solidity": "^0.13.4",
       "encrypted-types": "^0.0.4",
       "@openzeppelin/contracts": "5.1.0",
