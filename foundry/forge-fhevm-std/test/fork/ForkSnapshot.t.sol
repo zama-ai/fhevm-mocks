@@ -55,6 +55,7 @@ contract ForkSnapshotTest is TestFhevm {
         alice = makeAddr("alice");
         if (!ForkBlocks.enabled("sepolia")) return;
         sepolia = getFhevmChain("testnet", "sepolia");
+        if (!ForkBlocks.forkable(sepolia)) return; // parked while the chain is on a line this package cannot fork
         (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;
     }

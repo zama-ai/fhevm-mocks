@@ -27,23 +27,25 @@ interface IUUPSProxy {
  * the cleartext one interchangeably, on a LOCAL stack where every sibling address is the one the blobs
  * bake in. This asks the remaining question: does it still work when the addresses are a real chain's?
  *
- * ONE CHAIN, TWO ROUTES. Devnet Sepolia runs the PREVIOUS protocol line (0.14: ACL v0.5.0, ProtocolConfig
- * v0.2.0, read off the chain), so the cleartext swap runs on top of the generation upgrade -- what a real user
- * forking a chain that has not upgraded yet would get. Route A upgrades to production first and swaps the
- * executor afterwards; route B lands on the cleartext implementations in the one pass.
+ * ONE STACK, TWO ROUTES. The addresses below are the FORMER devnet stack on Sepolia: a clean 0.14.0 stack
+ * (ACL v0.5.0, FHEVMExecutor v0.5.0, ProtocolConfig v0.2.0, read off the chain), still deployed though devnet
+ * itself has moved to new addresses. It is one generation behind, so the cleartext swap runs on top of the
+ * generation upgrade -- what a real user forking a chain that has not upgraded yet would get. Route A upgrades
+ * to production first and swaps the executor afterwards; route B lands on the cleartext implementations in the
+ * one pass.
  *
- * WHAT IS NOT HERE, AND WHY. No Sepolia chain runs this generation's line yet, so the "mechanism alone" case
- * (a chain on this SDK's own line, only the swap under test) has nowhere to run; the local
- * `CleartextImplementationSwap` covers that mechanism without a fork, and a subclass with `_isAGenerationBehind`
- * false comes back when a chain moves. Testnet Sepolia still runs 0.13 -- two lines behind, which this
- * generation does not upgrade from (`LibForgeFhevmHostVersions.classify` refuses it as `Unknown`).
+ * WHY NOT A LIVE GROUP. None of the chain table's Sepolia stacks is on a line this generation can fork: testnet
+ * runs 0.13 (two lines behind) and the redeployed devnet runs a mix of 0.14 and 0.15 contracts, both refused by
+ * `LibForgeFhevmHostVersions.classify` as `Unknown`. The "mechanism alone" case (a chain on this SDK's own line)
+ * has nowhere to run either; the local `CleartextImplementationSwap` covers it without a fork. When a group
+ * lands cleanly on 0.14 or 0.15, a subclass with that group's addresses replaces or joins these.
  *
  * NOTHING IS COMPILED AGAINST THESE ADDRESSES. Every implementation comes out of `LocalHostUpgrade` and is
  * rewritten for the fork by `LibHostUpgradeCode` -- the executor's arithmetic, the arithmetic's DB, and
  * each contract's ACL. That is the whole point of the exercise: the deploy path here is the patch path.
  *
  *          SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com \
- *          forge test --match-contract DevnetCleartextUpgrade -vv
+ *          forge test --match-contract FormerDevnetCleartextUpgrade -vv
  */
 abstract contract ForkCleartextUpgrade is Test {
     address internal ACL;
@@ -254,8 +256,9 @@ abstract contract ForkCleartextUpgrade is Test {
     }
 }
 
-/// Devnet Sepolia, one generation behind (0.14): brought forward in memory, then made cleartext. Route A.
-contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
+/// The former devnet stack on Sepolia, one generation behind (0.14.0): brought forward in memory, then made
+/// cleartext. Route A.
+contract FormerDevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     function _chain() internal override {
         ACL = 0x1aC3073813148992aA928C9903681fA7Ec202b13;
         EXECUTOR = 0x356cc81A08aa782C96F00dC30b60d4f33f1a4e43;
@@ -272,17 +275,17 @@ contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     }
 
     function _label() internal pure virtual override returns (string memory) {
-        return "Devnet Sepolia (0.14 line), route A";
+        return "former devnet stack on Sepolia (0.14.0), route A";
     }
 }
 
 /// ROUTE B: the same chain and generation upgrade, but straight to cleartext in the one pass.
-contract DevnetSinglePassCleartextUpgradeTest is DevnetCleartextUpgradeTest {
+contract FormerDevnetSinglePassCleartextUpgradeTest is FormerDevnetCleartextUpgradeTest {
     function _singlePass() internal pure override returns (bool) {
         return true;
     }
 
     function _label() internal pure override returns (string memory) {
-        return "Devnet Sepolia (0.14 line), route B";
+        return "former devnet stack on Sepolia (0.14.0), route B";
     }
 }

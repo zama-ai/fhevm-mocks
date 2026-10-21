@@ -29,6 +29,7 @@ contract FhevmVmTest is TestFhevm {
         // Opt in, not the URL (rules.md §7.3): see SepoliaFHETestAdd.t.sol.
         vm.skip(!ForkBlocks.enabled("sepolia"));
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
+        vm.skip(!ForkBlocks.forkable(sepolia)); // parked while the chain is on a line this package cannot fork
 
         (uint256 blockA, uint256 blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
 
@@ -55,6 +56,7 @@ contract FhevmVmTest is TestFhevm {
     function test_eachContextHasItsOwnCleartextStore() public {
         vm.skip(!ForkBlocks.enabled("sepolia"));
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
+        vm.skip(!ForkBlocks.forkable(sepolia)); // parked while the chain is on a line this package cannot fork
         address inMemory = LibFhevmProtocol.currentConfig().cleartextDb;
         assertTrue(inMemory != address(0), "the in-memory stack has one from the constructor");
 
