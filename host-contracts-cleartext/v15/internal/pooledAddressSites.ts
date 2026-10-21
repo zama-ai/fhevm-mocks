@@ -134,9 +134,10 @@ export function canPoolReorder(pooledCountsByAddress: Readonly<Partial<Record<Ad
  * reproduces a direct compile exactly.
  */
 export const EXPECTED_POOLED_SITES: Readonly<Record<string, Readonly<Partial<Record<AddressName, number>>>>> = {
-  // Two pooled addresses — the one contract in the stack whose table can be reordered.
-  CleartextFHEVMExecutor: { ACL_ADDRESS: 1, HCU_LIMIT_ADDRESS: 1 },
-  // One pooled address, so its table has nothing to permute.
+  // One pooled address each, so neither table has anything to permute. The executor pooled ACL_ADDRESS too
+  // until upstream v0.15 began checking `ACL.isAllowed` on every operand: the address is now an inline
+  // operand at each of those call sites, and only HCU_LIMIT_ADDRESS is left in its table.
+  CleartextFHEVMExecutor: { HCU_LIMIT_ADDRESS: 1 },
   CleartextHCULimit: { FHEVM_EXECUTOR_ADDRESS: 1 },
 };
 
@@ -147,8 +148,8 @@ export const EXPECTED_POOLED_SITES: Readonly<Record<string, Readonly<Partial<Rec
  * of contracts with two or more pooled addresses, so it cannot quietly grow to hide a new failure.
  */
 export const POOL_REORDER_EXEMPT: Readonly<Record<string, string>> = {
-  CleartextFHEVMExecutor:
-    'Pools ACL_ADDRESS and HCU_LIMIT_ADDRESS. Their relative order under the markers is the reverse of ' +
-    'their relative order under the real localhost addresses, so the compiler emits the two table slots ' +
-    'swapped and patching cannot reorder them.',
+  // Empty since v15: no contract pools two addresses any more. Up to v14 `CleartextFHEVMExecutor` was here — it
+  // pooled ACL_ADDRESS and HCU_LIMIT_ADDRESS, whose relative order under the markers was the reverse of their
+  // order under the real localhost addresses, so the compiler emitted the two table slots swapped and
+  // patching could not reorder them.
 };
