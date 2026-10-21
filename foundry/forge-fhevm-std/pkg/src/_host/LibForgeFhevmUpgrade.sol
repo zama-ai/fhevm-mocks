@@ -3,16 +3,14 @@ pragma solidity ^0.8.24;
 
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
 import {LibHostUpgradeCode} from "./LibHostUpgradeCode.sol";
-import {LibForgeFhevmStack} from "./LibForgeFhevmStack.sol";
-import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 import {ERC1967_PROXY_CREATION_CODE, FhevmAddressRole, FhevmHostContracts} from "./_internal/LocalHostBytecode.sol";
 import {ICleartextDB} from "./_internal/interfaces/ICleartextDB.sol";
 import {ICleartextArithmetic} from "./_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextFHEVMExecutor} from "./_internal/interfaces/ICleartextFHEVMExecutor.sol";
 import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IACL} from "./_internal/interfaces/IACL.sol";
-import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {IFHEVMExecutor} from "./_internal/interfaces/IFHEVMExecutor.sol";
+import {IInputVerifier} from "./_internal/interfaces/IInputVerifier.sol";
 import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
 import {IKMSVerifier} from "./_internal/interfaces/IKMSVerifier.sol";
 import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
@@ -34,11 +32,12 @@ interface IUUPSProxy {
  *      same reinitializers `pkg/ts/upgrade.ts` sends on a real chain, so the storage layout question is
  *      one upstream has already answered and `test:upgrade` already rehearses.
  *
- * @dev WHY THE OP LIST IS NOT THE TYPESCRIPT ONE. `updateV(N-1)ToV(N)` also re-points
- *      `CleartextArithmetic`, because it upgrades a CLEARTEXT stack, and a real deployment has no such
- *      contract — nor a `CleartextDB`. `InputVerifier` is absent from both for the opposite reason: its
- *      bytecode does not change across the two generations, so re-pointing it would burn a reinitializer
- *      to no effect. What is left is the six below, in the order the TypeScript path uses.
+ * @dev WHY THESE SIX. Upstream's rule, from its own upgrade CI: a contract is upgraded exactly when its
+ *      `REINITIALIZER_VERSION` moves between the two generations, through a reinitializer that takes no
+ *      arguments. `HCULimit` keeps its reinitializer and its bytecode, so re-pointing it would install
+ *      the same code to no effect; it is absent. So are `CleartextArithmetic` and `CleartextDB`, which a
+ *      real deployment does not have and whose bytecode does not change across the two generations
+ *      either. What is left is the six below, in the order of upstream's `upgrade-manifest.json`.
  *
  * @dev WHY THE IMPLEMENTATIONS ARE PATCHED. Each one names its siblings as compile-time constants, and
  *      the blobs this package ships name the LOCALHOST addresses. A forked stack lives at the chain's
@@ -67,61 +66,49 @@ library LibForgeFhevmUpgrade {
 
     /// @notice Which proxy op `index` re-points, named by role so the address comes from the caller.
     function opProxyRole(uint256 index) internal pure returns (FhevmAddressRole) {
-        if (index == 0) return FhevmAddressRole.ProtocolConfig;
-        if (index == 1) return FhevmAddressRole.KMSGeneration;
-        if (index == 2) return FhevmAddressRole.ACL;
-        if (index == 3) return FhevmAddressRole.FHEVMExecutor;
-        if (index == 4) return FhevmAddressRole.HCULimit;
-        if (index == 5) return FhevmAddressRole.KMSVerifier;
+        if (index == 0) return FhevmAddressRole.ACL;
+        if (index == 1) return FhevmAddressRole.FHEVMExecutor;
+        if (index == 2) return FhevmAddressRole.KMSVerifier;
+        if (index == 3) return FhevmAddressRole.InputVerifier;
+        if (index == 4) return FhevmAddressRole.ProtocolConfig;
+        if (index == 5) return FhevmAddressRole.KMSGeneration;
         revert UpgradeIndexOutOfRange(index);
     }
 
     /// @notice Which implementation goes behind it.
     function opImplementation(uint256 index) internal pure returns (FhevmHostContracts) {
-        if (index == 0) return FhevmHostContracts.ProtocolConfig;
-        if (index == 1) return FhevmHostContracts.KMSGeneration;
-        if (index == 2) return FhevmHostContracts.ACL;
-        if (index == 3) return FhevmHostContracts.FHEVMExecutor;
-        if (index == 4) return FhevmHostContracts.HCULimit;
-        if (index == 5) return FhevmHostContracts.KMSVerifier;
+        if (index == 0) return FhevmHostContracts.ACL;
+        if (index == 1) return FhevmHostContracts.FHEVMExecutor;
+        if (index == 2) return FhevmHostContracts.KMSVerifier;
+        if (index == 3) return FhevmHostContracts.InputVerifier;
+        if (index == 4) return FhevmHostContracts.ProtocolConfig;
+        if (index == 5) return FhevmHostContracts.KMSGeneration;
         revert UpgradeIndexOutOfRange(index);
     }
 
     /**
      * @notice The initializer call `upgradeToAndCall` carries for op `index`.
-     * @dev Only `ProtocolConfig` takes arguments. It does NOT install the node set it is given — it
-     *      reshapes the context already there into the epoch model the new line uses, and the arguments
-     *      only feed the event and the anchor hash. The cleartext set is passed because the caller swaps
-     *      the signers to exactly that immediately afterwards, so the anchor describes what the stack is
-     *      about to be.
+     * @dev None takes arguments: each reinitializer only bumps the initialized version. `KMSGeneration`'s
+     *      new mappings start from their zero value, which upstream relies on rather than migrates.
      */
     function opInitData(uint256 index) internal pure returns (bytes memory) {
-        if (index == 0) {
-            return abi.encodeCall(
-                IProtocolConfig.reinitializeV2,
-                (
-                    LibForgeFhevmStack.cleartextKmsNodes(),
-                    LocalHostBootstrap.KMS_SOFTWARE_VERSION,
-                    new IProtocolConfig.PcrValues[](0)
-                )
-            );
-        }
-        if (index == 1) return abi.encodeCall(IKMSGeneration.reinitializeV2, ());
-        if (index == 2) return abi.encodeCall(IACL.reinitializeV5, ());
-        if (index == 3) return abi.encodeCall(IFHEVMExecutor.reinitializeV6, ());
-        if (index == 4) return abi.encodeCall(ICleartextHCULimit.reinitializeV4, ());
-        if (index == 5) return abi.encodeCall(IKMSVerifier.reinitializeV4, ());
+        if (index == 0) return abi.encodeCall(IACL.reinitializeV6, ());
+        if (index == 1) return abi.encodeCall(IFHEVMExecutor.reinitializeV7, ());
+        if (index == 2) return abi.encodeCall(IKMSVerifier.reinitializeV5, ());
+        if (index == 3) return abi.encodeCall(IInputVerifier.reinitializeV3, ());
+        if (index == 4) return abi.encodeCall(IProtocolConfig.reinitializeV3, ());
+        if (index == 5) return abi.encodeCall(IKMSGeneration.reinitializeV3, ());
         revert UpgradeIndexOutOfRange(index);
     }
 
     /// @notice A human-readable name per op, for the failure messages and the gate's listing.
     function opName(uint256 index) internal pure returns (string memory) {
-        if (index == 0) return "ProtocolConfig.reinitializeV2(kmsNodeParams, softwareVersion, pcrValues)";
-        if (index == 1) return "KMSGeneration.reinitializeV2()";
-        if (index == 2) return "ACL.reinitializeV5()";
-        if (index == 3) return "FHEVMExecutor.reinitializeV6()";
-        if (index == 4) return "HCULimit.reinitializeV4()";
-        if (index == 5) return "KMSVerifier.reinitializeV4()";
+        if (index == 0) return "ACL.reinitializeV6()";
+        if (index == 1) return "FHEVMExecutor.reinitializeV7()";
+        if (index == 2) return "KMSVerifier.reinitializeV5()";
+        if (index == 3) return "InputVerifier.reinitializeV3()";
+        if (index == 4) return "ProtocolConfig.reinitializeV3()";
+        if (index == 5) return "KMSGeneration.reinitializeV3()";
         revert UpgradeIndexOutOfRange(index);
     }
 
@@ -133,8 +120,8 @@ library LibForgeFhevmUpgrade {
      *                  `LibForgeFhevmUpgrade.t.sol` pins it against `LibHostUpgradeCode.ROLE_COUNT`.
      *
      * @dev Deploys each implementation patched for those addresses, then re-points its proxy. One
-     *      transaction per op, each pranked as the ACL owner, in the order the table gives — the order
-     *      matters for `ProtocolConfig`, which the others read through once re-pointed.
+     *      transaction per op, each pranked as the ACL owner, in the order the table gives — upstream's,
+     *      kept as is even though no reinitializer here reads another contract's state.
      */
     function upgradeFromPreviousGeneration(address[10] memory addresses) internal {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
@@ -218,7 +205,7 @@ library LibForgeFhevmUpgrade {
             abi.encodeCall(ICleartextArithmetic.initializeFromEmptyProxy, ())
         );
 
-        // The chain's own proxies, pointed at this package's code. `InputVerifier` is here even though the
+        // The chain's own proxies, pointed at this package's code. `HCULimit` is here even though the
         // generation upgrade skips it: its bytecode does not change between generations, but its CLEARTEXT
         // subclass differs from the production one, so the cleartext pass has to visit it.
         _materialize(owner, addresses[uint8(FhevmAddressRole.ACL)], FhevmHostContracts.CleartextForgeACL, addresses, "");
@@ -285,9 +272,9 @@ library LibForgeFhevmUpgrade {
      *      unknowable, because nothing ever recorded them.
      *
      * @dev THE REINITIALIZERS RUN, unlike in `upgradeToCleartext`: this IS the generation upgrade, so
-     *      each proxy takes the same init data `upgradeFromPreviousGeneration` would send it, and
-     *      `CleartextArithmetic` takes the one only a cleartext stack has -- `reinitializeV3`, which
-     *      upstream added for the operator this generation introduced.
+     *      each proxy takes the same init data `upgradeFromPreviousGeneration` would send it.
+     *      `CleartextArithmetic` is not visited: its bytecode does not change across the two generations,
+     *      so the implementation already behind its proxy is this generation's.
      */
     function upgradeCleartextFromPreviousGeneration(address[10] memory addresses)
         internal
@@ -311,25 +298,6 @@ library LibForgeFhevmUpgrade {
             IUUPSProxy(addresses[uint8(opProxyRole(index))]).upgradeToAndCall(deployed, opInitData(index));
         }
 
-        // Absent from the op list because its bytecode does not change between generations -- but its
-        // CLEARTEXT subclass differs from the production one, so the pass still has to visit it.
-        _materialize(
-            owner,
-            addresses[uint8(FhevmAddressRole.InputVerifier)],
-            FhevmHostContracts.CleartextInputVerifier,
-            addresses,
-            ""
-        );
-
-        // And the one contract only a cleartext stack has. Not a host contract, so no op list mentions it.
-        _materialize(
-            owner,
-            arithmetic,
-            FhevmHostContracts.CleartextForgeArithmetic,
-            addresses,
-            abi.encodeCall(ICleartextArithmetic.reinitializeV3, ())
-        );
-
         _grantCheatcodes(addresses, arithmetic);
     }
 
@@ -337,10 +305,10 @@ library LibForgeFhevmUpgrade {
     ///      `KMSGeneration` have none and need none: nothing about them differs between a mock stack and
     ///      a real one.
     function _cleartextCounterpart(FhevmHostContracts implementation) private pure returns (FhevmHostContracts) {
-        if (implementation == FhevmHostContracts.FHEVMExecutor) return FhevmHostContracts.CleartextForgeFHEVMExecutor;
         if (implementation == FhevmHostContracts.ACL) return FhevmHostContracts.CleartextForgeACL;
+        if (implementation == FhevmHostContracts.FHEVMExecutor) return FhevmHostContracts.CleartextForgeFHEVMExecutor;
         if (implementation == FhevmHostContracts.KMSVerifier) return FhevmHostContracts.CleartextKMSVerifier;
-        if (implementation == FhevmHostContracts.HCULimit) return FhevmHostContracts.CleartextForgeHCULimit;
+        if (implementation == FhevmHostContracts.InputVerifier) return FhevmHostContracts.CleartextInputVerifier;
         return implementation;
     }
 

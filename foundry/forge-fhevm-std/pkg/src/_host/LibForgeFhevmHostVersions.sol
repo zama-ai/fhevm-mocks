@@ -52,17 +52,17 @@ struct Version {
  * @notice The protocol versions this SDK accepts on a fork, and which line a stack belongs to.
  *
  * @dev WHY A RANGE. A host contract reports `"<Name> vMAJOR.MINOR.PATCH"` from `getVersion()`, and a
- *      protocol line moves those numbers as it patches: on the 0.13 line `FHEVMExecutor` was `v0.4.0`
- *      from 0.13.0 to 0.13.5 and `v0.5.0` from 0.13.6. The chains do not all upgrade the same day —
- *      Sepolia ran `v0.4.0` after the 0.13 SDK vendored 0.13.6 — so an exact match against the vendored
- *      version would refuse a stack whose ABI this SDK speaks perfectly well. What must never pass is
- *      another LINE: 0.13.x (`ACL v0.4.0`) is a different ABI, and so is the next one (`ACL v0.6.0`).
+ *      protocol line moves those numbers as it patches: on the 0.14 line `FHEVMExecutor` was `v0.5.0`
+ *      at 0.14.0 and `v0.6.0` by 0.14.3. The chains do not all upgrade the same day, so an exact match
+ *      against the vendored version would refuse a stack whose ABI this SDK speaks perfectly well. What
+ *      must never pass is another LINE: 0.14.x (`KMSVerifier v0.4.0`) is a different ABI, and so is the
+ *      next one.
  *
  * @dev THE FLOOR IS HAND-WRITTEN, THE CEILING IS GENERATED. `LocalHostVersions` (regenerated from the
- *      vendored contracts by v14's `generate:contract-versions`) is what the line reports at the commit
+ *      vendored contracts by v15's `generate:contract-versions`) is what the line reports at the commit
  *      this SDK vendors — the newest it knows, hence the ceiling. The floor is what the line reported at
- *      its FIRST release, read off the tags of `zama-ai/fhevm` at v0.14.0 (`host-contracts/contracts`),
- *      and it moves only when this SDK moves to another line. `LibFhevmVersion.t.sol` pins both ends.
+ *      its FIRST release, read off the tags of `zama-ai/fhevm` (`host-contracts/contracts`), and it moves
+ *      only when this SDK moves to another line. `LibFhevmVersion.t.sol` pins both ends.
  *
  * @dev PARSING IS forge-std's, NOT OURS. `vm.split`, `vm.replace` and `vm.parseUint` do the work; there
  *      is no character arithmetic in this file. Rule 2.16 asks for exactly that — this package is a
@@ -79,46 +79,52 @@ library LibForgeFhevmHostVersions {
     // forge-lint: disable-next-line(screaming-snake-case-const)
     IForgeVm private constant vm = IForgeVm(FORGE_VM_ADDRESS);
 
-    // -- The floor: fhevm v0.14.0 -------------------------------------------
+    // -- The floor: fhevm v0.15.0-3 -----------------------------------------
     //
-    // The tags of `zama-ai/fhevm` at the start of this line. The ceilings below are GENERATED from what
-    // this package vendors, so the upper end follows the release; only the lower end is written down.
+    // The start of this line, as the tags of `zama-ai/fhevm` record it. The ceilings below are GENERATED
+    // from what this package vendors, so the upper end follows the release; only the lower end is
+    // written down.
+    //
+    // PROVISIONAL: no stable v0.15.0 is tagged yet, so the floor is the prerelease this package vendors
+    // (v0.15.0-3) and equals the ceiling — only exactly the vendored versions pass. Earlier 0.15
+    // prereleases are refused on purpose (v0.15.0-0 still reported `ACL v0.5.0`, the 0.14 line's ACL).
+    // Move these to the v0.15.0 tag when it ships.
 
-    string internal constant ACL_FLOOR = "ACL v0.5.0";
-    string internal constant FHEVM_EXECUTOR_FLOOR = "FHEVMExecutor v0.5.0";
-    string internal constant INPUT_VERIFIER_FLOOR = "InputVerifier v0.2.0";
-    string internal constant KMS_VERIFIER_FLOOR = "KMSVerifier v0.4.0";
-    string internal constant PROTOCOL_CONFIG_FLOOR = "ProtocolConfig v0.2.0";
+    string internal constant ACL_FLOOR = "ACL v0.6.0";
+    string internal constant FHEVM_EXECUTOR_FLOOR = "FHEVMExecutor v0.7.0";
+    string internal constant INPUT_VERIFIER_FLOOR = "InputVerifier v0.3.0";
+    string internal constant KMS_VERIFIER_FLOOR = "KMSVerifier v0.5.0";
+    string internal constant PROTOCOL_CONFIG_FLOOR = "ProtocolConfig v0.3.0";
 
     // The two the fork gate does not check, because five contracts are enough to recognise a wrong
     // line. `classify` uses all seven: the more of them, the less any single contract's history can
     // make two lines look alike.
     string internal constant HCU_LIMIT_FLOOR = "HCULimit v0.4.0";
-    string internal constant KMS_GENERATION_FLOOR = "KMSGeneration v0.2.0";
+    string internal constant KMS_GENERATION_FLOOR = "KMSGeneration v0.3.0";
 
-    // -- The previous line: fhevm 0.13 --------------------------------------
+    // -- The previous line: fhevm 0.14 --------------------------------------
     //
     // BOTH ENDS ARE HAND-WRITTEN, unlike the current line's generated ceiling, and they can be: the
-    // 0.13 line is closed. Its generation lives on here as V(N-1) and rule 3.4.6 forbids editing it, so
-    // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v0.13.0 for the
-    // floors, and the last 0.13 release for the ceilings — only `FHEVMExecutor` moved across the line,
-    // from v0.4.0 to v0.5.0 at 0.13.6. The ceilings are checked against the versions the previous
+    // 0.14 line is closed. Its generation lives on here as V(N-1) and rule 3.4.6 forbids editing it, so
+    // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v0.14.0 for the
+    // floors, and the last 0.14 release (v0.14.3) for the ceilings — only `FHEVMExecutor` moved across
+    // the line, from v0.5.0 to v0.6.0. The ceilings are checked against the versions the previous
     // generation's package vendors by `test/upgrade/PreviousLineCeilings.t.sol`.
 
-    string internal constant PREVIOUS_ACL_FLOOR = "ACL v0.4.0";
-    string internal constant PREVIOUS_ACL_CEILING = "ACL v0.4.0";
-    string internal constant PREVIOUS_FHEVM_EXECUTOR_FLOOR = "FHEVMExecutor v0.4.0";
-    string internal constant PREVIOUS_FHEVM_EXECUTOR_CEILING = "FHEVMExecutor v0.5.0";
-    string internal constant PREVIOUS_KMS_VERIFIER_FLOOR = "KMSVerifier v0.3.0";
-    string internal constant PREVIOUS_KMS_VERIFIER_CEILING = "KMSVerifier v0.3.0";
+    string internal constant PREVIOUS_ACL_FLOOR = "ACL v0.5.0";
+    string internal constant PREVIOUS_ACL_CEILING = "ACL v0.5.0";
+    string internal constant PREVIOUS_FHEVM_EXECUTOR_FLOOR = "FHEVMExecutor v0.5.0";
+    string internal constant PREVIOUS_FHEVM_EXECUTOR_CEILING = "FHEVMExecutor v0.6.0";
+    string internal constant PREVIOUS_KMS_VERIFIER_FLOOR = "KMSVerifier v0.4.0";
+    string internal constant PREVIOUS_KMS_VERIFIER_CEILING = "KMSVerifier v0.4.0";
     string internal constant PREVIOUS_INPUT_VERIFIER_FLOOR = "InputVerifier v0.2.0";
     string internal constant PREVIOUS_INPUT_VERIFIER_CEILING = "InputVerifier v0.2.0";
-    string internal constant PREVIOUS_HCU_LIMIT_FLOOR = "HCULimit v0.3.0";
-    string internal constant PREVIOUS_HCU_LIMIT_CEILING = "HCULimit v0.3.0";
-    string internal constant PREVIOUS_PROTOCOL_CONFIG_FLOOR = "ProtocolConfig v0.1.0";
-    string internal constant PREVIOUS_PROTOCOL_CONFIG_CEILING = "ProtocolConfig v0.1.0";
-    string internal constant PREVIOUS_KMS_GENERATION_FLOOR = "KMSGeneration v0.1.0";
-    string internal constant PREVIOUS_KMS_GENERATION_CEILING = "KMSGeneration v0.1.0";
+    string internal constant PREVIOUS_HCU_LIMIT_FLOOR = "HCULimit v0.4.0";
+    string internal constant PREVIOUS_HCU_LIMIT_CEILING = "HCULimit v0.4.0";
+    string internal constant PREVIOUS_PROTOCOL_CONFIG_FLOOR = "ProtocolConfig v0.2.0";
+    string internal constant PREVIOUS_PROTOCOL_CONFIG_CEILING = "ProtocolConfig v0.2.0";
+    string internal constant PREVIOUS_KMS_GENERATION_FLOOR = "KMSGeneration v0.2.0";
+    string internal constant PREVIOUS_KMS_GENERATION_CEILING = "KMSGeneration v0.2.0";
 
     // -- The ceiling: the vendored release --------------------------------------
 
@@ -259,11 +265,11 @@ library LibForgeFhevmHostVersions {
     /**
      * @notice The line `versions` belongs to, or `Unknown`.
      *
-     * @dev BY CONJUNCTION, never by one contract. The two lines overlap: `FHEVMExecutor` spans v0.4.0
-     *      to v0.5.0 on the 0.13 line and v0.5.0 upward on this one, so a reading of v0.5.0 is
-     *      compatible with both, and `InputVerifier` is v0.2.0 on both and never discriminates at all.
-     *      Only the whole set decides. Today `ACL` alone would separate them, and relying on that would
-     *      be relying on an accident of this particular pair.
+     * @dev BY CONJUNCTION, never by one contract. Contracts can sit on both lines: `HCULimit` is v0.4.0
+     *      on the 0.14 line and on this one, so it never discriminates at all, and at v0.15.0-0 even `ACL`
+     *      still reported the 0.14 line's v0.5.0. Only the whole set decides. Today several contracts
+     *      alone would separate the two lines, and relying on any one of them would be relying on an
+     *      accident of this particular pair.
      *
      * @dev MAJOR AND MINOR ONLY. A patch release does not change the ABI this SDK speaks, and chains do
      *      not all take one on the same day.
