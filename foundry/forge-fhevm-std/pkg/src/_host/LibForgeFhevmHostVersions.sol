@@ -59,7 +59,7 @@ struct Version {
  *      next one.
  *
  * @dev THE FLOOR IS HAND-WRITTEN, THE CEILING IS GENERATED. `LocalHostVersions` (regenerated from the
- *      vendored contracts by v15's `generate:contract-versions`) is what the line reports at the commit
+ *      vendored contracts by this generation's `generate:contract-versions`) is what the line reports at the commit
  *      this SDK vendors — the newest it knows, hence the ceiling. The floor is what the line reported at
  *      its FIRST release, read off the tags of `zama-ai/fhevm` (`host-contracts/contracts`), and it moves
  *      only when this SDK moves to another line. `LibFhevmVersion.t.sol` pins both ends.

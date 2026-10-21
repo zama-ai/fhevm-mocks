@@ -71,7 +71,7 @@ contract CleartextFHEVMExecutor is FHEVMExecutor, IPlaintexts {
         _cleartext().recordBinaryOp(_op(op), result, lhs, rhs, scalarByte, _typeOf(lhs));
     }
 
-    /// @dev `fheMulDiv`, v14's widened `(factor1 * factor2) / divisor`; the divisor is always plaintext.
+    /// @dev `fheMulDiv` (since v14), the widened `(factor1 * factor2) / divisor`; the divisor is always plaintext.
     function _mulDivOp(
         Operators op,
         bytes32 factor1,

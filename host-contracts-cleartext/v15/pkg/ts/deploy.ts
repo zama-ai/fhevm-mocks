@@ -42,7 +42,7 @@ import { DEFAULT_BOOTSTRAP_CONFIG } from './constants.js';
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Deploy a fresh v15 host-contract stack from scratch.
+ * Deploy a fresh host-contract stack of this generation from scratch.
  *
  * End to end: deploy the 7 empty proxies + PauserSet, install a standing `ACLOwner` (owned by
  * `admin`), then atomically materialize all 7 proxies in a single `ACLOwner.upgrade(...)` transaction.
@@ -159,7 +159,7 @@ async function precomputeFromDeployerNonce(parameters: {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Phase 1 for a fresh v15 stack: deploys all 7 real implementations (patched with v15 host addresses)
+ * Phase 1 for a fresh stack: deploys all 7 real implementations (patched with this generation's host addresses)
  * and encodes their `upgradeToAndCall` calldata. Sends no owner-gated transaction.
  */
 async function buildBootstrapPlan(parameters: {

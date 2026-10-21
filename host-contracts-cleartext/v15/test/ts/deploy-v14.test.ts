@@ -243,7 +243,7 @@ function bootstrapConfig(deployerAddress: string, kmsSignerAddress: string): Boo
           signerAddress: kmsSignerAddress,
           ipAddress: '127.0.0.1',
           storageUrl: 'https://kms.example',
-          // v14's four additions, visibly fixture values like the two above.
+          // The four `KmsNodeParams` additions (since v14), visibly fixture values like the two above.
           partyId: 1,
           mpcIdentity: 'kms-core-1-fixture-core-1',
           caCert: '0x',
@@ -282,7 +282,7 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       startNonce: 0n,
     });
 
-    // Deploy a fresh v13 stack from scratch (deployer = admin).
+    // Deploy a fresh stack from scratch (deployer = admin).
     const deployed = await deploy({
       ethProvider: adapters.provider,
       ethUtils: adapters.utils,

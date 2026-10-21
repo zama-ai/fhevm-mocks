@@ -112,7 +112,7 @@ library MaterializeInitData {
         );
     }
 
-    /// @dev Seeds the initial KMS context; v14 also names the KMS build and accepts no enclave PCRs.
+    /// @dev Seeds the initial KMS context; since v14 it also names the KMS build and accepts no enclave PCRs.
     function _protocolConfig() private pure returns (bytes memory) {
         return abi.encodeCall(
             ProtocolConfig.initializeFromEmptyProxy,

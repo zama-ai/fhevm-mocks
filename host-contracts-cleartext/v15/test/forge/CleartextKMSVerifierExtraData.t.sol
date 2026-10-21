@@ -20,7 +20,7 @@ import {LibKmsVerifier, UserDecryptRequestV1} from "../../pkg/forge/src/shared/L
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
- * The v14 cleartext KMSVerifier serves the KMS extraData of BOTH sdk lines (golden rule 5: sdk v(N) works with
+ * The cleartext KMSVerifier serves the KMS extraData of BOTH sdk lines (golden rule 5: sdk v(N) works with
  * cleartext v(N)..v(N+2)): v1 (`0x01 | contextId`, what an sdk on protocol API 0.13 builds) and v2
  * (`0x02 | contextId | epochId`, what an sdk on protocol API 0.14 builds on a v14 chain).
  *
@@ -35,7 +35,7 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  *     signs v1 (TEMPORARY, see the banner in CleartextKMSVerifier), `userDecrypt` tries v2 then v1 for the
  *     current context and epoch, and refuses a permit signed before a KMS rotation.
  *
- * v14's own file: v13 has no epochs and none of these overloads.
+ * This generation's own file: the epochs and these overloads exist since v14.
  */
 contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
     uint256 internal constant ALICE_PK = uint256(keccak256("alice"));

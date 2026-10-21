@@ -1,4 +1,4 @@
-// Types of v14's KMS context rotation. Re-exported from ../types/public.ts so consumers see one type surface.
+// Types of the KMS context rotation. Re-exported from ../types/public.ts so consumers see one type surface.
 import type { AbstractEthereumSigner } from '../types/public.js';
 
 /** One generated key's digest, as `IKMSGeneration.KeyDigest`; `keyType` 0 is Server, 1 is Public. */

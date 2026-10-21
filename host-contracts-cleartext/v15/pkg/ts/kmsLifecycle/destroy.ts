@@ -1,4 +1,4 @@
-// Aborting a v14 epoch: the way out of a split activation vote, which would otherwise block every later proposal.
+// Aborting an epoch: the way out of a split activation vote, which would otherwise block every later proposal.
 import { abi as aclOwnerAbi } from '../artifacts/ACLOwner.js';
 import { abi as protocolConfigAbi } from '../artifacts/ProtocolConfig.js';
 import type { AbstractEthereumSigner, AbstractEthereumUtils } from '../types/public.js';

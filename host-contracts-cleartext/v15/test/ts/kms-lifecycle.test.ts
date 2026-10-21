@@ -1,4 +1,4 @@
-// v14's KMS rotation end to end: propose, reach the creation quorum, activate the epoch with every incoming
+// The KMS rotation end to end: propose, reach the creation quorum, activate the epoch with every incoming
 // signer's attestation, then retire the superseded context. The package builds the digests; the harness signs.
 import { deploy, destroyKmsContext, rotateKmsContext } from '../../pkg/ts/index.ts';
 import { abi as protocolConfigAbi } from '../../pkg/ts/artifacts/ProtocolConfig.ts';

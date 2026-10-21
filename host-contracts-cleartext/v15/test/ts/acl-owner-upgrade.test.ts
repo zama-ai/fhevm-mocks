@@ -66,7 +66,7 @@ function walletFor(rpcUrl: string, addressIndex: number) {
   return createWalletClient({ account: privateKeyToAccount(privateKey), chain: foundry, transport: http(rpcUrl) });
 }
 
-/** Valid bootstrap config for a fresh v14 stack (one KMS node, all thresholds = 1). */
+/** Valid bootstrap config for a fresh stack (one KMS node, all thresholds = 1). */
 function bootstrapConfig(parameters: {
   readonly verifyingContractSource: string;
   readonly coprocessorSigner: string;
@@ -89,7 +89,7 @@ function bootstrapConfig(parameters: {
           signerAddress: parameters.kmsSigner,
           ipAddress: '127.0.0.1',
           storageUrl: 'https://kms.example',
-          // v14's four additions, visibly fixture values like the two above.
+          // The four `KmsNodeParams` additions (since v14), visibly fixture values like the two above.
           partyId: 1,
           mpcIdentity: 'kms-core-1-fixture-core-1',
           caCert: '0x',
@@ -113,7 +113,7 @@ type DeployedStack = {
   readonly proxies: readonly Address[];
 };
 
-/** Starts anvil and deploys a fresh v14 stack via the public `deploy(...)` (deployer = admin). */
+/** Starts anvil and deploys a fresh stack via the public `deploy(...)` (deployer = admin). */
 async function deployStack(port: number): Promise<DeployedStack> {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
   const deployerAddress = privateKeyToAddress({ privateKey: deployerKey });

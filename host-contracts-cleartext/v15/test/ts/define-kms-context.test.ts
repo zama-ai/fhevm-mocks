@@ -40,7 +40,7 @@ test('defineNewKmsContextAndEpoch proposes the next KMS signer window as a Pendi
     const adapters = createViemEthereumAdapters({ rpcUrl: anvil.rpcUrl, privateKey: deployerKey });
     const publicClient = createPublicClient({ chain: foundry, transport: http(anvil.rpcUrl) });
 
-    // Deploy a default v13 stack with no config AND no precomputed addresses — deploy derives them from
+    // Deploy a default stack with no config AND no precomputed addresses — deploy derives them from
     // the deployer's live nonce. (no config → default KMS pool[0..3]; ACL owned by the standing
     // ACLOwner, ACLOwner owned by `admin` — exactly the topology defineNewKmsContext targets.)
     const deployed = await deploy({
@@ -91,7 +91,7 @@ test('defineNewKmsContextAndEpoch proposes the next KMS signer window as a Pendi
     const nextWindow = [4, 5, 6, 7].map(defaultKmsSigner);
     expect(signers.map((s) => s.toLowerCase())).toEqual(nextWindow);
 
-    // v14 only proposes: the new context took the next id and holds the next window, but the old
+    // Since v14 a definition only proposes: the new context took the next id and holds the next window, but the old
     // committee stays in charge until creation is confirmed and its first epoch activated (kmsLifecycle/).
     expect(kmsContextId).toBe(initialContextId + 1n);
     expect(await readCounter()).toBe(kmsContextId);

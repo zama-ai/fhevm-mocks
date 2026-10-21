@@ -1,5 +1,5 @@
-// Run: npm run list:upgrade-ops -- ../v12            (report; exit 0 whatever it finds)
-//      npm run list:upgrade-ops -- ../v12 --strict   (exit 1 when any contract is flagged ⚠)
+// Run: npm run list:upgrade-ops -- ../v<N-1>         (report; exit 0 whatever it finds)
+//      npm run list:upgrade-ops -- ../v<N-1> --strict (exit 1 when any contract is flagged ⚠)
 //
 // Read-only: writes nothing, compiles nothing, reads only committed JSON.
 //

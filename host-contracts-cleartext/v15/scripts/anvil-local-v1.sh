@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Start an anvil node and deploy the cleartext v13 stack onto it from the PRE-COMPILED bytecode blobs.
+# Start an anvil node and deploy this generation's cleartext stack onto it from the PRE-COMPILED bytecode blobs.
 # Ctrl-C stops the node.
 #
 # Usage: ./scripts/anvil-local-v1.sh [--port PORT] [--no-check] [-v|--verbose]

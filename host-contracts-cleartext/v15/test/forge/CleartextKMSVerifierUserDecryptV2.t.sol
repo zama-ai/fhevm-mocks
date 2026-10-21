@@ -32,7 +32,7 @@ contract MockErc1271Wallet {
 }
 
 /**
- * The unified (RFC-016) user decryption, `userDecryptV2`: what the v14 gateway
+ * The unified (RFC-016) user decryption, `userDecryptV2`: what the gateway (since v14)
  * (`userDecryptionRequest(HandleEntry[], ...)`) and kms-worker (`check_user_decryption_request_v2`) enforce. The
  * verifier checks its own (the KMS context, its verifying contract) and hands the rest to
  * `LibKmsVerifier.userDecryptPayloadV2`; this suite drives both through the verifier's ABI.

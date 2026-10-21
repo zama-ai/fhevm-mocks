@@ -312,7 +312,7 @@ contract FhevmDeployScript is Script {
         console.log("Every proxy materialized in one ACLOwner.upgrade");
     }
 
-    /// @dev v13: signers moved to ProtocolConfig, so only the EIP-712 domain is set here.
+    /// @dev Since v13 the signers live in ProtocolConfig, so only the EIP-712 domain is set here.
     function _kmsVerifierInit() private pure returns (bytes memory) {
         return abi.encodeCall(
             KMSVerifier.initializeFromEmptyProxy,
@@ -343,7 +343,7 @@ contract FhevmDeployScript is Script {
         );
     }
 
-    /// @dev Seeds the initial KMS context; v14 also names the KMS build and accepts no enclave PCRs.
+    /// @dev Seeds the initial KMS context; since v14 it also names the KMS build and accepts no enclave PCRs.
     function _protocolConfigInit() private pure returns (bytes memory) {
         return abi.encodeCall(
             ProtocolConfig.initializeFromEmptyProxy,

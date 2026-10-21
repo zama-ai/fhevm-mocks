@@ -24,7 +24,7 @@ export type {
  * The host address set **this package deploys**.
  *
  * Deliberately unsuffixed. A package is already pinned to one protocol generation by its own `version`,
- * so a `V13` suffix would restate inside the package what the package name and version say outside it —
+ * so a version suffix would restate inside the package what the package name and version say outside it —
  * and it is what made every previous-generation port a rename of ~70 call sites. Where two generations
  * genuinely meet, the version stays in the name: see `FhevmAddressesV14` below and `updateV14ToV15`.
  */
@@ -76,9 +76,9 @@ export type KMSVerifierInitConfig = {
 export type ProtocolConfigInitConfig = {
   readonly initialKmsNodes: readonly KmsNodeParams[];
   readonly initialThresholds: KmsThresholds;
-  /** The KMS build the context is created under (v14); stored as-is, nothing on-chain parses it. */
+  /** The KMS build the context is created under (since v14); stored as-is, nothing on-chain parses it. */
   readonly softwareVersion: string;
-  /** Accepted enclave measurement sets (v14); empty for a stack with no enclave. */
+  /** Accepted enclave measurement sets (since v14); empty for a stack with no enclave. */
   readonly pcrValues: readonly PcrValues[];
 };
 
@@ -111,7 +111,7 @@ export type KmsThresholds = {
   readonly mpc: bigint;
 };
 
-/** v14's node entry: `KmsNode` plus the MPC metadata `ProtocolConfig` hashes and emits but does not store. */
+/** The node entry (since v14): `KmsNode` plus the MPC metadata `ProtocolConfig` hashes and emits but does not store. */
 export type KmsNodeParams = KmsNode & {
   readonly partyId: number;
   readonly mpcIdentity: string;
@@ -119,7 +119,7 @@ export type KmsNodeParams = KmsNode & {
   readonly storagePrefix: string;
 };
 
-/** One accepted enclave measurement set (v14), mirroring the on-chain `PcrValues` struct; hex bytes. */
+/** One accepted enclave measurement set (since v14), mirroring the on-chain `PcrValues` struct; hex bytes. */
 export type PcrValues = {
   readonly pcr0: string;
   readonly pcr1: string;
@@ -135,7 +135,7 @@ export type BootstrapConfig = {
   readonly protocolConfig: ProtocolConfigInitConfig;
 };
 
-// v14's KMS rotation types live with the lifecycle code; re-exported here so consumers see one type module.
+// The KMS rotation types live with the lifecycle code; re-exported here so consumers see one type module.
 export type {
   EpochActivationAttestation,
   EpochActivationDigests,

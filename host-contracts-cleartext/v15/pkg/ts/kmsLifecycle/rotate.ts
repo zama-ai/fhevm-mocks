@@ -1,4 +1,4 @@
-// A whole v14 rotation, phases 1 to 3 in order: the call a caller wants by default, since a rotation that
+// A whole KMS rotation, phases 1 to 3 in order: the call a caller wants by default, since a rotation that
 // stops after phase 1 leaves the old committee in charge and nothing on-chain reports the gap.
 import { abi as protocolConfigAbi } from '../artifacts/ProtocolConfig.js';
 import { defineNewKmsContextAndEpoch } from '../kmsContext.js';

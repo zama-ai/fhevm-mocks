@@ -1,4 +1,4 @@
-// Phase 3 of a v14 rotation: every incoming signer attests to the epoch's key and CRS results, and the
+// Phase 3 of a KMS rotation: every incoming signer attests to the epoch's key and CRS results, and the
 // context becomes Active. The package builds the EIP-712 digests and submits signatures; it never signs.
 import { abi as protocolConfigAbi } from '../artifacts/ProtocolConfig.js';
 import type { AbstractEthereumProvider, AbstractEthereumSigner, AbstractEthereumUtils } from '../types/public.js';

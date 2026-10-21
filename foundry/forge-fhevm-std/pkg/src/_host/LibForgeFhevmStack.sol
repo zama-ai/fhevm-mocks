@@ -163,8 +163,8 @@ library LibForgeFhevmStack {
         );
     }
 
-    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct v14's
-    ///      initializers take, not the `KmsNode` its getters return.
+    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct the
+    ///      initializers take (since v14), not the `KmsNode` its getters return.
     function _fhevmProtocolConfig()
         private
         pure

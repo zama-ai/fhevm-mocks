@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# anvil-local-v3.sh — fixed-address local cleartext v13 deployment, no compiler
+# anvil-local-v3.sh — fixed-address local cleartext deployment, no compiler
 #
 # Modeled on forge-fhevm's deploy-local.sh, adapted to this package.
 #

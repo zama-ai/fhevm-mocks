@@ -104,7 +104,7 @@ contract CleartextForgeFHEVMExecutor is FHEVMExecutor, IPlaintexts {
         vmSafe.resumeGasMetering();
     }
 
-    /// @dev `fheMulDiv`, v14's widened `(factor1 * factor2) / divisor`; the divisor is always plaintext.
+    /// @dev `fheMulDiv` (since v14), the widened `(factor1 * factor2) / divisor`; the divisor is always plaintext.
     function _mulDivOp(
         Operators op,
         bytes32 factor1,

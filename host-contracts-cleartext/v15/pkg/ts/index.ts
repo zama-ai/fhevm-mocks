@@ -11,10 +11,10 @@ export { precomputeCreate2Addresses, CREATE2_FACTORY, CREATE2_ROLES } from './cr
 export { setupACLOwner } from './aclOwner.js';
 // Emergency pause / unpause of the ACL, driven through the standing `ACLOwner` by its admin.
 export { pauseACL, unpauseACL } from './aclOwner.js';
-// Propose / retire KMS contexts via the standing `ACLOwner`; in v14 a proposal is only phase 1 of a rotation.
+// Propose / retire KMS contexts via the standing `ACLOwner`; since v14 a proposal is only phase 1 of a rotation.
 export { defineNewKmsContextAndEpoch, destroyKmsContext } from './kmsContext.js';
 
-// v14's KMS rotation: `rotateKmsContext` runs all three phases; the rest drive or inspect one phase.
+// The KMS rotation: `rotateKmsContext` runs all three phases; the rest drive or inspect one phase.
 export {
   rotateKmsContext,
   confirmKmsContextCreation,
@@ -58,7 +58,7 @@ export type {
   KmsThresholds,
   KmsNodeParams,
   PcrValues,
-  // v14's rotation: what a signer attests to, the digests it signs, the tx-sender/signer pair that submits.
+  // The rotation: what a signer attests to, the digests it signs, the tx-sender/signer pair that submits.
   KeyDigest,
   EpochActivationAttestation,
   EpochActivationDigests,

@@ -13,14 +13,14 @@ import {LibForgeFhevmPublicDecrypt} from "../../pkg/forge/src/LibForgeFhevmPubli
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
- * The v14 KMSVerifier refuses a malformed proof AS MALFORMED, before it recovers a single signer.
+ * The KMSVerifier refuses a malformed proof AS MALFORMED, before it recovers a single signer.
  *
  * A decryption proof is `numSigners (1 byte) | signatures (65 bytes each) | extraData`, so bytes appended to
  * it land in extraData. Since v0.14 `KMSVerifier._extractKmsContextId` requires a version-1 extraData to be
  * exactly 33 bytes and a version-2 one exactly 65, and reverts `DeserializingExtraDataFail` otherwise. v0.13
  * tolerated trailing bytes, which then corrupted the signed digest and surfaced later as `KMSInvalidSigner`.
  *
- * This file is v14's own on purpose: the behaviour is the contract's, not the SDK's, so the shared
+ * This file is the generation's own on purpose: the behaviour is the contract's, not the SDK's, so the shared
  * doc-example tests in hardhat check a corrupted SIGNATURE instead, which both generations reject the same
  * way (`KMSInvalidSigner`).
  */

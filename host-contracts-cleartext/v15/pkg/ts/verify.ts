@@ -210,9 +210,9 @@ async function readAll(
  *
  * ## A caveat when snapshotting the PREVIOUS generation
  *
- * The getters are enumerated from THIS package's ABIs. Pointed at a v14 stack, a getter that v15 added
+ * The getters are enumerated from THIS package's ABIs. Pointed at a previous-generation stack, a getter this generation added
  * simply reverts and is recorded as `<reverted>` — harmless, and it stays `<reverted>` or starts working,
- * either of which reads correctly. What this cannot see is a getter v15 REMOVED: it is absent from the
+ * either of which reads correctly. What this cannot see is a getter this generation REMOVED: it is absent from the
  * enumeration, so its disappearance is invisible. Supply `abis` with the previous generation's ABIs to
  * close that gap when the previous package is available.
  */
@@ -735,9 +735,9 @@ async function checkNoAuthorityEvents(
  *
  * @example
  * ```ts
- * const before = await snapshotStack({ ethProvider, history, deployed: v14Stack });
+ * const before = await snapshotStack({ ethProvider, history, deployed: previousStack });
  * await updateV14ToV15({ ... }); // creates no proxy: the address set is unchanged
- * const report = await verify({ ethProvider, history, deployed: v14Stack, mode: 'upgrade', before });
+ * const report = await verify({ ethProvider, history, deployed: previousStack, mode: 'upgrade', before });
  * if (!report.ok) throw new Error(report.failures.map((f) => `${f.name}: ${f.detail ?? ''}`).join('\n'));
  * ```
  */

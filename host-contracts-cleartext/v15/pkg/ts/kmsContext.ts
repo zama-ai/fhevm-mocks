@@ -20,7 +20,7 @@ import type {
  * Reads the current KMS signer set (which must be a consecutive window of the default 20-signer pool),
  * computes the next window of the same length via {@link nextDefaultKmsSignerWindow}, rebuilds the full
  * per-node details from the defaults, and calls `ProtocolConfig.defineNewKmsContextAndEpoch(...)`. The
- * four thresholds are preserved from the current context unless `thresholds` is provided. In v14 this
+ * four thresholds are preserved from the current context unless `thresholds` is provided. Since v14 this
  * only PROPOSES: the context is Pending and `getKmsSigners()` still reports the old set until the
  * committees confirm it and its first epoch is activated (see `kmsLifecycle/`).
  *
@@ -86,7 +86,7 @@ export async function defineNewKmsContextAndEpoch(parameters: {
  * standing `ACLOwner` (same authorization model as {@link defineNewKmsContextAndEpoch}: `admin` owns the
  * `ACLOwner`, which is the ACL owner). The ACTIVE context cannot be destroyed, and an unknown or
  * already-destroyed id is rejected — both revert on-chain and the revert bubbles up through
- * `ACLOwner.execute`. v14 also clears the context's epoch, if it had one.
+ * `ACLOwner.execute`. Since v14 it also clears the context's epoch, if it had one.
  */
 export async function destroyKmsContext(parameters: {
   readonly ethUtils: AbstractEthereumUtils;

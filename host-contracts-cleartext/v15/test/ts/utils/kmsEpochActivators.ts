@@ -1,4 +1,4 @@
-// Signing for v14's epoch activation, which the package deliberately cannot do: it holds no keys and its
+// Signing for epoch activation (since v14), which the package deliberately cannot do: it holds no keys and its
 // signer adapter has no `signTypedData`, so the harness signs the digests the package computes, with viem.
 import { mnemonicToAccount, sign } from 'viem/accounts';
 import type { EpochActivationAttestation, EpochActivationDigests, KmsEpochActivator } from '../../../pkg/ts/index.ts';

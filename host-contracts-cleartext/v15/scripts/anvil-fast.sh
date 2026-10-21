@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Start an anvil node with the cleartext v13 stack already on it, by loading pkg/state/genesis.json.
+# Start an anvil node with this generation's cleartext stack already on it, by loading pkg/state/genesis.json.
 # Deploys nothing and compiles nothing. Ctrl-C stops the node.
 #
 # Usage: ./scripts/anvil-fast.sh [--port PORT] [--no-check]

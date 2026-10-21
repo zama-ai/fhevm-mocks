@@ -103,7 +103,7 @@ contract CleartextKMSVerifier is KMSVerifier {
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // !!! TEMPORARY — REMOVE WHEN THE PATCHED FHEVM SDK RELEASES ARE PINNED !!!
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // extraData v1 on purpose. On a v14 chain the right default is v2 (`0x02 | contextId | epochId`),
+        // extraData v1 on purpose. Since v14 the right default is v2 (`0x02 | contextId | epochId`),
         // which is what SDK 0.14 requests. But the hardhat plugins temporarily hide `protocolConfig` from the
         // SDK's chain definition (the "no protocolConfig address" trick), so SDK 0.14 requests v1 like SDK
         // 0.13, and this one-argument call must sign v1 for both to verify the proof.
@@ -172,7 +172,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /// @notice Same, signed over exactly the `extraData` the requester names, as a real relayer has the KMS
     ///         sign over the extraData the request carries.
-    /// @dev    v14 only. The sdk decides which KMS committee must sign and verifies the proof against its own
+    /// @dev    Since v14. The sdk decides which KMS committee must sign and verifies the proof against its own
     ///         extraData, ignoring the one returned here. So the digest must be built over the REQUESTED
     ///         extraData: v0 (empty or `0x00`: the current context), v1 (`0x01 | contextId`) or v2
     ///         (`0x02 | contextId | epochId`). Parsed by KMSVerifier's own `_extractKmsContextId`, which rejects
@@ -195,7 +195,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /// @notice Same as the legacy `userDecrypt`, verified against exactly the `extraData` the user signed their
     ///         permit over.
-    /// @dev    v14 only. A permit is reusable until it expires, and its extraData names the KMS context (and, in
+    /// @dev    Since v14. A permit is reusable until it expires, and its extraData names the KMS context (and, in
     ///         v2, epoch) current WHEN IT WAS SIGNED, which may no longer be the current one; the sdk resolves
     ///         the signers of that context, not of the current one. So the host must not guess it: the caller
     ///         passes the permit's `message.extraData`, verbatim. Parsed by KMSVerifier's own
@@ -227,7 +227,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /// @notice Same as the legacy `delegatedUserDecrypt`, verified against exactly the `extraData` the delegate
     ///         signed their permit over.
-    /// @dev    v14 only; see `userDecryptV1`.
+    /// @dev    Since v14; see `userDecryptV1`.
     /// @param permit    The permit's signed fields (the delegator included) and its signer, the delegate.
     /// @param signature The delegate's 65-byte EOA signature over the permit.
     function delegatedUserDecryptV1(
@@ -255,7 +255,7 @@ contract CleartextKMSVerifier is KMSVerifier {
     // ---------------------------------------------------------------------------------------------
     // Unified (RFC-016) user decryption: permit v2, `durationSeconds` + `allowedContracts`.
     //
-    // On v14 the gateway (`Decryption.userDecryptionRequest(HandleEntry[], ...)`) only checks the
+    // Since v14 the gateway (`Decryption.userDecryptionRequest(HandleEntry[], ...)`) only checks the
     // request's shape and limits; authorisation moved to the kms-worker
     // (`check_user_decryption_request_v2`). `LibKmsVerifier.userDecryptPayloadV2` mirrors both, in their
     // order; the verifier checks what is its own first (the KMS context, its verifying contract).
@@ -263,7 +263,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /**
      * @notice Unified user decryption: returns the user-decryption payload and KMS metadata once the request
-     *         passes every check the v14 gateway and kms-worker make.
+     *         passes every check the gateway and kms-worker make (since v14).
      * @param handles   The handles, each with the contract it is held under and its owner.
      * @param permit    The signed fields of the permit, verbatim (`extraData` included).
      * @param signature A 65-byte EOA signature, an ERC-1271 blob, or empty for a smart account.

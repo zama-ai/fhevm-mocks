@@ -10,7 +10,7 @@ import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol"
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
- * The v14 operator `fheMulDiv`, end to end: executor -> CleartextArithmetic -> CleartextDB.
+ * The `fheMulDiv` operator (since v14), end to end: executor -> CleartextArithmetic -> CleartextDB.
  *
  * `(factor1 * factor2) / divisor` with a 256-bit intermediate, truncating division, and the result reduced
  * to the operand type — what the upstream mock coprocessor computes (`host-contracts/test/coprocessorUtils.ts`).

@@ -34,7 +34,7 @@ interface ICleartextArithmetic is IPlaintexts {
         external;
 
     /// @notice Computes `(factor1 * factor2) / divisor` with a 256-bit intermediate and records it into
-    ///         `result`. v14 operator: `divisor` is always plaintext; `factor2` is plaintext iff bit 1 of
+    ///         `result`. Since v14: `divisor` is always plaintext; `factor2` is plaintext iff bit 1 of
     ///         `scalarByte` is set (`0x03`). A zero divisor never arrives here: the executor reverts first.
     function recordMulDiv(
         bytes32 result,

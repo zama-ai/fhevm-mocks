@@ -773,7 +773,7 @@ void test('ComputeAddresses.s.sol matches its template rendered with the current
  *
  * Created proxies are excluded for a reason worth keeping straight: before the upgrade they do not exist,
  * so they produce no reading to compare. They are NEW, not changed, and exempting them would mean claiming
- * a reading moved when there was never a first one. v14→v15 creates none, so the set is empty here.
+ * a reading moved when there was never a first one. This upgrade creates none, so the set is empty here.
  */
 void test('verify DEFAULT_MAY_CHANGE matches the proxies updateV14ToV15 re-points', () => {
   const upgradeSrc = readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'upgrade.ts'), 'utf8');

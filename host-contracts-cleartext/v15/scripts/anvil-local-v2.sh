@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Start an anvil node and deploy the cleartext v13 stack onto it with NO Solidity compilation at all —
+# Start an anvil node and deploy this generation's cleartext stack onto it with NO Solidity compilation at all —
 # only `cast` transactions carrying the pre-compiled blobs, plus two anvil RPCs. Ctrl-C stops the node.
 #
 # Usage: ./scripts/anvil-local-v2.sh [--port PORT] [--no-check] [-v|--verbose]

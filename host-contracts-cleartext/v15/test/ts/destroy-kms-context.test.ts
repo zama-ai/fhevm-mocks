@@ -40,7 +40,7 @@ test('destroyKmsContext aborts a Pending KMS context through ACLOwner.execute', 
       startNonce: 0n,
     });
 
-    // Deploy a default v13 stack (ACL owned by the standing ACLOwner, ACLOwner owned by `admin`).
+    // Deploy a default stack (ACL owned by the standing ACLOwner, ACLOwner owned by `admin`).
     const deployed = await deploy({
       ethProvider: adapters.provider,
       ethUtils: adapters.utils,
@@ -64,7 +64,7 @@ test('destroyKmsContext aborts a Pending KMS context through ACLOwner.execute', 
         args: [kmsContextId],
       });
 
-    // The deploy seeds the first context. In v14 a proposal is Pending, not active: the first context
+    // The deploy seeds the first context. Since v14 a proposal is Pending, not active: the first context
     // stays current and valid, the proposal is not yet valid, and before its confirmation the one thing
     // that can happen to it is an abort — which is what destroying a non-active context is.
     const firstContextId = await currentContextId();
