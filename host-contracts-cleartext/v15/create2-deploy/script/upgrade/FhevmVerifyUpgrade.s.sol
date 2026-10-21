@@ -7,15 +7,28 @@ import {IWiredInputVerifier, IWiredProtocolConfig} from "../Interfaces.sol";
 
 /**
  * @notice The upgrade's terminal conditions: the re-point engine's, plus what only this generation step
- *         changes — the KMS signer set, thresholds and coprocessors survived, and the live context was
- *         promoted into the epoch model with the sealed migration as its anchor.
+ *         can get wrong — every proxy took its reinitializer, and the KMS and coprocessor state it migrates
+ *         nothing of came through unchanged.
  */
 contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
     function _verifyExtras(string memory manifest) internal override {
+        _checkReinitialized(manifest);
         _checkSurvivedValues(manifest);
-        _checkKmsContextPromoted(manifest);
     }
 
+    /// @dev Each proxy is initialized at its v15 version: the reinitializer ran, exactly once.
+    function _checkReinitialized(string memory manifest) private {
+        string[] memory roles = _upgradeProxyRoles();
+        for (uint256 i; i < roles.length; i++) {
+            _expectUint(
+                uint256(_initializedVersion(_readManifestAddress(manifest, roles[i]))),
+                uint256(_upgradeToVersion(i)),
+                string.concat(_initName(i, roles[i]), " ran: ", roles[i], " is initialized at its v15 version")
+            );
+        }
+    }
+
+    /// @dev No reinitializer touches the KMS or coprocessor state, so all of it must read as before.
     function _checkSurvivedValues(string memory manifest) private {
         IWiredProtocolConfig pc = IWiredProtocolConfig(_readManifestAddress(manifest, R_PROTOCOL_CONFIG));
         _expectSignerSet(
@@ -23,17 +36,16 @@ contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
             vm.parseJsonAddressArray(manifest, ".preUpgrade.kmsSigners"),
             "ProtocolConfig.getKmsSigners() == the pre-upgrade KMS set"
         );
-        (bool nodesMatch, string memory why) = _migrationNodesMatch(pc.getKmsNodesForContext(_migrationContextId()));
-        _expect(
-            nodesMatch,
-            nodesMatch
-                ? "ProtocolConfig.getKmsNodesForContext(contextId) == the sealed migration's stored node fields"
-                : why
+        (uint256 contextId, uint256 epochId) = pc.getCurrentKmsContextAndEpoch();
+        _expectUint(
+            contextId,
+            vm.parseJsonUint(manifest, ".preUpgrade.kmsContextId"),
+            "ProtocolConfig.getCurrentKmsContextAndEpoch().contextId == the pre-upgrade context"
         );
         _expectUint(
-            pc.getCurrentKmsContextId(),
-            vm.parseUint(vm.parseJsonString(manifest, ".preUpgrade.migration.existingContextId")),
-            "ProtocolConfig.getCurrentKmsContextId() == the pre-upgrade context id"
+            epochId,
+            vm.parseJsonUint(manifest, ".preUpgrade.kmsEpochId"),
+            "ProtocolConfig.getCurrentKmsContextAndEpoch().epochId == the pre-upgrade epoch"
         );
 
         string memory t = ".preUpgrade.kmsThresholds.";
@@ -62,29 +74,6 @@ contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
             iv.getThreshold(),
             vm.parseJsonUint(manifest, ".preUpgrade.coprocessorThreshold"),
             "InputVerifier.getThreshold() untouched"
-        );
-    }
-
-    /**
-     * @dev v14's intended change to the KMS state, and the one place the seal is bound to the chain.
-     *
-     *      `reinitializeV2` promotes the live context into the epoch model and anchors
-     *      `keccak256(abi.encode(kmsNodeParams, thresholds, softwareVersion, pcrValues))`. The node
-     *      metadata, software version and PCR values are readable no other way, so recomputing that hash
-     *      from the SEALED migration and comparing is what proves the chain recorded what the operator
-     *      reviewed at the gate — and nothing else.
-     */
-    function _checkKmsContextPromoted(string memory manifest) private {
-        IWiredProtocolConfig pc = IWiredProtocolConfig(_readManifestAddress(manifest, R_PROTOCOL_CONFIG));
-        uint256 sealedContextId = _migrationContextId();
-        (uint256 contextId, uint256 epochId) = pc.getCurrentKmsContextAndEpoch();
-        _expectUint(contextId, sealedContextId, "getCurrentKmsContextAndEpoch() reports the promoted context");
-        _expect(epochId != 0, "getCurrentKmsContextAndEpoch() reports its first epoch");
-        (uint256 emissionBlock, bytes32 contextInfoHash) = pc.getKmsContextAnchor(sealedContextId);
-        _expect(emissionBlock != 0, "getKmsContextAnchor(contextId) was backfilled");
-        _expect(
-            contextInfoHash == _migrationContextInfoHash(),
-            "getKmsContextAnchor(contextId).contextInfoHash == keccak256 of the sealed migration"
         );
     }
 }
