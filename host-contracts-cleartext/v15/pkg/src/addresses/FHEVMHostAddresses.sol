@@ -12,7 +12,7 @@ import {
     PAUSER_SET_ADDRESS,
     CLEARTEXT_ARITHMETIC_ADDRESS,
     CLEARTEXT_DB_ADDRESS
-} from "fhevm-config-0.14.0/addresses.sol";
+} from "fhevm-config-0.15.0/addresses.sol";
 
 address constant aclAdd = ACL_ADDRESS;
 address constant fhevmExecutorAdd = FHEVM_EXECUTOR_ADDRESS;

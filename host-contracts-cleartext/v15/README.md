@@ -53,7 +53,7 @@ the consuming layer (`forge-fhevm`) declares one more remapping:
 ```toml
 [profile.default]
 remappings = [
-    'fhevm-config-0.14.0/=config/',
+    'fhevm-config-0.15.0/=config/',
     'host-contracts-cleartext-forge/=lib/host-contracts-cleartext/forge/src/',
 ]
 ```

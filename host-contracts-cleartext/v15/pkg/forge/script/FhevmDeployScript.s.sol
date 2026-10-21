@@ -44,13 +44,13 @@ import {
  * @notice Step 2 of the two-phase FHEVM host deployment.
  *
  * Must be run AFTER ComputeAddresses.s.sol has written the generated
- * `fhevm-config-0.14.0/addresses.sol` and `forge build` has been executed with
+ * `fhevm-config-0.15.0/addresses.sol` and `forge build` has been executed with
  * that directory remapped, so that all implementation contracts carry the
  * correct baked-in addresses.
  *
  * Usage (from the package root):
  *
- *   FOUNDRY_REMAPPINGS=fhevm-config-0.14.0/=internal/.deploy-config/ \
+ *   FOUNDRY_REMAPPINGS=fhevm-config-0.15.0/=internal/.deploy-config/ \
  *     forge script pkg/forge/script/FhevmDeployScript.s.sol \
  *       --rpc-url <rpc> \
  *       --broadcast \
