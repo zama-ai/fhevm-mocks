@@ -28,11 +28,11 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
 
     string private constant CONTRACT_NAME = "ProtocolConfig";
     uint256 private constant MAJOR_VERSION = 0;
-    uint256 private constant MINOR_VERSION = 2;
+    uint256 private constant MINOR_VERSION = 3;
     uint256 private constant PATCH_VERSION = 0;
 
-    /// @dev Shared between `initializeFromEmptyProxy`, `initializeFromCanonical`, and `reinitializeV2`.
-    uint64 private constant REINITIALIZER_VERSION = 3;
+    /// @dev Shared between `initializeFromEmptyProxy`, `initializeFromCanonical`, and `reinitializeV3`.
+    uint64 private constant REINITIALIZER_VERSION = 4;
 
     /// @notice Upper bound on the KMS committee size and on every per-context threshold.
     /// @dev Driven by the proof format consumed in
@@ -186,8 +186,9 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
     ) public virtual onlyFromEmptyProxy reinitializer(REINITIALIZER_VERSION) {
         ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
 
-        uint256 newContextId = _storeAndActivateKmsContextAndEpoch(
-            KMS_CONTEXT_COUNTER_BASE + 1, EPOCH_COUNTER_BASE + 1, initialKmsNodeParams, initialThresholds
+        uint256 newContextId = KMS_CONTEXT_COUNTER_BASE + 1;
+        _storeAndActivateKmsContextAndEpoch(
+            newContextId, EPOCH_COUNTER_BASE + 1, initialKmsNodeParams, initialThresholds
         );
 
         $.contextAnchors[newContextId] = KmsContextAnchor({
@@ -230,45 +231,11 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
     }
 
     /**
-     * @notice Re-initializes the contract from V1.
-     * @dev Define a `reinitializeVX` function once the contract needs to be upgraded.
-     * @param kmsNodeParams The existing context's KMS node set, used to recompute the anchor hash.
-     * @param softwareVersion The KMS software version expected for the context.
-     * @param pcrValues Accepted enclave PCR values for the context.
+     * @notice Re-initializes the contract from V2.
      */
     /// @custom:oz-upgrades-unsafe-allow missing-initializer-call
     /// @custom:oz-upgrades-validate-as-initializer
-    function reinitializeV2(
-        KmsNodeParams[] calldata kmsNodeParams,
-        string calldata softwareVersion,
-        PcrValues[] calldata pcrValues
-    ) public virtual reinitializer(REINITIALIZER_VERSION) {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-
-        // Bring the existing context into the epoch-lifecycle shape: active context + first epoch.
-        $.epochCounter = EPOCH_COUNTER_BASE;
-        uint256 contextId = $.currentKmsContextId;
-
-        KmsThresholds memory thresholds = KmsThresholds({
-            publicDecryption: $.publicDecryptionThresholdForContext[contextId],
-            userDecryption: $.userDecryptionThresholdForContext[contextId],
-            kmsGen: $.kmsGenThresholdForContext[contextId],
-            mpc: $.mpcThresholdForContext[contextId]
-        });
-        $.latestActiveKmsContextId = contextId;
-        $.contextState[contextId] = ContextState.Active;
-        uint256 epochId = ++$.epochCounter;
-        _activateEpoch(epochId, contextId);
-
-        // Backfill the anchor the pre-epoch version never recorded.
-        $.contextAnchors[contextId] = KmsContextAnchor({
-            emissionBlockNumber: block.number,
-            contextInfoHash: keccak256(abi.encode(kmsNodeParams, thresholds, softwareVersion, pcrValues))
-        });
-        // Emit the genesis NewKmsContext the pre-epoch version never recorded. KMS-connectors will consider KMS_CONTEXT_COUNTER_BASE as sentinel/zero value
-        // and avoid triggering the context switch.
-        emit NewKmsContext(contextId, KMS_CONTEXT_COUNTER_BASE, kmsNodeParams, thresholds, softwareVersion, pcrValues);
-    }
+    function reinitializeV3() public virtual reinitializer(REINITIALIZER_VERSION) {}
 
     // -----------------------------------------------------------------------------------------
     // State-changing functions
@@ -292,7 +259,8 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
         // Store the new signer set as Pending. Its first epoch is created once the creation quorum
         // is reached, so the (context, epoch) pair announced to connectors is correct by construction.
         uint256 previousContextId = $.latestActiveKmsContextId;
-        uint256 contextId = _storeNextKmsContext(kmsNodeParams, thresholds);
+        uint256 contextId = $.currentKmsContextId + 1;
+        _storeKmsContext(contextId, kmsNodeParams, thresholds);
         $.contextState[contextId] = ContextState.Pending;
 
         // Cache the number of previous-committee confirmations confirmKmsContextCreation requires.
@@ -364,8 +332,12 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
 
         emit KmsContextCreationConfirmation(kmsContextId, msg.sender, isPreviousTxSender, isNewTxSender);
 
-        // All new nodes + (n - t) previous nodes confirm to tell Connectors the epoch transition may start.
-        if (_hasContextCreationQuorum(kmsContextId)) {
+        // Context creation quorum: all new nodes and (n - t) previous nodes confirmed.
+        if (
+            $.contextCreationNewTxSenderConfirmationCount[kmsContextId] == $.kmsNodesForContext[kmsContextId].length
+                && $.contextCreationPreviousTxSenderConfirmationCount[kmsContextId]
+                    >= $.contextCreationPreviousTxSenderThreshold[kmsContextId]
+        ) {
             $.contextState[kmsContextId] = ContextState.Created;
             // Create the confirmed context's first epoch here, pairing it with the context by construction.
             uint256 epochId = _createPendingEpoch(kmsContextId);
@@ -391,14 +363,6 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
         uint256 contextId = $.contextForEpoch[epochId];
         if (!$.isKmsTxSenderForContext[contextId][msg.sender]) {
             revert EpochActivationUnauthorized(msg.sender, epochId);
-        }
-
-        if ($.contextState[contextId] == ContextState.Pending) {
-            revert KmsContextNotCreated(contextId);
-        }
-
-        if (!_isLiveKmsContext(contextId)) {
-            revert InvalidKmsContext(contextId);
         }
 
         // Activation requires one key and one CRS attestation from the signer. An empty array skips its loop
@@ -553,50 +517,6 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
         }
 
         emit CoprocessorUpgradeProposed(proposalId, softwareVersion, chainUpgradeWindows, gwStartBlock);
-    }
-
-    /// @inheritdoc IProtocolConfig
-    function updatePublicDecryptionThresholdForContext(uint256 kmsContextId, uint256 threshold)
-        external
-        virtual
-        onlyACLOwner
-    {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        _requireValidContext(kmsContextId);
-        _checkThreshold("publicDecryption", threshold, $.kmsNodesForContext[kmsContextId].length);
-        $.publicDecryptionThresholdForContext[kmsContextId] = threshold;
-        emit PublicDecryptionThresholdUpdated(kmsContextId, threshold);
-    }
-
-    /// @inheritdoc IProtocolConfig
-    function updateUserDecryptionThresholdForContext(uint256 kmsContextId, uint256 threshold)
-        external
-        virtual
-        onlyACLOwner
-    {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        _requireValidContext(kmsContextId);
-        _checkThreshold("userDecryption", threshold, $.kmsNodesForContext[kmsContextId].length);
-        $.userDecryptionThresholdForContext[kmsContextId] = threshold;
-        emit UserDecryptionThresholdUpdated(kmsContextId, threshold);
-    }
-
-    /// @inheritdoc IProtocolConfig
-    function updateKmsGenThresholdForContext(uint256 kmsContextId, uint256 threshold) external virtual onlyACLOwner {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        _requireValidContext(kmsContextId);
-        _checkThreshold("kmsGen", threshold, $.kmsNodesForContext[kmsContextId].length);
-        $.kmsGenThresholdForContext[kmsContextId] = threshold;
-        emit KmsGenThresholdUpdated(kmsContextId, threshold);
-    }
-
-    /// @inheritdoc IProtocolConfig
-    function updateMpcThresholdForContext(uint256 kmsContextId, uint256 threshold) external virtual onlyACLOwner {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        _requireValidContext(kmsContextId);
-        _checkThreshold("mpc", threshold, $.kmsNodesForContext[kmsContextId].length);
-        $.mpcThresholdForContext[kmsContextId] = threshold;
-        emit MpcThresholdUpdated(kmsContextId, threshold);
     }
 
     // -----------------------------------------------------------------------------------------
@@ -836,41 +756,30 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
     /**
      * @dev Stores a KMS context under the caller-provided `contextId`, validates nodes and
      *      thresholds, and activates it under `epochId`. Use this on the bootstrap/mirror paths
-     *      where the context ID is externally determined; for fresh canonical allocation use
-     *      `_storeNextKmsContext`. Returns the context ID. Callers are responsible for emitting
+     *      where the context ID is externally determined. Callers are responsible for emitting
      *      context lifecycle events and recording the matching `KmsContextAnchor` when appropriate.
      */
     function _storeAndActivateKmsContextAndEpoch(
         uint256 contextId,
         uint256 epochId,
-        KmsNodeParams[] memory kmsNodeParams,
+        KmsNodeParams[] calldata kmsNodeParams,
         KmsThresholds calldata thresholds
-    ) internal virtual returns (uint256 newContextId) {
+    ) internal virtual {
         ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        newContextId = _storeKmsContext(contextId, kmsNodeParams, thresholds);
+        _storeKmsContext(contextId, kmsNodeParams, thresholds);
 
         // Set the context to Active and update the active context and epoch IDs.
-        $.contextState[newContextId] = ContextState.Active;
-        $.latestActiveKmsContextId = newContextId;
+        $.contextState[contextId] = ContextState.Active;
+        $.latestActiveKmsContextId = contextId;
         $.epochCounter = epochId;
-        _activateEpoch(epochId, newContextId);
-    }
-
-    /// @dev Allocates the next sequential KMS context ID and stores the context under it.
-    function _storeNextKmsContext(KmsNodeParams[] memory kmsNodeParams, KmsThresholds calldata thresholds)
-        internal
-        virtual
-        returns (uint256 newContextId)
-    {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        newContextId = _storeKmsContext($.currentKmsContextId + 1, kmsNodeParams, thresholds);
+        _activateEpoch(epochId, contextId);
     }
 
     function _storeKmsContext(
         uint256 contextId,
-        KmsNodeParams[] memory kmsNodeParams,
+        KmsNodeParams[] calldata kmsNodeParams,
         KmsThresholds calldata thresholds
-    ) internal virtual returns (uint256 newContextId) {
+    ) internal virtual {
         if (kmsNodeParams.length == 0) {
             revert EmptyKmsNodes();
         }
@@ -890,48 +799,40 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
             revert NonIncreasingKmsContextId(contextId, $.currentKmsContextId);
         }
         $.currentKmsContextId = contextId;
-        newContextId = contextId;
 
         for (uint256 i = 0; i < kmsNodeParams.length; i++) {
-            KmsNodeParams memory params = kmsNodeParams[i];
-            _storeKmsNode(
-                newContextId,
-                KmsNode({
-                    txSenderAddress: params.txSenderAddress,
-                    signerAddress: params.signerAddress,
-                    ipAddress: params.ipAddress,
-                    storageUrl: params.storageUrl
-                })
-            );
+            KmsNodeParams calldata params = kmsNodeParams[i];
+            KmsNode memory node = KmsNode({
+                txSenderAddress: params.txSenderAddress,
+                signerAddress: params.signerAddress,
+                ipAddress: params.ipAddress,
+                storageUrl: params.storageUrl
+            });
+            if (node.txSenderAddress == address(0)) {
+                revert KmsNodeNullTxSender();
+            }
+            if (node.signerAddress == address(0)) {
+                revert KmsNodeNullSigner();
+            }
+            if ($.isKmsTxSenderForContext[contextId][node.txSenderAddress]) {
+                revert KmsTxSenderAlreadyRegistered(node.txSenderAddress);
+            }
+            if ($.isKmsSignerForContext[contextId][node.signerAddress]) {
+                revert KmsSignerAlreadyRegistered(node.signerAddress);
+            }
+
+            $.kmsNodesForContext[contextId].push(node);
+            $.isKmsTxSenderForContext[contextId][node.txSenderAddress] = true;
+            $.isKmsSignerForContext[contextId][node.signerAddress] = true;
+            $.kmsNodeByTxSenderForContext[contextId][node.txSenderAddress] = node;
+            $.kmsSignerAddressesForContext[contextId].push(node.signerAddress);
         }
 
         // Store thresholds
-        $.publicDecryptionThresholdForContext[newContextId] = thresholds.publicDecryption;
-        $.userDecryptionThresholdForContext[newContextId] = thresholds.userDecryption;
-        $.kmsGenThresholdForContext[newContextId] = thresholds.kmsGen;
-        $.mpcThresholdForContext[newContextId] = thresholds.mpc;
-    }
-
-    function _storeKmsNode(uint256 contextId, KmsNode memory node) internal virtual {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        if (node.txSenderAddress == address(0)) {
-            revert KmsNodeNullTxSender();
-        }
-        if (node.signerAddress == address(0)) {
-            revert KmsNodeNullSigner();
-        }
-        if ($.isKmsTxSenderForContext[contextId][node.txSenderAddress]) {
-            revert KmsTxSenderAlreadyRegistered(node.txSenderAddress);
-        }
-        if ($.isKmsSignerForContext[contextId][node.signerAddress]) {
-            revert KmsSignerAlreadyRegistered(node.signerAddress);
-        }
-
-        $.kmsNodesForContext[contextId].push(node);
-        $.isKmsTxSenderForContext[contextId][node.txSenderAddress] = true;
-        $.isKmsSignerForContext[contextId][node.signerAddress] = true;
-        $.kmsNodeByTxSenderForContext[contextId][node.txSenderAddress] = node;
-        $.kmsSignerAddressesForContext[contextId].push(node.signerAddress);
+        $.publicDecryptionThresholdForContext[contextId] = thresholds.publicDecryption;
+        $.userDecryptionThresholdForContext[contextId] = thresholds.userDecryption;
+        $.kmsGenThresholdForContext[contextId] = thresholds.kmsGen;
+        $.mpcThresholdForContext[contextId] = thresholds.mpc;
     }
 
     /**
@@ -939,18 +840,15 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
      */
     function _checkThreshold(string memory name, uint256 value, uint256 nodeCount) internal pure {
         if (value == 0) revert InvalidNullThreshold(name);
-        if (value > MAX_KMS_SIGNERS) revert ThresholdExceedsProofFormatLimit(name, value, MAX_KMS_SIGNERS);
         if (value > nodeCount) revert InvalidHighThreshold(name, value, nodeCount);
     }
 
     /**
-     * @dev Returns true if the context exists and has not been destroyed. The stored-node
-     * check also keeps skipped canonical IDs invalid when `initializeFromCanonical` preserves
-     * a context ID above `BASE + 1`.
+     * @dev Returns true if the context exists and has not been destroyed. Every stored context is
+     * Pending, Created or Active, and only destruction resets it to None.
      */
     function _isLiveKmsContext(uint256 kmsContextId) internal view virtual returns (bool) {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        return _kmsContextExists(kmsContextId) && !$.destroyedContexts[kmsContextId];
+        return _getProtocolConfigStorage().contextState[kmsContextId] != ContextState.None;
     }
 
     /**
@@ -958,30 +856,20 @@ contract ProtocolConfig is IProtocolConfig, UUPSUpgradeableEmptyProxy, ACLOwnabl
      * Used for historical reads (e.g. context anchors) that must remain accessible post-destruction.
      */
     function _kmsContextExists(uint256 kmsContextId) internal view virtual returns (bool) {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        return kmsContextId >= KMS_CONTEXT_COUNTER_BASE + 1 && kmsContextId <= $.currentKmsContextId
-            && $.kmsNodesForContext[kmsContextId].length != 0;
+        return _getProtocolConfigStorage().kmsNodesForContext[kmsContextId].length != 0;
     }
 
     /**
      * @dev Returns true if the context exists and is currently in the `Active` lifecycle state.
      */
     function _isValidKmsContext(uint256 kmsContextId) internal view virtual returns (bool) {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        return _isLiveKmsContext(kmsContextId) && $.contextState[kmsContextId] == ContextState.Active;
+        return _getProtocolConfigStorage().contextState[kmsContextId] == ContextState.Active;
     }
 
     function _requireValidContext(uint256 kmsContextId) internal view virtual {
         if (!_isValidKmsContext(kmsContextId)) {
             revert InvalidKmsContext(kmsContextId);
         }
-    }
-
-    function _hasContextCreationQuorum(uint256 contextId) internal view virtual returns (bool) {
-        ProtocolConfigStorage storage $ = _getProtocolConfigStorage();
-        return $.contextCreationNewTxSenderConfirmationCount[contextId] == $.kmsNodesForContext[contextId].length
-            && $.contextCreationPreviousTxSenderConfirmationCount[contextId]
-                >= $.contextCreationPreviousTxSenderThreshold[contextId];
     }
 
     function _requireExpectedSigner(address expectedSigner, bytes32 digest, bytes calldata signature)

@@ -193,8 +193,8 @@
           "relPath": "./internal/zama-config",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.14.1",
-            "commit": "f1acef9496cc891c65b681713ba874a59c42071c",
+            "tag": "v0.15.0-3",
+            "commit": "3fcbc5fa1c5c0b4853ab4325bd847eae23e71ce7",
             "digest": "sha256-0ftNPGsVZmP5VLHmlACenc2Pi7/vl88A/XalaEyDR7k=",
             "from": "library-solidity/config"
           },
@@ -222,9 +222,9 @@
           "relPath": "./src/contracts",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.14.1",
-            "commit": "f1acef9496cc891c65b681713ba874a59c42071c",
-            "digest": "sha256-+gjOGJ1clvgyn+IHI0EymVfvyeLeOcXJCk17pYsDdI8=",
+            "tag": "v0.15.0-3",
+            "commit": "3fcbc5fa1c5c0b4853ab4325bd847eae23e71ce7",
+            "digest": "sha256-ukt5dEW7QKJZ4nGN1uh3nLGVI1CskOhkxCxBPa2mN4Y=",
             "from": "host-contracts/contracts"
           },
           "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation."
