@@ -22,8 +22,9 @@ import {IACLOwner} from "../Interfaces.sol";
  *     reinitializer selector would upgrade cleanly and fail only in use; `getVersion()` on the
  *     implementation itself catches the swap.
  *   - a build that no longer reproduces the seal, or code on chain that is not this build's.
- *   - a KMS signer rotation between `compute` and now, which would turn the sealed migration from a
- *     carry-over into a replacement.
+ *   - live state that moved since `compute` in a way the flow cannot carry: whatever its `_liveStateFresh`
+ *     hook guards (an upgrade: a proxy no longer at its previous-generation version; a hotfix: a proxy no
+ *     longer at the reinitializer version it was sealed against).
  *   - a live proxy whose implementation moved since the seal — someone else upgraded under us.
  *
  * Run against a FRESH `--out` this is also the independent recompile: the current checkout must

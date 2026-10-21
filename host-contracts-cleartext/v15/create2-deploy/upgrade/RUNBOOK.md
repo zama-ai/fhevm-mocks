@@ -1,4 +1,4 @@
-# Upgrade run-book: v13 → v14, CREATE2 path
+# Upgrade run-book: v14 → v15, CREATE2 path
 
 > **Start here instead:** [UPGRADE.md](../UPGRADE.md) is the step-by-step guide, with the warnings. This
 > file is the condensed checklist.
@@ -9,8 +9,8 @@ For the reasoning behind each step see [GUIDE.md](../GUIDE.md) and [README.md](.
 ## To test the tooling first
 
 ```sh
-npm run test:create2-deploy-e2e     # fresh v14 deploy through the CREATE2 coordinator, on a throwaway anvil
-npm run test:upgrade                # every suite needing the previous generation: a v13 deploy, then this upgrade
+npm run test:create2-deploy-e2e     # fresh v15 deploy through the CREATE2 coordinator, on a throwaway anvil
+npm run test:upgrade                # every suite needing the previous generation: a v14 deploy, then this upgrade
 ```
 
 ## 0. Prerequisites
@@ -18,7 +18,7 @@ npm run test:upgrade                # every suite needing the previous generatio
 ```sh
 which forge cast anvil node          # foundry + node >= 22.18
 cast wallet list                     # the deployer keystore must be listed
-cd host-contracts-cleartext/v14/create2-deploy
+cd host-contracts-cleartext/v15/create2-deploy
 ```
 
 Create `upgrade.config.json`, in `create2-deploy/`:
@@ -28,61 +28,26 @@ Create `upgrade.config.json`, in `create2-deploy/`:
   "rpcUrl": "https://sepolia.example",
   "account": "fhevm-testnet-deployer",
   "admin": "0x<current ACLOwner owner>",
-  "deploymentId": "<same id as the v13 deploy>",
+  "deploymentId": "<same id as the v14 deploy>",
   "outDir": ".out-upgrade-<chain>-<date>",
   "confirmations": 3,
-  "previousManifest": "../../v13/create2-deploy/<v13 out dir>/manifest.json",
+  "previousManifest": "../../v14/create2-deploy/<v14 out dir>/manifest.json",
   "handles": ["0x<a cleartext handle that exists in the live CleartextDB>"]
 }
 ```
 
-Relative paths in it (`outDir`, `previousManifest`, `migration`) are relative to this file's folder,
-`create2-deploy/`.
+Relative paths in it (`outDir`, `previousManifest`) are relative to this file's folder, `create2-deploy/`.
 
-The upgrade sends one set of init parameters: the live KMS context re-declared with v14's per-node
-metadata, passed to `ProtocolConfig.reinitializeV2`. Signers, thresholds and context id are read off the
-live `ProtocolConfig`; **each node's party id, MPC identity, CA certificate and storage prefix, plus the
-KMS software version and enclave PCR values, are not on the v13 chain** and must come from whoever runs
-the KMS nodes. Write them to `kms-migration.json`, next to `upgrade.config.json`:
-
-```json
-{
-  "kmsNodeParams": [
-    {
-      "signerAddress": "0x<live KMS signer 1>",
-      "txSenderAddress": "0x<that node's tx sender>",
-      "ipAddress": "<that node's IP>",
-      "storageUrl": "<that node's storage URL>",
-      "partyId": 1,
-      "mpcIdentity": "<that node's MPC identity>",
-      "caCert": "0x<that node's CA certificate, hex>",
-      "storagePrefix": "<that node's public storage prefix>"
-    }
-  ],
-  "softwareVersion": "<the KMS software version>",
-  "pcrValues": [{ "pcr0": "0x…", "pcr1": "0x…", "pcr2": "0x…" }]
-}
-```
-
-and add it to the config:
-
-```json
-  "migration": "kms-migration.json"
-```
-
-`compute` refuses the file if its signers differ from the live chain, in order. The keys are the contract's
-parameter names kept verbatim; the context id and the four thresholds are not in the file because they stay
-on chain and are only hashed into the context anchor. **Skip the file only for an anvil rehearsal**: then
-the four v14 members, the software version (`0.0.0-cleartext`) and an empty PCR list are auto-filled from
-the package defaults, which match a stack deployed from the same mnemonic and nothing else.
+There is no migration file: every op of this upgrade is a no-argument reinitializer, so the only inputs are the
+live addresses.
 
 ```sh
 ./upgrade/upgrade-cli --stage params
 ```
 
-Prints the init parameters exactly as `compute` will seal them: signers, thresholds and context id from the
-live ProtocolConfig, the per-node metadata, software version and PCR values from the migration file, or
-from the package defaults if none is configured. Read it before step 1.
+Lists the six init calls the atomic upgrade sends, one per re-pointed proxy: `ACL.reinitializeV6()`,
+`FHEVMExecutor.reinitializeV7()`, `KMSVerifier.reinitializeV5()`, `InputVerifier.reinitializeV3()`,
+`ProtocolConfig.reinitializeV3()`, `KMSGeneration.reinitializeV3()`.
 
 ## 1. Compute and seal
 
@@ -90,7 +55,8 @@ from the package defaults if none is configured. Read it before step 1.
 ./upgrade/upgrade-cli --stage compute
 ```
 
-Good: `11 addresses verified against the live stack`, then `wrote .../manifest.json`.
+Good: `11 addresses verified against the live stack`, then `wrote .../manifest.json`. The seal snapshots the KMS
+context and epoch, the KMS and coprocessor signers and thresholds, and every readable value of the live stack.
 
 ```sh
 git add -f .out-upgrade-*/manifest.json .out-upgrade-*/addresses.sol
@@ -98,13 +64,13 @@ git commit -m "seal: upgrade <deploymentId>"
 git push
 ```
 
-## 2. Deploy the seven creates
+## 2. Deploy the six creates
 
 ```sh
 ./upgrade/upgrade-cli --stage creates
 ```
 
-Good: `created 7` (or `already present N` on a re-run), no `REVERTED`.
+Good: `created 6` (or `already present N` on a re-run), no `REVERTED`.
 
 ## 3. Gate
 
@@ -112,22 +78,9 @@ Good: `created 7` (or `already present N` on a re-run), no `REVERTED`.
 ./upgrade/upgrade-cli --stage precheck
 ```
 
-Good: `OK - every pre-materialize condition`. Any `FAIL` line: stop, fix, re-run. Nothing has been sent.
-
-### Check the init parameters
-
-What `compute` sealed from the migration file of step 0 (or from the package defaults, if you skipped it),
-and what the atomic call will send. The other six ops take no arguments. `precheck` also prints the
-`contextInfoHash` the chain must anchor; `verify` recomputes it from the seal and compares.
-
-```sh
-./upgrade/upgrade-cli --stage params          # the sealed init parameters, decoded
-./upgrade/upgrade-cli --stage precheck        # the same values re-derived at send time, with every op around them
-```
-
-If the party ids, MPC identities, CA certificates or storage prefixes shown are not your KMS nodes', stop:
-fix the migration file, then start over with a new `outDir` and the same `deploymentId` (the seal cannot be
-recomputed once creates are on chain).
+Good: `OK - every pre-materialize condition`. Any `FAIL` line: stop, fix, re-run. Nothing has been sent. It refuses
+a stack whose re-pointed proxies are not all still initialized at their v14 versions (ACL 6, FHEVMExecutor 7,
+KMSVerifier 5, InputVerifier 3, ProtocolConfig 3, KMSGeneration 3): not a v14 stack, or one already upgraded.
 
 ## 4. Rehearse on a fork
 
@@ -154,7 +107,7 @@ If the admin is a multisig:
 Copy `target`, `value 0` and `calldata` into the multisig. Before signing, check that the `keccak` shown
 by the wallet equals the one printed here **and** the one `precheck` printed.
 
-Good: `seven proxies upgraded atomically` (key path), or the multisig transaction confirmed.
+Good: `6 proxies upgraded atomically` (key path), or the multisig transaction confirmed.
 
 ## 6. Verify
 
@@ -163,7 +116,9 @@ Good: `seven proxies upgraded atomically` (key path), or the multisig transactio
 ```
 
 Waits until the materialize block is finalized, then checks. Good: `OK - every terminal condition for the
-upgrade`, `N v13 getter readings survived`, `one atomic ACLOwner.upgrade`, `wrote .../verify-report.json`.
+upgrade`, `N previous-generation getter readings survived`, `one atomic ACLOwner.upgrade, 6 ops`,
+`wrote .../verify-report.json`. The terminal conditions include every re-pointed proxy initialized at its v15
+version, and the KMS context, epoch, signers and thresholds and the coprocessor signers unchanged since the seal.
 
 Run it again later, at greater depth:
 
@@ -175,7 +130,7 @@ Run it again later, at greater depth:
 
 ```sh
 ./upgrade/upgrade-cli --stage progress        # every step, when, how long, at which block (offline)
-./upgrade/upgrade-cli --stage params          # the init parameters that were sent
+./upgrade/upgrade-cli --stage params          # the init calls that were sent
 ./upgrade/upgrade-cli --stage status          # what the chain says is done
 ./upgrade/upgrade-cli --stage log             # every transaction sent
 ./upgrade/upgrade-cli --report                # steps and their transactions
@@ -200,7 +155,7 @@ git push
 | `materialize` reverted in simulation   | nothing was sent; the message names the `require`                                 |
 | `verify` says `no HostUpgraded event`  | the upgrade did not land or was reorged out; `--stage status`, then re-run step 5 |
 | `compute` refuses                      | contracts are already on chain; resume from step 2, never reseal                  |
-| you need to start over                 | new `outDir`, same `deploymentId` (it must match the v13 manifest)                |
+| you need to start over                 | new `outDir`, same `deploymentId` (it must match the v14 manifest)                |
 
 ## All at once
 
