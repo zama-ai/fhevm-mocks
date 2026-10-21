@@ -24,6 +24,24 @@ import {
 import { privateKeyFromMnemonic, privateKeyToAddress } from '@fhevm/sdk-common-dev';
 import { expectedHcuLimit } from './utils/expectedBootstrap.ts';
 import { createViemEthereumAdapters, createViemEthereumHistory } from '@fhevm/sdk-vendored-dev/viemEthereumLib.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * This package's protocol generation: the minor of `pkg/package.json#version` (`0.15.0-0` -> 15). Derived, not
+ * written down, so a rotation cannot leave it behind; `test/create2-versions.test.ts` holds the ACL's
+ * `CLEARTEXT_PROTOCOL_VERSION` to the same number at the source.
+ */
+const GENERATION = (() => {
+  const version = (
+    JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'pkg', 'package.json'), 'utf8')) as {
+      version: string;
+    }
+  ).version;
+  const minor = /^0\.(\d+)\./.exec(version)?.[1];
+  if (minor === undefined) throw new Error(`pkg/package.json version ${version} is not 0.<generation>.<patch>`);
+  return BigInt(minor);
+})();
 
 // ERC-1967 implementation slot: keccak256("eip1967.proxy.implementation") - 1.
 const IMPL_SLOT = ERC_1967_IMPL_SLOT;
@@ -195,7 +213,7 @@ async function expectPatchedWiring(parameters: {
   expect(await publicClient.readContract({ address: acl, abi: ACL_ABI, functionName: 'IS_CLEARTEXT' })).toBe(true);
   expect(
     await publicClient.readContract({ address: acl, abi: ACL_ABI, functionName: 'CLEARTEXT_PROTOCOL_VERSION' }),
-  ).toBe(14n);
+  ).toBe(GENERATION);
 
   expect(
     lower(await publicClient.readContract({ address: executor, abi: EXECUTOR_ABI, functionName: 'getACLAddress' })),
