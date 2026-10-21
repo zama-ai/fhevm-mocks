@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Upgrade a running v13 cleartext FHEVM stack to v14 through the CREATE2 factory. See ../UPGRADE.md.
+# Upgrade a running previous-generation cleartext FHEVM stack to this generation through the CREATE2 factory.
+# See ../UPGRADE.md.
 #
 #   upgrade-cli --help
 #

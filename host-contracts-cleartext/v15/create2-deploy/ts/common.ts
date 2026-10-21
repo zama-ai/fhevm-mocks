@@ -129,8 +129,6 @@ export type Options = {
   readonly previousManifest: PreviousManifest | null;
   /** `--deployment`: the stack folder whose latest event is the live stack, or null. See findLatestEvent. */
   readonly deployment: LatestEvent | null;
-  /** Path to the KMS migration seed, or null to reconstruct it from the live stack plus defaults. */
-  readonly migrationPath: string | null;
   /** Directory containing the previous generation's ABIs for the before/after getter survey. */
   readonly previousAbiDir: string | null;
   /**
@@ -164,8 +162,6 @@ export type ConfigFile = {
   readonly git?: boolean;
   /** Re-points only: the live stack's addresses. Too many flags to retype. */
   readonly existing?: ExistingAddresses;
-  /** Upgrade only: path to the KMS migration seed. */
-  readonly migration?: string;
   /** Upgrade only: previous generation ABI directory. */
   readonly previousAbiDir?: string;
   /** Re-points only: the live stack's sealed manifest, seeding the addresses above. */
@@ -199,7 +195,6 @@ export type CliArgs = {
   verbose: boolean;
   /** Upgrade only. Merged over the config file's `existing` block, so a single address can be overridden. */
   existing: Record<string, string>;
-  migrationPath: string | null;
   previousAbiDir: string | null;
   previousManifestPath: string | null;
   /** `--deployment <stack folder>`, as typed. */
@@ -490,7 +485,6 @@ export const CONFIG_KEYS: readonly string[] = [
   'finality',
   'git',
   'existing',
-  'migration',
   'previousAbiDir',
   'previousManifest',
   'handles',
@@ -750,7 +744,6 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     noBuild: false,
     verbose: false,
     existing: {},
-    migrationPath: null,
     previousAbiDir: null,
     previousManifestPath: null,
     deploymentDir: null,
@@ -835,10 +828,6 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
       case '-v':
       case '--verbose':
         cli.verbose = true;
-        break;
-      case '--migration':
-        cli.migrationPath = need(i, a);
-        i += 1;
         break;
       case '--previous-abi-dir':
         cli.previousAbiDir = need(i, a);
@@ -1203,7 +1192,6 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     existingSource,
     previousManifest,
     deployment,
-    migrationPath: pathOption(cli.migrationPath, cfg.migration),
     previousAbiDir: pathOption(cli.previousAbiDir, cfg.previousAbiDir),
     handles: cli.handles.length > 0 ? cli.handles : (cfg.handles ?? []),
   };

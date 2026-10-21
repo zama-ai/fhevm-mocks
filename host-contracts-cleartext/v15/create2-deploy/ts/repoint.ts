@@ -1059,7 +1059,7 @@ async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
   if (ctx.opt.minBlockOverride !== null) await waitForBlock(ctx, ctx.opt.minBlockOverride);
   await waitForMaterializeSettled(ctx);
   const out = checkBuildOut(ctx);
-  // The sealed migration too: verify recomputes the context anchor hash from it and compares to the chain.
+  // Plus whatever the flow seals into forge's environment for its own terminal conditions (`sealedEnv`).
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...adapter().sealedEnv(ctx) };
   await step(ctx, 'verify', 'terminal conditions in Solidity, from a fresh recompile', async () => {
     if (!(await runReadOnly(ctx, ...scriptAndContract('verify'), out, env))) {
