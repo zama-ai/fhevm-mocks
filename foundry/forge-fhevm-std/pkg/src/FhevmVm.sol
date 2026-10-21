@@ -983,7 +983,7 @@ contract FhevmVm is IFhevmVm {
     // - Version gate ----------------------------------------------------------
 
     /// @dev ANY RELEASE OF THE VENDORED LINE is accepted (rules.md 2.15): each contract's `getVersion()`
-    ///      must fall between what the line first shipped (`LibFhevmVersion.*_FLOOR`, fhevm v0.13.0) and
+    ///      must fall between what the line first shipped (`LibFhevmVersion.*_FLOOR`, the line's first tag) and
     ///      what this SDK vendors (`LocalHostVersions`, the ceiling). Another line — older or newer — is
     ///      refused by name before anything else is attempted.
     function _requireSupportedVersions(StdFhevmChains.FhevmChain memory chain) private view {
