@@ -2,8 +2,8 @@
 extends = "../../foundry.base.toml"
 libs = ["dependencies", "node_modules", "../../node_modules"]
 # Lets test/upgrade/CleartextGenerationUpgrade.t.sol compile against the previous generation's forge
-# payload, through the `@fhevm/host-contracts-cleartext-v14-dev/` remapping. Upgrade code: ROTATION.md
-# deletes this line and the remapping together.
+# payload, through the `@fhevm/host-contracts-cleartext-v14-dev/` remapping. Upgrade code, but ROTATION.md
+# keeps this line and the remapping when the generation retires: rule 3.4.6 forbids editing V(N-1).
 allow_paths = ["../v14"]
 solc_version = '0.8.24'
 optimizer = true

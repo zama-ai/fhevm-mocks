@@ -1,7 +1,7 @@
-# When v15 arrives: what to delete in v14
+# When v16 arrives: what to delete in v15
 
-v14 has tests and tools that upgrade a **v13** stack to v14. They need v13 to be there. Once v15 ships,
-v13 is retired and those tests cannot run, so delete them.
+v15 has tests and tools that upgrade a **v14** stack to v15. They need v14 to be there. Once v16 ships,
+v14 is retired and those tests cannot run, so delete them.
 
 No rush: the Makefile only asks V(N) for `test:upgrade`, so they stop running by themselves. Nothing
 breaks while they sit there — except the `@fhevm/sdk*` lines of step 2, which must go in the same change that moves
@@ -12,65 +12,69 @@ the sdk pins forward.
 They are all named `upgrade`.
 
 ```sh
-cd sdk/host-contracts-cleartext/v14
+cd sdk/host-contracts-cleartext/v15
 rm -rf create2-deploy/upgrade          # the upgrade CLI, its config, its runbook
-rm -rf create2-deploy/script/upgrade   # the 8 Solidity scripts that CLI runs
+rm -rf create2-deploy/script/upgrade   # the 7 Solidity scripts that CLI runs
 rm -rf internal/upgrade                # starts the upgrade test
-rm -rf test/upgrade                    # forge tests: the upgrade tables, and a v13 stack brought forward
-rm -rf test/e2e/upgrade                # upgrades a real v13 stack through the CLI
+rm -rf test/upgrade                    # forge tests: the upgrade tables, and a v14 stack brought forward
+rm -rf test/e2e/upgrade                # upgrades a real v14 stack through the CLI
 rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
 ```
 
-## 2. Delete five lines in `package.json`
+`rm -rf` on tracked files cannot be undone from the working tree; `git rm -r <the same six paths>` does the same and
+leaves `git restore --staged --worktree` as a way back until the commit.
+
+## 2. Delete six lines in `package.json`
 
 ```jsonc
 "test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
-"test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v13 && …"
-"@fhevm/host-contracts-cleartext-v13-dev": "file:../v13",
-"@fhevm/sdk": "^0.14.x",
-"@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.x",
+"test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v14 && …"
+"@fhevm/host-contracts-cleartext-v14-dev": "file:../v14",
+"@fhevm/sdk": "^0.15.x",
+"@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.14.x",
+"@fhevm/sdk-prev2": "npm:@fhevm/sdk@^0.13.x",
 ```
 
 Both `test:upgrade*` scripts go: `test:upgrade:fast` is the same suite's fast lane, and it runs `test/upgrade/*`,
-`test/ts/upgrade` and `list:upgrade-ops -- ../v13`, all of which are gone after step 1. Delete every script whose
+`test/ts/upgrade` and `list:upgrade-ops -- ../v14`, all of which are gone after step 1. Delete every script whose
 name starts with `test:upgrade`, not only the one called that.
 
 `test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`.
 
 Every `@fhevm/sdk*` devDependency goes too. Those names are roles, not versions: `@fhevm/sdk` is the current sdk line,
-`@fhevm/sdk-prev<k>` the line k steps back, and when v15 arrives `npm-manifest.json` moves every role one line forward
-(and adds `@fhevm/sdk-prev2`). Only V(N) may declare them, so this one is not optional: if v14 keeps them, `check
-pinned-dependencies` fails. `test/ts/sdk-compatibility.test.ts` stays; it finds no sdk line and skips. v14's sdk
-compatibility keeps being tested on its own release branch.
+`@fhevm/sdk-prev<k>` the line k steps back, and when v16 arrives `npm-manifest.json` moves every role one line forward.
+Only V(N) may declare them, so this one is not optional: if v15 keeps them, `check pinned-dependencies` fails.
+`test/ts/sdk-compatibility.test.ts` stays; it finds no sdk line and skips. v15's sdk compatibility keeps being tested
+on its own release branch.
 
 Nothing else in `package.json` changes.
 
-## 3. Delete two lines in the forge config
+## 3. Do NOT touch the forge config
 
-The forge side of the same edge: `test/upgrade/CleartextGenerationUpgrade.t.sol` and `PreviousLineCeilings.t.sol`
-compile against v13's forge payload through these, and they are gone after step 1.
+`remappings.txt` keeps `@fhevm/host-contracts-cleartext-v14-dev/=../v14/` and `foundry.toml` keeps
+`allow_paths = ["../v14"]`, even though nothing imports through them once step 1 is done. They dangle harmlessly.
 
-```sh
-# remappings.txt
-@fhevm/host-contracts-cleartext-v13-dev/=../v13/
-# foundry.toml (with the comment above it)
-allow_paths = ["../v13"]
-```
+The reason is rule 3.4.6: once v16 is V(N), v15 is V(N-1), and V(N-1) must be byte-identical to its release branch
+(`release/0.15.x`) except for DELETED files — `check generation-parity` compares the committed tree, and the only
+modified file it forgives is `package.json`. The v13→v14 rotation's checklist deleted these two lines; that broke
+parity and had to be reverted.
 
 ## 4. Keep these
 
-They mention v13, but they are not going anywhere:
+They mention v14, but they are not going anywhere:
 
-- `pkg/` — `updateV13ToV14` and its types. v14 still upgrades v13 deployments; only the test is going.
+- `pkg/ts` — `updateV14ToV15`, `FhevmAddressesV14`. v15 still upgrades v14 deployments; only the test is going.
+- `pkg/forge/src/LibForgeFhevmUpgrade.sol` and `LibForgeFhevmHostVersions.sol` — a fork of a chain still on 0.14 is
+  still brought forward in memory, and forge-fhevm-std ships this payload.
+- `test/forge/LibForgeFhevmUpgrade.t.sol`, `LibForgeFhevmHostVersions*.t.sol`, `ForkCleartextUpgrade.t.sol` — they
+  test that payload, not the v14 package, and need nothing from `../v14`.
 - `internal/listUpgradeOps.ts` and `list:upgrade-ops` — you pass it a folder, so it fits any generation.
-- `create2-deploy/deploy-cli`, `create2-deploy/ts/`, `script/*.sol` outside `script/upgrade/`,
-  and `test/Create2Ordinals.t.sol`.
+- `create2-deploy/deploy-cli`, `create2-deploy/hotfix-cli`, `create2-deploy/ts/`, `script/*.sol` outside
+  `script/upgrade/`, and `test/Create2Ordinals.t.sol`.
 
-Other files mention v13 too. They describe what v14 upgrades _from_, which stays true.
-
-`internal/zama-config/` stays too. It is v14's copy of upstream's `library-solidity/config`, pinned at the same
+`internal/zama-config/` stays too. It is v15's copy of upstream's `library-solidity/config`, pinned at the same
 commit as `pkg/src/contracts` (rule 5.1.3c), and `check:zama-config` reads it. It goes with the generation: it
-leaves only when v14 itself is retired, and it is never edited by hand — `fhevm-npm sync vendored` owns it.
+leaves only when v15 itself is retired, and it is never edited by hand — `fhevm-npm sync vendored` owns it.
 
 ## 5. Check it worked
 
@@ -79,17 +83,51 @@ cd ../..
 npm install
 ./fhevm-npm-cli check dependencies
 ./fhevm-npm-cli check generations
+./fhevm-npm-cli check generation-parity
 ./fhevm-npm-cli check scripts
-cd host-contracts-cleartext/v14
+cd host-contracts-cleartext/v15
 forge build && forge test && npm run lint && npm run test
 ```
 
-Green means v14 is complete without v13.
+Green means v15 is complete without v14.
 
 ## 6. Tidy the docs (optional)
 
-Nothing reads documentation, so skip this if you like. These three still describe the deleted folders:
+Nothing reads documentation, so skip this if you like. These still describe the deleted folders:
 
 - `README.md`
 - `create2-deploy/README.md`
 - `create2-deploy/GUIDE.md`
+- `create2-deploy/UPGRADE.md`
+
+---
+
+# Lessons from the v14 → v15 rotation, for whoever builds v16
+
+The steps above are about RETIRING v15's upgrade lane. Building v16 itself — copying v15, rotating the manifest and
+porting the lane to v15 → v16 — is a separate job; these are the places it cost time last round, most expensive first.
+
+1. **Which chain is on which line is a fact, not an assumption.** Before retargeting any fork test, read
+   `getVersion()` off every host contract of every group (`cast call <addr> "getVersion()(string)"`). In the v15 round
+   devnet moved from 0.14 to new addresses running a MIX of 0.14 and 0.15 contracts, mainnet and testnet stayed on
+   0.13, and `fhevm-chains.config.json` was stale until `make sync-fhevm-chains`. `classify` refuses a mixed stack by
+   design; forge-std's fork suites park themselves (`ForkBlocks.forkable`) rather than fail.
+2. **The op set is upstream's rule, not ours.** A contract is upgraded exactly when its `REINITIALIZER_VERSION`
+   moves; the order is upstream's `host-contracts/upgrade-manifest.json`. Compare the generated `LocalHostBytecode` of
+   both generations to confirm, and read upstream's `.github/workflows/host-contracts-upgrade-tests.yml`.
+3. **Identity lives outside the config files too.** Beyond `package.json` names and paths, the rename must reach
+   `CleartextACL.CLEARTEXT_PROTOCOL_VERSION`, the sample `Create2Parameters.version` in `export.manifest.json`, and the
+   `cleartext-config-v<N>.ts` import of `internal/generateLocalHostBytecode.ts`. The forge test
+   `test_theCleartextGenerationIsThePackageFolder` and `test/create2-versions.test.ts` catch the first.
+4. **Generated files are regenerated, never edited.** After a vendored bump or a payload change, `make generate`:
+   it rewrites `LocalHostBytecode`/`LocalHostVersions`, the ABIs, templates and ts artifacts, `pkg/ts/index.ts`, the
+   consumer `export.ts` files and forge-fhevm-std's `_host` copy. Until it runs, forge tests compile against the OLD
+   bytecode and can pass for the wrong reason.
+5. **A prerelease package version is fine, and the create2 tooling accepts it** (`majorMinorOf`: `0.16.0-0` → `0.16`).
+   A hotfix still refuses one, on purpose.
+6. **An upgrade with no-argument reinitializers is small.** v14 → v15 needed no sealed migration; if v15 → v16
+   brings one back (a reinitializer with arguments), `FhevmUpgradeBase`'s `_liveStateFresh`/`sealedEnv` hooks and
+   the coordinator's snapshot are where it goes — the v13 → v14 implementation is in git history (`release/0.14.x`).
+7. **Write comments generation-agnostic.** "this generation" / "the previous generation" for identity, "since vN" for
+   a feature's introduction; keep a number only for history, upstream data, or one specific upgrade's description.
+   Most of the v15 comment churn came from "v13"/"v14" written where a role was meant.
