@@ -1,28 +1,36 @@
-// The previous generation, imported straight from the WORKSPACE — v13 is a member, so npm has already
+// The previous generation, imported straight from the WORKSPACE — it is a member, so npm has already
 // linked it into node_modules and there is nothing to build, pack or install first. The subpath works
 // because a harness manifest declares no `exports` (ARCHITECTURE.md I2); this import is what keeps that
 // mechanism exercised rather than merely documented.
 //
 // Deliberately NOT a tarball. A tarball buys publish fidelity — `files` omissions, undeclared deps,
 // stale build output — and that is worth paying for when the package under test is the thing being
-// published. Here v13 is just a library used to stand up the "before" stack, and its own publish
-// contract is proven by its own `test:tarball:run`. v14, below, is still consumed by its PUBLISHED name,
-// because that half IS the publish rehearsal.
+// published. Here the previous generation is just a library used to stand up the "before" stack, and its
+// own publish contract is proven by its own `test:tarball:run`. This generation, below, is still consumed by
+// its PUBLISHED name, because that half IS the publish rehearsal.
 //
 // Its exports are UNSUFFIXED — a package is pinned to one generation by its own version, so the
 // specifier is what says which generation this is, not the type name. Aliased on the way in, because
 // this file is the one place where both generations are in scope at once.
 import {
-  CONTRACT_VERSIONS as CONTRACT_VERSIONS_V13,
-  deploy as deployV13,
-  precomputeAddresses as precomputeV13,
-  type BootstrapConfig as BootstrapConfigV13,
+  CONTRACT_VERSIONS as CONTRACT_VERSIONS_PREV,
+  deploy as deployPrev,
+  precomputeAddresses as precomputePrev,
+  type BootstrapConfig as BootstrapConfigPrev,
 } from '@fhevm/host-contracts-cleartext-v14-dev/pkg/ts/index.ts';
-import { CONTRACT_VERSIONS, updateV13ToV14 } from '../../../pkg/ts/index.ts';
+import { CONTRACT_VERSIONS, updateV14ToV15 } from '../../../pkg/ts/index.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPublicClient, createWalletClient, http, parseEventLogs, type Address, type Hex } from 'viem';
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseEventLogs,
+  toEventSelector,
+  type Address,
+  type Hex,
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import { expect, test } from 'vitest';
@@ -40,13 +48,13 @@ import { createViemEthereumAdapters } from '@fhevm/sdk-vendored-dev/viemEthereum
 
 const IMPL_SLOT = ERC_1967_IMPL_SLOT;
 const FHE_TYPE_UINT64 = 5;
-// KMS_CONTEXT_COUNTER_BASE + 1 = (0x07 << 248) + 1 — the minimum valid migrated KMS context id.
-const MIGRATED_CONTEXT_ID = (7n << 248n) + 1n;
+// KMS_CONTEXT_COUNTER_BASE + 1 = (0x07 << 248) + 1 — the id of the first KMS context a fresh stack seeds.
+const FIRST_CONTEXT_ID = (7n << 248n) + 1n;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Every zero-argument view getter the LIVE v13 stack exposes, read from the v13 fixture's own ABIs.
+ * Every zero-argument view getter the LIVE previous-generation stack exposes, read from its own ABIs.
  *
  * Enumerated rather than listed, deliberately. The question this answers is "does anything readable
  * change across the upgrade that should not", and a hand-written list can only answer it for the getters
@@ -58,13 +66,13 @@ const MIGRATED_CONTEXT_ID = (7n << 248n) + 1n;
  * argument. `ACL.isAllowed(handle, account)` matters just as much, but it is covered by the cleartext
  * round-trip instead, which exercises it with real handles.
  *
- * Located by asking the module system, not by walking a relative path: v13 is a workspace member, so
+ * Located by asking the module system, not by walking a relative path: it is a workspace member, so
  * resolution already knows where it is and this cannot drift if the layout moves. Resolving a real file
  * inside the directory rather than the package root also makes it a live assertion that the subpath
- * reach-in of I2 still works — if v13's harness ever gained an `exports` map this throws
+ * reach-in of I2 still works — if its harness ever gained an `exports` map this throws
  * ERR_PACKAGE_PATH_NOT_EXPORTED right here, instead of surfacing as a puzzling missing-ABI much later.
  */
-const V13_ABI_DIR = dirname(
+const PREV_ABI_DIR = dirname(
   fileURLToPath(import.meta.resolve('@fhevm/host-contracts-cleartext-v14-dev/pkg/abi/CleartextACL.json')),
 );
 
@@ -75,7 +83,7 @@ type AbiEntry = {
   readonly inputs?: readonly unknown[];
 };
 
-/** The contracts a live v13 stack actually has, paired with the ABI file that describes each. */
+/** The contracts a live previous-generation stack actually has, paired with the ABI file that describes each. */
 function surveyTargets(deployed: {
   readonly fhevmAddresses: Record<string, string>;
   readonly cleartextAddresses: Record<string, string>;
@@ -132,19 +140,19 @@ function surveyTargets(deployed: {
 /**
  * The only readings allowed to differ across the upgrade, and why. Anything not here must be identical.
  *
- * `getVersion` changes on exactly the contracts `updateV13ToV14` re-points — which is asserted positively
- * elsewhere in this test, so here it is only excused. `InputVerifier` is deliberately absent: its bytecode
- * is unchanged between generations, so its version must NOT move.
+ * `getVersion` changes on exactly the contracts `updateV14ToV15` re-points — which is asserted positively
+ * elsewhere in this test, so here it is only excused. `HCULimit` and `CleartextArithmetic` are deliberately
+ * absent: their bytecode is unchanged between the two generations, so their versions must NOT move.
  */
 const MAY_CHANGE = new Set([
-  'ProtocolConfig.getVersion',
-  'KMSGeneration.getVersion',
   'ACL.getVersion',
   'FHEVMExecutor.getVersion',
-  'HCULimit.getVersion',
   'KMSVerifier.getVersion',
-  'CleartextArithmetic.getVersion',
-  // The ACL's protocol-version marker: 13 before the upgrade, 14 after, by construction. `IS_CLEARTEXT`
+  'InputVerifier.getVersion',
+  'ProtocolConfig.getVersion',
+  'KMSGeneration.getVersion',
+  // The ACL's protocol-version marker: the previous generation's number before the upgrade, this one's
+  // after, by construction. `IS_CLEARTEXT`
   // is deliberately NOT here — it reads true on both sides, so it must not move.
   'ACL.CLEARTEXT_PROTOCOL_VERSION',
   // Returns `block.number` by construction, so it differs between any two blocks.
@@ -158,7 +166,7 @@ async function surveyStack(
 ): Promise<Map<string, string>> {
   const readings = new Map<string, string>();
   for (const target of targets) {
-    const abi = JSON.parse(readFileSync(join(V13_ABI_DIR, target.abiFile), 'utf8')) as AbiEntry[];
+    const abi = JSON.parse(readFileSync(join(PREV_ABI_DIR, target.abiFile), 'utf8')) as AbiEntry[];
     const getters = abi.filter(
       (entry) =>
         entry.type === 'function' &&
@@ -240,14 +248,17 @@ const EXECUTOR_ABI = [
   },
 ] as const;
 
-// getCurrentKmsContextId + getKmsSigners: identical signatures on the v13 and v14 `ProtocolConfig`.
+// The current KMS context and epoch, and its signers: identical signatures on both generations' `ProtocolConfig`.
 const KMS_CONTEXT_ABI = [
   {
     type: 'function',
-    name: 'getCurrentKmsContextId',
+    name: 'getCurrentKmsContextAndEpoch',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: 'uint256' }],
+    outputs: [
+      { name: 'contextId', type: 'uint256' },
+      { name: 'epochId', type: 'uint256' },
+    ],
   },
   {
     type: 'function',
@@ -258,7 +269,7 @@ const KMS_CONTEXT_ABI = [
   },
 ] as const;
 
-// `ProtocolConfig` holds four per-operation KMS thresholds (unchanged v13 -> v14).
+// `ProtocolConfig` holds four per-operation KMS thresholds, which the upgrade must carry over unchanged.
 const uint256Getter = (name: string) =>
   ({ type: 'function', name, stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] }) as const;
 const KMS_THRESHOLDS_ABI = [
@@ -274,67 +285,14 @@ const KMS_THRESHOLD_GETTERS = [
   'getMpcThreshold',
 ] as const;
 
-// v14 only: `reinitializeV2` backfills the anchor of the existing context and emits the genesis
-// `NewKmsContext` carrying the v14 per-node metadata — the two on-chain traces of the migration.
-const PROTOCOL_CONFIG_V14_ABI = [
-  {
-    type: 'function',
-    name: 'getKmsContextAnchor',
-    stateMutability: 'view',
-    inputs: [{ name: 'contextId', type: 'uint256' }],
-    outputs: [
-      { name: 'emissionBlockNumber', type: 'uint256' },
-      { name: 'contextInfoHash', type: 'bytes32' },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'NewKmsContext',
-    inputs: [
-      { name: 'contextId', type: 'uint256', indexed: true },
-      { name: 'previousContextId', type: 'uint256', indexed: true },
-      {
-        name: 'kmsNodeParams',
-        type: 'tuple[]',
-        indexed: false,
-        components: [
-          { name: 'txSenderAddress', type: 'address' },
-          { name: 'signerAddress', type: 'address' },
-          { name: 'ipAddress', type: 'string' },
-          { name: 'storageUrl', type: 'string' },
-          { name: 'partyId', type: 'int32' },
-          { name: 'mpcIdentity', type: 'string' },
-          { name: 'caCert', type: 'bytes' },
-          { name: 'storagePrefix', type: 'string' },
-        ],
-      },
-      {
-        name: 'thresholds',
-        type: 'tuple',
-        indexed: false,
-        components: [
-          { name: 'publicDecryption', type: 'uint256' },
-          { name: 'userDecryption', type: 'uint256' },
-          { name: 'kmsGen', type: 'uint256' },
-          { name: 'mpc', type: 'uint256' },
-        ],
-      },
-      { name: 'softwareVersion', type: 'string', indexed: false },
-      {
-        name: 'pcrValues',
-        type: 'tuple[]',
-        indexed: false,
-        components: [
-          { name: 'pcr0', type: 'bytes' },
-          { name: 'pcr1', type: 'bytes' },
-          { name: 'pcr2', type: 'bytes' },
-        ],
-      },
-    ],
-  },
-] as const;
+// The only events an upgrade may make a `ProtocolConfig` emit: its proxy re-pointed, its reinitializer run. Any
+// other — a `NewKmsContext`, a `NewKmsEpoch` — would mean the upgrade migrated KMS state, which this one must not.
+const PROXY_UPGRADE_EVENT_SELECTORS = new Set<string>([
+  toEventSelector('Upgraded(address)'),
+  toEventSelector('Initialized(uint64)'),
+]);
 
-// The `InputVerifier` holds the coprocessor signer set — untouched by the v13→v14 upgrade.
+// The `InputVerifier` holds the coprocessor signer set — re-pointed by the upgrade, but its signers must not move.
 const INPUT_VERIFIER_ABI = [
   {
     type: 'function',
@@ -431,10 +389,17 @@ const VERSION_ABI = [
   },
 ] as const;
 
-// The one KMS node the hand-configured v13 stack is deployed with (addresses filled in per test).
-const DEPLOYER_KMS_NODE = { ipAddress: '127.0.0.1', storageUrl: 'https://kms.example' } as const;
+// The one KMS node the hand-configured previous-generation stack is deployed with (addresses filled in per test).
+const DEPLOYER_KMS_NODE = {
+  ipAddress: '127.0.0.1',
+  storageUrl: 'https://kms.example',
+  partyId: 1,
+  mpcIdentity: 'kms-core-1-cleartext-core-1',
+  caCert: '0x',
+  storagePrefix: 'cleartext-1',
+} as const;
 
-function v13BootstrapConfig(deployerAddress: string): BootstrapConfigV13 {
+function prevBootstrapConfig(deployerAddress: string): BootstrapConfigPrev {
   const verifier = { verifyingContractSource: deployerAddress, chainIDSource: 1n };
   return {
     kmsVerifier: verifier,
@@ -443,16 +408,17 @@ function v13BootstrapConfig(deployerAddress: string): BootstrapConfigV13 {
     protocolConfig: {
       initialKmsNodes: [{ ...DEPLOYER_KMS_NODE, txSenderAddress: deployerAddress, signerAddress: deployerAddress }],
       initialThresholds: { publicDecryption: 1n, userDecryption: 1n, kmsGen: 1n, mpc: 1n },
+      softwareVersion: '0.0.0-cleartext',
+      pcrValues: [],
     },
   };
 }
 
-test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext survives the migration', async () => {
+test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cleartext survives', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
   const deployerAddress = privateKeyToAddress({ privateKey: deployerKey });
-  // No separate KMS signer: this stack is deployed with the deployer AS its KMS signer, and the migration
-  // config below has to describe the stack it upgrades. A distinct signer here is what made the survey
-  // fail — the migration would have replaced the signer set instead of carrying it over.
+  // No separate KMS signer: this stack is deployed with the deployer AS its KMS signer. The upgrade
+  // migrates nothing, so the survey below holds it to carrying that signer set over untouched.
 
   const anvil = startAnvil({ port: 8620, mnemonic: MNEMONIC });
   try {
@@ -466,9 +432,9 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
       transport: http(anvil.rpcUrl),
     });
 
-    // --- 1. Deploy a fresh v13 stack (installs a standing ACLOwner owned by the deployer). ---
-    const precomputed = precomputeV13({ ethUtils: adapters.utils, from: deployerAddress, startNonce: 0n });
-    const v13 = await deployV13({
+    // --- 1. Deploy a fresh previous-generation stack (installs a standing ACLOwner owned by the deployer). ---
+    const precomputed = precomputePrev({ ethUtils: adapters.utils, from: deployerAddress, startNonce: 0n });
+    const prev = await deployPrev({
       ethProvider: adapters.provider,
       ethUtils: adapters.utils,
       deployer: adapters.signer,
@@ -478,63 +444,63 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
         cleartextAddresses: precomputed.cleartextAddresses,
         pauserSetAddress: precomputed.pauserSetAddress,
       },
-      config: v13BootstrapConfig(deployerAddress),
+      config: prevBootstrapConfig(deployerAddress),
     });
 
-    const executor = v13.fhevmAddresses.fhevmExecutorAddress as Address;
-    const cleartextDb = v13.cleartextAddresses.cleartextDbAddress as Address;
+    const executor = prev.fhevmAddresses.fhevmExecutorAddress as Address;
+    const cleartextDb = prev.cleartextAddresses.cleartextDbAddress as Address;
 
     const version = (address: string): Promise<string> =>
       publicClient.readContract({ address: address as Address, abi: VERSION_ABI, functionName: 'getVersion' });
 
     // Every host + cleartext version, in one object so before/after read as one diff.
     const versions = async (): Promise<Record<string, string>> => ({
-      acl: await version(v13.fhevmAddresses.aclAddress),
-      fhevmExecutor: await version(v13.fhevmAddresses.fhevmExecutorAddress),
-      kmsVerifier: await version(v13.fhevmAddresses.kmsVerifierAddress),
-      inputVerifier: await version(v13.fhevmAddresses.inputVerifierAddress),
-      hcuLimit: await version(v13.fhevmAddresses.hcuLimitAddress),
-      protocolConfig: await version(v13.fhevmAddresses.protocolConfigAddress),
-      kmsGeneration: await version(v13.fhevmAddresses.kmsGenerationAddress),
-      cleartextArithmetic: await version(v13.cleartextAddresses.cleartextArithmeticAddress),
+      acl: await version(prev.fhevmAddresses.aclAddress),
+      fhevmExecutor: await version(prev.fhevmAddresses.fhevmExecutorAddress),
+      kmsVerifier: await version(prev.fhevmAddresses.kmsVerifierAddress),
+      inputVerifier: await version(prev.fhevmAddresses.inputVerifierAddress),
+      hcuLimit: await version(prev.fhevmAddresses.hcuLimitAddress),
+      protocolConfig: await version(prev.fhevmAddresses.protocolConfigAddress),
+      kmsGeneration: await version(prev.fhevmAddresses.kmsGenerationAddress),
+      cleartextArithmetic: await version(prev.cleartextAddresses.cleartextArithmeticAddress),
     });
 
-    // The freshly deployed stack reports v13 versions across every host + cleartext contract — the ones
-    // v13's package ships, read from its generated `CONTRACT_VERSIONS` rather than restated here, so a
-    // patch bump of the previous generation (0.13.6 moved FHEVMExecutor to v0.5.0) moves the expectation
-    // with it.
+    // The freshly deployed stack reports the previous generation's versions across every host + cleartext
+    // contract — the ones its package ships, read from its generated `CONTRACT_VERSIONS` rather than restated
+    // here, so a patch bump of the previous generation moves the expectation with it.
     expect(await versions()).toEqual({
-      acl: CONTRACT_VERSIONS_V13.acl,
-      fhevmExecutor: CONTRACT_VERSIONS_V13.fhevmExecutor,
-      kmsVerifier: CONTRACT_VERSIONS_V13.kmsVerifier,
-      inputVerifier: CONTRACT_VERSIONS_V13.inputVerifier,
-      hcuLimit: CONTRACT_VERSIONS_V13.hcuLimit,
-      protocolConfig: CONTRACT_VERSIONS_V13.protocolConfig,
-      kmsGeneration: CONTRACT_VERSIONS_V13.kmsGeneration,
-      cleartextArithmetic: CONTRACT_VERSIONS_V13.cleartextArithmetic,
+      acl: CONTRACT_VERSIONS_PREV.acl,
+      fhevmExecutor: CONTRACT_VERSIONS_PREV.fhevmExecutor,
+      kmsVerifier: CONTRACT_VERSIONS_PREV.kmsVerifier,
+      inputVerifier: CONTRACT_VERSIONS_PREV.inputVerifier,
+      hcuLimit: CONTRACT_VERSIONS_PREV.hcuLimit,
+      protocolConfig: CONTRACT_VERSIONS_PREV.protocolConfig,
+      kmsGeneration: CONTRACT_VERSIONS_PREV.kmsGeneration,
+      cleartextArithmetic: CONTRACT_VERSIONS_PREV.cleartextArithmetic,
     });
 
-    // The v13 stack already carries the marker, and reports 13. Asserted before the upgrade as well as
-    // after, so the pair proves the protocol version actually moved rather than always having read 14.
+    // The previous-generation stack already carries the marker, and reports its own number. Asserted before
+    // the upgrade as well as after, so the pair proves the protocol version actually moved rather than always
+    // having read this generation's.
     expect(
       await publicClient.readContract({
-        address: v13.fhevmAddresses.aclAddress as Address,
+        address: prev.fhevmAddresses.aclAddress as Address,
         abi: CLEARTEXT_MARKER_ABI,
         functionName: 'IS_CLEARTEXT',
       }),
     ).toBe(true);
     expect(
       await publicClient.readContract({
-        address: v13.fhevmAddresses.aclAddress as Address,
+        address: prev.fhevmAddresses.aclAddress as Address,
         abi: CLEARTEXT_MARKER_ABI,
         functionName: 'CLEARTEXT_PROTOCOL_VERSION',
       }),
-    ).toBe(13n);
+    ).toBe(14n);
 
-    // ERC-1967 implementation slot of every proxy, by name: the upgrade must move exactly seven of them.
+    // ERC-1967 implementation slot of every proxy, by name: the upgrade must move exactly six of them.
     const implementations = async (): Promise<Record<string, string>> => {
       const out: Record<string, string> = {};
-      for (const [name, address] of Object.entries({ ...v13.fhevmAddresses, ...v13.cleartextAddresses })) {
+      for (const [name, address] of Object.entries({ ...prev.fhevmAddresses, ...prev.cleartextAddresses })) {
         out[name] = (await publicClient.getStorageAt({ address: address as Address, slot: IMPL_SLOT })) ?? '0x0';
       }
       return out;
@@ -583,11 +549,11 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
         args: [handle],
       });
 
-    // --- 2. Pre-upgrade round-trip: fill the DB under the v13 executor. ---
+    // --- 2. Pre-upgrade round-trip: fill the DB under the previous generation's executor. ---
     //
-    // Two different write paths through the v13 arithmetic contract, so the DB holds entries produced by
+    // Two different write paths through the live arithmetic contract, so the DB holds entries produced by
     // more than one operator before anything is upgraded. Both must still resolve afterwards, which is
-    // what says the re-pointed v14 implementations kept addressing the SAME CleartextDB rather than the
+    // what says the re-pointed implementations kept addressing the SAME CleartextDB rather than the
     // placeholder address their bytecode ships with.
     const handleBefore = await trivialEncrypt(42n);
     expect(await dbGet(handleBefore)).toBe(42n);
@@ -597,19 +563,19 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     const randHandleBefore = await fheRand();
     const randValueBefore = await dbGet(randHandleBefore);
 
-    // Snapshot every readable property of the live v13 stack, so the upgrade can be held to preserving
+    // Snapshot every readable property of the live previous-generation stack, so the upgrade can be held to preserving
     // all of it rather than only the handful this test thought to name.
-    const surveyed = surveyTargets(v13);
+    const surveyed = surveyTargets(prev);
     const before = await surveyStack(publicClient, surveyed);
     // Guard against a vacuous survey: if the ABIs could not be read this would silently compare nothing.
     expect(before.size).toBeGreaterThan(30);
 
     // The block the upgrade starts after. Everything it sends lands above this, so the log scan below
-    // covers the WHOLE upgrade — all seven implementations and the atomic ACLOwner.upgrade — not merely the
+    // covers the WHOLE upgrade — all six implementations and the atomic ACLOwner.upgrade — not merely the
     // last transaction.
     const blockBeforeUpgrade = await publicClient.getBlockNumber();
-    const pauserSet = v13.pauserSetAddress as Address;
-    const aclOwner = v13.aclOwnerAddress as Address;
+    const pauserSet = prev.pauserSetAddress as Address;
+    const aclOwner = prev.aclOwnerAddress as Address;
     const isPauser = (account: string): Promise<boolean> =>
       publicClient.readContract({
         address: pauserSet,
@@ -621,38 +587,18 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     // The standing ACLOwner is a registered pauser after setupACLOwner; that is the state to preserve.
     expect(await isPauser(aclOwner)).toBe(true);
 
-    // --- 3. Upgrade the live v13 stack to v14 (single atomic ACLOwner.upgrade). ---
-    await updateV13ToV14({
-      ethProvider: adapters.provider,
+    // --- 3. Upgrade the live stack to this generation (single atomic ACLOwner.upgrade). ---
+    await updateV14ToV15({
       ethUtils: adapters.utils,
       deployer: adapters.signer,
       admin: adapters.signer,
-      aclOwnerAddress: v13.aclOwnerAddress,
-      existing: { ...v13.fhevmAddresses, pauserSetAddress: v13.pauserSetAddress },
-      cleartext: v13.cleartextAddresses,
-      migration: {
-        kmsNodeParams: [
-          {
-            ...DEPLOYER_KMS_NODE,
-            txSenderAddress: deployerAddress,
-            // The signer the live v13 stack was actually deployed with (see v13BootstrapConfig), NOT an
-            // arbitrary one. `kmsNodeParams` re-declares "what this stack already has": a signer set that
-            // disagrees with the running stack would be announced as the context's node set during what is
-            // supposed to be a migration. The survey below is what enforces that.
-            signerAddress: deployerAddress,
-            partyId: 1,
-            mpcIdentity: 'kms-core-1-cleartext-core-1',
-            caCert: '0x',
-            storagePrefix: 'cleartext-1',
-          },
-        ],
-        softwareVersion: '0.0.0-cleartext',
-        pcrValues: [],
-      },
+      aclOwnerAddress: prev.aclOwnerAddress,
+      existing: { ...prev.fhevmAddresses, pauserSetAddress: prev.pauserSetAddress },
+      cleartext: prev.cleartextAddresses,
     });
 
-    // --- 4. Exactly the seven changed proxies were re-pointed; nothing else moved. No proxy was created:
-    //        v14 adds no contract, so the address set is the one deployed above. ---
+    // --- 4. Exactly the six changed proxies were re-pointed; nothing else moved. No proxy was created:
+    //        this generation adds no contract, so the address set is the one deployed above. ---
     const implementationsAfter = await implementations();
     const repointed = Object.keys(implementationsBefore)
       .filter((name) => implementationsBefore[name] !== implementationsAfter[name])
@@ -661,17 +607,16 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
       [
         'aclAddress',
         'fhevmExecutorAddress',
-        'hcuLimitAddress',
-        'kmsGenerationAddress',
         'kmsVerifierAddress',
+        'inputVerifierAddress',
         'protocolConfigAddress',
-        'cleartextArithmeticAddress',
+        'kmsGenerationAddress',
       ].sort(),
     );
     // Every re-pointed proxy now reports the version THIS package ships, read from the generated
     // `CONTRACT_VERSIONS` rather than restated here — a patch bump upstream then changes the expectation
-    // and the contracts together. InputVerifier is intentionally left where it was (its v14 bytecode is
-    // unchanged).
+    // and the contracts together. HCULimit and CleartextArithmetic are left where they were (their bytecode
+    // is unchanged), and report the same version on both generations.
     expect(await versions()).toEqual({
       acl: CONTRACT_VERSIONS.acl,
       fhevmExecutor: CONTRACT_VERSIONS.fhevmExecutor,
@@ -683,10 +628,10 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
       cleartextArithmetic: CONTRACT_VERSIONS.cleartextArithmetic,
     });
 
-    // The ACL still advertises itself as cleartext after the migration, and now reports v14. A consumer
+    // The ACL still advertises itself as cleartext after the upgrade, and now reports this generation. A consumer
     // holding only a ZamaConfig reads this to tell which generation it is talking to, so an upgrade that
     // silently reinstated the plain `ACL` would be invisible without it.
-    const aclAddress = v13.fhevmAddresses.aclAddress as Address;
+    const aclAddress = prev.fhevmAddresses.aclAddress as Address;
     expect(
       await publicClient.readContract({ address: aclAddress, abi: CLEARTEXT_MARKER_ABI, functionName: 'IS_CLEARTEXT' }),
     ).toBe(true);
@@ -696,9 +641,9 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
         abi: CLEARTEXT_MARKER_ABI,
         functionName: 'CLEARTEXT_PROTOCOL_VERSION',
       }),
-    ).toBe(14n);
+    ).toBe(15n);
 
-    // --- 4b. Everything readable survives. Every zero-argument getter the v13 stack exposed returns
+    // --- 4b. Everything readable survives. Every zero-argument getter the previous stack exposed returns
     //         exactly what it did before, except the versions the upgrade is supposed to move. ---
     const after = await surveyStack(publicClient, surveyed);
 
@@ -712,9 +657,10 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
         changed.push(`${key}: ${valueBefore} -> ${valueAfter}`);
       }
     }
-    expect(vanished, `getters the v13 stack had and the upgraded stack does not:\n  ${vanished.join('\n  ')}`).toEqual(
-      [],
-    );
+    expect(
+      vanished,
+      `getters the previous stack had and the upgraded stack does not:\n  ${vanished.join('\n  ')}`,
+    ).toEqual([]);
     expect(changed, `readable state changed across the upgrade:\n  ${changed.join('\n  ')}`).toEqual([]);
 
     // The exemptions are not a license: each one must actually have changed, or it does not belong in
@@ -734,7 +680,7 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     const upgradeBlocks = { fromBlock: blockBeforeUpgrade + 1n, toBlock: 'latest' } as const;
 
     for (const [label, address] of [
-      ['ACL', v13.fhevmAddresses.aclAddress as Address],
+      ['ACL', prev.fhevmAddresses.aclAddress as Address],
       ['ACLOwner', aclOwner],
     ] as const) {
       const transfers = await publicClient.getLogs({ address, events: OWNERSHIP_EVENTS_ABI, ...upgradeBlocks });
@@ -757,14 +703,14 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     // Positive counterpart to the event scan: the PauserSet is the same contract, and the ACLOwner is
     // still a pauser in it. Event absence proves nothing was added or removed; this proves the set the
     // stack points at is still the one that was checked.
-    expect(v13.pauserSetAddress).toBe(pauserSet);
+    expect(prev.pauserSetAddress).toBe(pauserSet);
     expect(await isPauser(aclOwner)).toBe(true);
 
-    // --- 5. Cleartext still works after the upgrade (new v14 executor impl → live CleartextArithmetic
-    //        → CleartextDB), and the pre-upgrade value persisted through the migration. ---
+    // --- 5. Cleartext still works after the upgrade (new executor impl → live CleartextArithmetic
+    //        → CleartextDB), and the pre-upgrade value persisted through it. ---
     // The DB proxy is unchanged by the upgrade — asserted directly, so a re-pointed CleartextDB reports
     // itself as a wrong ADDRESS here rather than as a puzzling wrong value below.
-    expect(v13.cleartextAddresses.cleartextDbAddress).toBe(cleartextDb);
+    expect(prev.cleartextAddresses.cleartextDbAddress).toBe(cleartextDb);
 
     // Every pre-upgrade handle still resolves to the value it had, through the live arithmetic
     // implementation. This is the assertion the whole test exists for: a migration that left the new
@@ -773,7 +719,7 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     expect(await dbGet(handleBefore)).toBe(42n);
     expect(await dbGet(randHandleBefore)).toBe(randValueBefore);
 
-    // And the new v14 implementations can still write, by both paths.
+    // And the new implementations can still write, by both paths.
     const handleAfter = await trivialEncrypt(99n);
     expect(await dbGet(handleAfter)).toBe(99n);
 
@@ -784,14 +730,14 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     expect(randHandleAfter).not.toBe(randHandleBefore);
 
     // The drawn value is unknowable, and 0 is a legitimate draw — so its PRESENCE is the assertion. The
-    // read is what proves the v14 executor reached the live arithmetic + DB rather than a placeholder address.
+    // read is what proves the new executor reached the live arithmetic + DB rather than a placeholder address.
     expect(typeof (await dbGet(randHandleAfter))).toBe('bigint');
   } finally {
     await stopAnvil(anvil.process);
   }
 }, 180_000);
 
-test('e2e: updateV13ToV14 with no migration config — defaults resolved from the live v13 ProtocolConfig', async () => {
+test('e2e: the upgrade migrates nothing — KMS and coprocessor state survive on a default stack', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
   const deployerAddress = privateKeyToAddress({ privateKey: deployerKey });
 
@@ -807,9 +753,9 @@ test('e2e: updateV13ToV14 with no migration config — defaults resolved from th
       transport: http(anvil.rpcUrl),
     });
 
-    // --- 1. Deploy a fresh v13 stack whose KMS signer set is the package defaults. ---
-    const precomputed = precomputeV13({ ethUtils: adapters.utils, from: deployerAddress, startNonce: 0n });
-    const v13 = await deployV13({
+    // --- 1. Deploy a fresh previous-generation stack with the package defaults (four KMS nodes). ---
+    const precomputed = precomputePrev({ ethUtils: adapters.utils, from: deployerAddress, startNonce: 0n });
+    const prev = await deployPrev({
       ethProvider: adapters.provider,
       ethUtils: adapters.utils,
       deployer: adapters.signer,
@@ -819,22 +765,28 @@ test('e2e: updateV13ToV14 with no migration config — defaults resolved from th
         cleartextAddresses: precomputed.cleartextAddresses,
         pauserSetAddress: precomputed.pauserSetAddress,
       },
-      // No config → deployV13 uses DEFAULT_BOOTSTRAP_CONFIG, whose KMS signer set is the package
-      // defaults. That is exactly the stack the no-migration upgrade path assumes (and the reason it
-      // works: v13's default KMS signers ARE v14's default KMS signers, node for node).
+      // No config → the previous package's DEFAULT_BOOTSTRAP_CONFIG: the stack most chains run.
     });
 
-    const executor = v13.fhevmAddresses.fhevmExecutorAddress as Address;
-    const cleartextDb = v13.cleartextAddresses.cleartextDbAddress as Address;
-    const protocolConfig = v13.fhevmAddresses.protocolConfigAddress as Address;
-    const inputVerifier = v13.fhevmAddresses.inputVerifierAddress as Address;
+    const executor = prev.fhevmAddresses.fhevmExecutorAddress as Address;
+    const cleartextDb = prev.cleartextAddresses.cleartextDbAddress as Address;
+    const protocolConfig = prev.fhevmAddresses.protocolConfigAddress as Address;
+    const inputVerifier = prev.fhevmAddresses.inputVerifierAddress as Address;
 
-    const readContextId = (address: Address): Promise<bigint> =>
-      publicClient.readContract({ address, abi: KMS_CONTEXT_ABI, functionName: 'getCurrentKmsContextId' });
-    const readSigners = async (address: Address): Promise<string[]> =>
-      [...(await publicClient.readContract({ address, abi: KMS_CONTEXT_ABI, functionName: 'getKmsSigners' }))].map(
-        (s) => s.toLowerCase(),
-      );
+    const readContextAndEpoch = async (): Promise<readonly [bigint, bigint]> =>
+      await publicClient.readContract({
+        address: protocolConfig,
+        abi: KMS_CONTEXT_ABI,
+        functionName: 'getCurrentKmsContextAndEpoch',
+      });
+    const readSigners = async (): Promise<string[]> =>
+      [
+        ...(await publicClient.readContract({
+          address: protocolConfig,
+          abi: KMS_CONTEXT_ABI,
+          functionName: 'getKmsSigners',
+        })),
+      ].map((s) => s.toLowerCase());
     const readCoprocessorSigners = async (): Promise<string[]> =>
       [
         ...(await publicClient.readContract({
@@ -854,16 +806,16 @@ test('e2e: updateV13ToV14 with no migration config — defaults resolved from th
       return out;
     };
 
-    // Capture the live v13 KMS context (id + signers + thresholds) and coprocessor signer set. These are
-    // the values the no-migration path must preserve; the post-upgrade assertions compare against them.
-    // A freshly deployed default stack reports the minimum valid context id and its 4 default KMS nodes.
-    const v13ContextId = await readContextId(protocolConfig);
-    const v13Signers = await readSigners(protocolConfig);
-    const v13Thresholds = await readThresholds();
-    const v13CoprocessorSigners = await readCoprocessorSigners();
-    expect(v13ContextId).toBe(MIGRATED_CONTEXT_ID);
-    expect(v13Signers).toHaveLength(4);
-    const blockBeforeUpgrade = await publicClient.getBlockNumber();
+    // Capture the live KMS context and epoch, its signers and thresholds, and the coprocessor signer set.
+    // A freshly deployed default stack runs the first context with its four default KMS nodes.
+    const [contextBefore, epochBefore] = await readContextAndEpoch();
+    const signersBefore = await readSigners();
+    const thresholdsBefore = await readThresholds();
+    const coprocessorSignersBefore = await readCoprocessorSigners();
+    expect(contextBefore).toBe(FIRST_CONTEXT_ID);
+    expect(epochBefore).toBeGreaterThan(0n);
+    expect(signersBefore).toHaveLength(4);
+    expect(coprocessorSignersBefore.length).toBeGreaterThan(0);
 
     // trivialEncrypt(pt) on the executor, returning the resulting handle after mining.
     const trivialEncrypt = async (pt: bigint): Promise<Hex> => {
@@ -882,57 +834,38 @@ test('e2e: updateV13ToV14 with no migration config — defaults resolved from th
       return event.args.result;
     };
 
-    // --- 2. Pre-upgrade round-trip: record a cleartext under the v13 executor. ---
+    // --- 2. Pre-upgrade round-trip: record a cleartext under the previous generation's executor. ---
     const handleBefore = await trivialEncrypt(42n);
+    const blockBeforeUpgrade = await publicClient.getBlockNumber();
 
-    // --- 3. Upgrade WITHOUT a migration config — it is resolved from the live v13 ProtocolConfig + defaults. ---
-    await updateV13ToV14({
-      ethProvider: adapters.provider,
+    // --- 3. Upgrade. No migration input exists: every reinitializer takes no arguments. ---
+    await updateV14ToV15({
       ethUtils: adapters.utils,
       deployer: adapters.signer,
       admin: adapters.signer,
-      aclOwnerAddress: v13.aclOwnerAddress,
-      existing: { ...v13.fhevmAddresses, pauserSetAddress: v13.pauserSetAddress },
-      cleartext: v13.cleartextAddresses,
-      // migration intentionally omitted — resolveDefaultMigration fills it from chain + defaults.
+      aclOwnerAddress: prev.aclOwnerAddress,
+      existing: { ...prev.fhevmAddresses, pauserSetAddress: prev.pauserSetAddress },
+      cleartext: prev.cleartextAddresses,
     });
 
-    // --- 4. The live v13 context id, KMS signer set and thresholds all carried over unchanged. ---
-    expect(await readContextId(protocolConfig)).toBe(v13ContextId);
-    expect(await readSigners(protocolConfig)).toEqual(v13Signers);
-    expect(await readThresholds()).toEqual(v13Thresholds);
+    // --- 4. The KMS context and epoch, its signers and thresholds, and the coprocessors all carried over. ---
+    expect(await readContextAndEpoch()).toEqual([contextBefore, epochBefore]);
+    expect(await readSigners()).toEqual(signersBefore);
+    expect(await readThresholds()).toEqual(thresholdsBefore);
+    expect(await readCoprocessorSigners()).toEqual(coprocessorSignersBefore);
 
-    // v14's trace of the migration: the existing context gained an anchor, and the genesis NewKmsContext
-    // re-declared it — same signers, previous id = the counter base — with the resolved cleartext metadata.
-    const [anchorBlock] = await publicClient.readContract({
+    // And nothing was announced: during the upgrade, ProtocolConfig emitted only its proxy's own `Upgraded` and
+    // `Initialized`. A KMS context or epoch event here would mean the upgrade migrated state it must not touch.
+    const protocolConfigLogs = await publicClient.getLogs({
       address: protocolConfig,
-      abi: PROTOCOL_CONFIG_V14_ABI,
-      functionName: 'getKmsContextAnchor',
-      args: [v13ContextId],
-    });
-    expect(anchorBlock).toBeGreaterThan(blockBeforeUpgrade);
-    const genesis = await publicClient.getContractEvents({
-      address: protocolConfig,
-      abi: PROTOCOL_CONFIG_V14_ABI,
-      eventName: 'NewKmsContext',
       fromBlock: blockBeforeUpgrade + 1n,
+      toBlock: 'latest',
     });
-    expect(genesis).toHaveLength(1);
-    const announced = genesis[0]?.args;
-    expect(announced?.contextId).toBe(v13ContextId);
-    expect(announced?.previousContextId).toBe(MIGRATED_CONTEXT_ID - 1n);
-    expect(announced?.kmsNodeParams?.map((node) => node.signerAddress.toLowerCase())).toEqual(v13Signers);
-    expect(announced?.kmsNodeParams?.map((node) => node.mpcIdentity)).toEqual(
-      [1, 2, 3, 4].map((n) => `kms-core-${String(n)}-cleartext-core-${String(n)}`),
-    );
-    expect(announced?.kmsNodeParams?.map((node) => node.storagePrefix)).toEqual(
-      [1, 2, 3, 4].map((n) => `cleartext-${String(n)}`),
-    );
-    expect(announced?.softwareVersion).toBe('0.0.0-cleartext');
-    expect(announced?.pcrValues).toEqual([]);
-    // The coprocessor signer set lives in InputVerifier, which the upgrade leaves untouched — unchanged.
-    expect(await readCoprocessorSigners()).toEqual(v13CoprocessorSigners);
-    expect(v13CoprocessorSigners.length).toBeGreaterThan(0);
+    expect(protocolConfigLogs.length, 'ProtocolConfig was not upgraded at all').toBeGreaterThan(0);
+    const unexpected = protocolConfigLogs
+      .map((log) => log.topics[0] ?? '<anonymous>')
+      .filter((topic) => !PROXY_UPGRADE_EVENT_SELECTORS.has(topic));
+    expect(unexpected, 'ProtocolConfig emitted events other than Upgraded/Initialized during the upgrade').toEqual([]);
 
     // --- 5. Cleartext still works after the upgrade, and the pre-upgrade value persisted. ---
     const handleAfter = await trivialEncrypt(99n);
