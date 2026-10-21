@@ -1,9 +1,9 @@
 # GUIDE
 
 > **Start here instead:** [DEPLOY.md](DEPLOY.md) to deploy a stack on a live testnet, and
-> [UPGRADE.md](UPGRADE.md) to upgrade a running v13 stack. This file is the detailed reference.
+> [UPGRADE.md](UPGRADE.md) to upgrade a running previous-generation stack. This file is the detailed reference.
 
-Run every command below from `host-contracts-cleartext/v14/create2-deploy`. The two launchers,
+Run every command below from `host-contracts-cleartext/v15/create2-deploy`. The two launchers,
 `deploy-cli` and `upgrade/upgrade-cli`, locate the package root from their own path, so they work from
 any directory; without `--config` they read `deploy.config.json` / `upgrade.config.json` from the
 **current** directory, which is why this guide runs them from here. Paths behave as follows:
@@ -32,8 +32,8 @@ per deployment:
   "rpcUrl": "https://sepolia.example",
   "account": "fhevm-testnet-deployer",
   "admin": "<address-of-future-owner-of-the-ACLOwner>",
-  "deploymentId": "cleartext-v14-sepolia-2026-08",
-  "outDir": ".out-cleartext-v14-sepolia-2026-08",
+  "deploymentId": "cleartext-v15-sepolia-2026-08",
+  "outDir": ".out-cleartext-v15-sepolia-2026-08",
   "confirmations": 3
 }
 ```
@@ -90,7 +90,7 @@ git push
 ```
 
 ```
-📋  report  cleartext-v14-sepolia-2026-08
+📋  report  cleartext-v15-sepolia-2026-08
   chain      11155111
   deployer   0x1111…
   admin      0x2222…
@@ -111,7 +111,7 @@ git push
 One directory per chain, set by `--out-dir` (default `create2-deploy/.out`):
 
 ```
-.out-cleartext-v14-sepolia/
+.out-cleartext-v15-sepolia/
 ├── journal.jsonl                                  tx hashes, blocks, gas, reverts
 ├── broadcast/<Script>.s.sol/<chainId>/run-latest.json   forge's raw records
 ├── manifest.json                                  salts + addresses (commit this)
@@ -129,8 +129,8 @@ jq -r '.address.ACL_OWNER' .out-*/manifest.json
 ## A second deployment on the same chain
 
 ```sh
-./deploy-cli --deployment-id cleartext-v14-sepolia-2026-09 \
-   --out-dir .out-cleartext-v14-sepolia-2026-09 --stage compute
+./deploy-cli --deployment-id cleartext-v15-sepolia-2026-09 \
+   --out-dir .out-cleartext-v15-sepolia-2026-09 --stage compute
 ```
 
 ```
@@ -242,7 +242,7 @@ Everything is already in `anvil-config.json`, including `"git": false`, so every
 `--config anvil-config.json`:
 
 ```sh
-cd host-contracts-cleartext/v14/create2-deploy
+cd host-contracts-cleartext/v15/create2-deploy
 ```
 
 **5. Run it, one stage at a time.**
@@ -273,39 +273,40 @@ rm -rf .out-anvil
 
 Restart anvil (step 3) to discard the chain too, then go to step 4.
 
-## v13 → v14 upgrade rehearsal
+## Upgrade rehearsal
 
-For the operator's checklist — commands only, in order — see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md).
+This generation upgrades a stack of the previous one (today: v14 → v15). For the operator's checklist —
+commands only, in order — see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md).
 
 The automated cross-generation rehearsal is the shortest authoritative example:
 
 ```sh
-cd host-contracts-cleartext/v14
+cd host-contracts-cleartext/v15
 npm run test:upgrade
 ```
 
-It starts a dedicated anvil, deploys v13 with `../v13/create2-deploy/deploy-testnet.ts`, creates a
-`trivialEncrypt` handle, passes the eleven v13 manifest addresses as CLI inputs to
-`upgrade/upgrade-cli`, and verifies the v14 versions, that no proxy was created, the preserved handle,
-every zero-argument v13 getter reading, the sealed context anchor, ownership, pausers, and forbidden-event
-absence.
+It starts a dedicated anvil, deploys the previous generation's stack with that generation's own
+`create2-deploy/deploy-cli`, creates a `trivialEncrypt` handle, passes the eleven addresses of its manifest as
+CLI inputs to `upgrade/upgrade-cli`, and verifies this generation's versions on the six re-pointed contracts,
+that no proxy was created, the preserved handle, every zero-argument getter reading of the previous stack, the
+unchanged KMS context and signers, ownership, pausers, and forbidden-event absence.
 
-For a manual run, start anvil in one terminal and deploy v13 from a second:
+For a manual run, start anvil in one terminal and deploy the previous generation from a second:
 
 ```sh
 anvil --silent
 ```
 
 ```sh
-cd host-contracts-cleartext/v13
-node create2-deploy/deploy-testnet.ts \
-  --config create2-deploy/anvil-config.json \
-  --out-dir .out-v13-for-v14 \
+cd host-contracts-cleartext/v14/create2-deploy
+./deploy-cli \
+  --config anvil-config.json \
+  --out-dir .out-v14-for-v15 \
   --deployment-id anvil-rehearsal \
   --stage all
 ```
 
-Point the upgrade at the manifest v13 just sealed, rather than retyping its eleven addresses:
+Point the upgrade at the manifest that deploy just sealed, rather than retyping its eleven addresses:
 
 ```json
 {
@@ -315,8 +316,8 @@ Point the upgrade at the manifest v13 just sealed, rather than retyping its elev
   "confirmations": 0,
   "finality": false,
   "git": false,
-  "previousAbiDir": "../../v13/pkg/abi",
-  "previousManifest": "../../v13/create2-deploy/.out-v13-for-v14/manifest.json"
+  "previousAbiDir": "../../v14/pkg/abi",
+  "previousManifest": "../../v14/create2-deploy/.out-v14-for-v15/manifest.json"
 }
 ```
 
@@ -349,10 +350,10 @@ those eleven addresses directly instead:
 Either way `validating the live stack` tags each address with where it came from — `[manifest]`,
 `[config]`, or the flag that set it.
 
-Then run from v14, reusing the v13 deployment id:
+Then run from this generation, reusing the previous deploy's id:
 
 ```sh
-cd ../v14/create2-deploy
+cd ../../v15/create2-deploy
 ./upgrade/upgrade-cli \
   --stage all \
   --handle 0xHANDLE
@@ -370,7 +371,7 @@ two read-only checks are where a human reads before deciding:
 ```sh
 ./upgrade/upgrade-cli --stage compute                 # validates the eleven addresses, snapshots, seals
 git add -f .out-*/manifest.json .out-*/addresses.sol && git commit -m seal && git push
-./upgrade/upgrade-cli --stage creates                 # seven CREATE2s, each gated on getCode
+./upgrade/upgrade-cli --stage creates                 # six CREATE2s, each gated on getCode
 ./upgrade/upgrade-cli --stage precheck                # READ THIS. Fresh recompile; every FAIL line, not just the first
 ./upgrade/upgrade-cli --stage rehearse                # the exact calldata on an anvil fork of the chain, then verify on the fork
 ./upgrade/upgrade-cli --stage materialize             # runs precheck again, then the one atomic call
@@ -417,9 +418,9 @@ gate printed the same digest, derived from the build rather than from the file �
 the digest the wallet shows for the signed payload must match both.** Then:
 
 ```sh
-./upgrade/upgrade-cli --stage status                  # materialize: done — all seven implementation slots match the seal
+./upgrade/upgrade-cli --stage status                  # materialize: done — all six implementation slots match the seal
 ./upgrade/upgrade-cli --stage verify                  # records the multisig's transaction in the journal as an observation
 ```
 
-`verify` finds the multisig's transaction through the seven `Upgraded` events, requires them all in one
+`verify` finds the multisig's transaction through the six `Upgraded` events, requires them all in one
 transaction, and writes it to `journal.jsonl` as an observed step D, since no local receipt exists.

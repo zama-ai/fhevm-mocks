@@ -90,10 +90,10 @@ They must be two different addresses. Steps 3 to 5 set them up.
 
 ### Step 1: install the tool
 
-> ⚠️ **Use the `release/0.14.x` branch only.** Never `main` or another branch.
+> ⚠️ **Use the `release/0.15.x` branch only.** Never `main` or another branch.
 
 ```sh
-git clone --branch release/0.14.x --single-branch https://github.com/zama-ai/fhevm-mocks.git ~/src/fhevm-mocks
+git clone --branch release/0.15.x --single-branch https://github.com/zama-ai/fhevm-mocks.git ~/src/fhevm-mocks
 cd ~/src/fhevm-mocks
 make install
 ```
@@ -101,7 +101,7 @@ make install
 Put the `deploy-cli` command on your `PATH`, and check it runs:
 
 ```sh
-export PATH="$HOME/src/fhevm-mocks/host-contracts-cleartext/v14/create2-deploy:$PATH"
+export PATH="$HOME/src/fhevm-mocks/host-contracts-cleartext/v15/create2-deploy:$PATH"
 deploy-cli --help
 ```
 
@@ -167,7 +167,7 @@ Create `deploy.config.json` in your deployment folder, for example
   "account": "fhevm-deployer",
   "admin": "0x<admin address from step 4>",
   "adminAccount": "fhevm-admin",
-  "deploymentId": "cleartext-v14-arbsepolia-2026-10",
+  "deploymentId": "cleartext-v15-arbsepolia-2026-10",
   "outDir": "out",
   "confirmations": 3
 }
@@ -179,7 +179,7 @@ Create `deploy.config.json` in your deployment folder, for example
 - **Admin is a multisig:** delete the `adminAccount` line. `admin` is then required.
 
 `deploymentId` decides every address. The tool derives one CREATE2 salt per contract from it:
-`keccak256(abi.encode("fhevm.cleartext", "0.14", deploymentId, <contract name>))`. The deployer key also
+`keccak256(abi.encode("fhevm.cleartext", "0.15", deploymentId, <contract name>))`. The deployer key also
 changes every address, because it is part of the ACL's creation code. Same `deploymentId` and same
 deployer give the same addresses on every chain. A new `deploymentId` gives a new, separate set.
 
@@ -209,7 +209,7 @@ The last line is `sealed:` followed by the full path of `out/manifest.json`.
 
 ```sh
 git add deploy.config.json out/manifest.json out/addresses.sol
-git commit -m "seal: cleartext-v14-arbsepolia-2026-10"
+git commit -m "seal: cleartext-v15-arbsepolia-2026-10"
 git push        # only if your repo has a remote
 ```
 
@@ -248,7 +248,7 @@ jq .address out/manifest.json
 ```sh
 # from ~/fhevm-deployments/arbsepolia-2026-10
 git add out/journal.jsonl
-git commit -m "record: cleartext-v14-arbsepolia-2026-10"
+git commit -m "record: cleartext-v15-arbsepolia-2026-10"
 git push
 ```
 

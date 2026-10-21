@@ -106,8 +106,8 @@ One command, run from the workspace root, moves every pin THIS generation takes 
 contracts and its config together, and nothing of the previous generation's:
 
 ```sh
-make bump-vendored PKG=./host-contracts-cleartext/v14 TAG=v0.14.1
-# = fhevm-npm bump vendored ./host-contracts-cleartext/v14 --tag v0.14.1
+make bump-vendored PKG=./host-contracts-cleartext/v15 TAG=v0.15.0-3
+# = fhevm-npm bump vendored ./host-contracts-cleartext/v15 --tag v0.15.0-3
 ```
 
 It resolves the tag to its commit (a tag can be moved later; the commit is what makes the record
@@ -121,7 +121,7 @@ Choosing _which_ tag is still a manual decision: numbering on a line is not reli
 higher patch number can be an **ancestor** of a lower one (rule 6). List and compare before you pick:
 
 ```sh
-git tag --list 'v0.14.[0-9]*'
+git tag --list 'v0.15.[0-9]*'
 git merge-base --is-ancestor v0.13.3 v0.13.2 && echo "v0.13.3 is behind v0.13.2"
 ```
 
@@ -158,9 +158,9 @@ Addresses, if the host address set changed
 4. `internal/placeholders/addresses.sol` is **generated** — do not hand-edit it. Run
    `npm run generate:placeholders` (also runs as the first step of `build:templates`).
 
-## 5. If the protocol minor changed (0.14 → 0.15)
+## 5. If the protocol minor changed (e.g. 0.14 → 0.15)
 
-If the protocol minor changed (0.14 → 0.15)
+If the protocol minor changed (e.g. 0.14 → 0.15)
 
 The config remapping prefix is version-pinned, so find every occurrence rather than trusting a list:
 
@@ -184,50 +184,45 @@ This section is the AUTHORING side: what the NEW generation must point at. For t
 THIS generation deletes once it stops being V(N) — see [ROTATION.md](ROTATION.md).
 
 The upgrade path and its e2e are hardcoded to a specific pair of generations. For version N the
-previous generation becomes N-1 everywhere:
+previous generation becomes N-1 everywhere. Today the pair is v14 → v15:
 
 ```sh
 # excludes build output (_cjs/_esm/_types) and the tarball fixture under test/ts/node_modules
 grep -rln --exclude-dir=node_modules --exclude-dir=_types --exclude-dir=_cjs --exclude-dir=_esm \
-  'V13\|v13' --include='*.ts' --include='*.sol' internal pkg test
-#   about thirty files at v14, most of them prose; the ones that matter are the three groups below:
-#   internal/constants.ts                     pkg/ts/upgrade.ts
-#   package.json                              pkg/ts/types/public.ts
-#   test/ts/upgrade/library.test.ts           pkg/src/cleartext/{CleartextArithmetic,ICleartextArithmetic}.sol
-#   test/e2e/upgrade/create2.test.ts          create2-deploy/upgrade/{testnet.ts,anvil-config.json}
+  'V14\|v14' --include='*.ts' --include='*.sol' internal pkg test create2-deploy
+#   the groups below; the rest is prose, which ROTATION.md's lesson 7 asks to keep generation-agnostic
 ```
 
 Three groups, in increasing order of effort:
 
 1. **The previous-generation edge** — the devDependency pin in `package.json`, the import specifier
-   `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts` and
-   `…/pkg/ts/versions.ts` in `create2-deploy/upgrade/ts/testnet.ts` (the live stack's expected versions), and
-   `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`. Every one of them lives in
-   an `upgrade/` directory that the rotation deletes whole, except the forge side of the same edge: the
-   `@fhevm/host-contracts-cleartext-v13-dev/` line in `remappings.txt` and `allow_paths` in `foundry.toml`,
-   which `test/upgrade/CleartextGenerationUpgrade.t.sol` and `PreviousLineCeilings.t.sol` compile through. `ROTATION.md` lists those two.
+   `@fhevm/host-contracts-cleartext-v14-dev/pkg/ts/index.ts` in `test/ts/upgrade/library.test.ts`,
+   `…/pkg/ts/versions.ts` and `…/pkg/abi` in `create2-deploy/upgrade/ts/testnet.ts` (the live stack's expected
+   versions and ABIs), `PREVIOUS_GENERATION_DIR_ABS_PATH` in `test/e2e/upgrade/create2.test.ts`, and the forge
+   side: the `@fhevm/host-contracts-cleartext-v14-dev/` line in `remappings.txt` and `allow_paths` in
+   `foundry.toml`, which `test/upgrade/CleartextGenerationUpgrade.t.sol` and `PreviousLineCeilings.t.sol` compile
+   through. Everything but the forge lines lives in an `upgrade/` directory the rotation deletes whole; the forge
+   lines stay even then (`ROTATION.md` step 3, rule 3.4.6).
 
    Much smaller than it used to be. The e2e once built v(N-1), packed it, and extracted it under an
-   alias in `test/ts/node_modules` just to obtain an importable copy — a whole `prepareTestV13Consumer`
-   plus fixture guards plus two skip paths. v(N-1) is a workspace member, so it is now simply imported
-   through the link npm creates, and all of that is gone. A tarball is for testing a PUBLISH CONTRACT;
-   using one to read a sibling's source bought nothing.
+   alias in `test/ts/node_modules` just to obtain an importable copy. v(N-1) is a workspace member, so it is
+   now simply imported through the link npm creates. A tarball is for testing a PUBLISH CONTRACT; using one to
+   read a sibling's source bought nothing.
 
-2. **The public API** — `pkg/ts/upgrade.ts` exports `updateV13ToV14`, and `pkg/ts/types/public.ts`
-   declares `FhevmAddressesV13`, `FhevmAddresses` and `UpdateV13ToV14MigrationConfig`. Renaming these
-   is a breaking change for consumers, so decide deliberately whether N-1→N gets new names or the old
-   ones are kept. v14 renamed: a v13 consumer calling `updateV12ToV13` gets a compile error, not a
-   silently different upgrade.
-3. **The Solidity** — `pkg/src/cleartext/CleartextArithmetic.sol` and `ICleartextArithmetic.sol` carry
-   generation references too.
+2. **The public API** — `pkg/ts/upgrade.ts` exports `updateV14ToV15`, and `pkg/ts/types/public.ts` declares
+   `FhevmAddressesV14` beside `FhevmAddresses`. Renaming these is a breaking change for consumers, so decide
+   deliberately whether N-1→N gets new names or the old ones are kept. v15 renamed, and dropped the
+   `UpdateV13ToV14MigrationConfig` input with the migration it described: a v14 consumer calling
+   `updateV13ToV14` gets a compile error, not a silently different upgrade.
+3. **The upgrade's own tables** — `pkg/forge/src/LibForgeFhevmUpgrade.sol` (the in-memory op list forge-fhevm-std
+   ships), `create2-deploy/script/upgrade/` (the create2 op list and its freshness/verify hooks) and
+   `pkg/ts/upgrade.ts`: three copies of one op list, pinned by `LibForgeFhevmUpgrade.t.sol`,
+   `Create2UpgradeOrdinals.t.sol` and `test/templates.test.ts` (`DEFAULT_MAY_CHANGE`). Step 7 says how to derive it.
 
-Also update `test/ts/upgrade/library.test.ts`, which imports the previous generation by its published name
-(`@fhevm/host-contracts-cleartext-v13/ts`), and the v14-named tests (`deploy-v14.test.ts`, and the `v14`
-strings in the other `test/ts` specs).
-
-The e2e is designed to **skip rather than fail** when the sibling package is missing, so a half-finished
-rename here is silent: `npm run test` still passes while the upgrade path is no longer covered. Confirm
-the e2e actually ran rather than assuming a green suite means it did.
+The create2 e2e is designed to **skip rather than fail** when the sibling package is missing, so a half-finished
+rename here is silent: `npm run test:upgrade` still passes while the create2 upgrade is no longer covered. It
+happened in the v15 rotation — the e2e looked for `../v13` and skipped. Confirm the e2e actually ran rather than
+assuming a green suite means it did.
 
 ## 7. Check the reinitializer versions (do not "fix" them)
 
@@ -245,18 +240,23 @@ grep -rl 'function reinitializeV' pkg/src --include='*.sol'
 reports, per contract, whether the bytecode changed and whether the reinitializer moved:
 
 ```sh
-npm run list:upgrade-ops -- ../v13
-#   contract                 bytecode  initializer                              verdict
-#   CleartextACL             CHANGED   reinitializeV4 -> reinitializeV5         reinitialize
-#   CleartextArithmetic      CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
-#   CleartextDB              same      - -> -                                   no op
-#   CleartextFHEVMExecutor   CHANGED   reinitializeV5 -> reinitializeV6         reinitialize
-#   CleartextInputVerifier   same      reinitializeV2 -> reinitializeV2         no op
-#   KMSGeneration            CHANGED   - -> reinitializeV2                      reinitialize
-#   ProtocolConfig           CHANGED   - -> reinitializeV2                      reinitialize
-#   PauserSet                -                                                  not a proxy target
+npm run list:upgrade-ops -- ../v14
+#   v14 -> v15
 #
-#   0 materializations, 7 reinitializations
+#   contract                 bytecode  initializer                              verdict
+#   ACLOwner                 -                                                  not a proxy target
+#   CleartextACL             CHANGED   reinitializeV5 -> reinitializeV6         reinitialize
+#   CleartextArithmetic      same      reinitializeV3 -> reinitializeV3         no op
+#   CleartextDB              same      - -> -                                   no op
+#   CleartextFHEVMExecutor   CHANGED   reinitializeV6 -> reinitializeV7         reinitialize
+#   CleartextHCULimit        same      reinitializeV4 -> reinitializeV4         no op
+#   CleartextInputVerifier   CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
+#   CleartextKMSVerifier     CHANGED   reinitializeV4 -> reinitializeV5         reinitialize
+#   KMSGeneration            CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
+#   PauserSet                -                                                  not a proxy target
+#   ProtocolConfig           CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
+#
+#   0 materializations, 6 reinitializations
 ```
 
 It reads only committed JSON (`templates/` and `abi/`), so it needs no compilation and works against a
@@ -267,10 +267,11 @@ generation, so a raw comparison would call everything changed), and it keys "is 
 `ProtocolConfig` are proxy targets with no reinitializer at all.
 
 Its output is a starting point, not a spec. It cannot tell you what arguments a reinitializer takes — for
-v13→v14 `updateV13ToV14` passes `ProtocolConfig.reinitializeV2` the re-declared KMS node set, the software
-version and the PCR values, while `KMSGeneration.reinitializeV2()` takes nothing — and it says nothing
-about ordering. Compare its op list against `pkg/ts/upgrade.ts`; for v13→v14 the two agree on the seven
-reinitializations.
+v14→v15 none takes any, but v13→v14's `ProtocolConfig.reinitializeV2` took the re-declared KMS node set, the
+software version and the PCR values — and it says nothing about ordering. Upstream decides both: its upgrade CI
+(`.github/workflows/host-contracts-upgrade-tests.yml`) upgrades exactly the contracts whose
+`REINITIALIZER_VERSION` moved, in the order of `host-contracts/upgrade-manifest.json`, with no arguments.
+Compare against `pkg/ts/upgrade.ts`; for v14→v15 the two agree on the six reinitializations.
 
 The helper takes the previous generation as an argument and hardcodes no version, so step 6's rename
 does not touch it — only the path you pass changes.
@@ -283,16 +284,17 @@ the rule is two-sided:
 | yes               | `REINITIALIZER_VERSION` bumped, `reinitializeV<n>` renamed | upgrading that proxy has no replay guard and no on-chain generation marker | `⚠ CHANGED, NOT BUMPED` |
 | no                | **both untouched**                                         | a gratuitous bump forces a pointless upgrade op and burns a version number | `⚠ BUMPED, UNCHANGED`   |
 
-So a missing bump is not automatically a defect. `InputVerifier` is the worked example: its v14 bytecode
-is identical to v13's, it kept `MINOR_VERSION = 2` / `REINITIALIZER_VERSION = 3`, and it is therefore
-**deliberately absent** from `updateV13ToV14`'s op list. `pkg/ts/upgrade.ts` says so directly: _"its v14
-bytecode is identical and its version did not bump"_.
+So a missing bump is not automatically a defect. `HCULimit` is the worked example for v14→v15: its v15
+bytecode is identical to v14's, it kept `MINOR_VERSION = 4` / `REINITIALIZER_VERSION = 5`, and it is therefore
+**deliberately absent** from `updateV14ToV15`'s op list — upstream's own CI skips it for the same reason.
+`InputVerifier` was the same example one rotation earlier (unchanged v13→v14) and is IN the list this time,
+because v0.15 changed and bumped it. `CleartextArithmetic` and `CleartextDB` are `same` too, and absent.
 
-`CleartextArithmetic` is the other kind of worked example. Before v14 implemented `fheMulDiv` the helper
-reported it `⚠ CHANGED, NOT BUMPED`: its source had not changed, but it takes `FHEVMExecutor.Operators` as
-a parameter and that enum had gained `fheMulDiv`, so the enum range check moved and nothing else. That was
-a correct "no bump" — until the operator was implemented (`recordMulDiv`, a new selector), which is a real
-change and got the bump above: `reinitializeV3`, v0.5.0, and a seventh op in the upgrade.
+A history worth knowing, from v13→v14: before v14 implemented `fheMulDiv` the helper reported
+`CleartextArithmetic` `⚠ CHANGED, NOT BUMPED` — its source had not changed, but it takes
+`FHEVMExecutor.Operators` as a parameter and that enum had gained `fheMulDiv`, so the enum range check moved and
+nothing else. That was a correct "no bump" until the operator was implemented (`recordMulDiv`, a new selector),
+which got a real bump: `reinitializeV3`, v0.5.0.
 
 What to check, per contract whose bytecode changed: that upstream bumped it, and that the op list in the
 upgrade path matches. A contract whose bytecode did not change should not appear there at all.
@@ -332,8 +334,8 @@ contracts still use means the deploy would bake in a placeholder.
 
 Check the size budget
 
-New upstream code can breach EIP-170, and the margin is thin — `CleartextFHEVMExecutor` sits ~1.5 KB
-under the 24,576 B cap. There is no `--code-size-limit` escape hatch (rule 12).
+New upstream code can breach EIP-170, and the margin is thin — `CleartextFHEVMExecutor` sits ~1.9 KB
+under the 24,576 B cap (22,607 B on v0.15.0-3). There is no `--code-size-limit` escape hatch (rule 12).
 
 ```sh
 forge build --sizes
@@ -357,7 +359,7 @@ inside `forge script`, because placeholder patching defeats forge's cache by des
 keeps everything that has actually caught an upgrade regression and drops the coordinator: the
 `Create2UpgradeOrdinals` forge test (the init-data table), `stack-order.test.ts` (the deploy order across
 every notation), `list:upgrade-ops` (the bytecode/reinitializer table — add `--strict` to fail on a ⚠),
-and the library upgrade e2e on a fresh anvil (`updateV13ToV14`, versions, ownership, cleartext survival).
+and the library upgrade e2e on a fresh anvil (`updateV14ToV15`, versions, ownership, cleartext survival).
 Iterate on the fast lane; run the full one before committing a bump. `make test-cleartext-upgrade-fast`
 and `make test-cleartext-upgrade` are the workspace-level names.
 
@@ -365,8 +367,7 @@ The rule 6 gate — vendored sources byte-identical to the declared commit:
 
 ```sh
 npm run check:vendored-origin             # validate npm-manifest.json vendored sources
-#   🔎 rule 6: src/contracts must match host-contracts/contracts at v0.14.1 (e7e7fecf10ea)
-#      ✅ 27 vendored files identical to upstream (27 upstream files scanned)
+#   ✅ check vendored-origin: 2 package(s) checked.
 ```
 
 It reads the tag and commit from `pkg/package.json` → `fhevm.vendoredFrom`, so it can never drift from
@@ -379,7 +380,7 @@ The rules 15/17 gate — the localhost address set still being the one `ZamaConf
 ```sh
 npm run check:zama-config         # also runs inside `npm run build`
 #   🔎 rules 15 and 17: ZAMA_LOCAL_CONFIG must match ZamaConfig.sol _getLocalConfig()
-#      host-contracts-cleartext/v14/internal/zama-config/ZamaConfig.sol
+#      host-contracts-cleartext/v15/internal/zama-config/ZamaConfig.sol
 #      ✅ ACLAddress           aclAddress             0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D
 #      ✅ CoprocessorAddress   fhevmExecutorAddress   0xe3a9105a3a932253A70F126eb1E3b589C643dD24
 #      ✅ KMSVerifierAddress   kmsVerifierAddress     0x901F8942346f7AB3a01F6D7613119Bca447Bb030
