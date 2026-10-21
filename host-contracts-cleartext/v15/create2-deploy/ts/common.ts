@@ -1545,10 +1545,14 @@ export function packageVersion(): string {
   return pkg.version;
 }
 
-/** `0.14.2` -> `0.14`. */
+/**
+ * `0.14.2` -> `0.14`, and `0.15.0-0` -> `0.15`: a prerelease names the same generation, so it salts the same
+ * addresses. Only MAJOR.MINOR enters the salt; what a prerelease may NOT do is decided where the patch
+ * matters (a hotfix refuses one, see `hotfixVersionRefusal`).
+ */
 export function majorMinorOf(version: string): string {
-  const parts = /^(\d+\.\d+)\.\d+$/.exec(version);
-  if (parts?.[1] === undefined) fail(`Error: the package version '${version}' is not MAJOR.MINOR.PATCH.`);
+  const parts = /^(\d+\.\d+)\.\d+(?:-[0-9A-Za-z.-]+)?$/.exec(version);
+  if (parts?.[1] === undefined) fail(`Error: the package version '${version}' is not MAJOR.MINOR.PATCH[-PRERELEASE].`);
   return parts[1];
 }
 

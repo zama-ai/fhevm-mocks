@@ -67,6 +67,8 @@ void test('a hotfix stays in its generation and moves the patch up', () => {
   assert.equal(hotfixVersionRefusal(`0.${g}.3`, `0.${g}.10`), null, 'numeric, not lexical');
   assert.match(String(hotfixVersionRefusal(`0.${g}.1`, `0.${g}.1`)), /is not newer than/);
   assert.match(String(hotfixVersionRefusal(`0.${g}.2`, `0.${g}.1`)), /is not newer than/);
+  // The salt accepts a prerelease (`majorMinorOf`); a hotfix does not: it would record a patch that is not one.
+  assert.match(String(hotfixVersionRefusal(`0.${g}.0`, `0.${g}.1-0`)), /is not 0\.<generation>\.<patch>/);
   assert.match(
     String(hotfixVersionRefusal(`0.${String(GENERATION - 1)}.6`, `0.${g}.1`)),
     /that is an upgrade, not a hotfix/,

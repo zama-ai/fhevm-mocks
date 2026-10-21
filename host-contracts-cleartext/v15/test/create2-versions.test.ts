@@ -33,6 +33,9 @@ void test('a version line, for messages', () => {
 void test("the salt's version is the package's MAJOR.MINOR, and names the contracts' generation", () => {
   assert.equal(majorMinorOf('0.14.2'), '0.14');
   assert.equal(majorMinorOf('1.0.0'), '1.0');
+  // A prerelease names the same generation, so it salts the same addresses.
+  assert.equal(majorMinorOf('0.15.0-0'), '0.15');
+  assert.equal(majorMinorOf('0.15.0-rc.1'), '0.15');
   const acl = readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'pkg/src/cleartext/CleartextACL.sol'), 'utf8');
   const generation = /uint256 public constant CLEARTEXT_PROTOCOL_VERSION = (\d+);/.exec(acl)?.[1];
   assert.ok(generation !== undefined, 'CleartextACL declares CLEARTEXT_PROTOCOL_VERSION');
