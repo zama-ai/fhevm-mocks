@@ -74,7 +74,7 @@
     "test:harness:run": "vitest run --config test/ts/vitest.config.ts",
     "test:templates:run": "node --test --test-concurrency=1 test/*.test.ts",
     "test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
-    "test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && node --test test/stack-order.test.ts && npm run --silent list:upgrade-ops -- ../v13 && tsc -p test/ts/upgrade/tsconfig.json --noEmit && vitest run --config test/ts/upgrade/vitest.config.ts"
+    "test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && node --test test/stack-order.test.ts && npm run --silent list:upgrade-ops -- ../v14 && tsc -p test/ts/upgrade/tsconfig.json --noEmit && vitest run --config test/ts/upgrade/vitest.config.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

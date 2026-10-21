@@ -17,7 +17,7 @@ import {
   deploy as deployV13,
   precomputeAddresses as precomputeV13,
   type BootstrapConfig as BootstrapConfigV13,
-} from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts';
+} from '@fhevm/host-contracts-cleartext-v14-dev/pkg/ts/index.ts';
 import { CONTRACT_VERSIONS, updateV13ToV14 } from '../../../pkg/ts/index.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -65,7 +65,7 @@ const MIGRATED_CONTEXT_ID = (7n << 248n) + 1n;
  * ERR_PACKAGE_PATH_NOT_EXPORTED right here, instead of surfacing as a puzzling missing-ABI much later.
  */
 const V13_ABI_DIR = dirname(
-  fileURLToPath(import.meta.resolve('@fhevm/host-contracts-cleartext-v13-dev/pkg/abi/CleartextACL.json')),
+  fileURLToPath(import.meta.resolve('@fhevm/host-contracts-cleartext-v14-dev/pkg/abi/CleartextACL.json')),
 );
 
 type AbiEntry = {

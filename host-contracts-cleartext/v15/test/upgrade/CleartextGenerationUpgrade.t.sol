@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {
     ForgeFhevmDeploy as V13Deploy
-} from "@fhevm/host-contracts-cleartext-v13-dev/pkg/forge/src/ForgeFhevmDeploy.sol";
+} from "@fhevm/host-contracts-cleartext-v14-dev/pkg/forge/src/ForgeFhevmDeploy.sol";
 
 import {LibForgeFhevmUpgrade} from "../../pkg/forge/src/LibForgeFhevmUpgrade.sol";
 import {FhevmAddressRole} from "../../pkg/forge/src/_internal/LocalHostBytecode.sol";

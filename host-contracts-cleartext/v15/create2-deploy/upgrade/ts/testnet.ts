@@ -27,7 +27,7 @@ import { join } from 'node:path';
 // The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
 // contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here: a copy would not
 // follow a v13 hotfix.
-import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/versions.ts';
+import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v14-dev/pkg/ts/versions.ts';
 import {
   atBlock,
   callAddress,

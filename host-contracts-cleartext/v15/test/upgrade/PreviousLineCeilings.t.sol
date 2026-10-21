@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {
     LocalHostVersions as PreviousHostVersions
-} from "@fhevm/host-contracts-cleartext-v13-dev/pkg/forge/src/_internal/LocalHostVersions.sol";
+} from "@fhevm/host-contracts-cleartext-v14-dev/pkg/forge/src/_internal/LocalHostVersions.sol";
 import {
     FhevmGeneration,
     HostVersions,

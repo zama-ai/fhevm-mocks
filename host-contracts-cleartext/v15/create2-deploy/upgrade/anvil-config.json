@@ -5,5 +5,5 @@
   "confirmations": 0,
   "finality": false,
   "git": false,
-  "previousAbiDir": "../../../v13/pkg/abi"
+  "previousAbiDir": "../../../v14/pkg/abi"
 }
