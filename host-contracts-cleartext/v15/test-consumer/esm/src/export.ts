@@ -3,7 +3,7 @@
 
 import {
   deploy,
-  updateV13ToV14,
+  updateV14ToV15,
   precomputeAddresses,
   precomputeCreate2Addresses,
   CREATE2_FACTORY,
@@ -31,7 +31,7 @@ import {
   type EncodeCallParameters,
   type FhevmAddresses,
   type CleartextAddresses,
-  type FhevmAddressesV13,
+  type FhevmAddressesV14,
   type BootstrapConfig,
   type Deployed,
   type ProtocolConfigInitConfig,
@@ -46,7 +46,6 @@ import {
   type EpochActivationAttestation,
   type EpochActivationDigests,
   type KmsEpochActivator,
-  type UpdateV13ToV14MigrationConfig,
   type AbstractEthereumHistory,
   type PartialStack,
   type SnapshotParameters,
@@ -107,7 +106,7 @@ const dummyFhevmAddresses: FhevmAddresses = {
   protocolConfigAddress: ADDRESS,
   kmsGenerationAddress: ADDRESS,
 };
-const dummyFhevmAddressesV13: FhevmAddressesV13 = {
+const dummyFhevmAddressesV14: FhevmAddressesV14 = {
   aclAddress: ADDRESS,
   fhevmExecutorAddress: ADDRESS,
   kmsVerifierAddress: ADDRESS,
@@ -175,11 +174,6 @@ const dummyDeployed: Deployed = {
   pauserSetAddress: ADDRESS,
   aclOwnerAddress: ADDRESS,
 };
-const dummyUpdateV13ToV14MigrationConfig: UpdateV13ToV14MigrationConfig = {
-  kmsNodeParams: [dummyKmsNodeParams],
-  softwareVersion: '0.0.0-cleartext',
-  pcrValues: [],
-};
 const dummyVerifyCheck: VerifyCheck = { name: 'ACL.getVersion', status: 'skip', detail: 'no history adapter' };
 const dummyVerifyReport: VerifyReport = { ok: true, checks: [dummyVerifyCheck], failures: [], skipped: [] };
 const dummyStackSnapshot: StackSnapshot = { blockNumber: 1n, readings: { 'ACL.getVersion': 'ACL v0.4.0' } };
@@ -234,7 +228,7 @@ const SAMPLES: readonly unknown[] = [
   dummyAbstractEthereumHistory,
   dummyAbstractEthereumSigner,
   dummyFhevmAddresses,
-  dummyFhevmAddressesV13,
+  dummyFhevmAddressesV14,
   dummyCleartextAddresses,
   dummyKmsNode,
   dummyKmsThresholds,
@@ -250,7 +244,6 @@ const SAMPLES: readonly unknown[] = [
   dummyHCULimitInitConfig,
   dummyBootstrapConfig,
   dummyDeployed,
-  dummyUpdateV13ToV14MigrationConfig,
   dummyVerifyCheck,
   dummyVerifyReport,
   dummyStackSnapshot,
@@ -266,7 +259,7 @@ const SAMPLES: readonly unknown[] = [
 
 void test('every value export arrives with the type a consumer relies on', () => {
   assert.equal(typeof deploy, 'function');
-  assert.equal(typeof updateV13ToV14, 'function');
+  assert.equal(typeof updateV14ToV15, 'function');
   assert.equal(typeof precomputeAddresses, 'function');
   assert.equal(typeof precomputeCreate2Addresses, 'function');
   assert.equal(typeof CREATE2_FACTORY, 'string');

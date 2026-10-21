@@ -26,7 +26,7 @@ export type {
  * Deliberately unsuffixed. A package is already pinned to one protocol generation by its own `version`,
  * so a `V13` suffix would restate inside the package what the package name and version say outside it —
  * and it is what made every previous-generation port a rename of ~70 call sites. Where two generations
- * genuinely meet, the version stays in the name: see `FhevmAddressesV13` below and `updateV13ToV14`.
+ * genuinely meet, the version stays in the name: see `FhevmAddressesV14` below and `updateV14ToV15`.
  */
 export type FhevmAddresses = {
   readonly aclAddress: string;
@@ -39,13 +39,13 @@ export type FhevmAddresses = {
 };
 
 /**
- * The **previous** generation's host address set — what `updateV13ToV14` upgrades *from*.
+ * The **previous** generation's host address set — what `updateV14ToV15` upgrades *from*.
  *
- * v14 adds no contract to the host set, so a v13 stack has exactly the addresses a v14 stack has. Named
+ * v15 adds no contract to the host set, so a v14 stack has exactly the addresses a v15 stack has. Named
  * separately anyway: it describes a different protocol generation that happens to coincide, and the name
- * is what lets `FhevmAddresses` change later without silently redefining what "a v13 stack" means.
+ * is what lets `FhevmAddresses` change later without silently redefining what "a v14 stack" means.
  */
-export type FhevmAddressesV13 = FhevmAddresses;
+export type FhevmAddressesV14 = FhevmAddresses;
 
 /**
  * Cleartext-only infrastructure addresses (test stack): the arithmetic/persistence contract and the
@@ -93,7 +93,7 @@ export type HCULimitInitConfig = {
 };
 
 /**
- * A KMS node entry for `ProtocolConfig` (v13). Mirrors the on-chain `KmsNode` struct; passed as an
+ * A KMS node entry for `ProtocolConfig` (since v13). Mirrors the on-chain `KmsNode` struct; passed as an
  * object — viem matches the tuple by component name.
  */
 export type KmsNode = {
@@ -103,7 +103,7 @@ export type KmsNode = {
   readonly storageUrl: string;
 };
 
-/** The four KMS thresholds for `ProtocolConfig` (v13). Mirrors the on-chain `KmsThresholds` struct. */
+/** The four KMS thresholds for `ProtocolConfig` (since v13). Mirrors the on-chain `KmsThresholds` struct. */
 export type KmsThresholds = {
   readonly publicDecryption: bigint;
   readonly userDecryption: bigint;
@@ -143,23 +143,12 @@ export type {
   KmsEpochActivator,
 } from '../kmsLifecycle/types.js';
 
-/** Result of `deploy` / `updateV13ToV14`: the full host address set plus the standing admin. */
+/** Result of `deploy` / `updateV14ToV15`: the full host address set plus the standing admin. */
 export type Deployed = {
   readonly fhevmAddresses: FhevmAddresses;
   readonly cleartextAddresses: CleartextAddresses;
   readonly pauserSetAddress: string;
   readonly aclOwnerAddress: string;
-};
-
-/**
- * What `ProtocolConfig.reinitializeV2` records during a v13→v14 update: the current KMS context
- * re-declared with the v14 per-node metadata (party id, MPC identity, CA cert, storage prefix), plus the
- * KMS software version and the enclave PCR values. The signer set must match the live v13 context.
- */
-export type UpdateV13ToV14MigrationConfig = {
-  readonly kmsNodeParams: readonly KmsNodeParams[];
-  readonly softwareVersion: string;
-  readonly pcrValues: readonly PcrValues[];
 };
 
 ////////////////////////////////////////////////////////////////////////////////

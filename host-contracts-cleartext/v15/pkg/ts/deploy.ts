@@ -42,7 +42,7 @@ import { DEFAULT_BOOTSTRAP_CONFIG } from './constants.js';
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Deploy a fresh v13 host-contract stack from scratch.
+ * Deploy a fresh v15 host-contract stack from scratch.
  *
  * End to end: deploy the 7 empty proxies + PauserSet, install a standing `ACLOwner` (owned by
  * `admin`), then atomically materialize all 7 proxies in a single `ACLOwner.upgrade(...)` transaction.
@@ -159,7 +159,7 @@ async function precomputeFromDeployerNonce(parameters: {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Phase 1 for a fresh v13 stack: deploys all 7 real implementations (patched with v13 host addresses)
+ * Phase 1 for a fresh v15 stack: deploys all 7 real implementations (patched with v15 host addresses)
  * and encodes their `upgradeToAndCall` calldata. Sends no owner-gated transaction.
  */
 async function buildBootstrapPlan(parameters: {
@@ -476,8 +476,8 @@ function bootstrapUpgradeConfig(parameters: {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Builds the arguments for v13 `KMSVerifier.initializeFromEmptyProxy`
- * `(address verifyingContractSource, uint64 chainIDSource)`. In v13 the KMS signer set moved to
+ * Builds the arguments for `KMSVerifier.initializeFromEmptyProxy`
+ * `(address verifyingContractSource, uint64 chainIDSource)`. Since v13 the KMS signer set lives in
  * `ProtocolConfig`, so — unlike v12 — no signers/threshold are passed here.
  */
 function kmsVerifierInitArgs(config: KMSVerifierInitConfig): readonly unknown[] {

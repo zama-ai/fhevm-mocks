@@ -210,9 +210,9 @@ async function readAll(
  *
  * ## A caveat when snapshotting the PREVIOUS generation
  *
- * The getters are enumerated from THIS package's ABIs. Pointed at a v13 stack, a getter that v14 added
+ * The getters are enumerated from THIS package's ABIs. Pointed at a v14 stack, a getter that v15 added
  * simply reverts and is recorded as `<reverted>` — harmless, and it stays `<reverted>` or starts working,
- * either of which reads correctly. What this cannot see is a getter v14 REMOVED: it is absent from the
+ * either of which reads correctly. What this cannot see is a getter v15 REMOVED: it is absent from the
  * enumeration, so its disappearance is invisible. Supply `abis` with the previous generation's ABIs to
  * close that gap when the previous package is available.
  */
@@ -598,19 +598,18 @@ async function checkBootstrap(
  * The readings allowed to differ across an upgrade, and why. Anything else must be identical.
  *
  * `getVersion` moves on exactly the contracts an upgrade re-points — which `checkVersions` asserts
- * positively, so here it is only excused. `InputVerifier` is deliberately absent: its bytecode is
- * unchanged between generations, so a moved version there means something re-pointed a proxy nobody
- * intended to touch.
+ * positively, so here it is only excused. `HCULimit` and `CleartextArithmetic` are deliberately absent:
+ * their bytecode is unchanged between generations, so a moved version there means something re-pointed a
+ * proxy nobody intended to touch.
  */
 export const DEFAULT_MAY_CHANGE: readonly string[] = [
-  'ProtocolConfig.getVersion',
-  'KMSGeneration.getVersion',
   'ACL.getVersion',
   'FHEVMExecutor.getVersion',
-  'HCULimit.getVersion',
   'KMSVerifier.getVersion',
-  'CleartextArithmetic.getVersion',
-  // The ACL's protocol-version marker: 13 before the upgrade, 14 after, by construction. `IS_CLEARTEXT`
+  'InputVerifier.getVersion',
+  'ProtocolConfig.getVersion',
+  'KMSGeneration.getVersion',
+  // The ACL's protocol-version marker: 14 before the upgrade, 15 after, by construction. `IS_CLEARTEXT`
   // is deliberately NOT here — it reads true on both sides, so it must not move.
   'ACL.CLEARTEXT_PROTOCOL_VERSION',
   // Returns `block.number` by construction, so it differs between any two blocks.
@@ -736,9 +735,9 @@ async function checkNoAuthorityEvents(
  *
  * @example
  * ```ts
- * const before = await snapshotStack({ ethProvider, history, deployed: v13Stack });
- * await updateV13ToV14({ ... }); // creates no proxy: the address set is unchanged
- * const report = await verify({ ethProvider, history, deployed: v13Stack, mode: 'upgrade', before });
+ * const before = await snapshotStack({ ethProvider, history, deployed: v14Stack });
+ * await updateV14ToV15({ ... }); // creates no proxy: the address set is unchanged
+ * const report = await verify({ ethProvider, history, deployed: v14Stack, mode: 'upgrade', before });
  * if (!report.ok) throw new Error(report.failures.map((f) => `${f.name}: ${f.detail ?? ''}`).join('\n'));
  * ```
  */

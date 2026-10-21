@@ -43,7 +43,7 @@
       "module": "./upgrade.js",
       "exports": [
         {
-          "name": "updateV13ToV14",
+          "name": "updateV14ToV15",
           "kind": "function"
         }
       ]
@@ -82,7 +82,7 @@
       ]
     },
     {
-      "comment": ["Installs a standing `ACLOwner` over an EOA-owned ACL — the prerequisite for `updateV13ToV14`."],
+      "comment": ["Installs a standing `ACLOwner` over an EOA-owned ACL — the prerequisite for `updateV14ToV15`."],
       "module": "./aclOwner.js",
       "exports": [
         {
@@ -217,7 +217,7 @@
         {
           "comment": [
             "Address sets. `FhevmAddresses` is this package's own; the suffixed one is the PREVIOUS generation,",
-            "and exists only because `updateV13ToV14` takes it as input."
+            "and exists only because `updateV14ToV15` takes it as input."
           ],
           "name": "FhevmAddresses"
         },
@@ -225,10 +225,10 @@
           "name": "CleartextAddresses"
         },
         {
-          "name": "FhevmAddressesV13"
+          "name": "FhevmAddressesV14"
         },
         {
-          "comment": ["`deploy` config + shared result of `deploy` / `updateV13ToV14`."],
+          "comment": ["`deploy` config + shared result of `deploy` / `updateV14ToV15`."],
           "name": "BootstrapConfig"
         },
         {
@@ -274,10 +274,6 @@
         },
         {
           "name": "KmsEpochActivator"
-        },
-        {
-          "comment": ["`updateV13ToV14` migration config."],
-          "name": "UpdateV13ToV14MigrationConfig"
         },
         {
           "comment": ["`verify` / `snapshotStack`."],
@@ -427,7 +423,7 @@
         ]
       },
       {
-        "type": "FhevmAddressesV13",
+        "type": "FhevmAddressesV14",
         "dummy": [
           "{",
           "  aclAddress: ADDRESS,",
@@ -556,16 +552,6 @@
           "  cleartextAddresses: dummyCleartextAddresses,",
           "  pauserSetAddress: ADDRESS,",
           "  aclOwnerAddress: ADDRESS,",
-          "}"
-        ]
-      },
-      {
-        "type": "UpdateV13ToV14MigrationConfig",
-        "dummy": [
-          "{",
-          "  kmsNodeParams: [dummyKmsNodeParams],",
-          "  softwareVersion: '0.0.0-cleartext',",
-          "  pcrValues: [],",
           "}"
         ]
       },
