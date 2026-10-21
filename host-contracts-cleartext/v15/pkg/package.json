@@ -7,7 +7,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zama-ai/fhevm-mocks.git",
-    "directory": "host-contracts-cleartext/v14/pkg"
+    "directory": "host-contracts-cleartext/v15/pkg"
   },
   "main": "./ts/_cjs/index.js",
   "module": "./ts/_esm/index.js",
