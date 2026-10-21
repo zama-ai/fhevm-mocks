@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 
 import {LibForgeFhevmUpgrade} from "../../pkg/forge/src/LibForgeFhevmUpgrade.sol";
 import {LibHostUpgradeCode} from "../../pkg/forge/src/LibHostUpgradeCode.sol";
@@ -27,11 +27,16 @@ interface IUUPSProxy {
  * the cleartext one interchangeably, on a LOCAL stack where every sibling address is the one the blobs
  * bake in. This asks the remaining question: does it still work when the addresses are a real chain's?
  *
- * TWO CHAINS, ONE RECIPE, and the difference between them is the point. Devnet Sepolia runs this SDK's own
- * protocol line, so the cleartext swap is the ONLY thing under test there -- a failure has one possible
- * cause. Testnet Sepolia is a generation behind, so the same swap runs on top of the v13 -> v14 upgrade,
- * which is what a real user forking a lagging chain would get. Devnet proves the mechanism; testnet proves
- * it composes.
+ * ONE CHAIN, TWO ROUTES. Devnet Sepolia runs the PREVIOUS protocol line (0.14: ACL v0.5.0, ProtocolConfig
+ * v0.2.0, read off the chain), so the cleartext swap runs on top of the generation upgrade -- what a real user
+ * forking a chain that has not upgraded yet would get. Route A upgrades to production first and swaps the
+ * executor afterwards; route B lands on the cleartext implementations in the one pass.
+ *
+ * WHAT IS NOT HERE, AND WHY. No Sepolia chain runs this generation's line yet, so the "mechanism alone" case
+ * (a chain on this SDK's own line, only the swap under test) has nowhere to run; the local
+ * `CleartextImplementationSwap` covers that mechanism without a fork, and a subclass with `_isAGenerationBehind`
+ * false comes back when a chain moves. Testnet Sepolia still runs 0.13 -- two lines behind, which this
+ * generation does not upgrade from (`LibForgeFhevmHostVersions.classify` refuses it as `Unknown`).
  *
  * NOTHING IS COMPILED AGAINST THESE ADDRESSES. Every implementation comes out of `LocalHostUpgrade` and is
  * rewritten for the fork by `LibHostUpgradeCode` -- the executor's arithmetic, the arithmetic's DB, and
@@ -62,7 +67,7 @@ abstract contract ForkCleartextUpgrade is Test {
 
     /// @dev ROUTE. A: the generation upgrade lands on the production implementations and the executor is
     ///      swapped to cleartext afterwards, so its proxy moves twice. B: one pass, where the executor's
-    ///      op re-points straight to `CleartextFHEVMExecutor` and its `reinitializeV6` runs on that.
+    ///      op re-points straight to `CleartextFHEVMExecutor` and its reinitializer runs on that.
     function _singlePass() internal pure virtual returns (bool) {
         return false;
     }
@@ -74,13 +79,40 @@ abstract contract ForkCleartextUpgrade is Test {
                 rpc = configured;
             } catch {}
         }
-        if (bytes(rpc).length == 0) return;
+        if (bytes(rpc).length == 0) {
+            console.log("");
+            console.log("!!! FORK TEST SKIPPED: %s", _label());
+            console.log("!!! set SEPOLIA_RPC_URL (or a `sepolia` rpc endpoint in foundry.toml) to run it");
+            console.log("");
+            return;
+        }
 
         _chain();
         vm.createSelectFork(rpc);
         forked = true;
         owner = IACL(ACL).owner();
+
+        console.log("");
+        console.log("=================================================================================");
+        console.log(">>> FORK TEST RUNNING: %s", _label());
+        console.log(">>> forked Sepolia at block %s", block.number);
+        console.log(">>> chain's ACL: %s", IACL(ACL).getVersion());
+        console.log(
+            ">>> %s",
+            _isAGenerationBehind()
+                ? "one generation behind: upgraded in memory to this generation, then made cleartext"
+                : "on this generation's line: made cleartext only"
+        );
+        console.log(
+            ">>> route %s",
+            _singlePass() ? "B (straight to cleartext, one pass)" : "A (production, then the executor swap)"
+        );
+        console.log("=================================================================================");
+        console.log("");
     }
+
+    /// @dev What this case forks, for the banner.
+    function _label() internal pure virtual returns (string memory);
 
     function test_aForkedProductionStackBecomesCleartext() public {
         vm.skip(!forked);
@@ -140,17 +172,23 @@ abstract contract ForkCleartextUpgrade is Test {
         assertEq(ICleartextDB(dbProxy).get(handle), 7, "the DB holds the plaintext");
         assertEq(ICleartextFHEVMExecutor(EXECUTOR).plaintexts(handle), 7, "and the executor answers for it");
 
-        // -- 5. AN OPERATION ONLY v14 HAS, which is what makes this test able to fail ------------------
+        // -- 5. A COMPOSITE OPERATION, through every contract it touches ------------------------------
         //
-        // `trivialEncrypt` above cannot tell the two generations apart -- both implement it the same way,
-        // so step 4 passes whether or not the upgrade that was supposed to run did. `fheMulDiv` is what
-        // v14 ADDED: the executor routes it to `HCULimit.checkHCUForFheMulDiv`, a function a v13 HCULimit
-        // does not have. Reaching a correct answer here means every contract the call touches really is
-        // this generation's, not just the executor.
+        // `fheMulDiv` (since v14) routes to `HCULimit.checkHCUForFheMulDiv`, so a correct answer means the
+        // executor, the HCU limit and the arithmetic are wired to one another on this chain's addresses.
         bytes32 factor = ICleartextFHEVMExecutor(EXECUTOR).trivialEncrypt(10, FheType.Uint32);
         bytes32 product = ICleartextFHEVMExecutor(EXECUTOR)
             .fheMulDiv(factor, bytes32(uint256(3)), bytes32(uint256(2)), SCALAR_FACTOR_AND_DIVISOR);
         assertEq(ICleartextFHEVMExecutor(EXECUTOR).plaintexts(product), 15, "10 * 3 / 2, computed by the stack");
+
+        // -- 6. BEHAVIOUR ONLY THIS GENERATION HAS, which is what makes this test able to fail ---------
+        //
+        // Steps 4 and 5 cannot tell the two generations apart: both implement those operations the same
+        // way, so they pass whether or not the generation upgrade really ran. Since v15 the executor bounds a
+        // scalar shift amount to uint8 (`_checkScalarShiftAmount`): a previous-generation executor shifts by
+        // 256 and answers, this one refuses with `ScalarOutOfRange()`.
+        vm.expectRevert(bytes4(keccak256("ScalarOutOfRange()")));
+        ICleartextFHEVMExecutor(EXECUTOR).fheShl(factor, bytes32(uint256(256)), bytes1(0x01));
     }
 
     /// @dev One address per `FhevmAddressRole`: this chain's, not this package's.
@@ -168,9 +206,9 @@ abstract contract ForkCleartextUpgrade is Test {
     }
 
     /**
-     * @dev ROUTE B: the generation's own op list, with ONE substitution -- the executor's implementation is
-     *      the cleartext subclass rather than the production one. `reinitializeV6` is inherited, so the
-     *      same init data runs on it, and the proxy moves once instead of twice.
+     * @dev ROUTE B: the generation's own op list, with each implementation replaced by its cleartext subclass
+     *      where one exists. The reinitializers are inherited, so the same init data runs on them, and each
+     *      proxy moves once instead of twice.
      */
     function _upgradeGenerationStraightToCleartext(address[10] memory addresses) private {
         for (uint256 index = 0; index < LibForgeFhevmUpgrade.OP_COUNT; index++) {
@@ -181,14 +219,14 @@ abstract contract ForkCleartextUpgrade is Test {
                 .upgradeToAndCall(deployed, LibForgeFhevmUpgrade.opInitData(index));
         }
 
-        // AND THE ONE THE OP LIST CANNOT REACH. `InputVerifier` is absent from the generation upgrade on
-        // purpose -- its bytecode is the same in both generations -- but it has a cleartext subclass all
-        // the same, so the cleartext pass has to visit it separately. No init data: nothing new to
-        // initialize, and the generation did not move under it.
-        address cleartextInputVerifier =
-            _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextInputVerifier, addresses));
+        // AND THE ONE THE OP LIST CANNOT REACH. `HCULimit` is absent from the generation upgrade on purpose
+        // -- its bytecode and reinitializer are the same in both generations -- but it has a cleartext
+        // subclass all the same, so the cleartext pass has to visit it separately. No init data: nothing new
+        // to initialize, and the generation did not move under it.
+        address cleartextHcuLimit =
+            _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextHCULimit, addresses));
         vm.prank(owner);
-        IUUPSProxy(INPUT_VERIFIER).upgradeToAndCall(cleartextInputVerifier, "");
+        IUUPSProxy(HCU_LIMIT).upgradeToAndCall(cleartextHcuLimit, "");
     }
 
     /**
@@ -216,7 +254,7 @@ abstract contract ForkCleartextUpgrade is Test {
     }
 }
 
-/// THE MECHANISM ALONE: devnet is on this SDK's line, so only the cleartext swap runs.
+/// Devnet Sepolia, one generation behind (0.14): brought forward in memory, then made cleartext. Route A.
 contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     function _chain() internal override {
         ACL = 0x1aC3073813148992aA928C9903681fA7Ec202b13;
@@ -230,32 +268,21 @@ contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     }
 
     function _isAGenerationBehind() internal pure override returns (bool) {
-        return false;
-    }
-}
-
-/// IT COMPOSES: testnet is a generation behind, so the swap runs on top of the v13 -> v14 upgrade. This is
-/// what a user forking a chain that has not upgraded yet would actually get.
-contract TestnetCleartextUpgradeTest is ForkCleartextUpgrade {
-    function _chain() internal override {
-        ACL = 0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D;
-        EXECUTOR = 0x92C920834Ec8941d2C77D188936E1f7A6f49c127;
-        KMS_VERIFIER = 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A;
-        INPUT_VERIFIER = 0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0;
-        HCU_LIMIT = 0xa10998783c8CF88D886Bc30307e631D6686F0A22;
-        PROTOCOL_CONFIG = 0x51f9AFBc89Ea792e1a21a12AB802ab58D4dbee83;
-        KMS_GENERATION = 0x77389113d7000EcBCfc2bDed57202f5f46109934;
-        PAUSER_SET = 0xc62392B4100a1bD45AbDBf91E70f1E4349402b46;
-    }
-
-    function _isAGenerationBehind() internal pure override returns (bool) {
         return true;
     }
+
+    function _label() internal pure virtual override returns (string memory) {
+        return "Devnet Sepolia (0.14 line), route A";
+    }
 }
 
-/// ROUTE B: the same generation upgrade, but the executor goes straight to cleartext in the one pass.
-contract TestnetSinglePassCleartextUpgradeTest is TestnetCleartextUpgradeTest {
+/// ROUTE B: the same chain and generation upgrade, but straight to cleartext in the one pass.
+contract DevnetSinglePassCleartextUpgradeTest is DevnetCleartextUpgradeTest {
     function _singlePass() internal pure override returns (bool) {
         return true;
+    }
+
+    function _label() internal pure override returns (string memory) {
+        return "Devnet Sepolia (0.14 line), route B";
     }
 }
