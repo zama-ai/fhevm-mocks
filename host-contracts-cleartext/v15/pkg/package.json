@@ -60,8 +60,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "5.1.0",
-    "@openzeppelin/contracts-upgradeable": "5.1.0"
+    "@openzeppelin/contracts": "5.6.1",
+    "@openzeppelin/contracts-upgradeable": "5.6.1"
   },
   "fhevm": {
     "vendoredFrom": {
