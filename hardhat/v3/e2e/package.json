@@ -35,14 +35,14 @@
     "@openzeppelin/contracts": "5.1.0",
     "@types/chai": "5.2.3",
     "@types/mocha": "10.0.10",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.20.5",
     "chai": "5.3.3",
-    "eslint": "^10.0.2",
-    "hardhat": "^3.0.0",
+    "eslint": "^10.12.0",
+    "hardhat": "^3.20.0",
     "mocha": "11.8.0",
-    "prettier": "^3.8.3",
+    "prettier": "^3.9.10",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.2",
+    "typescript-eslint": "^8.71.2",
     "viem": "2.55.19"
   }
 }
