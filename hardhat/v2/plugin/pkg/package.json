@@ -47,10 +47,13 @@
   },
   "dependencies": {
     "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v14/pkg",
+    "@types/node": "^22.20.5",
     "debug": "^4.1.1",
     "dotenv": "^16.5.0",
     "picocolors": "^1.1.1",
-    "resolve": "1.17.0"
+    "prettier": "^3.9.10",
+    "resolve": "1.17.0",
+    "typescript-eslint": "^8.71.2"
   },
   "peerDependencies": {
     "@fhevm/sdk": "^0.14.3",
