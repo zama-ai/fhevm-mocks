@@ -12,7 +12,7 @@ publish = false
 tfhe16 = []
 
 [dependencies]
-tfhe = { version = "~1.7", features = ["integer"] }
+tfhe = { version = "~1.8", features = ["integer"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
