@@ -21,6 +21,6 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
-    "publint": "^0.2.12"
+    "publint": "^0.3.25"
   }
 }
