@@ -7,7 +7,7 @@
 #     "Dependabot security updates" is enabled in the repo settings (this file does not enable it).
 #     `open-pull-requests-limit: 0` (the main blocks) turns off version updates but keeps these.
 #   - version updates, opened weekly on each release branch: minor/patch grouped into one PR per
-#     directory, majors one PR each.
+#     directory. Majors are never proposed (see below).
 #
 # `cooldown` makes Dependabot wait 7 days after a version is published before proposing it, so a
 # compromised release has time to be caught upstream. It only delays Dependabot's PRs: it never
@@ -30,9 +30,20 @@
 # package.json with `make sync-pinned`, and `fhevm-npm-cli check pinned-dependencies` rejects a
 # lone bump, so a Dependabot PR for one of them could never be merged as is.
 #
-# Review notes for the PRs it opens:
-#   - majors (hardhat 3 in hardhat/v2, @types/node above the engines.node major, tfhe off its ~1.7 /
-#     ~1.6 line) come as separate PRs and are usually closed on a release line.
+# Also ignored on the release-branch npm blocks: every semver-major update. A major on a release line
+# is a deliberate change made by hand, never a Dependabot PR. In particular:
+#   - hardhat/v2 MUST stay on Hardhat 2 and hardhat/v3 on Hardhat 3, plugins included
+#     (@nomicfoundation/*). An `ignore` applies to the whole block, so a hardhat-only rule cannot
+#     tell the two directories apart; the semver-major rule keeps each on its own line.
+#   - @types/node must keep the engines.node minimum major (22, from ">=22.23.4"), as
+#     `fhevm-npm-cli check package-json` enforces: newer types would accept Node APIs that crash on
+#     Node 22. Move it together with engines.node and CI's node-version.
+#   - Dependabot no longer reports majors, so check them on purpose (e.g. `npm outdated`) when a new
+#     release line starts. 0.x versions are the exception: 0.2 -> 0.3 counts as a minor and still
+#     arrives in the weekly group.
+#
+# Majors are NOT ignored on the github-actions and cargo blocks: action majors are usually safe, and
+# a tfhe minor (1.6 -> 1.7) would still need closing by hand, since each crate stays on its line.
 version: 2
 updates:
   # ---------------------------------------------------------------------------------------------
@@ -81,6 +92,10 @@ updates:
       - dependency-name: "encrypted-types"
       - dependency-name: "@openzeppelin/contracts"
       - dependency-name: "@openzeppelin/contracts-upgradeable"
+      # No majors on a release line: keeps hardhat/v2 on Hardhat 2, hardhat/v3 on Hardhat 3, and
+      # @types/node on the engines.node major.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     target-branch: "release/0.14.x"
@@ -103,6 +118,10 @@ updates:
       - dependency-name: "encrypted-types"
       - dependency-name: "@openzeppelin/contracts"
       - dependency-name: "@openzeppelin/contracts-upgradeable"
+      # No majors on a release line: keeps hardhat/v2 on Hardhat 2, hardhat/v3 on Hardhat 3, and
+      # @types/node on the engines.node major.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     target-branch: "release/0.15.x"
@@ -125,6 +144,10 @@ updates:
       - dependency-name: "encrypted-types"
       - dependency-name: "@openzeppelin/contracts"
       - dependency-name: "@openzeppelin/contracts-upgradeable"
+      # No majors on a release line: keeps hardhat/v2 on Hardhat 2, hardhat/v3 on Hardhat 3, and
+      # @types/node on the engines.node major.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # ---------------------------------------------------------------------------------------------
   # github-actions: actions are pinned by SHA; Dependabot moves the SHA and its `# vX.Y.Z` comment
