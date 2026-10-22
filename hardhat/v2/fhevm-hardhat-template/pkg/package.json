@@ -21,7 +21,7 @@
     "hardhat"
   ],
   "engines": {
-    "node": ">=20",
+    "node": ">=22.23.4",
     "npm": ">=7.0.0"
   },
   "files": [
