@@ -36,166 +36,166 @@ updates:
   # ---------------------------------------------------------------------------------------------
   # main (legacy mock-utils): security updates only
   # ---------------------------------------------------------------------------------------------
-  - package-ecosystem: 'npm'
-    directory: '/'
+  - package-ecosystem: "npm"
+    directory: "/"
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     # Set to 0 to prevent version updates (i.e. require only security updates)
     open-pull-requests-limit: 0
 
-  - package-ecosystem: 'github-actions'
-    directory: '/'
+  - package-ecosystem: "github-actions"
+    directory: "/"
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     # Set to 0 to prevent version updates (i.e. require only security updates)
     open-pull-requests-limit: 0
 
   # ---------------------------------------------------------------------------------------------
   # npm: the root workspace, hardhat/v2, hardhat/v3 and fhevm-npm, one block per release branch
   # ---------------------------------------------------------------------------------------------
-  - package-ecosystem: 'npm'
-    target-branch: 'release/0.13.x'
-    directories: ['/', '/hardhat/v2', '/hardhat/v3', '/fhevm-npm']
+  - package-ecosystem: "npm"
+    target-branch: "release/0.13.x"
+    directories: ["/", "/hardhat/v2", "/hardhat/v3", "/fhevm-npm"]
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 5
     # Wait 7 days after a version is published before proposing it, so a compromised release has
     # time to be caught and pulled upstream (the same idea as safe-chain's minimum package age).
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     # One PR per directory instead of one per package.
     groups:
       npm-minor-patch:
-        update-types: ['minor', 'patch']
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: 'npm'
-    target-branch: 'release/0.14.x'
-    directories: ['/', '/hardhat/v2', '/hardhat/v3', '/fhevm-npm']
+  - package-ecosystem: "npm"
+    target-branch: "release/0.14.x"
+    directories: ["/", "/hardhat/v2", "/hardhat/v3", "/fhevm-npm"]
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     groups:
       npm-minor-patch:
-        update-types: ['minor', 'patch']
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: 'npm'
-    target-branch: 'release/0.15.x'
-    directories: ['/', '/hardhat/v2', '/hardhat/v3', '/fhevm-npm']
+  - package-ecosystem: "npm"
+    target-branch: "release/0.15.x"
+    directories: ["/", "/hardhat/v2", "/hardhat/v3", "/fhevm-npm"]
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     groups:
       npm-minor-patch:
-        update-types: ['minor', 'patch']
+        update-types: ["minor", "patch"]
 
   # ---------------------------------------------------------------------------------------------
   # github-actions: actions are pinned by SHA; Dependabot moves the SHA and its `# vX.Y.Z` comment
   # ---------------------------------------------------------------------------------------------
-  - package-ecosystem: 'github-actions'
-    target-branch: 'release/0.13.x'
-    directory: '/'
+  - package-ecosystem: "github-actions"
+    target-branch: "release/0.13.x"
+    directory: "/"
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 2
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(ci)'
+      prefix: "chore(ci)"
     groups:
       github-actions:
-        patterns: ['*']
+        patterns: ["*"]
 
-  - package-ecosystem: 'github-actions'
-    target-branch: 'release/0.14.x'
-    directory: '/'
+  - package-ecosystem: "github-actions"
+    target-branch: "release/0.14.x"
+    directory: "/"
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 2
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(ci)'
+      prefix: "chore(ci)"
     groups:
       github-actions:
-        patterns: ['*']
+        patterns: ["*"]
 
-  - package-ecosystem: 'github-actions'
-    target-branch: 'release/0.15.x'
+  - package-ecosystem: "github-actions"
+    target-branch: "release/0.15.x"
     # Check for updates every Monday
-    directory: '/'
+    directory: "/"
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 2
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(ci)'
+      prefix: "chore(ci)"
     groups:
       github-actions:
-        patterns: ['*']
+        patterns: ["*"]
 
   # ---------------------------------------------------------------------------------------------
   # cargo: operators-data/tfhe-vectors-check, a local checker for the operator test vectors
   # ---------------------------------------------------------------------------------------------
   # minor/patch in one PR.
-  - package-ecosystem: 'cargo'
-    target-branch: 'release/0.13.x'
-    directories: ['/operators-data/tfhe-vectors-check', '/operators-data/tfhe-vectors-check/tfhe16']
+  - package-ecosystem: "cargo"
+    target-branch: "release/0.13.x"
+    directories: ["/operators-data/tfhe-vectors-check", "/operators-data/tfhe-vectors-check/tfhe16"]
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 2
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     groups:
       cargo-minor-patch:
-        update-types: ['minor', 'patch']
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: 'cargo'
-    target-branch: 'release/0.14.x'
-    directories: ['/operators-data/tfhe-vectors-check', '/operators-data/tfhe-vectors-check/tfhe16']
+  - package-ecosystem: "cargo"
+    target-branch: "release/0.14.x"
+    directories: ["/operators-data/tfhe-vectors-check", "/operators-data/tfhe-vectors-check/tfhe16"]
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 2
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     groups:
       cargo-minor-patch:
-        update-types: ['minor', 'patch']
+        update-types: ["minor", "patch"]
 
-  - package-ecosystem: 'cargo'
-    target-branch: 'release/0.15.x'
-    directories: ['/operators-data/tfhe-vectors-check', '/operators-data/tfhe-vectors-check/tfhe16']
+  - package-ecosystem: "cargo"
+    target-branch: "release/0.15.x"
+    directories: ["/operators-data/tfhe-vectors-check", "/operators-data/tfhe-vectors-check/tfhe16"]
     # Check for updates every Monday
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
     open-pull-requests-limit: 2
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'chore(deps)'
+      prefix: "chore(deps)"
     groups:
       cargo-minor-patch:
-        update-types: ['minor', 'patch']
+        update-types: ["minor", "patch"]
