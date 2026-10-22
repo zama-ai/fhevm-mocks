@@ -41,7 +41,7 @@
     "hardhat": "^3.0.0",
     "mocha": "11.8.0",
     "prettier": "^3.8.3",
-    "typescript": "^6.0.2",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.58.2",
     "viem": "2.55.19"
   }
