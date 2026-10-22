@@ -54,8 +54,12 @@
 #     release line starts. With lockfile-only, the same goes for anything outside a declared range
 #     (e.g. 0.2 -> 0.3 under "^0.2.12").
 #
-# Majors are NOT ignored on the github-actions and cargo blocks: action majors are usually safe, and
-# a tfhe minor (1.6 -> 1.7) would still need closing by hand, since each crate stays on its line.
+# Majors are NOT ignored on the github-actions and cargo blocks: action majors are usually safe.
+#
+# cargo: tfhe-rs (`tfhe`) and its own crates (`tfhe-*`: tfhe-fft, tfhe-ntt, tfhe-versionable, ...)
+# are never touched, any version. Each checker validates the operator vectors against one exact
+# tfhe-rs line (~1.7, and ~1.6 in tfhe16/), so its version only moves by hand, together with the
+# vectors. Only the other crates (serde, serde_json, ...) get Dependabot updates.
 version: 2
 updates:
   # ---------------------------------------------------------------------------------------------
@@ -231,6 +235,10 @@ updates:
     groups:
       cargo-minor-patch:
         update-types: ["minor", "patch"]
+    # tfhe-rs is never touched, nor its own crates (tfhe-fft, tfhe-ntt, ...): see the header.
+    ignore:
+      - dependency-name: "tfhe"
+      - dependency-name: "tfhe-*"
 
   - package-ecosystem: "cargo"
     target-branch: "release/0.14.x"
@@ -246,6 +254,10 @@ updates:
     groups:
       cargo-minor-patch:
         update-types: ["minor", "patch"]
+    # tfhe-rs is never touched, nor its own crates (tfhe-fft, tfhe-ntt, ...): see the header.
+    ignore:
+      - dependency-name: "tfhe"
+      - dependency-name: "tfhe-*"
 
   - package-ecosystem: "cargo"
     target-branch: "release/0.15.x"
@@ -261,3 +273,7 @@ updates:
     groups:
       cargo-minor-patch:
         update-types: ["minor", "patch"]
+    # tfhe-rs is never touched, nor its own crates (tfhe-fft, tfhe-ntt, ...): see the header.
+    ignore:
+      - dependency-name: "tfhe"
+      - dependency-name: "tfhe-*"
