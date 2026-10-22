@@ -17,8 +17,8 @@
   "devDependencies": {
     "@fhevm/sdk-common-dev": "file:../../../../common",
     "@fhevm/sdk-vendored-dev": "file:../../../../common-vendored",
-    "@types/node": "^22.0.0",
-    "tsx": "^4.23.0",
-    "typescript": "^6.0.2"
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
   }
 }
