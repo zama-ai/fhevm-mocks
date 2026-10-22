@@ -29,6 +29,6 @@
     "@fhevm/sdk-common-dev": "file:../common",
     "eslint": "^10.0.2",
     "prettier": "^3.8.3",
-    "typescript": "^6.0.2"
+    "typescript": "^7.0.2"
   }
 }
