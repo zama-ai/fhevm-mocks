@@ -7,7 +7,19 @@
 #     "Dependabot security updates" is enabled in the repo settings (this file does not enable it).
 #     `open-pull-requests-limit: 0` (the main blocks) turns off version updates but keeps these.
 #   - version updates, opened weekly on each release branch: minor/patch grouped into one PR per
-#     directory. Majors are never proposed (see below).
+#     directory, package-lock.json only (see below). Majors are never proposed.
+#
+# npm `versioning-strategy: lockfile-only` (release-branch blocks): Dependabot only re-resolves
+# package-lock.json within the ranges already declared, and never edits a package.json. Letting it
+# edit them broke the release branches in three ways (#196-#198):
+#   - in the nested workspaces (plugin + plugin/pkg, fhevm-hardhat-template + pkg) it copied the
+#     parent's dev tools (eslint, prettier, publint, @types/node, typescript-eslint) into the
+#     `dependencies` of the published pkg/package.json files;
+#   - a group picks one target version per package and writes it into every directory, so
+#     hardhat/v2/fhevm-hardhat-template/pkg went eslint ^9 -> ^10 although majors are ignored;
+#   - it raised root ranges (and the plugins' viem peer range) without the test-consumers, which
+#     `fhevm-npm-cli check dependencies` (rule 4.2.1) rejects.
+# Ranges in package.json files therefore move by hand, across every package at once.
 #
 # `cooldown` makes Dependabot wait 7 days after a version is published before proposing it, so a
 # compromised release has time to be caught upstream. It only delays Dependabot's PRs: it never
@@ -39,8 +51,8 @@
 #     `fhevm-npm-cli check package-json` enforces: newer types would accept Node APIs that crash on
 #     Node 22. Move it together with engines.node and CI's node-version.
 #   - Dependabot no longer reports majors, so check them on purpose (e.g. `npm outdated`) when a new
-#     release line starts. 0.x versions are the exception: 0.2 -> 0.3 counts as a minor and still
-#     arrives in the weekly group.
+#     release line starts. With lockfile-only, the same goes for anything outside a declared range
+#     (e.g. 0.2 -> 0.3 under "^0.2.12").
 #
 # Majors are NOT ignored on the github-actions and cargo blocks: action majors are usually safe, and
 # a tfhe minor (1.6 -> 1.7) would still need closing by hand, since each crate stays on its line.
@@ -75,6 +87,8 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Only package-lock.json changes, never a package.json (see the header).
+    versioning-strategy: lockfile-only
     # Wait 7 days after a version is published before proposing it, so a compromised release has
     # time to be caught and pulled upstream (the same idea as safe-chain's minimum package age).
     cooldown:
@@ -104,6 +118,7 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    versioning-strategy: lockfile-only
     cooldown:
       default-days: 7
     commit-message:
@@ -130,6 +145,7 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    versioning-strategy: lockfile-only
     cooldown:
       default-days: 7
     commit-message:
