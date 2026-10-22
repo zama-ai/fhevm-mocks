@@ -84,7 +84,7 @@
     "@fhevm/sdk-vendored-dev": "file:../../common-vendored",
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "5.1.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.6.5",
     "eslint": "^10.0.2",
     "ethers": "6.17.0",
     "prettier": "^3.8.3",
