@@ -25,10 +25,12 @@
 #   - `npm install -g npm@x` and setup-node's `node-version` in the workflows: Dependabot does not
 #     track either; bump them by hand.
 #
+# Ignored: the pins of npm-manifest.json (@fhevm/sdk, @fhevm/solidity, encrypted-types,
+# @openzeppelin/contracts, @openzeppelin/contracts-upgradeable). They move together across every
+# package.json with `make sync-pinned`, and `fhevm-npm-cli check pinned-dependencies` rejects a
+# lone bump, so a Dependabot PR for one of them could never be merged as is.
+#
 # Review notes for the PRs it opens:
-#   - the pins of npm-manifest.json (@fhevm/sdk, @fhevm/solidity, encrypted-types, @openzeppelin/*)
-#     move together with `make sync-pinned`; `fhevm-npm-cli check pinned-dependencies` rejects a
-#     lone bump, so redo such a PR with that command instead of merging it.
 #   - majors (hardhat 3 in hardhat/v2, @types/node above the engines.node major, tfhe off its ~1.7 /
 #     ~1.6 line) come as separate PRs and are usually closed on a release line.
 version: 2
@@ -72,6 +74,13 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    # The npm-manifest.json pins, bumped with `make sync-pinned` (see the header).
+    ignore:
+      - dependency-name: "@fhevm/sdk"
+      - dependency-name: "@fhevm/solidity"
+      - dependency-name: "encrypted-types"
+      - dependency-name: "@openzeppelin/contracts"
+      - dependency-name: "@openzeppelin/contracts-upgradeable"
 
   - package-ecosystem: "npm"
     target-branch: "release/0.14.x"
@@ -87,6 +96,13 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    # The npm-manifest.json pins, bumped with `make sync-pinned` (see the header).
+    ignore:
+      - dependency-name: "@fhevm/sdk"
+      - dependency-name: "@fhevm/solidity"
+      - dependency-name: "encrypted-types"
+      - dependency-name: "@openzeppelin/contracts"
+      - dependency-name: "@openzeppelin/contracts-upgradeable"
 
   - package-ecosystem: "npm"
     target-branch: "release/0.15.x"
@@ -102,6 +118,13 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    # The npm-manifest.json pins, bumped with `make sync-pinned` (see the header).
+    ignore:
+      - dependency-name: "@fhevm/sdk"
+      - dependency-name: "@fhevm/solidity"
+      - dependency-name: "encrypted-types"
+      - dependency-name: "@openzeppelin/contracts"
+      - dependency-name: "@openzeppelin/contracts-upgradeable"
 
   # ---------------------------------------------------------------------------------------------
   # github-actions: actions are pinned by SHA; Dependabot moves the SHA and its `# vX.Y.Z` comment
