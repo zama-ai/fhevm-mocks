@@ -225,9 +225,12 @@ function _parseEdrError(
     return undefined;
   }
 
-  const fhevmContractEntry = fhevmEnv
-    .getContractsRepository()
-    .getContractFromAddress(lastCallContractAddress)?.properties;
+  const repo = fhevmEnv.tryGetContractsRepository();
+  if (!repo) {
+    return undefined;
+  }
+
+  const fhevmContractEntry = repo.getContractFromAddress(lastCallContractAddress)?.properties;
   if (!fhevmContractEntry) {
     return undefined;
   }
@@ -308,14 +311,17 @@ export async function mutateErrorInPlace(fhevmEnv: FhevmEnvironment, e: Error, a
   const i = err.stack.indexOf("\n");
   err.stack = "Error: " + err.message + err.stack.substring(i);
 
-  const map = fhevmEnv.getContractsRepository().addressToContractMap();
+  const repo = fhevmEnv.tryGetContractsRepository();
+  if (repo) {
+    const map = repo.addressToContractMap();
 
-  Object.keys(map).forEach((contractAddress) => {
-    err.stack = err.stack?.replaceAll(
-      `at <UnrecognizedContract>.<unknown> (${contractAddress})`,
-      `at ${map[contractAddress].name}.<unknown> (${contractAddress}, ${map[contractAddress].package}/contracts/${map[contractAddress].name}.sol:0:0)`,
-    );
-  });
+    Object.keys(map).forEach((contractAddress) => {
+      err.stack = err.stack?.replaceAll(
+        `at <UnrecognizedContract>.<unknown> (${contractAddress})`,
+        `at ${map[contractAddress].name}.<unknown> (${contractAddress}, ${map[contractAddress].package}/contracts/${map[contractAddress].name}.sol:0:0)`,
+      );
+    });
+  }
 }
 
 /**
@@ -417,7 +423,12 @@ async function __formatFhevmErrorMessages(
   txHash?: string,
   txFromTo?: { from: string; to: string | null },
 ): Promise<FhevmErrorMessages | undefined> {
-  const map = fhevmEnv.getContractsRepository().addressToContractMap();
+  const repo = fhevmEnv.tryGetContractsRepository();
+  if (!repo) {
+    return undefined;
+  }
+
+  const map = repo.addressToContractMap();
   const res: {
     errorDesc: EthersT.ErrorDescription;
     contractWrapper: contracts.FhevmContractWrapper;

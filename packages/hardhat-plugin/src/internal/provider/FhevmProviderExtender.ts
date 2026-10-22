@@ -36,8 +36,14 @@ export class FhevmProviderExtender extends ProviderWrapper {
   }
 
   public async request(args: RequestArguments) {
-    // test init
-    // if not init forward!
+    // When FHEVM is not deployed, pass all requests through unchanged.
+    // This allows non-FHE tasks and scripts to work without initializing
+    // the FHEVM module (e.g. contract.pause(), custom hardhat tasks, etc.)
+    // See: https://github.com/zama-ai/fhevm-mocks/issues/80
+    if (!fhevmContext.fhevmEnv?.isDeployed) {
+      return this._wrappedProvider.request(args);
+    }
+
     switch (args.method) {
       // window.ethereum
       case "eth_estimateGas":
