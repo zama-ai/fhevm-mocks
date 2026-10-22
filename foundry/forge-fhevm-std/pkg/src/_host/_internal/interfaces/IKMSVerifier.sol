@@ -58,7 +58,7 @@ interface IKMSVerifier {
     function initializeFromEmptyProxy(address verifyingContractSource, uint64 chainIDSource) external;
     function isSigner(address account) external view returns (bool);
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV4() external;
+    function reinitializeV5() external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function verifyDecryptionEIP712KMSSignatures(
         bytes32[] memory handlesList,

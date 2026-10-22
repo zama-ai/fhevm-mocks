@@ -72,17 +72,12 @@
     "test:fast": "npm run test:forge && npm run test:templates:run && npm run test:harness:run",
     "test:forge": "../../scripts/forge-test.sh",
     "test:harness:run": "vitest run --config test/ts/vitest.config.ts",
-    "test:templates:run": "node --test --test-concurrency=1 test/*.test.ts",
-    "test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
-    "test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && node --test test/stack-order.test.ts && npm run --silent list:upgrade-ops -- ../v13 && tsc -p test/ts/upgrade/tsconfig.json --noEmit && vitest run --config test/ts/upgrade/vitest.config.ts"
+    "test:templates:run": "node --test --test-concurrency=1 test/*.test.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
-    "@fhevm/host-contracts-cleartext-v13-dev": "file:../v13",
-    "@fhevm/sdk": "^0.14.3",
     "@fhevm/sdk-common-dev": "file:../../common",
-    "@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.7",
     "@fhevm/sdk-vendored-dev": "file:../../common-vendored",
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "5.1.0",

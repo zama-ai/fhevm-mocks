@@ -12,7 +12,7 @@ import {PAUSER_SET_RUNTIME_CODE} from "./_internal/LocalHostBytecode.sol";
  *         so it outlives the test.
  *
  * @dev WHY THE PAYLOAD OWNS THIS. Everything it touches is the payload's own: the canonical addresses, the
- *      `PauserSet` runtime blob, and `LibForgeFhevmStack`, whose sequence it replays. `v13/scripts/anvil.sh`
+ *      `PauserSet` runtime blob, and `LibForgeFhevmStack`, whose sequence it replays. `scripts/anvil.sh`
  *      does the same job from the outside, through `forge script --broadcast`; this is the in-process form,
  *      needing no key and no second process.
  *

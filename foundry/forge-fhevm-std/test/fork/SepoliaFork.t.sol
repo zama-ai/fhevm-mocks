@@ -74,6 +74,7 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
         // Fork and name the stack in one call; the SDK prepares it from there (this suite inherits the
         // cheats mixin alone, so the preparation happens at the first SDK entry below).
         sepolia = getFhevmChain("testnet", "sepolia"); // its rpcUrl is the configured one
+        if (!ForkBlocks.forkable(sepolia)) return; // parked while the chain is on a line this package cannot fork
         fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         forked = true;
 

@@ -34,6 +34,7 @@ contract SepoliaFHETestAddTest is TestFhevm {
         // One line: fork, and name the stack the fork is on. The SDK prepares it (signers, replay,
         // protocol) at the first call below; nothing else to set up.
         FhevmChain memory sepolia = getFhevmChain("testnet", "sepolia");
+        if (!ForkBlocks.forkable(sepolia)) return; // parked while the chain is on a line this package cannot fork
         fhevm.createSelectFork(sepolia, ForkBlocks.recent(sepolia.rpcUrl));
         forked = true;
     }

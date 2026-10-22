@@ -103,7 +103,10 @@ test('requires local schema references and rejects orphan schemas', () => {
 test('validates every discovered export manifest', () => {
   const workspace = makeWorkspace();
   try {
-    const relPath = join('host-contracts-cleartext', 'v13', 'export.manifest.json');
+    // A live generation's manifest, from the derived list above: a literal generation here is what made this
+    // test ENOENT once that generation was rotated out.
+    const relPath = EXPORT_MANIFESTS[0];
+    assert.ok(relPath !== undefined, 'npm-manifest.json names no live generation with an export manifest');
     const path = join(workspace, relPath);
     const manifest = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
     manifest.packageSpecifier = 42;

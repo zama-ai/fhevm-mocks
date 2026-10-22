@@ -1,0 +1,61 @@
+[profile.default]
+extends = "../../foundry.base.toml"
+libs = ["dependencies", "node_modules", "../../node_modules"]
+# Lets test/upgrade/CleartextGenerationUpgrade.t.sol compile against the previous generation's forge
+# payload, through the `@fhevm/host-contracts-cleartext-v14-dev/` remapping. Upgrade code, but ROTATION.md
+# keeps this line and the remapping when the generation retires: rule 3.4.6 forbids editing V(N-1).
+allow_paths = ["../v14"]
+solc_version = '0.8.24'
+optimizer = true
+optimizer_runs = 800
+evm_version = 'cancun'
+via_ir = false
+src = 'pkg/src'
+out = "out"
+bytecode_hash = "none"
+# The three upstream bridge sources import @layerzerolabs/*; a cleartext stack never bridges, so they
+# are vendored for a complete mirror but not compiled. ACL only imports bridge/interfaces, which is fine.
+skip = [
+    "test/ts/node_modules/**",
+    "pkg/src/contracts/bridge/ConfidentialBridge.sol",
+    "pkg/src/contracts/bridge/HandlesSender.sol",
+    "pkg/src/contracts/bridge/HandlesReceiver.sol",
+]
+fs_permissions = [
+    { access = "read-write", path = "./internal/.deploy-config" },   # nonce path
+    { access = "read-write", path = "./create2-deploy" },      # this path
+]
+
+# The forge payload. `[profile.default]` leaves it out so it never lands in `out/`; this profile is how
+# it gets compiled, formatted and linted. Its own `out` keeps the artifacts apart.
+[profile.forgefhevmcore]
+src = 'pkg/forge/src'
+script = 'pkg/forge/script'
+out = 'out-forgefhevmcore'
+
+# The CREATE2 broadcast scripts, left out of the default profile for the same reason.
+[profile.create2]
+src = 'create2-deploy/script'
+out = 'out-create2'
+
+[fmt]
+ignore = ["test/ts/node_modules"]
+
+[lint]
+ignore = ["pkg/src/contracts/**/*.sol", "test/ts/node_modules/**/*.sol"]
+exclude_lints = [
+    "unsafe-typecast", 
+    "incorrect-shift", 
+    "mixed-case-variable", 
+    "mixed-case-function", 
+    "named-struct-fields", 
+    "screaming-snake-case-const",
+    "screaming-snake-case-immutable",
+    "pascal-case-struct",
+    "asm-keccak256",
+    "unwrapped-modifier-logic",
+    "unsafe-cheatcode"
+]
+
+[dependencies]
+forge-std = "1.11.0"

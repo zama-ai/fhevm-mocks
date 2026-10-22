@@ -83,7 +83,7 @@ interface ICleartextInputVerifier {
     ) external view returns (bytes32 digest, address[] memory signers, uint256 threshold);
     function isSigner(address account) external view returns (bool);
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV2(address[] memory newSignersSet, uint256 threshold) external;
+    function reinitializeV3() external;
     function setThreshold(uint256 threshold) external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function verifyInput(FHEVMExecutor.ContextUserInputs memory context, bytes32 inputHandle, bytes memory inputProof)

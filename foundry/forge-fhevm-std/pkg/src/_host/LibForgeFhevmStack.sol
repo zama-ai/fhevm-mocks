@@ -163,8 +163,8 @@ library LibForgeFhevmStack {
         );
     }
 
-    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct v14's
-    ///      initializers take, not the `KmsNode` its getters return.
+    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct the
+    ///      initializers take (since v14), not the `KmsNode` its getters return.
     function _fhevmProtocolConfig()
         private
         pure
@@ -192,7 +192,7 @@ library LibForgeFhevmStack {
      * @notice The standing ACLOwner: owner of ACL, and the only account that can upgrade the stack.
      *
      * @dev READ FROM THE CHAIN, because a library holds no state. `ACL.owner()` is the ACLOwner phase 3
-     *      installed, and stays so across an upgrade — `updateV13ToV14` takes the standing one as a
+     *      installed, and stays so across an upgrade — `updateV14ToV15` takes the standing one as a
      *      parameter and deploys none — which is exactly why this was never a generated constant. It is
      *      also the only answer that can be right on a FORK the caller did not deploy, and the one
      *      `generateGenesis.ts` uses. A caller that moves ACL ownership afterwards is asking a different
@@ -530,6 +530,20 @@ library LibForgeFhevmStack {
      *      has its own `ProtocolConfig`, and mainnet's is not Sepolia's.
      */
     function defineCleartextKmsContext(address protocolConfig, address acl) internal {
+        defineCleartextKmsContext(protocolConfig, acl, cleartextKmsThresholds());
+    }
+
+    /**
+     * @notice The same rotation, with thresholds of the caller's choosing.
+     * @dev WHY THIS EXISTS. Since v15 a context's thresholds are fixed when it is defined: upstream dropped
+     *      the `update*ThresholdForContext` setters, so the only way to a stack whose thresholds differ —
+     *      a user-decryption threshold that is not the public one, say — is a new context that carries them.
+     */
+    function defineCleartextKmsContext(
+        address protocolConfig,
+        address acl,
+        IProtocolConfig.KmsThresholds memory thresholds
+    ) internal {
         IProtocolConfig pc = IProtocolConfig(protocolConfig);
         uint256 previousContextId = pc.getCurrentKmsContextId();
         uint256 epochsBefore = epochCounter(protocolConfig);
@@ -537,10 +551,7 @@ library LibForgeFhevmStack {
         // 1. Propose.
         fvm.prank(aclOwner(acl));
         pc.defineNewKmsContextAndEpoch(
-            cleartextKmsNodes(),
-            cleartextKmsThresholds(),
-            LocalHostBootstrap.KMS_SOFTWARE_VERSION,
-            new IProtocolConfig.PcrValues[](0)
+            cleartextKmsNodes(), thresholds, LocalHostBootstrap.KMS_SOFTWARE_VERSION, new IProtocolConfig.PcrValues[](0)
         );
         // The proposal took the next id off the counter; that is the context the committees now confirm.
         uint256 contextId = pc.getCurrentKmsContextIdCounter();

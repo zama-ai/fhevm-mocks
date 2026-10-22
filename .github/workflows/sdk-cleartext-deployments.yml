@@ -18,7 +18,7 @@ name: sdk-cleartext-deployments
 on:
   pull_request:
     branches:
-      - release/0.14.x
+      - release/0.15.x
 
 # No permissions at the workflow level — each job declares only what it needs.
 permissions: {}

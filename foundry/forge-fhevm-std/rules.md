@@ -6,17 +6,18 @@ Short rules, each with the reason it exists. When a rule and a convenience disag
 
 ## 1. Where code lives, and which way it flows
 
-Everything under `pkg/src/_host/` is **generated**. It is a copy of
-`host-contracts-cleartext/v13/pkg/forge/src/`, and the generator deletes the destination before
+Everything under `pkg/src/_host/` is **generated**. It is a copy of the CURRENT cleartext generation's
+`pkg/forge/src/` — `host-contracts-cleartext/<vN>/`, where `<vN>` is `generations.current` in `npm-manifest.json`
+(v15 today; the generator reads it from there) — and the generator deletes the destination before
 copying (`rmSync(pkg/src/_host)`), so an edit made there is lost on the next `npm run generate` —
 silently, with no conflict and no warning.
 
 ```
-host-contracts-cleartext/v13/pkg/src/cleartext/shared/   ← SOURCE of the shared libraries
+host-contracts-cleartext/<vN>/pkg/src/cleartext/shared/   ← SOURCE of the shared libraries
         │  generate:forge-shared   (rm -rf destination, then copy)
         ▼
-host-contracts-cleartext/v13/pkg/forge/src/shared/       ← generated
-host-contracts-cleartext/v13/pkg/forge/src/*.sol         ← SOURCE of the forge payload
+host-contracts-cleartext/<vN>/pkg/forge/src/shared/       ← generated
+host-contracts-cleartext/<vN>/pkg/forge/src/*.sol         ← SOURCE of the forge payload
         │  generate:forge-payload  (rm -rf destination, then copy)
         ▼
 foundry/forge-fhevm-std/pkg/src/_host/                   ← generated
@@ -26,15 +27,16 @@ foundry/forge-fhevm-std/pkg/src/_host/                   ← generated
 
 | to change | edit | then run |
 |---|---|---|
-| a shared library (`LibKmsVerifier`, `LibFheType`, …) | `v13/pkg/src/cleartext/shared/` | `generate:forge-shared` in v13, then `generate` here |
-| the forge payload (`ForgeFhevm*`, `LibForgeFhevm*`) | `v13/pkg/forge/src/` | `generate` here |
+| a shared library (`LibKmsVerifier`, `LibFheType`, …) | `<vN>/pkg/src/cleartext/shared/` | `generate:forge-shared` in `<vN>`, then `generate` here |
+| the forge payload (`ForgeFhevm*`, `LibForgeFhevm*`) | `<vN>/pkg/forge/src/` | `generate` here |
 | the public API (`StdFhevm*`, `TestFhevm`, `LibFhevmProtocol`) | `forge-fhevm-std/pkg/src/` | nothing — this package owns it |
 
 **1.2 — never add a file to a generated directory.** `pkg/forge/src/shared/` and `pkg/src/_host/`
 are both wiped and rebuilt. A generator that writes into one of them is a race: whichever runs last
 wins. Write to the source directory and let the sync carry it.
 
-**1.3 — v12 is frozen.** Touch it only when a shared generator forces it, and say so.
+**1.3 — the previous generation is frozen.** `<vN-1>` (`generations.previous`, v14 today) must stay byte-identical to
+its release branch (`check generation-parity`); touch it only when a shared generator forces it, and say so.
 
 **1.4 — this package is a workspace member, driven from the root.** `foundry/forge-fhevm-std` and its `pkg/` are
 in the sdk root's `workspaces` and in `npm-manifest.json` (`@fhevm/forge-std-dev` / `@fhevm/forge`), so
@@ -182,13 +184,14 @@ fork to block 1 and mines one on the node.
 
 **2.15 — a wrong protocol LINE fails by name, before anything else; any release of the vendored line is
 accepted.** On first contact with a fork, every host contract's `getVersion()` must fall within the line
-this SDK vendors: from what the line first shipped (`LibFhevmVersion.*_FLOOR`, hand-written from the
-v0.14.0 tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
-upgrade the same day — Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored 0.13.6's `v0.5.0` — and
+this SDK vendors: from what the line first shipped (`LibFhevmVersion.*_FLOOR`, hand-written from the line's
+first tag) up to what this SDK vendors (`LocalHostVersions`, generated), inclusive. Chains do not all
+upgrade the same day — on the 0.13 line Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored 0.13.6's
+`v0.5.0` — and
 every release of a line speaks the ABI this SDK speaks, so an exact match would refuse stacks that work.
 Outside the line it is the UNSUPPORTED PROTOCOL VERSION box, floor and ceiling against actual per
 contract, never an attempt that dies in an ABI mismatch with an empty revert. New vendored release →
-regenerate `LocalHostVersions` (v14 `generate:contract-versions`); new LINE → move the floors too, and
+regenerate `LocalHostVersions` (`<vN>` `generate:contract-versions`); new LINE → move the floors too, and
 `LibFhevmVersion.t.sol` pins both.
 
 **2.15.1 — ONE generation back is upgraded on the fork, not refused; this exception is forge-fhevm-std's
@@ -347,7 +350,7 @@ refuses by name rather than inventing.
 
 ## 4. The cleartext core, and why a source edit is not enough
 
-**Where it lives.** `host-contracts-cleartext/v13/pkg/src/`:
+**Where it lives.** `host-contracts-cleartext/<vN>/pkg/src/`:
 
 | path | what |
 |---|---|
@@ -396,7 +399,7 @@ placeholder is patched at, per contract. A count falling to zero means a deploy 
 marker. `generate:patch-sites` is deliberately outside every chain: refreshing the baseline is a
 human decision, made after reading the diff.
 
-**4.3 — after touching a cleartext contract**: `npm run generate` in v13, `forge test` there, then
+**4.3 — after touching a cleartext contract**: `npm run generate` in `<vN>`, `forge test` there, then
 `npm run generate` here. If the contract is `CleartextFHEVMExecutor`, also check
 `ContractSizeLimits.t.sol` — it must stay under EIP-170, while the `…Forge` variant is exempt and
 deliberately over. `FhevmVm` is exempt too: it is ETCHED (`vm.etch` skips the creation-time check) and may
@@ -488,8 +491,8 @@ that one is safe.)
 ## 8. Before you call it done
 
 ```bash
-# host package (the source)
-cd host-contracts-cleartext/v13
+# host package (the source): the current generation, v15 today
+cd host-contracts-cleartext/v15
 npm run generate && npm run forge:fmt && npm run forge:lint && forge test
 MAINNET_RPC_URL=… forge test --match-contract Fork
 
@@ -505,9 +508,9 @@ SEPOLIA_RPC_URL=… npm run test:fork-url  # the born-on-a-fork suite, under `fo
 npm run test:anvil                       # starts a throwaway anvil on 8546, runs test/anvil, stops it
 ```
 
-Use v13's npm scripts, not bare `forge fmt` / `forge lint`: v13 keeps the payload under a second profile
+Use the host package's npm scripts, not bare `forge fmt` / `forge lint`: it keeps the payload under a second profile
 (`src = pkg/forge/src`), so a bare command formats and lints only `pkg/src` and reports a clean payload it
-never looked at. `forge:fmt` and `forge:lint` run all three profiles. The gap is invisible in v13 and
+never looked at. `forge:fmt` and `forge:lint` run all three profiles. The gap is invisible in the host package and
 surfaces here, on the generated copy.
 
 A test that says "No tests found in project!" right after a file was restored or renamed is forge's

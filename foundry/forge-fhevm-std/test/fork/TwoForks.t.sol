@@ -63,10 +63,12 @@ contract TwoForksTest is TestFhevm {
 
         if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
         sepolia = getFhevmChain("testnet", "sepolia");
+        if (!ForkBlocks.forkable(sepolia)) return; // parked while the chain is on a line this package cannot fork
         (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;
         if (!ForkBlocks.enabled("mainnet")) return;
         mainnet = getFhevmChain("mainnet", "mainnet");
+        if (!ForkBlocks.forkable(mainnet)) return; // parked while the chain is on a line this package cannot fork
         mainnetToo = true;
     }
 

@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-// VERBATIM EXTRACT from @fhevm/solidity 0.13.3, lib/Impl.sol. DO NOT EDIT — everything between the two
-// markers below is copied byte for byte, so that it can be regenerated from upstream rather than
-// maintained here. The extraction is two slices, each anchored on an exact line:
+// EXTRACT from upstream `library-solidity/lib/Impl.sol` (published as @fhevm/solidity's lib/Impl.sol). DO NOT EDIT
+// — everything below is upstream's text, so that it can be re-checked against upstream rather than maintained
+// here. The extraction is two slices, each anchored on an exact line:
 //
 //   struct  from "/**\n * @title   CoprocessorConfig" through the struct's closing brace
 //   library from the "/// keccak256(abi.encode(...)" comment through the end of `setCoprocessor`
 //
-// v14 note: @fhevm/solidity has no 0.14 release yet (v14 pins the 0.13 line). Checked against the fhevm repository at v0.14.1
-// (library-solidity/lib/Impl.sol): the struct, the slot and both functions are byte-identical. That
-// revision inserts two `fheMulDiv` scalar-byte constants between the slot and the functions; they are
-// unrelated to the config and deliberately not carried here.
+// ONE DELIBERATE DIFFERENCE: `COPROCESSOR_CONFIG_LOCATION` is `public` here and `private` upstream (in every
+// release so far). `LibForgeFhevmConfig` reads the slot from outside this library, which a private constant
+// forbids; the VALUE is upstream's, unchanged.
+//
+// Checked against the fhevm repository at the tag this generation vendors, v0.15.0-3: the struct, the slot
+// value and both functions are byte-identical (and so they were at v0.14.1). Upstream's file also holds
+// operator constants between the slot and the functions; they are unrelated to the config and deliberately not
+// carried here. @fhevm/solidity itself is still published on the 0.13 line only (0.13.4), with the same text.
 //
 // ## Why a copy, and why byte-exact
 //

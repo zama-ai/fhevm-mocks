@@ -46,6 +46,7 @@ contract ForkCleartextReadsTest is TestFhevm {
     function setUp() public override {
         if (!ForkBlocks.enabled("sepolia")) return;
         sepolia = getFhevmChain("testnet", "sepolia");
+        if (!ForkBlocks.forkable(sepolia)) return; // parked while the chain is on a line this package cannot fork
         blockA = ForkBlocks.recent(sepolia.rpcUrl);
         forked = true;
     }

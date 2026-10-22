@@ -117,7 +117,7 @@ interface ICleartextFHEVMExecutor {
     function initializeFromEmptyProxy() external;
     function plaintexts(bytes32 result) external view returns (uint256);
     function proxiableUUID() external view returns (bytes32);
-    function reinitializeV6() external;
+    function reinitializeV7() external;
     function trivialEncrypt(uint256 pt, FheType toType) external returns (bytes32 result);
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function verifyInput(bytes32 inputHandle, address userAddress, bytes memory inputProof, FheType inputType)
