@@ -5,7 +5,7 @@
   "private": true,
   "type": "commonjs",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.23.4"
   },
   "scripts": {
     "build": "npm run fmt:check && npm run lint && npm run compile",

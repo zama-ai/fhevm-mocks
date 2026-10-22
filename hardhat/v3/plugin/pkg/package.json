@@ -10,7 +10,7 @@
     "directory": "hardhat/v3/plugin/pkg"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.23.4"
   },
   "types": "./_types/index.d.ts",
   "files": [
