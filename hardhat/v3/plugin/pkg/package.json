@@ -30,7 +30,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg"
+    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg",
+    "@types/node": "^26.6.5"
   },
   "peerDependencies": {
     "@fhevm/sdk": "^0.13.7",
