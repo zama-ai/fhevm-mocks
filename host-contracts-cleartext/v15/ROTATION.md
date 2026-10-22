@@ -131,3 +131,9 @@ porting the lane to v15 → v16 — is a separate job; these are the places it c
 7. **Write comments generation-agnostic.** "this generation" / "the previous generation" for identity, "since vN" for
    a feature's introduction; keep a number only for history, upstream data, or one specific upgrade's description.
    Most of the v15 comment churn came from "v13"/"v14" written where a role was meant.
+8. **Move the release line in CI, or CI silently does not run.** Three refs name the line the files were carried
+   from: the `pull_request.branches` of `.github/workflows/sdk-cleartext-tests.yml` and
+   `sdk-cleartext-deployments.yml`, and `ALLOWED_REF` in `sdk-cleartext-publish-package.yml`. Left on
+   `release/0.14.x`, the first PR into `release/0.15.x` started no check at all, and a publish from it would have
+   been refused. Mirror the old line's branch protection (the required `sdk-cleartext-tests/test (bpr)` check) onto
+   the new one too.

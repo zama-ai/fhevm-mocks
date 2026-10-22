@@ -60,7 +60,7 @@ jobs:
       - name: Refuse any branch but the release line
         env:
           REF: ${{ github.ref }}
-          ALLOWED_REF: refs/heads/release/0.14.x
+          ALLOWED_REF: refs/heads/release/0.15.x
         run: |
           if [[ "$REF" != "$ALLOWED_REF" ]]; then
             echo "::error::publishing is only allowed from ${ALLOWED_REF#refs/heads/}; this run is on ${REF}"

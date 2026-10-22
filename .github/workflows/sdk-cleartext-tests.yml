@@ -3,7 +3,7 @@ name: sdk-cleartext-tests
 on:
   pull_request:
     branches:
-      - release/0.14.x
+      - release/0.15.x
     # Deliberately no `paths:` here — the equivalent filtering lives in the `changes`
     # job below. A workflow skipped by a path filter reports NO check at all, so the
     # required `sdk-cleartext-tests/test (bpr)` gate would stay pending forever and the
