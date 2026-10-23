@@ -264,12 +264,15 @@ jobs:
       #     - Converted dependency ranges match versions.json.
       #     - npmjs.com has a published version matching each converted range.
       #     - This package version is not already published on npmjs.com.
+      #     - What the tarball brings (its dependencies, peers excluded), installed
+      #       alone in a throwaway project, has no `npm audit` advisory of high or
+      #       critical severity at the time of publish (--audit).
       #     This means contracts must be published before plugins that need them.
       # -----------------------------------------------------------------------
       - name: Check the tarball against npmjs.com
         env:
           PAYLOAD: ${{ steps.release_meta.outputs.payload }}
-        run: ./fhevm-npm-cli publish check "${PAYLOAD}" --check-npmjs
+        run: ./fhevm-npm-cli publish check "${PAYLOAD}" --check-npmjs --audit
 
       # -----------------------------------------------------------------------
       # 7d. Tarball package.json

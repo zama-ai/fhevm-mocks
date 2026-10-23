@@ -7,9 +7,15 @@ name: sdk-cleartext-publish-release
 # Each step is the same reusable workflow the single-package publish workflows call, so a step here runs
 # exactly what its standalone workflow runs. A failed step stops the ones after it.
 #
+# All or nothing: before step 1, the `rehearse` job packs and checks all three payloads together, with
+# `publish rehearse` (the registry phase and the audit included). A payload a later step would refuse
+# therefore stops the release before anything is published, instead of after step 1 is already on npmjs.com.
+# Each step still runs its own `publish check --check-npmjs --audit` on the tarball it publishes: that check,
+# at the time of publish, is what vouches for the published bytes; the rehearsal is the gate before it.
+#
 # Dry run caveat: step 2's `publish check --check-npmjs` requires the host-contracts-cleartext version it
 # depends on to already be on npmjs.com. In a dry run step 1 publishes nothing, so step 2 only passes if
-# that version was published before.
+# that version was published before. The rehearsal has no such gap: it judges step 2 against step 1's tarball.
 
 on:
   workflow_dispatch:
@@ -34,9 +40,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Packs, checks and audits the three payloads before any is published (see the header). It holds no secret
+  # and no id-token: like the publish workflow's build job, it runs dependency install scripts, so it gets
+  # nothing worth stealing. Setup mirrors that build job; keep the pinned versions in step with it.
+  rehearse:
+    name: sdk-publish-release/rehearse
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read' # Required to checkout repository code
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: 'false'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '>=22.23.4 <23'
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.5.1
+
+      - name: Install safe-chain
+        shell: bash
+        run: |
+          # Same immutable release asset as sdk-cleartext-publish-package.yml.
+          curl -fsSL https://github.com/AikidoSec/safe-chain/releases/download/1.5.3/install-safe-chain.sh | sh -s -- --ci
+
+      - name: Update npm
+        run: npm install -g npm@11.7.0
+
+      - name: Install dependencies
+        run: make install-ci
+
+      # The three build targets the publish steps below use, and nothing else (no Hardhat 2).
+      - name: Build the release payloads
+        run: make compile-cleartext-v-cur compile-hh-v3-plugin compile-forge-std
+
+      # Every npm-distributed payload minus the previous generation and Hardhat 2: the three steps below.
+      - name: Rehearse the release
+        run: ./fhevm-npm-cli publish rehearse --exclude ./hardhat/v2/plugin/pkg
+
   # A reusable workflow cannot elevate the caller's GITHUB_TOKEN: whatever sdk-cleartext-publish-package.yml
   # asks for is capped by what is granted on the calling job, so each job grants both.
   host-contracts-cleartext:
+    needs: rehearse
     permissions:
       contents: 'read' # Required to checkout repository code
       id-token: 'write' # Required for OIDC / npm provenance attestation

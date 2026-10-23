@@ -276,6 +276,39 @@ test('end to end on a real tarball: the packed manifest is read with tar and jud
     });
     assert.deepEqual(withRegistry.violations, []);
 
+    // --audit: the same tarball is installed in a probe and audited, but only once the registry has agreed.
+    const npmCalls: string[][] = [];
+    const audit = {
+      level: 'high' as const,
+      npm: (directory: string, args: readonly string[]) => {
+        npmCalls.push([...args]);
+        if (args[0] === 'install') {
+          writeFileSync(join(directory, 'package-lock.json'), JSON.stringify({ packages: { '': {} } }));
+          return { status: 0, stdout: '', stderr: '' };
+        }
+        const vulnerabilities = {
+          tmp: { severity: 'high', range: '<=0.2.5', via: [{ title: 'traversal' }], nodes: [] },
+        };
+        return { status: 1, stdout: JSON.stringify({ vulnerabilities }), stderr: '' };
+      },
+    };
+    const audited = await inspectPublishedTarball(root, manifest, './plugin/pkg', {
+      registry: registry(['0.13.4'], []),
+      audit,
+    });
+    assert.deepEqual(
+      audited.violations.map((v) => v.message),
+      ['npm audit (--audit-level high): tmp <=0.2.5 is high: traversal'],
+    );
+    assert.equal(npmCalls[0]?.[1], join(root, 'tarballs', 'scope-plugin-0.13.0.tgz'));
+    npmCalls.length = 0;
+    const unpublishedDependency = await inspectPublishedTarball(root, manifest, './plugin/pkg', {
+      registry: registry([], []),
+      audit,
+    });
+    assert.match(unpublishedDependency.violations[0]?.message ?? '', /no version of @scope\/library/);
+    assert.deepEqual(npmCalls, []);
+
     tarball('file:../../library/pkg');
     const unrendered = await inspectPublishedTarball(root, manifest, './plugin/pkg');
     assert.equal(unrendered.violations.length, 1);
