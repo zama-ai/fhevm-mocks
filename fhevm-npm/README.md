@@ -57,6 +57,7 @@ node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs --audit
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --audit --audit-level moderate
+node ./fhevm-npm.ts publish rehearse --exclude ./hardhat/v2/plugin/pkg
 node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template
 node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template --registry https://registry.npmjs.org
 node ./fhevm-npm.ts test-consumer --list
@@ -117,6 +118,13 @@ project with `npm install --legacy-peer-deps --ignore-scripts`, and `npm audit` 
 `--audit-level` (default `high`). Peers are the user's to install, so they are excluded, and the probe's lockfile is
 checked to prove it: a peer that reached it fails the check instead of being audited. The publish workflow runs it on
 the exact tarball it uploads.
+
+`publish rehearse` runs what a release runs for each payload it publishes — `publish pack`, then `publish check
+--check-npmjs --audit` — before any of them is on npm, and prints one line per payload with the result of each step.
+The set is every npm-distributed payload in publish order, minus the previous generation of each family
+(`generations`) and minus each `--exclude`. Since nothing is published yet, a dependency on another payload of the set
+is satisfied by that payload's fresh tarball: the registry is not asked about it, and the audit installs it beside the
+audited tarball. `make publish-rehearse` compiles first and excludes hardhat/v2.
 
 Exit code `0` means the check passed, `1` means policy violations were found, and `2` means the CLI, manifest or
 workspace could not be loaded.

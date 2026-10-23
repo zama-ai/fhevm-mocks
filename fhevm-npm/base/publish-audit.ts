@@ -8,7 +8,8 @@
 // node, or a top-level copy of a declared peer, fails the check instead of reporting a misleading result.
 //
 // The phase runs after --check-npmjs has proven every rendered dependency is on the registry, which is exactly
-// what installing the tarball alone needs. No age cutoff: a user installing right after the publish gets today's
+// what installing the tarball alone needs. A release rehearsal (`publish rehearse`) runs before the payloads it
+// depends on are published, so it passes their local tarballs as companions, installed in the same command. No age cutoff: a user installing right after the publish gets today's
 // newest versions, so those are the ones audited.
 
 import { spawnSync } from 'node:child_process';
@@ -32,6 +33,9 @@ export const runAuditNpm: AuditNpmRunner = (directory, args) => {
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 };
 
+/** Another payload's tarball installed beside the audited one, standing in for a version not yet on npm. */
+export type CompanionTarball = { readonly tarball: string; readonly shipped: PackageJson };
+
 /** One advisory finding at or above the level, with the lockfile paths that install the vulnerable package. */
 export type AuditFinding = {
   readonly name: string;
@@ -53,6 +57,7 @@ export function auditTarball(
   shipped: PackageJson,
   level: AuditLevel,
   npm: AuditNpmRunner = runAuditNpm,
+  companions: readonly CompanionTarball[] = [],
 ): AuditResult {
   const directory = mkdtempSync(join(tmpdir(), 'fhevm-npm-audit-'));
   try {
@@ -63,6 +68,7 @@ export function auditTarball(
     const install = npm(directory, [
       'install',
       tarball,
+      ...companions.map((companion) => companion.tarball),
       '--package-lock-only',
       '--legacy-peer-deps',
       '--ignore-scripts',
@@ -72,7 +78,7 @@ export function auditTarball(
     if (install.status !== 0) return { kind: 'failed', step: 'install', detail: lastLines(install.stderr) };
 
     const entries = readLockEntries(join(directory, 'package-lock.json'));
-    const peers = installedPeers(entries, shipped);
+    const peers = installedPeers(entries, shipped, companions);
     if (peers.length > 0) return { kind: 'peers-installed', peers };
 
     // `npm audit` exits non-zero whenever it finds anything; the JSON on stdout is the answer either way.
@@ -97,13 +103,19 @@ export function auditTarball(
 
 /**
  * Peers that reached the probe anyway: a node npm installed to satisfy a peer (`peer: true`), or a top-level copy of
- * a name the tarball declares only as a peer.
+ * a name the tarball declares only as a peer. What a companion depends on is brought too, so it is no peer.
  */
-export function installedPeers(entries: LockEntries, shipped: PackageJson): readonly string[] {
-  const bundledNames = new Set([
-    ...Object.keys(shipped.dependencies ?? {}),
-    ...Object.keys(shipped.optionalDependencies ?? {}),
-  ]);
+export function installedPeers(
+  entries: LockEntries,
+  shipped: PackageJson,
+  companions: readonly CompanionTarball[] = [],
+): readonly string[] {
+  const bundledNames = new Set(
+    [shipped, ...companions.map((companion) => companion.shipped)].flatMap((manifest) => [
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.optionalDependencies ?? {}),
+    ]),
+  );
   const declaredPeers = Object.keys(shipped.peerDependencies ?? {}).filter((name) => !bundledNames.has(name));
   const flagged = Object.entries(entries).flatMap(([path, entry]) => (entry.peer === true ? [path] : []));
   const topLevel = declaredPeers.map((name) => `node_modules/${name}`).filter((path) => entries[path] !== undefined);

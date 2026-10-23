@@ -51,6 +51,7 @@ export type CliOptions = {
     | 'version-check'
     | 'version-list'
     | 'publish-check'
+    | 'publish-rehearse'
     | 'publish-order'
     | 'publish-pack'
     | 'publish-render'
@@ -98,6 +99,12 @@ export type CliOptions = {
       readonly auditLevel?: AuditLevel;
     }
   | { readonly command: 'publish-order' }
+  | {
+      readonly command: 'publish-rehearse';
+      readonly excludes: readonly string[];
+      readonly auditLevel: AuditLevel;
+      readonly outDir?: string;
+    }
   | { readonly command: 'publish-pack'; readonly payload: string; readonly outDir?: string }
   | { readonly command: 'publish-render'; readonly payload: string; readonly json: boolean }
   | {
@@ -196,6 +203,8 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let publishOrderSelected = false;
   let publishRender: { readonly payload: string; readonly json: boolean } | undefined;
   let publishPack: { readonly payload: string; readonly outDir?: string } | undefined;
+  let publishRehearse:
+    { readonly excludes: readonly string[]; readonly auditLevel: AuditLevel; readonly outDir?: string } | undefined;
   let publishCheck:
     | {
         readonly payload: string;
@@ -719,6 +728,27 @@ Why:
         };
       },
     );
+  publish
+    .command('rehearse')
+    .description(
+      'Pack, check, ask the registry and audit every payload a release publishes, before any is on npm. The set: every npm-distributed payload minus previous generations and --exclude.',
+    )
+    .option(
+      '--exclude <payload>',
+      'leave a payload out of the release set (repeatable)',
+      (value: string, previous: readonly string[]) => [...previous, value],
+      [] as readonly string[],
+    )
+    .option('--audit-level <level>', `lowest severity that fails the audit: ${auditLevels.join(', ')}`, 'high')
+    .option('-o, --out-dir <dir>', 'where the tarballs go; defaults to npm-manifest.json#tarballs.relPath')
+    .action(
+      (options: { readonly exclude: readonly string[]; readonly auditLevel: string; readonly outDir?: string }) => {
+        if (!isAuditLevel(options.auditLevel)) {
+          throw new Error(`--audit-level expects one of ${auditLevels.join(', ')}, got '${options.auditLevel}'`);
+        }
+        publishRehearse = { excludes: options.exclude, auditLevel: options.auditLevel, outDir: options.outDir };
+      },
+    );
   program
     .command('test-consumer [package]')
     .description('Install a test project that uses a package the way a real user would.')
@@ -783,6 +813,7 @@ Why:
     publishRender === undefined &&
     publishPack === undefined &&
     publishCheck === undefined &&
+    publishRehearse === undefined &&
     !regenerateConsumerPackageLocks &&
     testConsumer === undefined &&
     syncVendored === undefined &&
@@ -1006,6 +1037,16 @@ Why:
   if (publishOrderSelected) {
     return {
       command: 'publish-order',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+    };
+  }
+  if (publishRehearse !== undefined) {
+    return {
+      command: 'publish-rehearse',
+      ...publishRehearse,
       workspaceRoot,
       manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
       verbosity: options.verbose,

@@ -211,15 +211,20 @@ function expectedRange(name: string, packages: readonly LoadedPackage[], version
   return parsed === undefined ? undefined : dependencyRange(parsed);
 }
 
-/** Rendered dependencies must be satisfiable on npmjs.com (retried); the payload's own version must be absent. */
+/**
+ * Rendered dependencies must be satisfiable on npmjs.com (retried); the payload's own version must be absent. A
+ * dependency named in `local` is satisfied by a tarball packed in the same rehearsal, so the registry is not asked.
+ */
 export async function checkRegistry(
   pkg: LoadedPackage,
   shipped: PackageJson,
   packages: readonly LoadedPackage[],
   registry: RegistryOptions,
+  local: ReadonlySet<string> = new Set(),
 ): Promise<readonly Violation[]> {
   const violations: Violation[] = [];
   for (const declaration of renderedDependencies(shipped, packages)) {
+    if (local.has(declaration.name)) continue;
     const satisfied = await withRetry(registry, () =>
       rangeSatisfied(declaration.name, declaration.spec, registry.fetchRegistry),
     );

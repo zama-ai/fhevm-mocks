@@ -43,6 +43,7 @@ import { scaffoldCommand } from './commands/scaffold.ts';
 import { publishCheck } from './commands/publish-check.ts';
 import { publishOrder } from './commands/publish-order.ts';
 import { publishPack } from './commands/publish-pack.ts';
+import { publishRehearse } from './commands/publish-rehearse.ts';
 import { publishRender } from './commands/publish-render.ts';
 import { syncVendoredCommand } from './commands/sync-vendored.ts';
 import { syncPinnedCommand } from './commands/sync-pinned.ts';
@@ -205,6 +206,16 @@ async function main(): Promise<void> {
       retries: options.retries,
       retryDelaySeconds: options.retryDelaySeconds,
       ...(options.auditLevel === undefined ? {} : { auditLevel: options.auditLevel }),
+    });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
+  if (options.command === 'publish-rehearse') {
+    const report = await publishRehearse(options.workspaceRoot, manifest, {
+      excludes: options.excludes,
+      auditLevel: options.auditLevel,
+      outDir: options.outDir,
     });
     printReport(report, options.verbosity);
     if (report.violations.length > 0) process.exitCode = 1;

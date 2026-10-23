@@ -121,7 +121,7 @@ run-fhevm-npm = $(FHEVM_NPM_CLI) $(FHEVM_NPM_ARGS) $(1)
 # Aggregates
 ########################################################################################################
 
-.PHONY: help graph build compile rebuild ci ci-fast ci-local build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli sync-pinned update-dependencies check-safechain
+.PHONY: help graph build compile rebuild ci ci-fast ci-local build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli sync-pinned update-dependencies check-safechain publish-rehearse
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -299,6 +299,14 @@ update-dependencies: ## Raise every ^/~ floor to the newest version older than 7
 # Aikido's malware list, so this is deliberately NOT part of `check`: run it before pushing a lockfile change.
 check-safechain: ## Check every lockfile against safe-chain's 48h minimum package age and Aikido's malware list
 	$(call run-fhevm-npm,check safechain)
+
+# Rehearse a release before anything is published: compile (as the release jobs do), then pack, `publish check`,
+# ask the registry and audit every payload the release publishes, with one line per payload at the end. The set is
+# every npm-distributed payload minus previous generations; hardhat/v2 is kept in the tree but no longer released, so
+# it is excluded here. A dependency on another payload of the set is satisfied by its fresh tarball, since none is on
+# npm yet.
+publish-rehearse: compile ## Compile, then pack, check and audit every payload a release publishes (hardhat/v2 excluded)
+	$(call run-fhevm-npm,publish rehearse --exclude ./hardhat/v2/plugin/pkg)
 
 # Deliberately NOT `git clean`: pattern-based deletion cannot distinguish a build output from a
 # developer's .vscode or .env, and gitignored files are invisible to the spotless guard — an editor
