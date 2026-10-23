@@ -36,6 +36,7 @@ export type CliOptions = {
     | CommandName
     | 'check-fhevm-chains-origin'
     | 'check-deployments'
+    | 'check-safechain'
     | 'check-mirror'
     | 'check-vendored-origin'
     | 'clean-forge-dependencies'
@@ -58,7 +59,8 @@ export type CliOptions = {
     | 'sync-pinned'
     | 'bump-vendored'
     | 'test-consumer'
-    | 'test-consumer-regenerate-package-lock';
+    | 'test-consumer-regenerate-package-lock'
+    | 'update-dependencies';
   readonly workspaceRoot: string;
   readonly manifestFile: string;
   readonly verbosity: Verbosity;
@@ -106,6 +108,8 @@ export type CliOptions = {
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
   | { readonly command: 'check-deployments'; readonly base?: string }
+  | { readonly command: 'check-safechain'; readonly minAgeHours: number }
+  | { readonly command: 'update-dependencies'; readonly minAgeHours: number; readonly dryRun: boolean }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
   | { readonly command: 'sync-hh-v2-constants'; readonly check: boolean } // hh-v2-constants
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
@@ -213,6 +217,8 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
   let checkDeployments: { readonly base?: string } | undefined;
+  let checkSafechain: { readonly minAgeHours: number } | undefined;
+  let updateDependencies: { readonly minAgeHours: number; readonly dryRun: boolean } | undefined;
   let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
   let regenerateConsumerPackageLocks = false;
   let regenerateConsumerPackageLocksFresh = false;
@@ -531,11 +537,36 @@ Why:
     .action((options: { readonly base?: string }) => {
       checkDeployments = { base: options.base };
     });
+  // Network- and clock-dependent, so it is run by hand before a push and never from `make check`.
+  check
+    .command('safechain')
+    .description(
+      "Check that safe-chain would let every committed lockfile install: no version younger than the minimum age, none on Aikido's malware list.",
+    )
+    .option('--min-age-hours <hours>', "safe-chain's minimum package age", '48')
+    .action((options: { readonly minAgeHours: string }) => {
+      checkSafechain = { minAgeHours: positiveInteger(options.minAgeHours, '--min-age-hours') };
+    });
   check
     .command('fhevm-chains-origin')
     .description("Check that the chain addresses match the protocol registry's latest commit.")
     .action(() => {
       checkFhevmChainsOrigin = true;
+    });
+  // Distinct from `sync` and `bump`: this asks the registry, not a file in the tree, where each floor goes.
+  const update = program.command('update').description('Move dependency ranges to newer published versions.');
+  update
+    .command('dependencies')
+    .description(
+      'Raise every ^/~ floor to the newest in-range version older than the minimum age, then relock to exactly that. Published packages: devDependencies only; peers and pins never.',
+    )
+    .option('--min-age-hours <hours>', 'ignore versions published more recently than this', '72')
+    .option('--dry-run', 'print the planned floors, writing nothing', false)
+    .action((options: { readonly minAgeHours: string; readonly dryRun: boolean }) => {
+      updateDependencies = {
+        minAgeHours: positiveInteger(options.minAgeHours, '--min-age-hours'),
+        dryRun: options.dryRun,
+      };
     });
   program
     .command('install-forge-dependencies [package]')
@@ -748,7 +779,9 @@ Why:
     syncFhevmChains === undefined &&
     syncHhV2Constants === undefined && // hh-v2-constants
     !checkFhevmChainsOrigin &&
-    checkDeployments === undefined
+    checkDeployments === undefined &&
+    checkSafechain === undefined &&
+    updateDependencies === undefined
   ) {
     program.help({ error: true });
     throw new Error('unreachable');
@@ -814,6 +847,26 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...checkDeployments,
+    };
+  }
+  if (checkSafechain !== undefined) {
+    return {
+      command: 'check-safechain',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...checkSafechain,
+    };
+  }
+  if (updateDependencies !== undefined) {
+    return {
+      command: 'update-dependencies',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...updateDependencies,
     };
   }
   if (checkFhevmChainsOrigin) {
