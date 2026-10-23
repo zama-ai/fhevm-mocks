@@ -68,7 +68,7 @@
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "ethers": "^6.16.0",
-    "globals": "^17.6.0",
+    "globals": "^17.13.0",
     "hardhat": "^2.28.6",
     "hardhat-deploy": "^0.11.45",
     "hardhat-gas-reporter": "^2.3.0",
