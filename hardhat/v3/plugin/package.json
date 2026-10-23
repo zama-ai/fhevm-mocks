@@ -34,7 +34,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
-    "@fhevm/sdk": "^0.13.7",
+    "@fhevm/sdk": "^0.13.8",
     "@types/node": "^22.20.5",
     "eslint": "^10.13.0",
     "hardhat": "^3.0.0",
