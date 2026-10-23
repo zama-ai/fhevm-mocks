@@ -31,6 +31,6 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
     "viem": "2.55.19",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
