@@ -4,7 +4,9 @@
 // declares is actually inside the tarball (rule 5.3.10). With --check-npmjs: every rendered
 // dependency range has a satisfying version on the registry — retried, because the CI loop publishes the
 // dependency seconds earlier and the registry is eventually consistent (decision 8) — and the payload's own
-// version is NOT there yet, never retried, since absence is the answer wanted. Read-only throughout.
+// version is NOT there yet, never retried, since absence is the answer wanted. With --audit, once the registry
+// agrees: what the tarball brings, peers excluded, has no advisory at or above --audit-level (publish-audit.ts).
+// Read-only throughout: the audit installs into a throwaway directory.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -14,6 +16,7 @@ import type { NpmManifest } from '../manifest.ts';
 import { packageJsonPath } from './checks/package-names.ts';
 import type { Violation } from './diagnostics.ts';
 import { type LoadedPackage, type PackageJson, dependencyDeclarations, loadPackages } from './npm.ts';
+import { type AuditLevel, type AuditNpmRunner, type AuditResult, auditTarball } from './publish-audit.ts';
 import { tarballsOutDir } from './pack-tarball.ts';
 import { type RegistryFetch, npmjsPackageUrl, npmjsStatus } from './package-versions.ts';
 import { isNpmDistributedPayload, resolvePayload } from './publish-render.ts';
@@ -34,12 +37,17 @@ export type PublishCheckInspection = {
   readonly violations: readonly Violation[];
 };
 
-/** The whole check for one payload; `registry` undefined means static checks only. */
+export type AuditOptions = { readonly level: AuditLevel; readonly npm?: AuditNpmRunner };
+
+/**
+ * The whole check for one payload; `registry` undefined means static checks only. `audit` needs `registry`: it
+ * runs only once the registry has proven every rendered dependency installable.
+ */
 export async function inspectPublishedTarball(
   workspaceRoot: string,
   manifest: NpmManifest,
   selector: string,
-  options: { readonly outDir?: string; readonly registry?: RegistryOptions } = {},
+  options: { readonly outDir?: string; readonly registry?: RegistryOptions; readonly audit?: AuditOptions } = {},
 ): Promise<PublishCheckInspection> {
   const packages = loadPackages(workspaceRoot, manifest);
   const pkg = resolvePayload(packages, selector);
@@ -57,7 +65,31 @@ export async function inspectPublishedTarball(
     ...validateTarballEntryPoints(pkg, shipped, tarballFiles(tarball)),
   ];
   if (options.registry === undefined || violations.length > 0) return { tarball, violations };
-  return { tarball, violations: await checkRegistry(pkg, shipped, packages, options.registry) };
+  const registryViolations = await checkRegistry(pkg, shipped, packages, options.registry);
+  if (options.audit === undefined || registryViolations.length > 0) return { tarball, violations: registryViolations };
+  const audit = auditTarball(tarball, shipped, options.audit.level, options.audit.npm);
+  return { tarball, violations: auditViolations(pkg, audit, options.audit.level) };
+}
+
+export function auditViolations(pkg: LoadedPackage, audit: AuditResult, level: AuditLevel): readonly Violation[] {
+  switch (audit.kind) {
+    case 'audited':
+      return audit.findings.map((finding) =>
+        violation(
+          pkg,
+          `npm audit (--audit-level ${level}): ${finding.name} ${finding.range} is ${finding.severity}: ${finding.advisories.join('; ')}${finding.nodes.length > 0 ? ` [installed at ${finding.nodes.join(', ')}]` : ''}`,
+        ),
+      );
+    case 'peers-installed':
+      return [
+        violation(
+          pkg,
+          `npm audit: the probe installed peer dependencies (${audit.peers.join(', ')}) despite --legacy-peer-deps, so the audit would judge packages this tarball does not bring; refused`,
+        ),
+      ];
+    case 'failed':
+      return [violation(pkg, `npm audit: 'npm ${audit.step}' failed in the probe project: ${audit.detail}`)];
+  }
 }
 
 /** npm's tarball name: scope marker dropped, slash to dash, then the version. */

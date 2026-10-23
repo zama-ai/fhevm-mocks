@@ -55,6 +55,8 @@ node ./fhevm-npm.ts publish render ./hardhat/v3/plugin/pkg --json
 node ./fhevm-npm.ts publish pack ./hardhat/v3/plugin/pkg
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs
+node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs --audit
+node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --audit --audit-level moderate
 node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template
 node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template --registry https://registry.npmjs.org
 node ./fhevm-npm.ts test-consumer --list
@@ -108,6 +110,13 @@ covers with its lockfile, and fails on a lock still newer than its floor. `check
 when each version in every committed lockfile was published and fails on one younger than `--min-age-hours` (default
 48, safe-chain's own) or listed in Aikido's malware feed. Both depend on the clock and the network, so neither is part
 of `make check`.
+
+`publish check --audit` vouches for what a payload brings at the time it is published. Once `--check-npmjs` (which
+`--audit` implies) has proven every dependency installable, the packed tarball is installed alone into a throwaway
+project with `npm install --legacy-peer-deps --ignore-scripts`, and `npm audit` must report nothing at or above
+`--audit-level` (default `high`). Peers are the user's to install, so they are excluded, and the probe's lockfile is
+checked to prove it: a peer that reached it fails the check instead of being audited. The publish workflow runs it on
+the exact tarball it uploads.
 
 Exit code `0` means the check passed, `1` means policy violations were found, and `2` means the CLI, manifest or
 workspace could not be loaded.

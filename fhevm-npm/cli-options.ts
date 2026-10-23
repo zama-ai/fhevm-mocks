@@ -2,6 +2,7 @@ import { Command, Option } from 'commander';
 import { resolve } from 'node:path';
 
 import { defaultWorkspaceRoot } from './base/paths.ts';
+import { type AuditLevel, auditLevels, isAuditLevel } from './base/publish-audit.ts';
 import { type Verbosity, increaseVerbosity } from './base/verbosity.ts';
 
 export const commandNames = [
@@ -94,6 +95,7 @@ export type CliOptions = {
       readonly checkNpmjs: boolean;
       readonly retries: number;
       readonly retryDelaySeconds: number;
+      readonly auditLevel?: AuditLevel;
     }
   | { readonly command: 'publish-order' }
   | { readonly command: 'publish-pack'; readonly payload: string; readonly outDir?: string }
@@ -201,6 +203,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
         readonly checkNpmjs: boolean;
         readonly retries: number;
         readonly retryDelaySeconds: number;
+        readonly auditLevel?: AuditLevel;
       }
     | undefined;
   let syncVendored: { readonly check: boolean; readonly digest: boolean } | undefined;
@@ -685,6 +688,12 @@ Why:
     .option('--check-npmjs', 'consult registry.npmjs.org', false)
     .option('--retries <n>', 'attempts for a dependency version the registry does not have yet', '5')
     .option('--retry-delay <seconds>', 'pause between attempts', '10')
+    .option(
+      '--audit',
+      'install the tarball alone, peers excluded, in a throwaway project and run npm audit on it (implies --check-npmjs)',
+      false,
+    )
+    .option('--audit-level <level>', `lowest severity that fails --audit: ${auditLevels.join(', ')}`, 'high')
     .action(
       (
         payload: string,
@@ -693,14 +702,20 @@ Why:
           readonly checkNpmjs: boolean;
           readonly retries: string;
           readonly retryDelay: string;
+          readonly audit: boolean;
+          readonly auditLevel: string;
         },
       ) => {
+        if (!isAuditLevel(options.auditLevel)) {
+          throw new Error(`--audit-level expects one of ${auditLevels.join(', ')}, got '${options.auditLevel}'`);
+        }
         publishCheck = {
           payload,
           outDir: options.outDir,
           checkNpmjs: options.checkNpmjs,
           retries: positiveInteger(options.retries, '--retries'),
           retryDelaySeconds: positiveInteger(options.retryDelay, '--retry-delay'),
+          ...(options.audit ? { auditLevel: options.auditLevel } : {}),
         };
       },
     );

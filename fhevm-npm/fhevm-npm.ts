@@ -204,6 +204,7 @@ async function main(): Promise<void> {
       checkNpmjs: options.checkNpmjs,
       retries: options.retries,
       retryDelaySeconds: options.retryDelaySeconds,
+      ...(options.auditLevel === undefined ? {} : { auditLevel: options.auditLevel }),
     });
     printReport(report, options.verbosity);
     if (report.violations.length > 0) process.exitCode = 1;
