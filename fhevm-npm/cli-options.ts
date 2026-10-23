@@ -2,6 +2,7 @@ import { Command, Option } from 'commander';
 import { resolve } from 'node:path';
 
 import { defaultWorkspaceRoot } from './base/paths.ts';
+import { type AuditLevel, auditLevels, isAuditLevel } from './base/publish-audit.ts';
 import { type Verbosity, increaseVerbosity } from './base/verbosity.ts';
 
 export const commandNames = [
@@ -36,6 +37,7 @@ export type CliOptions = {
     | CommandName
     | 'check-fhevm-chains-origin'
     | 'check-deployments'
+    | 'check-safechain'
     | 'check-mirror'
     | 'check-vendored-origin'
     | 'clean-forge-dependencies'
@@ -49,6 +51,7 @@ export type CliOptions = {
     | 'version-check'
     | 'version-list'
     | 'publish-check'
+    | 'publish-rehearse'
     | 'publish-order'
     | 'publish-pack'
     | 'publish-render'
@@ -58,7 +61,8 @@ export type CliOptions = {
     | 'sync-pinned'
     | 'bump-vendored'
     | 'test-consumer'
-    | 'test-consumer-regenerate-package-lock';
+    | 'test-consumer-regenerate-package-lock'
+    | 'update-dependencies';
   readonly workspaceRoot: string;
   readonly manifestFile: string;
   readonly verbosity: Verbosity;
@@ -92,8 +96,15 @@ export type CliOptions = {
       readonly checkNpmjs: boolean;
       readonly retries: number;
       readonly retryDelaySeconds: number;
+      readonly auditLevel?: AuditLevel;
     }
   | { readonly command: 'publish-order' }
+  | {
+      readonly command: 'publish-rehearse';
+      readonly excludes: readonly string[];
+      readonly auditLevel: AuditLevel;
+      readonly outDir?: string;
+    }
   | { readonly command: 'publish-pack'; readonly payload: string; readonly outDir?: string }
   | { readonly command: 'publish-render'; readonly payload: string; readonly json: boolean }
   | {
@@ -106,6 +117,8 @@ export type CliOptions = {
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
   | { readonly command: 'check-deployments'; readonly base?: string }
+  | { readonly command: 'check-safechain'; readonly minAgeHours: number }
+  | { readonly command: 'update-dependencies'; readonly minAgeHours: number; readonly dryRun: boolean }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
   | { readonly command: 'sync-hh-v2-constants'; readonly check: boolean } // hh-v2-constants
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
@@ -190,6 +203,8 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let publishOrderSelected = false;
   let publishRender: { readonly payload: string; readonly json: boolean } | undefined;
   let publishPack: { readonly payload: string; readonly outDir?: string } | undefined;
+  let publishRehearse:
+    { readonly excludes: readonly string[]; readonly auditLevel: AuditLevel; readonly outDir?: string } | undefined;
   let publishCheck:
     | {
         readonly payload: string;
@@ -197,6 +212,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
         readonly checkNpmjs: boolean;
         readonly retries: number;
         readonly retryDelaySeconds: number;
+        readonly auditLevel?: AuditLevel;
       }
     | undefined;
   let syncVendored: { readonly check: boolean; readonly digest: boolean } | undefined;
@@ -213,6 +229,8 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
   let checkDeployments: { readonly base?: string } | undefined;
+  let checkSafechain: { readonly minAgeHours: number } | undefined;
+  let updateDependencies: { readonly minAgeHours: number; readonly dryRun: boolean } | undefined;
   let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
   let regenerateConsumerPackageLocks = false;
   let regenerateConsumerPackageLocksFresh = false;
@@ -531,11 +549,36 @@ Why:
     .action((options: { readonly base?: string }) => {
       checkDeployments = { base: options.base };
     });
+  // Network- and clock-dependent, so it is run by hand before a push and never from `make check`.
+  check
+    .command('safechain')
+    .description(
+      "Check that safe-chain would let every committed lockfile install: no version younger than the minimum age, none on Aikido's malware list.",
+    )
+    .option('--min-age-hours <hours>', "safe-chain's minimum package age", '48')
+    .action((options: { readonly minAgeHours: string }) => {
+      checkSafechain = { minAgeHours: positiveInteger(options.minAgeHours, '--min-age-hours') };
+    });
   check
     .command('fhevm-chains-origin')
     .description("Check that the chain addresses match the protocol registry's latest commit.")
     .action(() => {
       checkFhevmChainsOrigin = true;
+    });
+  // Distinct from `sync` and `bump`: this asks the registry, not a file in the tree, where each floor goes.
+  const update = program.command('update').description('Move dependency ranges to newer published versions.');
+  update
+    .command('dependencies')
+    .description(
+      'Raise every ^/~ floor to the newest in-range version older than the minimum age, then relock to exactly that. Published packages: devDependencies only; peers and pins never.',
+    )
+    .option('--min-age-hours <hours>', 'ignore versions published more recently than this', '72')
+    .option('--dry-run', 'print the planned floors, writing nothing', false)
+    .action((options: { readonly minAgeHours: string; readonly dryRun: boolean }) => {
+      updateDependencies = {
+        minAgeHours: positiveInteger(options.minAgeHours, '--min-age-hours'),
+        dryRun: options.dryRun,
+      };
     });
   program
     .command('install-forge-dependencies [package]')
@@ -654,6 +697,12 @@ Why:
     .option('--check-npmjs', 'consult registry.npmjs.org', false)
     .option('--retries <n>', 'attempts for a dependency version the registry does not have yet', '5')
     .option('--retry-delay <seconds>', 'pause between attempts', '10')
+    .option(
+      '--audit',
+      'install the tarball alone, peers excluded, in a throwaway project and run npm audit on it (implies --check-npmjs)',
+      false,
+    )
+    .option('--audit-level <level>', `lowest severity that fails --audit: ${auditLevels.join(', ')}`, 'high')
     .action(
       (
         payload: string,
@@ -662,15 +711,42 @@ Why:
           readonly checkNpmjs: boolean;
           readonly retries: string;
           readonly retryDelay: string;
+          readonly audit: boolean;
+          readonly auditLevel: string;
         },
       ) => {
+        if (!isAuditLevel(options.auditLevel)) {
+          throw new Error(`--audit-level expects one of ${auditLevels.join(', ')}, got '${options.auditLevel}'`);
+        }
         publishCheck = {
           payload,
           outDir: options.outDir,
           checkNpmjs: options.checkNpmjs,
           retries: positiveInteger(options.retries, '--retries'),
           retryDelaySeconds: positiveInteger(options.retryDelay, '--retry-delay'),
+          ...(options.audit ? { auditLevel: options.auditLevel } : {}),
         };
+      },
+    );
+  publish
+    .command('rehearse')
+    .description(
+      'Pack, check, ask the registry and audit every payload a release publishes, before any is on npm. The set: every npm-distributed payload minus previous generations and --exclude.',
+    )
+    .option(
+      '--exclude <payload>',
+      'leave a payload out of the release set (repeatable)',
+      (value: string, previous: readonly string[]) => [...previous, value],
+      [] as readonly string[],
+    )
+    .option('--audit-level <level>', `lowest severity that fails the audit: ${auditLevels.join(', ')}`, 'high')
+    .option('-o, --out-dir <dir>', 'where the tarballs go; defaults to npm-manifest.json#tarballs.relPath')
+    .action(
+      (options: { readonly exclude: readonly string[]; readonly auditLevel: string; readonly outDir?: string }) => {
+        if (!isAuditLevel(options.auditLevel)) {
+          throw new Error(`--audit-level expects one of ${auditLevels.join(', ')}, got '${options.auditLevel}'`);
+        }
+        publishRehearse = { excludes: options.exclude, auditLevel: options.auditLevel, outDir: options.outDir };
       },
     );
   program
@@ -737,6 +813,7 @@ Why:
     publishRender === undefined &&
     publishPack === undefined &&
     publishCheck === undefined &&
+    publishRehearse === undefined &&
     !regenerateConsumerPackageLocks &&
     testConsumer === undefined &&
     syncVendored === undefined &&
@@ -748,7 +825,9 @@ Why:
     syncFhevmChains === undefined &&
     syncHhV2Constants === undefined && // hh-v2-constants
     !checkFhevmChainsOrigin &&
-    checkDeployments === undefined
+    checkDeployments === undefined &&
+    checkSafechain === undefined &&
+    updateDependencies === undefined
   ) {
     program.help({ error: true });
     throw new Error('unreachable');
@@ -814,6 +893,26 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...checkDeployments,
+    };
+  }
+  if (checkSafechain !== undefined) {
+    return {
+      command: 'check-safechain',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...checkSafechain,
+    };
+  }
+  if (updateDependencies !== undefined) {
+    return {
+      command: 'update-dependencies',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...updateDependencies,
     };
   }
   if (checkFhevmChainsOrigin) {
@@ -938,6 +1037,16 @@ Why:
   if (publishOrderSelected) {
     return {
       command: 'publish-order',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+    };
+  }
+  if (publishRehearse !== undefined) {
+    return {
+      command: 'publish-rehearse',
+      ...publishRehearse,
       workspaceRoot,
       manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
       verbosity: options.verbose,
