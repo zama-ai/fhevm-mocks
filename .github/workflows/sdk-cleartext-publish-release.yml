@@ -4,18 +4,22 @@ name: sdk-cleartext-publish-release
 #   1. host-contracts-cleartext (current generation)
 #   2. hardhat plugin v3        (depends on 1 on npmjs.com)
 #   3. forge fhevm
-# Each step is the same reusable workflow the single-package publish workflows call, so a step here runs
-# exactly what its standalone workflow runs. A failed step stops the ones after it.
+# Each step is the same reusable workflow the single-package publish workflows call. A failed step stops the
+# ones after it.
 #
 # All or nothing: before step 1, the `rehearse` job packs and checks all three payloads together, with
 # `publish rehearse` (the registry phase and the audit included). A payload a later step would refuse
 # therefore stops the release before anything is published, instead of after step 1 is already on npmjs.com.
-# Each step still runs its own `publish check --check-npmjs --audit` on the tarball it publishes: that check,
-# at the time of publish, is what vouches for the published bytes; the rehearsal is the gate before it.
+# Steps 1 and 3 still run their own `publish check --check-npmjs --audit` on the tarball they publish: that
+# check, at the time of publish, is what vouches for the published bytes; the rehearsal is the gate before it.
 #
-# Dry run caveat: step 2's `publish check --check-npmjs` requires the host-contracts-cleartext version it
-# depends on to already be on npmjs.com. In a dry run step 1 publishes nothing, so step 2 only passes if
-# that version was published before. The rehearsal has no such gap: it judges step 2 against step 1's tarball.
+# Step 2 relies on the rehearsal, minutes earlier, for what its own check cannot judge:
+#   - its audit is off: it would install step 1's version from npmjs.com minutes after its publish, which
+#     safe-chain hides for 48 hours. The rehearsal audits it with step 1's tarball instead.
+#   - in a dry run its registry phase is off too: step 1 publishes nothing, so the host-contracts-cleartext
+#     version it depends on never reaches npmjs.com. Its static checks still run, and the rehearsal judged its
+#     dependencies against step 1's tarball. In a real release the registry phase runs: step 1's publish job
+#     waits until npmjs.com serves the new version.
 
 on:
   workflow_dispatch:
@@ -109,6 +113,9 @@ jobs:
       build_target: 'compile-hh-v3-plugin' # build the hardhat plugin v3
       dry_run: ${{ inputs.dry_run }}
       latest: ${{ inputs.latest }}
+      # Both judged by the `rehearse` job against step 1's tarball; see the header.
+      registry_check: ${{ !inputs.dry_run }}
+      audit: false
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
