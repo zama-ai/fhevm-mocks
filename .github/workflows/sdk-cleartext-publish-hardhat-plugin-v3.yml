@@ -13,6 +13,13 @@ on:
         required: false
         default: true
         type: boolean
+      # The audit installs @fhevm/host-contracts-cleartext from npmjs.com, which safe-chain hides for 48 hours
+      # after its publish. Uncheck only to publish the plugin within that window; the run's inputs record it.
+      audit:
+        description: 'Audit what the plugin brings (npm audit, peers excluded); uncheck within 48h of a contracts publish'
+        required: false
+        default: true
+        type: boolean
 
 # No permissions at the workflow level — the calling job declares only what it needs.
 permissions: {}
@@ -30,5 +37,6 @@ jobs:
       build_target: 'compile-hh-v3-plugin' # build the hardhat plugin v3
       dry_run: ${{ inputs.dry_run }}
       latest: ${{ inputs.latest }}
+      audit: ${{ inputs.audit }}
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

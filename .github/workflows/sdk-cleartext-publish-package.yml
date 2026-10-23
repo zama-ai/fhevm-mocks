@@ -17,6 +17,16 @@ on:
         required: false
         default: true
         type: boolean
+      registry_check:
+        description: 'step 7c asks npmjs.com (--check-npmjs); false runs the static tarball checks only'
+        required: false
+        default: true
+        type: boolean
+      audit:
+        description: 'step 7c audits what the tarball brings (--audit); ignored when registry_check is false'
+        required: false
+        default: true
+        type: boolean
     secrets:
       NPM_TOKEN:
         required: true
@@ -268,11 +278,26 @@ jobs:
       #       alone in a throwaway project, has no `npm audit` advisory of high or
       #       critical severity at the time of publish (--audit).
       #     This means contracts must be published before plugins that need them.
+      #     The caller may turn off the registry phase (registry_check: false keeps
+      #     the first four checks only) or the audit (audit: false). The release
+      #     workflow does so for the Hardhat plugin, whose `rehearse` job already ran
+      #     both against the contracts tarball of the same release.
       # -----------------------------------------------------------------------
       - name: Check the tarball against npmjs.com
         env:
           PAYLOAD: ${{ steps.release_meta.outputs.payload }}
-        run: ./fhevm-npm-cli publish check "${PAYLOAD}" --check-npmjs --audit
+          REGISTRY_CHECK: ${{ inputs.registry_check }}
+          AUDIT: ${{ inputs.audit }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "$REGISTRY_CHECK" == "true" ]]; then
+            args+=(--check-npmjs)
+            # --audit needs the registry phase: it installs dependencies the registry has just proven exist.
+            if [[ "$AUDIT" == "true" ]]; then args+=(--audit); fi
+          fi
+          echo "publish check ${PAYLOAD} ${args[*]:-(static checks only)}"
+          ./fhevm-npm-cli publish check "${PAYLOAD}" ${args[@]+"${args[@]}"}
 
       # -----------------------------------------------------------------------
       # 7d. Tarball package.json
