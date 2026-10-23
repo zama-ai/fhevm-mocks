@@ -4,9 +4,9 @@ import { HardhatPluginError } from 'hardhat/plugins';
 import { type Hex, isHex, size, toHex } from 'viem';
 
 import { type FhevmTypeName } from '../types.js';
-import { FhevmType } from '../types-p.js';
+import { type FhevmType } from '../types-p.js';
 import { PLUGIN_ID } from './constants.js';
-import { getFhevmTypeName } from './fheType.js';
+import { getFhevmTypeName, isFhevmType } from './fheType.js';
 
 /** The handle a Solidity FHE variable holds before anything is ever assigned to it. */
 const UNINITIALIZED_HANDLE: Hex = `0x${'0'.repeat(64)}`;
@@ -47,7 +47,7 @@ export function parseFhevmHandle(handle: Hex): FhevmHandleInfo {
   }
   const byte = (i: number): number => Number.parseInt(handle.slice(2 + i * 2, 4 + i * 2), 16);
   const typeByte = byte(30);
-  if (!(typeByte in FhevmType)) {
+  if (!isFhevmType(typeByte)) {
     throw new HardhatPluginError(
       PLUGIN_ID,
       `Invalid FHE handle '${handle}': byte 30 is not a known FHE type (got 0x${typeByte.toString(16)}).`,

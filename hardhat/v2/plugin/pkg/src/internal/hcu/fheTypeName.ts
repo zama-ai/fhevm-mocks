@@ -1,5 +1,5 @@
 import { HardhatFhevmError } from '../../error';
-import { FhevmType } from '../fheType';
+import { FhevmType, isFhevmType } from '../fheType';
 import type { FheTypeName } from '../vendored/priceTypes';
 
 /**
@@ -24,10 +24,6 @@ const FHEVM_TYPE_TO_FHE_TYPE_NAME: Readonly<Record<FhevmType, FheTypeName | unde
   [FhevmType.eaddress]: 'Uint160',
   [FhevmType.euint256]: 'Uint256',
 };
-
-function isFhevmType(value: number): value is FhevmType {
-  return value in FhevmType;
-}
 
 export function getFheTypeName(fhevmType: FhevmType): FheTypeName {
   const name = FHEVM_TYPE_TO_FHE_TYPE_NAME[fhevmType];

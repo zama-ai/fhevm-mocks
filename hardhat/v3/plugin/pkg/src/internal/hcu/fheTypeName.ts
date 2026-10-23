@@ -5,6 +5,7 @@ import { HardhatPluginError } from 'hardhat/plugins';
 
 import { FhevmType } from '../../types-p.js';
 import { PLUGIN_ID } from '../constants.js';
+import { isFhevmType } from '../fheType.js';
 import type { FheTypeName } from '../vendored/priceTypes.js';
 
 const FHE_TYPE_NAME_BY_FHEVM_TYPE: Readonly<Record<FhevmType, FheTypeName | undefined>> = {
@@ -29,6 +30,6 @@ export function getFheTypeName(fhevmType: FhevmType): FheTypeName {
 
 /** For a raw type byte off an event argument, not yet checked against `FhevmType`. */
 export function getFheTypeNameFromByte(typeByte: number): FheTypeName {
-  if (!(typeByte in FhevmType)) throw new HardhatPluginError(PLUGIN_ID, `Unknown FHE type byte '${String(typeByte)}'.`);
+  if (!isFhevmType(typeByte)) throw new HardhatPluginError(PLUGIN_ID, `Unknown FHE type byte '${String(typeByte)}'.`);
   return getFheTypeName(typeByte);
 }
