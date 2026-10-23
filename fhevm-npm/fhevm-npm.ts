@@ -22,6 +22,7 @@ import { checkCommitScope } from './commands/check-commit-scope.ts';
 import { checkExtraneous } from './commands/check-extraneous.ts';
 import { checkGenerationParity } from './commands/check-generation-parity.ts';
 import { checkForgeFhevmStdParity } from './commands/check-forge-fhevm-std-parity.ts';
+import { checkSafechain } from './commands/check-safechain.ts';
 import { checkScripts } from './commands/check-scripts.ts';
 import { checkTscMode } from './commands/check-tsc-mode.ts';
 import { checkTsconfigPaths } from './commands/check-tsconfig-paths.ts';
@@ -42,12 +43,14 @@ import { scaffoldCommand } from './commands/scaffold.ts';
 import { publishCheck } from './commands/publish-check.ts';
 import { publishOrder } from './commands/publish-order.ts';
 import { publishPack } from './commands/publish-pack.ts';
+import { publishRehearse } from './commands/publish-rehearse.ts';
 import { publishRender } from './commands/publish-render.ts';
 import { syncVendoredCommand } from './commands/sync-vendored.ts';
 import { syncPinnedCommand } from './commands/sync-pinned.ts';
 import { bumpVendoredCommand } from './commands/bump-vendored.ts';
 import { testConsumerRegeneratePackageLock } from './commands/test-consumer-regenerate-package-lock.ts';
 import { testConsumer } from './commands/test-consumer.ts';
+import { updateDependenciesCommand } from './commands/update-dependencies.ts';
 import { versionApply } from './commands/version-apply.ts';
 import { versionCheck } from './commands/version-check.ts';
 import { versionList } from './commands/version-list.ts';
@@ -142,6 +145,28 @@ async function main(): Promise<void> {
     if (report.violations.length > 0) process.exitCode = 1;
     return;
   }
+  if (options.command === 'update-dependencies') {
+    const report = await updateDependenciesCommand({
+      workspaceRoot: options.workspaceRoot,
+      manifest,
+      minAgeHours: options.minAgeHours,
+      dryRun: options.dryRun,
+      verbosity: options.verbosity,
+    });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
+  if (options.command === 'check-safechain') {
+    const report = await checkSafechain({
+      workspaceRoot: options.workspaceRoot,
+      manifest,
+      minAgeHours: options.minAgeHours,
+    });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
   if (options.command === 'sync-vendored') {
     const report = syncVendoredCommand({
       workspaceRoot: options.workspaceRoot,
@@ -180,6 +205,17 @@ async function main(): Promise<void> {
       checkNpmjs: options.checkNpmjs,
       retries: options.retries,
       retryDelaySeconds: options.retryDelaySeconds,
+      ...(options.auditLevel === undefined ? {} : { auditLevel: options.auditLevel }),
+    });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
+  if (options.command === 'publish-rehearse') {
+    const report = await publishRehearse(options.workspaceRoot, manifest, {
+      excludes: options.excludes,
+      auditLevel: options.auditLevel,
+      outDir: options.outDir,
     });
     printReport(report, options.verbosity);
     if (report.violations.length > 0) process.exitCode = 1;

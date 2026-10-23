@@ -24,10 +24,15 @@ node ./fhevm-npm.ts check tsc-mode
 node ./fhevm-npm.ts check commit-scope
 node ./fhevm-npm.ts check cleartext-config
 node ./fhevm-npm.ts check generations
+node ./fhevm-npm.ts check safechain
+node ./fhevm-npm.ts check safechain --min-age-hours 72
 node ./fhevm-npm.ts sync vendored
 node ./fhevm-npm.ts sync vendored --check
 node ./fhevm-npm.ts sync pinned
 node ./fhevm-npm.ts sync pinned --check
+node ./fhevm-npm.ts update dependencies --dry-run
+node ./fhevm-npm.ts update dependencies
+node ./fhevm-npm.ts update dependencies --min-age-hours 48
 node ./fhevm-npm.ts bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6
 node ./fhevm-npm.ts bump vendored ./host-contracts-cleartext/v13 --tag v0.13.6 --check
 node ./fhevm-npm.ts sync fhevm-chains --latest
@@ -50,6 +55,9 @@ node ./fhevm-npm.ts publish render ./hardhat/v3/plugin/pkg --json
 node ./fhevm-npm.ts publish pack ./hardhat/v3/plugin/pkg
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs
+node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs --audit
+node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --audit --audit-level moderate
+node ./fhevm-npm.ts publish rehearse --exclude ./hardhat/v2/plugin/pkg
 node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template
 node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template --registry https://registry.npmjs.org
 node ./fhevm-npm.ts test-consumer --list
@@ -75,7 +83,7 @@ Verbosity is global and cumulative:
 
 Captured npm output is always printed when a silent subprocess fails.
 
-Check commands have no command-specific options. `test-consumer` accepts a package selector plus options for listing,
+Check commands have no command-specific options, except `check safechain --min-age-hours`. `test-consumer` accepts a package selector plus options for listing,
 building linked dependencies, running and choosing or replacing its persistent output directory. Each consumer is
 installed in isolation the way its own state dictates: `npm ci --install-links` when it carries a committed lockfile,
 `npm install --install-links` when it is a workspace member (its installation root locks it, so it has none by policy)
@@ -93,6 +101,30 @@ candidate. The committed consumer manifest therefore only needs its genuine dire
 delegates linked package builds to the SDK Makefile, which owns prerequisite ordering and incremental build stamps. It
 reads the manifest from `<root>/npm-manifest.json`; run
 `fhevm-npm test-consumer --help` for details.
+
+`update dependencies` raises every `^`/`~` floor to the newest in-range version published at least `--min-age-hours`
+ago (default 72, a day beyond safe-chain's 48), then relocks each installation root with `npm install
+--package-lock-only --before=<cutoff>` and regenerates each edited consumer fixture's lockfile with the same cutoff,
+so a floor and its lock name the same version. Published packages move `devDependencies` only; `peerDependencies`, the
+`npm-manifest.json` pins, exact versions and `file:`/`npm:` specs never move. It ends by comparing every floor it
+covers with its lockfile, and fails on a lock still newer than its floor. `check safechain` asks registry.npmjs.org
+when each version in every committed lockfile was published and fails on one younger than `--min-age-hours` (default
+48, safe-chain's own) or listed in Aikido's malware feed. Both depend on the clock and the network, so neither is part
+of `make check`.
+
+`publish check --audit` vouches for what a payload brings at the time it is published. Once `--check-npmjs` (which
+`--audit` implies) has proven every dependency installable, the packed tarball is installed alone into a throwaway
+project with `npm install --legacy-peer-deps --ignore-scripts`, and `npm audit` must report nothing at or above
+`--audit-level` (default `high`). Peers are the user's to install, so they are excluded, and the probe's lockfile is
+checked to prove it: a peer that reached it fails the check instead of being audited. The publish workflow runs it on
+the exact tarball it uploads.
+
+`publish rehearse` runs what a release runs for each payload it publishes — `publish pack`, then `publish check
+--check-npmjs --audit` — before any of them is on npm, and prints one line per payload with the result of each step.
+The set is every npm-distributed payload in publish order, minus the previous generation of each family
+(`generations`) and minus each `--exclude`. Since nothing is published yet, a dependency on another payload of the set
+is satisfied by that payload's fresh tarball: the registry is not asked about it, and the audit installs it beside the
+audited tarball. `make publish-rehearse` compiles first and excludes hardhat/v2.
 
 Exit code `0` means the check passed, `1` means policy violations were found, and `2` means the CLI, manifest or
 workspace could not be loaded.
