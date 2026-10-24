@@ -349,11 +349,7 @@ void test(
       againOps,
     );
     assert.equal(again.ok, false, 'a second hotfix by the same patch must be refused');
-    assert.match(
-      again.output,
-      new RegExp(
-        `is not newer than the one the latest record was made with \\(${fix.packageTo.replace(/\./g, '\\.')}\\)`,
-      ),
-    );
+    const refusal = `is not newer than the one the latest record was made with (${fix.packageTo})`;
+    assert.ok(again.output.includes(refusal), `expected "${refusal}" in:\n${again.output}`);
   },
 );

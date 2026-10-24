@@ -1463,7 +1463,7 @@ function traceDeclarationResolution(
   }
 }
 
-function runNpm(directory: string, args: readonly string[], verbosity: Verbosity = 0): void {
+export function runNpm(directory: string, args: readonly string[], verbosity: Verbosity = 0): void {
   const npmArgs = [...npmVerbosityArguments(verbosity), ...args];
   if (hasProgress(verbosity)) console.log(`npm ${npmArgs.join(' ')} (${directory})`);
   try {

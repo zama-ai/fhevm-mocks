@@ -52,7 +52,7 @@ jobs:
       payload: ${{ steps.filter.outputs.payload }}
     steps:
       - name: Filter changed paths
-        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           # WITHOUT this the patterns below are OR-ed, a negated pattern is just "any file
@@ -104,7 +104,7 @@ jobs:
       #    and the read fails with "unavailable locally".
       # -----------------------------------------------------------------------
       - name: Check out repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: 'false'
           fetch-depth: 0
@@ -119,7 +119,7 @@ jobs:
       #    run authenticates to a registry.
       # -----------------------------------------------------------------------
       - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '>=22.23.4 <23'
 
@@ -145,7 +145,7 @@ jobs:
       #    both must be bumped together. Locally: foundryup --install v1.5.1
       # -----------------------------------------------------------------------
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.5.1
 
@@ -263,12 +263,12 @@ jobs:
     steps:
       # A shallow checkout is enough: zizmor reads the workflow files as they are.
       - name: Check out repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: 'false'
 
       - name: Run zizmor 🌈
-        uses: zizmorcore/zizmor-action@e673c3917a1aef3c65c972347ed84ccd013ecda4 # v0.2.0
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
         with:
           persona: pedantic
           version: 1.17.0

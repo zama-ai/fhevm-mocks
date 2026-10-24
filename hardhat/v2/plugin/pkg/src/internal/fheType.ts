@@ -95,6 +95,11 @@ export function fhevmTypeToSdkType(fhevmType: FhevmType): string {
   return getFhevmTypeName(fhevmType);
 }
 
+/** For a raw type byte (a handle's byte 30, an event arg) that has not been checked against `FhevmType` yet. */
+export function isFhevmType(value: number): value is FhevmType {
+  return value in FhevmType;
+}
+
 export function isFhevmEbool(value: FhevmType | undefined): value is FhevmType.ebool {
   return value === FhevmType.ebool;
 }

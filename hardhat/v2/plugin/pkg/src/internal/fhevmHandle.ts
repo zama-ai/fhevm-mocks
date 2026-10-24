@@ -1,7 +1,7 @@
 import { ethers as EthersT } from 'ethers';
 
 import { HardhatFhevmError } from '../error';
-import { FhevmType, type FhevmTypeName, getFhevmTypeName } from './fheType';
+import { type FhevmType, type FhevmTypeName, getFhevmTypeName, isFhevmType } from './fheType';
 
 /**
  * Decoding of a bytes32 FHE handle.
@@ -61,7 +61,7 @@ export function parseFhevmHandle(handleBytes32: string): FhevmHandleInfo {
   const typeByte = byte(30);
   const version = byte(31);
 
-  if (!(typeByte in FhevmType)) {
+  if (!isFhevmType(typeByte)) {
     throw new HardhatFhevmError(
       `Invalid FHE handle '${handleBytes32}': byte 30 is not a known FHE type (got 0x${typeByte.toString(16)}).`,
     );
