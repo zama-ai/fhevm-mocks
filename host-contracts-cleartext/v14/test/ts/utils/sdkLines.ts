@@ -132,18 +132,10 @@ async function loadSdkLine(name: string): Promise<SdkLine> {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// The chain definitions a client is given.
+// The chain definition a client is given.
 // ---------------------------------------------------------------------------------------------------------------
 
-export const CHAIN_VARIANTS = [
-  { name: 'full chain definition', protocolConfig: true },
-  // !!! TEMPORARY — the "no protocolConfig" trick of the hardhat plugins (MIGRATION-v14 Annex A.5). Delete this
-  // variant when the patched sdk releases are pinned and the trick is removed.
-  { name: 'without protocolConfig (TEMPORARY trick)', protocolConfig: false },
-] as const;
-export type ChainVariant = (typeof CHAIN_VARIANTS)[number];
-
-function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unknown {
+function cleartextChain(sdk: SdkLine, stack: Stack): unknown {
   const contract = (address: string) => ({ address: getAddress(address) });
   const { fhevmAddresses } = stack;
   return sdk.defineChain({
@@ -153,7 +145,7 @@ function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unkn
         acl: contract(fhevmAddresses.aclAddress),
         inputVerifier: contract(fhevmAddresses.inputVerifierAddress),
         kmsVerifier: contract(fhevmAddresses.kmsVerifierAddress),
-        ...(variant.protocolConfig ? { protocolConfig: contract(fhevmAddresses.protocolConfigAddress) } : {}),
+        protocolConfig: contract(fhevmAddresses.protocolConfigAddress),
       },
       // Required by the type, unused in cleartext mode.
       relayerUrl: 'http://localhost:8545',
@@ -173,25 +165,18 @@ const linesBack = (sdkName: string): number => Number(/-prev(\d+)$/.exec(sdkName
 
 /** Every (older line, newer line) pair: a permit the older one signed, which the newer one goes on using. */
 export const UPGRADES = SDK_LINES.flatMap((olderName) =>
-  SDK_LINES.filter((newerName) => linesBack(newerName) < linesBack(olderName)).flatMap((newerName) =>
-    CHAIN_VARIANTS.map((variant) => ({ olderName, newerName, variant })),
-  ),
+  SDK_LINES.filter((newerName) => linesBack(newerName) < linesBack(olderName)).map((newerName) => ({
+    olderName,
+    newerName,
+  })),
 );
 
-/** Every (sdk line, chain variant) pair, the unit each scenario runs for. */
-export const COMBINATIONS = SDK_LINES.flatMap((sdkName) => CHAIN_VARIANTS.map((variant) => ({ sdkName, variant })));
+/** A distinct clear value per sdk line and per stack, so a decryption cannot pass by reading another line's handle. */
+export const clearValueOf = (sdkName: string, offset: number) => BigInt(offset + 1 + SDK_LINES.indexOf(sdkName));
 
-/** A distinct clear value per pair and per stack, so a decryption cannot pass by reading another pair's handle. */
-export const clearValueOf = (sdkName: string, variant: ChainVariant, offset: number) =>
-  BigInt(offset + 1 + SDK_LINES.indexOf(sdkName) * CHAIN_VARIANTS.length + CHAIN_VARIANTS.indexOf(variant));
-
-export async function connect(
-  env: Env,
-  sdkName: string,
-  variant: ChainVariant,
-): Promise<{ sdk: SdkLine; client: SdkClient }> {
+export async function connect(env: Env, sdkName: string): Promise<{ sdk: SdkLine; client: SdkClient }> {
   const sdk = await loadSdkLine(sdkName);
-  const client = sdk.createClient(env.publicClient, cleartextChain(sdk, env.stack, variant));
+  const client = sdk.createClient(env.publicClient, cleartextChain(sdk, env.stack));
   await client.ready;
   return { sdk, client };
 }
@@ -211,7 +196,6 @@ export type Scenario =
   | 'userDecryptWithAStaleKmsContext';
 export type GapContext = {
   sdk: SdkLine;
-  variant: ChainVariant;
   kmsVerifierVersion: readonly number[];
   scenario: Scenario;
 };
@@ -224,10 +208,9 @@ const atLeast = (version: readonly number[], floor: readonly number[]): boolean 
   }
   return true;
 };
-// sdk 0.14 builds KMS extraData version 2 when the KMSVerifier is 0.4.0 or newer and the chain names protocolConfig;
-// every other combination builds version 1.
-const sdkBuildsExtraDataV2 = (c: GapContext) =>
-  c.sdk.protocolLine >= 14 && c.variant.protocolConfig && atLeast(c.kmsVerifierVersion, [0, 4, 0]);
+// sdk 0.14 builds KMS extraData version 2 when the KMSVerifier is 0.4.0 or newer (the chain definition names
+// protocolConfig); every other combination builds version 1.
+const sdkBuildsExtraDataV2 = (c: GapContext) => c.sdk.protocolLine >= 14 && atLeast(c.kmsVerifierVersion, [0, 4, 0]);
 // sdk 0.14.4 is the first release whose cleartext path passes the extraData it verifies against to the host
 // (publicDecrypt(handles, extraData), userDecrypt(..., extraData)), and the host serves the context it names. Every
 // gap below is an older release not passing it, so none applies from there on.
@@ -242,7 +225,7 @@ const UNKNOWN_KMS_SIGNER = /is not in the list of kms signers/;
 const GAPS: readonly Gap[] = [
   {
     // MIGRATION-v14 Annex A.3: the sdk's cleartext path calls publicDecrypt(handles) without the extraData it then
-    // verifies against, and the host answers with version 1 (the temporary default).
+    // verifies against, and the host answers with version 1 (what the sdk releases that call it build).
     id: 'public decryption, extraData v2 (Annex A.3)',
     when: (c) =>
       (c.scenario === 'publicDecrypt' || c.scenario === 'publicDecryptWithAStaleKmsContext') &&
