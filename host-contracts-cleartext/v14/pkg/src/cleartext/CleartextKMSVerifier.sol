@@ -84,9 +84,9 @@ contract CleartextKMSVerifier is KMSVerifier {
     // ---------------------------------------------------------------------------------------------
 
     /// @notice Returns cleartexts and KMS metadata for public decryption, signed over the CURRENT KMS
-    ///         context (extraData v1, `0x01 | contextId`). TEMPORARY: see the warning in the body.
+    ///         context (extraData v1, `0x01 | contextId`).
     /// @dev    For sdks whose cleartext path does not pass the extraData they will verify the proof against
-    ///         (FHEVM SDK 0.13.x and 0.14.x call `publicDecrypt(handles)`). The overload below, which takes the
+    ///         (FHEVM SDK 0.13.x calls `publicDecrypt(handles)`). The overload below, which takes the
     ///         extraData, serves any requested version.
     function publicDecrypt(bytes32[] memory handles)
         external
@@ -100,19 +100,9 @@ contract CleartextKMSVerifier is KMSVerifier {
             bytes memory extraData
         )
     {
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!! TEMPORARY — REMOVE WHEN THE PATCHED FHEVM SDK RELEASES ARE PINNED !!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // extraData v1 on purpose. On a v14 chain the right default is v2 (`0x02 | contextId | epochId`),
-        // which is what SDK 0.14 requests. But the hardhat plugins temporarily hide `protocolConfig` from the
-        // SDK's chain definition (the "no protocolConfig address" trick), so SDK 0.14 requests v1 like SDK
-        // 0.13, and this one-argument call must sign v1 for both to verify the proof.
-        // EXIT: once the SDKs call `publicDecrypt(handles, extraData)` and the plugins restore
-        // `protocolConfig`, replace the line below with:
-        //     return _publicDecrypt(handles, _currentExtraDataV2());
-        // Counterparts of this trick: cleartextChain() in hardhat/v3/plugin/pkg/src/internal/chains.ts and
-        // localCleartext in hardhat/v2/plugin/pkg/src/internal/chains.ts, which omit protocolConfig.
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // v1, not the v2 (`0x02 | contextId | epochId`) a v14 chain calls for: the sdk releases that call this
+        // overload build v1 and verify the proof against it. An sdk that builds v2 passes it, through the
+        // overload below.
         return _publicDecrypt(handles, LibKmsVerifier.extraDataForContext(getCurrentKmsContextId()));
     }
 

@@ -31,9 +31,9 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  *   - `userDecryptV1(pairs, permit, signature)` (the permit carries its extraData) must verify the permit over
  *     exactly the extraData the user signed, which may name a context that is no longer the current one (a permit
  *     is reusable until it expires);
- *   - the overloads WITHOUT extraData (published sdk releases do not pass it) can only guess: `publicDecrypt`
- *     signs v1 (TEMPORARY, see the banner in CleartextKMSVerifier), `userDecrypt` tries v2 then v1 for the
- *     current context and epoch, and refuses a permit signed before a KMS rotation.
+ *   - the overloads WITHOUT extraData (sdk releases that do not pass it) can only guess: `publicDecrypt`
+ *     signs v1, which those releases build, `userDecrypt` tries v2 then v1 for the current context and
+ *     epoch, and refuses a permit signed before a KMS rotation.
  *
  * v14's own file: v13 has no epochs and none of these overloads.
  */
@@ -63,8 +63,7 @@ contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
     // Public decryption
     // ---------------------------------------------------------------------------------------------
 
-    /// TEMPORARY default: the one-argument call signs v1 (the hardhat plugins hide `protocolConfig` from the sdk,
-    /// so sdk 0.14 requests v1 like sdk 0.13). When the trick goes, this test flips to v2.
+    /// The one-argument call signs v1: the sdk releases that call it (0.13.x) build v1 and verify against it.
     function test_publicDecryptWithoutExtraDataSignsV1ForTheCurrentContext() public {
         bytes32[] memory handles = _decryptable(4242);
 
