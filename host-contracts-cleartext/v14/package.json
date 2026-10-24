@@ -95,8 +95,8 @@
   "fhevm": {
     "vendoredFrom": {
       "repository": "https://github.com/zama-ai/fhevm",
-      "tag": "v0.14.1",
-      "commit": "f1acef9496cc891c65b681713ba874a59c42071c",
+      "tag": "v0.14.4",
+      "commit": "ccdd1ce0dd039d863d90b2294e3b2c6be6af16d7",
       "from": "library-solidity/config",
       "to": "internal/zama-config"
     }

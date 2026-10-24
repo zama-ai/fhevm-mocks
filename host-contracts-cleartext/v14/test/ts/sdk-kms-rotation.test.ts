@@ -10,7 +10,6 @@ import type { Address, Hex } from 'viem';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { MNEMONIC, startAnvil, stopAnvil } from '@fhevm/sdk-common-dev';
 import {
-  COMBINATIONS,
   type Env,
   type GapContext,
   SDK_LINES,
@@ -38,15 +37,14 @@ describe.skipIf(SDK_LINES.length === 0)('after a KMS rotation, in a process that
   };
   type Made = { probeAddress: Address; handle: Hex };
   const made = new Map<string, Made>();
-  const key = (sdkName: string, variantName: string) => `${sdkName}|${variantName}`;
 
   beforeAll(async () => {
     const e = await startEnv(startAnvil({ port: 8662, mnemonic: MNEMONIC }));
     env = e;
-    for (const { sdkName, variant } of COMBINATIONS) {
-      const { probeAddress, handle } = await trivialToNewProbe(e, clearValueOf(sdkName, variant, 200));
+    for (const sdkName of SDK_LINES) {
+      const { probeAddress, handle } = await trivialToNewProbe(e, clearValueOf(sdkName, 200));
       await makePubliclyDecryptable(e, probeAddress);
-      made.set(key(sdkName, variant.name), { probeAddress, handle });
+      made.set(sdkName, { probeAddress, handle });
     }
     await rotateKms(e);
   }, 180_000);
@@ -55,22 +53,21 @@ describe.skipIf(SDK_LINES.length === 0)('after a KMS rotation, in a process that
     if (env !== undefined) await stopAnvil(env.anvil.process);
   });
 
-  describe.each(COMBINATIONS)('$sdkName, $variant.name', ({ sdkName, variant }) => {
+  describe.each(SDK_LINES)('%s', (sdkName) => {
     let sdk: SdkLine;
     let client: SdkClient;
     let earlier: Made;
-    const clear = clearValueOf(sdkName, variant, 200);
+    const clear = clearValueOf(sdkName, 200);
     const context = (scenario: Scenario): GapContext => ({
       sdk,
-      variant,
       kmsVerifierVersion: started().kmsVerifierVersion,
       scenario,
     });
 
     beforeAll(async () => {
-      ({ sdk, client } = await connect(started(), sdkName, variant));
-      const entry = made.get(key(sdkName, variant.name));
-      if (entry === undefined) throw new Error(`nothing was made for ${sdkName}, ${variant.name}`);
+      ({ sdk, client } = await connect(started(), sdkName));
+      const entry = made.get(sdkName);
+      if (entry === undefined) throw new Error(`nothing was made for ${sdkName}`);
       earlier = entry;
     });
 
