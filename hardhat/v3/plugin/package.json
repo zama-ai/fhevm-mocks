@@ -35,13 +35,13 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
     "@fhevm/sdk": "^0.14.3",
-    "@types/node": "^22.0.0",
-    "eslint": "^10.0.2",
-    "hardhat": "^3.0.0",
-    "prettier": "^3.8.3",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.13.0",
+    "hardhat": "^3.20.0",
+    "prettier": "^3.9.10",
     "publint": "^0.2.12",
-    "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
     "viem": "2.55.19"
   }
 }

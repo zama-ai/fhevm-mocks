@@ -24,6 +24,7 @@
     "check:package-json": "node ./fhevm-npm.ts check package-json",
     "check:package-json-paths": "node ./fhevm-npm.ts check package-json-paths",
     "check:pinned-dependencies": "node ./fhevm-npm.ts check pinned-dependencies",
+    "check:safechain": "node ./fhevm-npm.ts check safechain",
     "check:scripts": "node ./fhevm-npm.ts check scripts",
     "check:tsc-mode": "node ./fhevm-npm.ts check tsc-mode",
     "check:commit-scope": "node ./fhevm-npm.ts check commit-scope",
@@ -41,11 +42,11 @@
   "dependencies": {
     "ajv": "^8.20.0",
     "commander": "^14.0.3",
-    "prettier": "^3.8.3",
+    "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/node": "^22.20.1"
+    "@types/node": "^22.20.5"
   }
 }

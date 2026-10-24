@@ -17,6 +17,16 @@ on:
         required: false
         default: true
         type: boolean
+      registry_check:
+        description: 'step 7c asks npmjs.com (--check-npmjs); false runs the static tarball checks only'
+        required: false
+        default: true
+        type: boolean
+      audit:
+        description: 'step 7c audits what the tarball brings (--audit); ignored when registry_check is false'
+        required: false
+        default: true
+        type: boolean
     secrets:
       NPM_TOKEN:
         required: true
@@ -77,7 +87,7 @@ jobs:
       #    committed generated sources; CI validates their vendored origin.
       # -----------------------------------------------------------------------
       - name: Check out repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: 'false'
 
@@ -92,7 +102,7 @@ jobs:
       #    token directly.
       # -----------------------------------------------------------------------
       - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '>=22.23.4 <23'
 
@@ -178,7 +188,7 @@ jobs:
       #     If the versions differ, the build stops.
       # -----------------------------------------------------------------------
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.5.1
 
@@ -264,12 +274,30 @@ jobs:
       #     - Converted dependency ranges match versions.json.
       #     - npmjs.com has a published version matching each converted range.
       #     - This package version is not already published on npmjs.com.
+      #     - What the tarball brings (its dependencies, peers excluded), installed
+      #       alone in a throwaway project, has no `npm audit` advisory of high or
+      #       critical severity at the time of publish (--audit).
       #     This means contracts must be published before plugins that need them.
+      #     The caller may turn off the registry phase (registry_check: false keeps
+      #     the first four checks only) or the audit (audit: false). The release
+      #     workflow does so for the Hardhat plugin, whose `rehearse` job already ran
+      #     both against the contracts tarball of the same release.
       # -----------------------------------------------------------------------
       - name: Check the tarball against npmjs.com
         env:
           PAYLOAD: ${{ steps.release_meta.outputs.payload }}
-        run: ./fhevm-npm-cli publish check "${PAYLOAD}" --check-npmjs
+          REGISTRY_CHECK: ${{ inputs.registry_check }}
+          AUDIT: ${{ inputs.audit }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "$REGISTRY_CHECK" == "true" ]]; then
+            args+=(--check-npmjs)
+            # --audit needs the registry phase: it installs dependencies the registry has just proven exist.
+            if [[ "$AUDIT" == "true" ]]; then args+=(--audit); fi
+          fi
+          echo "publish check ${PAYLOAD} ${args[*]:-(static checks only)}"
+          ./fhevm-npm-cli publish check "${PAYLOAD}" ${args[@]+"${args[@]}"}
 
       # -----------------------------------------------------------------------
       # 7d. Tarball package.json
@@ -331,7 +359,7 @@ jobs:
       #     job installs.
       # -----------------------------------------------------------------------
       - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '>=22.23.4 <23'
 
@@ -368,7 +396,7 @@ jobs:
       #    When dry_run is true, skip publishing.
       # -----------------------------------------------------------------------
       - name: Publish to npm
-        uses: JS-DevTools/npm-publish@7f8fe47b3bea1be0c3aec2b717c5ec1f3e03410b # v4.1.1
+        uses: JS-DevTools/npm-publish@0fd2f4369c5d6bcfcde6091a7c527d810b9b5c3f # v4.1.5
         with:
           package: ${{ runner.temp }}/tarball/${{ needs.build.outputs.tarball }}
           tag: ${{ needs.build.outputs.dist_tag }}
