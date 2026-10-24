@@ -15,7 +15,9 @@ export function updateCount(method: 'increment' | 'decrement'): NewTaskActionFun
       userAddress: wallet.account.address,
     });
     const handle = encryptedValue.externalEuint32;
-    const transactionHash = await counter.write[method]([handle, encryptedValue.inputProof]);
+    const args = [handle, encryptedValue.inputProof] as const;
+    const transactionHash =
+      method === 'increment' ? await counter.write.increment(args) : await counter.write.decrement(args);
     console.log(`Waiting for transaction ${transactionHash}...`);
     const publicClient = await connection.viem.getPublicClient();
     const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
