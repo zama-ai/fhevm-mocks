@@ -25,6 +25,8 @@ import {
   bob,
   clearValueOf,
   connect,
+  destroyPreviousKms,
+  destroyedKmsContextRefusal,
   expectOutcome,
   loadPermit,
   makePubliclyDecryptable,
@@ -204,6 +206,45 @@ describe.skipIf(SDK_LINES.length === 0)('across a KMS rotation, in a process tha
         const permit = await signPermit(started(), client, alice, earlier.probeAddress);
         expect(await userDecryptWith(client, permit, earlier.handle, earlier.probeAddress)).toBe(clear);
       });
+    });
+  });
+});
+
+// Where that ends: once the committee retires, the ACL owner destroys the previous KMS context, and a permit signed in
+// it stops working. Production refuses it too, so this is the behaviour itself, not a gap.
+describe.skipIf(SDK_LINES.length === 0)('after the previous KMS context is destroyed', () => {
+  let env: Env | undefined;
+  const started = (): Env => {
+    if (env === undefined) throw new Error('the stack did not start');
+    return env;
+  };
+  type Made = { probeAddress: Address; handle: Hex; permit: Permit };
+  const made = new Map<string, Made>();
+
+  beforeAll(async () => {
+    const e = await startEnv(startAnvil({ port: 8664, mnemonic: MNEMONIC }));
+    env = e;
+    for (const sdkName of SDK_LINES) {
+      const { client } = await connect(e, sdkName);
+      const { probeAddress, handle } = await submitToNewProbe(e, client, clearValueOf(sdkName, 50));
+      const permit = await signPermit(e, client, alice, probeAddress);
+      made.set(sdkName, { probeAddress, handle, permit });
+    }
+    await destroyPreviousKms(e, await rotateKms(e));
+  }, 180_000);
+
+  afterAll(async () => {
+    if (env !== undefined) await stopAnvil(env.anvil.process);
+  });
+
+  describe.each(SDK_LINES)('%s', (sdkName) => {
+    test('refuses a permit signed in the destroyed context', async () => {
+      const { sdk, client } = await connect(started(), sdkName);
+      const earlier = made.get(sdkName);
+      if (earlier === undefined) throw new Error(`nothing was made for ${sdkName}`);
+      await expect(userDecryptWith(client, earlier.permit, earlier.handle, earlier.probeAddress)).rejects.toThrow(
+        destroyedKmsContextRefusal(sdk),
+      );
     });
   });
 });

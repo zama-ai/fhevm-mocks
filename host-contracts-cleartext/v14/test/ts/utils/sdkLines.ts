@@ -37,6 +37,7 @@ import {
   CLEARTEXT_GATEWAY_CHAIN_ID,
   CLEARTEXT_INPUT_VERIFICATION_ADDRESS,
   deploy,
+  destroyKmsContext,
   rotateKmsContext,
 } from '../../../pkg/ts/index.ts';
 import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
@@ -214,7 +215,7 @@ const sdkBuildsExtraDataV2 = (c: GapContext) => c.sdk.protocolLine >= 14 && atLe
 // sdk 0.14.4 is the first release whose cleartext path passes the extraData it verifies against to the host
 // (publicDecrypt(handles, extraData), userDecrypt(..., extraData)), and the host serves the context it names. Every
 // gap below is an older release not passing it, so none applies from there on.
-const sdkPassesExtraData = (c: GapContext) => atLeast(c.sdk.version.split(/[.-]/).map(Number), [0, 14, 4]);
+const sdkPassesExtraData = (sdk: SdkLine) => atLeast(sdk.version.split(/[.-]/).map(Number), [0, 14, 4]);
 
 // The host's custom error, which the sdk cannot name (it does not carry the host's ABI): CleartextKMSVerifier's
 // CleartextErrorInvalidUserDecryptSignature().
@@ -230,7 +231,7 @@ const GAPS: readonly Gap[] = [
     when: (c) =>
       (c.scenario === 'publicDecrypt' || c.scenario === 'publicDecryptWithAStaleKmsContext') &&
       sdkBuildsExtraDataV2(c) &&
-      !sdkPassesExtraData(c),
+      !sdkPassesExtraData(c.sdk),
     error: UNKNOWN_KMS_SIGNER,
   },
   {
@@ -238,7 +239,7 @@ const GAPS: readonly Gap[] = [
     // but the sdk's cleartext path calls userDecrypt without that extraData, and the host only tries the current
     // context's: the user's signature does not verify. userDecrypt(..., extraData) serves it once the sdk passes it.
     id: 'user decryption with a permit from an earlier KMS context (Annex A.3)',
-    when: (c) => c.scenario === 'permitFromAnEarlierKmsContext' && !sdkPassesExtraData(c),
+    when: (c) => c.scenario === 'permitFromAnEarlierKmsContext' && !sdkPassesExtraData(c.sdk),
     error: INVALID_USER_DECRYPT_SIGNATURE,
   },
   {
@@ -248,12 +249,12 @@ const GAPS: readonly Gap[] = [
     // public decryptions against the previous signers. Fixed by the sdk passing the extraData (the host then serves
     // the context it names), or by an sdk cache that a new client refreshes.
     id: 'an sdk process that used the previous KMS context keeps it after a rotation',
-    when: (c) => c.scenario === 'userDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c),
+    when: (c) => c.scenario === 'userDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c.sdk),
     error: INVALID_USER_DECRYPT_SIGNATURE,
   },
   {
     id: 'an sdk process that used the previous KMS context keeps it after a rotation (public decryption)',
-    when: (c) => c.scenario === 'publicDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c),
+    when: (c) => c.scenario === 'publicDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c.sdk),
     error: UNKNOWN_KMS_SIGNER,
   },
 ];
@@ -268,6 +269,17 @@ export async function expectOutcome(context: GapContext, run: () => Promise<void
   await expect(run(), `expected known gap: ${gap.id}`).rejects.toThrow(gap.error);
 }
 
+// CleartextKMSVerifier's CleartextErrorInvalidKmsContext(uint256): the context a request names is not valid.
+const INVALID_KMS_CONTEXT = /0x88b507cc/;
+
+/**
+ * How the host refuses a permit signed in a KMS context the ACL owner has since destroyed. Not a gap: production
+ * refuses it too. An sdk that passes the permit's extraData names the destroyed context and is refused for it; one
+ * that does not leaves the host to guess the current context, which the permit was not signed for.
+ */
+export const destroyedKmsContextRefusal = (sdk: SdkLine): RegExp =>
+  sdkPassesExtraData(sdk) ? INVALID_KMS_CONTEXT : INVALID_USER_DECRYPT_SIGNATURE;
+
 // ---------------------------------------------------------------------------------------------------------------
 // The stack: one anvil, the cleartext host, and SdkProbes.
 // ---------------------------------------------------------------------------------------------------------------
@@ -281,6 +293,7 @@ const KMS_VERIFIER_ABI = parseAbi([
   'function getVersion() view returns (string)',
   'function verifyDecryptionEIP712KMSSignatures(bytes32[] handlesList, bytes decryptedResult, bytes decryptionProof) returns (bool)',
 ]);
+const PROTOCOL_CONFIG_ABI = parseAbi(['function getCurrentKmsContextId() view returns (uint256)']);
 const FHE_TYPE_UINT8 = 2;
 export const DAY = 24 * 60 * 60;
 
@@ -347,8 +360,16 @@ export async function startEnv(anvil: AnvilNode): Promise<Env> {
 // The default KMS pools are derived from the FHEVM test mnemonic, signers at m/44'/60'/0'/3/<i>.
 const FHEVM_MNEMONIC = 'test test test test test test test future home engine virtual motion';
 
-/** Replaces the KMS committee (signers 0-3 by 4-7): a new KMS context and epoch; the previous context stays valid. */
-export async function rotateKms(env: Env): Promise<void> {
+/**
+ * Replaces the KMS committee (signers 0-3 by 4-7): a new KMS context and epoch; the previous context stays valid.
+ * Returns the previous context's id.
+ */
+export async function rotateKms(env: Env): Promise<bigint> {
+  const previousKmsContextId = await env.publicClient.readContract({
+    address: env.stack.fhevmAddresses.protocolConfigAddress as Address,
+    abi: PROTOCOL_CONFIG_ABI,
+    functionName: 'getCurrentKmsContextId',
+  });
   // The incoming committee attests; the outgoing one supplies the previous-committee confirmations the creation
   // quorum also needs. Both pools come from the FHEVM mnemonic, so both need gas first.
   const incoming = defaultKmsEpochActivators({ rpcUrl: env.rpcUrl, mnemonic: FHEVM_MNEMONIC, indices: [4, 5, 6, 7] });
@@ -365,6 +386,19 @@ export async function rotateKms(env: Env): Promise<void> {
     activators: incoming,
     previousTxSenders: outgoing.map((activator) => activator.txSender),
     attestation: FIXTURE_ATTESTATION,
+  });
+  return previousKmsContextId;
+}
+
+/** Destroys a KMS context that is no longer the current one, as the ACL owner does once its committee retires. */
+export async function destroyPreviousKms(env: Env, kmsContextId: bigint): Promise<void> {
+  const adapters = createViemEthereumAdapters({ rpcUrl: env.rpcUrl, privateKey: env.deployerKey });
+  await destroyKmsContext({
+    ethUtils: adapters.utils,
+    admin: adapters.signer,
+    aclOwnerAddress: env.stack.aclOwnerAddress,
+    protocolConfigAddress: env.stack.fhevmAddresses.protocolConfigAddress,
+    kmsContextId,
   });
 }
 
