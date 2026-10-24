@@ -164,9 +164,9 @@ jobs:
       #    npm ci is strict and deterministic: it installs exactly what is in
       #    package-lock.json, fails if the lockfile is out of sync, and never
       #    modifies it. UNLIKE js-sdk-tests.yml one `npm ci` is not enough: this
-      #    workspace has four installation roots (sdk, fhevm-npm, hardhat/v2,
-      #    hardhat/v3) because hardhat's environment is per-module and each
-      #    major needs its own singleton. `make install-ci` runs npm ci in each,
+      #    workspace has three installation roots (sdk, fhevm-npm, hardhat/v3)
+      #    because hardhat's environment is per-module and each major needs its
+      #    own singleton. `make install-ci` runs npm ci in each,
       #    then the forge dependencies, because the Makefile owns which roots
       #    exist.
       # -----------------------------------------------------------------------
@@ -214,8 +214,8 @@ jobs:
       #    Installs every consumer registered in npm-manifest.json#consumerTests
       #    into an isolated temp directory and runs its suite, replaying each
       #    committed lockfile — the closest thing to a publish rehearsal that
-      #    never reaches npmjs.com. Both hardhat templates are workspace members
-      #    with no lockfile by policy and resolve fresh. Steps 7, 8, 9 and 10 are
+      #    never reaches npmjs.com. The hardhat template is a workspace member
+      #    with no lockfile by policy and resolves fresh. Steps 7, 8, 9 and 10 are
       #    what `make ci` runs; they are separate steps only so the summary
       #    names the phase that went red.
       # -----------------------------------------------------------------------
@@ -229,9 +229,9 @@ jobs:
       #    to declare here and nothing is left listening afterwards. anvil itself
       #    comes from the foundry toolchain installed in step 4 — no extra install.
       #
-      #    `test-anvil-ci` is a SUBSET of the `test-anvil` tier: the two hardhat
-      #    e2e suites against anvil pass but cost ~4 minutes each, so they are not
-      #    yet paid for on every push. The Makefile target says how to promote one.
+      #    `test-anvil-ci` is a SUBSET of the `test-anvil` tier: the hardhat e2e
+      #    suite against anvil passes but costs ~4 minutes, so it is not yet paid
+      #    for on every push. The Makefile target says how to promote it.
       #
       #    AFTER the consumer rehearsal on purpose: those rehearsals assert that
       #    nothing holds port 8545 and fail outright if something does, and this

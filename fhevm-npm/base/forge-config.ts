@@ -6,8 +6,8 @@ import { execFileSync } from 'node:child_process';
  * Every answer comes from `forge config --json` and nothing else. No reading a `foundry.toml`, no
  * regexing it, no assuming a default. Forge is the only thing that resolves `extends`, profile
  * selection and its own built-in defaults, and a hand-rolled parser disagrees with it silently — which
- * is the expensive kind of wrong. `hardhat/v2/e2e` is the standing example: its cache is `cache-forge`,
- * not `cache`, so anything that assumed the default name was already wrong about one of three projects.
+ * is the expensive kind of wrong. `hardhat/v3/e2e` is the standing example: its cache is `cache-forge`,
+ * not `cache`, so anything that assumed the default name was already wrong about that project.
  */
 export type ForgeConfig = Readonly<Record<string, unknown>>;
 

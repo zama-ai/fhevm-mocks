@@ -17,11 +17,11 @@ function workspace() {
       name: 'a-template',
       version: '0.13.0',
       dependencies: { '@fhevm/solidity': '^0.13.3' },
-      devDependencies: { '@fhevm/hardhat-plugin': 'file:../plugin', hardhat: '^2.28.6' },
+      devDependencies: { '@fhevm/hardhat-plugin-v3': 'file:../plugin', hardhat: '^3.20.0' },
     }),
   );
   writeFileSync(join(root, 'template', 'contracts', 'A.sol'), '// a\n');
-  writeFileSync(join(root, 'plugin', 'package.json'), JSON.stringify({ name: '@fhevm/hardhat-plugin' }));
+  writeFileSync(join(root, 'plugin', 'package.json'), JSON.stringify({ name: '@fhevm/hardhat-plugin-v3' }));
   writeFileSync(
     join(root, 'versions.json'),
     JSON.stringify({
@@ -41,7 +41,7 @@ function workspace() {
         distribution: ['mirror'],
         mirror: { repository: 'https://github.com/zama-ai/a-template' },
       },
-      './plugin': { kind: 'published', name: '@fhevm/hardhat-plugin', member: false },
+      './plugin': { kind: 'published', name: '@fhevm/hardhat-plugin-v3', member: false },
     },
   });
   writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'workspace', private: true }));
@@ -65,10 +65,12 @@ test('scaffold copies tracked files and renders the file: link to the target ran
       devDependencies: Record<string, string>;
       dependencies: Record<string, string>;
     };
-    assert.equal(written.devDependencies['@fhevm/hardhat-plugin'], '^0.13.0');
-    assert.equal(written.devDependencies['hardhat'], '^2.28.6');
+    assert.equal(written.devDependencies['@fhevm/hardhat-plugin-v3'], '^0.13.0');
+    assert.equal(written.devDependencies['hardhat'], '^3.20.0');
     assert.equal(written.dependencies['@fhevm/solidity'], '^0.13.3');
-    assert.deepEqual(result.replacements, [{ name: '@fhevm/hardhat-plugin', from: 'file:../plugin', to: '^0.13.0' }]);
+    assert.deepEqual(result.replacements, [
+      { name: '@fhevm/hardhat-plugin-v3', from: 'file:../plugin', to: '^0.13.0' },
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

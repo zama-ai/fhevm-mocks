@@ -54,9 +54,9 @@ function publishedPackage(key: string, name: string, member: boolean) {
 
 test('validates each installation root independently, with per-root published-name uniqueness', () => {
   const clusterRoot = loadedPackage(
-    './hardhat/v2',
-    { kind: 'workspace-root', name: '@scope/hh-v2-cluster', private: true, member: false },
-    { name: '@scope/hh-v2-cluster', private: true, workspaces: ['plugin/pkg'] },
+    './hardhat/v3',
+    { kind: 'workspace-root', name: '@scope/hh-v3-cluster', private: true, member: false },
+    { name: '@scope/hh-v3-cluster', private: true, workspaces: ['plugin/pkg'] },
   );
   const packages = [
     workspaceRoot(['dev', 'published']),
@@ -64,8 +64,8 @@ test('validates each installation root independently, with per-root published-na
     publishedPackage('./published', '@scope/library', true),
     clusterRoot,
     loadedPackage(
-      './hardhat/v2/plugin/pkg',
-      { kind: 'published', name: '@scope/library', member: true, memberOf: './hardhat/v2' },
+      './hardhat/v3/plugin/pkg',
+      { kind: 'published', name: '@scope/library', member: true, memberOf: './hardhat/v3' },
       { name: '@scope/library', version: '2.0.0' },
     ),
   ];
@@ -75,23 +75,23 @@ test('validates each installation root independently, with per-root published-na
 
 test("flags a cluster root's missing member, and a '.'-rooted member living inside a cluster", () => {
   const clusterRoot = loadedPackage(
-    './hardhat/v2',
-    { kind: 'workspace-root', name: '@scope/hh-v2-cluster', private: true, member: false },
-    { name: '@scope/hh-v2-cluster', private: true, workspaces: [] },
+    './hardhat/v3',
+    { kind: 'workspace-root', name: '@scope/hh-v3-cluster', private: true, member: false },
+    { name: '@scope/hh-v3-cluster', private: true, workspaces: [] },
   );
   const strayMember = loadedPackage(
-    './hardhat/v2/e2e',
+    './hardhat/v3/e2e',
     { kind: 'internal-consumer', name: '@scope/e2e-dev', private: true, member: true },
     { name: '@scope/e2e-dev', private: true },
   );
   const clusterMember = loadedPackage(
-    './hardhat/v2/plugin/pkg',
-    { kind: 'published', name: '@scope/plugin', member: true, memberOf: './hardhat/v2' },
+    './hardhat/v3/plugin/pkg',
+    { kind: 'published', name: '@scope/plugin', member: true, memberOf: './hardhat/v3' },
     { name: '@scope/plugin', version: '2.0.0' },
   );
 
   const violations = validateWorkspaces([
-    workspaceRoot(['dev', 'published', 'hardhat/v2/e2e']),
+    workspaceRoot(['dev', 'published', 'hardhat/v3/e2e']),
     devPackage(),
     publishedPackage('./published', '@scope/library', true),
     clusterRoot,
@@ -99,11 +99,11 @@ test("flags a cluster root's missing member, and a '.'-rooted member living insi
     clusterMember,
   ]);
   assert.ok(
-    violations.some((v) => v.rule === '2.1.1' && v.packageKey === './hardhat/v2/plugin/pkg/package.json'),
+    violations.some((v) => v.rule === '2.1.1' && v.packageKey === './hardhat/v3/plugin/pkg/package.json'),
     'the cluster member missing from the cluster workspaces array must be flagged',
   );
   assert.ok(
-    violations.some((v) => v.rule === '2.1.6' && v.packageKey === './hardhat/v2/e2e/package.json'),
+    violations.some((v) => v.rule === '2.1.6' && v.packageKey === './hardhat/v3/e2e/package.json'),
     "a '.'-rooted member inside the cluster must be told to declare memberOf",
   );
 });

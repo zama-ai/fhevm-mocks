@@ -39,8 +39,6 @@ node ./fhevm-npm.ts sync fhevm-chains --latest
 node ./fhevm-npm.ts check fhevm-chains-origin
 node ./fhevm-npm.ts check deployments
 node ./fhevm-npm.ts check deployments --base origin/release/0.13.x
-node ./fhevm-npm.ts sync hh-v2-constants          # hh-v2-constants: Hardhat 2 only, delete with hardhat/v2
-node ./fhevm-npm.ts sync hh-v2-constants --check  # hh-v2-constants
 node ./fhevm-npm.ts generate chain-constants
 node ./fhevm-npm.ts generate chain-constants --check
 node ./fhevm-npm.ts version check
@@ -57,13 +55,14 @@ node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --check-npmjs --audit
 node ./fhevm-npm.ts publish check ./hardhat/v3/plugin/pkg --audit --audit-level moderate
-node ./fhevm-npm.ts publish rehearse --exclude ./hardhat/v2/plugin/pkg
-node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template
-node ./fhevm-npm.ts scaffold ./hardhat/v2/fhevm-hardhat-template --out ~/try-template --registry https://registry.npmjs.org
+node ./fhevm-npm.ts publish rehearse
+node ./fhevm-npm.ts publish rehearse --exclude ./foundry/forge-fhevm-std/pkg
+node ./fhevm-npm.ts scaffold ./hardhat/v3/fhevm-hardhat-template/pkg --out ~/try-template
+node ./fhevm-npm.ts scaffold ./hardhat/v3/fhevm-hardhat-template/pkg --out ~/try-template --registry https://registry.npmjs.org
 node ./fhevm-npm.ts test-consumer --list
 node ./fhevm-npm.ts test-consumer ./host-contracts-cleartext/v12
 node ./fhevm-npm.ts test-consumer ./host-contracts-cleartext/v12 --build-linked-dependencies --run
-node ./fhevm-npm.ts test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --build-linked-dependencies --run --ci
+node ./fhevm-npm.ts test-consumer ./hardhat/v3/fhevm-hardhat-template/pkg --build-linked-dependencies --run --ci
 node ./fhevm-npm.ts test-consumer --all --build-linked-dependencies --run --ci
 ```
 
@@ -124,7 +123,7 @@ the exact tarball it uploads.
 The set is every npm-distributed payload in publish order, minus the previous generation of each family
 (`generations`) and minus each `--exclude`. Since nothing is published yet, a dependency on another payload of the set
 is satisfied by that payload's fresh tarball: the registry is not asked about it, and the audit installs it beside the
-audited tarball. `make publish-rehearse` compiles first and excludes hardhat/v2.
+audited tarball. `make publish-rehearse` compiles first.
 
 Exit code `0` means the check passed, `1` means policy violations were found, and `2` means the CLI, manifest or
 workspace could not be loaded.

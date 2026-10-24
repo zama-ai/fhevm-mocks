@@ -86,7 +86,7 @@ function gitTrackedFiles(directory: string): readonly string[] {
 export function resolveScaffoldPackage(packages: readonly LoadedPackage[], selector: string): LoadedPackage {
   const key = selector.startsWith('./') ? selector : `./${selector.replace(/^\/+/, '')}`;
   const byKey = packages.find((pkg) => pkg.key === key);
-  // A dev owner names its payload, so `./hardhat/v2/fhevm-hardhat-template` reaches the pkg beneath it.
+  // A dev owner names its payload, so `./hardhat/v3/plugin` reaches the pkg beneath it.
   const published = byKey?.inventory.publishedRelPath;
   const pkg =
     byKey?.packageJson.name !== undefined && published === undefined

@@ -187,8 +187,8 @@ export function validateScripts(
   // The content requirements are DERIVED from what the package actually does, never listed: a package
   // that runs tsc leaves a `*.tsbuildinfo` that makes the next typecheck resume from stale state, and a
   // Forge project leaves the directories `forge config --json` reports. Those directory names are asked
-  // for, never assumed — `hardhat/v2/e2e` uses `cache-forge`, not `cache`, so any guess is already wrong
-  // for one project in three.
+  // for, never assumed — `hardhat/v3/e2e` uses `cache-forge`, not `cache`, so any guess is already wrong
+  // for at least one project.
   for (const pkg of packages.filter((candidate) =>
     ['dev', 'shared-helper', 'internal-consumer'].includes(candidate.inventory.kind),
   )) {

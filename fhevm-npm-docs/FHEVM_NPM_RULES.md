@@ -27,19 +27,19 @@ Seven kinds of `package.json` live under `sdk/`. Which kind a directory is decid
 before arguing about a spec.
 
 - **Published package** — the only thing that ever reaches npmjs.com. Not `private`, declares `exports`, and always
-  sits in a `pkg/` subdirectory. Example: `hardhat/v2/plugin/pkg`, published as `@fhevm/hardhat-plugin`.
+  sits in a `pkg/` subdirectory. Example: `hardhat/v3/plugin/pkg`, published as `@fhevm/hardhat-plugin-v3`.
 
 - **Dev package** — the member directory wrapping exactly one published package, holding its scripts, config and
-  tests. `private: true`, named `…-dev`. Example: `hardhat/v2/plugin`, named `@fhevm/hardhat-plugin-v2-dev`.
+  tests. `private: true`, named `…-dev`. Example: `hardhat/v3/plugin`, named `@fhevm/hardhat-plugin-v3-dev`.
 
 - **Shared helper** — private code that several dev packages import, with no published counterpart of its own.
   `private: true`, named `…-dev`. Example: `common`, named `@fhevm/sdk-common-dev`.
 
 - **Internal consumer** — a member that installs the published packages in order to test them, and ships nothing
-  itself. `private: true`, named `…-dev`. Example: `hardhat/v2/e2e`, named `@fhevm/hardhat-plugin-v2-e2e-dev`.
+  itself. `private: true`, named `…-dev`. Example: `hardhat/v3/e2e`, named `@fhevm/hardhat-plugin-v3-e2e-dev`.
 
 - **Standalone project** — a consumer deliberately left out of `workspaces`, keeping its own lockfile and its own
-  install. Example: `hardhat/v2/fhevm-hardhat-template`, mirrored to a public repo whose CI runs `npm ci`.
+  install. Example: `hardhat/v3/plugin/test-consumer/esm`, the v3 plugin's isolated ESM consumer fixture.
 
 - **Non-package** — an unnamed `package.json` carrying directory-local metadata inside another package or project,
   without defining an independently installable package. It has no `name`, version, dependencies or scripts and is
@@ -239,22 +239,22 @@ range, and there is nothing to render a private helper to. The link is legal in 
 publication rewrites it; an unrendered `file:` spec must never reach npmjs.com.
 
 ```jsonc
-// ✅ In hardhat/v2/e2e: a symlink to hardhat/v2/plugin/pkg, and still one after the plugin bumps.
-"@fhevm/hardhat-plugin": "file:../plugin/pkg"
+// ✅ In hardhat/v3/e2e: a symlink to hardhat/v3/plugin/pkg, and still one after the plugin bumps.
+"@fhevm/hardhat-plugin-v3": "file:../plugin/pkg"
 
-// ✅ In hardhat/v2/plugin/pkg (npm-distributed) to an npm-published member of another root.
+// ✅ In hardhat/v3/plugin/pkg (npm-distributed) to an npm-published member of another root.
 //    Rendered to a registry range at publish time.
-"@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg"
+"@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v15/pkg"
 
-// ❌ Names the member by version. Correct today; after the plugin bumps to 0.4.3 npm fetches
-//    npmjs.com's 0.4.2, and the workspace stops testing the member without a word.
-"@fhevm/hardhat-plugin": "0.4.2"
+// ❌ Names the member by version. Correct today; after the plugin bumps to 0.15.1 npm fetches
+//    npmjs.com's 0.15.0, and the workspace stops testing the member without a word.
+"@fhevm/hardhat-plugin-v3": "0.15.0"
 
 // ❌ A range has the same failure, one step earlier.
-"@fhevm/hardhat-plugin": "^0.5.0"
+"@fhevm/hardhat-plugin-v3": "^0.16.0"
 
 // ❌ A link must resolve to the manifest member having this package name.
-"@fhevm/hardhat-plugin": "file:../../another-package/pkg"
+"@fhevm/hardhat-plugin-v3": "file:../../another-package/pkg"
 
 // ❌ An npm-distributed package linking a private helper: a published tarball cannot resolve it,
 //    and nothing can render it.
@@ -266,12 +266,12 @@ so the tarball is ignored and the edge is marked `invalid` — after which the w
 
 ```jsonc
 // ✅ Same package, linked as a directory instead of packed. No pack step, nothing to rebuild first.
-"@fhevm/hardhat-plugin": "file:../plugin/pkg"
+"@fhevm/hardhat-plugin-v3": "file:../plugin/pkg"
 
-// ❌ In hardhat/v2/e2e, while @fhevm/hardhat-plugin is a member at hardhat/v2/plugin/pkg. npm reports:
-//    invalid: "file:...fhevm-hardhat-plugin-0.4.2.tgz" from hardhat/v2/e2e -> ./hardhat/v2/plugin/pkg
+// ❌ In hardhat/v3/e2e, while @fhevm/hardhat-plugin-v3 is a member at hardhat/v3/plugin/pkg. npm reports:
+//    invalid: "file:...fhevm-hardhat-plugin-v3-0.15.0.tgz" from hardhat/v3/e2e -> ./hardhat/v3/plugin/pkg
 //    ...and then leaves this member's other dependencies unresolved, while `npm install` says "up to date".
-"@fhevm/hardhat-plugin": "file:../../../tarballs/fhevm-hardhat-plugin-0.4.2.tgz"
+"@fhevm/hardhat-plugin-v3": "file:../../../tarballs/fhevm-hardhat-plugin-v3-0.15.0.tgz"
 ```
 
 ### 3.2 Depending from outside the workspace
@@ -280,13 +280,13 @@ so the tarball is ignored and the edge is marked `invalid` — after which the w
 for the same reason: in an isolated copy there is no member to find by name, so a plain version goes to npmjs.com.
 
 ```jsonc
-// ✅ In fhevm-hardhat-template: test-consumer resolves this relative link to the local candidate before
-//    copying and installing the consumer outside the workspace.
-"@fhevm/hardhat-plugin": "file:../../plugin/pkg"
+// ✅ In hardhat/v3/plugin/test-consumer/esm: test-consumer resolves this relative link to the local
+//    candidate before copying and installing the consumer outside the workspace.
+"@fhevm/hardhat-plugin-v3": "file:../../pkg"
 
-// ❌ No member to link. npm fetches npmjs.com's own 0.4.2, which peers on @zama-fhe/relayer-sdk and
-//    @fhevm/solidity ^0.11.1 — a different generation, installed silently.
-"@fhevm/hardhat-plugin": "0.4.2"
+// ❌ No member to link. npm fetches whatever npmjs.com published as 0.15.0 — an older build of the
+//    payload, or nothing at all — instead of the candidate under test, silently.
+"@fhevm/hardhat-plugin-v3": "0.15.0"
 ```
 
 ### 3.3 Declaring what you use
@@ -296,12 +296,12 @@ tools invoked by npm scripts; script-only tools belong in `devDependencies`. A p
 is a phantom dependency: it disappears under a different install strategy, and non-node tools never find it at all.
 
 ```jsonc
-// ✅ hardhat/v2/e2e imports chai in 45 test files and hardhat-ethers in 20, so it declares both.
-"devDependencies": { "@nomicfoundation/hardhat-ethers": "^3.1.3", "chai": "^4.5.0", "hardhat": "^2.28.6" }
+// ✅ hardhat/v3/e2e imports chai in 43 test files, so it declares it.
+"devDependencies": { "chai": "5.3.3", "hardhat": "^3.20.0" }
 
-// ❌ The same imports, undeclared — the real state of that manifest before this rule was applied.
-//    They resolved only because another member's copies sat hoisted in sdk/node_modules.
-"devDependencies": { "hardhat": "^2.28.6" }
+// ❌ The same imports, undeclared. They would resolve only because another member's copy sat
+//    hoisted in hardhat/v3/node_modules.
+"devDependencies": { "hardhat": "^3.20.0" }
 
 // ✅ A script invokes eslint, and the package declares the tool itself.
 { "scripts": { "lint": "eslint" }, "devDependencies": { "eslint": "^10.0.2" } }
@@ -420,9 +420,9 @@ which generation is meant. A generation may always depend on itself. The one cro
 three axes: the source is the V(N) dev package itself (not its payload, not a consumer below it), the target is the
 V(N-1) **dev** package (not its payload), and the field is `devDependencies` (V(N-1) exists only to be tested
 against, so nothing may put it on a shipping path). Every other edge into the family — a consumer on V(N-1), anyone
-on a generation that is neither — fails. The rule also covers a dependency no committed `package.json` declares: the
-spec the Hardhat template mirror patch injects into the rendered template is resolved as if the template package had
-declared it.
+on a generation that is neither — fails. The rule also covers a dependency no committed `package.json` declares: a spec
+a mirror patch injects into a rendered mirror is resolved as if the mirrored package had declared it. No package
+declares a mirror patch today.
 
 ```jsonc
 // ✅ In hardhat/v3/plugin/pkg: the current generation's payload.
@@ -646,7 +646,7 @@ requirements); dev owners and internal consumers use `devDependencies`, because 
 // ✅ sdk/package.json is the version source of truth.
 "devDependencies": { "ethers": "6.17.0" }
 
-// ✅ hardhat/v2/e2e imports ethers, so its private manifest repeats the exact root pin.
+// ✅ host-contracts-cleartext/v15 imports ethers, so its private manifest repeats the exact root pin.
 "devDependencies": { "ethers": "6.17.0" }
 
 // ✅ common is a shared helper whose exported runtime imports viem.
@@ -669,16 +669,16 @@ A future import-scanning validator will compare each private package's bare impo
 the manifest inventory, and report `4.2.1` on a missing, ranged or divergent declaration. Published entries stay under
 4.3.1; standalone projects and non-packages under 4.4.1.
 
-**4.2.2 A dependency that differs per dependency group stays in its member.** `hardhat` is `^2.x` for one group and
-`^3.x` for the next, so it cannot be root-pinned; npm hoists the majority and nests the odd one out.
+**4.2.2 A dependency that differs per dependency group stays in its member.** `hardhat` belongs to one dependency
+group per hardhat major (`^3.x` for `hardhat/v3`, a later major for the next cluster), so it cannot be root-pinned.
 
 ```jsonc
-// ✅ In hardhat/v2/plugin and hardhat/v2/e2e; hardhat/v3/* will say ^3.0.0 instead.
-"devDependencies": { "hardhat": "^2.28.6" }
+// ✅ In hardhat/v3/plugin and hardhat/v3/e2e; the next hardhat cluster declares its own major.
+"devDependencies": { "hardhat": "^3.20.0" }
 
-// ❌ The same line in sdk/package.json. One root pin cannot serve two majors, and v3 would have
-//    to redeclare it — breaking 4.2.1 to work around 4.1.1.
-"devDependencies": { "hardhat": "^2.28.6" }
+// ❌ The same line in sdk/package.json. One root pin cannot serve two majors, and the next cluster
+//    would have to redeclare it — breaking 4.2.1 to work around 4.1.1.
+"devDependencies": { "hardhat": "^3.20.0" }
 ```
 
 **4.2.3 Siblings inside one dependency group declare identical ranges.** Gated by comparing members against each
@@ -687,12 +687,12 @@ group is declared by the manifest's `dependencyGroup` field. A 3.1.1 `file:` lin
 to, so siblings at different depths agree when they link the same member.
 
 ```jsonc
-// ✅ hardhat/v2/plugin and hardhat/v2/e2e agree, so the hoisted copy is the one both declare.
-"hardhat": "^2.28.6"
+// ✅ hardhat/v3/plugin and hardhat/v3/e2e agree, so the hoisted copy is the one both declare.
+"hardhat": "^3.20.0"
 
-// ❌ Live drift today: plugin says ^2.28.4 and e2e says ^2.28.6. Both build against one hoisted
-//    copy, so nothing fails until someone installs a member on its own.
-"hardhat": "^2.28.4"
+// ❌ Drift: plugin says ^3.15.0 and e2e says ^3.20.0. Both build against one hoisted copy, so
+//    nothing fails until someone installs a member on its own.
+"hardhat": "^3.15.0"
 ```
 
 **4.2.4 A dev owner declares packages only in `devDependencies`.** The dev owner is a private build and test harness;
@@ -714,12 +714,12 @@ declarations that must exist. A caret is fine — consumers should get patches �
 workspace ever built against.
 
 ```jsonc
-// ✅ In hardhat/v2/plugin/pkg. Floor 6.17.0 is the root pin; the caret still lets consumers take patches.
-"peerDependencies": { "ethers": "^6.17.0" }
+// ✅ In hardhat/v3/plugin/pkg. Floor 2.55.19 is the root pin; the caret still lets consumers take patches.
+"peerDependencies": { "viem": "^2.55.19" }
 
-// ❌ Floor 6.16.0, a version nothing here ever compiled against. This shipped once, and the first
-//    consumer to install 6.16.0 would have been the first to find out.
-"peerDependencies": { "ethers": "^6.16.0" }
+// ❌ Floor 2.50.0, a version nothing here ever compiled against. The first consumer to install it
+//    would be the first to find out.
+"peerDependencies": { "viem": "^2.50.0" }
 ```
 
 **4.3.2 `sdk/versions.json` is the only authority for a published payload's version.** Exactly one entry per
@@ -781,8 +781,8 @@ the range, so the target's version must be on npmjs.com before the payload that 
 directory-local metadata; installable behavior belongs in a real package.
 
 ```jsonc
-// ✅ fhevm-hardhat-template states every version itself, because no root pin reaches it.
-"devDependencies": { "hardhat": "^2.28.6", "typescript": "^5.9.3" }
+// ✅ hardhat/v3/plugin/test-consumer/esm states every version itself, because no root pin reaches it.
+"devDependencies": { "hardhat": "3.15.0", "viem": "2.55.19" }
 
 // ❌ A non-package with dependencies. Nothing can depend on it — it has no `name` — so
 //    whatever is declared here is installed for a package that does not exist.
@@ -1031,8 +1031,8 @@ derived from what the package actually does, never listed centrally:
   next typecheck resume from stale state;
 - a Forge project must delete the directories `forge config --json` reports (`cache_path`, `out`, `broadcast`).
 
-Those directory names are **asked of forge, never assumed** — `hardhat/v2/e2e` sets `cache_path = "cache-forge"`, so
-any rule hard-coding `cache` is already wrong for one project in three. Anywhere this repo needs a Foundry answer,
+Those directory names are **asked of forge, never assumed** — `hardhat/v3/e2e` sets `cache_path = "cache-forge"`, so
+any rule hard-coding `cache` is already wrong for that project. Anywhere this repo needs a Foundry answer,
 `forge config --json` (which resolves `extends`, profiles and defaults) is the source, never a parsed `foundry.toml`.
 
 ```jsonc
@@ -1133,11 +1133,11 @@ same `module`, `moduleResolution`, runtime loader and TypeScript major its real 
 only when it belongs to that contract; substituting it for a legacy mode proves a different package.
 
 ```jsonc
-// ✅ Hardhat v2's real TypeScript consumer profile.
-{ "module": "commonjs", "moduleResolution": "node10" }
+// ✅ Hardhat v3's real TypeScript consumer profile: the template's own setting. Hardhat 3 is ESM-only.
+{ "module": "node20" }
 
-// ❌ Export-aware and useful elsewhere, but not representative of a Hardhat v2 consumer.
-{ "module": "nodenext", "moduleResolution": "nodenext" }
+// ❌ A legacy CommonJS profile: a Hardhat v3 consumer never resolves the package this way.
+{ "module": "commonjs", "moduleResolution": "node10" }
 ```
 
 **5.2.4 A legacy resolution test asserts the resolved file, not merely successful compilation.** Modes such as
@@ -1145,9 +1145,9 @@ only when it belongs to that contract; substituting it for a legacy mode proves 
 `tsc --traceResolution` and proves that the installed declaration named by `types` was selected.
 
 ```text
-✅ /tmp/fhevm-consumer-abc123/node_modules/@fhevm/hardhat-plugin/_types/index.d.ts
-❌ /repo/sdk/hardhat/v2/plugin/pkg/src/index.ts
-❌ /tmp/fhevm-consumer-abc123/node_modules/@fhevm/hardhat-plugin/src/index.ts
+✅ /tmp/fhevm-consumer-abc123/node_modules/@fhevm/hardhat-plugin-v3/_types/index.d.ts
+❌ /repo/sdk/hardhat/v3/plugin/pkg/src/index.ts
+❌ /tmp/fhevm-consumer-abc123/node_modules/@fhevm/hardhat-plugin-v3/src/index.ts
 ```
 
 **5.2.5 Modern resolution checks supplement the real consumer profile.** `attw --pack` keeps its broad node10,
@@ -1157,7 +1157,7 @@ toolchain. Neither substitutes its own convenient resolution mode for the consum
 ```text
 ✅ attw --pack: broad static resolution matrix
 ✅ test:consumer: supported toolchain, exact paths and runtime execution
-❌ tsc under nodenext only: no proof that a Hardhat v2 consumer resolves the package
+❌ tsc alone: no proof that a Hardhat v3 consumer loads and runs the package
 ```
 
 **5.2.6 Every file in an npm-distributed payload directory is published or deliberately excluded.** `files` is a
@@ -1180,36 +1180,36 @@ Mirror-only payloads are exempt: their directory is the mirror, and its unpublis
 ❌ no "files" at all in a published package.json
 ```
 
-#### Hardhat v2 profile — proposed example
+#### Hardhat v3 profile — proposed example
 
-This profile is the concrete application of 5.2.3–5.2.5 to `@fhevm/hardhat-plugin`. It is an example until a shared
-consumer-profile runner makes it executable policy; the package's `test:consumer` remains the required entry point.
+This profile is the concrete application of 5.2.3–5.2.5 to `@fhevm/hardhat-plugin-v3`. It is an example until a
+shared consumer-profile runner makes it executable policy; the package's `test:consumer` remains the required entry
+point.
 
 ```jsonc
 {
-  "runtime": { "loader": "commonjs", "node": ">=20" },
+  "runtime": { "loader": "esm", "node": ">=22.23.4" },
   "typescript": {
-    "version": "5.9.x",
-    "module": "commonjs",
-    "moduleResolution": "node10",
+    "version": "6.x",
+    "module": "node20",
   },
-  "declaration": "node_modules/@fhevm/hardhat-plugin/_types/index.d.ts",
+  "declaration": "node_modules/@fhevm/hardhat-plugin-v3/_types/index.d.ts",
 }
 ```
 
 The profile performs all of these checks against the isolated installation from 5.3:
 
-1. `require('@fhevm/hardhat-plugin')` succeeds from the temporary consumer.
-2. The consumer compiles with `module: "commonjs"` and `moduleResolution: "node10"`.
+1. `import '@fhevm/hardhat-plugin-v3'` succeeds from the temporary consumer.
+2. The consumer compiles with `module: "node20"`.
 3. `tsc --traceResolution` selects the installed `_types/index.d.ts`.
 4. Resolution never reaches the installed `src/index.ts` or any path in the checkout.
 5. The real Hardhat template compiles and runs its tests against the installed candidates.
-6. `attw --pack` supplies the broader node10, node16-cjs, node16-esm and bundler matrix.
+6. `attw --pack --profile esm-only` supplies the static resolution matrix of an ESM-only package.
 
 ```text
-✅ require -> temporary consumer/node_modules/@fhevm/hardhat-plugin/_cjs/index.js
-✅ types   -> temporary consumer/node_modules/@fhevm/hardhat-plugin/_types/index.d.ts
-❌ types   -> checkout/sdk/hardhat/v2/plugin/pkg/src/index.ts
+✅ import -> temporary consumer/node_modules/@fhevm/hardhat-plugin-v3/_esm/index.js
+✅ types  -> temporary consumer/node_modules/@fhevm/hardhat-plugin-v3/_types/index.d.ts
+❌ types  -> checkout/sdk/hardhat/v3/plugin/pkg/src/index.ts
 ```
 
 **5.2.7 Every npm-distributed payload ships `LICENSE` and `README.md`, present in the payload directory and named in
@@ -1258,7 +1258,7 @@ regenerates lockfiles for exactly this registry.
 { "consumerTests": false }
 
 // ❌ The single-string spelling is retired; a registration is always an array.
-{ "consumerTests": { "cjs": "./hardhat/v2/fhevm-hardhat-template/pkg" } }
+{ "consumerTests": { "esm": "./hardhat/v3/fhevm-hardhat-template/pkg" } }
 ```
 
 A registered consumer must execute as the selected module format, define a non-empty `test` script, and directly link
@@ -1270,10 +1270,10 @@ committed lockfile where one exists.
 
 ```jsonc
 // ✅ In the dev package that wraps ./pkg. One command owns the whole consumer test.
-"scripts": { "test:consumer": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --run" }
+"scripts": { "test:consumer": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v3/plugin --run --build-linked-dependencies" }
 
 // ❌ A package-specific name cannot be discovered or invoked uniformly.
-"scripts": { "test:hardhat-template": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --run" }
+"scripts": { "test:hardhat-template": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v3/fhevm-hardhat-template/pkg --run" }
 ```
 
 **5.3.2 Every published package has exactly one dev owner carrying its applicable conventional checks.** The validator
@@ -1283,25 +1283,25 @@ and requires `check`, `check:publint` and `test:consumer` on owners of npm-distr
 ```jsonc
 // ✅ In npm-manifest.json, the dev entry identifies the published payload it owns.
 {
-  "./hardhat/v2/plugin": {
+  "./hardhat/v3/plugin": {
     "kind": "dev",
-    "publishedRelPath": "./hardhat/v2/plugin/pkg",
+    "publishedRelPath": "./hardhat/v3/plugin/pkg",
   },
 }
 ```
 
 ```jsonc
-// ✅ In hardhat/v2/plugin/package.json, the owning dev package exposes the conventional checks.
+// ✅ In hardhat/v3/plugin/package.json, the owning dev package exposes the conventional checks.
 "scripts": {
   "check": "npm run check:publint && npm run check:vendored-origin",
-  "check:publint": "publint --strict ./pkg && attw --pack ./pkg",
-  "test:consumer": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --run"
+  "check:publint": "publint --strict ./pkg && attw --pack ./pkg --profile esm-only",
+  "test:consumer": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v3/plugin --run --build-linked-dependencies"
 }
 
 // ❌ Package-specific names are not the conventional entry points the validator requires.
 "scripts": {
   "check:package": "publint --strict ./pkg",
-  "test:hardhat-template": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --run"
+  "test:hardhat-template": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v3/fhevm-hardhat-template/pkg --run"
 }
 ```
 
@@ -1311,7 +1311,7 @@ to `sdk/node_modules` and satisfy an undeclared dependency.
 
 ```text
 ✅ /tmp/fhevm-consumer-abc123
-❌ /repo/sdk/hardhat/v2/plugin/test/consumer
+❌ /repo/sdk/hardhat/v3/plugin/test/consumer
 ```
 
 **5.3.4 Candidate directories are installed with `--install-links`.** The temporary manifest replaces each candidate
@@ -1320,10 +1320,10 @@ the packed contents, exercising `files` and ignore rules without putting a `.tgz
 
 ```jsonc
 // ✅ Generated only in the temporary consumer; npm installs the packed directory contents.
-"@fhevm/hardhat-plugin": "file:/repo/sdk/hardhat/v2/plugin/pkg"
+"@fhevm/hardhat-plugin-v3": "file:/repo/sdk/hardhat/v3/plugin/pkg"
 
 // ❌ A plain workspace version resolves to the workspace link, not the packed payload.
-"@fhevm/hardhat-plugin": "0.4.2"
+"@fhevm/hardhat-plugin-v3": "0.15.0"
 ```
 
 **5.3.5 Packages released together are installed together.** One clean install names every candidate in the release
@@ -1332,12 +1332,12 @@ set, so a local plugin cannot silently test against an older dependency fetched 
 ```jsonc
 // ✅ Both candidates are under test in the same dependency graph.
 "devDependencies": {
-  "@fhevm/hardhat-plugin": "file:/repo/sdk/hardhat/v2/plugin/pkg",
-  "@fhevm/host-contracts-cleartext": "file:/repo/sdk/host-contracts-cleartext/v13/pkg"
+  "@fhevm/hardhat-plugin-v3": "file:/repo/sdk/hardhat/v3/plugin/pkg",
+  "@fhevm/host-contracts-cleartext": "file:/repo/sdk/host-contracts-cleartext/v15/pkg"
 }
 
 // ❌ The plugin candidate can resolve the host-contracts package from the registry.
-"devDependencies": { "@fhevm/hardhat-plugin": "file:/repo/sdk/hardhat/v2/plugin/pkg" }
+"devDependencies": { "@fhevm/hardhat-plugin-v3": "file:/repo/sdk/hardhat/v3/plugin/pkg" }
 ```
 
 **5.3.6 The gate proves that installation is physical and isolated.** Each candidate in `node_modules` must not be a
@@ -1345,8 +1345,8 @@ symlink, and its real path must stay below the temporary consumer. The test star
 `node_modules`.
 
 ```text
-✅ /tmp/fhevm-consumer-abc123/node_modules/@fhevm/hardhat-plugin
-❌ /repo/sdk/hardhat/v2/plugin/pkg
+✅ /tmp/fhevm-consumer-abc123/node_modules/@fhevm/hardhat-plugin-v3
+❌ /repo/sdk/hardhat/v3/plugin/pkg
 ```
 
 **5.3.7 The consumer exercises the published surface by package name.** It typechecks the supported resolution modes,
@@ -1354,8 +1354,8 @@ loads the runtime entry points and runs the real consumer suite. A relative impo
 not a consumer test.
 
 ```ts
-require('@fhevm/hardhat-plugin'); // ✅ Exercises the installed manifest, exports and files.
-require('../../plugin/pkg/src/index'); // ❌ Reaches source directly and proves nothing about the installed package.
+import plugin from '@fhevm/hardhat-plugin-v3'; // ✅ Exercises the installed manifest, exports and files.
+import source from '../../pkg/src/index.ts'; // ❌ Reaches source directly and proves nothing about the installed package.
 ```
 
 **5.3.8 Packaging linters supplement the consumer test.** `publint --strict` and `attw --pack` remain mandatory for
@@ -1365,8 +1365,8 @@ metadata and type-resolution coverage, but neither replaces runtime execution of
 ```jsonc
 // ✅ Static packaging checks and the installed-artifact test cover different failures.
 "scripts": {
-  "check:publint": "publint --strict ./pkg && attw --pack ./pkg",
-  "test:consumer": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --run"
+  "check:publint": "publint --strict ./pkg && attw --pack ./pkg --profile esm-only",
+  "test:consumer": "node ../../../fhevm-npm/fhevm-npm.ts test-consumer ./hardhat/v3/plugin --run --build-linked-dependencies"
 }
 
 // ❌ Type-resolution analysis alone does not execute the installed runtime artifact.
@@ -1543,11 +1543,11 @@ declared root, follows symlinks with `realpath`, and rejects a result outside th
 
 ```jsonc
 // ✅ Canonical paths stay below their documented roots.
-"publishedRelPath": "./hardhat/v2/plugin/pkg"
+"publishedRelPath": "./hardhat/v3/plugin/pkg"
 "source": "./sdk/common-vendored/src"
 
 // ❌ Traversal is rejected even when normalization would produce an in-tree path.
-"publishedRelPath": "./hardhat/v2/../v3/plugin/pkg"
+"publishedRelPath": "./hardhat/v3/../v3/plugin/pkg"
 "source": "./sdk/../outside"
 
 // ❌ A vendored filename is one basename, not a path or traversal segment.

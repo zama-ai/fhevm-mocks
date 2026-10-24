@@ -36,7 +36,7 @@ function manifest(
       './hardhat/v3': { kind: 'workspace-root', name: '@fhevm/hh-v3-cluster', private: true, member: false },
       './hardhat/v3/plugin/pkg': {
         kind: 'published',
-        name: '@fhevm/hardhat-plugin',
+        name: '@fhevm/hardhat-plugin-v3',
         member: true,
         memberOf: './hardhat/v3',
       },
@@ -74,8 +74,8 @@ function payload(gen: string, version: string, member: boolean): LoadedPackage {
 function plugin(dependencies: Record<string, string>): LoadedPackage {
   return loadedPackage(
     './hardhat/v3/plugin/pkg',
-    { kind: 'published', name: '@fhevm/hardhat-plugin', member: true, memberOf: './hardhat/v3' },
-    { name: '@fhevm/hardhat-plugin', version: '0.13.0', dependencies },
+    { kind: 'published', name: '@fhevm/hardhat-plugin-v3', member: true, memberOf: './hardhat/v3' },
+    { name: '@fhevm/hardhat-plugin-v3', version: '0.13.0', dependencies },
   );
 }
 
@@ -446,15 +446,15 @@ test('names the live generations by directory basename', () => {
 
 test('resolves what the mirror patch injects as an edge from the template package', () => {
   const template = loadedPackage(
-    './hardhat/v2/fhevm-hardhat-template/pkg',
+    './hardhat/v3/fhevm-hardhat-template/pkg',
     {
       kind: 'published',
-      name: 'fhevm-hardhat-template-v2',
+      name: 'fhevm-hardhat-template-v3',
       member: false,
       distribution: ['mirror'],
       mirror: { repository: 'https://github.com/example/template' },
     },
-    { name: 'fhevm-hardhat-template-v2', version: '0.4.2' },
+    { name: 'fhevm-hardhat-template-v3', version: '0.15.0' },
   );
   const packages = [
     root,
@@ -477,7 +477,7 @@ test('resolves what the mirror patch injects as an edge from the template packag
   assert.match(violations[0]?.message ?? '', /^mirror patch: package '@fhevm\/host-contracts-cleartext'/);
   assert.match(violations[0]?.message ?? '', /V\(N-1\)/);
 
-  const missing = validateGenerationMirrorPatch(manifest(), packages, './hardhat/v2/nowhere/pkg', onCurrent, label);
+  const missing = validateGenerationMirrorPatch(manifest(), packages, './hardhat/v3/nowhere/pkg', onCurrent, label);
   assert.equal(missing.length, 1);
   assert.match(missing[0]?.message ?? '', /not a manifest package/);
 });

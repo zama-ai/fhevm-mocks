@@ -1012,7 +1012,7 @@ test('recognizes Solidity extensions without matching unrelated text', () => {
 
 test("requires the exact 'prettier.config.js' filename and a reference to the workspace config", () => {
   const validCommonjs = loadedPackage(
-    './hardhat/v2/e2e',
+    './hardhat/v3/e2e',
     { kind: 'internal-consumer', name: '@scope/e2e-dev', private: true, member: true },
     { type: 'commonjs', scripts: { 'prettier:check': 'prettier --check .' } },
   );
@@ -1040,14 +1040,14 @@ test("requires the exact 'prettier.config.js' filename and a reference to the wo
   const published = publishedPackage({}, { 'prettier:check': 'prettier --check .' });
   const contentsByFile = new Map([
     [
-      '/workspace/hardhat/v2/e2e/prettier.config.js',
+      '/workspace/hardhat/v3/e2e/prettier.config.js',
       "module.exports = import('../../../prettier.base.mjs').then((module) => module.default);\n",
     ],
     ['/workspace/common/prettier.config.js', "export { default } from '../prettier.base.mjs';\n"],
     ['/workspace/library/prettier.config.js', "export { default } from './local-prettier.mjs';\n"],
   ]);
   const filesByDirectory = new Map<string, readonly string[]>([
-    ['/workspace/hardhat/v2/e2e', ['prettier.config.js']],
+    ['/workspace/hardhat/v3/e2e', ['prettier.config.js']],
     ['/workspace/common', ['prettier.config.js']],
     ['/workspace/missing', []],
     ['/workspace/library', ['.prettierrc.mjs', 'prettier.config.js']],

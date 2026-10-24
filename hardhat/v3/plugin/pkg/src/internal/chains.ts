@@ -35,10 +35,9 @@ export function cleartextChain(chainId: number, deployed: Deployed): FhevmChain 
         // This CONTRADICTS golden rule 5 ("sdk 14 always has the protocolConfig address"): it is a stopgap.
         // EXIT: once @fhevm/sdk 0.13.x and 0.14.x pass the extraData to the cleartext host, restore
         //   protocolConfig: contract(fhevmAddresses.protocolConfigAddress),
-        // here AND in the other hardhat plugin, and set CleartextKMSVerifier's one-argument
-        // publicDecrypt(handles) back to extraData v2.
-        // Counterparts of this trick: hardhat/v2/plugin/pkg/src/internal/chains.ts (same omission) and
-        // host-contracts-cleartext/v14/pkg/src/cleartext/CleartextKMSVerifier.sol, publicDecrypt(handles).
+        // here, and set CleartextKMSVerifier's one-argument publicDecrypt(handles) back to extraData v2.
+        // Counterpart of this trick: host-contracts-cleartext/v15/pkg/src/cleartext/CleartextKMSVerifier.sol,
+        // publicDecrypt(handles).
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       },
       relayerUrl: 'http://localhost:8545',

@@ -250,25 +250,25 @@ test('accepts a non-. workspace-root (an installation-root cluster) and its memb
     packageJson: { published: { required: ['name'], excluded: ['private'] } },
     packages: {
       '.': { kind: 'workspace-root', type: 'esm', browser: false, name: 'workspace', private: true, member: false },
-      './hardhat/v2': {
+      './hardhat/v3': {
         kind: 'workspace-root',
         type: 'esm',
         browser: false,
-        name: '@scope/hh-v2-cluster',
+        name: '@scope/hh-v3-cluster',
         private: true,
         member: false,
       },
-      './hardhat/v2/plugin/pkg': {
+      './hardhat/v3/plugin/pkg': {
         kind: 'published',
         type: 'esm',
         browser: false,
         name: '@scope/plugin',
         member: true,
-        memberOf: './hardhat/v2',
+        memberOf: './hardhat/v3',
       },
     },
   });
-  assert.equal(manifest.packages['./hardhat/v2/plugin/pkg']?.memberOf, './hardhat/v2');
+  assert.equal(manifest.packages['./hardhat/v3/plugin/pkg']?.memberOf, './hardhat/v3');
 });
 
 const generationRoot = {
@@ -369,14 +369,14 @@ test('rejects bad memberOf declarations', () => {
     [
       {
         '.': root,
-        './hardhat/v2': { ...root, name: '@s/cluster' },
+        './hardhat/v3': { ...root, name: '@s/cluster' },
         './elsewhere/pkg': {
           kind: 'published',
           type: 'esm',
           browser: false,
           name: 'z',
           member: true,
-          memberOf: './hardhat/v2',
+          memberOf: './hardhat/v3',
         },
       },
       /must live inside its installation root/,

@@ -5,7 +5,6 @@ import { join, relative, sep } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
-import { hardhatTemplateV2PackageKey, patchHardhatTemplateV2Manifest } from '../mirrors/hardhat-template-v2.ts';
 import { loadPackages } from '../npm.ts';
 import { gitRepositoryRoot } from '../repository.ts';
 
@@ -19,23 +18,19 @@ export type MirrorValidation = {
 export function validateMirror(workspaceRoot: string, manifest: NpmManifest, selector: string): MirrorValidation {
   const pkg = selectMirrorPackage(workspaceRoot, manifest, selector);
   const repository = pkg.inventory.mirror!.repository;
-  if (pkg.key !== hardhatTemplateV2PackageKey) {
-    throw new Error(`${pkg.key}: no package-specific mirror comparison is implemented`);
-  }
 
   const temporaryRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-mirror-'));
   const upstreamDirectory = join(temporaryRoot, 'upstream');
   try {
     execFileSync('git', ['clone', '--depth', '1', '--quiet', repository, upstreamDirectory], { stdio: 'inherit' });
-    return compareHardhatTemplate(workspaceRoot, manifest, pkg.directory, upstreamDirectory, pkg.key, repository);
+    return compareMirror(workspaceRoot, pkg.directory, upstreamDirectory, pkg.key, repository);
   } finally {
     rmSync(temporaryRoot, { recursive: true, force: true });
   }
 }
 
-function compareHardhatTemplate(
+function compareMirror(
   workspaceRoot: string,
-  manifest: NpmManifest,
   localDirectory: string,
   upstreamDirectory: string,
   packageKey: string,
@@ -65,21 +60,6 @@ function compareHardhatTemplate(
   }
 
   for (const path of upstreamFiles.filter((path) => localFiles.includes(path))) {
-    if (path === 'package.json') {
-      const upstreamManifest = JSON.parse(readFileSync(join(upstreamDirectory, path), 'utf8')) as Record<
-        string,
-        unknown
-      >;
-      const expected = `${JSON.stringify(patchHardhatTemplateV2Manifest(upstreamManifest, workspaceRoot, manifest), null, 2)}\n`;
-      if (readFileSync(join(localDirectory, path), 'utf8') !== expected) {
-        violations.push({
-          rule: '5.1.3',
-          packageKey,
-          message: `mirror file '${path}' differs from its expected workspace transformation`,
-        });
-      }
-      continue;
-    }
     const local = readFileSync(join(localDirectory, path));
     const upstream = readFileSync(join(upstreamDirectory, path));
     if (!local.equals(upstream)) {

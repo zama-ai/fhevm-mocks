@@ -4,7 +4,7 @@
 //
 // The release set is derived, not listed: every npm-distributed payload, in publish order, minus the previous
 // generation of each family (npm-manifest.json#generations; it was released with its own line) and minus each
-// `--exclude` (hardhat/v2 is kept in the tree but not released).
+// `--exclude` (a payload kept in the tree but not released this time).
 //
 // What makes it a rehearsal rather than a loop over `publish check`: the release publishes the payloads one after
 // the other, so a payload's check runs once the payloads it depends on are on npm. Here they are not yet, so a

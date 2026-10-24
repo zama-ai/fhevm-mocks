@@ -80,13 +80,13 @@ jobs:
       - name: Install dependencies
         run: make install-ci
 
-      # The three build targets the publish steps below use, and nothing else (no Hardhat 2).
+      # The three build targets the publish steps below use, and nothing else.
       - name: Build the release payloads
         run: make compile-cleartext-v-cur compile-hh-v3-plugin compile-forge-std
 
-      # Every npm-distributed payload minus the previous generation and Hardhat 2: the three steps below.
+      # Every npm-distributed payload minus the previous generation: the three steps below.
       - name: Rehearse the release
-        run: ./fhevm-npm-cli publish rehearse --exclude ./hardhat/v2/plugin/pkg
+        run: ./fhevm-npm-cli publish rehearse
 
   # A reusable workflow cannot elevate the caller's GITHUB_TOKEN: whatever sdk-cleartext-publish-package.yml
   # asks for is capped by what is granted on the calling job, so each job grants both.

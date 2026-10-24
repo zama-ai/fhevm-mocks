@@ -56,7 +56,6 @@ export type CliOptions = {
     | 'publish-pack'
     | 'publish-render'
     | 'sync-fhevm-chains'
-    | 'sync-hh-v2-constants' // hh-v2-constants
     | 'sync-vendored'
     | 'sync-pinned'
     | 'bump-vendored'
@@ -120,7 +119,6 @@ export type CliOptions = {
   | { readonly command: 'check-safechain'; readonly minAgeHours: number }
   | { readonly command: 'update-dependencies'; readonly minAgeHours: number; readonly dryRun: boolean }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
-  | { readonly command: 'sync-hh-v2-constants'; readonly check: boolean } // hh-v2-constants
   | { readonly command: 'sync-vendored'; readonly check: boolean; readonly digest: boolean }
   | { readonly command: 'sync-pinned'; readonly check: boolean }
   | {
@@ -231,7 +229,6 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let checkDeployments: { readonly base?: string } | undefined;
   let checkSafechain: { readonly minAgeHours: number } | undefined;
   let updateDependencies: { readonly minAgeHours: number; readonly dryRun: boolean } | undefined;
-  let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
   let regenerateConsumerPackageLocks = false;
   let regenerateConsumerPackageLocksFresh = false;
   let regenerateConsumerPackageLockSelector: string | undefined;
@@ -534,14 +531,6 @@ Why:
     .action((options: { readonly latest: boolean; readonly commit?: string }) => {
       syncFhevmChains = { commit: options.commit, latest: options.latest };
     });
-  // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2.
-  sync
-    .command('hh-v2-constants')
-    .description("Set the Hardhat 2 plugin's host-contracts-cleartext version in constants.ts from versions.json.")
-    .option('--check', 'compare instead of writing, and fail on any difference', false)
-    .action((options: { readonly check: boolean }) => {
-      syncHhV2Constants = { check: options.check };
-    });
   check
     .command('deployments')
     .description('Check every deployment record under deployments/; with --base, also that none of them changed.')
@@ -823,7 +812,6 @@ Why:
     generateCleartextConfig === undefined &&
     generateChainConstants === undefined &&
     syncFhevmChains === undefined &&
-    syncHhV2Constants === undefined && // hh-v2-constants
     !checkFhevmChainsOrigin &&
     checkDeployments === undefined &&
     checkSafechain === undefined &&
@@ -872,17 +860,6 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...syncFhevmChains,
-    };
-  }
-  // hh-v2-constants: Hardhat 2 only, delete with hardhat/v2.
-  if (syncHhV2Constants !== undefined) {
-    return {
-      command: 'sync-hh-v2-constants',
-      workspaceRoot,
-      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
-      verbosity: options.verbose,
-      sortPackageJson: false,
-      ...syncHhV2Constants,
     };
   }
   if (checkDeployments !== undefined) {

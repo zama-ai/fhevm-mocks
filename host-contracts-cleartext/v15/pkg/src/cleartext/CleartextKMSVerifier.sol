@@ -107,11 +107,11 @@ contract CleartextKMSVerifier is KMSVerifier {
         // which is what SDK 0.14 requests. But the hardhat plugins temporarily hide `protocolConfig` from the
         // SDK's chain definition (the "no protocolConfig address" trick), so SDK 0.14 requests v1 like SDK
         // 0.13, and this one-argument call must sign v1 for both to verify the proof.
-        // EXIT: once the SDKs call `publicDecrypt(handles, extraData)` and the plugins restore
+        // EXIT: once the SDKs call `publicDecrypt(handles, extraData)` and the plugin restores
         // `protocolConfig`, replace the line below with:
         //     return _publicDecrypt(handles, _currentExtraDataV2());
-        // Counterparts of this trick: cleartextChain() in hardhat/v3/plugin/pkg/src/internal/chains.ts and
-        // localCleartext in hardhat/v2/plugin/pkg/src/internal/chains.ts, which omit protocolConfig.
+        // Counterpart of this trick: cleartextChain() in hardhat/v3/plugin/pkg/src/internal/chains.ts, which
+        // omits protocolConfig.
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         return _publicDecrypt(handles, LibKmsVerifier.extraDataForContext(getCurrentKmsContextId()));
     }

@@ -9,7 +9,7 @@ make build                  # THE everyday command: fmt-check, then lint, then c
                             # gated, each step run once
 make compile                # artifacts only, in dependency order (no gates, no forge, no generation)
 make test-cleartext-v-prev  # checks + compile + one package's tests (same shape: test-cleartext-v-cur,
-                            # test-hh-v2-plugin, test-hh-v2-template, test-hh-v2-e2e)
+                            # test-hh-v3-plugin, test-hh-v3-template, test-hh-v3-e2e)
 make lint                   # every package's lint, compiling what each lint needs first
 make fmt                    # rewrite formatting everywhere (fmt-check verifies without writing)
 make check-post             # deliverable gates: publint/attw, contract sizes, configs, vendored
@@ -90,13 +90,13 @@ its own finer-grained leaves (`test:forge`, `lint:internal`, ...) — list them 
 # Installation roots (clusters)
 
 The sdk holds several npm INSTALLATION ROOTS, one per hardhat generation plus the sdk root and
-fhevm-npm: `hardhat/v2` and `hardhat/v3` are each their own npm workspace (own package.json
-`workspaces`, own lockfile, own node_modules). One root per hardhat major is what guarantees every
+fhevm-npm: `hardhat/v3` is its own npm workspace (own package.json `workspaces`, own lockfile, own
+node_modules). One root per hardhat major is what guarantees every
 member of a generation resolves the SAME hardhat instance — natively, with no symlinks: hardhat's
 environment is a per-module singleton, and a plugin and its consumer must share one copy. Cross-root
-dependencies are explicit `file:` links (plugin -> host-contracts v13/pkg, owners -> common); the
+dependencies are explicit `file:` links (plugin -> host-contracts v15/pkg, owners -> common); the
 future js-sdk joins the sdk ROOT and is consumed the same way. Cluster members are reached with
-`npm --prefix hardhat/v2 run -w <name> <script>` — the Makefile's run-hh-v2/run-hh-v3 macros.
+`npm --prefix hardhat/v3 run -w <name> <script>` — the Makefile's run-hh-v3 macro.
 
 # Reinstalling after `make distclean` or `make regenerate-package-lock`
 
@@ -104,7 +104,7 @@ After `make distclean`, one command restores everything — the lockfile was kep
 recorded versions and the tree comes back exactly as it was:
 
 ```sh
-make install      # one npm install per installation root (sdk, fhevm-npm, hardhat/v2, hardhat/v3) + forge deps
+make install      # one npm install per installation root (sdk, fhevm-npm, hardhat/v3) + forge deps
 ```
 
 After `make regenerate-package-lock`, the same command does more than restore: the install lockfiles are gone (the sdk
@@ -319,7 +319,7 @@ they do not need artificial direct `file:` declarations in the consumer's `packa
 ```sh
 # from the fhevm/sdk root folder
 ./fhevm-npm-cli test-consumer \
-  ./hardhat/v2/fhevm-hardhat-template/pkg \
+  ./hardhat/v3/fhevm-hardhat-template/pkg \
   --build-linked-dependencies \
   --run \
   --ci

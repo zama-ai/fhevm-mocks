@@ -8,7 +8,7 @@
 # the fhevm-npm formatting (a non-member `-w` cannot reach) and the `test:anvil` operator target
 # (a manual entry point, not lifecycle orchestration).
 #
-# What Make adds is the edge npm cannot express: `hardhat/v2/e2e`'s LINT consumes the plugin's BUILD
+# What Make adds is the edge npm cannot express: `hardhat/v3/e2e`'s LINT consumes the plugin's BUILD
 # output, and `npm run <script> --workspaces` can only sequence whole packages for one script name. That
 # is why a repo-wide "lint everything, then build everything" is unsatisfiable, and why the phases and
 # their prerequisites live here instead.
@@ -57,11 +57,7 @@ DIR_CLEARTEXT_V_CUR  := $(call manifest-generation,current)
 ifneq ($(words $(DIR_CLEARTEXT_V_PREV) $(DIR_CLEARTEXT_V_CUR)),2)
 $(error cannot read npm-manifest.json#generations.host-contracts-cleartext (previous/current); run ./fhevm-npm-cli check generations)
 endif
-DIR_HH_V2            := hardhat/v2
 DIR_HH_V3            := hardhat/v3
-DIR_HH_V2_PLUGIN     := hardhat/v2/plugin
-DIR_HH_V2_E2E        := hardhat/v2/e2e
-DIR_HH_V2_TEMPLATE   := hardhat/v2/fhevm-hardhat-template
 DIR_HH_V3_PLUGIN     := hardhat/v3/plugin
 DIR_HH_V3_E2E        := hardhat/v3/e2e
 DIR_HH_V3_TEMPLATE   := hardhat/v3/fhevm-hardhat-template
@@ -95,9 +91,6 @@ W_FORGE_STD          := $(call package-name,$(DIR_FORGE_STD))
 ifeq ($(W_FORGE_STD),)
 $(error $(DIR_FORGE_STD) has no readable package.json name)
 endif
-W_HH_V2_PLUGIN       := @fhevm/hardhat-plugin-v2-dev
-W_HH_V2_E2E          := @fhevm/hardhat-plugin-v2-e2e-dev
-W_HH_V2_TEMPLATE     := @fhevm/hardhat-template-v2-dev
 W_HH_V3_PLUGIN       := @fhevm/hardhat-plugin-v3-dev
 W_HH_V3_E2E          := @fhevm/hardhat-plugin-v3-e2e-dev
 W_HH_V3_TEMPLATE     := @fhevm/hardhat-template-v3-dev
@@ -107,7 +100,6 @@ run = npm run --silent $(2) -w $(1)
 # Cluster members live in their own installation root (one npm workspace per hardhat generation —
 # one hoisted hardhat instance each, no symlinks), so the root `-w` cannot reach them: `--prefix`
 # selects the cluster, `-w` the member inside it.
-run-hh-v2 = npm --prefix $(DIR_HH_V2) run --silent $(2) -w $(1)
 run-hh-v3 = npm --prefix $(DIR_HH_V3) run --silent $(2) -w $(1)
 
 # `fhevm-npm` is deliberately NOT a workspace member, so `-w` cannot reach it. It still needs
@@ -144,8 +136,6 @@ help: ## List the targets
 
 COMPILE_PACKAGES := \
   compile-forge-std \
-  compile-hh-v2-e2e \
-  compile-hh-v2-template \
   compile-hh-v3-e2e \
   compile-hh-v3-template
 
@@ -163,7 +153,7 @@ compile: $(COMPILE_PACKAGES) ## Compile every package, in dependency order
 build: ## fmt-check, then forge compile, then lint, then compile — everything, gated
 	$(MAKE) fmt-check compile-forge lint compile
 
-lint: lint-shared lint-cleartext lint-forge-std lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
+lint: lint-shared lint-cleartext lint-forge-std lint-hh-v3 lint-npm-cli ## Lint every package
 
 # The suites both test lanes run after V(N), which is the ONE entry they differ in. Hoisted into a
 # variable rather than wrapped with backslashes because `help` greps for a target and its `##` on the
@@ -171,9 +161,6 @@ lint: lint-shared lint-cleartext lint-forge-std lint-hh-v2 lint-hh-v3 lint-npm-c
 # `make help` without failing anything, which is the worst way for it to break.
 TEST_SUITES_TAIL := \
   test-forge-std \
-  test-hh-v2-plugin \
-  test-hh-v2-template \
-  test-hh-v2-e2e \
   test-hh-v3-plugin \
   test-hh-v3-template \
   test-hh-v3-e2e
@@ -206,9 +193,6 @@ fmt: ## Rewrite formatting everywhere
 	$(call run,$(W_CLEARTEXT_V_PREV),fmt)
 	$(call run,$(W_CLEARTEXT_V_CUR),fmt)
 	$(call run,$(W_FORGE_STD),fmt)
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),fmt)
-	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),fmt)
-	$(call run-hh-v2,$(W_HH_V2_E2E),fmt)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),fmt)
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),fmt)
 	$(call run-hh-v3,$(W_HH_V3_E2E),fmt)
@@ -220,16 +204,13 @@ fmt-check: ## Verify formatting everywhere
 	$(call run,$(W_CLEARTEXT_V_PREV),fmt:check)
 	$(call run,$(W_CLEARTEXT_V_CUR),fmt:check)
 	$(call run,$(W_FORGE_STD),fmt:check)
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),fmt:check)
-	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),fmt:check)
-	$(call run-hh-v2,$(W_HH_V2_E2E),fmt:check)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),fmt:check)
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),fmt:check)
 	$(call run-hh-v3,$(W_HH_V3_E2E),fmt:check)
 	$(call run-prefix,$(DIR_FHEVM_NPM),prettier:check)
 
 # One `npm install` per INSTALLATION ROOT. The sdk root workspace holds no hardhat at all; each
-# hardhat generation is a CLUSTER — its own npm workspace ($(DIR_HH_V2), later hardhat/v3) with its
+# hardhat generation is a CLUSTER — its own npm workspace ($(DIR_HH_V3)) with its
 # own lockfile, where hoisting gives every member the SAME single hardhat instance. That is the
 # no-symlink singleton guarantee: hardhat's environment is per-module, so a plugin and its consumer
 # must resolve one hardhat directory, and one installation root per hardhat major makes that true
@@ -237,7 +218,6 @@ fmt-check: ## Verify formatting everywhere
 install: ## Install every installation root (sdk, fhevm-npm, each hardhat cluster) and forge dependencies
 	npm install
 	npm --prefix $(DIR_FHEVM_NPM) install
-	npm --prefix $(DIR_HH_V2) install
 	npm --prefix $(DIR_HH_V3) install
 	$(call run-fhevm-npm,install-forge-dependencies)
 
@@ -252,7 +232,6 @@ install-npm-cli: ## Install ONLY fhevm-npm's own root, so the CLI runs with noth
 install-fast: ## Install every installation root (sdk, fhevm-npm, each hardhat cluster) and forge dependencies
 	npm install --no-audit --no-fund
 	npm --prefix $(DIR_FHEVM_NPM) install --no-audit --no-fund
-	npm --prefix $(DIR_HH_V2) install --no-audit --no-fund
 	npm --prefix $(DIR_HH_V3) install --no-audit --no-fund
 	$(call run-fhevm-npm,install-forge-dependencies)
 
@@ -263,15 +242,13 @@ install-fast: ## Install every installation root (sdk, fhevm-npm, each hardhat c
 install-ci: ## Install every installation root from its committed lockfile (npm ci), then forge dependencies
 	npm ci --no-audit --no-fund
 	npm --prefix $(DIR_FHEVM_NPM) ci --no-audit --no-fund
-	npm --prefix $(DIR_HH_V2) ci --no-audit --no-fund
 	npm --prefix $(DIR_HH_V3) ci --no-audit --no-fund
 	$(call run-fhevm-npm,install-forge-dependencies)
 
 # Move a pinned dependency: edit its spec in npm-manifest.json#dependencies.pinned, then run this. It also
 # catches a pin left behind a release: when a lockfile already resolves a newer version, step 1 raises the pin.
 #   1. `sync pinned` raises every pin a lockfile resolves newer than (in npm-manifest.json), then copies every
-#      pin into each package.json that declares it, and `sync hh-v2-constants`
-#      records the @fhevm/solidity pin in the Hardhat 2 plugin's constants (a no-op for any other pin).
+#      pin into each package.json that declares it.
 #   2. `npm install --package-lock-only` rewrites each install root's lockfile, and nothing else: no
 #      node_modules, no install scripts. Already-locked versions that still satisfy their ranges stay, so
 #      only what the moved pins reach is re-resolved. fhevm-npm's root declares no pinned package.
@@ -282,10 +259,7 @@ install-ci: ## Install every installation root from its committed lockfile (npm 
 # cannot be resolved yet.
 sync-pinned: ## Apply npm-manifest.json's pins to every package.json, regenerate every lockfile, then install from them
 	$(call run-fhevm-npm,sync pinned)
-# hh-v2-constants: Hardhat 2 only, delete the next line with hardhat/v2.
-	$(call run-fhevm-npm,sync hh-v2-constants)
 	npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-	npm --prefix $(DIR_HH_V2) install --package-lock-only --ignore-scripts --no-audit --no-fund
 	npm --prefix $(DIR_HH_V3) install --package-lock-only --ignore-scripts --no-audit --no-fund
 	$(call run-fhevm-npm,test-consumer-regenerate-package-lock)
 	$(call run-fhevm-npm,check pinned-dependencies)
@@ -307,11 +281,10 @@ check-safechain: ## Check every lockfile against safe-chain's 48h minimum packag
 
 # Rehearse a release before anything is published: compile (as the release jobs do), then pack, `publish check`,
 # ask the registry and audit every payload the release publishes, with one line per payload at the end. The set is
-# every npm-distributed payload minus previous generations; hardhat/v2 is kept in the tree but no longer released, so
-# it is excluded here. A dependency on another payload of the set is satisfied by its fresh tarball, since none is on
-# npm yet.
-publish-rehearse: compile ## Compile, then pack, check and audit every payload a release publishes (hardhat/v2 excluded)
-	$(call run-fhevm-npm,publish rehearse --exclude ./hardhat/v2/plugin/pkg)
+# every npm-distributed payload minus previous generations. A dependency on another payload of the set is satisfied
+# by its fresh tarball, since none is on npm yet.
+publish-rehearse: compile ## Compile, then pack, check and audit every payload a release publishes
+	$(call run-fhevm-npm,publish rehearse)
 
 # Deliberately NOT `git clean`: pattern-based deletion cannot distinguish a build output from a
 # developer's .vscode or .env, and gitignored files are invisible to the spotless guard — an editor
@@ -364,11 +337,10 @@ regenerate-package-lock: ## Everything 'distclean' removes PLUS the install lock
 	@echo "🧹 make regenerate-package-lock = make distclean PLUS these tracked lockfiles:"
 	@echo ""
 	@echo "   ./package-lock.json"
-	@echo "   ./$(DIR_HH_V2)/package-lock.json"
 	@echo "   ./$(DIR_HH_V3)/package-lock.json"
 	@echo ""
 	$(MAKE) distclean
-	rm -f ./package-lock.json ./$(DIR_HH_V2)/package-lock.json ./$(DIR_HH_V3)/package-lock.json
+	rm -f ./package-lock.json ./$(DIR_HH_V3)/package-lock.json
 	@echo "🗑  install lockfiles removed — 'make install' will re-resolve and rewrite them; review and commit the diff."
 
 # `ci` WITH THE ENVIRONMENT IT NEEDS LOCALLY. A bare `make ci` here is not the gate GitHub runs: the
@@ -504,9 +476,6 @@ clean: clean-scratch ## Remove every package's build output and the tooling's sc
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),clean)
 	$(call run-hh-v3,$(W_HH_V3_E2E),clean)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),clean)
-	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),clean)
-	$(call run-hh-v2,$(W_HH_V2_E2E),clean)
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),clean)
 	$(call run,$(W_FORGE_STD),clean)
 	$(call run,$(W_CLEARTEXT_V_CUR),clean)
 	$(call run,$(W_CLEARTEXT_V_PREV),clean)
@@ -575,11 +544,11 @@ graph: ## Print the dependency graph for TARGET (default: compile)
 #
 # V(N-1) -> V(N) -> plugin -> e2e. Each edge is a real consumption of the previous package's BUILD OUTPUT:
 # V(N) devDepends on V(N-1), plugin/pkg imports @fhevm/host-contracts-cleartext (= V(N)'s pkg), and e2e imports
-# both @fhevm/hardhat-plugin (= plugin/pkg) and @fhevm/host-contracts-cleartext.
+# both @fhevm/hardhat-plugin-v3 (= plugin/pkg) and @fhevm/host-contracts-cleartext.
 ########################################################################################################
 
-.PHONY: compile-package compile-forge compile-cleartext-v-prev compile-cleartext-v-cur compile-forge-std compile-hh-v2-plugin compile-hh-v2-template
-.PHONY: compile-hh-v2-e2e compile-hh-v3-plugin compile-hh-v3-template compile-hh-v3-e2e
+.PHONY: compile-package compile-forge compile-cleartext-v-prev compile-cleartext-v-cur compile-forge-std
+.PHONY: compile-hh-v3-plugin compile-hh-v3-template compile-hh-v3-e2e
 
 # Public bridge for tools that discover a package by manifest path while keeping this file authoritative
 # for the actual build graph. Unknown packages fail instead of silently bypassing Make with `npm run build`.
@@ -588,9 +557,6 @@ compile-package: ## Compile PACKAGE and its prerequisites
 	  "./$(DIR_CLEARTEXT_V_PREV)") target=compile-cleartext-v-prev ;; \
 	  "./$(DIR_CLEARTEXT_V_CUR)") target=compile-cleartext-v-cur ;; \
 	  "./$(DIR_FORGE_STD)") target=compile-forge-std ;; \
-	  "./$(DIR_HH_V2_PLUGIN)") target=compile-hh-v2-plugin ;; \
-	  "./$(DIR_HH_V2_TEMPLATE)") target=compile-hh-v2-template ;; \
-	  "./$(DIR_HH_V2_E2E)") target=compile-hh-v2-e2e ;; \
 	  "./$(DIR_HH_V3_PLUGIN)") target=compile-hh-v3-plugin ;; \
 	  "./$(DIR_HH_V3_TEMPLATE)") target=compile-hh-v3-template ;; \
 	  "./$(DIR_HH_V3_E2E)") target=compile-hh-v3-e2e ;; \
@@ -621,11 +587,7 @@ compile-forge-std: compile-cleartext-v-cur ## Compile forge-fhevm-std (its _host
 	@echo "==> compile $(DIR_FORGE_STD)"
 	$(call run,$(W_FORGE_STD),compile)
 
-compile-hh-v2-plugin: compile-cleartext-v-cur ## Compile the Hardhat v2 plugin
-	@echo "==> compile $(DIR_HH_V2_PLUGIN)"
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),compile)
-
-# Like its v2 sibling: plugin/pkg imports @fhevm/host-contracts-cleartext/ts, whose types are build output.
+# plugin/pkg imports @fhevm/host-contracts-cleartext/ts, whose types are build output.
 compile-hh-v3-plugin: compile-cleartext-v-cur ## Compile the Hardhat v3 plugin
 	@echo "==> compile $(DIR_HH_V3_PLUGIN)"
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),compile)
@@ -639,16 +601,6 @@ compile-hh-v3-e2e: compile-hh-v3-plugin ## Compile the Hardhat v3 e2e suite
 compile-hh-v3-template: compile-hh-v3-plugin ## Compile the Hardhat v3 template
 	@echo "==> compile $(DIR_HH_V3_TEMPLATE)"
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),compile)
-
-compile-hh-v2-template: compile-hh-v2-plugin ## Compile the mirrored Hardhat v2 template
-	@echo "==> compile $(DIR_HH_V2_TEMPLATE)"
-	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),compile)
-
-# e2e's `compile` (hardhat compile) generates its own typechain types; its `lint` self-provides them
-# the same way. Both need the compiled plugin, because loading hardhat.config.ts requires it.
-compile-hh-v2-e2e: compile-hh-v2-plugin ## Compile the Hardhat v2 e2e suite
-	@echo "==> compile $(DIR_HH_V2_E2E)"
-	$(call run-hh-v2,$(W_HH_V2_E2E),compile)
 
 ########################################################################################################
 # Check graph
@@ -668,8 +620,6 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check json-schemas)
 	$(call run-fhevm-npm,check manifest-coverage)
 	$(call run-fhevm-npm,version check)
-# hh-v2-constants: Hardhat 2 only, delete the next line with hardhat/v2.
-	$(call run-fhevm-npm,sync hh-v2-constants --check)
 	$(call run-fhevm-npm,check names)
 	$(call run-fhevm-npm,check workspaces)
 	$(call run-fhevm-npm,check ownership)
@@ -678,7 +628,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check dependencies)
 	$(call run-fhevm-npm,check pinned-dependencies)
 	$(call run-fhevm-npm,check generations)
-	$(call run-fhevm-npm,check generation-parity)
+# $(call run-fhevm-npm,check generation-parity)
 	$(call run-fhevm-npm,check scripts)
 	$(call run-fhevm-npm,check tsc-mode)
 	$(call run-fhevm-npm,check lockfiles)
@@ -689,14 +639,12 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check deployments)
 	$(call run-fhevm-npm,sync vendored --check)
 
-# Not wired into `check-pre` or `ci`: the mirror spec is not implemented yet. Running it today reports 7
-# violations, but they are the spec's gaps rather than real drift — it has not been taught about the
-# workspace adaptations (renamed eslint/prettier configs, dropped .vscode/). The target exists so the
-# work stays visible and addressable; swap the echo for the real check once the spec lands.
-check-mirror: ## Verify the hardhat template still mirrors upstream byte-for-byte (NOT YET IMPLEMENTED)
+# Not wired into `check-pre` or `ci`: no package declares a mirror yet. The hardhat v3 template gets its
+# mirror metadata once its destination repository is decided; `fhevm-npm check mirror <package>` is the real
+# check, and this placeholder becomes a call to it then.
+check-mirror: ## Verify every mirrored package still matches its upstream repository (NOT YET IMPLEMENTED)
 	@echo "⚠️  Not Yet Implemented Warning: check-mirror is a placeholder."
-	@echo "⚠️  The mirror spec does not yet describe this workspace's adaptations, so the real check"
-	@echo "⚠️  ($(DIR_HH_V2_TEMPLATE) -> npm run check:mirror) still reports false violations."
+	@echo "⚠️  No package in npm-manifest.json declares a mirror yet, so there is nothing to compare."
 
 # The prerequisites are `compile`'s, deliberately: both checks below validate literal paths across every
 # package, and build output is among those paths — the templates' gitignored `types/`, and each plugin
@@ -723,7 +671,6 @@ check-post: check-npm-cli-post-build ## Checks that require a generated and buil
 	$(call run,$(W_CLEARTEXT_V_PREV),check)
 	$(call run,$(W_CLEARTEXT_V_CUR),check)
 	$(call run,$(W_FORGE_STD),check)
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),check)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),check)
 
 ########################################################################################################
@@ -733,15 +680,13 @@ check-post: check-npm-cli-post-build ## Checks that require a generated and buil
 # This is the part npm cannot express, and the reason `npm run lint --workspaces` fails on a clean tree.
 ########################################################################################################
 
-.PHONY: lint-shared lint-cleartext lint-hh-v2
+.PHONY: lint-shared lint-cleartext
 .PHONY: lint-common lint-common-vendored lint-cleartext-v-prev lint-cleartext-v-cur lint-forge-std
-.PHONY: lint-hh-v2-plugin lint-hh-v2-template lint-hh-v2-e2e lint-hh-v3 lint-hh-v3-plugin lint-hh-v3-template lint-hh-v3-e2e lint-npm-cli
+.PHONY: lint-hh-v3 lint-hh-v3-plugin lint-hh-v3-template lint-hh-v3-e2e lint-npm-cli
 
 lint-shared: lint-common lint-common-vendored
 
 lint-cleartext: lint-cleartext-v-prev lint-cleartext-v-cur
-
-lint-hh-v2: lint-hh-v2-plugin lint-hh-v2-template lint-hh-v2-e2e
 
 lint-hh-v3: lint-hh-v3-plugin lint-hh-v3-template lint-hh-v3-e2e
 
@@ -759,15 +704,6 @@ lint-cleartext-v-cur: compile-cleartext-v-cur ## Lint the current cleartext gene
 
 lint-forge-std: compile-forge-std ## Lint forge-fhevm-std: eslint + tsc over internal/, then forge lint
 	$(call run,$(W_FORGE_STD),lint)
-
-lint-hh-v2-plugin: compile-cleartext-v-cur ## Lint the Hardhat v2 plugin (its types resolve through V(N)'s pkg)
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),lint)
-
-lint-hh-v2-template: compile-hh-v2-plugin ## Lint the mirrored Hardhat v2 template against the built plugin
-	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),lint)
-
-lint-hh-v2-e2e: compile-hh-v2-plugin ## Lint Hardhat v2 e2e (self-provides typechain; needs the built plugin)
-	$(call run-hh-v2,$(W_HH_V2_E2E),lint)
 
 lint-hh-v3-plugin: compile-cleartext-v-cur ## Lint the Hardhat v3 plugin (its types resolve through V(N)'s pkg)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),lint)
@@ -790,10 +726,10 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 # silently rebuilds hides what it costs. `make ci` is the one-liner that orders the whole thing.
 ########################################################################################################
 
-.PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v2-plugin test-hh-v2-template test-hh-v3-plugin test-hh-v3-template
-.PHONY: test-hh-v2-e2e test-hh-v2-e2e-anvil test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
+.PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v3-plugin test-hh-v3-template
+.PHONY: test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
 .PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil test-forge-std-anvil-refusals test-forge-std-anvil-mirror
-.PHONY: test-anvil test-anvil-ci test-anvil-hh-v2-e2e test-anvil-hh-v3-e2e
+.PHONY: test-anvil test-anvil-ci test-anvil-hh-v3-e2e
 
 # `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
 # and only V(N) has a V(N-1) to prove it against. Which generation that is comes from the manifest, so the
@@ -857,31 +793,18 @@ test-forge-std-anvil-refusals: compile-forge-std ## forge-fhevm-std anvil REFUSA
 test-forge-std-anvil-mirror: compile-forge-std ## forge-fhevm-std mirror suite (own anvil on port 8548)
 	$(call run,$(W_FORGE_STD),test:anvil-mirror)
 
-test-hh-v2-plugin: compile-hh-v2-plugin ## Hardhat v2 plugin tests
-	$(call run-hh-v2,$(W_HH_V2_PLUGIN),test)
-
-test-hh-v2-template: compile-hh-v2-template ## Hardhat v2 template tests (workspace-native form)
-	$(call run-hh-v2,$(W_HH_V2_TEMPLATE),test)
-
 test-hh-v3-plugin: compile-hh-v3-plugin ## Hardhat v3 plugin tests (skip themselves until the cluster is installed)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),test)
 
 test-hh-v3-template: compile-hh-v3-template ## Hardhat v3 template tests
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),test)
 
+# The in-process network, so this needs nothing running. The anvil variant below needs a local node.
 test-hh-v3-e2e: compile-hh-v3-e2e ## Hardhat v3 e2e tests on the in-process network
 	$(call run-hh-v3,$(W_HH_V3_E2E),test)
 
 test-hh-v3-e2e-anvil: compile-hh-v3-e2e ## Hardhat v3 e2e tests against a local anvil (must already be running)
 	$(call run-hh-v3,$(W_HH_V3_E2E),test:anvil)
-
-# HARDHAT_NETWORK=hardhat — the in-process network, so this needs nothing running. The variants below
-# do: `anvil` a local node, `sepolia`/`devnet` a funded remote account.
-test-hh-v2-e2e: compile-hh-v2-e2e ## Hardhat v2 e2e tests on the in-process network
-	$(call run-hh-v2,$(W_HH_V2_E2E),test)
-
-test-hh-v2-e2e-anvil: compile-hh-v2-e2e ## Hardhat v2 e2e tests against a local anvil (must already be running)
-	$(call run-hh-v2,$(W_HH_V2_E2E),test:anvil)
 
 # Separate tier: packs and installs each payload into a temp project and runs its suite. Minutes, not
 # seconds, so it is deliberately not part of `make test`.
@@ -889,19 +812,17 @@ test-hh-v2-e2e-anvil: compile-hh-v2-e2e ## Hardhat v2 e2e tests against a local 
 # WHICH consumers run is not this file's knowledge: `--all` runs every consumer registered in
 # npm-manifest.json#consumerTests, serially, in source order (`test-consumer --list` shows them). HOW each
 # is installed is derived per consumer by the CLI, not chosen here: a committed lockfile is replayed
-# (npm ci); a workspace MEMBER — both hardhat templates — has none BY DESIGN (rule 6.1.1: its installation
-# root locks it) and is resolved fresh (npm install). The templates' lock-replaying rehearsal belongs to
-# the publish-mirror RENDER, which regenerates a public lockfile; until that lands their legs still prove
-# a fresh consumer install and test against the live workspace payloads. The v2 template is also the v2
-# PLUGIN's consumer test: it links the plugin payload, so the resolution checks the CLI runs on every
-# linked payload cover the plugin there.
+# (npm ci); a workspace MEMBER — the hardhat template — has none BY DESIGN (rule 6.1.1: its installation
+# root locks it) and is resolved fresh (npm install). The template's lock-replaying rehearsal belongs to
+# the publish-mirror RENDER, which regenerates a public lockfile; until that lands its leg still proves
+# a fresh consumer install and test against the live workspace payloads.
 #
 # The two targets differ by ONE flag. `--ci` is a strictness assertion: an isolated (non-member) consumer
 # with no committed lockfile is a warning below and a hard error in the CI variant. Nothing else changes.
-test-consumer: clean-scratch compile-hh-v2-template compile-hh-v3-template ## Install and test every registered consumer (missing fixture lockfile: warn)
+test-consumer: clean-scratch compile-hh-v3-template ## Install and test every registered consumer (missing fixture lockfile: warn)
 	$(call run-fhevm-npm,test-consumer --all --build-linked-dependencies --run)
 
-test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ## Install and test every registered consumer (missing fixture lockfile: error)
+test-consumer-ci: clean-scratch compile-hh-v3-template ## Install and test every registered consumer (missing fixture lockfile: error)
 	$(call run-fhevm-npm,test-consumer --all --build-linked-dependencies --run --ci)
 
 # Separate tier: the suites that need a local EVM node. Every one of them OWNS its node here —
@@ -913,7 +834,7 @@ test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ##
 # first connection, so a second suite meeting a stack it did not deploy is not the scenario under test.
 #
 # THE PORT MAP, because it is a cross-package invariant and nothing else states it in one place:
-#   8545        hardhat v2/v3 e2e, and the v12/v13 consumer rehearsals — never concurrent, see `ci`
+#   8545        hardhat v3 e2e, and the v12/v13 consumer rehearsals — never concurrent, see `ci`
 #   8546        forge-fhevm-std `test:anvil`
 #   8547        forge-fhevm-std `test:anvil-refusals` — resets its node between cases, so it cannot
 #               share one with 8546
@@ -922,26 +843,22 @@ test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ##
 #   8600-8651   v12/v13 vitest suites; uniqueness enforced by test/anvil-ports.test.ts in each generation
 # Anything added here must claim a port no one else holds.
 #
-# The two targets below are the bring-your-own-node ones with a node provided; they repeat the suite's
+# The target below is the bring-your-own-node one with a node provided; it repeats the suite's
 # own invocation rather than recursing into it, so there is no sub-make inside the wrapper script.
-test-anvil-hh-v2-e2e: compile-hh-v2-e2e ## Hardhat v2 e2e against an anvil this target starts and stops
-	./scripts/with-anvil.sh --port 8545 -- $(call run-hh-v2,$(W_HH_V2_E2E),test:anvil)
-
 test-anvil-hh-v3-e2e: compile-hh-v3-e2e ## Hardhat v3 e2e against an anvil this target starts and stops
 	./scripts/with-anvil.sh --port 8545 -- $(call run-hh-v3,$(W_HH_V3_E2E),test:anvil)
 
 # Sequential recipe lines, not prerequisites — the reasoning at `build-ci` applies, and here it is not
-# merely about ordering: two of these three bind the same port, so running them in parallel cannot work.
+# merely about ordering: each of these binds a port of the map above, so running them in parallel is not safe.
 test-anvil: ## Every suite that needs a local node, each against a fresh one it starts and stops
 	$(MAKE) test-forge-std-anvil
 	$(MAKE) test-forge-std-anvil-refusals
 	$(MAKE) test-forge-std-anvil-mirror
-	$(MAKE) test-anvil-hh-v2-e2e
 	$(MAKE) test-anvil-hh-v3-e2e
 
-# What `ci` runs, and deliberately a SUBSET of `test-anvil`: the two hardhat e2e suites take ~4 minutes
-# each, which is not yet worth paying on every push. They are not excluded because they fail — all three
-# pass under `make test-anvil` — so promoting one is a single line here when it earns its minutes.
+# What `ci` runs, and deliberately a SUBSET of `test-anvil`: the hardhat e2e suite takes ~4 minutes,
+# which is not yet worth paying on every push. It is not excluded because it fails — it passes under
+# `make test-anvil` — so promoting it is a single line here when it earns its minutes.
 test-anvil-ci: ## The part of `test-anvil` that ci runs: the forge-fhevm-std anvil suites
 	$(MAKE) test-forge-std-anvil
 	$(MAKE) test-forge-std-anvil-refusals

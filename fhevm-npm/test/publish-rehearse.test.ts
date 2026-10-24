@@ -211,12 +211,12 @@ test("'publish rehearse' takes repeatable --exclude and an audit level", () => {
     'publish',
     'rehearse',
     '--exclude',
-    './hardhat/v2/plugin/pkg',
+    './hardhat/v3/plugin/pkg',
     '--exclude',
     'legacy/pkg',
   ]);
   if (options.command !== 'publish-rehearse') throw new Error('unreachable');
-  assert.deepEqual(options.excludes, ['./hardhat/v2/plugin/pkg', 'legacy/pkg']);
+  assert.deepEqual(options.excludes, ['./hardhat/v3/plugin/pkg', 'legacy/pkg']);
   assert.equal(options.auditLevel, 'high');
   const bare = parseCliOptions(['publish', 'rehearse']);
   if (bare.command !== 'publish-rehearse') throw new Error('unreachable');

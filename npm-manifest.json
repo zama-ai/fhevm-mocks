@@ -302,91 +302,6 @@
       "dependencyGroup": "forge-fhevm-std",
       "note": "A standard external ESM consumer copied to a temporary directory by the owning dev package's test:consumer script. Solidity-only payload, so it checks the installed sources resolve rather than loading JavaScript."
     },
-    "./hardhat/v2": {
-      "kind": "workspace-root",
-      "type": "esm",
-      "browser": false,
-      "name": "fhevm-hardhat-v2-workspace",
-      "private": true,
-      "member": false,
-      "note": "Installation root for the hardhat v2 generation (a CLUSTER): one npm workspace with its own lockfile and hoisting, so every member resolves the SAME hardhat@2 \u2014 the no-symlink singleton guarantee. One installation root per hardhat major; the sdk root workspace holds no hardhat at all."
-    },
-    "./hardhat/v2/plugin": {
-      "kind": "dev",
-      "type": "esm",
-      "browser": false,
-      "name": "@fhevm/hardhat-plugin-v2-dev",
-      "private": true,
-      "member": true,
-      "memberOf": "./hardhat/v2",
-      "publishedRelPath": "./hardhat/v2/plugin/pkg",
-      "dependencyGroup": "hardhat/v2",
-      "note": "Declares no `version`, which the version rule says should be 0.0.0."
-    },
-    "./hardhat/v2/plugin/pkg": {
-      "kind": "published",
-      "type": "cjs",
-      "browser": false,
-      "name": "@fhevm/hardhat-plugin",
-      "member": true,
-      "memberOf": "./hardhat/v2",
-      "dependencyGroup": "hardhat/v2",
-      "consumerTests": {
-        "cjs": ["./hardhat/v2/fhevm-hardhat-template/pkg"]
-      },
-      "vendored": [
-        {
-          "relPath": "./src/internal/vendored",
-          "files": ["ethersEthereumLib.ts", "fhevm-chains.ts", "operatorsPrices.ts", "priceTypes.ts"],
-          "source": "./common-vendored/src",
-          "rewrites": [
-            {
-              "file": "ethersEthereumLib.ts",
-              "from": "} from './ethereumLibTypes.ts';",
-              "to": "} from '@fhevm/host-contracts-cleartext/ts';"
-            }
-          ],
-          "reason": "A published package cannot depend on the private @fhevm/sdk-vendored-dev; the copy's sibling type import is rewritten to @fhevm/host-contracts-cleartext."
-        }
-      ]
-    },
-    "./hardhat/v2/fhevm-hardhat-template": {
-      "kind": "dev",
-      "type": "esm",
-      "browser": false,
-      "name": "@fhevm/hardhat-template-v2-dev",
-      "private": true,
-      "member": true,
-      "memberOf": "./hardhat/v2",
-      "dependencyGroup": "hardhat/v2",
-      "note": "Dev owner for the workspace-native template. Its check:mirror script invokes the package-specific fhevm-npm comparison against the public repository.",
-      "publishedRelPath": "./hardhat/v2/fhevm-hardhat-template/pkg"
-    },
-    "./hardhat/v2/fhevm-hardhat-template/pkg": {
-      "kind": "published",
-      "type": "cjs",
-      "browser": false,
-      "name": "fhevm-hardhat-template-v2",
-      "member": true,
-      "memberOf": "./hardhat/v2",
-      "dependencyGroup": "hardhat/v2",
-      "distribution": ["mirror"],
-      "mirror": {
-        "repository": "https://github.com/zama-ai/fhevm-hardhat-template"
-      },
-      "note": "The WORKSPACE-NATIVE template: an ordinary cluster member, free to differ from the public repository. check-mirror clones github.com/zama-ai/fhevm-hardhat-template and applies the package-specific package.json transformation implemented in fhevm-npm before comparing tracked files; the public lockfile and CI-only files are excluded. Consumer fidelity is proven independently by test-consumer."
-    },
-    "./hardhat/v2/e2e": {
-      "kind": "internal-consumer",
-      "type": "cjs",
-      "browser": false,
-      "name": "@fhevm/hardhat-plugin-v2-e2e-dev",
-      "private": true,
-      "member": true,
-      "memberOf": "./hardhat/v2",
-      "dependencyGroup": "hardhat/v2",
-      "note": "Links the plugin as a cluster member rather than installing a tarball; the packed-artifact check lives in the template instead."
-    },
     "./hardhat/v3": {
       "kind": "workspace-root",
       "type": "esm",
@@ -394,7 +309,7 @@
       "name": "fhevm-hardhat-v3-workspace",
       "private": true,
       "member": false,
-      "note": "Installation root for the hardhat v3 generation (a CLUSTER): its own lockfile pins hardhat 3.x, hoisted once for every member \u2014 the same no-symlink singleton guarantee as ./hardhat/v2, one root per hardhat major."
+      "note": "Installation root for the hardhat v3 generation (a CLUSTER): one npm workspace with its own lockfile pinning hardhat 3.x, hoisted once so every member resolves the SAME hardhat \u2014 the no-symlink singleton guarantee. One installation root per hardhat major; the sdk root workspace holds no hardhat at all."
     },
     "./hardhat/v3/plugin": {
       "kind": "dev",
@@ -419,7 +334,7 @@
       "consumerTests": {
         "esm": ["./hardhat/v3/plugin/test-consumer/esm", "./hardhat/v3/fhevm-hardhat-template/pkg"]
       },
-      "note": "One published package per hardhat generation: the v2 payload stays @fhevm/hardhat-plugin, this one is @fhevm/hardhat-plugin-v3, versioned on the FHEVM protocol line it targets (0.13.x).",
+      "note": "One published package per hardhat generation: this one is @fhevm/hardhat-plugin-v3, versioned on the FHEVM protocol line it targets.",
       "vendored": [
         {
           "relPath": "./src/internal/vendored",
@@ -467,7 +382,7 @@
       "member": true,
       "memberOf": "./hardhat/v3",
       "dependencyGroup": "hardhat/v3",
-      "note": "The v3 twin of ./hardhat/v2/e2e: links the plugin as a cluster member. Born with the v2 Solidity corpus and one test; each v2 test file ports as the plugin surface it needs lands."
+      "note": "Links the plugin as a cluster member rather than installing a tarball; the packed-artifact check lives in the plugin's test-consumer and the template instead."
     },
     "./hardhat/v3/plugin/test-consumer/esm": {
       "kind": "standalone",

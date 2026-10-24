@@ -12,7 +12,7 @@
 # THE PORT IS NOT SHARED. Refusing to start on a busy port is deliberate: reusing whatever already
 # answers there is how a suite ends up testing against a stranger's node — a different mnemonic, a
 # different chain, or another suite's half-migrated state. If you DO want to point a suite at a node you
-# manage, run the bring-your-own-node target instead (`make test-hh-v2-e2e-anvil`).
+# manage, run the bring-your-own-node target instead (`make test-hh-v3-e2e-anvil`).
 #
 # Usage: ./scripts/with-anvil.sh --port N [--skip-if-missing] [--timeout S] -- <command> [args...]
 #

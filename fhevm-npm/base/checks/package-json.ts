@@ -125,7 +125,7 @@ export function validatePackageJson(
     // `workspaces` is deliberately NOT ordered here. npm runs `--workspaces` scripts in the order this
     // array lists them, so it carries build order: a member that consumes a sibling's build output must
     // come after it. Alphabetical order cannot express that, and enforcing it silently reintroduced the
-    // failure where `hardhat/v2/e2e` built before the `hardhat/v2/plugin` it depends on.
+    // failure where a hardhat e2e suite built before the plugin it depends on.
   }
 
   return violations;
