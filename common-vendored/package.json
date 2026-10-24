@@ -27,8 +27,8 @@
   },
   "devDependencies": {
     "@fhevm/sdk-common-dev": "file:../common",
-    "eslint": "^10.0.2",
-    "prettier": "^3.8.3",
-    "typescript": "^6.0.2"
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3"
   }
 }
