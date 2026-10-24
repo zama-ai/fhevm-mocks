@@ -228,6 +228,10 @@ const atLeast = (version: readonly number[], floor: readonly number[]): boolean 
 // every other combination builds version 1.
 const sdkBuildsExtraDataV2 = (c: GapContext) =>
   c.sdk.protocolLine >= 14 && c.variant.protocolConfig && atLeast(c.kmsVerifierVersion, [0, 4, 0]);
+// sdk 0.14.4 is the first release whose cleartext path passes the extraData it verifies against to the host
+// (publicDecrypt(handles, extraData), userDecrypt(..., extraData)), and the host serves the context it names. Every
+// gap below is an older release not passing it, so none applies from there on.
+const sdkPassesExtraData = (c: GapContext) => atLeast(c.sdk.version.split(/[.-]/).map(Number), [0, 14, 4]);
 
 // The host's custom error, which the sdk cannot name (it does not carry the host's ABI): CleartextKMSVerifier's
 // CleartextErrorInvalidUserDecryptSignature().
@@ -241,7 +245,9 @@ const GAPS: readonly Gap[] = [
     // verifies against, and the host answers with version 1 (the temporary default).
     id: 'public decryption, extraData v2 (Annex A.3)',
     when: (c) =>
-      (c.scenario === 'publicDecrypt' || c.scenario === 'publicDecryptWithAStaleKmsContext') && sdkBuildsExtraDataV2(c),
+      (c.scenario === 'publicDecrypt' || c.scenario === 'publicDecryptWithAStaleKmsContext') &&
+      sdkBuildsExtraDataV2(c) &&
+      !sdkPassesExtraData(c),
     error: UNKNOWN_KMS_SIGNER,
   },
   {
@@ -249,7 +255,7 @@ const GAPS: readonly Gap[] = [
     // but the sdk's cleartext path calls userDecrypt without that extraData, and the host only tries the current
     // context's: the user's signature does not verify. userDecrypt(..., extraData) serves it once the sdk passes it.
     id: 'user decryption with a permit from an earlier KMS context (Annex A.3)',
-    when: (c) => c.scenario === 'permitFromAnEarlierKmsContext',
+    when: (c) => c.scenario === 'permitFromAnEarlierKmsContext' && !sdkPassesExtraData(c),
     error: INVALID_USER_DECRYPT_SIGNATURE,
   },
   {
@@ -259,12 +265,12 @@ const GAPS: readonly Gap[] = [
     // public decryptions against the previous signers. Fixed by the sdk passing the extraData (the host then serves
     // the context it names), or by an sdk cache that a new client refreshes.
     id: 'an sdk process that used the previous KMS context keeps it after a rotation',
-    when: (c) => c.scenario === 'userDecryptWithAStaleKmsContext',
+    when: (c) => c.scenario === 'userDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c),
     error: INVALID_USER_DECRYPT_SIGNATURE,
   },
   {
     id: 'an sdk process that used the previous KMS context keeps it after a rotation (public decryption)',
-    when: (c) => c.scenario === 'publicDecryptWithAStaleKmsContext',
+    when: (c) => c.scenario === 'publicDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c),
     error: UNKNOWN_KMS_SIGNER,
   },
 ];
