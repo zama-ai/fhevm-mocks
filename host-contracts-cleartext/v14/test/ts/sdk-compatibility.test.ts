@@ -1,5 +1,5 @@
 // Golden rule 5: cleartext v(N) serves every sdk line from v(N-2) to v(N). The same scenarios run against each line
-// this package declares (utils/sdkLines.ts), with and without the TEMPORARY "no protocolConfig" trick.
+// this package declares (utils/sdkLines.ts).
 //
 // A known gap is DATA, not a branch: `GAPS` predicts it from what the sdk builds and what the host serves, both read
 // at run time, and the test asserts the failure. The day a fixed sdk is pinned, the call succeeds, the test fails, and
@@ -12,8 +12,6 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { MNEMONIC, startAnvil, stopAnvil } from '@fhevm/sdk-common-dev';
 import {
   ACL_ABI,
-  CHAIN_VARIANTS,
-  COMBINATIONS,
   DAY,
   type Env,
   type GapContext,
@@ -27,6 +25,8 @@ import {
   bob,
   clearValueOf,
   connect,
+  destroyPreviousKms,
+  destroyedKmsContextRefusal,
   expectOutcome,
   loadPermit,
   makePubliclyDecryptable,
@@ -55,21 +55,20 @@ describe.skipIf(SDK_LINES.length === 0)('one KMS context', () => {
     if (env !== undefined) await stopAnvil(env.anvil.process);
   });
 
-  describe.each(COMBINATIONS)('$sdkName, $variant.name', ({ sdkName, variant }) => {
+  describe.each(SDK_LINES)('%s', (sdkName) => {
     let sdk: SdkLine;
     let client: SdkClient;
     let probeAddress: Address;
     let handle: Hex;
-    const clear = clearValueOf(sdkName, variant, 0);
+    const clear = clearValueOf(sdkName, 0);
     const context = (scenario: Scenario): GapContext => ({
       sdk,
-      variant,
       kmsVerifierVersion: started().kmsVerifierVersion,
       scenario,
     });
 
     beforeAll(async () => {
-      ({ sdk, client } = await connect(started(), sdkName, variant));
+      ({ sdk, client } = await connect(started(), sdkName));
     });
 
     test('encrypts an input the host verifies on chain', async () => {
@@ -125,27 +124,23 @@ describe.skipIf(UPGRADES.length === 0)('a permit signed by an older sdk line, us
     if (env !== undefined) await stopAnvil(env.anvil.process);
   });
 
-  describe.each(UPGRADES)(
-    'signed by $olderName, used by $newerName, $variant.name',
-    ({ olderName, newerName, variant }) => {
-      test('user-decrypts with the stored permit', async () => {
-        const e = started();
-        const clear = 42n;
-        // The older line signs as it always did (its full chain definition); the newer line runs with `variant`.
-        const older = await connect(e, olderName, CHAIN_VARIANTS[0]);
-        const { probeAddress, handle } = await submitToNewProbe(e, older.client, clear);
-        const stored = await storePermit(older.client, await signPermit(e, older.client, alice, probeAddress));
-        const newer = await connect(e, newerName, variant);
-        await expectOutcome(
-          { sdk: newer.sdk, variant, kmsVerifierVersion: e.kmsVerifierVersion, scenario: 'permitFromAnOlderSdkLine' },
-          async () => {
-            const permit = await loadPermit(newer.client, stored);
-            expect(await userDecryptWith(newer.client, permit, handle, probeAddress)).toBe(clear);
-          },
-        );
-      });
-    },
-  );
+  describe.each(UPGRADES)('signed by $olderName, used by $newerName', ({ olderName, newerName }) => {
+    test('user-decrypts with the stored permit', async () => {
+      const e = started();
+      const clear = 42n;
+      const older = await connect(e, olderName);
+      const { probeAddress, handle } = await submitToNewProbe(e, older.client, clear);
+      const stored = await storePermit(older.client, await signPermit(e, older.client, alice, probeAddress));
+      const newer = await connect(e, newerName);
+      await expectOutcome(
+        { sdk: newer.sdk, kmsVerifierVersion: e.kmsVerifierVersion, scenario: 'permitFromAnOlderSdkLine' },
+        async () => {
+          const permit = await loadPermit(newer.client, stored);
+          expect(await userDecryptWith(newer.client, permit, handle, probeAddress)).toBe(clear);
+        },
+      );
+    });
+  });
 });
 
 // Every value and permit is made with the sdk under the first KMS context, then the committee is replaced, then each
@@ -158,17 +153,16 @@ describe.skipIf(SDK_LINES.length === 0)('across a KMS rotation, in a process tha
   };
   type Made = { probeAddress: Address; handle: Hex; permit: Permit };
   const made = new Map<string, Made>();
-  const key = (sdkName: string, variantName: string) => `${sdkName}|${variantName}`;
 
   beforeAll(async () => {
     const e = await startEnv(startAnvil({ port: 8661, mnemonic: MNEMONIC }));
     env = e;
-    for (const { sdkName, variant } of COMBINATIONS) {
-      const { client } = await connect(e, sdkName, variant);
-      const { probeAddress, handle } = await submitToNewProbe(e, client, clearValueOf(sdkName, variant, 100));
+    for (const sdkName of SDK_LINES) {
+      const { client } = await connect(e, sdkName);
+      const { probeAddress, handle } = await submitToNewProbe(e, client, clearValueOf(sdkName, 100));
       await makePubliclyDecryptable(e, probeAddress);
       const permit = await signPermit(e, client, alice, probeAddress);
-      made.set(key(sdkName, variant.name), { probeAddress, handle, permit });
+      made.set(sdkName, { probeAddress, handle, permit });
     }
     await rotateKms(e);
   }, 180_000);
@@ -177,22 +171,21 @@ describe.skipIf(SDK_LINES.length === 0)('across a KMS rotation, in a process tha
     if (env !== undefined) await stopAnvil(env.anvil.process);
   });
 
-  describe.each(COMBINATIONS)('$sdkName, $variant.name', ({ sdkName, variant }) => {
+  describe.each(SDK_LINES)('%s', (sdkName) => {
     let sdk: SdkLine;
     let client: SdkClient;
     let earlier: Made;
-    const clear = clearValueOf(sdkName, variant, 100);
+    const clear = clearValueOf(sdkName, 100);
     const context = (scenario: Scenario): GapContext => ({
       sdk,
-      variant,
       kmsVerifierVersion: started().kmsVerifierVersion,
       scenario,
     });
 
     beforeAll(async () => {
-      ({ sdk, client } = await connect(started(), sdkName, variant));
-      const entry = made.get(key(sdkName, variant.name));
-      if (entry === undefined) throw new Error(`nothing was made for ${sdkName}, ${variant.name}`);
+      ({ sdk, client } = await connect(started(), sdkName));
+      const entry = made.get(sdkName);
+      if (entry === undefined) throw new Error(`nothing was made for ${sdkName}`);
       earlier = entry;
     });
 
@@ -213,6 +206,45 @@ describe.skipIf(SDK_LINES.length === 0)('across a KMS rotation, in a process tha
         const permit = await signPermit(started(), client, alice, earlier.probeAddress);
         expect(await userDecryptWith(client, permit, earlier.handle, earlier.probeAddress)).toBe(clear);
       });
+    });
+  });
+});
+
+// Where that ends: once the committee retires, the ACL owner destroys the previous KMS context, and a permit signed in
+// it stops working. Production refuses it too, so this is the behaviour itself, not a gap.
+describe.skipIf(SDK_LINES.length === 0)('after the previous KMS context is destroyed', () => {
+  let env: Env | undefined;
+  const started = (): Env => {
+    if (env === undefined) throw new Error('the stack did not start');
+    return env;
+  };
+  type Made = { probeAddress: Address; handle: Hex; permit: Permit };
+  const made = new Map<string, Made>();
+
+  beforeAll(async () => {
+    const e = await startEnv(startAnvil({ port: 8664, mnemonic: MNEMONIC }));
+    env = e;
+    for (const sdkName of SDK_LINES) {
+      const { client } = await connect(e, sdkName);
+      const { probeAddress, handle } = await submitToNewProbe(e, client, clearValueOf(sdkName, 50));
+      const permit = await signPermit(e, client, alice, probeAddress);
+      made.set(sdkName, { probeAddress, handle, permit });
+    }
+    await destroyPreviousKms(e, await rotateKms(e));
+  }, 180_000);
+
+  afterAll(async () => {
+    if (env !== undefined) await stopAnvil(env.anvil.process);
+  });
+
+  describe.each(SDK_LINES)('%s', (sdkName) => {
+    test('refuses a permit signed in the destroyed context', async () => {
+      const { sdk, client } = await connect(started(), sdkName);
+      const earlier = made.get(sdkName);
+      if (earlier === undefined) throw new Error(`nothing was made for ${sdkName}`);
+      await expect(userDecryptWith(client, earlier.permit, earlier.handle, earlier.probeAddress)).rejects.toThrow(
+        destroyedKmsContextRefusal(sdk),
+      );
     });
   });
 });

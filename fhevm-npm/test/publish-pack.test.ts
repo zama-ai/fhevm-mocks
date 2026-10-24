@@ -53,10 +53,11 @@ function workspace(): string {
   return root;
 }
 
-/** Stands in for `npm pack`: records what the staged directory held and writes a marker "tarball". */
-function recordingPacker(seen: { staged?: { packageJson: string; entries: string[] } }): Packer {
+/** Stands in for `npm pack`: records the staged directory and what it held, and writes a marker "tarball". */
+function recordingPacker(seen: { staged?: { directory: string; packageJson: string; entries: string[] } }): Packer {
   return (staged, outDir) => {
     seen.staged = {
+      directory: staged,
       packageJson: readFileSync(join(staged, 'package.json'), 'utf8'),
       entries: readdirSync(staged, { recursive: true }).map(String).sort(),
     };
@@ -69,7 +70,7 @@ function recordingPacker(seen: { staged?: { packageJson: string; entries: string
 test('publish pack stages a node_modules-free copy with the rendered package.json, packs it, and cleans up', () => {
   const root = workspace();
   try {
-    const seen: { staged?: { packageJson: string; entries: string[] } } = {};
+    const seen: { staged?: { directory: string; packageJson: string; entries: string[] } } = {};
     const tarball = publishPack(root, manifest, './plugin/pkg', { pack: recordingPacker(seen) });
     assert.equal(tarball, join(root, 'tarballs', 'scope-plugin-0.13.0.tgz'));
     assert.ok(existsSync(tarball));
@@ -78,12 +79,11 @@ test('publish pack stages a node_modules-free copy with the rendered package.jso
     assert.deepEqual(staged.dependencies, { '@scope/library': '^0.13.4' });
     // node_modules is excluded at every depth; sources travel.
     assert.deepEqual(seen.staged?.entries, ['package.json', 'src', 'src/index.js']);
-    // The tree is untouched and the scratch copy is gone.
+    // The tree is untouched and the scratch copy is gone. Only THIS call's copy: other test files stage payloads
+    // into the same temp dir concurrently (publish-rehearse), so a scan of the temp dir would race with them.
     assert.match(readFileSync(join(root, 'plugin', 'pkg', 'package.json'), 'utf8'), /file:\.\.\/\.\.\/library\/pkg/);
-    assert.equal(
-      readdirSync(tmpdir()).some((entry) => entry.startsWith('fhevm-npm-publish-pack-')),
-      false,
-    );
+    assert.ok(seen.staged !== undefined);
+    assert.equal(existsSync(seen.staged.directory), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
