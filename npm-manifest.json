@@ -192,8 +192,8 @@
           "relPath": "./internal/zama-config",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.14.1",
-            "commit": "f1acef9496cc891c65b681713ba874a59c42071c",
+            "tag": "v0.14.4",
+            "commit": "ccdd1ce0dd039d863d90b2294e3b2c6be6af16d7",
             "digest": "sha256-0ftNPGsVZmP5VLHmlACenc2Pi7/vl88A/XalaEyDR7k=",
             "from": "library-solidity/config"
           },
@@ -221,8 +221,8 @@
           "relPath": "./src/contracts",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.14.1",
-            "commit": "f1acef9496cc891c65b681713ba874a59c42071c",
+            "tag": "v0.14.4",
+            "commit": "ccdd1ce0dd039d863d90b2294e3b2c6be6af16d7",
             "digest": "sha256-+gjOGJ1clvgyn+IHI0EymVfvyeLeOcXJCk17pYsDdI8=",
             "from": "host-contracts/contracts"
           },
