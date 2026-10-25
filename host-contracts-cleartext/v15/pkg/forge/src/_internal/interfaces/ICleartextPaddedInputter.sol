@@ -64,6 +64,18 @@ interface ICleartextPaddedInputter {
 
     error AddressEmptyCode(address target);
     error CallerMustBeFHEVMExecutorContract();
+    error CleartextErrorContractAddressesMaxLengthExceeded(uint256 maxLength, uint256 length);
+    error CleartextErrorInvalidNullDurationSeconds();
+    error CleartextErrorInvalidUserDecryptSignatureV2(address userAddress);
+    error CleartextErrorMaxDurationSecondsExceeded(uint256 maxDurationSeconds, uint256 durationSeconds);
+    error CleartextErrorStartTimestampInFuture(uint256 currentTimestamp, uint256 startTimestamp);
+    error CleartextErrorUserAddressInAllowedContracts(address userAddress);
+    error CleartextErrorUserDecryptSignatureInvalidated(
+        address userAddress, uint256 startTimestamp, uint256 invalidatedBefore
+    );
+    error CleartextErrorUserDecryptionRequestExpiredSeconds(
+        uint256 currentTimestamp, uint256 startTimestamp, uint256 durationSeconds
+    );
     error ERC1967InvalidImplementation(address implementation);
     error ERC1967NonPayable();
     error FailedCall();
@@ -78,13 +90,8 @@ interface ICleartextPaddedInputter {
     error PadDecryptInvalidExtraData(bytes extraData);
     error PadDecryptInvalidKmsContextOrEpoch(uint256 contextId, uint256 epochId);
     error PadDecryptInvalidPadLength(bytes32 label, uint16 padLength);
-    error PadDecryptInvalidSignature(address userAddress);
-    error PadDecryptInvalidUserAddress();
     error PadDecryptInvalidWitnessCount(uint256 count);
     error PadDecryptNullWitnessAddress(bytes32 label);
-    error PadDecryptPublicKeyTooShort(uint256 length);
-    error PadDecryptRequestExpired(uint256 startTimestamp, uint256 durationSeconds);
-    error PadDecryptSignatureInvalidated(address userAddress, uint256 startTimestamp, uint256 invalidatedBefore);
     error PadDecryptTooManyDecryptors(bytes32 label, uint256 count);
     error PadDecryptUserNotAuthorized(bytes32 label, address userAddress);
     error PadDecryptWitnessExpired(bytes32 label, uint64 expirationTimestamp);
@@ -104,6 +111,7 @@ interface ICleartextPaddedInputter {
     error PadUnknownPartType(uint256 partIndex, uint8 partType);
     error PadUnsupportedPrf(uint16 prf);
     error PadUnsupportedWitnessVersion(uint8 witnessVersion);
+    error PublicKeyTooShort(uint256 length);
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
 

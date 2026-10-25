@@ -544,6 +544,123 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorContractAddressesMaxLengthExceeded",
+    "inputs": [
+      {
+        "name": "maxLength",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidNullDurationSeconds",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorInvalidUserDecryptSignatureV2",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorMaxDurationSecondsExceeded",
+    "inputs": [
+      {
+        "name": "maxDurationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorStartTimestampInFuture",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserAddressInAllowedContracts",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserDecryptSignatureInvalidated",
+    "inputs": [
+      {
+        "name": "userAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "invalidatedBefore",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorUserDecryptionRequestExpiredSeconds",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "durationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -693,22 +810,6 @@
   },
   {
     "type": "error",
-    "name": "PadDecryptInvalidSignature",
-    "inputs": [
-      {
-        "name": "userAddress",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "PadDecryptInvalidUserAddress",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "PadDecryptInvalidWitnessCount",
     "inputs": [
       {
@@ -726,54 +827,6 @@
         "name": "label",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "PadDecryptPublicKeyTooShort",
-    "inputs": [
-      {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "PadDecryptRequestExpired",
-    "inputs": [
-      {
-        "name": "startTimestamp",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "durationSeconds",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "PadDecryptSignatureInvalidated",
-    "inputs": [
-      {
-        "name": "userAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "startTimestamp",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "invalidatedBefore",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ]
   },
@@ -1021,6 +1074,17 @@
         "name": "witnessVersion",
         "type": "uint8",
         "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PublicKeyTooShort",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {PaddedInputter} from "../contracts/PaddedInputter.sol";
 import {KMSVerifier} from "../contracts/KMSVerifier.sol";
 import {ACL} from "../contracts/ACL.sol";
@@ -109,10 +107,6 @@ contract CleartextPaddedInputter is PaddedInputter {
 
     // ---- RFC-030 pad decryption errors (PaddedInputter's own where the meaning is the same) ----
 
-    error PadDecryptInvalidUserAddress();
-    error PadDecryptInvalidSignature(address userAddress);
-    error PadDecryptRequestExpired(uint256 startTimestamp, uint256 durationSeconds);
-    error PadDecryptSignatureInvalidated(address userAddress, uint256 startTimestamp, uint256 invalidatedBefore);
     error PadDecryptInvalidExtraData(bytes extraData);
     error PadDecryptInvalidKmsContextOrEpoch(uint256 contextId, uint256 epochId);
     error PadDecryptInvalidWitnessCount(uint256 count);
@@ -123,7 +117,6 @@ contract CleartextPaddedInputter is PaddedInputter {
     error PadDecryptWitnessExpired(bytes32 label, uint64 expirationTimestamp);
     error PadDecryptConsumerNotAllowed(bytes32 label, address consumer);
     error PadDecryptUserNotAuthorized(bytes32 label, address userAddress);
-    error PadDecryptPublicKeyTooShort(uint256 length);
 
     // -----------------------------------------------------------------------------------------
     // RFC-030 pad decryption ("Request pad decryption")
@@ -145,15 +138,16 @@ contract CleartextPaddedInputter is PaddedInputter {
      *      - Instead of per-node threshold shares encrypted with ML-KEM + AES-GCM, each share is the
      *        whole encrypted pad — ⌈padLength/256⌉ cleartext PRF blocks of 32 bytes, i.e. one ring
      *        element per block (packing factor 1) — XOR-masked with the first 32 bytes of
-     *        `auth.publicKey` (repeated), the same mock as `CleartextKMSVerifier`. The client unmasks
+     *        `auth.publicKey` (repeated), the same mask as `CleartextKMSVerifier` (`LibKmsVerifier.publicKeyMask`). The client unmasks
      *        it with the same 32 bytes and keeps the first `padLength` bits. Every node returns the same
      *        shares; only `partyId`, and so the digest, differs.
      *      - Each share's `sessionId` is a deterministic function of `(prf, label)`: one mock
      *        "session" per label, shared by every node and every requester of that label.
      *      - `degree` is `⌊(n - 1) / 3⌋` for the context's `n` signers (n = 3t + 1), and `requestId` is a
      *        mock-defined hint: keccak256(labels ‖ extraData ‖ signature).
-     *      - `auth.startTimestamp <= block.timestamp` is not enforced: a view call on anvil can
-     *        observe a block timestamp older than the client's wall clock. Expiry is enforced.
+     *
+     *      The permit is held to the same limits as `CleartextKMSVerifier.userDecryptV2` (see `_checkPermit`),
+     *      including a start not in the future: both are views, and a client must align its clock the same way.
      *
      * @param request The pad decryption request.
      * @return material What every node of the context signs, index-aligned with `material.signers`.
@@ -226,8 +220,8 @@ contract CleartextPaddedInputter is PaddedInputter {
 
     // ---- RFC-030 internals ----
 
-    /// @dev Steps 1 to 7 of the RFC: authenticate, check freshness, resolve the context, check and authorize every
-    ///      witness, then release each pad mock-encrypted under the user's public key.
+    /// @dev Steps 1 to 7 of the RFC: check and authenticate the permit, resolve the context, check and authorize
+    ///      every witness, then release each pad mock-encrypted under the user's public key.
     function _releasePadShares(PadDecryptRequest calldata request)
         private
         view
@@ -236,20 +230,13 @@ contract CleartextPaddedInputter is PaddedInputter {
         UserDecryptPermitV2 calldata auth = request.auth;
         PadDecryptRequestPayload calldata payload = request.payload;
 
-        // 1. Authenticate that the request is from the user (ecrecover, then ERC-1271 fallback).
-        // Production: KMS Connector.
-        _authenticatePadRequest(auth, request.signature, payload.chainId);
+        // The request's chain first: it is also the chain the permit is signed for.
+        if (payload.chainId != block.chainid) revert PadInvalidChainId(payload.chainId);
 
-        // 2. Check freshness of the request.
+        // 1.-2. The permit: its shape and window, its signature, its freshness against the ACL.
         // Production: KMS Connector.
+        _checkPermit(request);
         ACL acl = ACL(aclAdd);
-        if (block.timestamp > auth.startTimestamp + auth.durationSeconds) {
-            revert PadDecryptRequestExpired(auth.startTimestamp, auth.durationSeconds);
-        }
-        uint256 invalidatedBefore = acl.decryptionSignatureInvalidatedBefore(auth.userAddress);
-        if (auth.startTimestamp < invalidatedBefore) {
-            revert PadDecryptSignatureInvalidated(auth.userAddress, auth.startTimestamp, invalidatedBefore);
-        }
 
         // 3. Resolve the context and epoch to serve the request under (v2 extraData only).
         // Production: KMS Connector, against ProtocolConfig.
@@ -264,7 +251,7 @@ contract CleartextPaddedInputter is PaddedInputter {
 
         // 7. Release each pad, mock-encrypted under the user's public key.
         // Production: KMS Core encrypts each node's payload with ML-KEM + AES-128-GCM under auth.publicKey.
-        bytes32 mask = _publicKeyMask(auth.publicKey);
+        bytes32 mask = LibKmsVerifier.publicKeyMask(auth.publicKey);
         padShares = new PadShare[](payload.witnesses.length);
         for (uint256 i = 0; i < payload.witnesses.length; ++i) {
             PadWitness calldata w = payload.witnesses[i];
@@ -305,43 +292,31 @@ contract CleartextPaddedInputter is PaddedInputter {
         return LibKmsVerifier.domainSeparatorFrom(name, version, gatewayChainId, verifyingContract);
     }
 
-    /// @dev RFC-016 EIP-712 digest under the KMS `Decryption` domain, with the host chain id
-    ///      (`payload.chainId`) as domain chain id, then ecrecover with ERC-1271 fallback.
-    function _authenticatePadRequest(UserDecryptPermitV2 calldata auth, bytes calldata signature, uint64 chainId)
-        private
-        view
-    {
-        if (auth.userAddress == address(0)) revert PadDecryptInvalidUserAddress();
+    /**
+     * @dev The RFC-016 permit, held to exactly what `CleartextKMSVerifier.userDecryptV2` holds the same permit to,
+     *      in the same order and with the same errors (LibKmsVerifier): at most `MAX_USER_DECRYPT_CONTRACT_ADDRESSES`
+     *      allowed contracts, a non-zero window of at most `MAX_USER_DECRYPT_DURATION_SECONDS`, started and not
+     *      expired, the user not one of its own allowed contracts, a signature that `ecrecover`s to the user or
+     *      passes its gas-capped ERC-1271 check, and a start no earlier than the user's ACL invalidation. One
+     *      permit, one rule set: a request `userDecryptV2` refuses is refused here the same way.
+     *
+     *      The digest is under the KMS `Decryption` domain with the host chain id, already checked to be
+     *      `payload.chainId`.
+     */
+    function _checkPermit(PadDecryptRequest calldata request) private view {
+        UserDecryptPermitV2 memory permit = request.auth;
+        LibKmsVerifier.requirePermitV2AllowedContractsWithinLimit(permit);
+        LibKmsVerifier.requireValidRequestWindowSeconds(permit.startTimestamp, permit.durationSeconds);
+        LibKmsVerifier.requirePermitV2UserNotInAllowedContracts(permit);
 
-        bytes32 structHash = keccak256(
-            abi.encode(
-                LibKmsVerifier.USER_DECRYPT_REQUEST_V2_TYPEHASH,
-                auth.userAddress,
-                keccak256(auth.publicKey),
-                keccak256(abi.encodePacked(auth.allowedContracts)),
-                auth.startTimestamp,
-                auth.durationSeconds,
-                keccak256(auth.extraData)
-            )
-        );
-        bytes32 digest = keccak256(abi.encodePacked(hex"1901", _decryptionDomainHash(chainId), structHash));
-
-        if (signature.length != 0) {
-            (address recovered, ECDSA.RecoverError err,) = ECDSA.tryRecover(digest, signature);
-            if (err == ECDSA.RecoverError.NoError && recovered == auth.userAddress) {
-                return;
-            }
-        }
-        if (!SignatureChecker.isValidERC1271SignatureNow(auth.userAddress, digest, signature)) {
-            revert PadDecryptInvalidSignature(auth.userAddress);
-        }
-    }
-
-    /// @dev KMS `Decryption` EIP-712 domain (name, version, verifyingContract read from the KMSVerifier).
-    function _decryptionDomainHash(uint64 chainId) private view returns (bytes32) {
         (, string memory name, string memory version,, address verifyingContract,,) =
             KMSVerifier(kmsVerifierAdd).eip712Domain();
-        return LibKmsVerifier.domainSeparatorFrom(name, version, chainId, verifyingContract);
+        LibKmsVerifier.requireUserSignatureV2(
+            LibKmsVerifier.domainSeparatorFrom(name, version, block.chainid, verifyingContract),
+            permit,
+            request.signature
+        );
+        LibKmsVerifier.requireNotInvalidated(aclAdd, permit.userAddress, permit.startTimestamp);
     }
 
     /// @dev Requires v2 extraData `[0x02 | contextId | epochId]` naming a valid context and epoch.
@@ -362,7 +337,6 @@ contract CleartextPaddedInputter is PaddedInputter {
     /// @dev Steps 4 and 5: request-wide fields, per-witness structure and freshness, label authentication.
     function _checkPadPayload(PadDecryptRequestPayload calldata payload) private view {
         if (payload.witnessVersion != PAD_WITNESS_VERSION) revert PadUnsupportedWitnessVersion(payload.witnessVersion);
-        if (payload.chainId != block.chainid) revert PadInvalidChainId(payload.chainId);
 
         uint256 n = payload.witnesses.length;
         if (n == 0 || n > PAD_DECRYPT_MAX_WITNESSES) revert PadDecryptInvalidWitnessCount(n);
@@ -419,11 +393,5 @@ contract CleartextPaddedInputter is PaddedInputter {
             if (acl.isDelegatedForUserDecryption(w.decryptors[i], user, w.consumer)) return;
         }
         revert PadDecryptUserNotAuthorized(w.label, user);
-    }
-
-    /// @dev First 32 bytes of the user's public key, the mock encryption mask.
-    function _publicKeyMask(bytes calldata publicKey) private pure returns (bytes32) {
-        if (publicKey.length < 32) revert PadDecryptPublicKeyTooShort(publicKey.length);
-        return bytes32(publicKey[0:32]);
     }
 }

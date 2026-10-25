@@ -452,16 +452,20 @@ library LibKmsVerifier {
         pure
         returns (uint256[] memory masked)
     {
-        if (transportPublicKey.length < 32) revert PublicKeyTooShort(transportPublicKey.length);
-
-        bytes32 mask;
-        assembly {
-            mask := mload(add(transportPublicKey, 32))
-        }
+        bytes32 mask = publicKeyMask(transportPublicKey);
 
         masked = new uint256[](cleartexts.length);
         for (uint256 i = 0; i < cleartexts.length; i++) {
             masked[i] = cleartexts[i] ^ uint256(mask);
+        }
+    }
+
+    /// @notice The 32-byte XOR mask of a transport public key: its FIRST 32 bytes (see `maskWithPublicKey`). The one
+    ///         rule every cleartext mock masks with, user decryption and RFC-030 pad decryption alike.
+    function publicKeyMask(bytes memory transportPublicKey) internal pure returns (bytes32 mask) {
+        if (transportPublicKey.length < 32) revert PublicKeyTooShort(transportPublicKey.length);
+        assembly {
+            mask := mload(add(transportPublicKey, 32))
         }
     }
 
@@ -1157,21 +1161,12 @@ library LibKmsVerifier {
 
         // --- Gateway `userDecryptionRequest(HandleEntry[], ...)`, in its order ---
         if (handles.length == 0) revert CleartextErrorEmptyCtHandles();
-        // Empty `allowedContracts` is permissive mode; only the upper bound is enforced.
-        if (permit.allowedContracts.length > MAX_USER_DECRYPT_CONTRACT_ADDRESSES) {
-            revert CleartextErrorContractAddressesMaxLengthExceeded(
-                MAX_USER_DECRYPT_CONTRACT_ADDRESSES, permit.allowedContracts.length
-            );
-        }
+        requirePermitV2AllowedContractsWithinLimit(permit);
         requireValidRequestWindowSeconds(permit.startTimestamp, permit.durationSeconds);
         requireConformantHandleEntries(handles);
 
         // --- kms-worker `check_user_decryption_request_v2` (the window is the gateway's, enforced above) ---
-        for (uint256 i = 0; i < permit.allowedContracts.length; ++i) {
-            if (permit.allowedContracts[i] == permit.userAddress) {
-                revert CleartextErrorUserAddressInAllowedContracts(permit.userAddress);
-            }
-        }
+        requirePermitV2UserNotInAllowedContracts(permit);
         requireUserSignatureV2(p.domainHash, permit, p.signature);
         requireNotInvalidated(p.aclAddress, permit.userAddress, permit.startTimestamp);
         requireHandleEntriesAuthorized(p.aclAddress, handles, permit.userAddress, permit.allowedContracts);
@@ -1183,6 +1178,25 @@ library LibKmsVerifier {
             cleartexts[i] = IPlaintexts(p.plaintextsAddress).plaintexts(handles[i].handle);
         }
         return abi.encode(maskWithPublicKey(permit.publicKey, cleartexts), permit.extraData);
+    }
+
+    /// @dev GW: at most `MAX_USER_DECRYPT_CONTRACT_ADDRESSES` allowed contracts. Empty is permissive mode, so only
+    ///      the upper bound is enforced.
+    function requirePermitV2AllowedContractsWithinLimit(UserDecryptPermitV2 memory permit) internal pure {
+        if (permit.allowedContracts.length > MAX_USER_DECRYPT_CONTRACT_ADDRESSES) {
+            revert CleartextErrorContractAddressesMaxLengthExceeded(
+                MAX_USER_DECRYPT_CONTRACT_ADDRESSES, permit.allowedContracts.length
+            );
+        }
+    }
+
+    /// @dev KW `check_user_decryption_request_v2`: the user is not one of its own allowed contracts.
+    function requirePermitV2UserNotInAllowedContracts(UserDecryptPermitV2 memory permit) internal pure {
+        for (uint256 i = 0; i < permit.allowedContracts.length; ++i) {
+            if (permit.allowedContracts[i] == permit.userAddress) {
+                revert CleartextErrorUserAddressInAllowedContracts(permit.userAddress);
+            }
+        }
     }
 
     /// @dev GW `_checkUserDecryptionRequestValiditySeconds`, in the same order.
