@@ -38,6 +38,7 @@ import { join, resolve as resolvePath } from 'node:path';
 import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
+import { CLEARTEXT_PAD_PRF_INSTANCE } from '@fhevm/sdk-vendored-dev/cleartext-config-v15.ts';
 import { assertStampedRecord, sealedManifest } from '../record.ts';
 
 /**
@@ -923,7 +924,10 @@ void test(
           ]) {
             assert.ok(params.output.includes(call), `params lists ${call}:\n${params.output.slice(-2000)}`);
           }
-          assert.match(params.output, /initialPrfInstances: \[\]/, params.output.slice(-2000));
+          assert.ok(
+            params.output.includes(`initialPrfInstances: [${String(CLEARTEXT_PAD_PRF_INSTANCE)}]`),
+            `params shows the default PRF instance:\n${params.output.slice(-2000)}`,
+          );
 
           note('compute must refuse (expect an Error below)');
           const recompute = await runCoordinator(curRoot, UPGRADE_CLI, [...common, '--stage', 'compute']);

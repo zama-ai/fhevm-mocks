@@ -525,12 +525,8 @@ build_initializer_calldata() {
     INIT_HCU_LIMIT="$(cast calldata "$SIG_INIT_HCU_LIMIT" \
         "$HCU_CAP_PER_BLOCK" "$MAX_HCU_DEPTH_PER_TX" "$MAX_HCU_PER_TX")"
     INIT_CLEARTEXT_DB="$(cast calldata "$SIG_INIT_CLEARTEXT_DB" "$CLEARTEXT_ARITHMETIC_ADDRESS")"
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy. EMPTY ON
-    # PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input. Must match
-    # pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and every other deploy path.
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    INIT_PADDED_INPUTTER="$(cast calldata "$SIG_INIT_PADDED_INPUTTER" "[]")"
+    # The default RFC-030 PRF instance, from the shell face of cleartext-config.json, as every deploy path.
+    INIT_PADDED_INPUTTER="$(cast calldata "$SIG_INIT_PADDED_INPUTTER" "[$CLEARTEXT_PAD_PRF_INSTANCE]")"
 
     # KmsNodeParams[] paired by index from the parallel arrays, in the order LocalHostBootstrap pairs them.
     # read_bootstrap_array returns strings unquoted, so the string fields are requoted per element. partyId
@@ -614,9 +610,11 @@ _smoke_expect_address() {
     fi
 }
 
+# Any further arguments are the call's own (e.g. the uint16 of `isSupportedPrfInstance(uint16)(bool)`).
 _smoke_expect_uint() {
     local label="$1" target="$2" sig="$3" expected="$4" actual
-    actual="$(cast call "$target" "$sig" --rpc-url "$RPC_URL" 2>/dev/null | awk '{print $1}')"
+    shift 4
+    actual="$(cast call "$target" "$sig" "$@" --rpc-url "$RPC_URL" 2>/dev/null | awk '{print $1}')"
     if [ "$actual" = "$expected" ]; then
         _smoke_pass "$label -> $actual"
     else
@@ -760,6 +758,9 @@ smoke_check() {
         'getMaxHCUDepthPerTx()(uint48)' "$MAX_HCU_DEPTH_PER_TX"
     _smoke_expect_uint "HCULimit.getMaxHCUPerTx()" "$HCU_LIMIT_ADDRESS" \
         'getMaxHCUPerTx()(uint48)' "$MAX_HCU_PER_TX"
+    # The default RFC-030 PRF instance is registered, or every pad-based input is refused.
+    _smoke_expect_bool "PaddedInputter.isSupportedPrfInstance($CLEARTEXT_PAD_PRF_INSTANCE)" "$PADDED_INPUTTER_ADDRESS" \
+        'isSupportedPrfInstance(uint16)(bool)' true "$CLEARTEXT_PAD_PRF_INSTANCE"
 
     if [ "$_smoke_failed" -ne 0 ]; then
         echo ""

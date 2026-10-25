@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {FhevmUpgradeBase} from "../../create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol";
 import {UpgradeInitData} from "../../create2-deploy/script/upgrade/UpgradeInitData.sol";
 import {MaterializeInitData} from "../../create2-deploy/script/MaterializeInitData.sol";
+import {LibFhevmCleartextConfig} from "../../pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol";
 
 /**
  * @title Create2UpgradeOrdinalsTest
@@ -148,7 +149,15 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
     function test_createdProxyVersions() public pure {
         assertEq(_upgradeFromVersion(7), 1);
         assertEq(_upgradeToVersion(7), 2);
-        assertEq(UpgradeInitData.initName(7), "PaddedInputter.initializeFromEmptyProxy([])");
+        assertEq(
+            UpgradeInitData.initName(7),
+            string.concat(
+                "PaddedInputter.initializeFromEmptyProxy([",
+                vm.toString(uint256(LibFhevmCleartextConfig.CLEARTEXT_PAD_PRF_INSTANCE)),
+                "])"
+            ),
+            "the default PRF instance, from cleartext-config.json"
+        );
     }
 
     function test_upgradeTablesRejectOutOfRange() public {

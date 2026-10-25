@@ -66,6 +66,10 @@ interface IWiredFHEVMExecutor {
     function getPaddedInputterAddress() external view returns (address);
 }
 
+interface IWiredPaddedInputter {
+    function isSupportedPrfInstance(uint16 prf) external view returns (bool);
+}
+
 interface IWiredHCULimit {
     function getFHEVMExecutorAddress() external view returns (address);
     function getGlobalHCUCapPerBlock() external view returns (uint48);

@@ -61,8 +61,8 @@ export async function updateV14ToV15(parameters: {
   // bakes `cleartextArithmeticAdd`, so it must be patched with the real proxy address (not the
   // placeholder) or the post-upgrade cleartext round-trip would call a dead address.
   readonly cleartext: CleartextAddresses;
-  // `PaddedInputter.initializeFromEmptyProxy` arguments. Defaults to `DEFAULT_BOOTSTRAP_CONFIG`'s, which
-  // registers NO PRF instance yet (see the FIXME there).
+  // `PaddedInputter.initializeFromEmptyProxy` arguments. Defaults to `DEFAULT_BOOTSTRAP_CONFIG`'s: the default
+  // PRF instance (cleartext-config.json `CLEARTEXT_PAD_PRF_INSTANCE`).
   readonly paddedInputter?: PaddedInputterInitConfig | undefined;
 }): Promise<{ readonly fhevmAddresses: FhevmAddresses }> {
   const { pauserSetAddress, ...existingV14 } = parameters.existing;

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IForgeVm, FORGE_VM_ADDRESS} from "./IForgeVm.sol";
 import {LibHostUpgradeCode} from "./LibHostUpgradeCode.sol";
 import {ERC1967_PROXY_CREATION_CODE, FhevmAddressRole, FhevmHostContracts} from "./_internal/LocalHostBytecode.sol";
+import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
 import {ICleartextDB} from "./_internal/interfaces/ICleartextDB.sol";
 import {ICleartextArithmetic} from "./_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextFHEVMExecutor} from "./_internal/interfaces/ICleartextFHEVMExecutor.sol";
@@ -286,17 +287,13 @@ library LibForgeFhevmUpgrade {
         );
         addresses[uint8(FhevmAddressRole.PaddedInputter)] = proxy;
 
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) to register. EMPTY ON PURPOSE: the created
-        // PaddedInputter refuses EVERY pad-based input until this matches every deploy path's choice.
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        uint16[] memory initialPrfInstances = new uint16[](0);
+        // The default PRF instance (cleartext-config.json `CLEARTEXT_PAD_PRF_INSTANCE`), as every deploy path.
         _materialize(
             owner,
             proxy,
             implementation,
             addresses,
-            abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (initialPrfInstances))
+            abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (LocalHostBootstrap.padPrfInstances()))
         );
     }
 

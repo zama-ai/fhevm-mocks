@@ -58,3 +58,5 @@ export const CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX = 'cleartext-';
 export const CLEARTEXT_KMS_SOFTWARE_VERSION = '0.0.0-cleartext';
 
 export const CLEARTEXT_KMS_NODE_CA_CERT = '0x';
+
+export const CLEARTEXT_PAD_PRF_INSTANCE = 1;

@@ -38,6 +38,7 @@ CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX="-cleartext-core-"
 CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX="cleartext-"
 CLEARTEXT_KMS_SOFTWARE_VERSION="0.0.0-cleartext"
 CLEARTEXT_KMS_NODE_CA_CERT="0x"
+CLEARTEXT_PAD_PRF_INSTANCE="1"
 
 # The localhost deploy recipe. MNEMONIC is the DEPLOY mnemonic — NOT FHEVM_MNEMONIC, which derives the
 # KMS and coprocessor signer pools. Two different strings with two different jobs: swap them and the

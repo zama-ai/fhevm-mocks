@@ -49,8 +49,8 @@ Lists the eight init calls the atomic upgrade sends, one per re-pointed proxy: `
 `FHEVMExecutor.reinitializeV7()`, `KMSVerifier.reinitializeV5()`, `InputVerifier.reinitializeV3()`,
 `ProtocolConfig.reinitializeV3()`, `KMSGeneration.reinitializeV3()`, `CleartextArithmetic.reinitializeV4()`,
 `PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)`, then the sealed `initialPrfInstances`
-(after compute). FIXME: the list is empty until the default cleartext PRF id is decided, so every pad-based
-input is refused.
+(after compute): the default RFC-030 PRF instance, `CLEARTEXT_PAD_PRF_INSTANCE` in the root
+`cleartext-config.json`.
 
 ## 1. Compute and seal
 

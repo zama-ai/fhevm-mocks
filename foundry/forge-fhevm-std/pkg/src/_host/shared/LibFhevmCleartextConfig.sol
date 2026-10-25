@@ -92,4 +92,7 @@ library LibFhevmCleartextConfig {
 
     /// v14 only. `KmsNodeParams.caCert` as hex. Empty: there is no MPC peer to verify.
     string internal constant CLEARTEXT_KMS_NODE_CA_CERT = "0x";
+
+    /// v15 only. The RFC-030 PRF instance the stack registers on PaddedInputter at deploy. Never 0.
+    uint16 internal constant CLEARTEXT_PAD_PRF_INSTANCE = 1;
 }

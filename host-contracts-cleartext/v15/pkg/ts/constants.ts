@@ -23,6 +23,7 @@ import {
   CLEARTEXT_KMS_SOFTWARE_VERSION,
   CLEARTEXT_MAX_HCU_DEPTH_PER_TX,
   CLEARTEXT_MAX_HCU_PER_TX,
+  CLEARTEXT_PAD_PRF_INSTANCE,
 } from './cleartext-config.js';
 
 /** Node i's metadata, all one-based like the IP and storage-URL suffixes were in v13. */
@@ -177,13 +178,7 @@ export const DEFAULT_BOOTSTRAP_CONFIG: BootstrapConfig = {
     verifyingContractSource: CLEARTEXT_DECRYPTION_ADDRESS,
   },
   paddedInputter: {
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
-    // EMPTY ON PURPOSE, rather than an invented id: with no instance registered, PaddedInputter refuses
-    // EVERY pad-based input (`PadUnsupportedPrf`), so the pad path is deployed but unusable until this is set.
-    // To fix: take the id the SDK's cleartext `encryptTransci` writes into packages (or define one in
-    // cleartext-config.json), and register it here AND in every other deploy path (forge, create2).
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    initialPrfInstances: [],
+    // The default RFC-030 PRF instance, as every deploy path registers it.
+    initialPrfInstances: [CLEARTEXT_PAD_PRF_INSTANCE],
   },
 };

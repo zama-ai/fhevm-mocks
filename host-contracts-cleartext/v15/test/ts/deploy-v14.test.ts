@@ -272,9 +272,9 @@ function bootstrapConfig(deployerAddress: string, kmsSignerAddress: string): Boo
       softwareVersion: '0.0.0-fixture',
       pcrValues: [],
     },
-    // A fixture id, visibly so: the default (DEFAULT_BOOTSTRAP_CONFIG) registers none until the cleartext
-    // PRF instance is decided. Registering one here proves the initializer receives the list.
-    paddedInputter: { initialPrfInstances: [1] },
+    // A fixture id, visibly so, and not the default (CLEARTEXT_PAD_PRF_INSTANCE): registering it proves the
+    // initializer receives this list rather than DEFAULT_BOOTSTRAP_CONFIG's.
+    paddedInputter: { initialPrfInstances: [7] },
   };
 }
 
@@ -357,7 +357,8 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       }),
     ).toBe(false);
 
-    // (b2) PaddedInputter (RFC-030) ran its initializer: the fixture PRF instance is supported, and only it.
+    // (b2) PaddedInputter (RFC-030) ran its initializer: the fixture PRF instance is supported, and only it — not
+    //      the default (CLEARTEXT_PAD_PRF_INSTANCE, 1), which this fixture's list replaced.
     const isSupportedPrfInstanceAbi = [
       {
         type: 'function',
@@ -368,7 +369,8 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       },
     ] as const;
     for (const [prf, expected] of [
-      [1, true],
+      [7, true],
+      [1, false],
       [2, false],
     ] as const) {
       expect(

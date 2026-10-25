@@ -651,7 +651,7 @@ function stageParams(ctx: Ctx): void {
     '',
     prfs === undefined
       ? '  initialPrfInstances: not sealed yet — run compute first'
-      : `  initialPrfInstances: [${prfs.join(', ')}]${prfs.length === 0 ? '  (FIXME: none — every pad-based input is refused)' : ''}`,
+      : `  initialPrfInstances: [${prfs.join(', ')}]${prfs.length === 0 ? '  (none: every pad-based input is refused)' : ''}`,
     '  nothing else is migrated',
   );
 }

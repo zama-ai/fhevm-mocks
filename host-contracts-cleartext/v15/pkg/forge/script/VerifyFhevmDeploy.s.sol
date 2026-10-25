@@ -10,6 +10,7 @@ import {InputVerifier} from "../../src/contracts/InputVerifier.sol";
 import {HCULimit} from "../../src/contracts/HCULimit.sol";
 import {ProtocolConfig} from "../../src/contracts/ProtocolConfig.sol";
 import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
+import {PaddedInputter} from "../../src/contracts/PaddedInputter.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
 import {KmsNode} from "../../src/contracts/shared/Structs.sol";
 import {CleartextArithmetic} from "../../src/cleartext/CleartextArithmetic.sol";
@@ -28,7 +29,8 @@ import {
     kmsGenerationAdd,
     pauserSetAdd,
     cleartextArithmeticAdd,
-    cleartextDbAdd
+    cleartextDbAdd,
+    paddedInputterAdd
 } from "../../src/addresses/FHEVMHostAddresses.sol";
 
 /// @dev The EIP-712 domain view (ERC-5267), used to check what each verifier was initialized with.
@@ -126,6 +128,7 @@ contract VerifyFhevmDeploy is Script {
         _checkKmsContext();
         _checkThresholds();
         _checkHcuLimits();
+        _checkPadPrfInstance();
         _checkEip712Domains();
 
         console.log("");
@@ -322,6 +325,20 @@ contract VerifyFhevmDeploy is Script {
         _eqUint("globalHCUCapPerBlock", h.getGlobalHCUCapPerBlock(), LocalHostBootstrap.HCU_CAP_PER_BLOCK);
         _eqUint("maxHCUDepthPerTx", h.getMaxHCUDepthPerTx(), LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX);
         _eqUint("maxHCUPerTx", h.getMaxHCUPerTx(), LocalHostBootstrap.MAX_HCU_PER_TX);
+    }
+
+    /// @dev The default RFC-030 PRF instance is registered, or every pad-based input is refused.
+    function _checkPadPrfInstance() private {
+        console.log("[bootstrap: PaddedInputter PRF instance]");
+        bool supported = PaddedInputter(paddedInputterAdd).isSupportedPrfInstance(LocalHostBootstrap.PAD_PRF_INSTANCE);
+        if (supported) {
+            _pass("isSupportedPrfInstance(PAD_PRF_INSTANCE)");
+        } else {
+            _fail(
+                "isSupportedPrfInstance(PAD_PRF_INSTANCE)",
+                string.concat("instance ", vm.toString(uint256(LocalHostBootstrap.PAD_PRF_INSTANCE)), " not registered")
+            );
+        }
     }
 
     /**

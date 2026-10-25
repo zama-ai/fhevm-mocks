@@ -322,14 +322,8 @@ contract FhevmDeployScript is Script {
     }
 
     function _paddedInputterInit() private pure returns (bytes memory) {
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
-        // EMPTY ON PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input
-        // (`PadUnsupportedPrf`). Must match pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and
-        // every other deploy path (DeployLocalStack, LibForgeFhevmStack, create2-deploy).
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        uint16[] memory initialPrfInstances = new uint16[](0);
-        return abi.encodeCall(PaddedInputter.initializeFromEmptyProxy, (initialPrfInstances));
+        // The default PRF instance (cleartext-config.json `CLEARTEXT_PAD_PRF_INSTANCE`), as every deploy path.
+        return abi.encodeCall(PaddedInputter.initializeFromEmptyProxy, (LocalHostBootstrap.padPrfInstances()));
     }
 
     /// @dev Since v13 the signers live in ProtocolConfig, so only the EIP-712 domain is set here.

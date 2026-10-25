@@ -40,6 +40,7 @@ import {
   CLEARTEXT_GATEWAY_CHAIN_ID,
   CLEARTEXT_HCU_CAP_PER_BLOCK,
   CLEARTEXT_INPUT_VERIFICATION_ADDRESS,
+  CLEARTEXT_PAD_PRF_INSTANCE,
   CLEARTEXT_KMS_NODES_MNEMONIC_PATH,
   CLEARTEXT_KMS_NODES_TX_SENDER_MNEMONIC_PATH,
   CLEARTEXT_KMS_NODE_COUNT,
@@ -662,6 +663,16 @@ library LocalHostBootstrap {
     uint48 internal constant HCU_CAP_PER_BLOCK = ${String(CLEARTEXT_HCU_CAP_PER_BLOCK)};
     uint48 internal constant MAX_HCU_DEPTH_PER_TX = ${String(CLEARTEXT_MAX_HCU_DEPTH_PER_TX)};
     uint48 internal constant MAX_HCU_PER_TX = ${String(CLEARTEXT_MAX_HCU_PER_TX)};
+
+    /// @dev The RFC-030 PRF instance every deploy path registers on PaddedInputter (cleartext-config.json
+    ///      \`CLEARTEXT_PAD_PRF_INSTANCE\`). Never 0: an unset \`prf\` must be refused, not taken as the default.
+    uint16 internal constant PAD_PRF_INSTANCE = ${String(CLEARTEXT_PAD_PRF_INSTANCE)};
+
+    /// @dev \`PaddedInputter.initializeFromEmptyProxy\`'s list: the default instance alone.
+    function padPrfInstances() internal pure returns (uint16[] memory instances) {
+        instances = new uint16[](1);
+        instances[0] = PAD_PRF_INSTANCE;
+    }
 
 ${addressFn('coprocessorSigners', pool('defaultCoprocessorSigners.ts'), CLEARTEXT_COPROCESSOR_COUNT, CLEARTEXT_COPROCESSORS_MNEMONIC_PATH)}
 

@@ -86,15 +86,10 @@ library MaterializeInitData {
         return abi.encodeCall(PaddedInputter.initializeFromEmptyProxy, (paddedInputterPrfInstances()));
     }
 
-    /// @dev The PRF instances `paddedInputter()` registers, for the listings that print them.
+    /// @dev The PRF instances `paddedInputter()` registers, for the listings that print them: the default instance
+    ///      (cleartext-config.json `CLEARTEXT_PAD_PRF_INSTANCE`), as every deploy path.
     function paddedInputterPrfInstances() internal pure returns (uint16[] memory) {
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
-        // EMPTY ON PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input
-        // (`PadUnsupportedPrf`). Must match pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and
-        // every other deploy path.
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        return new uint16[](0);
+        return LocalHostBootstrap.padPrfInstances();
     }
 
     /// @dev v13 moved the KMS signer set out of KMSVerifier into ProtocolConfig, so only the EIP-712

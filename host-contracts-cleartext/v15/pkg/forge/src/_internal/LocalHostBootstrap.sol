@@ -34,6 +34,16 @@ library LocalHostBootstrap {
     uint48 internal constant MAX_HCU_DEPTH_PER_TX = 5000000;
     uint48 internal constant MAX_HCU_PER_TX = 20000000;
 
+    /// @dev The RFC-030 PRF instance every deploy path registers on PaddedInputter (cleartext-config.json
+    ///      `CLEARTEXT_PAD_PRF_INSTANCE`). Never 0: an unset `prf` must be refused, not taken as the default.
+    uint16 internal constant PAD_PRF_INSTANCE = 1;
+
+    /// @dev `PaddedInputter.initializeFromEmptyProxy`'s list: the default instance alone.
+    function padPrfInstances() internal pure returns (uint16[] memory instances) {
+        instances = new uint16[](1);
+        instances[0] = PAD_PRF_INSTANCE;
+    }
+
     /// @dev m/44'/60'/0'/2/i
     function coprocessorSigners() internal pure returns (address[] memory out) {
         out = new address[](4);

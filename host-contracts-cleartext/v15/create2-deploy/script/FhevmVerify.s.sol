@@ -13,6 +13,7 @@ import {
     IEIP712Domain,
     IWiredHCULimit,
     IWiredInputVerifier,
+    IWiredPaddedInputter,
     IWiredKMSVerifier,
     IWiredProtocolConfig
 } from "./Interfaces.sol";
@@ -185,6 +186,13 @@ contract FhevmVerify is FhevmVerifyBase {
         _expectUint(hcu.getGlobalHCUCapPerBlock(), C.CLEARTEXT_HCU_CAP_PER_BLOCK, "HCULimit.getGlobalHCUCapPerBlock()");
         _expectUint(hcu.getMaxHCUDepthPerTx(), C.CLEARTEXT_MAX_HCU_DEPTH_PER_TX, "HCULimit.getMaxHCUDepthPerTx()");
         _expectUint(hcu.getMaxHCUPerTx(), C.CLEARTEXT_MAX_HCU_PER_TX, "HCULimit.getMaxHCUPerTx()");
+
+        // PaddedInputter: the default RFC-030 PRF instance is registered, or every pad-based input is refused.
+        _expect(
+            IWiredPaddedInputter(_readManifestAddress(manifest, R_PADDED_INPUTTER))
+                .isSupportedPrfInstance(C.CLEARTEXT_PAD_PRF_INSTANCE),
+            "PaddedInputter.isSupportedPrfInstance(CLEARTEXT_PAD_PRF_INSTANCE)"
+        );
     }
 
     /// @dev The EIP-712 domain a verifier's signatures are made in: the gateway chain and the gateway contract.
