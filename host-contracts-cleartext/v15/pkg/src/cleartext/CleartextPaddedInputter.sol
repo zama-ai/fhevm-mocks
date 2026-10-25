@@ -133,8 +133,6 @@ contract CleartextPaddedInputter is PaddedInputter {
      *      Deviations from the real KMS, all inherent to cleartext mode:
      *      - The pad comes from a keccak-based stand-in PRF (see `LibCleartextPad`), not from
      *        `PRF_{FHE(k)}(label)`. It is deterministic in `(prf, label)` only, as RFC-030 requires.
-     *      - Every PRF instance id is accepted (the registry this contract keeps is not consulted yet); `prf`
-     *        is still bound into both the label and the cleartext pad.
      *      - Instead of per-node threshold shares encrypted with ML-KEM + AES-GCM, each share is the
      *        whole encrypted pad — ⌈padLength/256⌉ cleartext PRF blocks of 32 bytes, i.e. one ring
      *        element per block (packing factor 1) — XOR-masked with the first 32 bytes of
@@ -337,6 +335,9 @@ contract CleartextPaddedInputter is PaddedInputter {
     /// @dev Steps 4 and 5: request-wide fields, per-witness structure and freshness, label authentication.
     function _checkPadPayload(PadDecryptRequestPayload calldata payload) private view {
         if (payload.witnessVersion != PAD_WITNESS_VERSION) revert PadUnsupportedWitnessVersion(payload.witnessVersion);
+        // RFC-030: the KMS checks every request against this contract's registry, its single source of truth. A
+        // retired instance is refused too: the coprocessor no longer evaluates it.
+        if (!isSupportedPrfInstance(payload.prf)) revert PadUnsupportedPrf(payload.prf);
 
         uint256 n = payload.witnesses.length;
         if (n == 0 || n > PAD_DECRYPT_MAX_WITNESSES) revert PadDecryptInvalidWitnessCount(n);
