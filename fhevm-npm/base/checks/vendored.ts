@@ -46,6 +46,7 @@ const publishedVendoredFromSchema = z
     commit: z.string().regex(/^[0-9a-f]{40}$/),
     from: z.string().min(1),
     to: z.string().min(1),
+    localPatches: z.array(z.string().min(1)).min(1).optional(),
   })
   .strict();
 
@@ -151,7 +152,16 @@ export type PinnedVendoredTarget = {
   /** Index in the package's own `vendored` array, so a message can name the entry to edit. Taken
    *  before pinned entries are filtered out, or it would point at the wrong element. */
   readonly entryIndex: number;
+  /** `localPatches[].file`: deliberately edited here, so out of the digest and never rewritten. */
+  readonly localPatches: readonly string[];
 };
+
+/** The files a pinned entry patches locally, as the digest excludes them. */
+export function localPatchFiles(entry: {
+  readonly localPatches?: readonly { readonly file: string }[];
+}): ReadonlySet<string> {
+  return new Set((entry.localPatches ?? []).map((patch) => patch.file));
+}
 
 /** Every pinned vendored destination in the workspace — what `sync-vendored` writes and this file checks. */
 export function pinnedVendoredTargets(workspaceRoot: string, manifest: NpmManifest): readonly PinnedVendoredTarget[] {
@@ -169,6 +179,7 @@ export function pinnedVendoredTargets(workspaceRoot: string, manifest: NpmManife
         relPath: entry.relPath,
         source: entry.source,
         entryIndex,
+        localPatches: [...localPatchFiles(entry)],
       })),
   );
 }
@@ -309,15 +320,9 @@ export function validateVendoredMetadata(
   }
 
   const entry = pinnedEntries[0]!;
-  const expected = {
-    repository: entry.source.repository,
-    tag: entry.source.tag,
-    commit: entry.source.commit,
-    from: entry.source.from,
-    to: entry.relPath.slice(2),
-  };
+  const expected = publishedVendoredFrom(entry);
   const mismatches = Object.entries(expected)
-    .filter(([field, value]) => parsed.data[field as keyof typeof expected] !== value)
+    .filter(([field, value]) => JSON.stringify(parsed.data[field as keyof typeof expected]) !== JSON.stringify(value))
     .map(
       ([field, value]) =>
         `${field}=${JSON.stringify(parsed.data[field as keyof typeof expected])} (expected ${JSON.stringify(value)})`,
@@ -325,6 +330,38 @@ export function validateVendoredMetadata(
   return mismatches.length === 0
     ? []
     : [`package.json#fhevm.vendoredFrom differs from npm-manifest.json: ${mismatches.join(', ')}`];
+}
+
+/**
+ * The published `fhevm.vendoredFrom` a pinned entry implies. Its local patches are listed, so a consumer of
+ * the package can see the copy is not pure upstream; absent when there are none.
+ */
+export function publishedVendoredFrom(entry: {
+  readonly relPath: string;
+  readonly source: PinnedVendoredEntry['source'];
+  readonly localPatches?: readonly { readonly file: string }[];
+}): {
+  readonly repository: string;
+  readonly tag: string;
+  readonly commit: string;
+  readonly from: string;
+  readonly to: string;
+  readonly localPatches?: readonly string[];
+} {
+  const patches = [...localPatchFiles(entry)];
+  return {
+    repository: entry.source.repository,
+    tag: entry.source.tag,
+    commit: entry.source.commit,
+    from: entry.source.from,
+    to: entry.relPath.replace(/^\.\//, ''),
+    ...(patches.length === 0 ? {} : { localPatches: patches }),
+  };
+}
+
+/** Patched files missing from the copy: a patch that is listed must be there, or the listing is stale. */
+export function missingLocalPatches(directory: string, patches: Iterable<string>): readonly string[] {
+  return [...patches].filter((file) => !existsSync(join(directory, ...file.split('/'))));
 }
 
 function selectVendoredPackages(packages: readonly LoadedPackage[], selector: string): readonly LoadedPackage[] {
@@ -366,9 +403,14 @@ function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntr
     return;
   }
 
+  const patches = localPatchFiles(entry);
+  for (const file of missingLocalPatches(destination, patches)) {
+    violation(output, published.key, `${entry.relPath}/${file}: listed in localPatches but absent`);
+  }
+
   let actual: string;
   try {
-    actual = vendoredDigest(destination);
+    actual = vendoredDigest(destination, patches);
   } catch (error) {
     violation(output, published.key, `${entry.relPath}: ${errorMessage(error)}`);
     return;
@@ -393,7 +435,10 @@ function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntr
     return;
   }
 
-  output.successes.push(`${published.key} ${entry.relPath}: matches the recorded digest of ${entry.source.tag}`);
+  output.successes.push(
+    `${published.key} ${entry.relPath}: matches the recorded digest of ${entry.source.tag}` +
+      (patches.size === 0 ? '' : `, except ${String(patches.size)} local patch(es): ${[...patches].join(', ')}`),
+  );
 }
 
 /**

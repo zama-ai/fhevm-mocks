@@ -224,10 +224,20 @@
             "repository": "https://github.com/zama-ai/fhevm",
             "tag": "v0.15.0-6",
             "commit": "4aa9f1c3bf984c48f3772e589ca6abe1ab494767",
-            "digest": "sha256-sh1S6VT6IuolatZx4a92n9wlDncgMMz81a7qFq9bK0Y=",
+            "digest": "sha256-yv9zR3cmftS973OYmjcLoZ6MRHAn04fUvtF4z7S5S2c=",
             "from": "host-contracts/contracts"
           },
-          "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation."
+          "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation.",
+          "localPatches": [
+            {
+              "file": "FHEVMExecutor.sol",
+              "reason": "RFC-030 wiring ahead of upstream: verifyInput routes pad-based packages (packageType 0x00) to PaddedInputter and marks the result minted. Drop once the pinned tag ships it."
+            },
+            {
+              "file": "PaddedInputter.sol",
+              "reason": "RFC-030 PaddedInputter, absent upstream at this tag: written to follow the RFC and the stack's patterns, as close as possible to what upstream will ship. Drop once the pinned tag ships it."
+            }
+          ]
         },
         {
           "relPath": "./ts/types",

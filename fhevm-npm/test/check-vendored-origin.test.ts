@@ -11,6 +11,7 @@ import {
   vendoredPackageKeys,
 } from '../base/checks/vendored.ts';
 import type { NpmManifest } from '../manifest.ts';
+import { vendoredDigest } from '../base/vendored-digest.ts';
 
 test('checks a manifest-selected local vendored copy with its declared rewrite', () => {
   const workspaceRoot = mkdtempSync(join(process.cwd(), '.tmp-check-vendored-origin-'));
@@ -287,6 +288,102 @@ test('a dev selector grades the dev package itself when it pins a tree of its ow
     // The published key alone stays a single package, as before.
     assert.equal(validateVendoredPackage(workspaceRoot, manifest, './library/pkg').packageKey, './library/pkg');
     assert.throws(() => validateVendoredPackage(workspaceRoot, manifest, './library'), /denotes 2 packages/);
+  } finally {
+    rmSync(workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+test("fhevm.vendoredFrom lists a pinned copy's local patches", () => {
+  const entry = {
+    relPath: './src/contracts',
+    source: {
+      repository: 'https://github.com/example/repository',
+      tag: 'v1.2.3',
+      commit: '0123456789abcdef0123456789abcdef01234567',
+      from: 'contracts',
+    },
+    reason: 'The upstream source is not available as an npm dependency.',
+    localPatches: [{ file: 'Executor.sol', reason: 'ahead of upstream' }],
+  };
+  const valid = {
+    repository: entry.source.repository,
+    tag: entry.source.tag,
+    commit: entry.source.commit,
+    from: entry.source.from,
+    to: 'src/contracts',
+    localPatches: ['Executor.sol'],
+  };
+
+  assert.deepEqual(validateVendoredMetadata({ fhevm: { vendoredFrom: valid } }, [entry]), []);
+  const { localPatches: _omitted, ...withoutPatches } = valid;
+  assert.deepEqual(validateVendoredMetadata({ fhevm: { vendoredFrom: withoutPatches } }, [entry]), [
+    'package.json#fhevm.vendoredFrom differs from npm-manifest.json: localPatches=undefined (expected ["Executor.sol"])',
+  ]);
+});
+
+test('a pinned copy is graded without its local patches, which must exist', () => {
+  const workspaceRoot = mkdtempSync(join(process.cwd(), '.tmp-check-vendored-origin-patches-'));
+  try {
+    const destination = join(workspaceRoot, 'library', 'pkg', 'src', 'contracts');
+    mkdirSync(destination, { recursive: true });
+    writeFileSync(join(destination, 'Upstream.sol'), 'contract Upstream {}\n');
+    // The digest upstream implies: its own files, minus the patched ones.
+    const digest = vendoredDigest(destination);
+    writeFileSync(join(destination, 'Executor.sol'), 'contract Executor { /* patched */ }\n');
+
+    const pinned = {
+      repository: 'https://github.com/example/repository',
+      tag: 'v1.2.3',
+      commit: '0123456789abcdef0123456789abcdef01234567',
+      from: 'contracts',
+    };
+    writeFileSync(
+      join(workspaceRoot, 'library', 'pkg', 'package.json'),
+      JSON.stringify({
+        name: 'library',
+        fhevm: { vendoredFrom: { ...pinned, to: 'src/contracts', localPatches: ['Executor.sol', 'New.sol'] } },
+      }),
+    );
+    const manifest = (patches: readonly string[]) =>
+      ({
+        packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
+        packages: {
+          './library/pkg': {
+            kind: 'published',
+            type: 'esm',
+            browser: false,
+            name: 'library',
+            member: false,
+            vendored: [
+              {
+                relPath: './src/contracts',
+                source: { ...pinned, digest },
+                reason: 'pinned',
+                localPatches: patches.map((file) => ({ file, reason: 'ahead of upstream' })),
+              },
+            ],
+          },
+        },
+      }) satisfies NpmManifest;
+
+    // Without the listing, the patched file breaks the digest.
+    const unlisted = validateVendoredPackage(workspaceRoot, manifest(['Executor.sol', 'New.sol']), './library/pkg');
+    assert.deepEqual(
+      unlisted.violations.map((v) => v.message),
+      ['./src/contracts/New.sol: listed in localPatches but absent'],
+    );
+    writeFileSync(join(destination, 'New.sol'), 'contract New {}\n');
+    assert.deepEqual(
+      validateVendoredPackage(workspaceRoot, manifest(['Executor.sol', 'New.sol']), './library/pkg').violations,
+      [],
+    );
+    // An edit to any OTHER file is still caught.
+    writeFileSync(join(destination, 'Upstream.sol'), 'contract Upstream { /* drift */ }\n');
+    assert.match(
+      validateVendoredPackage(workspaceRoot, manifest(['Executor.sol', 'New.sol']), './library/pkg').violations[0]!
+        .message,
+      /content is sha256-.*, but npm-manifest.json records/,
+    );
   } finally {
     rmSync(workspaceRoot, { recursive: true, force: true });
   }

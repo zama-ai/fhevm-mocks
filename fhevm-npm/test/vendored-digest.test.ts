@@ -117,3 +117,25 @@ test('files are listed POSIX-relative and globally sorted, not per directory', (
     assert.deepEqual(listRelativeFiles(root!), ['a/b/c.sol', 'a/z.sol', 'b.sol']);
   });
 });
+
+test('excluded files are left out, so a tree with local patches digests as upstream without them', () => {
+  withTrees(
+    [
+      { 'a.sol': 'X', 'Executor.sol': 'upstream' },
+      { 'a.sol': 'X', 'Executor.sol': 'patched', 'New.sol': 'absent upstream' },
+    ],
+    ([upstream, local]) => {
+      assert.notEqual(vendoredDigest(local!), vendoredDigest(upstream!));
+      assert.equal(
+        vendoredDigest(local!, new Set(['Executor.sol', 'New.sol'])),
+        vendoredDigest(upstream!, new Set(['Executor.sol', 'New.sol'])),
+      );
+      // Every OTHER file still counts.
+      writeFileSync(join(local!, 'a.sol'), 'Y');
+      assert.notEqual(
+        vendoredDigest(local!, new Set(['Executor.sol', 'New.sol'])),
+        vendoredDigest(upstream!, new Set(['Executor.sol', 'New.sol'])),
+      );
+    },
+  );
+});

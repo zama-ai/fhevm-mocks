@@ -439,3 +439,49 @@ test('a vendored `renamed` map names listed files, distinct sources, and only on
     assert.throws(() => parseNpmManifest(withVendored(vendored)), message);
   }
 });
+
+test('vendored `localPatches` name distinct Solidity files, and only on a pinned copy', () => {
+  const base = {
+    $schema: './fhevm-npm/schemas/npm-manifest.schema.json',
+    foundry: { version: '1.5.1-stable' },
+    packageJson: { published: { required: ['name'], excluded: ['private'] } },
+  };
+  const root = { kind: 'workspace-root', type: 'esm', browser: false, name: 'workspace', private: true, member: false };
+  const withVendored = (vendored: Record<string, unknown>) => ({
+    ...base,
+    packages: {
+      '.': root,
+      './lib/pkg': { kind: 'published', type: 'esm', browser: false, name: 'lib', member: true, vendored: [vendored] },
+    },
+  });
+  const pinned = {
+    relPath: './src/contracts',
+    source: {
+      repository: 'https://github.com/example/repository',
+      tag: 'v1.2.3',
+      commit: '0123456789abcdef0123456789abcdef01234567',
+      from: 'contracts',
+    },
+    reason: 'pinned',
+  };
+  const patch = { file: 'Executor.sol', reason: 'ahead of upstream' };
+
+  const ok = parseNpmManifest(
+    withVendored({ ...pinned, localPatches: [patch, { file: 'sub/New.sol', reason: 'new' }] }),
+  );
+  assert.equal(ok.packages['./lib/pkg']?.vendored?.[0]?.localPatches?.length, 2);
+
+  const cases: readonly [Record<string, unknown>, RegExp][] = [
+    [{ ...pinned, localPatches: [] }, /localPatches/],
+    [{ ...pinned, localPatches: [patch, patch] }, /must not patch the same file twice/],
+    [{ ...pinned, localPatches: [{ file: 'notes.md', reason: 'x' }] }, /must name a Solidity file/],
+    [{ ...pinned, localPatches: [{ file: '../Escape.sol', reason: 'x' }] }, /must be a safe path relative to relPath/],
+    [
+      { relPath: './ts', source: './common-vendored/src', reason: 'copy', localPatches: [patch] },
+      /only a pinned copy can carry local patches/,
+    ],
+  ];
+  for (const [vendored, message] of cases) {
+    assert.throws(() => parseNpmManifest(withVendored(vendored)), message);
+  }
+});

@@ -878,6 +878,39 @@ tampering unless you know to re-run the sync after a toolchain bump.
 "source": { "repository": "…", "tag": "v0.12.5", "commit": "ac18e49…", "from": "host-contracts/contracts" }
 ```
 
+**5.1.3a′ A pinned copy may carry declared local patches, and nothing else may differ.** When a generation has to run
+ahead of upstream (RFC-030's `PaddedInputter`, and the `FHEVMExecutor` wiring to it, before any fhevm tag ships them),
+the edited or added files are listed in the entry's `localPatches`, each with its reason. They are left out of the
+digest on BOTH sides — `sync vendored --digest` hashes upstream without them — so the digest still proves every other
+file is the tag's, which a bypass of the check would have given up. `sync vendored` never overwrites or prunes a
+listed file, refuses one that is missing, and refuses one that has become byte-identical to upstream, so a patch is
+dropped when upstream catches up instead of being kept by inertia. The published `fhevm.vendoredFrom.localPatches`
+names them too: a consumer can see the copy is not pure upstream.
+
+```jsonc
+// ✅ Upstream's tree, minus two files this repository owns until the tag ships them.
+{
+  "relPath": "./src/contracts",
+  "source": {
+    "repository": "https://github.com/zama-ai/fhevm",
+    "tag": "v0.15.0-6",
+    "commit": "4aa9f1c…",
+    "from": "host-contracts/contracts",
+    "digest": "sha256-…",
+  },
+  "reason": "…",
+  "localPatches": [
+    { "file": "FHEVMExecutor.sol", "reason": "RFC-030 wiring ahead of upstream. Drop once the pinned tag ships it." },
+    {
+      "file": "PaddedInputter.sol",
+      "reason": "RFC-030 PaddedInputter, absent upstream at this tag. Drop once the pinned tag ships it.",
+    },
+  ],
+}
+
+// ❌ Editing a pinned copy without listing it: the digest fails, and the next `sync vendored` silently reverts the edit.
+```
+
 **5.1.3b `npm-manifest.json` is the only place a vendored copy is declared.** What is copied, where it lands, which
 files, and what is rewritten on arrival all live on the destination package's `vendored` entry. Nothing else declares
 a copy, and no second file restates one.

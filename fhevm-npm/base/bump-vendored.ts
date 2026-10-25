@@ -86,7 +86,9 @@ export async function bumpVendored(options: BumpVendoredOptions): Promise<BumpVe
     options.onProgress?.(`→ ${packageKey} ${element.relPath} (${source.from}: ${source.tag} → ${options.tag})`);
     let digest: string;
     try {
-      digest = upstreamDigest(next, options.download, options.cacheRoot);
+      // The local patches stay out of the digest across a bump, as everywhere else.
+      const patches = (element.localPatches ?? []).map((patch) => patch.file);
+      digest = upstreamDigest(next, options.download, options.cacheRoot, patches);
     } catch (error) {
       violations.push({
         rule: RULE,
@@ -104,7 +106,7 @@ export async function bumpVendored(options: BumpVendoredOptions): Promise<BumpVe
       to: { tag: options.tag, commit, digest },
       // Compared against the copies as they are NOW, before anything is written: in check mode nothing
       // ever is, and this is still the answer the operator came for.
-      copiesChange: onDiskDigest(options.workspaceRoot, packageKey, element.relPath) !== digest,
+      copiesChange: onDiskDigest(options.workspaceRoot, packageKey, element) !== digest,
     });
     source.tag = options.tag;
     source.commit = commit;
@@ -186,11 +188,11 @@ function chooseRepository(selected: readonly SelectedPin[], options: BumpVendore
 }
 
 /** What the copies hash to today, or undefined when there are none yet (a pin being bootstrapped). */
-function onDiskDigest(workspaceRoot: string, packageKey: string, relPath: string): string | undefined {
-  const directory = join(workspaceRoot, packageKey, relPath);
+function onDiskDigest(workspaceRoot: string, packageKey: string, element: PinnedElement): string | undefined {
+  const directory = join(workspaceRoot, packageKey, element.relPath);
   if (!existsSync(directory)) return undefined;
   try {
-    return vendoredDigest(directory);
+    return vendoredDigest(directory, new Set((element.localPatches ?? []).map((patch) => patch.file)));
   } catch {
     return undefined;
   }
@@ -305,6 +307,7 @@ function rewriteBlock(block: string, source: PinnedElement['source']): string {
 type PinnedElement = {
   relPath: string;
   source: { repository: string; tag: string; commit: string; from: string; digest?: string };
+  localPatches?: Array<{ file: string; reason: string }>;
 };
 type ManifestJson = {
   packages: Record<string, { vendored?: Array<{ relPath: string; source: string } | PinnedElement> }>;

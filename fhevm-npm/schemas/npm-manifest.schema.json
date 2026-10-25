@@ -329,6 +329,29 @@
           "$comment": "Required, and the most important field here. A copy whose reason no longer holds is a copy to delete, and nothing else in the repository records why one was made.",
           "minLength": 1
         },
+        "localPatches": {
+          "type": "array",
+          "description": "Files of a pinned copy deliberately edited, or added, in this repository ahead of upstream. Each is left out of the digest (on both sides), never overwritten or pruned by `sync vendored`, and must exist. A patch that upstream makes redundant (byte-identical after formatting) is refused by `sync vendored`, so it is dropped rather than kept by inertia.",
+          "$comment": "Pinned copies only: a local copy is edited at its source. The digest then proves every OTHER file is the tag's, which is what a bypass of the check would have lost. Listed in the published `fhevm.vendoredFrom.localPatches` too, so a consumer sees the copy is not pure upstream.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "required": ["file", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "description": "The patched Solidity file, relative to `relPath`, without a leading `./`.",
+                "$ref": "#/$defs/unprefixedRelativePath"
+              },
+              "reason": {
+                "type": "string",
+                "description": "Why the copy differs from upstream, and what makes the patch go away.",
+                "minLength": 1
+              }
+            }
+          }
+        },
         "rewrites": {
           "type": "array",
           "description": "Edits applied to a copy on its way in, so the copy compiles where it lands.",

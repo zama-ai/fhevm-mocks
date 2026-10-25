@@ -190,9 +190,38 @@ const vendoredElementSchema = z
       .min(1)
       .optional(),
     reason: z.string().min(1),
+    // Files of a PINNED tree deliberately edited (or added) here, ahead of upstream. Left out of the digest on
+    // both sides, never overwritten or pruned by `sync vendored`, and refused once upstream makes one redundant.
+    localPatches: z
+      .array(
+        z
+          .object({
+            file: z
+              .string()
+              .regex(UNPREFIXED_PATH, 'must be a safe path relative to relPath')
+              .refine((file) => file.endsWith('.sol'), 'must name a Solidity file'),
+            reason: z.string().min(1),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.localPatches !== undefined) {
+      if (typeof value.source === 'string') {
+        context.addIssue({
+          code: 'custom',
+          path: ['localPatches'],
+          message: 'only a pinned copy can carry local patches; a local copy is edited at its source',
+        });
+      }
+      const patched = value.localPatches.map((patch) => patch.file);
+      if (new Set(patched).size !== patched.length) {
+        context.addIssue({ code: 'custom', path: ['localPatches'], message: 'must not patch the same file twice' });
+      }
+    }
     if (value.files !== undefined && new Set(value.files).size !== value.files.length) {
       context.addIssue({ code: 'custom', path: ['files'], message: 'must not contain duplicate filenames' });
     }

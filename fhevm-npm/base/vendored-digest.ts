@@ -12,8 +12,12 @@ import { join, posix, sep } from 'node:path';
  */
 export const DIGEST_PATTERN = /^sha256-[A-Za-z0-9+/]+={0,2}$/;
 
-export function vendoredDigest(directory: string): string {
-  const files = listRelativeFiles(directory);
+/**
+ * `excluded` names files (POSIX, relative to `directory`) left out of the digest: a pinned copy's local
+ * patches, which differ from upstream on purpose. Both sides of a comparison must exclude the same set.
+ */
+export function vendoredDigest(directory: string, excluded: ReadonlySet<string> = new Set()): string {
+  const files = listRelativeFiles(directory).filter((file) => !excluded.has(file));
   if (files.length === 0) throw new Error(`${directory} contains no files to digest`);
 
   const hash = createHash('sha256');

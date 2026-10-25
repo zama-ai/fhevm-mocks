@@ -22,7 +22,9 @@ import {
   type PinnedVendoredTarget,
   expectedVendoredContent,
   localVendoredManifest,
+  missingLocalPatches,
   pinnedVendoredTargets,
+  publishedVendoredFrom,
   sourceFileName,
 } from './checks/vendored.ts';
 import type { Violation } from './diagnostics.ts';
@@ -217,13 +219,20 @@ export function digestInstruction(target: PinnedVendoredTarget, digest: string):
  * computed from upstream, not from the copies on disk, so it says what the manifest SHOULD record rather
  * than what it currently does. `sync vendored --digest` prints it; `bump vendored` writes it.
  */
-export function upstreamDigest(source: PinnedSource, download?: Downloader, cacheRoot?: string): string {
+export function upstreamDigest(
+  source: PinnedSource,
+  download?: Downloader,
+  cacheRoot?: string,
+  localPatches: readonly string[] = [],
+): string {
+  // The local patches are left out on this side too, so the digest still proves every OTHER file is the tag's.
+  const excluded = new Set(localPatches);
   return withPinnedTree(
     source,
     (tree) => {
       const scratch = mkdtempSync(join(tmpdir(), 'fhevm-npm-digest-'));
       try {
-        for (const file of solidityFilesUnder(tree)) {
+        for (const file of solidityFilesUnder(tree).filter((f) => !excluded.has(f))) {
           const destination = join(scratch, file);
           mkdirSync(dirname(destination), { recursive: true });
           writeFileSync(destination, formatSolidity(readFileSync(join(tree, file), 'utf8')));
@@ -246,7 +255,7 @@ function reportUpstreamDigest(
 ): number {
   let digest: string;
   try {
-    digest = upstreamDigest(target.source, download, cacheRoot);
+    digest = upstreamDigest(target.source, download, cacheRoot, target.localPatches);
   } catch (error) {
     violations.push({
       rule: RULE,
@@ -268,9 +277,10 @@ function reportUpstreamDigest(
 }
 
 function checkPinnedDigest(options: SyncPinnedOptions, target: PinnedVendoredTarget, violations: Violation[]): number {
+  checkLocalPatchesPresent(options, target, violations);
   let actual: string;
   try {
-    actual = vendoredDigest(target.directory);
+    actual = vendoredDigest(target.directory, new Set(target.localPatches));
   } catch (error) {
     violations.push({
       rule: RULE,
@@ -316,11 +326,25 @@ function syncPinnedTarget(
       (tree) => {
         const upstream = solidityFilesUnder(tree);
         if (upstream.length === 0) throw new Error(`${target.source.from} holds no Solidity files`);
+        const patched = new Set(target.localPatches);
         for (const file of upstream) {
           const destinationFile = join(target.directory, file);
           // Formatted on the way in, so the committed copy is what forge would produce and the digest is
           // stable against upstream whitespace.
           const expected = formatSolidity(readFileSync(join(tree, file), 'utf8'));
+          if (patched.has(file)) {
+            // Never overwritten. A patch upstream has caught up with is refused, so it is dropped from the
+            // manifest rather than kept by inertia, hiding the next upstream change to that file.
+            if (existsSync(destinationFile) && readFileSync(destinationFile, 'utf8') === expected) {
+              violations.push({
+                rule: RULE,
+                packageKey: `./${targetLabel(target)}`,
+                message: `${target.relPath}/${file}: listed in localPatches but identical to ${target.source.tag} — remove the patch from npm-manifest.json`,
+              });
+            }
+            options.onProgress?.(`   ✎ ${targetLabel(target)}/${file} (local patch, kept)`);
+            continue;
+          }
           if (existsSync(destinationFile) && readFileSync(destinationFile, 'utf8') === expected) {
             options.onProgress?.(`   ✅ ${targetLabel(target)}/${file}`);
             continue;
@@ -353,6 +377,7 @@ function syncPinnedTarget(
     return 0;
   }
 
+  checkLocalPatchesPresent(options, target, violations);
   removeStale(options, target, files, written, violations);
   writeVendoredFrom(options, target, violations);
   reportDigest(options, target, violations);
@@ -364,7 +389,7 @@ function syncPinnedTarget(
  * hand-edited and reviewed, so a value that gates every build should arrive through a diff you read.
  */
 function reportDigest(options: SyncPinnedOptions, target: PinnedVendoredTarget, violations: Violation[]): void {
-  const digest = vendoredDigest(target.directory);
+  const digest = vendoredDigest(target.directory, new Set(target.localPatches));
   if (target.source.digest === digest) {
     options.onProgress?.(`   ✅ ${targetLabel(target)} ${digest}`);
     return;
@@ -390,7 +415,8 @@ function removeStale(
   written: string[],
   violations: Violation[],
 ): void {
-  const keep = new Set(upstream);
+  // A local patch may be a file upstream does not have yet: it is kept, not pruned.
+  const keep = new Set([...upstream, ...target.localPatches]);
   for (const file of solidityFilesUnder(target.directory)) {
     if (keep.has(file)) continue;
     if (options.check) {
@@ -407,19 +433,37 @@ function removeStale(
   }
 }
 
+/** Every listed local patch exists in the copy, and each is named on every run so none is forgotten. */
+function checkLocalPatchesPresent(
+  options: SyncPinnedOptions,
+  target: PinnedVendoredTarget,
+  violations: Violation[],
+): void {
+  const missing = new Set(missingLocalPatches(target.directory, target.localPatches));
+  for (const file of target.localPatches) {
+    if (missing.has(file)) {
+      violations.push({
+        rule: RULE,
+        packageKey: `./${targetLabel(target)}`,
+        message: `${target.relPath}/${file}: listed in localPatches but absent`,
+      });
+    } else {
+      options.onProgress?.(`   ✎ ${targetLabel(target)}/${file}: local patch, outside the digest`);
+    }
+  }
+}
+
 /** The provenance block in the published package.json, regenerated from the manifest entry. */
 function writeVendoredFrom(options: SyncPinnedOptions, target: PinnedVendoredTarget, violations: Violation[]): void {
   const file = join(target.packageDirectory, 'package.json');
   const packageJson = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown> & {
     fhevm?: Record<string, unknown>;
   };
-  const expected = {
-    repository: target.source.repository,
-    tag: target.source.tag,
-    commit: target.source.commit,
-    from: target.source.from,
-    to: target.relPath.replace(/^\.\//, ''),
-  };
+  const expected = publishedVendoredFrom({
+    relPath: target.relPath,
+    source: target.source,
+    localPatches: target.localPatches.map((file) => ({ file })),
+  });
 
   const current = packageJson.fhevm?.['vendoredFrom'];
   if (JSON.stringify(current) === JSON.stringify(expected)) return;
