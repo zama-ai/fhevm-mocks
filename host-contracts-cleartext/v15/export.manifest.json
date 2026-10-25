@@ -248,6 +248,9 @@
           "name": "HCULimitInitConfig"
         },
         {
+          "name": "PaddedInputterInitConfig"
+        },
+        {
           "comment": ["Shared on-chain structs."],
           "name": "KmsNode"
         },
@@ -419,6 +422,7 @@
           "  hcuLimitAddress: ADDRESS,",
           "  protocolConfigAddress: ADDRESS,",
           "  kmsGenerationAddress: ADDRESS,",
+          "  paddedInputterAddress: ADDRESS,",
           "}"
         ]
       },
@@ -534,6 +538,10 @@
         "dummy": "{ hcuCapPerBlock: 1n, maxHCUDepthPerTx: 1n, maxHCUPerTx: 1n }"
       },
       {
+        "type": "PaddedInputterInitConfig",
+        "dummy": "{ initialPrfInstances: [0] }"
+      },
+      {
         "type": "BootstrapConfig",
         "dummy": [
           "{",
@@ -541,6 +549,7 @@
           "  inputVerifier: dummyInputVerifierInitConfig,",
           "  hcuLimit: dummyHCULimitInitConfig,",
           "  protocolConfig: dummyProtocolConfigInitConfig,",
+          "  paddedInputter: dummyPaddedInputterInitConfig,",
           "}"
         ]
       },

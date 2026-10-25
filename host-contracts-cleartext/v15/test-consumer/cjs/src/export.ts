@@ -38,6 +38,7 @@ import {
   type InputVerifierInitConfig,
   type KMSVerifierInitConfig,
   type HCULimitInitConfig,
+  type PaddedInputterInitConfig,
   type KmsNode,
   type KmsThresholds,
   type KmsNodeParams,
@@ -105,6 +106,7 @@ const dummyFhevmAddresses: FhevmAddresses = {
   hcuLimitAddress: ADDRESS,
   protocolConfigAddress: ADDRESS,
   kmsGenerationAddress: ADDRESS,
+  paddedInputterAddress: ADDRESS,
 };
 const dummyFhevmAddressesV14: FhevmAddressesV14 = {
   aclAddress: ADDRESS,
@@ -162,11 +164,13 @@ const dummyProtocolConfigInitConfig: ProtocolConfigInitConfig = {
   pcrValues: [],
 };
 const dummyHCULimitInitConfig: HCULimitInitConfig = { hcuCapPerBlock: 1n, maxHCUDepthPerTx: 1n, maxHCUPerTx: 1n };
+const dummyPaddedInputterInitConfig: PaddedInputterInitConfig = { initialPrfInstances: [0] };
 const dummyBootstrapConfig: BootstrapConfig = {
   kmsVerifier: dummyKMSVerifierInitConfig,
   inputVerifier: dummyInputVerifierInitConfig,
   hcuLimit: dummyHCULimitInitConfig,
   protocolConfig: dummyProtocolConfigInitConfig,
+  paddedInputter: dummyPaddedInputterInitConfig,
 };
 const dummyDeployed: Deployed = {
   fhevmAddresses: dummyFhevmAddresses,
@@ -242,6 +246,7 @@ const SAMPLES: readonly unknown[] = [
   dummyKMSVerifierInitConfig,
   dummyProtocolConfigInitConfig,
   dummyHCULimitInitConfig,
+  dummyPaddedInputterInitConfig,
   dummyBootstrapConfig,
   dummyDeployed,
   dummyVerifyCheck,

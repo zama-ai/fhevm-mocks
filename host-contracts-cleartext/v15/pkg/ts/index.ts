@@ -53,6 +53,7 @@ export type {
   InputVerifierInitConfig,
   KMSVerifierInitConfig,
   HCULimitInitConfig,
+  PaddedInputterInitConfig,
   // Shared on-chain structs.
   KmsNode,
   KmsThresholds,
