@@ -131,8 +131,11 @@ contract CleartextFHEVMExecutor is FHEVMExecutor, IPlaintexts {
 
     /**
      * @notice Getter function for the PaddedInputter (RFC-030) contract address.
-     * @dev CLEARTEXT-ONLY, so a deployment check can read back the address the executor bakes: the stock
-     *      `FHEVMExecutor` exposes none yet. Remove it from here once upstream's executor exposes one.
+     * @dev CLEARTEXT-ONLY: the stock `FHEVMExecutor` exposes none. Part of the cleartext stack for good, not a
+     *      stopgap: it is how a client reaches `CleartextPaddedInputter`, and so the RFC-030 pad decryption mock
+     *      (`getCleartextPadSharesMaterial`), from the ACL (ACL -> executor -> PaddedInputter). Deployment checks
+     *      also read back the address the executor bakes through it. If upstream's executor gains its own getter,
+     *      keep this one or make sure it returns the same address.
      */
     function getPaddedInputterAddress() public view virtual returns (address) {
         return address(paddedInputterAdd);

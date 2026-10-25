@@ -183,8 +183,10 @@ library LibForgeFhevmUpgrade {
     function upgradeToCleartext(address[11] memory addresses) internal returns (address arithmetic, address db) {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
 
-        // The cleartext executor bakes PaddedInputter too. A chain that has one keeps it: the cleartext
-        // subclass differs only by the `IS_CLEARTEXT` marker, so re-pointing it would change no behaviour.
+        // The cleartext executor bakes PaddedInputter too. A chain that has none gets one, created straight on
+        // the cleartext subclass; a chain that has one is re-pointed below, with the other proxies: the subclass
+        // carries the pad DECRYPTION mock, which a production PaddedInputter has not.
+        bool hadPaddedInputter = addresses[uint8(FhevmAddressRole.PaddedInputter)] != address(0);
         _ensurePaddedInputter(owner, addresses, FhevmHostContracts.CleartextPaddedInputter);
 
         // The two contracts no real chain has. They must exist before the executor is patched, because it
@@ -243,6 +245,15 @@ library LibForgeFhevmUpgrade {
             addresses,
             ""
         );
+        if (hadPaddedInputter) {
+            _materialize(
+                owner,
+                addresses[uint8(FhevmAddressRole.PaddedInputter)],
+                FhevmHostContracts.CleartextPaddedInputter,
+                addresses,
+                ""
+            );
+        }
 
         // Only the four that call cheatcodes; the others need nothing.
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.ACL)]);

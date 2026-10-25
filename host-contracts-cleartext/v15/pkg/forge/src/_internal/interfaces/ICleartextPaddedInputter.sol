@@ -12,6 +12,56 @@ library FHEVMExecutor {
 }
 
 interface ICleartextPaddedInputter {
+    struct CleartextPadSharesMaterial {
+        bytes32 requestId;
+        uint32 packingFactor;
+        uint32 degree;
+        bytes extraData;
+        PadShare[] padShares;
+        address[] signers;
+        uint32[] partyIds;
+        bytes32[] digests;
+        uint256 threshold;
+    }
+
+    struct PadDecryptRequest {
+        UserDecryptPermitV2 auth;
+        bytes signature;
+        PadDecryptRequestPayload payload;
+    }
+
+    struct PadDecryptRequestPayload {
+        uint8 witnessVersion;
+        uint16 prf;
+        uint64 chainId;
+        PadWitness[] witnesses;
+    }
+
+    struct PadShare {
+        bytes32 label;
+        bytes16 sessionId;
+        bytes share;
+    }
+
+    struct PadWitness {
+        address submitter;
+        address consumer;
+        uint64 expirationTimestamp;
+        address[] decryptors;
+        bytes16 nonce;
+        bytes32 label;
+        uint16 padLength;
+    }
+
+    struct UserDecryptPermitV2 {
+        address userAddress;
+        bytes publicKey;
+        address[] allowedContracts;
+        uint256 startTimestamp;
+        uint256 durationSeconds;
+        bytes extraData;
+    }
+
     error AddressEmptyCode(address target);
     error CallerMustBeFHEVMExecutorContract();
     error ERC1967InvalidImplementation(address implementation);
@@ -23,6 +73,21 @@ interface ICleartextPaddedInputter {
     error NotInitializingFromEmptyProxy();
     error PadCiphertextLengthMismatch(uint256 ciphertextBytes, uint256 expectedBytes);
     error PadConsumerMismatch(address actualConsumer, address consumer);
+    error PadDecryptConsumerNotAllowed(bytes32 label, address consumer);
+    error PadDecryptDuplicateLabel(bytes32 label);
+    error PadDecryptInvalidExtraData(bytes extraData);
+    error PadDecryptInvalidKmsContextOrEpoch(uint256 contextId, uint256 epochId);
+    error PadDecryptInvalidPadLength(bytes32 label, uint16 padLength);
+    error PadDecryptInvalidSignature(address userAddress);
+    error PadDecryptInvalidUserAddress();
+    error PadDecryptInvalidWitnessCount(uint256 count);
+    error PadDecryptNullWitnessAddress(bytes32 label);
+    error PadDecryptPublicKeyTooShort(uint256 length);
+    error PadDecryptRequestExpired(uint256 startTimestamp, uint256 durationSeconds);
+    error PadDecryptSignatureInvalidated(address userAddress, uint256 startTimestamp, uint256 invalidatedBefore);
+    error PadDecryptTooManyDecryptors(bytes32 label, uint256 count);
+    error PadDecryptUserNotAuthorized(bytes32 label, address userAddress);
+    error PadDecryptWitnessExpired(bytes32 label, uint64 expirationTimestamp);
     error PadHandleDigestMismatch(bytes32 externalHandle, bytes32 packageDigest);
     error PadHandleVersionMismatch(uint8 handleVersion);
     error PadInputIndexOutOfBounds(uint8 inputIndex, uint8 partCount);
@@ -51,6 +116,14 @@ interface ICleartextPaddedInputter {
     function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function addPrfInstance(uint16 prf) external;
+    function computePadLabel(uint8 witnessVersion, uint16 prf, uint64 chainId, PadWitness memory witness)
+        external
+        pure
+        returns (bytes32);
+    function getCleartextPadSharesMaterial(PadDecryptRequest memory request)
+        external
+        view
+        returns (CleartextPadSharesMaterial memory material);
     function getVersion() external pure returns (string memory);
     function initializeFromEmptyProxy(uint16[] memory initialPrfInstances) external;
     function isRetiredPrfInstance(uint16 prf) external view returns (bool);
