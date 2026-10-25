@@ -7,6 +7,7 @@ import {ERC1967_PROXY_CREATION_CODE, FhevmAddressRole, FhevmHostContracts} from 
 import {ICleartextDB} from "./_internal/interfaces/ICleartextDB.sol";
 import {ICleartextArithmetic} from "./_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextFHEVMExecutor} from "./_internal/interfaces/ICleartextFHEVMExecutor.sol";
+import {ICleartextPaddedInputter} from "./_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IACL} from "./_internal/interfaces/IACL.sol";
 import {IFHEVMExecutor} from "./_internal/interfaces/IFHEVMExecutor.sol";
@@ -115,7 +116,9 @@ library LibForgeFhevmUpgrade {
     /**
      * @notice Runs the whole upgrade against the stack `addresses` describes.
      * @param addresses One address per `FhevmAddressRole`, by position: the FORK's, not this package's.
-     *                  The cleartext roles are unused and may be zero. The length is written out because
+     *                  The cleartext roles are unused and may be zero. `PaddedInputter` may be zero too: the
+     *                  previous generation has none, so one is created and its address written back here.
+     *                  The length is written out because
      *                  Solidity refuses another library's constant as an array length;
      *                  `LibForgeFhevmUpgrade.t.sol` pins it against `LibHostUpgradeCode.ROLE_COUNT`.
      *
@@ -123,8 +126,11 @@ library LibForgeFhevmUpgrade {
      *      transaction per op, each pranked as the ACL owner, in the order the table gives — upstream's,
      *      kept as is even though no reinitializer here reads another contract's state.
      */
-    function upgradeFromPreviousGeneration(address[10] memory addresses) internal {
+    function upgradeFromPreviousGeneration(address[11] memory addresses) internal {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
+
+        // v15 adds PaddedInputter, which the previous generation does not have and the new executor bakes.
+        _ensurePaddedInputter(owner, addresses, FhevmHostContracts.PaddedInputter);
 
         for (uint256 index = 0; index < OP_COUNT; index++) {
             address proxy = addresses[uint8(opProxyRole(index))];
@@ -174,8 +180,12 @@ library LibForgeFhevmUpgrade {
      *      and forge grants those per address to what IT created -- a forked chain's proxy is not that, so
      *      each one is granted explicitly. Miss a grant and the stack reverts on its first FHE operation.
      */
-    function upgradeToCleartext(address[10] memory addresses) internal returns (address arithmetic, address db) {
+    function upgradeToCleartext(address[11] memory addresses) internal returns (address arithmetic, address db) {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
+
+        // The cleartext executor bakes PaddedInputter too. A chain that has one keeps it: the cleartext
+        // subclass differs only by the `IS_CLEARTEXT` marker, so re-pointing it would change no behaviour.
+        _ensurePaddedInputter(owner, addresses, FhevmHostContracts.CleartextPaddedInputter);
 
         // The two contracts no real chain has. They must exist before the executor is patched, because it
         // names the arithmetic as a compile-time constant -- hence empty proxies first, addresses second,
@@ -241,12 +251,50 @@ library LibForgeFhevmUpgrade {
         fvm.allowCheatcodes(arithmetic);
     }
 
+    /**
+     * @dev v15 adds `PaddedInputter` (RFC-030) to the host set, and the v15 executor bakes its address. A
+     *      stack from the previous generation has none, so it is CREATED here — an empty proxy first, so its
+     *      address exists before anything is patched against it, then materialized as the ACL owner — and
+     *      written back into `addresses`. A stack that already has one (nonzero role) is left as it is.
+     *      Must run before the executor is deployed, which is every caller's first step.
+     */
+    function _ensurePaddedInputter(address owner, address[11] memory addresses, FhevmHostContracts implementation)
+        private
+    {
+        if (addresses[uint8(FhevmAddressRole.PaddedInputter)] != address(0)) return;
+
+        address emptyImplementation = _deploy(
+            uint8(implementation), LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses)
+        );
+        address proxy = _deploy(
+            uint8(implementation),
+            abi.encodePacked(
+                ERC1967_PROXY_CREATION_CODE,
+                abi.encode(emptyImplementation, abi.encodeCall(IEmptyUUPSProxy.initialize, ()))
+            )
+        );
+        addresses[uint8(FhevmAddressRole.PaddedInputter)] = proxy;
+
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) to register. EMPTY ON PURPOSE: the created
+        // PaddedInputter refuses EVERY pad-based input until this matches every deploy path's choice.
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        uint16[] memory initialPrfInstances = new uint16[](0);
+        _materialize(
+            owner,
+            proxy,
+            implementation,
+            addresses,
+            abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (initialPrfInstances))
+        );
+    }
+
     /// @dev Deploy `implementation` patched for `addresses`, then point `proxy` at it as the ACL owner.
     function _materialize(
         address owner,
         address proxy,
         FhevmHostContracts implementation,
-        address[10] memory addresses,
+        address[11] memory addresses,
         bytes memory initData
     ) private {
         address deployed = _deploy(uint8(implementation), LibHostUpgradeCode.creationCodeFor(implementation, addresses));
@@ -273,15 +321,19 @@ library LibForgeFhevmUpgrade {
      *
      * @dev THE REINITIALIZERS RUN, unlike in `upgradeToCleartext`: this IS the generation upgrade, so
      *      each proxy takes the same init data `upgradeFromPreviousGeneration` would send it.
-     *      `CleartextArithmetic` is not visited: its bytecode does not change across the two generations,
-     *      so the implementation already behind its proxy is this generation's.
+     *      `CleartextArithmetic` is visited too, through its own no-arg reinitializer: v15 changes its
+     *      bytecode (RFC-030 pad-based unmasking), and a real deployment has no such contract, so it is
+     *      not in the generation's op list. Its proxy and its store stay, so every recorded value survives.
      */
-    function upgradeCleartextFromPreviousGeneration(address[10] memory addresses)
+    function upgradeCleartextFromPreviousGeneration(address[11] memory addresses)
         internal
         returns (address arithmetic, address db)
     {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
         address executor = addresses[uint8(FhevmAddressRole.FHEVMExecutor)];
+
+        // v15 adds PaddedInputter; the previous generation's cleartext stack has none.
+        _ensurePaddedInputter(owner, addresses, FhevmHostContracts.CleartextPaddedInputter);
 
         // Asked of the stack, so the values it already holds stay reachable.
         arithmetic = ICleartextFHEVMExecutor(executor).getCleartextArithmeticAddress();
@@ -297,6 +349,15 @@ library LibForgeFhevmUpgrade {
             fvm.prank(owner);
             IUUPSProxy(addresses[uint8(opProxyRole(index))]).upgradeToAndCall(deployed, opInitData(index));
         }
+
+        // The forge variant, as on a local stack: it calls cheatcodes, granted below.
+        _materialize(
+            owner,
+            arithmetic,
+            FhevmHostContracts.CleartextForgeArithmetic,
+            addresses,
+            abi.encodeCall(ICleartextArithmetic.reinitializeV4, ())
+        );
 
         _grantCheatcodes(addresses, arithmetic);
     }
@@ -314,7 +375,7 @@ library LibForgeFhevmUpgrade {
 
     /// @dev The four that call cheatcodes. A forked chain's proxy is not something forge created, so it
     ///      has no access until it is granted -- and without it the stack reverts at its first FHE call.
-    function _grantCheatcodes(address[10] memory addresses, address arithmetic) private {
+    function _grantCheatcodes(address[11] memory addresses, address arithmetic) private {
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.ACL)]);
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.FHEVMExecutor)]);
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.HCULimit)]);

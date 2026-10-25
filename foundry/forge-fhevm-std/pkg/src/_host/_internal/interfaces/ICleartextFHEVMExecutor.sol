@@ -112,6 +112,7 @@ interface ICleartextFHEVMExecutor {
     function getHCULimitAddress() external view returns (address);
     function getHandleVersion() external pure returns (uint8);
     function getInputVerifierAddress() external view returns (address);
+    function getPaddedInputterAddress() external view returns (address);
     function getVersion() external pure returns (string memory);
     function hasPlaintext(bytes32 result) external view returns (bool);
     function initializeFromEmptyProxy() external;

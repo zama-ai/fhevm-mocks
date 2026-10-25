@@ -19,6 +19,7 @@ export type FhevmContractName =
   | 'HCULimit'
   | 'ProtocolConfig'
   | 'KMSGeneration'
+  | 'PaddedInputter'
   | 'PauserSet'
   | 'CleartextArithmetic'
   | 'CleartextDB';
@@ -32,6 +33,7 @@ const ABI_FILE: Readonly<Record<FhevmContractName, string>> = {
   HCULimit: 'CleartextHCULimit',
   ProtocolConfig: 'ProtocolConfig',
   KMSGeneration: 'KMSGeneration',
+  PaddedInputter: 'CleartextPaddedInputter',
   CleartextArithmetic: 'CleartextArithmetic',
   CleartextDB: 'CleartextDB',
   PauserSet: 'PauserSet',
@@ -46,6 +48,8 @@ export type FhevmHostContractsAddresses = {
   readonly hcuLimitAddress?: string | undefined;
   readonly protocolConfigAddress?: string | undefined;
   readonly kmsGenerationAddress?: string | undefined;
+  /** RFC-030 pad-based inputs. Since v15. */
+  readonly paddedInputterAddress?: string | undefined;
   readonly pauserSetAddress?: string | undefined;
 };
 
@@ -102,6 +106,7 @@ export class FhevmContractsRepository {
   readonly hcuLimit: FhevmContractWrapper | undefined;
   readonly protocolConfig: FhevmContractWrapper | undefined;
   readonly kmsGeneration: FhevmContractWrapper | undefined;
+  readonly paddedInputter: FhevmContractWrapper | undefined;
   readonly pauserSet: FhevmContractWrapper | undefined;
 
   /** The read client every wrapper is bound to. */
@@ -118,6 +123,7 @@ export class FhevmContractsRepository {
     this.hcuLimit = this.registerOptional('HCULimit', addresses.hcuLimitAddress);
     this.protocolConfig = this.registerOptional('ProtocolConfig', addresses.protocolConfigAddress);
     this.kmsGeneration = this.registerOptional('KMSGeneration', addresses.kmsGenerationAddress);
+    this.paddedInputter = this.registerOptional('PaddedInputter', addresses.paddedInputterAddress);
     this.pauserSet = this.registerOptional('PauserSet', addresses.pauserSetAddress);
   }
 

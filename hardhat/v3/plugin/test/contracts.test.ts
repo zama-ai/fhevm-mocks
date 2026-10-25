@@ -94,6 +94,17 @@ void test('lookups work by name and by address whatever the casing', async () =>
   });
 });
 
+void test('PaddedInputter (RFC-030) is an optional host contract, wrapped with the cleartext ABI', async () => {
+  await withFixture(({ client, host, spare: [paddedInputter] }) => {
+    const repository = new FhevmContractsRepository(client, { ...host, paddedInputterAddress: paddedInputter });
+
+    assert.equal(repository.getContractFromName('PaddedInputter'), repository.paddedInputter);
+    assert.equal(repository.getContractFromAddress(paddedInputter), repository.paddedInputter);
+    const abi = repository.paddedInputter?.abi ?? [];
+    assert.ok(abi.some((entry) => entry.type === 'function' && entry.name === 'verifyInput'));
+  });
+});
+
 void test('the cleartext repository adds the two cleartext-only contracts', async () => {
   await withFixture(({ client, host, spare: [arithmetic, db] }) => {
     const repository = new FhevmCleartextContractsRepository(client, {

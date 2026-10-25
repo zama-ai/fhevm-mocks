@@ -7,6 +7,8 @@ import {LibFhevmHandle} from "./LibFhevmHandle.sol";
 import {ICleartextArithmetic} from "./interfaces/ICleartextArithmetic.sol";
 import {IPlaintexts} from "./interfaces/IPlaintexts.sol";
 import {ICleartextDB} from "./interfaces/ICleartextDB.sol";
+import {LibCleartextPad} from "./LibCleartextPad.sol";
+import {LibCleartextZkPok} from "./LibCleartextZkPok.sol";
 
 /**
  * @title CleartextArithmeticBase
@@ -125,11 +127,21 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         override
     {
         _checkHandleChainId(result);
-        _checkHandleChainId(inputHandle);
-        (bool foundCleartext, uint256 cleartext) = _tryReadCleartextFromProof(inputHandle, inputProof);
-        if (foundCleartext) {
-            _db().set(result, _normalizePlaintextToType(cleartext, inputType));
+        uint256 cleartext;
+        // Byte 21 tells the two input flows apart: InputVerifier returns the input handle itself, whose
+        // byte 21 is its index in the proof (never above 254), while PaddedInputter (RFC-030) returns a
+        // fresh compute handle stamped 0xff like any computation.
+        if (uint8(result[21]) == 0xff) {
+            // `inputHandle` is then the external handle, a digest carrying no chain id, so it is not
+            // checked. `inputProof` is the input package, already validated by PaddedInputter.
+            cleartext = LibCleartextPad.unmaskPart(inputHandle, inputProof, inputType);
+        } else {
+            _checkHandleChainId(inputHandle);
+            bool foundCleartext;
+            (foundCleartext, cleartext) = LibCleartextZkPok.tryReadCleartext(inputHandle, inputProof);
+            if (!foundCleartext) return;
         }
+        _db().set(result, _normalizePlaintextToType(cleartext, inputType));
     }
 
     /// @inheritdoc ICleartextArithmetic
@@ -456,47 +468,5 @@ abstract contract CleartextArithmeticBase is ICleartextArithmetic {
         bw = LibFheType.bitWidthForType(fheType);
         a = lhsRaw;
         b = (scalarByte == 0x01) ? normalizeScalarToType(rhsRaw, fheType) : rhsRaw;
-    }
-
-    function _tryReadCleartextFromProof(bytes32 inputHandle, bytes memory inputProof)
-        internal
-        pure
-        returns (bool foundCleartext, uint256 cleartext)
-    {
-        if (inputProof.length < 2) {
-            return (false, 0);
-        }
-
-        uint8 numHandles = uint8(inputProof[0]);
-        uint8 numSigners = uint8(inputProof[1]);
-        uint256 cleartextStart = 2 + uint256(numHandles) * 32 + uint256(numSigners) * 65;
-
-        if (inputProof.length < cleartextStart + 32) {
-            return (false, 0);
-        }
-
-        for (uint8 i = 0; i < numHandles; i++) {
-            uint256 handleOffset = 2 + uint256(i) * 32;
-            bytes32 handleInProof;
-            assembly {
-                handleInProof := mload(add(add(inputProof, 32), handleOffset))
-            }
-
-            if (handleInProof != inputHandle) {
-                continue;
-            }
-
-            uint256 cleartextOffset = cleartextStart + uint256(i) * 32;
-            if (inputProof.length < cleartextOffset + 32) {
-                return (false, 0);
-            }
-
-            assembly {
-                cleartext := mload(add(add(inputProof, 32), cleartextOffset))
-            }
-            return (true, cleartext);
-        }
-
-        return (false, 0);
     }
 }

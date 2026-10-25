@@ -46,6 +46,7 @@ export function formatStackBanner(
     ['HCULimit', fhevmAddresses.hcuLimitAddress],
     ['ProtocolConfig', fhevmAddresses.protocolConfigAddress],
     ['KMSGeneration', fhevmAddresses.kmsGenerationAddress],
+    ['PaddedInputter', fhevmAddresses.paddedInputterAddress],
     ['PauserSet', stack.pauserSetAddress],
     ['CleartextArithmetic', cleartextAddresses.cleartextArithmeticAddress],
     ['CleartextDB', cleartextAddresses.cleartextDbAddress],

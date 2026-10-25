@@ -916,8 +916,10 @@ contract FhevmVm is IFhevmVm {
     /// @dev One address per `FhevmAddressRole`, read off the stack itself where the chain table has none:
     ///      `hcuLimit` from the executor, `pauserSet` from the ACL. The two cleartext roles are left zero
     ///      -- no real deployment has those contracts, and `upgradeToCleartext` fills them in as it
-    ///      creates them.
-    function _rolesOf(StdFhevmChains.FhevmChain memory chain) private view returns (address[10] memory addresses) {
+    ///      creates them. So is `PaddedInputter` (RFC-030): the chain table does not carry it and the stock
+    ///      executor exposes no getter, so the upgrade creates one, as it does for a previous-generation
+    ///      stack that has none.
+    function _rolesOf(StdFhevmChains.FhevmChain memory chain) private view returns (address[11] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = chain.acl;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = chain.fhevmExecutor;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = chain.kmsVerifier;
@@ -933,7 +935,7 @@ contract FhevmVm is IFhevmVm {
     ///      creating one. A stack already on this generation is left alone; anything else falls to the
     ///      gate, which refuses it by name.
     function _upgradeCleartextIfOneGenerationBehind(StdFhevmChains.FhevmChain memory chain) private {
-        address[10] memory addresses = _rolesOf(chain);
+        address[11] memory addresses = _rolesOf(chain);
         HostVersions memory versions = LibFhevmVersion.read(
             chain.acl,
             chain.fhevmExecutor,
@@ -966,8 +968,9 @@ contract FhevmVm is IFhevmVm {
         // Indexed by `FhevmAddressRole`, which is what the patcher and the op table both speak. Two of
         // them are read from the stack rather than the table: no chain entry carries them, and the
         // contracts do. The cleartext roles stay zero — no host implementation names them, and a real
-        // deployment has no such contract.
-        address[10] memory addresses;
+        // deployment has no such contract. `PaddedInputter` stays zero too: the previous generation has none,
+        // and the upgrade creates it.
+        address[11] memory addresses;
         addresses[uint8(FhevmAddressRole.ACL)] = chain.acl;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = chain.fhevmExecutor;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = chain.kmsVerifier;

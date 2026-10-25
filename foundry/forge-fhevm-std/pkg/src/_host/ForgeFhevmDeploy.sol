@@ -20,6 +20,7 @@ import {
     KMS_GENERATION_ADDRESS,
     KMS_VERIFIER_ADDRESS,
     MNEMONIC,
+    PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
     PROTOCOL_CONFIG_ADDRESS
 } from "./_internal/LocalHostAddresses.sol";
@@ -37,6 +38,7 @@ import {
     ERC1967_PROXY_CREATION_CODE,
     CLEARTEXT_FORGE_HCU_LIMIT_CREATION_CODE,
     KMS_GENERATION_CREATION_CODE,
+    CLEARTEXT_PADDED_INPUTTER_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
     PROTOCOL_CONFIG_CREATION_CODE
 } from "./_internal/LocalHostBytecode.sol";
@@ -54,6 +56,7 @@ import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "./_internal/interfaces/IEmptyUUPSProxyACL.sol";
 import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
+import {ICleartextPaddedInputter} from "./_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
 // forge-lint: disable-end(unused-import)
