@@ -59,6 +59,6 @@ interface ICleartextArithmetic {
     function recordTrivialEncrypt(bytes32 result, uint256 pt, FheType toType) external;
     function recordUnaryOp(Operators op, bytes32 result, bytes32 ct, FheType fheType) external;
     function recordVerifyInput(bytes32 result, bytes32 inputHandle, bytes memory inputProof, FheType inputType) external;
-    function reinitializeV3() external;
+    function reinitializeV4() external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
 }

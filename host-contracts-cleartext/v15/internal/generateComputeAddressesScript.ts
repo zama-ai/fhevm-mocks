@@ -67,6 +67,7 @@ const SCRIPT_VARIABLE: Readonly<Record<AddressName, string>> = {
   HCU_LIMIT_ADDRESS: 'hcuLimitProxy',
   PROTOCOL_CONFIG_ADDRESS: 'protocolConfigProxy',
   KMS_GENERATION_ADDRESS: 'kmsGenerationProxy',
+  PADDED_INPUTTER_ADDRESS: 'paddedInputterProxy',
   CLEARTEXT_ARITHMETIC_ADDRESS: 'cleartextArithmeticProxy',
   CLEARTEXT_DB_ADDRESS: 'cleartextDbProxy',
   PAUSER_SET_ADDRESS: 'pauserSetAddr',

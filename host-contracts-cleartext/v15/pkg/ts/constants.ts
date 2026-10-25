@@ -176,4 +176,14 @@ export const DEFAULT_BOOTSTRAP_CONFIG: BootstrapConfig = {
     chainIDSource: CLEARTEXT_GATEWAY_CHAIN_ID,
     verifyingContractSource: CLEARTEXT_DECRYPTION_ADDRESS,
   },
+  paddedInputter: {
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
+    // EMPTY ON PURPOSE, rather than an invented id: with no instance registered, PaddedInputter refuses
+    // EVERY pad-based input (`PadUnsupportedPrf`), so the pad path is deployed but unusable until this is set.
+    // To fix: take the id the SDK's cleartext `encryptTransci` writes into packages (or define one in
+    // cleartext-config.json), and register it here AND in every other deploy path (forge, create2).
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    initialPrfInstances: [],
+  },
 };

@@ -14,7 +14,7 @@ import { setupACLOwner } from '../../pkg/ts/index.ts';
 import { expect, test } from 'vitest';
 
 const ACL_ADDRESS = '0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D';
-const PAUSER_SET_ADDRESS = '0x590e3330386Fa042843773541aaBb3a45EC3164D';
+const PAUSER_SET_ADDRESS = '0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2';
 const SIGNER_ADDRESS = '0x8B8f5091f8b9817EF69cFC1E8B2f721BafF60DF4';
 
 /** What anvil/ethers report when a nonce is reused. The wording is what `sendStep` keys the hint on. */

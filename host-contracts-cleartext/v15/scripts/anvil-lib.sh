@@ -77,6 +77,8 @@ SIG_INIT_HCU_LIMIT="initializeFromEmptyProxy(uint48,uint48,uint48)"
 # (KmsNodeParams[], KmsThresholds, string softwareVersion, PcrValues[])
 SIG_INIT_PROTOCOL_CONFIG="initializeFromEmptyProxy((address,address,string,string,int32,string,bytes,string)[],(uint256,uint256,uint256,uint256),string,(bytes,bytes,bytes)[])"
 SIG_INIT_CLEARTEXT_DB="initializeFromEmptyProxy(address)"
+# (uint16[] initialPrfInstances) — RFC-030
+SIG_INIT_PADDED_INPUTTER="initializeFromEmptyProxy(uint16[])"
 SIG_UPGRADE="upgrade((address,address,bytes)[])"
 
 # -----------------------------------------------------------------------------
@@ -296,7 +298,7 @@ read_blob() {
 # One `address constant NAME = 0x…;` from LocalHostAddresses.sol. Checksummed exactly as generated, so
 # compare case-insensitively.
 #   read_address ACL_ADDRESS          -> 0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D
-#   read_address PAUSER_SET_ADDRESS   -> 0x590e3330386Fa042843773541aaBb3a45EC3164D
+#   read_address PAUSER_SET_ADDRESS   -> 0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2
 read_address() { sed -n "s/^address constant $1 = \(0x[0-9a-fA-F]*\);.*/\1/p" "$ADDRESSES_SOL"; }
 
 # Any non-address scalar from LocalHostAddresses.sol, whatever its Solidity type. Use this rather than
@@ -337,8 +339,8 @@ read_bootstrap_array() {
 #
 # Sets, from LocalHostAddresses.sol:
 #   ACL_ADDRESS FHEVM_EXECUTOR_ADDRESS KMS_VERIFIER_ADDRESS INPUT_VERIFIER_ADDRESS HCU_LIMIT_ADDRESS
-#   PROTOCOL_CONFIG_ADDRESS KMS_GENERATION_ADDRESS PAUSER_SET_ADDRESS CLEARTEXT_ARITHMETIC_ADDRESS
-#   CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ACCOUNT_INDEX START_NONCE
+#   PROTOCOL_CONFIG_ADDRESS KMS_GENERATION_ADDRESS PADDED_INPUTTER_ADDRESS PAUSER_SET_ADDRESS
+#   CLEARTEXT_ARITHMETIC_ADDRESS CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ACCOUNT_INDEX START_NONCE
 #
 # from scripts/cleartext-config.sh, the shell face of the source of truth — not parsed out of generated
 # Solidity, whose line wrapping is forge fmt's to choose:
@@ -363,6 +365,7 @@ load_generated_addresses_and_bootstrap() {
     HCU_LIMIT_ADDRESS="$(read_address HCU_LIMIT_ADDRESS)"
     PROTOCOL_CONFIG_ADDRESS="$(read_address PROTOCOL_CONFIG_ADDRESS)"
     KMS_GENERATION_ADDRESS="$(read_address KMS_GENERATION_ADDRESS)"
+    PADDED_INPUTTER_ADDRESS="$(read_address PADDED_INPUTTER_ADDRESS)"
     PAUSER_SET_ADDRESS="$(read_address PAUSER_SET_ADDRESS)"
     CLEARTEXT_ARITHMETIC_ADDRESS="$(read_address CLEARTEXT_ARITHMETIC_ADDRESS)"
     CLEARTEXT_DB_ADDRESS="$(read_address CLEARTEXT_DB_ADDRESS)"
@@ -402,7 +405,7 @@ load_generated_addresses_and_bootstrap() {
 
 # The deployed stack, for a human. Addresses come from the generated files, so this is the same table
 # whichever launcher produced them. ACLOwner is printed only when the caller knows it — its address is not
-# in the generated set, because nothing compiles against it (on a fresh deploy it is CREATE(deployer, 12),
+# in the generated set, because nothing compiles against it (on a fresh deploy it is CREATE(deployer, 13),
 # but it survives an upgrade and so can come from an earlier generation entirely).
 report_stack() {
     echo ""
@@ -413,6 +416,7 @@ report_stack() {
     echo "   HCULimit            $HCU_LIMIT_ADDRESS"
     echo "   ProtocolConfig      $PROTOCOL_CONFIG_ADDRESS"
     echo "   KMSGeneration       $KMS_GENERATION_ADDRESS"
+    echo "   PaddedInputter      $PADDED_INPUTTER_ADDRESS"
     echo "   CleartextArithmetic $CLEARTEXT_ARITHMETIC_ADDRESS"
     echo "   CleartextDB         $CLEARTEXT_DB_ADDRESS"
     echo "   PauserSet           $PAUSER_SET_ADDRESS"
@@ -427,7 +431,7 @@ report_stack() {
 #
 #   - anvil-local-v3.sh places proxies with setCode, so nothing depends on a nonce. It deploys all of
 #     this up front, signed by CREATE_PRIVATE_KEY.
-#   - anvil-local-v2.sh CREATEs its proxies at CREATE(deployer, 0..11), so it must deploy the real
+#   - anvil-local-v2.sh CREATEs its proxies at CREATE(deployer, 0..12), so it must deploy the real
 #     implementations AFTER them — deploying first would put an implementation on a canonical address.
 #
 # Splitting the steps keeps that ordering the caller's decision while the blob list stays in one place.
@@ -454,7 +458,7 @@ deploy_empty_implementation() {
 # The real implementations. Permissionless, and nothing refers to their addresses, so the nonce they
 # land at does not matter — only that it is not a canonical one, which the guard below enforces.
 # Sets IMPL_ACL, IMPL_EXECUTOR, IMPL_KMS_VERIFIER, IMPL_INPUT_VERIFIER, IMPL_HCU_LIMIT,
-# IMPL_PROTOCOL_CONFIG, IMPL_KMS_GENERATION, IMPL_ARITHMETIC, IMPL_DB.
+# IMPL_PROTOCOL_CONFIG, IMPL_KMS_GENERATION, IMPL_PADDED_INPUTTER, IMPL_ARITHMETIC, IMPL_DB.
 deploy_real_implementations() {
     IMPL_ACL="$(deploy_contract "0x$(read_blob CLEARTEXT_ACL_CREATION_CODE)" "ACL impl")"
     IMPL_EXECUTOR="$(deploy_contract "0x$(read_blob CLEARTEXT_FHEVM_EXECUTOR_CREATION_CODE)" "CleartextFHEVMExecutor impl")"
@@ -463,6 +467,7 @@ deploy_real_implementations() {
     IMPL_HCU_LIMIT="$(deploy_contract "0x$(read_blob CLEARTEXT_HCU_LIMIT_CREATION_CODE)" "CleartextHCULimit impl")"
     IMPL_PROTOCOL_CONFIG="$(deploy_contract "0x$(read_blob PROTOCOL_CONFIG_CREATION_CODE)" "ProtocolConfig impl")"
     IMPL_KMS_GENERATION="$(deploy_contract "0x$(read_blob KMS_GENERATION_CREATION_CODE)" "KMSGeneration impl")"
+    IMPL_PADDED_INPUTTER="$(deploy_contract "0x$(read_blob CLEARTEXT_PADDED_INPUTTER_CREATION_CODE)" "CleartextPaddedInputter impl")"
     IMPL_ARITHMETIC="$(deploy_contract "0x$(read_blob CLEARTEXT_ARITHMETIC_CREATION_CODE)" "CleartextArithmetic impl")"
     IMPL_DB="$(deploy_contract "0x$(read_blob CLEARTEXT_DB_CREATION_CODE)" "CleartextDB impl")"
     assert_no_canonical_collision
@@ -485,11 +490,11 @@ deploy_acl_owner() {
 assert_no_canonical_collision() {
     local canonical deployed impl target
     canonical="$ACL_ADDRESS $FHEVM_EXECUTOR_ADDRESS $KMS_VERIFIER_ADDRESS $INPUT_VERIFIER_ADDRESS
-        $HCU_LIMIT_ADDRESS $PROTOCOL_CONFIG_ADDRESS $KMS_GENERATION_ADDRESS $PAUSER_SET_ADDRESS
-        $CLEARTEXT_ARITHMETIC_ADDRESS $CLEARTEXT_DB_ADDRESS"
+        $HCU_LIMIT_ADDRESS $PROTOCOL_CONFIG_ADDRESS $KMS_GENERATION_ADDRESS $PADDED_INPUTTER_ADDRESS
+        $PAUSER_SET_ADDRESS $CLEARTEXT_ARITHMETIC_ADDRESS $CLEARTEXT_DB_ADDRESS"
     deployed="${EMPTY_ACL_IMPL:-} ${EMPTY_IMPL:-} ${IMPL_ACL:-} ${IMPL_EXECUTOR:-} ${IMPL_KMS_VERIFIER:-}
         ${IMPL_INPUT_VERIFIER:-} ${IMPL_HCU_LIMIT:-} ${IMPL_PROTOCOL_CONFIG:-} ${IMPL_KMS_GENERATION:-}
-        ${IMPL_ARITHMETIC:-} ${IMPL_DB:-} ${ACL_OWNER:-}"
+        ${IMPL_PADDED_INPUTTER:-} ${IMPL_ARITHMETIC:-} ${IMPL_DB:-} ${ACL_OWNER:-}"
     for impl in $deployed; do
         for target in $canonical; do
             if [ "$(printf '%s' "$impl" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$target" | tr 'A-Z' 'a-z')" ]; then
@@ -508,7 +513,7 @@ assert_no_canonical_collision() {
 
 # Builds the initializeFromEmptyProxy calldata for every proxy, from the values
 # load_generated_addresses_and_bootstrap read. Sets INIT_NOARGS, INIT_KMS_VERIFIER, INIT_INPUT_VERIFIER,
-# INIT_HCU_LIMIT, INIT_PROTOCOL_CONFIG, INIT_CLEARTEXT_DB.
+# INIT_HCU_LIMIT, INIT_PROTOCOL_CONFIG, INIT_PADDED_INPUTTER, INIT_CLEARTEXT_DB.
 #
 # Most take no arguments and share INIT_NOARGS; the other three plus ProtocolConfig carry the
 # bootstrap. Nothing here is hardcoded — only the signatures are, in the SIG_* table above.
@@ -520,6 +525,12 @@ build_initializer_calldata() {
     INIT_HCU_LIMIT="$(cast calldata "$SIG_INIT_HCU_LIMIT" \
         "$HCU_CAP_PER_BLOCK" "$MAX_HCU_DEPTH_PER_TX" "$MAX_HCU_PER_TX")"
     INIT_CLEARTEXT_DB="$(cast calldata "$SIG_INIT_CLEARTEXT_DB" "$CLEARTEXT_ARITHMETIC_ADDRESS")"
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy. EMPTY ON
+    # PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input. Must match
+    # pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and every other deploy path.
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    INIT_PADDED_INPUTTER="$(cast calldata "$SIG_INIT_PADDED_INPUTTER" "[]")"
 
     # KmsNodeParams[] paired by index from the parallel arrays, in the order LocalHostBootstrap pairs them.
     # read_bootstrap_array returns strings unquoted, so the string fields are requoted per element. partyId
@@ -558,11 +569,12 @@ upgrade_stack_atomically() {
     ops="$ops,($HCU_LIMIT_ADDRESS,$IMPL_HCU_LIMIT,$INIT_HCU_LIMIT)"
     ops="$ops,($PROTOCOL_CONFIG_ADDRESS,$IMPL_PROTOCOL_CONFIG,$INIT_PROTOCOL_CONFIG)"
     ops="$ops,($KMS_GENERATION_ADDRESS,$IMPL_KMS_GENERATION,$INIT_NOARGS)"
+    ops="$ops,($PADDED_INPUTTER_ADDRESS,$IMPL_PADDED_INPUTTER,$INIT_PADDED_INPUTTER)"
     ops="$ops,($CLEARTEXT_ARITHMETIC_ADDRESS,$IMPL_ARITHMETIC,$INIT_NOARGS)"
     ops="$ops,($CLEARTEXT_DB_ADDRESS,$IMPL_DB,$INIT_CLEARTEXT_DB)]"
 
     send_tx "$ACL_OWNER" "$SIG_UPGRADE" "$ops"
-    echo "   ✅ all 9 proxies materialized in ONE ACLOwner.upgrade"
+    echo "   ✅ all 10 proxies materialized in ONE ACLOwner.upgrade"
 }
 
 # ---------------------------------------------------------------------------
@@ -646,6 +658,7 @@ smoke_check() {
         "HCULimit:$HCU_LIMIT_ADDRESS" \
         "ProtocolConfig:$PROTOCOL_CONFIG_ADDRESS" \
         "KMSGeneration:$KMS_GENERATION_ADDRESS" \
+        "PaddedInputter:$PADDED_INPUTTER_ADDRESS" \
         "CleartextArithmetic:$CLEARTEXT_ARITHMETIC_ADDRESS" \
         "CleartextDB:$CLEARTEXT_DB_ADDRESS" \
         "PauserSet:$PAUSER_SET_ADDRESS"; do
@@ -654,7 +667,7 @@ smoke_check() {
         code="$(cast code "$address" --rpc-url "$RPC_URL" 2>/dev/null || echo 0x)"
         [ "${#code}" -le 2 ] && _smoke_fail "$name $address — no code"
     done
-    [ "$_smoke_failed" -eq 0 ] && _smoke_pass "all 10 addresses hold code"
+    [ "$_smoke_failed" -eq 0 ] && _smoke_pass "all 11 addresses hold code"
 
     # 2. getVersion answers on every contract that declares one. A proxy with code but no implementation
     #    slot still has code, so this is what distinguishes placed from materialized. CleartextDB has no
@@ -668,6 +681,7 @@ smoke_check() {
         "HCULimit:$HCU_LIMIT_ADDRESS" \
         "ProtocolConfig:$PROTOCOL_CONFIG_ADDRESS" \
         "KMSGeneration:$KMS_GENERATION_ADDRESS" \
+        "PaddedInputter:$PADDED_INPUTTER_ADDRESS" \
         "CleartextArithmetic:$CLEARTEXT_ARITHMETIC_ADDRESS" \
         "PauserSet:$PAUSER_SET_ADDRESS"; do
         name="${entry%%:*}"

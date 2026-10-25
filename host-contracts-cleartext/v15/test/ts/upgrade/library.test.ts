@@ -141,8 +141,8 @@ function surveyTargets(deployed: {
  * The only readings allowed to differ across the upgrade, and why. Anything not here must be identical.
  *
  * `getVersion` changes on exactly the contracts `updateV14ToV15` re-points — which is asserted positively
- * elsewhere in this test, so here it is only excused. `HCULimit` and `CleartextArithmetic` are deliberately
- * absent: their bytecode is unchanged between the two generations, so their versions must NOT move.
+ * elsewhere in this test, so here it is only excused. `HCULimit` and `CleartextDB` are deliberately absent:
+ * their bytecode is unchanged between the two generations, so their versions must NOT move.
  */
 const MAY_CHANGE = new Set([
   'ACL.getVersion',
@@ -151,6 +151,7 @@ const MAY_CHANGE = new Set([
   'InputVerifier.getVersion',
   'ProtocolConfig.getVersion',
   'KMSGeneration.getVersion',
+  'CleartextArithmetic.getVersion',
   // The ACL's protocol-version marker: the previous generation's number before the upgrade, this one's
   // after, by construction. `IS_CLEARTEXT`
   // is deliberately NOT here — it reads true on both sides, so it must not move.
@@ -588,7 +589,7 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
     expect(await isPauser(aclOwner)).toBe(true);
 
     // --- 3. Upgrade the live stack to this generation (single atomic ACLOwner.upgrade). ---
-    await updateV14ToV15({
+    const upgraded = await updateV14ToV15({
       ethUtils: adapters.utils,
       deployer: adapters.signer,
       admin: adapters.signer,
@@ -597,8 +598,25 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
       cleartext: prev.cleartextAddresses,
     });
 
-    // --- 4. Exactly the six changed proxies were re-pointed; nothing else moved. No proxy was created:
-    //        this generation adds no contract, so the address set is the one deployed above. ---
+    // --- 3b. Exactly ONE proxy was created: PaddedInputter (RFC-030), the one contract v15 adds. Every
+    //         other address is the one deployed above, and the new one is none of them. ---
+    const { paddedInputterAddress, ...unchanged } = upgraded.fhevmAddresses;
+    expect(unchanged).toEqual(prev.fhevmAddresses);
+    const existingAddresses = Object.values({ ...prev.fhevmAddresses, ...prev.cleartextAddresses }).map((address) =>
+      address.toLowerCase(),
+    );
+    expect(existingAddresses).not.toContain(paddedInputterAddress.toLowerCase());
+    // Materialized, not left over the empty implementation: it answers this generation's version and the marker.
+    expect(await version(paddedInputterAddress)).toBe(CONTRACT_VERSIONS.paddedInputter);
+    expect(
+      await publicClient.readContract({
+        address: paddedInputterAddress as Address,
+        abi: CLEARTEXT_MARKER_ABI,
+        functionName: 'IS_CLEARTEXT',
+      }),
+    ).toBe(true);
+
+    // --- 4. Exactly the six changed host proxies and CleartextArithmetic were re-pointed; nothing else moved. ---
     const implementationsAfter = await implementations();
     const repointed = Object.keys(implementationsBefore)
       .filter((name) => implementationsBefore[name] !== implementationsAfter[name])
@@ -611,12 +629,13 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
         'inputVerifierAddress',
         'protocolConfigAddress',
         'kmsGenerationAddress',
+        'cleartextArithmeticAddress',
       ].sort(),
     );
     // Every re-pointed proxy now reports the version THIS package ships, read from the generated
     // `CONTRACT_VERSIONS` rather than restated here — a patch bump upstream then changes the expectation
-    // and the contracts together. HCULimit and CleartextArithmetic are left where they were (their bytecode
-    // is unchanged), and report the same version on both generations.
+    // and the contracts together. HCULimit is left where it was (its bytecode is unchanged), and reports
+    // the same version on both generations; CleartextArithmetic moves (v15 adds the RFC-030 unmasking).
     expect(await versions()).toEqual({
       acl: CONTRACT_VERSIONS.acl,
       fhevmExecutor: CONTRACT_VERSIONS.fhevmExecutor,

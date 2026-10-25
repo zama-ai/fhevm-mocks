@@ -324,7 +324,10 @@ export type AbiEntry = {
   readonly outputs?: readonly AbiParameter[];
 };
 
-export const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly role: string; readonly abi: string }> = [
+type SurveyTarget = { readonly label: string; readonly role: string; readonly abi: string };
+
+/** The contracts the previous generation also has: what an upgrade surveys, with the previous generation's ABIs. */
+export const PREVIOUS_SURVEY_TARGETS: readonly SurveyTarget[] = [
   { label: 'ACL', role: 'ACL_ADDRESS', abi: 'CleartextACL.json' },
   { label: 'FHEVMExecutor', role: 'FHEVM_EXECUTOR_ADDRESS', abi: 'CleartextFHEVMExecutor.json' },
   { label: 'KMSVerifier', role: 'KMS_VERIFIER_ADDRESS', abi: 'CleartextKMSVerifier.json' },
@@ -336,6 +339,12 @@ export const SURVEY_TARGETS: ReadonlyArray<{ readonly label: string; readonly ro
   { label: 'CleartextDB', role: 'CLEARTEXT_DB_ADDRESS', abi: 'CleartextDB.json' },
   { label: 'PauserSet', role: 'PAUSER_SET_ADDRESS', abi: 'PauserSet.json' },
   { label: 'ACLOwner', role: 'ACL_OWNER', abi: 'ACLOwner.json' },
+];
+
+/** Every contract of this generation's stack: the previous generation's, then the ones it adds (RFC-030). */
+export const SURVEY_TARGETS: readonly SurveyTarget[] = [
+  ...PREVIOUS_SURVEY_TARGETS,
+  { label: 'PaddedInputter', role: 'PADDED_INPUTTER_ADDRESS', abi: 'CleartextPaddedInputter.json' },
 ];
 
 export function abiType(parameter: AbiParameter): string {
@@ -354,11 +363,12 @@ export function surveyStack(
   dir: string,
   generationLabel: string,
   block?: number,
+  targets: readonly SurveyTarget[] = SURVEY_TARGETS,
 ): Readonly<Record<string, string>> {
   const readings: Record<string, string> = {};
   // One RPC call per getter, 60+ of them: on a slow public RPC that is a minute or more.
   const beat = heartbeat();
-  for (const target of SURVEY_TARGETS) {
+  for (const target of targets) {
     const path = join(dir, target.abi);
     if (!existsSync(path))
       fail(`Error: required ${generationLabel} ABI is missing: ${path}`, '       Pass --previous-abi-dir PATH.');
@@ -442,6 +452,12 @@ export type RepointAdapter = {
   };
   /** compute's banner, e.g. `🍟 Compute: 2 passes, 1 rebuild`. */
   readonly computeTitle: string;
+  /**
+   * The proxies the flow CREATES before re-pointing them, over the empty implementation `UPGRADE_EMPTY_UUPS_PROXY`:
+   * the coordinator's copy of the Solidity `_newProxyRoles()`. They are not live at compute, so they are never an
+   * input: forge derives their addresses and seals them.
+   */
+  readonly created: readonly string[];
   /** The proxies `ACLOwner.upgrade` re-points, in op order: the coordinator's copy of the Solidity table. */
   readonly repointed: (ctx: Ctx) => readonly string[];
   /** compute's first check of the live stack, before anything is snapshotted or built. */
@@ -493,9 +509,20 @@ function untouched(ctx: Ctx): readonly string[] {
   return PROXY_ROLES.filter((role) => !ops.has(role));
 }
 
-/** The sealed creates: one implementation per op. */
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/** The empty implementation behind the created proxies: its own CREATE2, sealed by compute. */
+const UPGRADE_EMPTY = 'UPGRADE_EMPTY_UUPS_PROXY';
+
+/** The proxies this flow creates. */
+function created(): readonly string[] {
+  return adapter().created;
+}
+
+/** The sealed creates, in the Solidity table's order: the empty implementation and the created proxies, then one implementation per op. */
 function createRoles(ctx: Ctx): readonly string[] {
-  return repointed(ctx).map((role) => `IMPL_${role}`);
+  const implementations = repointed(ctx).map((role) => `IMPL_${role}`);
+  return created().length === 0 ? implementations : [UPGRADE_EMPTY, ...created(), ...implementations];
 }
 
 /** `<script dir>/File.s.sol:Contract`, from the package root, the file checked to exist. */
@@ -534,8 +561,10 @@ function capturePreUpgrade(ctx: Ctx): RepointSnapshot & Readonly<Record<string, 
 
   // Every live proxy, including those the op list must not touch: verify needs their "before" to say
   // "unchanged", and a proxy nobody meant to re-point is exactly the one nobody thought to snapshot.
+  // A proxy the flow creates has no "before" on chain: compute seals its empty implementation instead
+  // (mergePreUpgradeIntoManifest), which is what `creates` leaves it pointing at.
   const implementation: Record<string, string> = {};
-  for (const role of PROXY_ROLES) {
+  for (const role of PROXY_ROLES.filter((r) => !created().includes(r))) {
     const value = implementationAt(ctx, ctx.opt.existing[role] ?? '', blockNumber);
     if (value === null) fail(`Error: could not snapshot the implementation slot of ${role}.`);
     implementation[role] = value;
@@ -575,11 +604,19 @@ function repointStarted(ctx: Ctx): boolean {
   return createRoles(ctx).some((role) => hasCodeAt(ctx, manifest.address?.[role] ?? '', head));
 }
 
-/** The live stack, passed to the forge scripts as FHEVM_EXISTING_<ROLE>. */
+/**
+ * The live stack, passed to the forge scripts as FHEVM_EXISTING_<ROLE>. Once sealed, the proxies the flow creates
+ * too: forge derives each again and refuses a sealed address that is not its own derivation.
+ */
 function existingEnv(ctx: Ctx): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const role of ctx.flow.existingRoles) {
     env[`FHEVM_EXISTING_${role}`] = ctx.opt.existing[role] ?? '';
+  }
+  const sealed = readJson<Manifest>(manifestPath(ctx))?.address;
+  for (const role of created()) {
+    const address = sealed?.[role];
+    if (address !== undefined) env[`FHEVM_EXISTING_${role}`] = address;
   }
   return env;
 }
@@ -660,6 +697,8 @@ function writeInitialAddresses(ctx: Ctx): void {
     ['KMS_GENERATION_ADDRESS', address('KMS_GENERATION_ADDRESS')],
     ['CLEARTEXT_ARITHMETIC_ADDRESS', address('CLEARTEXT_ARITHMETIC_ADDRESS')],
     ['CLEARTEXT_DB_ADDRESS', address('CLEARTEXT_DB_ADDRESS')],
+    // A created proxy is not known before pass 1, which derives it and rewrites this file: zero for the first build.
+    ['PADDED_INPUTTER_ADDRESS', ctx.opt.existing.PADDED_INPUTTER_ADDRESS ?? ZERO_ADDRESS],
     ['PAUSER_SET_ADDRESS', address('PAUSER_SET_ADDRESS')],
   ];
   const source = [
@@ -674,12 +713,23 @@ function writeInitialAddresses(ctx: Ctx): void {
   writeFileSync(join(ctx.outDir, 'addresses.sol'), source);
 }
 
+/**
+ * The snapshot, into the seal. A created proxy's "before" is the sealed empty implementation: what `creates`
+ * points it at, and so what the gate and materialize require it to still hold.
+ */
 function mergePreUpgradeIntoManifest(ctx: Ctx): void {
-  const manifest = readJson<Record<string, unknown>>(manifestPath(ctx));
+  const manifest = readJson<Record<string, unknown> & Manifest>(manifestPath(ctx));
   const snapshot = readJson<RepointSnapshot>(preUpgradePath(ctx));
   if (manifest === null) fail(`Error: compute did not seal ${manifestPath(ctx)}.`);
   if (snapshot === null) fail(`Error: pre-upgrade snapshot missing at ${preUpgradePath(ctx)}.`);
-  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, preUpgrade: snapshot }, null, 2)}\n`);
+  const implementation: Record<string, string> = { ...snapshot.implementation };
+  for (const role of created()) {
+    const empty = manifest.address?.[UPGRADE_EMPTY];
+    if (empty === undefined) fail(`Error: compute sealed no ${UPGRADE_EMPTY} for the created ${role}.`);
+    implementation[role] = empty.toLowerCase();
+  }
+  const preUpgrade = { ...snapshot, implementation };
+  writeFileSync(manifestPath(ctx), `${JSON.stringify({ ...manifest, preUpgrade }, null, 2)}\n`);
 }
 
 async function stageCompute(ctx: Ctx): Promise<void> {
@@ -1102,8 +1152,9 @@ function verifyUpgradeEvents(ctx: Ctx): { readonly hash: string; readonly block:
   let block: number | null = null;
   const ops = repointed(ctx);
   for (const role of ops) {
-    // Every op target is a live proxy, so its whole history since the seal is one `Upgraded` at materialize.
-    const expected = [at(`IMPL_${role}`)];
+    // A live op target's whole history since the seal is one `Upgraded` at materialize; a created one's starts
+    // with its constructor's, onto the empty implementation.
+    const expected = created().includes(role) ? [at(UPGRADE_EMPTY), at(`IMPL_${role}`)] : [at(`IMPL_${role}`)];
     const logs = scanLogs(ctx, at(role), 'Upgraded(address)', fromBlock);
     if (logs.length !== expected.length) {
       fail(
@@ -1240,6 +1291,11 @@ function stageStatus(ctx: Ctx): void {
     if (current === null) {
       say(`  FATAL ${pad(role, ROLE_WIDTH)} implementation slot unreadable`);
       foreign += 1;
+      continue;
+    }
+    // A proxy this flow creates holds nothing until `creates` sends it: that is its sealed previous state too.
+    if (current === ZERO_ADDRESS && created().includes(role)) {
+      expectedPrevious += 1;
       continue;
     }
     const target = (manifest.address[`IMPL_${role}`] ?? '').toLowerCase();

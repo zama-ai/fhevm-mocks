@@ -43,9 +43,10 @@ const LAYOUT = {
   hcuLimitAddress: 6n,
   protocolConfigAddress: 7n,
   kmsGenerationAddress: 8n,
-  cleartextArithmeticAddress: 9n,
-  cleartextDbAddress: 10n,
-  pauserSetAddress: 11n,
+  paddedInputterAddress: 9n,
+  cleartextArithmeticAddress: 10n,
+  cleartextDbAddress: 11n,
+  pauserSetAddress: 12n,
 } as const;
 
 /**
@@ -123,7 +124,7 @@ const viemEthUtils: AbstractEthereumUtils = {
   },
 };
 
-/** The ten placed addresses as one flat record, keyed the same way as {@link LAYOUT}. */
+/** The eleven placed addresses as one flat record, keyed the same way as {@link LAYOUT}. */
 function flatten(result: ReturnType<typeof precomputeAddresses>): Record<keyof typeof LAYOUT, string> {
   return {
     ...result.fhevmAddresses,
@@ -179,9 +180,10 @@ const LOCALHOST_ADDRESSES: Readonly<Record<keyof typeof LAYOUT, string>> = {
   hcuLimitAddress: '0x233ff88A48c172d29F675403e6A8e302b0F032D9',
   protocolConfigAddress: '0x44aA028fd264C76BF4A8f8B4d8A5272f6AE25CAc',
   kmsGenerationAddress: '0x216be43148dB537BeddBC268163deb1a802b5553',
-  cleartextArithmeticAddress: '0xded0D2a71268DC12622BdD1b55d68a1CB5662327',
-  cleartextDbAddress: '0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E',
-  pauserSetAddress: '0x590e3330386Fa042843773541aaBb3a45EC3164D',
+  paddedInputterAddress: '0xded0D2a71268DC12622BdD1b55d68a1CB5662327',
+  cleartextArithmeticAddress: '0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E',
+  cleartextDbAddress: '0x590e3330386Fa042843773541aaBb3a45EC3164D',
+  pauserSetAddress: '0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2',
 };
 
 /** The three `ZamaConfig._getLocalConfig()` returns — the ones consumers are bound to. */

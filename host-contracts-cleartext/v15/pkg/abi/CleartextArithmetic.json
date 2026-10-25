@@ -406,7 +406,7 @@
   },
   {
     "type": "function",
-    "name": "reinitializeV3",
+    "name": "reinitializeV4",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"

@@ -511,6 +511,8 @@ export const HOST_ROLES: readonly string[] = [
   'HCU_LIMIT_ADDRESS',
   'PROTOCOL_CONFIG_ADDRESS',
   'KMS_GENERATION_ADDRESS',
+  // v15, RFC-030. Same place as in the Solidity `_sharedProxyRoles()`.
+  'PADDED_INPUTTER_ADDRESS',
   'CLEARTEXT_ARITHMETIC_ADDRESS',
   'CLEARTEXT_DB_ADDRESS',
   'PAUSER_SET_ADDRESS',
@@ -586,6 +588,7 @@ export const EXISTING_FLAGS: Readonly<Record<string, string>> = {
   '--kms-generation': 'KMS_GENERATION_ADDRESS',
   '--cleartext-arithmetic': 'CLEARTEXT_ARITHMETIC_ADDRESS',
   '--cleartext-db': 'CLEARTEXT_DB_ADDRESS',
+  '--padded-inputter': 'PADDED_INPUTTER_ADDRESS',
   '--pauser-set': 'PAUSER_SET_ADDRESS',
   '--acl-owner': 'ACL_OWNER',
 };

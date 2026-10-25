@@ -6,6 +6,7 @@ import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/Cl
 import { abi as inputVerifierAbi, template as inputVerifierTemplate } from './artifacts/CleartextInputVerifier.js';
 import { abi as protocolConfigAbi, template as protocolConfigTemplate } from './artifacts/ProtocolConfig.js';
 import { abi as kmsGenerationAbi, template as kmsGenerationTemplate } from './artifacts/KMSGeneration.js';
+import { abi as paddedInputterAbi, template as paddedInputterTemplate } from './artifacts/CleartextPaddedInputter.js';
 import { abi as aclOwnerAbi } from './artifacts/ACLOwner.js';
 import {
   abi as cleartextArithmeticAbi,
@@ -24,6 +25,7 @@ import type {
   FhevmAddresses,
   HCULimitInitConfig,
   KMSVerifierInitConfig,
+  PaddedInputterInitConfig,
 } from './types/public.js';
 import {
   assertDeployedAddress,
@@ -44,8 +46,9 @@ import { DEFAULT_BOOTSTRAP_CONFIG } from './constants.js';
 /**
  * Deploy a fresh host-contract stack of this generation from scratch.
  *
- * End to end: deploy the 7 empty proxies + PauserSet, install a standing `ACLOwner` (owned by
- * `admin`), then atomically materialize all 7 proxies in a single `ACLOwner.upgrade(...)` transaction.
+ * End to end: deploy the 8 empty host proxies, the 2 cleartext-infra proxies and PauserSet, install a
+ * standing `ACLOwner` (owned by `admin`), then atomically materialize all 10 proxies in a single
+ * `ACLOwner.upgrade(...)` transaction.
  * The `deployer` funds/sends the permissionless deployments; `admin` owns `ACLOwner` and signs the
  * one owner-gated upgrade transaction.
  */
@@ -71,7 +74,7 @@ export async function deploy(parameters: {
   const { fhevmAddresses, cleartextAddresses } = precomputed;
   const config = parameters.config ?? DEFAULT_BOOTSTRAP_CONFIG;
 
-  // 1. Deploy the 7 core empty proxies, then the 2 cleartext-infra proxies (on the shared impl).
+  // 1. Deploy the 8 core empty proxies, then the 2 cleartext-infra proxies (on the shared impl).
   const { emptyUUPSProxyAddress } = await deployEmptyProxies({
     ethProvider: parameters.ethProvider,
     ethUtils: parameters.ethUtils,
@@ -104,7 +107,7 @@ export async function deploy(parameters: {
     pauserSetAddress: precomputed.pauserSetAddress,
   });
 
-  // 4. Deploy the 9 real implementations (permissionless) — bootstrap specs, empty→real.
+  // 4. Deploy the 10 real implementations (permissionless) — bootstrap specs, empty→real.
   const { implementations } = await buildBootstrapPlan({
     ethUtils: parameters.ethUtils,
     deployer: parameters.deployer,
@@ -117,7 +120,7 @@ export async function deploy(parameters: {
     }),
   });
 
-  // 5. Materialize all 9 atomically via the standing ACLOwner.
+  // 5. Materialize all 10 atomically via the standing ACLOwner.
   await sendStep({
     label: 'ACLOwner.upgrade',
     send: () =>
@@ -159,7 +162,7 @@ async function precomputeFromDeployerNonce(parameters: {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Phase 1 for a fresh stack: deploys all 7 real implementations (patched with this generation's host addresses)
+ * Phase 1 for a fresh stack: deploys all 10 real implementations (patched with this generation's host addresses)
  * and encodes their `upgradeToAndCall` calldata. Sends no owner-gated transaction.
  */
 async function buildBootstrapPlan(parameters: {
@@ -227,6 +230,13 @@ async function buildBootstrapPlan(parameters: {
       spec: parameters.config.kmsGeneration,
     },
     {
+      contractName: 'PaddedInputter',
+      proxyAddress: addr.paddedInputterAddress,
+      template: paddedInputterTemplate,
+      abi: paddedInputterAbi,
+      spec: parameters.config.paddedInputter,
+    },
+    {
       contractName: 'CleartextArithmetic',
       proxyAddress: parameters.cleartextAddresses.cleartextArithmeticAddress,
       template: cleartextArithmeticTemplate,
@@ -274,6 +284,7 @@ async function deployEmptyProxies(parameters: {
     { contractName: 'HCULimit', address: addr.hcuLimitAddress },
     { contractName: 'ProtocolConfig', address: addr.protocolConfigAddress },
     { contractName: 'KMSGeneration', address: addr.kmsGenerationAddress },
+    { contractName: 'PaddedInputter', address: addr.paddedInputterAddress },
   ];
 
   // Assert no target host address is already occupied before deploying ANYTHING. Checked for the whole
@@ -437,6 +448,7 @@ type UpgradeConfig = {
   readonly hcuLimit: ContractUpgradeSpec;
   readonly protocolConfig: ContractUpgradeSpec;
   readonly kmsGeneration: ContractUpgradeSpec;
+  readonly paddedInputter: ContractUpgradeSpec;
   readonly cleartextArithmetic: ContractUpgradeSpec;
   readonly cleartextDb: ContractUpgradeSpec;
 };
@@ -467,6 +479,7 @@ function bootstrapUpgradeConfig(parameters: {
       config.protocolConfig.pcrValues,
     ]),
     kmsGeneration: bootstrap([]),
+    paddedInputter: bootstrap(paddedInputterInitArgs(config.paddedInputter)),
     cleartextArithmetic: bootstrap([]),
     // CleartextDB.initializeFromEmptyProxy(initialWriter) — seed CleartextArithmetic as the writer.
     cleartextDb: bootstrap([parameters.cleartextAddresses.cleartextArithmeticAddress]),
@@ -489,6 +502,13 @@ function kmsVerifierInitArgs(config: KMSVerifierInitConfig): readonly unknown[] 
 /** Builds the `initializeFromEmptyProxy` arguments for InputVerifier bootstrap, type-safely. */
 function inputVerifierInitArgs(config: InputVerifierInitConfig): readonly unknown[] {
   return [config.verifyingContractSource, config.chainIDSource, config.initialSigners, config.initialThreshold];
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/** Builds the `initializeFromEmptyProxy` arguments for PaddedInputter bootstrap, type-safely. */
+function paddedInputterInitArgs(config: PaddedInputterInitConfig): readonly unknown[] {
+  return [config.initialPrfInstances];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

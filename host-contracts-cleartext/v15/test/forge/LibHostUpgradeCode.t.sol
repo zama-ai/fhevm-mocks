@@ -34,9 +34,9 @@ interface IHCULimitAddresses {
  */
 contract LibHostUpgradeCodeTest is Test {
     /// @dev The literal is unavoidable: Solidity refuses another library's constant as an array length,
-    ///      so `address[10]` is written out below and `test_theRoleCountIsStillTen` is what stops the two
+    ///      so `address[11]` is written out below and `test_theRoleCountIsStillEleven` is what stops the two
     ///      from drifting apart.
-    uint256 internal constant ROLES = 10;
+    uint256 internal constant ROLES = 11;
 
     /// Every contract the generated table knows, read off the enum rather than listed by name, so the
     /// file holds for whatever set a generation ships.
@@ -48,14 +48,14 @@ contract LibHostUpgradeCodeTest is Test {
     }
 
     /// The localhost set, which is what every blob ships holding.
-    function _canonical() private pure returns (address[10] memory set) {
+    function _canonical() private pure returns (address[11] memory set) {
         for (uint256 role = 0; role < ROLES; role++) {
             set[role] = LocalHostUpgrade.canonicalAddress(FhevmAddressRole(uint8(role)));
         }
     }
 
     /// A distinct, obviously-not-canonical address per role.
-    function _remote() private pure returns (address[10] memory set) {
+    function _remote() private pure returns (address[11] memory set) {
         for (uint256 role = 0; role < ROLES; role++) {
             // A flat, obviously synthetic set: nothing here can collide with a localhost address.
             set[role] = address(uint160(uint256(0xDEADBEEF) << 128) + uint160(role + 1));
@@ -66,7 +66,7 @@ contract LibHostUpgradeCodeTest is Test {
     // The core properties
     // ---------------------------------------------------------------------------------------------
 
-    function test_theRoleCountIsStillTen() public pure {
+    function test_theRoleCountIsStillEleven() public pure {
         assertEq(LibHostUpgradeCode.ROLE_COUNT, ROLES, "the array literals in this file assume it");
         assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, ROLES, "and so does the generated table");
     }
@@ -115,7 +115,7 @@ contract LibHostUpgradeCodeTest is Test {
     /// Every site holds the NEW address afterwards, read back out of the bytecode.
     function test_everySiteHoldsTheRequestedAddress() public pure {
         FhevmHostContracts[] memory all = _contracts();
-        address[10] memory remote = _remote();
+        address[11] memory remote = _remote();
 
         for (uint256 i = 0; i < all.length; i++) {
             bytes memory patched = LibHostUpgradeCode.creationCodeFor(all[i], remote);
@@ -164,7 +164,7 @@ contract LibHostUpgradeCodeTest is Test {
     /// GENERATED TABLE never recorded, which every other test here would sail past.
     function test_noCanonicalAddressSurvivesAnywhere() public pure {
         FhevmHostContracts[] memory all = _contracts();
-        address[10] memory canonical = _canonical();
+        address[11] memory canonical = _canonical();
 
         for (uint256 i = 0; i < all.length; i++) {
             bytes memory patched = LibHostUpgradeCode.creationCodeFor(all[i], _remote());
@@ -181,7 +181,7 @@ contract LibHostUpgradeCodeTest is Test {
     /// Bytes that look right and a contract that behaves right are different claims. This makes the
     /// second one: deploy each patched implementation and read its siblings back from its own getters.
     function test_theDeployedImplementationPointsWhereWeSaid() public {
-        address[10] memory remote = _remote();
+        address[11] memory remote = _remote();
         address acl = remote[uint8(FhevmAddressRole.ACL)];
         address executor = remote[uint8(FhevmAddressRole.FHEVMExecutor)];
         address inputVerifier = remote[uint8(FhevmAddressRole.InputVerifier)];
@@ -219,11 +219,11 @@ contract LibHostUpgradeCodeTest is Test {
 
     /// A splice must not care what it is writing. These are the shapes most likely to prove otherwise.
     function test_anyAddressSetWorks() public pure {
-        address[10] memory leadingZeros;
-        address[10] memory allOnes;
-        address[10] memory allTheSame;
-        address[10] memory shuffledCanonical;
-        address[10] memory canonical = _canonical();
+        address[11] memory leadingZeros;
+        address[11] memory allOnes;
+        address[11] memory allTheSame;
+        address[11] memory shuffledCanonical;
+        address[11] memory canonical = _canonical();
 
         for (uint256 role = 0; role < ROLES; role++) {
             // One significant byte, nineteen leading zeros: the shape an optimizer would shorten a PUSH
@@ -252,7 +252,7 @@ contract LibHostUpgradeCodeTest is Test {
         FhevmHostContracts contractId,
         bytes memory original,
         bytes memory sites,
-        address[10] memory set
+        address[11] memory set
     ) private pure {
         bytes memory patched = LibHostUpgradeCode.creationCodeFor(contractId, set);
         assertEq(patched.length, original.length, "length");
@@ -291,7 +291,7 @@ contract LibHostUpgradeCodeTest is Test {
     }
 
     function test_RevertIf_aReferencedRoleHasNoAddress() public {
-        address[10] memory incomplete = _remote();
+        address[11] memory incomplete = _remote();
         incomplete[uint8(FhevmAddressRole.ACL)] = address(0);
 
         // The executor references ACL, so the gap is reached rather than ignored.
@@ -301,7 +301,7 @@ contract LibHostUpgradeCodeTest is Test {
 
     /// A role no site references may stay zero: the loop never reaches it.
     function test_anUnreferencedRoleMayBeZero() public pure {
-        address[10] memory set = _remote();
+        address[11] memory set = _remote();
         set[uint8(FhevmAddressRole.CleartextDB)] = address(0);
 
         // HCULimit references only the executor, so the CleartextDB role is never reached.
@@ -312,13 +312,13 @@ contract LibHostUpgradeCodeTest is Test {
     function patchExternally(
         bytes calldata code,
         bytes calldata sites,
-        address[10] calldata expected,
-        address[10] calldata replacement
+        address[11] calldata expected,
+        address[11] calldata replacement
     ) external pure returns (bytes memory) {
         return LibHostUpgradeCode.patch(code, sites, expected, replacement);
     }
 
-    function creationCodeForExternally(FhevmHostContracts contractId, address[10] calldata set)
+    function creationCodeForExternally(FhevmHostContracts contractId, address[11] calldata set)
         external
         pure
         returns (bytes memory)
@@ -360,7 +360,7 @@ contract LibHostUpgradeCodeTest is Test {
     /// @dev Every 20-byte window of `code`, against the whole set at once.
     ///      One `mload` per window rather than the twenty bounds-checked byte reads `_addressAt` does:
     ///      the naive version costs about a billion gas over these blobs and simply runs out.
-    function _findAny(bytes memory code, address[10] memory set)
+    function _findAny(bytes memory code, address[11] memory set)
         private
         pure
         returns (bool found, address which, uint256 at)

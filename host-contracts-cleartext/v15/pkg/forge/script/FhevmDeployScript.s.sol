@@ -13,6 +13,8 @@ import {CleartextHCULimit} from "../../src/cleartext/CleartextHCULimit.sol";
 import {HCULimit} from "../../src/contracts/HCULimit.sol";
 import {ProtocolConfig} from "../../src/contracts/ProtocolConfig.sol";
 import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
+import {PaddedInputter} from "../../src/contracts/PaddedInputter.sol";
+import {CleartextPaddedInputter} from "../../src/cleartext/CleartextPaddedInputter.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
 import {IProtocolConfig} from "../../src/contracts/interfaces/IProtocolConfig.sol";
 import {KmsNodeParams, PcrValues} from "../../src/contracts/shared/Structs.sol";
@@ -34,6 +36,7 @@ import {
     hcuLimitAdd,
     protocolConfigAdd,
     kmsGenerationAdd,
+    paddedInputterAdd,
     pauserSetAdd,
     cleartextArithmeticAdd,
     cleartextDbAdd
@@ -85,12 +88,13 @@ import {
  * Differences from the forge-fhevm original this is adapted from
  * ---------------------------------------------------------------------------
  *
- * 1. Nine proxies, not five: v13 adds ProtocolConfig and KMSGeneration, and the
- *    cleartext build adds CleartextArithmetic and CleartextDB.
+ * 1. Ten proxies, not five: v13 adds ProtocolConfig and KMSGeneration, v15 adds
+ *    PaddedInputter (RFC-030), and the cleartext build adds CleartextArithmetic
+ *    and CleartextDB.
  *
  * 2. ONE shared EmptyUUPSProxy implementation at nonce+2 serves every
  *    non-ACL proxy, where forge-fhevm deploys a fresh implementation per
- *    slot. That is what makes the proxy nonces contiguous (+3..+10) instead of
+ *    slot. That is what makes the proxy nonces contiguous (+3..+11) instead of
  *    odd-numbered, and it must match ComputeAddresses.s.sol exactly.
  *
  * 3. v13 moved the KMS signer set out of KMSVerifier into ProtocolConfig, so
@@ -139,7 +143,7 @@ contract FhevmDeployScript is Script {
         vm.startBroadcast(deployerKey);
 
         // ----------------------------------------------------------------
-        // Step 1: Deploy the 9 empty UUPS proxies (nonce+0 .. nonce+10).
+        // Step 1: Deploy the 10 empty UUPS proxies (nonce+0 .. nonce+11).
         //
         // Deployment order must exactly match the nonce offsets computed in
         // ComputeAddresses.s.sol.
@@ -152,7 +156,7 @@ contract FhevmDeployScript is Script {
         // ----------------------------------------------------------------
         // Step 2: Deploy PauserSet (immutable, no proxy).
         //
-        // nonce+11: PauserSet → must equal pauserSetAdd
+        // nonce+12: PauserSet → must equal pauserSetAdd
         // ----------------------------------------------------------------
         {
             PauserSet ps = new PauserSet();
@@ -163,7 +167,7 @@ contract FhevmDeployScript is Script {
         // ----------------------------------------------------------------
         // Step 3: Install the standing ACLOwner and hand it ACL ownership.
         //
-        // nonce+12: ACLOwner. Nothing compiled in refers to it, so unlike the
+        // nonce+13: ACLOwner. Nothing compiled in refers to it, so unlike the
         // creations above its address is free to move.
         // ----------------------------------------------------------------
         ACLOwner aclOwner = _setupACLOwner(deployer);
@@ -187,6 +191,7 @@ contract FhevmDeployScript is Script {
         console.log("hcuLimitAdd:            ", hcuLimitAdd);
         console.log("protocolConfigAdd:      ", protocolConfigAdd);
         console.log("kmsGenerationAdd:       ", kmsGenerationAdd);
+        console.log("paddedInputterAdd:      ", paddedInputterAdd);
         console.log("cleartextArithmeticAdd: ", cleartextArithmeticAdd);
         console.log("cleartextDbAdd:         ", cleartextDbAdd);
         console.log("pauserSetAdd:           ", pauserSetAdd);
@@ -219,8 +224,9 @@ contract FhevmDeployScript is Script {
         _emptyProxy(sharedImpl, hcuLimitAdd, "HCULimit"); // nonce+6
         _emptyProxy(sharedImpl, protocolConfigAdd, "ProtocolConfig"); // nonce+7
         _emptyProxy(sharedImpl, kmsGenerationAdd, "KMSGeneration"); // nonce+8
-        _emptyProxy(sharedImpl, cleartextArithmeticAdd, "CleartextArithmetic"); // nonce+9
-        _emptyProxy(sharedImpl, cleartextDbAdd, "CleartextDB"); // nonce+10
+        _emptyProxy(sharedImpl, paddedInputterAdd, "PaddedInputter"); // nonce+9
+        _emptyProxy(sharedImpl, cleartextArithmeticAdd, "CleartextArithmetic"); // nonce+10
+        _emptyProxy(sharedImpl, cleartextDbAdd, "CleartextDB"); // nonce+11
     }
 
     /// @dev One ERC1967 proxy over the shared empty implementation, checked against its computed address.
@@ -296,13 +302,16 @@ contract FhevmDeployScript is Script {
         ops[6] = ACLOwner.Op(
             kmsGenerationAdd, address(new KMSGeneration()), abi.encodeCall(KMSGeneration.initializeFromEmptyProxy, ())
         );
-        ops[7] = ACLOwner.Op(
+        // Same rule as the ACL above: the implementation is CleartextPaddedInputter, the initializer is
+        // encoded against PaddedInputter, which declares it.
+        ops[7] = ACLOwner.Op(paddedInputterAdd, address(new CleartextPaddedInputter()), _paddedInputterInit());
+        ops[8] = ACLOwner.Op(
             cleartextArithmeticAdd,
             address(new CleartextArithmetic()),
             abi.encodeCall(CleartextArithmetic.initializeFromEmptyProxy, ())
         );
         // CleartextDB's initial writer is CleartextArithmetic.
-        ops[8] = ACLOwner.Op(
+        ops[9] = ACLOwner.Op(
             cleartextDbAdd,
             address(new CleartextDB()),
             abi.encodeCall(CleartextDB.initializeFromEmptyProxy, (cleartextArithmeticAdd))
@@ -310,6 +319,17 @@ contract FhevmDeployScript is Script {
 
         aclOwner.upgrade(ops);
         console.log("Every proxy materialized in one ACLOwner.upgrade");
+    }
+
+    function _paddedInputterInit() private pure returns (bytes memory) {
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
+        // EMPTY ON PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input
+        // (`PadUnsupportedPrf`). Must match pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and
+        // every other deploy path (DeployLocalStack, LibForgeFhevmStack, create2-deploy).
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        uint16[] memory initialPrfInstances = new uint16[](0);
+        return abi.encodeCall(PaddedInputter.initializeFromEmptyProxy, (initialPrfInstances));
     }
 
     /// @dev Since v13 the signers live in ProtocolConfig, so only the EIP-712 domain is set here.

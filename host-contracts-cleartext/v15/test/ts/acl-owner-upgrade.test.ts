@@ -100,6 +100,7 @@ function bootstrapConfig(parameters: {
       softwareVersion: '0.0.0-fixture',
       pcrValues: [],
     },
+    paddedInputter: { initialPrfInstances: [] },
   };
 }
 

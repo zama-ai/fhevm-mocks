@@ -161,7 +161,7 @@ contract CleartextGenerationUpgradeTest is Test, V13Deploy {
     // -- the upgrade under test ---------------------------------------------------------------------
 
     function _upgrade() private {
-        address[10] memory addresses;
+        address[11] memory addresses;
         addresses[uint8(FhevmAddressRole.ACL)] = ACL_ADDRESS;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = FHEVM_EXECUTOR_ADDRESS;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = KMS_VERIFIER_ADDRESS;

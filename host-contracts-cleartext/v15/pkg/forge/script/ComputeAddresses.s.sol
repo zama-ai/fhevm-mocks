@@ -43,10 +43,11 @@ import {Script, console} from "forge-std/Script.sol";
  *   N+6  ERC1967Proxy (HCULimit)            → HCU_LIMIT_ADDRESS
  *   N+7  ERC1967Proxy (ProtocolConfig)      → PROTOCOL_CONFIG_ADDRESS
  *   N+8  ERC1967Proxy (KMSGeneration)       → KMS_GENERATION_ADDRESS
- *   N+9  ERC1967Proxy (CleartextArithmetic) → CLEARTEXT_ARITHMETIC_ADDRESS
- *   N+10 ERC1967Proxy (CleartextDB)         → CLEARTEXT_DB_ADDRESS
- *   N+11 PauserSet                          → PAUSER_SET_ADDRESS
- *   N+12 ACLOwner                            (address referenced by nothing)
+ *   N+9  ERC1967Proxy (PaddedInputter)      → PADDED_INPUTTER_ADDRESS
+ *   N+10 ERC1967Proxy (CleartextArithmetic) → CLEARTEXT_ARITHMETIC_ADDRESS
+ *   N+11 ERC1967Proxy (CleartextDB)         → CLEARTEXT_DB_ADDRESS
+ *   N+12 PauserSet                          → PAUSER_SET_ADDRESS
+ *   N+13 ACLOwner                            (address referenced by nothing)
  *
  * Mirrors pkg/ts/addresses.ts, which is where the order is actually decided.
  */
@@ -68,9 +69,10 @@ contract ComputeAddresses is Script {
         address hcuLimitProxy = vm.computeCreateAddress(deployer, nonce + 6);
         address protocolConfigProxy = vm.computeCreateAddress(deployer, nonce + 7);
         address kmsGenerationProxy = vm.computeCreateAddress(deployer, nonce + 8);
-        address cleartextArithmeticProxy = vm.computeCreateAddress(deployer, nonce + 9);
-        address cleartextDbProxy = vm.computeCreateAddress(deployer, nonce + 10);
-        address pauserSetAddr = vm.computeCreateAddress(deployer, nonce + 11);
+        address paddedInputterProxy = vm.computeCreateAddress(deployer, nonce + 9);
+        address cleartextArithmeticProxy = vm.computeCreateAddress(deployer, nonce + 10);
+        address cleartextDbProxy = vm.computeCreateAddress(deployer, nonce + 11);
+        address pauserSetAddr = vm.computeCreateAddress(deployer, nonce + 12);
 
         console.log("Deployer:                     ", deployer);
         console.log("Starting nonce:               ", nonce);
@@ -81,6 +83,7 @@ contract ComputeAddresses is Script {
         console.log("HCU_LIMIT_ADDRESS:            ", hcuLimitProxy);
         console.log("PROTOCOL_CONFIG_ADDRESS:      ", protocolConfigProxy);
         console.log("KMS_GENERATION_ADDRESS:       ", kmsGenerationProxy);
+        console.log("PADDED_INPUTTER_ADDRESS:      ", paddedInputterProxy);
         console.log("CLEARTEXT_ARITHMETIC_ADDRESS: ", cleartextArithmeticProxy);
         console.log("CLEARTEXT_DB_ADDRESS:         ", cleartextDbProxy);
         console.log("PAUSER_SET_ADDRESS:           ", pauserSetAddr);
@@ -110,6 +113,7 @@ contract ComputeAddresses is Script {
         content = string.concat(content, _constant("HCU_LIMIT_ADDRESS", hcuLimitProxy));
         content = string.concat(content, _constant("PROTOCOL_CONFIG_ADDRESS", protocolConfigProxy));
         content = string.concat(content, _constant("KMS_GENERATION_ADDRESS", kmsGenerationProxy));
+        content = string.concat(content, _constant("PADDED_INPUTTER_ADDRESS", paddedInputterProxy));
         content = string.concat(content, _constant("CLEARTEXT_ARITHMETIC_ADDRESS", cleartextArithmeticProxy));
         content = string.concat(content, _constant("CLEARTEXT_DB_ADDRESS", cleartextDbProxy));
         content = string.concat(content, _constant("PAUSER_SET_ADDRESS", pauserSetAddr));

@@ -354,6 +354,8 @@ export function buildHostAddressReplacements(parameters: {
     { referenceName: 'PROTOCOL_CONFIG_ADDRESS', replacement: parameters.fhevmAddresses.protocolConfigAddress },
     { referenceName: 'KMS_GENERATION_ADDRESS', replacement: parameters.fhevmAddresses.kmsGenerationAddress },
     { referenceName: 'PAUSER_SET_ADDRESS', replacement: parameters.pauserSetAddress },
+    // v0.15.0
+    { referenceName: 'PADDED_INPUTTER_ADDRESS', replacement: parameters.fhevmAddresses.paddedInputterAddress },
   ];
 
   if (parameters.cleartextAddresses !== undefined) {

@@ -272,6 +272,9 @@ function bootstrapConfig(deployerAddress: string, kmsSignerAddress: string): Boo
       softwareVersion: '0.0.0-fixture',
       pcrValues: [],
     },
+    // A fixture id, visibly so: the default (DEFAULT_BOOTSTRAP_CONFIG) registers none until the cleartext
+    // PRF instance is decided. Registering one here proves the initializer receives the list.
+    paddedInputter: { initialPrfInstances: [1] },
   };
 }
 
@@ -310,7 +313,7 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       config: bootstrapConfig(deployerAddress, kmsSigner),
     });
 
-    // (a) All 9 proxies are materialized (non-zero ERC-1967 implementation slot).
+    // (a) All 10 proxies are materialized (non-zero ERC-1967 implementation slot).
     const proxies: readonly Address[] = [
       deployed.fhevmAddresses.aclAddress,
       deployed.fhevmAddresses.fhevmExecutorAddress,
@@ -319,6 +322,7 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       deployed.fhevmAddresses.hcuLimitAddress,
       deployed.fhevmAddresses.protocolConfigAddress,
       deployed.fhevmAddresses.kmsGenerationAddress,
+      deployed.fhevmAddresses.paddedInputterAddress,
       deployed.cleartextAddresses.cleartextArithmeticAddress,
       deployed.cleartextAddresses.cleartextDbAddress,
     ].map((address) => address as Address);
@@ -352,6 +356,31 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
         args: [deployed.fhevmAddresses.fhevmExecutorAddress as Address],
       }),
     ).toBe(false);
+
+    // (b2) PaddedInputter (RFC-030) ran its initializer: the fixture PRF instance is supported, and only it.
+    const isSupportedPrfInstanceAbi = [
+      {
+        type: 'function',
+        name: 'isSupportedPrfInstance',
+        stateMutability: 'view',
+        inputs: [{ name: 'prf', type: 'uint16' }],
+        outputs: [{ type: 'bool' }],
+      },
+    ] as const;
+    for (const [prf, expected] of [
+      [1, true],
+      [2, false],
+    ] as const) {
+      expect(
+        await publicClient.readContract({
+          address: deployed.fhevmAddresses.paddedInputterAddress as Address,
+          abi: isSupportedPrfInstanceAbi,
+          functionName: 'isSupportedPrfInstance',
+          args: [prf],
+        }),
+        `PaddedInputter.isSupportedPrfInstance(${String(prf)})`,
+      ).toBe(expected);
+    }
 
     // (c) Functional round-trip: trivialEncrypt(42) via the executor, then read the cleartext from
     //     the DB — proves executor → CleartextArithmetic → CleartextDB wiring end to end.
@@ -498,6 +527,7 @@ test('every deployed contract reports its expected getVersion()', async () => {
       ['hcuLimit', deployed.fhevmAddresses.hcuLimitAddress],
       ['protocolConfig', deployed.fhevmAddresses.protocolConfigAddress],
       ['kmsGeneration', deployed.fhevmAddresses.kmsGenerationAddress],
+      ['paddedInputter', deployed.fhevmAddresses.paddedInputterAddress],
       ['pauserSet', deployed.pauserSetAddress],
       ['cleartextArithmetic', deployed.cleartextAddresses.cleartextArithmeticAddress],
       ['cleartextDB', deployed.cleartextAddresses.cleartextDbAddress],

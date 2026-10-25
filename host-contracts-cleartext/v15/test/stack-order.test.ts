@@ -56,10 +56,13 @@ function canonicalRole(name: string): string {
   // not, every layer would appear to disagree with LibForgeFhevmStack about three positions that never moved.
   const deforged = snake.replace(/^CLEARTEXT_FORGE_/, 'CLEARTEXT_');
   // The cleartext variants sit behind the stock proxies; CleartextArithmetic and CleartextDB are their
-  // own roles, so only the five substitutions are rewritten. `CleartextACL` exists but no deploy layer
+  // own roles, so only the six substitutions are rewritten. `CleartextACL` exists but no deploy layer
   // names it, so ACL reaches this scan only through its Forge variant, which the line above has just
   // reduced to CLEARTEXT_ACL.
-  return deforged.replace(/^CLEARTEXT_(ACL|FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER|HCU_LIMIT)$/, '$1');
+  return deforged.replace(
+    /^CLEARTEXT_(ACL|FHEVM_EXECUTOR|KMS_VERIFIER|INPUT_VERIFIER|HCU_LIMIT|PADDED_INPUTTER)$/,
+    '$1',
+  );
 }
 
 /** Every layer that chooses an implementation, for the guard below. */

@@ -14,7 +14,7 @@ library LocalHostVersions {
     string internal constant ACL = "ACL v0.6.0";
 
     /// @dev src/cleartext/CleartextArithmetic.sol
-    string internal constant CLEARTEXT_ARITHMETIC = "CleartextArithmetic v0.5.0";
+    string internal constant CLEARTEXT_ARITHMETIC = "CleartextArithmetic v0.6.0";
 
     /// @dev src/cleartext/CleartextDB.sol
     string internal constant CLEARTEXT_DB = "CleartextDB v0.1.0";
@@ -33,6 +33,9 @@ library LocalHostVersions {
 
     /// @dev src/contracts/KMSVerifier.sol
     string internal constant KMS_VERIFIER = "KMSVerifier v0.5.0";
+
+    /// @dev src/contracts/PaddedInputter.sol
+    string internal constant PADDED_INPUTTER = "PaddedInputter v0.1.0";
 
     /// @dev src/contracts/immutable/PauserSet.sol
     string internal constant PAUSER_SET = "PauserSet v0.1.0";

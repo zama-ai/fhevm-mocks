@@ -157,5 +157,7 @@ void test('the archived Sepolia deploy record names the implementation of every 
     '../../deployments/ethereum_sepolia/cleartext-v13-sepolia-2026-10-05-1/00-deploy-v13.0-2026-10-05/record/manifest.json',
   );
   const recorded = recordedImplementations(JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>);
-  assert.deepEqual(Object.keys(recorded).sort(), [...PROXY_ROLES].sort());
+  // A v13 stack predates RFC-030: every proxy of this generation but the PaddedInputter.
+  const v13Roles = PROXY_ROLES.filter((role) => role !== 'PADDED_INPUTTER_ADDRESS');
+  assert.deepEqual(Object.keys(recorded).sort(), [...v13Roles].sort());
 });

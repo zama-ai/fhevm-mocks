@@ -17,6 +17,7 @@ import {
     KMS_GENERATION_ADDRESS,
     KMS_VERIFIER_ADDRESS,
     MNEMONIC,
+    PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
     PROTOCOL_CONFIG_ADDRESS
 } from "./_internal/LocalHostAddresses.sol";
@@ -34,6 +35,7 @@ import {
     ERC1967_PROXY_CREATION_CODE,
     CLEARTEXT_FORGE_HCU_LIMIT_CREATION_CODE,
     KMS_GENERATION_CREATION_CODE,
+    CLEARTEXT_PADDED_INPUTTER_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
     PROTOCOL_CONFIG_CREATION_CODE
 } from "./_internal/LocalHostBytecode.sol";
@@ -51,6 +53,7 @@ import {IEmptyUUPSProxy} from "./_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "./_internal/interfaces/IEmptyUUPSProxyACL.sol";
 import {ICleartextHCULimit} from "./_internal/interfaces/ICleartextHCULimit.sol";
 import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
+import {ICleartextPaddedInputter} from "./_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 import {IACL} from "./_internal/interfaces/IACL.sol";
 import {IInputVerifier} from "./_internal/interfaces/IInputVerifier.sol";
@@ -106,8 +109,8 @@ import {LibForgeFhevmSigners} from "./LibForgeFhevmSigners.sol";
  *      the contract, not the file the code happens to live in.
  *
  * The five phases, mirroring `ts/deploy.ts`:
- *   1. the empty proxies (nonces 0-10), each an ERC-1967 proxy over an empty UUPS implementation
- *   2. PauserSet (nonce 11)
+ *   1. the empty proxies (nonces 0-11), each an ERC-1967 proxy over an empty UUPS implementation
+ *   2. PauserSet (nonce 12)
  *   3. ACLOwner, registered as a pauser and handed ACL ownership two-step
  *   4. the real implementations, deployed permissionlessly
  *   5. one atomic `ACLOwner.upgrade` swapping every proxy empty -> real and running its initializer
@@ -228,11 +231,11 @@ library LibForgeFhevmStack {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Phase 1 — the empty proxies (nonces 0-10)
+    // Phase 1 — the empty proxies (nonces 0-11)
     ////////////////////////////////////////////////////////////////////////////
 
     /**
-     * @dev Sealed: these eleven creations are what place the stack at the canonical addresses, so there is
+     * @dev Sealed: these twelve creations are what place the stack at the canonical addresses, so there is
      *      no override of this that keeps the guarantee. Change the address set instead, by regenerating
      *      LocalHostAddresses.sol and LocalHostBytecode.sol together.
      *
@@ -254,12 +257,13 @@ library LibForgeFhevmStack {
         _createProxy(emptyImpl, initEmpty, HCU_LIMIT_ADDRESS, "HCULimit proxy");
         _createProxy(emptyImpl, initEmpty, PROTOCOL_CONFIG_ADDRESS, "ProtocolConfig proxy");
         _createProxy(emptyImpl, initEmpty, KMS_GENERATION_ADDRESS, "KMSGeneration proxy");
+        _createProxy(emptyImpl, initEmpty, PADDED_INPUTTER_ADDRESS, "PaddedInputter proxy");
         _createProxy(emptyImpl, initEmpty, CLEARTEXT_ARITHMETIC_ADDRESS, "CleartextArithmetic proxy");
         _createProxy(emptyImpl, initEmpty, CLEARTEXT_DB_ADDRESS, "CleartextDB proxy");
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Phase 2 — PauserSet (nonce 11)
+    // Phase 2 — PauserSet (nonce 12)
     ////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -300,7 +304,7 @@ library LibForgeFhevmStack {
     /**
      * @dev Permissionless, and their addresses are never referenced, so no determinism is required here.
      *
-     *      Slots 0, 1 and 7 take the CLEARTEXT_FORGE_* blobs, which `DeployLocalStack.s.sol` deliberately
+     *      Slots 0, 1, 4 and 8 take the CLEARTEXT_FORGE_* blobs, which `DeployLocalStack.s.sol` deliberately
      *      does NOT — the two files are otherwise twins, so the divergence is the point rather than an
      *      oversight. The executor and arithmetic variants call cheatcodes (pauseGasMetering, randomUint),
      *      and forge grants cheatcodes only to contracts it created during the test. This contract runs
@@ -320,8 +324,9 @@ library LibForgeFhevmStack {
         implementations[4] = _create(CLEARTEXT_FORGE_HCU_LIMIT_CREATION_CODE, "HCULimit impl (forge)");
         implementations[5] = _create(PROTOCOL_CONFIG_CREATION_CODE, "ProtocolConfig impl");
         implementations[6] = _create(KMS_GENERATION_CREATION_CODE, "KMSGeneration impl");
-        implementations[7] = _create(CLEARTEXT_FORGE_ARITHMETIC_CREATION_CODE, "CleartextArithmetic impl (forge)");
-        implementations[8] = _create(CLEARTEXT_DB_CREATION_CODE, "CleartextDB impl");
+        implementations[7] = _create(CLEARTEXT_PADDED_INPUTTER_CREATION_CODE, "PaddedInputter impl");
+        implementations[8] = _create(CLEARTEXT_FORGE_ARITHMETIC_CREATION_CODE, "CleartextArithmetic impl (forge)");
+        implementations[9] = _create(CLEARTEXT_DB_CREATION_CODE, "CleartextDB impl");
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -368,19 +373,31 @@ library LibForgeFhevmStack {
         ops[6] = ACLOwner.Op(
             KMS_GENERATION_ADDRESS, implementations[6], abi.encodeCall(IKMSGeneration.initializeFromEmptyProxy, ())
         );
-        ops[7] = ACLOwner.Op(
+        ops[7] = ACLOwner.Op(PADDED_INPUTTER_ADDRESS, implementations[7], _paddedInputterInitData());
+        ops[8] = ACLOwner.Op(
             CLEARTEXT_ARITHMETIC_ADDRESS,
-            implementations[7],
+            implementations[8],
             abi.encodeCall(ICleartextArithmetic.initializeFromEmptyProxy, ())
         );
-        ops[8] = ACLOwner.Op(
+        ops[9] = ACLOwner.Op(
             CLEARTEXT_DB_ADDRESS,
-            implementations[8],
+            implementations[9],
             abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (CLEARTEXT_ARITHMETIC_ADDRESS))
         );
 
         fvm.prank(_fhevmAdmin());
         IACLOwner(aclOwner_).upgrade(ops);
+    }
+
+    function _paddedInputterInitData() private pure returns (bytes memory) {
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
+        // EMPTY ON PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input
+        // (`PadUnsupportedPrf`). Must match pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and
+        // every other deploy path (DeployLocalStack, FhevmDeployScript, create2-deploy).
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        uint16[] memory initialPrfInstances = new uint16[](0);
+        return abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (initialPrfInstances));
     }
 
     /// @dev Encodes whatever `_fhevmProtocolConfig()` returns; the seed itself is the override point.

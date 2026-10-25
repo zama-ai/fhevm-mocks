@@ -4,6 +4,12 @@ pragma solidity ^0.8.24;
 import {FhevmCreate2Base} from "../FhevmCreate2Base.s.sol";
 import {IACLOwner} from "../Interfaces.sol";
 import {LocalHostVersions} from "../../../pkg/forge/src/_internal/LocalHostVersions.sol";
+import {LibHostUpgradeCode} from "../../../pkg/forge/src/LibHostUpgradeCode.sol";
+import {
+    ERC1967_PROXY_CREATION_CODE,
+    FhevmAddressRole,
+    FhevmHostContracts
+} from "../../../pkg/forge/src/_internal/LocalHostBytecode.sol";
 
 /**
  *  The re-point engine's forge side: what every script that re-points a live stack's proxies shares, whatever
@@ -16,6 +22,12 @@ import {LocalHostVersions} from "../../../pkg/forge/src/_internal/LocalHostVersi
  *  scripts in this folder are abstract; a flow's concrete script is one of them plus its base.
  */
 abstract contract FhevmRepointBase is FhevmCreate2Base {
+    /**
+     * @dev The empty implementation behind the proxies a flow CREATES (`_newProxyRoles`). Its own role, so its
+     *      own salt: the deploy's `IMPL_EMPTY_UUPS_PROXY` is another create, whatever its address turns out to be.
+     */
+    string internal constant R_UPGRADE_EMPTY = "UPGRADE_EMPTY_UUPS_PROXY";
+
     address internal existingAcl;
     address internal existingExecutor;
     address internal existingKmsVerifier;
@@ -25,6 +37,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
     address internal existingKmsGeneration;
     address internal existingArithmetic;
     address internal existingDb;
+    address internal existingPaddedInputter;
     address internal existingPauserSet;
     address internal existingAclOwner;
 
@@ -41,6 +54,28 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         existingDb = vm.envAddress("FHEVM_EXISTING_CLEARTEXT_DB_ADDRESS");
         existingPauserSet = vm.envAddress("FHEVM_EXISTING_PAUSER_SET_ADDRESS");
         existingAclOwner = vm.envAddress("FHEVM_EXISTING_ACL_OWNER");
+        _loadPaddedInputter();
+    }
+
+    /**
+     * @dev A flow that CREATES the PaddedInputter proxy derives its address and takes no input for it: the
+     *      address is the CREATE2 of this build's code under this deployment's salt, so a supplied value can
+     *      only agree with it or be a mistake. One that does not create it is given the live one, and the
+     *      coordinator cross-checks it against `CleartextFHEVMExecutor.getPaddedInputterAddress()`.
+     */
+    function _loadPaddedInputter() private {
+        address supplied = vm.envOr("FHEVM_EXISTING_PADDED_INPUTTER_ADDRESS", address(0));
+        if (_contains(_newProxyRoles(), R_PADDED_INPUTTER)) {
+            address derived = _predictCreate2Address(R_PADDED_INPUTTER, _newProxyInitCode());
+            require(
+                supplied == address(0) || supplied == derived,
+                "FhevmRepointBase: FHEVM_EXISTING_PADDED_INPUTTER_ADDRESS is not the proxy this flow creates"
+            );
+            existingPaddedInputter = derived;
+        } else {
+            require(supplied != address(0), "FhevmRepointBase: FHEVM_EXISTING_PADDED_INPUTTER_ADDRESS is required");
+            existingPaddedInputter = supplied;
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -49,6 +84,13 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
 
     /// @dev The flow's name in messages: `upgrade`, `hotfix`.
     function _flowName() internal pure virtual returns (string memory);
+
+    /**
+     * @dev The proxies this flow CREATES before re-pointing them, each over the empty implementation
+     *      `R_UPGRADE_EMPTY` and initialized like the deploy's (`initialize()`, version 1). Its op then
+     *      re-points it like any other.
+     */
+    function _newProxyRoles() internal pure virtual returns (string[] memory);
 
     /// @dev The proxies `compute` considers, in op order.
     function _candidateRoles() internal view virtual returns (string[] memory);
@@ -64,6 +106,9 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
 
     /// @dev What op `i` calls, for the gate's op listing.
     function _initName(uint256 i, string memory role) internal view virtual returns (string memory);
+
+    /// @dev Writes the flow's own sealed values into the manifest's JSON object `o`, beside the engine's.
+    function _sealExtras(string memory o) internal virtual;
 
     /// @dev Is the live stack still what the seal planned the payload for, beyond the slots? `why` says what was
     ///      checked when it is, and what moved when it is not.
@@ -117,6 +162,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         if (key == keccak256(bytes(R_CLEARTEXT_ARITHMETIC))) return LocalHostVersions.CLEARTEXT_ARITHMETIC;
         if (key == keccak256(bytes(R_PROTOCOL_CONFIG))) return LocalHostVersions.PROTOCOL_CONFIG;
         if (key == keccak256(bytes(R_KMS_GENERATION))) return LocalHostVersions.KMS_GENERATION;
+        if (key == keccak256(bytes(R_PADDED_INPUTTER))) return LocalHostVersions.PADDED_INPUTTER;
         if (key == keccak256(bytes(R_INPUT_VERIFIER))) return LocalHostVersions.INPUT_VERIFIER;
         if (key == keccak256(bytes(R_CLEARTEXT_DB))) return LocalHostVersions.CLEARTEXT_DB;
         if (key == keccak256(bytes(R_PAUSER_SET))) return LocalHostVersions.PAUSER_SET;
@@ -134,14 +180,33 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         if (key == keccak256(bytes(R_KMS_GENERATION))) return existingKmsGeneration;
         if (key == keccak256(bytes(R_CLEARTEXT_ARITHMETIC))) return existingArithmetic;
         if (key == keccak256(bytes(R_CLEARTEXT_DB))) return existingDb;
+        if (key == keccak256(bytes(R_PADDED_INPUTTER))) return existingPaddedInputter;
         if (key == keccak256(bytes(R_PAUSER_SET))) return existingPauserSet;
         if (key == keccak256(bytes(R_ACL_OWNER))) return existingAclOwner;
         revert("FhevmRepointBase: unknown existing role");
     }
 
     // ---------------------------------------------------------------------------------------
-    // The creates: one implementation per op
+    // The creates: the proxies a flow creates, then one implementation per op
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * @dev The empty implementation's creation code, from the COMMITTED `LocalHostBytecode.sol` patched for the
+     *      live ACL — never from `out/`. Pass 1 needs this address before the build that bakes the live
+     *      addresses exists, and the committed blob is the only code that is the same before and after it.
+     *      Pass 2 asserts it equals this build's `EmptyUUPSProxy`.
+     */
+    function _newProxyEmptyImplCode() internal view returns (bytes memory) {
+        address[11] memory addresses; // LibHostUpgradeCode.ROLE_COUNT: an array length must be a literal here
+        addresses[uint8(FhevmAddressRole.ACL)] = existingAcl;
+        return LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses);
+    }
+
+    /// @dev A created proxy's creation code, over the empty implementation, from the committed `ERC1967Proxy`.
+    function _newProxyInitCode() internal view returns (bytes memory) {
+        address emptyImpl = _predictCreate2Address(R_UPGRADE_EMPTY, _newProxyEmptyImplCode());
+        return bytes.concat(ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImpl, _sharedProxyInitData()));
+    }
 
     /// @dev One create with the artifact it was built from, so a check can ask the artifact what the
     ///      chain should hold. `Create` (role, initCode) is what the deploy path's loop consumes.
@@ -151,13 +216,26 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         bytes initCode;
     }
 
-    /// @dev The permissionless CREATE2 operations, one implementation per op, each with its artifact.
+    /**
+     * @dev The permissionless CREATE2 operations, each with its artifact: the empty implementation and the
+     *      proxies the flow creates, if any, in that order (a proxy's constructor needs code behind it), then
+     *      one implementation per op.
+     */
     function _upgradeCreateTable() internal view returns (UpgradeCreate[] memory t) {
+        string[] memory created = _newProxyRoles();
         string[] memory roles = _repointRoles();
-        t = new UpgradeCreate[](roles.length);
+        uint256 n = created.length == 0 ? 0 : created.length + 1;
+        t = new UpgradeCreate[](n + roles.length);
+        if (n != 0) {
+            t[0] = UpgradeCreate(R_UPGRADE_EMPTY, A_EMPTY_SHARED, _newProxyEmptyImplCode());
+            bytes memory proxyCode = _newProxyInitCode();
+            for (uint256 i; i < created.length; i++) {
+                t[i + 1] = UpgradeCreate(created[i], A_ERC1967_PROXY, proxyCode);
+            }
+        }
         for (uint256 i; i < roles.length; i++) {
             string memory artifact = _implArtifactFor(roles[i]);
-            t[i] = UpgradeCreate(_implRole(roles[i]), artifact, _initCode(artifact));
+            t[n + i] = UpgradeCreate(_implRole(roles[i]), artifact, _initCode(artifact));
         }
     }
 

@@ -36,16 +36,25 @@ export type FhevmAddresses = {
   readonly hcuLimitAddress: string;
   readonly protocolConfigAddress: string;
   readonly kmsGenerationAddress: string;
+  /** RFC-030 pad-based inputs. Since v15. */
+  readonly paddedInputterAddress: string;
 };
 
 /**
  * The **previous** generation's host address set — what `updateV14ToV15` upgrades *from*.
  *
- * v15 adds no contract to the host set, so a v14 stack has exactly the addresses a v15 stack has. Named
- * separately anyway: it describes a different protocol generation that happens to coincide, and the name
- * is what lets `FhevmAddresses` change later without silently redefining what "a v14 stack" means.
+ * Spelled out rather than aliased: v15 adds `PaddedInputter` to the host set, which a v14 stack does not
+ * have, so the two no longer coincide. This is the change the separate name was kept for.
  */
-export type FhevmAddressesV14 = FhevmAddresses;
+export type FhevmAddressesV14 = {
+  readonly aclAddress: string;
+  readonly fhevmExecutorAddress: string;
+  readonly kmsVerifierAddress: string;
+  readonly inputVerifierAddress: string;
+  readonly hcuLimitAddress: string;
+  readonly protocolConfigAddress: string;
+  readonly kmsGenerationAddress: string;
+};
 
 /**
  * Cleartext-only infrastructure addresses (test stack): the arithmetic/persistence contract and the
@@ -126,6 +135,12 @@ export type PcrValues = {
   readonly pcr2: string;
 };
 
+/** Bootstrap init values for `PaddedInputter.initializeFromEmptyProxy` (since v15, RFC-030). */
+export type PaddedInputterInitConfig = {
+  /** The PRF instances packages may name from the start; the coprocessor must already evaluate each. */
+  readonly initialPrfInstances: readonly number[];
+};
+
 /** Bootstrap init values for a fresh stack (`deploy`). One entry per proxy that takes init args;
  * ACL/FHEVMExecutor/KMSGeneration take none. */
 export type BootstrapConfig = {
@@ -133,6 +148,7 @@ export type BootstrapConfig = {
   readonly inputVerifier: InputVerifierInitConfig;
   readonly hcuLimit: HCULimitInitConfig;
   readonly protocolConfig: ProtocolConfigInitConfig;
+  readonly paddedInputter: PaddedInputterInitConfig;
 };
 
 // The KMS rotation types live with the lifecycle code; re-exported here so consumers see one type module.

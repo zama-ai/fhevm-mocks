@@ -15,6 +15,7 @@ import {ICleartextDB} from "../../pkg/forge/src/_internal/interfaces/ICleartextD
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/_internal/interfaces/ICleartextFHEVMExecutor.sol";
 import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
+import {ICleartextPaddedInputter} from "../../pkg/forge/src/_internal/interfaces/ICleartextPaddedInputter.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
@@ -62,6 +63,9 @@ abstract contract ForkCleartextUpgrade is Test {
 
     bool internal forked;
     address internal owner;
+    /// @dev v15's executor bakes it (RFC-030) and the chain has none: created by the generation upgrade when
+    ///      that runs, otherwise by `_installPaddedInputter`, before anything patches the executor.
+    address internal paddedInputterProxy;
 
     /// @dev The stack this case forks, and whether it needs bringing forward a generation first.
     function _chain() internal virtual;
@@ -124,12 +128,17 @@ abstract contract ForkCleartextUpgrade is Test {
 
         // -- 0b. a chain that lags gets brought forward FIRST, exactly as `FhevmVm` does it -----------
         if (_isAGenerationBehind() && !_singlePass()) {
-            LibForgeFhevmUpgrade.upgradeFromPreviousGeneration(_roles(address(0), address(0)));
+            address[11] memory upgraded = _roles(address(0), address(0));
+            LibForgeFhevmUpgrade.upgradeFromPreviousGeneration(upgraded);
+            // The upgrade created the PaddedInputter and wrote it back into the array it was given.
+            paddedInputterProxy = upgraded[uint8(FhevmAddressRole.PaddedInputter)];
             assertFalse(LibCleartextProbe.isCleartext(EXECUTOR), "still production, just a newer one");
         }
 
+        _installPaddedInputter();
+
         // -- 1. the two contracts a real chain has never heard of, behind bootstrap proxies -----------
-        address[10] memory addresses = _roles(address(0), address(0));
+        address[11] memory addresses = _roles(address(0), address(0));
         address emptyImpl = _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses));
         bytes memory initEmpty = abi.encodeCall(IEmptyUUPSProxy.initialize, ());
         address dbProxy = _create(abi.encodePacked(ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImpl, initEmpty)));
@@ -194,7 +203,7 @@ abstract contract ForkCleartextUpgrade is Test {
     }
 
     /// @dev One address per `FhevmAddressRole`: this chain's, not this package's.
-    function _roles(address arithmetic, address db) internal view returns (address[10] memory addresses) {
+    function _roles(address arithmetic, address db) internal view returns (address[11] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = ACL;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = EXECUTOR;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = KMS_VERIFIER;
@@ -205,6 +214,30 @@ abstract contract ForkCleartextUpgrade is Test {
         addresses[uint8(FhevmAddressRole.PauserSet)] = PAUSER_SET;
         addresses[uint8(FhevmAddressRole.CleartextArithmetic)] = arithmetic;
         addresses[uint8(FhevmAddressRole.CleartextDB)] = db;
+        addresses[uint8(FhevmAddressRole.PaddedInputter)] = paddedInputterProxy;
+    }
+
+    /// @dev Creates this suite's own PaddedInputter unless the generation upgrade already did. Registers no
+    ///      PRF instance: none is exercised here.
+    function _installPaddedInputter() private {
+        if (paddedInputterProxy != address(0)) return;
+        address[11] memory addresses = _roles(address(0), address(0));
+        address emptyImpl = _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses));
+        paddedInputterProxy = _create(
+            abi.encodePacked(
+                ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImpl, abi.encodeCall(IEmptyUUPSProxy.initialize, ()))
+            )
+        );
+        address implementation = _create(
+            LibHostUpgradeCode.creationCodeFor(
+                FhevmHostContracts.CleartextPaddedInputter, _roles(address(0), address(0))
+            )
+        );
+        vm.prank(owner);
+        IUUPSProxy(paddedInputterProxy)
+            .upgradeToAndCall(
+                implementation, abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (new uint16[](0)))
+            );
     }
 
     /**
@@ -212,7 +245,7 @@ abstract contract ForkCleartextUpgrade is Test {
      *      where one exists. The reinitializers are inherited, so the same init data runs on them, and each
      *      proxy moves once instead of twice.
      */
-    function _upgradeGenerationStraightToCleartext(address[10] memory addresses) private {
+    function _upgradeGenerationStraightToCleartext(address[11] memory addresses) private {
         for (uint256 index = 0; index < LibForgeFhevmUpgrade.OP_COUNT; index++) {
             FhevmHostContracts implementation = _cleartextCounterpart(LibForgeFhevmUpgrade.opImplementation(index));
             address deployed = _create(LibHostUpgradeCode.creationCodeFor(implementation, addresses));

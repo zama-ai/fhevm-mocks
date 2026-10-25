@@ -18,6 +18,7 @@ import {
     KMS_GENERATION_ADDRESS,
     KMS_VERIFIER_ADDRESS,
     MNEMONIC,
+    PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
     PROTOCOL_CONFIG_ADDRESS
 } from "../src/_internal/LocalHostAddresses.sol";
@@ -35,6 +36,7 @@ import {
     ERC1967_PROXY_CREATION_CODE,
     CLEARTEXT_HCU_LIMIT_CREATION_CODE,
     KMS_GENERATION_CREATION_CODE,
+    CLEARTEXT_PADDED_INPUTTER_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
     PROTOCOL_CONFIG_CREATION_CODE
 } from "../src/_internal/LocalHostBytecode.sol";
@@ -52,6 +54,7 @@ import {IEmptyUUPSProxy} from "../src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {IEmptyUUPSProxyACL} from "../src/_internal/interfaces/IEmptyUUPSProxyACL.sol";
 import {ICleartextHCULimit} from "../src/_internal/interfaces/ICleartextHCULimit.sol";
 import {IKMSGeneration} from "../src/_internal/interfaces/IKMSGeneration.sol";
+import {ICleartextPaddedInputter} from "../src/_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IPauserSet} from "../src/_internal/interfaces/IPauserSet.sol";
 import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
 
@@ -80,7 +83,7 @@ import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
  *   An `anvil_setNonce` changes the node, not the simulation. Measured: after setting the nonce to 5 by
  *   RPC, `vm.getNonce` still reported 1 and the next CREATE landed at nonce 1.
  *
- * If PauserSet did not consume nonce 11, ACLOwner would take it and land on PauserSet's address. So the
+ * If PauserSet did not consume nonce 12, ACLOwner would take it and land on PauserSet's address. So the
  * nonce has to be consumed by a real creation. Only PauserSet's *runtime* blob is shipped (it has no
  * constructor, so `CODE_KIND` classifies it as runtime), and `_asCreationCode` below wraps that runtime in
  * a 12-byte prelude that returns it — a real CREATE whose result is byte-for-byte the shipped blob.
@@ -122,6 +125,7 @@ contract DeployLocalStack is Script {
         console.log("HCULimit:            ", HCU_LIMIT_ADDRESS);
         console.log("ProtocolConfig:      ", PROTOCOL_CONFIG_ADDRESS);
         console.log("KMSGeneration:       ", KMS_GENERATION_ADDRESS);
+        console.log("PaddedInputter:      ", PADDED_INPUTTER_ADDRESS);
         console.log("CleartextArithmetic: ", CLEARTEXT_ARITHMETIC_ADDRESS);
         console.log("CleartextDB:         ", CLEARTEXT_DB_ADDRESS);
         console.log("PauserSet:           ", PAUSER_SET_ADDRESS);
@@ -129,7 +133,7 @@ contract DeployLocalStack is Script {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Phase 1 — the empty proxies (nonces 0-10)
+    // Phase 1 — the empty proxies (nonces 0-11)
     ////////////////////////////////////////////////////////////////////////////
 
     function _deployEmptyProxies(address deployer) private {
@@ -145,12 +149,13 @@ contract DeployLocalStack is Script {
         _createProxy(emptyImpl, initEmpty, HCU_LIMIT_ADDRESS, "HCULimit proxy");
         _createProxy(emptyImpl, initEmpty, PROTOCOL_CONFIG_ADDRESS, "ProtocolConfig proxy");
         _createProxy(emptyImpl, initEmpty, KMS_GENERATION_ADDRESS, "KMSGeneration proxy");
+        _createProxy(emptyImpl, initEmpty, PADDED_INPUTTER_ADDRESS, "PaddedInputter proxy");
         _createProxy(emptyImpl, initEmpty, CLEARTEXT_ARITHMETIC_ADDRESS, "CleartextArithmetic proxy");
         _createProxy(emptyImpl, initEmpty, CLEARTEXT_DB_ADDRESS, "CleartextDB proxy");
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Phase 2 — PauserSet (nonce 11)
+    // Phase 2 — PauserSet (nonce 12)
     ////////////////////////////////////////////////////////////////////////////
 
     function _deployPauserSet() private {
@@ -182,7 +187,7 @@ contract DeployLocalStack is Script {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Phase 3 — ACLOwner takes ownership of ACL (nonce 12, then calls)
+    // Phase 3 — ACLOwner takes ownership of ACL (nonce 13, then calls)
     ////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -243,18 +248,34 @@ contract DeployLocalStack is Script {
             abi.encodeCall(IKMSGeneration.initializeFromEmptyProxy, ())
         );
         ops[7] = ACLOwner.Op(
+            PADDED_INPUTTER_ADDRESS,
+            _create(CLEARTEXT_PADDED_INPUTTER_CREATION_CODE, "PaddedInputter impl"),
+            _paddedInputterInit()
+        );
+        ops[8] = ACLOwner.Op(
             CLEARTEXT_ARITHMETIC_ADDRESS,
             _create(CLEARTEXT_ARITHMETIC_CREATION_CODE, "CleartextArithmetic impl"),
             abi.encodeCall(ICleartextArithmetic.initializeFromEmptyProxy, ())
         );
         // CleartextDB's initial writer is CleartextArithmetic.
-        ops[8] = ACLOwner.Op(
+        ops[9] = ACLOwner.Op(
             CLEARTEXT_DB_ADDRESS,
             _create(CLEARTEXT_DB_CREATION_CODE, "CleartextDB impl"),
             abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (CLEARTEXT_ARITHMETIC_ADDRESS))
         );
 
         IACLOwner(aclOwner).upgrade(ops);
+    }
+
+    function _paddedInputterInit() private pure returns (bytes memory) {
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
+        // EMPTY ON PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input
+        // (`PadUnsupportedPrf`). Must match pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and
+        // every other deploy path (LibForgeFhevmStack, FhevmDeployScript, create2-deploy).
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        uint16[] memory initialPrfInstances = new uint16[](0);
+        return abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (initialPrfInstances));
     }
 
     function _kmsVerifierInit() private pure returns (bytes memory) {

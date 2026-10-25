@@ -10,6 +10,7 @@ import {InputVerifier} from "../../pkg/src/contracts/InputVerifier.sol";
 import {HCULimit} from "../../pkg/src/contracts/HCULimit.sol";
 import {ProtocolConfig} from "../../pkg/src/contracts/ProtocolConfig.sol";
 import {KMSGeneration} from "../../pkg/src/contracts/KMSGeneration.sol";
+import {PaddedInputter} from "../../pkg/src/contracts/PaddedInputter.sol";
 import {CleartextArithmetic} from "../../pkg/src/cleartext/CleartextArithmetic.sol";
 import {CleartextDB} from "../../pkg/src/cleartext/CleartextDB.sol";
 import {IProtocolConfig} from "../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
@@ -61,8 +62,8 @@ import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstr
  */
 library MaterializeInitData {
     /// @dev Indexed by _allProxyRoles() position: 0 ACL, 1 FHEVMExecutor, 2 KMSVerifier,
-    ///      3 InputVerifier, 4 HCULimit, 5 ProtocolConfig, 6 KMSGeneration, 7 CleartextArithmetic,
-    ///      8 CleartextDB.
+    ///      3 InputVerifier, 4 HCULimit, 5 ProtocolConfig, 6 KMSGeneration, 7 PaddedInputter,
+    ///      8 CleartextArithmetic, 9 CleartextDB.
     function initData(uint256 i, address cleartextArithmeticAdd) internal pure returns (bytes memory) {
         if (i == 0) return abi.encodeCall(ACL.initializeFromEmptyProxy, ());
         if (i == 1) return abi.encodeCall(FHEVMExecutor.initializeFromEmptyProxy, ());
@@ -71,11 +72,29 @@ library MaterializeInitData {
         if (i == 4) return _hcuLimit();
         if (i == 5) return _protocolConfig();
         if (i == 6) return abi.encodeCall(KMSGeneration.initializeFromEmptyProxy, ());
-        if (i == 7) return abi.encodeCall(CleartextArithmetic.initializeFromEmptyProxy, ());
+        if (i == 7) return paddedInputter();
+        if (i == 8) return abi.encodeCall(CleartextArithmetic.initializeFromEmptyProxy, ());
         // CleartextDB's initial writer is CleartextArithmetic — the one argument here that is a host
         // address rather than bootstrap config, hence the parameter.
-        if (i == 8) return abi.encodeCall(CleartextDB.initializeFromEmptyProxy, (cleartextArithmeticAdd));
+        if (i == 9) return abi.encodeCall(CleartextDB.initializeFromEmptyProxy, (cleartextArithmeticAdd));
         revert("MaterializeInitData: index out of range");
+    }
+
+    /// @dev The implementation is CleartextPaddedInputter; the payload is encoded against PaddedInputter, which
+    ///      declares it. `internal` so the CREATE2 upgrade, which creates this proxy, sends the same payload.
+    function paddedInputter() internal pure returns (bytes memory) {
+        return abi.encodeCall(PaddedInputter.initializeFromEmptyProxy, (paddedInputterPrfInstances()));
+    }
+
+    /// @dev The PRF instances `paddedInputter()` registers, for the listings that print them.
+    function paddedInputterPrfInstances() internal pure returns (uint16[] memory) {
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // FIXME — NOT DECIDED YET: which RFC-030 PRF instance(s) a cleartext stack registers at deploy.
+        // EMPTY ON PURPOSE, rather than an invented id: PaddedInputter then refuses EVERY pad-based input
+        // (`PadUnsupportedPrf`). Must match pkg/ts/constants.ts DEFAULT_BOOTSTRAP_CONFIG.paddedInputter and
+        // every other deploy path.
+        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        return new uint16[](0);
     }
 
     /// @dev v13 moved the KMS signer set out of KMSVerifier into ProtocolConfig, so only the EIP-712

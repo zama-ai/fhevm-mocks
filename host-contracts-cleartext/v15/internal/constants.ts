@@ -61,6 +61,9 @@ export const ADDRESS_NAMES = [
   'PAUSER_SET_ADDRESS',
   'CLEARTEXT_ARITHMETIC_ADDRESS',
   'CLEARTEXT_DB_ADDRESS',
+  // APPENDED, never inserted: this order indexes the generated `FhevmAddressRole` enum, a permanent ABI.
+  // Its NONCE is in the host block below (after KMSGeneration); the two orders are independent.
+  'PADDED_INPUTTER_ADDRESS',
 ] as const;
 
 export type AddressName = (typeof ADDRESS_NAMES)[number];
@@ -87,6 +90,8 @@ const HOST_NONCE_OFFSET = {
   HCU_LIMIT_ADDRESS: 6n,
   PROTOCOL_CONFIG_ADDRESS: 7n,
   KMS_GENERATION_ADDRESS: 8n,
+  // v0.15.0, RFC-030. A primary host contract, so it extends the host block and shifts the trailing one.
+  PADDED_INPUTTER_ADDRESS: 9n,
 } as const;
 
 /**
@@ -119,10 +124,10 @@ const HOST_NONCE_COUNT: bigint =
  * reintroduce exactly the hardcoded offset this split removes.
  *
  * The same layout is duplicated a third time in `pkg/forge/script/ComputeAddresses.s.sol`, which cannot
- * import TypeScript at all and still spells out `nonce + 9/10/11`. So: change the deploy order and it must
+ * import TypeScript at all and still spells out `nonce + 10/11/12`. So: change the deploy order and it must
  * change in three places. What catches a missed one differs per group — the ZAMA_LOCAL_CONFIG assertion in
  * generateLocalHostBytecode.ts only covers offsets 1, 3 and 4, so it says nothing about the trailing
- * block; `test/ts/precompute-addresses.test.ts` is what pins all ten against the payload's own layout.
+ * block; `test/ts/precompute-addresses.test.ts` is what pins all eleven against the payload's own layout.
  */
 export const NONCE_OFFSET: Readonly<Record<AddressName, bigint>> = {
   ...HOST_NONCE_OFFSET,
@@ -132,11 +137,11 @@ export const NONCE_OFFSET: Readonly<Record<AddressName, bigint>> = {
 };
 
 /**
- * How many nonces the address-critical part of the deploy consumes: offsets 0-11, i.e. the ten named
+ * How many nonces the address-critical part of the deploy consumes: offsets 0-12, i.e. the eleven named
  * contracts plus the two empty-proxy implementations. `pkg/ts/addresses.ts` calls this `nextStartNonce`.
  *
  * Derived from NONCE_OFFSET rather than written out, so there is no second number to keep in step.
- * Nothing past this point is pinned — ACLOwner at 12, then the implementations — because no bytecode
+ * Nothing past this point is pinned — ACLOwner at 13, then the implementations — because no bytecode
  * refers to those addresses.
  */
 export const ADDRESSED_NONCE_COUNT: bigint =
@@ -169,6 +174,7 @@ export const NONCE_LABEL: Readonly<Record<AddressName, string>> = {
   HCU_LIMIT_ADDRESS: 'ERC1967Proxy (HCULimit)',
   PROTOCOL_CONFIG_ADDRESS: 'ERC1967Proxy (ProtocolConfig)',
   KMS_GENERATION_ADDRESS: 'ERC1967Proxy (KMSGeneration)',
+  PADDED_INPUTTER_ADDRESS: 'ERC1967Proxy (PaddedInputter)',
   CLEARTEXT_ARITHMETIC_ADDRESS: 'ERC1967Proxy (CleartextArithmetic)',
   CLEARTEXT_DB_ADDRESS: 'ERC1967Proxy (CleartextDB)',
   PAUSER_SET_ADDRESS: 'PauserSet',
@@ -195,6 +201,7 @@ export const CONSTANT_NAMES = {
   EmptyUUPSProxyACL: 'EMPTY_UUPS_PROXY_ACL',
   ERC1967Proxy: 'ERC1967_PROXY',
   KMSGeneration: 'KMS_GENERATION',
+  CleartextPaddedInputter: 'CLEARTEXT_PADDED_INPUTTER',
   PauserSet: 'PAUSER_SET',
   ProtocolConfig: 'PROTOCOL_CONFIG',
 } as const;

@@ -52,6 +52,8 @@ contract LocalHostUpgradeTablesTest is Test {
         all[16] = FhevmHostContracts.CleartextForgeArithmetic;
         all[17] = FhevmHostContracts.CleartextForgeHCULimit;
         all[18] = FhevmHostContracts.EmptyUUPSProxy;
+        all[19] = FhevmHostContracts.PaddedInputter;
+        all[20] = FhevmHostContracts.CleartextPaddedInputter;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -78,6 +80,8 @@ contract LocalHostUpgradeTablesTest is Test {
         assertEq(uint8(FhevmHostContracts.CleartextForgeArithmetic), 16, "CleartextForgeArithmetic");
         assertEq(uint8(FhevmHostContracts.CleartextForgeHCULimit), 17, "CleartextForgeHCULimit");
         assertEq(uint8(FhevmHostContracts.EmptyUUPSProxy), 18, "EmptyUUPSProxy");
+        assertEq(uint8(FhevmHostContracts.PaddedInputter), 19, "PaddedInputter");
+        assertEq(uint8(FhevmHostContracts.CleartextPaddedInputter), 20, "CleartextPaddedInputter");
     }
 
     function test_everyAddressRoleHasThePositionThisFileWasWrittenAgainst() public pure {
@@ -91,14 +95,15 @@ contract LocalHostUpgradeTablesTest is Test {
         assertEq(uint8(FhevmAddressRole.PauserSet), 7, "PauserSet");
         assertEq(uint8(FhevmAddressRole.CleartextArithmetic), 8, "CleartextArithmetic");
         assertEq(uint8(FhevmAddressRole.CleartextDB), 9, "CleartextDB");
+        assertEq(uint8(FhevmAddressRole.PaddedInputter), 10, "PaddedInputter");
     }
 
     /// Catches an append on either enum, which the per-member checks above cannot see.
     function test_neitherEnumHasGrownAMember() public pure {
-        assertEq(uint8(type(FhevmHostContracts).max), 18, "host contracts");
-        assertEq(uint8(type(FhevmAddressRole).max), 9, "address roles");
-        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 19, "and the count the tables were built with");
-        assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 10, "and the role count");
+        assertEq(uint8(type(FhevmHostContracts).max), 20, "host contracts");
+        assertEq(uint8(type(FhevmAddressRole).max), 10, "address roles");
+        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 21, "and the count the tables were built with");
+        assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 11, "and the role count");
     }
 
     // ---------------------------------------------------------------------------------------------

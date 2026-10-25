@@ -12,8 +12,8 @@
 // no code, which is the point. The library path can be correct while the CREATE2 path is broken, and the
 // CREATE2 path is the one an operator actually runs against a testnet.
 //
-// It also exercises the thing neither unit tests nor the library e2e can: that the six implementations
-// this generation's `compute` predicts land beside the eleven live addresses it was handed, and that a `materialize`
+// It also exercises the thing neither unit tests nor the library e2e can: that the eight implementations and the
+// PaddedInputter proxy this generation's `compute` predicts land beside the eleven live addresses it was handed, and that a `materialize`
 // built from a sealed manifest lands on a stack that was deployed by a different package, at a different
 // version, in a different process.
 //
@@ -250,6 +250,7 @@ type AclView = OwnableView & {
   CLEARTEXT_PROTOCOL_VERSION(): Promise<bigint>;
 };
 type PauserSetView = { isPauser(account: string): Promise<boolean> };
+type WiredExecutorView = { getPaddedInputterAddress(): Promise<string> };
 type TrivialEncryptWriter = {
   trivialEncrypt(pt: bigint, toType: number): Promise<{ wait(): Promise<{ logs: readonly unknown[] } | null> }>;
 };
@@ -264,6 +265,11 @@ const ACL_ABI = [
   'function CLEARTEXT_PROTOCOL_VERSION() view returns (uint256)',
 ];
 const PAUSER_SET_ABI = ['function isPauser(address) view returns (bool)'];
+const WIRED_EXECUTOR_ABI = ['function getPaddedInputterAddress() view returns (address)'];
+/** OpenZeppelin `Initializable`'s namespaced storage: the low 8 bytes are the proxy's initialized version. */
+const INITIALIZABLE_STORAGE = '0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00';
+/** The ERC-1967 implementation slot. */
+const IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 const TRIVIAL_ENCRYPT_ABI = [
   'function trivialEncrypt(uint256,uint8) returns (bytes32)',
   'event TrivialEncrypt(address indexed caller,uint256 pt,uint8 toType,bytes32 result)',
@@ -661,13 +667,14 @@ void test(
       );
 
       await t.test(
-        "the six re-pointed contracts now report this generation's versions",
+        "the eight re-pointed contracts now report this generation's versions",
         { skip: upgradeSkip },
         async (st) => {
           if (needsCur(st)) return;
-          announce(9, STEPS, 'read the new versions back, and HCULimit/CleartextArithmetic unchanged');
+          announce(9, STEPS, 'read the new versions back, and HCULimit/CleartextDB unchanged');
           assert.ok(provider);
           const table = contractVersions(curRoot);
+          const cur = manifestAddresses(curRoot);
           for (const [role, key] of [
             ['ACL_ADDRESS', 'acl'],
             ['FHEVM_EXECUTOR_ADDRESS', 'fhevmExecutor'],
@@ -675,21 +682,23 @@ void test(
             ['INPUT_VERIFIER_ADDRESS', 'inputVerifier'],
             ['PROTOCOL_CONFIG_ADDRESS', 'protocolConfig'],
             ['KMS_GENERATION_ADDRESS', 'kmsGeneration'],
+            ['CLEARTEXT_ARITHMETIC_ADDRESS', 'cleartextArithmetic'],
+            ['PADDED_INPUTTER_ADDRESS', 'paddedInputter'],
           ] as const) {
             assert.equal(
-              await versionOf(provider, addressOf(prev, role)),
+              await versionOf(provider, addressOf(cur, role)),
               expectVersion(table, key),
               `${role} -> this generation`,
             );
           }
-          // The negative half, which a list of positive expectations cannot give: HCULimit and CleartextArithmetic
-          // are deliberately absent from the op list, so a moved version there means something re-pointed a proxy
+          // The negative half, which a list of positive expectations cannot give: HCULimit and CleartextDB are
+          // deliberately absent from the op list, so a moved version there means something re-pointed a proxy
           // nobody intended to touch. This generation's table holds the previous value, which is what "unchanged"
           // means here.
           const before = contractVersions(prevRoot);
           for (const [role, key] of [
             ['HCU_LIMIT_ADDRESS', 'hcuLimit'],
-            ['CLEARTEXT_ARITHMETIC_ADDRESS', 'cleartextArithmetic'],
+            ['CLEARTEXT_DB_ADDRESS', 'cleartextDB'],
           ] as const) {
             assert.equal(
               expectVersion(table, key),
@@ -706,11 +715,11 @@ void test(
       );
 
       await t.test(
-        'no proxy was created: the sealed address set is the live one',
+        'one proxy was created, PaddedInputter, wired into the executor; the rest is the live address set',
         { skip: upgradeSkip },
         async (st) => {
           if (needsCur(st)) return;
-          announce(10, STEPS, 'check the sealed address set, the six implementations, ownership and pausers');
+          announce(10, STEPS, 'check the sealed address set, the eight implementations, the created PaddedInputter');
           assert.ok(provider);
           const cur = manifestAddresses(curRoot);
           for (const live of LIVE_ROLES) {
@@ -720,26 +729,54 @@ void test(
               `${live} was re-sealed as is`,
             );
           }
-          // The six implementations are the only addresses in this flow that were PREDICTED rather than
-          // supplied, so this is where a colliding or wrongly derived salt would show up.
-          for (const role of [
-            'ACL_ADDRESS',
-            'FHEVM_EXECUTOR_ADDRESS',
-            'KMS_VERIFIER_ADDRESS',
-            'INPUT_VERIFIER_ADDRESS',
-            'PROTOCOL_CONFIG_ADDRESS',
-            'KMS_GENERATION_ADDRESS',
-          ] as const) {
-            const address = addressOf(cur, `IMPL_${role}`);
+          // The implementations, the created proxy and its empty implementation are the only addresses in this
+          // flow that were PREDICTED rather than supplied, so this is where a colliding or wrongly derived salt
+          // would show up.
+          const predicted = [
+            'IMPL_ACL_ADDRESS',
+            'IMPL_FHEVM_EXECUTOR_ADDRESS',
+            'IMPL_KMS_VERIFIER_ADDRESS',
+            'IMPL_INPUT_VERIFIER_ADDRESS',
+            'IMPL_PROTOCOL_CONFIG_ADDRESS',
+            'IMPL_KMS_GENERATION_ADDRESS',
+            'IMPL_CLEARTEXT_ARITHMETIC_ADDRESS',
+            'IMPL_PADDED_INPUTTER_ADDRESS',
+            'PADDED_INPUTTER_ADDRESS',
+            'UPGRADE_EMPTY_UUPS_PROXY',
+          ] as const;
+          for (const role of predicted) {
+            const address = addressOf(cur, role);
             assert.notEqual(await provider.getCode(address), '0x', `no code at IMPL_${role}`);
             for (const live of LIVE_ROLES) {
               assert.notEqual(
                 address.toLowerCase(),
                 addressOf(prev, live).toLowerCase(),
-                `IMPL_${role} collides with ${live}`,
+                `${role} collides with ${live}`,
               );
             }
           }
+
+          // The created proxy: past its empty implementation, initialized once by PaddedInputter's own
+          // initializer, and the one the new executor bakes.
+          const padded = addressOf(cur, 'PADDED_INPUTTER_ADDRESS');
+          const slot = await provider.getStorage(padded, IMPLEMENTATION_SLOT);
+          assert.equal(
+            `0x${slot.slice(-40)}`,
+            addressOf(cur, 'IMPL_PADDED_INPUTTER_ADDRESS').toLowerCase(),
+            'PaddedInputter runs its sealed implementation',
+          );
+          const initialized = BigInt(await provider.getStorage(padded, INITIALIZABLE_STORAGE)) & ((1n << 64n) - 1n);
+          assert.equal(initialized, 2n, 'PaddedInputter is initialized at reinitializer(2)');
+          const executor = view<WiredExecutorView>(
+            addressOf(prev, 'FHEVM_EXECUTOR_ADDRESS'),
+            WIRED_EXECUTOR_ABI,
+            provider,
+          );
+          assert.equal(
+            (await executor.getPaddedInputterAddress()).toLowerCase(),
+            padded.toLowerCase(),
+            'the upgraded executor calls the created PaddedInputter',
+          );
         },
       );
 
@@ -859,7 +896,7 @@ void test(
           ]);
           assert.ok(again.ok, `second --stage all failed:\n${again.output.slice(-4000)}`);
           assert.match(again.output, /Compute: already sealed .* skipping/, 'compute is skipped, from the chain');
-          assert.match(again.output, /already present 6/, 'no create is re-sent');
+          assert.match(again.output, /already present 10/, 'no create is re-sent');
           assert.match(again.output, /already materialized; run verify/, 'the gate recognizes the upgraded stack');
           assert.match(again.output, /nothing left to rehearse/, 'the rehearsal steps aside');
           assert.match(again.output, /materialize already complete/, 'the atomic call is not repeated');
@@ -870,7 +907,7 @@ void test(
           assert.ok(status.ok, status.output.slice(-2000));
           assert.match(status.output, /materialize: done/, status.output.slice(-2000));
 
-          // The init calls: six no-argument reinitializers, nothing sealed, nothing migrated.
+          // The init calls: seven no-argument reinitializers, then PaddedInputter's initializer with the sealed PRFs.
           note('params');
           const params = await runCoordinator(curRoot, UPGRADE_CLI, [...common, '--stage', 'params']);
           assert.ok(params.ok, params.output.slice(-2000));
@@ -881,10 +918,12 @@ void test(
             'InputVerifier.reinitializeV3()',
             'ProtocolConfig.reinitializeV3()',
             'KMSGeneration.reinitializeV3()',
+            'CleartextArithmetic.reinitializeV4()',
+            'PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)',
           ]) {
             assert.ok(params.output.includes(call), `params lists ${call}:\n${params.output.slice(-2000)}`);
           }
-          assert.match(params.output, /no arguments: the upgrade migrates nothing/, params.output.slice(-2000));
+          assert.match(params.output, /initialPrfInstances: \[\]/, params.output.slice(-2000));
 
           note('compute must refuse (expect an Error below)');
           const recompute = await runCoordinator(curRoot, UPGRADE_CLI, [...common, '--stage', 'compute']);

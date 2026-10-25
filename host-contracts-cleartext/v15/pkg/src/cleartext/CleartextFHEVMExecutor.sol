@@ -6,7 +6,7 @@ import {FheType} from "./shared/LibFheType.sol";
 import {ICleartextArithmetic} from "./shared/interfaces/ICleartextArithmetic.sol";
 import {IPlaintexts} from "./shared/interfaces/IPlaintexts.sol";
 import {Operators as CleartextOperators} from "./shared/FhevmOperatorsEnum.sol";
-import {cleartextArithmeticAdd} from "../addresses/FHEVMHostAddresses.sol";
+import {cleartextArithmeticAdd, paddedInputterAdd} from "../addresses/FHEVMHostAddresses.sol";
 
 /// @notice FHEVMExecutor variant that mirrors every operation's cleartext into the cleartext layer.
 /// @dev Each override runs the real symbolic op (`super`), then delegates the cleartext bookkeeping
@@ -127,6 +127,15 @@ contract CleartextFHEVMExecutor is FHEVMExecutor, IPlaintexts {
      */
     function getCleartextArithmeticAddress() public view virtual returns (address) {
         return address(cleartextArithmeticAdd);
+    }
+
+    /**
+     * @notice Getter function for the PaddedInputter (RFC-030) contract address.
+     * @dev CLEARTEXT-ONLY, so a deployment check can read back the address the executor bakes: the stock
+     *      `FHEVMExecutor` exposes none yet. Remove it from here once upstream's executor exposes one.
+     */
+    function getPaddedInputterAddress() public view virtual returns (address) {
+        return address(paddedInputterAdd);
     }
 
     /**

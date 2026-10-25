@@ -62,6 +62,8 @@ interface IWiredFHEVMExecutor {
     function getInputVerifierAddress() external view returns (address);
     /// @dev Cleartext build only: the executor deployed here is CleartextFHEVMExecutor.
     function getCleartextArithmeticAddress() external view returns (address);
+    /// @dev Cleartext build only, until the stock FHEVMExecutor exposes it (RFC-030).
+    function getPaddedInputterAddress() external view returns (address);
 }
 
 interface IWiredHCULimit {

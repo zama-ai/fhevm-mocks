@@ -7,6 +7,7 @@ import { abi as inputVerifierAbi } from './artifacts/CleartextInputVerifier.js';
 import { abi as kmsVerifierAbi } from './artifacts/CleartextKMSVerifier.js';
 import { abi as hcuLimitAbi } from './artifacts/CleartextHCULimit.js';
 import { abi as kmsGenerationAbi } from './artifacts/KMSGeneration.js';
+import { abi as paddedInputterAbi } from './artifacts/CleartextPaddedInputter.js';
 import { abi as pauserSetAbi } from './artifacts/PauserSet.js';
 import { abi as protocolConfigAbi } from './artifacts/ProtocolConfig.js';
 import type {
@@ -99,6 +100,14 @@ function targetsOf(deployed: PartialStack): readonly Target[] {
       address: f.kmsGenerationAddress,
       abi: kmsGenerationAbi,
       versionKey: 'kmsGeneration',
+      isProxy: true,
+    },
+    // v15 (RFC-030). Absent from a v14 stack, so a pre-upgrade snapshot drops it and the upgrade reads as NEW.
+    {
+      label: 'PaddedInputter',
+      address: f.paddedInputterAddress,
+      abi: paddedInputterAbi,
+      versionKey: 'paddedInputter',
       isProxy: true,
     },
     {
@@ -598,9 +607,10 @@ async function checkBootstrap(
  * The readings allowed to differ across an upgrade, and why. Anything else must be identical.
  *
  * `getVersion` moves on exactly the contracts an upgrade re-points — which `checkVersions` asserts
- * positively, so here it is only excused. `HCULimit` and `CleartextArithmetic` are deliberately absent:
- * their bytecode is unchanged between generations, so a moved version there means something re-pointed a
- * proxy nobody intended to touch.
+ * positively, so here it is only excused. `HCULimit` and `CleartextDB` are deliberately absent: their
+ * bytecode is unchanged between generations, so a moved version there means something re-pointed a proxy
+ * nobody intended to touch. `PaddedInputter` is absent for another reason: the upgrade CREATES it, so
+ * there is no earlier reading to differ from.
  */
 export const DEFAULT_MAY_CHANGE: readonly string[] = [
   'ACL.getVersion',
@@ -609,6 +619,7 @@ export const DEFAULT_MAY_CHANGE: readonly string[] = [
   'InputVerifier.getVersion',
   'ProtocolConfig.getVersion',
   'KMSGeneration.getVersion',
+  'CleartextArithmetic.getVersion',
   // The ACL's protocol-version marker: 14 before the upgrade, 15 after, by construction. `IS_CLEARTEXT`
   // is deliberately NOT here — it reads true on both sides, so it must not move.
   'ACL.CLEARTEXT_PROTOCOL_VERSION',

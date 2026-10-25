@@ -7,9 +7,11 @@ import {FhevmRepointBase} from "./FhevmRepointBase.s.sol";
 /**
  *  Two-pass CREATE2 computation for re-pointing a supplied live stack.
  *
- *  A re-point creates no proxy, so pass 1 has nothing to predict: it writes the addresses file the
- *  implementations are compiled against (every live proxy) and records its hash. Pass 2, after the
- *  rebuild, asserts that file did not move, predicts the implementations and seals the manifest.
+ *  Pass 1 writes the addresses file the implementations are compiled against (every live proxy, and the
+ *  proxies the flow creates, predicted from committed bytecode: see `_newProxyEmptyImplCode`) and records
+ *  its hash. Pass 2, after the rebuild, asserts that file did not move and that this build agrees with the
+ *  committed bytecode the created proxies were predicted from, predicts the implementations and seals the
+ *  manifest.
  */
 abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
     function run() external {
@@ -31,6 +33,10 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
 
         console.log("  PROTOCOL_CONFIG_ADDRESS", existingProtocolConfig);
         console.log("  KMS_GENERATION_ADDRESS ", existingKmsGeneration);
+        console.log(
+            _newProxyRoles().length == 0 ? "  PADDED_INPUTTER_ADDRESS" : "  PADDED_INPUTTER_ADDRESS (created)",
+            existingPaddedInputter
+        );
         console.log("  wrote", _addressesPath());
     }
 
@@ -41,6 +47,7 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
             _addressesHash() == vm.parseJsonBytes32(scratch, ".addressesHash"),
             "upgrade pass2: addresses file moved since pass 1"
         );
+        _requireNewProxyCodeIsThisBuild();
 
         // The candidates the flow considers, and the ones it keeps: an upgrade keeps its whole table, a hotfix
         // the roles whose implementation in this build is not the one the proxy runs.
@@ -76,6 +83,25 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         console.log("  wrote", _manifestPath());
     }
 
+    /**
+     * @dev The created proxies were predicted from the COMMITTED bytecode; this build must produce the same.
+     *      Not what makes the creates safe — `creates` re-derives each address from the code it sends, and
+     *      refuses a mismatch — but a stale `LocalHostBytecode.sol` is better named here than as a drift there.
+     */
+    function _requireNewProxyCodeIsThisBuild() private view {
+        if (_newProxyRoles().length == 0) return;
+        require(
+            keccak256(_newProxyEmptyImplCode()) == keccak256(_initCode(A_EMPTY_SHARED)),
+            "repoint pass2: the committed EmptyUUPSProxy is not this build's (run make generate)"
+        );
+        address emptyImpl = _predictCreate2Address(R_UPGRADE_EMPTY, _newProxyEmptyImplCode());
+        require(
+            keccak256(_newProxyInitCode()) == keccak256(_proxyInitCode(emptyImpl, _sharedProxyInitData())),
+            "repoint pass2: the committed ERC1967Proxy is not this build's (run make generate)"
+        );
+        console.log("  UPGRADE_EMPTY_UUPS_PROXY", emptyImpl);
+    }
+
     /// @dev The addresses file as pass 1 wrote it, so pass 2 can tell a rebuild from a re-targeting.
     function _addressesHash() private view returns (bytes32) {
         return keccak256(bytes(vm.readFile(_addressesPath())));
@@ -95,6 +121,7 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         source = string.concat(source, _constant(R_KMS_GENERATION, existingKmsGeneration));
         source = string.concat(source, _constant(R_CLEARTEXT_ARITHMETIC, existingArithmetic));
         source = string.concat(source, _constant(R_CLEARTEXT_DB, existingDb));
+        source = string.concat(source, _constant(R_PADDED_INPUTTER, existingPaddedInputter));
         source = string.concat(source, _constant(R_PAUSER_SET, existingPauserSet));
         vm.writeFile(_addressesPath(), source);
     }
@@ -115,6 +142,9 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         vm.serializeUint(o, "confirmations", cfg.confirmations);
         // The proxies this re-point moves, in op order: what every later script and the coordinator read back.
         vm.serializeString(o, "repointed", roles);
+        // The proxies it creates first, over `UPGRADE_EMPTY_UUPS_PROXY`: their `.preUpgrade.implementation`.
+        vm.serializeString(o, "created", _newProxyRoles());
+        _sealExtras(o);
         string memory out = vm.serializeString(o, "address", addressMap);
         vm.writeJson(out, _manifestPath());
     }
@@ -133,8 +163,12 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         vm.serializeAddress(o, R_KMS_GENERATION, existingKmsGeneration);
         vm.serializeAddress(o, R_CLEARTEXT_ARITHMETIC, existingArithmetic);
         vm.serializeAddress(o, R_CLEARTEXT_DB, existingDb);
+        vm.serializeAddress(o, R_PADDED_INPUTTER, existingPaddedInputter);
         vm.serializeAddress(o, R_PAUSER_SET, existingPauserSet);
         vm.serializeAddress(o, R_ACL_OWNER, existingAclOwner);
+        if (_newProxyRoles().length != 0) {
+            vm.serializeAddress(o, R_UPGRADE_EMPTY, _predictCreate2Address(R_UPGRADE_EMPTY, _newProxyEmptyImplCode()));
+        }
 
         require(implementations.length == roles.length, "FhevmRepointComputeAddresses: implementation arity");
         for (uint256 i; i + 1 < roles.length; i++) {

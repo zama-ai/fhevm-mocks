@@ -14,6 +14,7 @@ import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICl
 import {ICleartextDB} from "../../pkg/forge/src/_internal/interfaces/ICleartextDB.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/_internal/interfaces/ICleartextFHEVMExecutor.sol";
 import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
+import {ICleartextPaddedInputter} from "../../pkg/forge/src/_internal/interfaces/ICleartextPaddedInputter.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
@@ -58,6 +59,7 @@ contract ForkForgeVariantUpgradeTest is Test {
     address internal owner;
     address internal arithmeticProxy;
     address internal dbProxy;
+    address internal paddedInputterProxy;
 
     function setUp() public {
         string memory rpc = vm.envOr("SEPOLIA_RPC_URL", string(""));
@@ -129,6 +131,7 @@ contract ForkForgeVariantUpgradeTest is Test {
     ///      something forge created, so it has none by default.
     function _upgradeToCleartext(bool useForgeVariants) private {
         _installStore(useForgeVariants);
+        _installPaddedInputter();
 
         _repoint(ACL, useForgeVariants ? FhevmHostContracts.CleartextForgeACL : FhevmHostContracts.CleartextACL);
         _repoint(
@@ -180,7 +183,7 @@ contract ForkForgeVariantUpgradeTest is Test {
         IUUPSProxy(proxy).upgradeToAndCall(deployed, "");
     }
 
-    function _roles() private view returns (address[10] memory addresses) {
+    function _roles() private view returns (address[11] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = ACL;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = EXECUTOR;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = KMS_VERIFIER;
@@ -191,6 +194,27 @@ contract ForkForgeVariantUpgradeTest is Test {
         addresses[uint8(FhevmAddressRole.PauserSet)] = PAUSER_SET;
         addresses[uint8(FhevmAddressRole.CleartextArithmetic)] = arithmeticProxy;
         addresses[uint8(FhevmAddressRole.CleartextDB)] = dbProxy;
+        addresses[uint8(FhevmAddressRole.PaddedInputter)] = paddedInputterProxy;
+    }
+
+    /// @dev v15's executor bakes PaddedInputter (RFC-030), which the forked chain does not have: one of this
+    ///      suite's own, created once and before anything patches the executor, or the patcher refuses the
+    ///      executor for a role it has no address for. Registers no PRF instance: none is exercised here.
+    function _installPaddedInputter() private {
+        if (paddedInputterProxy != address(0)) return;
+        address emptyImpl = _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, _roles()));
+        paddedInputterProxy = _create(
+            abi.encodePacked(
+                ERC1967_PROXY_CREATION_CODE, abi.encode(emptyImpl, abi.encodeCall(IEmptyUUPSProxy.initialize, ()))
+            )
+        );
+        address implementation =
+            _create(LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.CleartextPaddedInputter, _roles()));
+        vm.prank(owner);
+        IUUPSProxy(paddedInputterProxy)
+            .upgradeToAndCall(
+                implementation, abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (new uint16[](0)))
+            );
     }
 
     function _create(bytes memory creationCode) private returns (address deployed) {

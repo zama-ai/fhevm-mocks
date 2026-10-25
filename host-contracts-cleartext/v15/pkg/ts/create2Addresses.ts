@@ -44,6 +44,7 @@ export const CREATE2_ROLES = {
   hcuLimit: 'HCU_LIMIT_ADDRESS',
   protocolConfig: 'PROTOCOL_CONFIG_ADDRESS',
   kmsGeneration: 'KMS_GENERATION_ADDRESS',
+  paddedInputter: 'PADDED_INPUTTER_ADDRESS',
   cleartextArithmetic: 'CLEARTEXT_ARITHMETIC_ADDRESS',
   cleartextDb: 'CLEARTEXT_DB_ADDRESS',
   pauserSet: 'PAUSER_SET_ADDRESS',
@@ -66,7 +67,7 @@ function concatHex(...parts: readonly string[]): `0x${string}` {
  *
  * ## What it does not return
  *
- * The nine implementation addresses. Their init code bakes in the COMPLETE address set — that is what
+ * The ten implementation addresses. Their init code bakes in the COMPLETE address set — that is what
  * makes the stack's wiring immutable — so predicting them needs the output of this function fed back into
  * a rebuild, which is the deploy coordinator's three-pass pipeline and not something a pure function can
  * do. Everything a consumer needs to talk to a stack is here; the implementations only matter to whoever
@@ -150,8 +151,8 @@ export async function precomputeCreate2Addresses(parameters: Create2Parameters):
 
   // --- 4. every other proxy: ONE init code, distinguished purely by salt ---
   //
-  // Worth being explicit about, because it looks like a bug: eight proxies with byte-identical init code
-  // land on eight different addresses. That is the whole reason the role name is in the salt.
+  // Worth being explicit about, because it looks like a bug: nine proxies with byte-identical init code
+  // land on nine different addresses. That is the whole reason the role name is in the salt.
   const emptyInitData = await ethUtils.encodeCall({ abi: emptyProxyAbi, functionName: 'initialize', args: [] });
   const sharedProxyInitCode = proxyInitCode(implEmptyProxy, emptyInitData);
   const sharedProxy = (role: string): `0x${string}` => predict(role, sharedProxyInitCode);
@@ -175,6 +176,7 @@ export async function precomputeCreate2Addresses(parameters: Create2Parameters):
       hcuLimitAddress: sharedProxy(CREATE2_ROLES.hcuLimit),
       protocolConfigAddress: sharedProxy(CREATE2_ROLES.protocolConfig),
       kmsGenerationAddress: sharedProxy(CREATE2_ROLES.kmsGeneration),
+      paddedInputterAddress: sharedProxy(CREATE2_ROLES.paddedInputter),
     },
     cleartextAddresses: {
       cleartextArithmeticAddress: sharedProxy(CREATE2_ROLES.cleartextArithmetic),

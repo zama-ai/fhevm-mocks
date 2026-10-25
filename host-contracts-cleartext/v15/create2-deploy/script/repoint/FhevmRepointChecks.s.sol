@@ -120,6 +120,11 @@ abstract contract FhevmRepointChecks is FhevmVerifyBase, FhevmRepointBase {
                 existingArithmetic,
                 "IMPL_FHEVM_EXECUTOR bakes CleartextArithmetic"
             );
+            _expectAddr(
+                IWiredFHEVMExecutor(executor).getPaddedInputterAddress(),
+                existingPaddedInputter,
+                "IMPL_FHEVM_EXECUTOR bakes PaddedInputter"
+            );
         }
         if (_contains(ops, R_HCU_LIMIT)) {
             address hcu = _readManifestAddress(manifest, _implRole(R_HCU_LIMIT));

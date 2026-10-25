@@ -118,6 +118,7 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
   EmptyUUPSProxyACL: 'creation',
   ERC1967Proxy: 'creation',
   KMSGeneration: 'creation',
+  CleartextPaddedInputter: 'creation',
   ProtocolConfig: 'creation',
   PauserSet: 'runtime',
 };
@@ -289,6 +290,15 @@ export const UPGRADE_IMPLEMENTATIONS = [
     contractName: 'EmptyUUPSProxy',
     sourcePath: 'src/contracts/emptyProxy/EmptyUUPSProxy.sol',
   },
+  // v0.15.0, RFC-030. Appended like everything above. A stack from the previous generation has no
+  // PaddedInputter, so an upgrade CREATES its proxy and materializes one of these behind it; it bakes the
+  // ACL and the executor, so it needs patching like every other implementation here.
+  { enumMember: 'PaddedInputter', contractName: 'PaddedInputter', sourcePath: 'src/contracts/PaddedInputter.sol' },
+  {
+    enumMember: 'CleartextPaddedInputter',
+    contractName: 'CleartextPaddedInputter',
+    sourcePath: 'src/cleartext/CleartextPaddedInputter.sol',
+  },
 ] as const;
 
 /**
@@ -309,6 +319,7 @@ const ADDRESS_ROLE_MEMBERS: Readonly<Record<AddressName, string>> = {
   PAUSER_SET_ADDRESS: 'PauserSet',
   CLEARTEXT_ARITHMETIC_ADDRESS: 'CleartextArithmetic',
   CLEARTEXT_DB_ADDRESS: 'CleartextDB',
+  PADDED_INPUTTER_ADDRESS: 'PaddedInputter',
 };
 
 /** Bytes per packed patch-site record: one role byte, then a big-endian `uint32` offset. */

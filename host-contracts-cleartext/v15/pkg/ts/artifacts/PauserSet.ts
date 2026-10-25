@@ -224,5 +224,10 @@ export const template: ContractTemplate = {
       bytecodeOffsets: [],
       deployedBytecodeOffsets: [],
     },
+    PADDED_INPUTTER_ADDRESS: {
+      placeholder: '0x3926754e840cb4b99bb08044530f5d18045daa21',
+      bytecodeOffsets: [],
+      deployedBytecodeOffsets: [],
+    },
   },
 };

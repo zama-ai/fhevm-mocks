@@ -204,7 +204,7 @@ void test(
       await t.test('the journal records block hash, sender, nonce, anchors and finality', (st) => {
         if (needsStack(st)) return;
         const txs = transactions();
-        assert.equal(txs.length, 28, '22 creates + steps A to F');
+        assert.equal(txs.length, 30, '24 creates + steps A to F');
         for (const tx of txs) {
           assert.match(tx.blockHash ?? '', /^0x[0-9a-f]{64}$/, `${tx.hash ?? '?'}: block hash`);
           assert.match(tx.from ?? '', /^0x[0-9a-f]{40}$/, `${tx.hash ?? '?'}: sender`);
@@ -214,7 +214,7 @@ void test(
         const lines = journal();
         assert.equal(lines.filter((l) => l.kind === 'stage-start').length, 7, 'one anchor per sending stage');
         // The last transaction (F) may still be inside the 3-block margin when the run ends; every other is final.
-        assert.ok(lines.filter((l) => l.kind === 'finalized').length >= 27, 'finality recorded');
+        assert.ok(lines.filter((l) => l.kind === 'finalized').length >= 29, 'finality recorded');
       });
 
       await t.test('a resumed run decides from the chain: no wait, nothing sent', async (st) => {
@@ -223,7 +223,7 @@ void test(
         const before = transactions().length;
         const { ok, output } = await deployCli(['--stage', 'all']);
         assert.ok(ok, output.slice(-4000));
-        assert.match(output, /already present 22/);
+        assert.match(output, /already present 24/);
         assert.doesNotMatch(output, /waiting for \d+ prerequisite/, 'everything was settled: no stage may wait');
         assert.equal(transactions().length, before, 'nothing may be sent');
       });
@@ -237,7 +237,7 @@ void test(
         const { ok, output } = await deployCli(['--stage', 'status']);
         assert.ok(ok, output.slice(-3000));
         const creates = transactions().filter((tx) => tx.stage === 'creates');
-        assert.equal(creates.length, 22);
+        assert.equal(creates.length, 24);
         assert.ok(creates.every((tx) => tx.recovered === 'broadcast-file'));
       });
 

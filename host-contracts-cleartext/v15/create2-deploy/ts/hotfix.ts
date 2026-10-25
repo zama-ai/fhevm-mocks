@@ -64,6 +64,7 @@ export const REINITIALIZER_SOURCES: Readonly<Record<string, string>> = {
   KMS_GENERATION_ADDRESS: 'pkg/src/contracts/KMSGeneration.sol',
   CLEARTEXT_ARITHMETIC_ADDRESS: 'pkg/src/cleartext/CleartextArithmetic.sol',
   CLEARTEXT_DB_ADDRESS: 'pkg/src/cleartext/CleartextDB.sol',
+  PADDED_INPUTTER_ADDRESS: 'pkg/src/contracts/PaddedInputter.sol',
 };
 
 /** `uint64 private constant REINITIALIZER_VERSION = <n>;` in a Solidity source, or null when it has none. */
@@ -151,6 +152,17 @@ function validateLive(ctx: Ctx): void {
     if (!code.ok || code.stdout === '' || code.stdout === '0x') fail(`Error: no code at ${role} ${address}.`);
   }
   say(`    ok   all ${String(EXISTING_ROLES.length)} recorded addresses hold code`);
+
+  // Cross-checked, never derived from the getter: the executor bakes the PaddedInputter it calls, so a supplied
+  // address it does not name is not this stack's. Cleartext-only getter, until the stock executor has one.
+  const paddedInputter = ctx.opt.existing.PADDED_INPUTTER_ADDRESS ?? '';
+  const baked = callAddress(ctx, ctx.opt.existing.FHEVM_EXECUTOR_ADDRESS ?? '', 'getPaddedInputterAddress()(address)');
+  if (baked?.toLowerCase() !== paddedInputter.toLowerCase()) {
+    fail(
+      `Error: FHEVMExecutor.getPaddedInputterAddress() says ${baked ?? '(no answer)'}, the record says ${paddedInputter}.`,
+    );
+  }
+  say('    ok   PADDED_INPUTTER_ADDRESS confirmed by FHEVMExecutor.getPaddedInputterAddress');
 
   const acl = ctx.opt.existing.ACL_ADDRESS ?? '';
   const live = callUint(ctx, acl, 'CLEARTEXT_PROTOCOL_VERSION()(uint256)');
@@ -365,6 +377,7 @@ const HOTFIX_ADAPTER: RepointAdapter = {
     verify: 'FhevmHotfixVerify.s.sol:FhevmHotfixVerify',
   },
   computeTitle: '🩹 Compute: 2 passes, 1 rebuild — what changed',
+  created: [],
   repointed: sealedRepointed,
   validateLive: { label: 'the live stack is the latest record, on this generation', run: validateLive },
   snapshotExtras,

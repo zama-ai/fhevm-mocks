@@ -6,7 +6,7 @@ import {UUPSUpgradeableEmptyProxy} from "./shared/UUPSUpgradeableEmptyProxy.sol"
 
 import {ACL as ACLContract} from "./ACL.sol";
 import {HCULimit} from "./HCULimit.sol";
-import {aclAdd, hcuLimitAdd, inputVerifierAdd} from "../addresses/FHEVMHostAddresses.sol";
+import {aclAdd, hcuLimitAdd, inputVerifierAdd, paddedInputterAdd} from "../addresses/FHEVMHostAddresses.sol";
 
 import {FheType} from "./shared/FheType.sol";
 import {HANDLE_VERSION} from "./shared/Constants.sol";
@@ -20,6 +20,18 @@ interface IInputVerifier {
     function verifyInput(FHEVMExecutor.ContextUserInputs memory context, bytes32 inputHandle, bytes memory inputProof)
         external
         returns (bytes32);
+}
+
+/**
+ * @title IPaddedInputter.
+ * @dev RFC-030 pad-based inputs, verified exactly as ZKPoK ones: same context, external handle and input data.
+ */
+interface IPaddedInputter {
+    function verifyInput(
+        FHEVMExecutor.ContextUserInputs memory context,
+        bytes32 externalHandle,
+        bytes memory inputPackage
+    ) external returns (bytes32);
 }
 
 /**
@@ -146,6 +158,12 @@ contract FHEVMExecutor is UUPSUpgradeableEmptyProxy, FHEEvents, ACLOwnable {
 
     /// @notice IInputVerifier.
     IInputVerifier private constant INPUT_VERIFIER = IInputVerifier(inputVerifierAdd);
+
+    /// @notice IPaddedInputter (RFC-030 pad-based inputs).
+    IPaddedInputter private constant PADDED_INPUTTER = IPaddedInputter(paddedInputterAdd);
+
+    /// @notice First byte of an RFC-030 input package (`packageType`), which routes it to the PaddedInputter.
+    uint8 private constant PADDED_PACKAGE_TYPE = 0x00;
 
     /// Constant used for making sure the version number used in the `reinitializer` modifier is
     /// identical between `initializeFromEmptyProxy` and the `reinitializeVX` method
@@ -743,6 +761,15 @@ contract FHEVMExecutor is UUPSUpgradeableEmptyProxy, FHEEvents, ACLOwnable {
     }
 
     /**
+     * @dev Whether `inputData` is an RFC-030 input package (`packageType == 0x00`), routed to the
+     *      PaddedInputter. Unambiguous: a ZKPoK proof starts with its handle count, which InputVerifier
+     *      rejects when zero, and that rejection must hold for as long as the two flows coexist.
+     */
+    function _isPaddedPackage(bytes memory inputData) internal pure virtual returns (bool) {
+        return inputData.length != 0 && uint8(inputData[0]) == PADDED_PACKAGE_TYPE;
+    }
+
+    /**
      * @notice              Verifies the ciphertext.
      * @param inputHandle   Input handle.
      * @param userAddress   Address of the user.
@@ -759,11 +786,25 @@ contract FHEVMExecutor is UUPSUpgradeableEmptyProxy, FHEEvents, ACLOwnable {
             ContextUserInputs({userAddress: userAddress, contractAddress: msg.sender});
         FheType typeCt = _typeOf(inputHandle);
         if (inputType != typeCt) revert InvalidType();
-        result = INPUT_VERIFIER.verifyInput(contextUserInputs, inputHandle, inputProof);
-        // Deliberately NOT marked as minted: a verified input is not computed
-        // in this transaction; its only representation is the persisted
-        // input ciphertext, so consumers fold a boundary bit for it.
+
+        if (_isPaddedPackage(inputProof)) {
+            // RFC-030: `inputHandle` is the external handle and `inputProof` the input package; the context's
+            // `userAddress` is the claimed submitter and `contractAddress` the actual consumer.
+            result = PADDED_INPUTTER.verifyInput(contextUserInputs, inputHandle, inputProof);
+            // Marked as minted: the compute handle is derived in this transaction and the coprocessor has
+            // no stored ciphertext for it before the Unmask event (RFC-030), as for any operation result.
+            _markMinted(result);
+        } else {
+            result = INPUT_VERIFIER.verifyInput(contextUserInputs, inputHandle, inputProof);
+            // Deliberately NOT marked as minted: a verified input is not computed
+            // in this transaction; its only representation is the persisted
+            // input ciphertext, so consumers fold a boundary bit for it.
+        }
+
         ACL.allowTransient(result, msg.sender);
+        // UNCLEAR for pad-based inputs: RFC-030 has the PaddedInputter emit `Unmask` for the coprocessor and says
+        // nothing about this event. It is kept for both flows for now, so the result handle is announced the
+        // same way whatever the input flow; production may drop it for this flow or emit a dedicated one.
         emit VerifyInput(msg.sender, inputHandle, userAddress, inputProof, inputType, result);
     }
 

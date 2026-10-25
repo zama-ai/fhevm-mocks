@@ -17,6 +17,14 @@ abstract contract FhevmHotfixBase is FhevmRepointBase {
         return "hotfix";
     }
 
+    /// @dev Nothing is created: a hotfix re-points proxies that are all already live.
+    function _newProxyRoles() internal pure override returns (string[] memory) {
+        return new string[](0);
+    }
+
+    /// @dev Nothing of its own: the reinitializer plan is sealed by the coordinator (`.reinitialize`).
+    function _sealExtras(string memory) internal pure override {}
+
     /// @dev Every proxy is a candidate: what changed is decided by the bytecode, not by a table.
     function _candidateRoles() internal pure override returns (string[] memory) {
         return _allProxyRoles();

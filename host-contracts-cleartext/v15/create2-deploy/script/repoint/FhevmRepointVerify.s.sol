@@ -32,8 +32,9 @@ import {IVersioned} from "../Interfaces.sol";
  *
  * `FhevmComputeUpgradeAddresses.s.sol` and the coordinator seal these; this reads them and nothing else:
  *
- *   .address.<role>                  the 9 supplied live roles, and `IMPL_<role>` for each of the 7
- *                                    upgraded proxies
+ *   .address.<role>                  the supplied live roles, the proxies the flow created (with
+ *                                    `UPGRADE_EMPTY_UUPS_PROXY`), and `IMPL_<role>` for each re-pointed
+ *                                    proxy
  *   .preUpgrade.admin                `ACLOwner.owner()` as it was BEFORE
  *   .preUpgrade.implementation.<r>   the ERC-1967 slot of each live proxy as it was before
  *   .preUpgrade.kmsSigners / .kmsThresholds.<name> / .migration.existingContextId

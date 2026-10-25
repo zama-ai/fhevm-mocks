@@ -33,6 +33,8 @@ const HOST_NONCE_OFFSET = {
   hcuLimitAddress: 6n,
   protocolConfigAddress: 7n,
   kmsGenerationAddress: 8n,
+  // v0.15.0, RFC-030: a primary host contract, so the cleartext block and PauserSet shift up by one.
+  paddedInputterAddress: 9n,
 } as const satisfies Record<keyof FhevmAddresses, bigint>;
 
 /**
@@ -65,6 +67,7 @@ function precomputeFhevmAddresses(parameters: {
       hcuLimitAddress: at(HOST_NONCE_OFFSET.hcuLimitAddress),
       protocolConfigAddress: at(HOST_NONCE_OFFSET.protocolConfigAddress),
       kmsGenerationAddress: at(HOST_NONCE_OFFSET.kmsGenerationAddress),
+      paddedInputterAddress: at(HOST_NONCE_OFFSET.paddedInputterAddress),
     },
     nextStartNonce: parameters.startNonce + HOST_NONCE_COUNT,
   };

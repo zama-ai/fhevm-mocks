@@ -387,9 +387,9 @@
 
     "generations": {
       "0.15.0": {
-        "PROXY_COUNT": "9",
-        "ADDRESSED_NONCE_COUNT": "12",
-        "_note": "Identical to 0.14.0 on purpose: v15 deploys the same nine proxies in the same order from the same deployer.",
+        "PROXY_COUNT": "10",
+        "ADDRESSED_NONCE_COUNT": "13",
+        "_note": "0.14.0 plus PaddedInputter (RFC-030), a primary host contract created right after KMSGeneration at nonce 9. The primary block grows by one, so the whole secondary block shifts by one, as v13's did when it added ProtocolConfig and KMSGeneration.",
         "nonces": {
           "primary": [
             { "nonce": 0, "address": "0x34e3eD8472e409dbF8FDf933cA996DC75e4Be126", "role": "EmptyUUPSProxyACL" },
@@ -400,16 +400,17 @@
             { "nonce": 5, "address": "0x36772142b74871f255CbD7A3e89B401d3e45825f", "role": "INPUT_VERIFIER_ADDRESS" },
             { "nonce": 6, "address": "0x233ff88A48c172d29F675403e6A8e302b0F032D9", "role": "HCU_LIMIT_ADDRESS" },
             { "nonce": 7, "address": "0x44aA028fd264C76BF4A8f8B4d8A5272f6AE25CAc", "role": "PROTOCOL_CONFIG_ADDRESS" },
-            { "nonce": 8, "address": "0x216be43148dB537BeddBC268163deb1a802b5553", "role": "KMS_GENERATION_ADDRESS" }
+            { "nonce": 8, "address": "0x216be43148dB537BeddBC268163deb1a802b5553", "role": "KMS_GENERATION_ADDRESS" },
+            { "nonce": 9, "address": "0xded0D2a71268DC12622BdD1b55d68a1CB5662327", "role": "PADDED_INPUTTER_ADDRESS" }
           ],
           "secondary": [
             {
-              "nonce": 9,
-              "address": "0xded0D2a71268DC12622BdD1b55d68a1CB5662327",
+              "nonce": 10,
+              "address": "0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E",
               "role": "CLEARTEXT_ARITHMETIC_ADDRESS"
             },
-            { "nonce": 10, "address": "0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E", "role": "CLEARTEXT_DB_ADDRESS" },
-            { "nonce": 11, "address": "0x590e3330386Fa042843773541aaBb3a45EC3164D", "role": "PAUSER_SET_ADDRESS" }
+            { "nonce": 11, "address": "0x590e3330386Fa042843773541aaBb3a45EC3164D", "role": "CLEARTEXT_DB_ADDRESS" },
+            { "nonce": 12, "address": "0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2", "role": "PAUSER_SET_ADDRESS" }
           ]
         }
       },

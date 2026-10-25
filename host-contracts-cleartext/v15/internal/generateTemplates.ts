@@ -69,6 +69,12 @@ export const TARGET_CONTRACTS: TargetContract[] = [
   // v0.13.0
   { contractName: 'ProtocolConfig', kind: 'proxy', sourcePath: 'src/contracts/ProtocolConfig.sol' },
   { contractName: 'KMSGeneration', kind: 'proxy', sourcePath: 'src/contracts/KMSGeneration.sol' },
+  // v0.15.0 (RFC-030)
+  {
+    contractName: 'CleartextPaddedInputter',
+    kind: 'proxy',
+    sourcePath: 'src/cleartext/CleartextPaddedInputter.sol',
+  },
   // Cleartext infrastructure (test-stack only)
   { contractName: 'CleartextArithmetic', kind: 'proxy', sourcePath: 'src/cleartext/CleartextArithmetic.sol' },
   { contractName: 'CleartextDB', kind: 'proxy', sourcePath: 'src/cleartext/CleartextDB.sol' },

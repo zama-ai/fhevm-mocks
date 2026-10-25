@@ -11,7 +11,8 @@ import {
     KMS_GENERATION_ADDRESS,
     PAUSER_SET_ADDRESS,
     CLEARTEXT_ARITHMETIC_ADDRESS,
-    CLEARTEXT_DB_ADDRESS
+    CLEARTEXT_DB_ADDRESS,
+    PADDED_INPUTTER_ADDRESS
 } from "fhevm-config-0.15.0/addresses.sol";
 
 address constant aclAdd = ACL_ADDRESS;
@@ -24,6 +25,7 @@ address constant kmsGenerationAdd = KMS_GENERATION_ADDRESS;
 address constant pauserSetAdd = PAUSER_SET_ADDRESS;
 address constant cleartextArithmeticAdd = CLEARTEXT_ARITHMETIC_ADDRESS;
 address constant cleartextDbAdd = CLEARTEXT_DB_ADDRESS;
+address constant paddedInputterAdd = PADDED_INPUTTER_ADDRESS;
 
 /// @dev A literal zero, not a patched placeholder: upstream's convention is "null iff there is no bridge on
 ///      this chain", and a cleartext stack never bridges. No deploy nonce, no patch site, nothing to keep in step.

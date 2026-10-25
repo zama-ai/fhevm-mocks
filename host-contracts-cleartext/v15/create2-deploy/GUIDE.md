@@ -287,8 +287,8 @@ npm run test:upgrade
 
 It starts a dedicated anvil, deploys the previous generation's stack with that generation's own
 `create2-deploy/deploy-cli`, creates a `trivialEncrypt` handle, passes the eleven addresses of its manifest as
-CLI inputs to `upgrade/upgrade-cli`, and verifies this generation's versions on the six re-pointed contracts,
-that no proxy was created, the preserved handle, every zero-argument getter reading of the previous stack, the
+CLI inputs to `upgrade/upgrade-cli`, and verifies this generation's versions on the eight re-pointed contracts,
+the created PaddedInputter and the executor's wiring to it, the preserved handle, every zero-argument getter reading of the previous stack, the
 unchanged KMS context and signers, ownership, pausers, and forbidden-event absence.
 
 For a manual run, start anvil in one terminal and deploy the previous generation from a second:
@@ -371,7 +371,7 @@ two read-only checks are where a human reads before deciding:
 ```sh
 ./upgrade/upgrade-cli --stage compute                 # validates the eleven addresses, snapshots, seals
 git add -f .out-*/manifest.json .out-*/addresses.sol && git commit -m seal && git push
-./upgrade/upgrade-cli --stage creates                 # six CREATE2s, each gated on getCode
+./upgrade/upgrade-cli --stage creates                 # ten CREATE2s, each gated on getCode
 ./upgrade/upgrade-cli --stage precheck                # READ THIS. Fresh recompile; every FAIL line, not just the first
 ./upgrade/upgrade-cli --stage rehearse                # the exact calldata on an anvil fork of the chain, then verify on the fork
 ./upgrade/upgrade-cli --stage materialize             # runs precheck again, then the one atomic call
@@ -418,9 +418,9 @@ gate printed the same digest, derived from the build rather than from the file �
 the digest the wallet shows for the signed payload must match both.** Then:
 
 ```sh
-./upgrade/upgrade-cli --stage status                  # materialize: done — all six implementation slots match the seal
+./upgrade/upgrade-cli --stage status                  # materialize: done — all eight implementation slots match the seal
 ./upgrade/upgrade-cli --stage verify                  # records the multisig's transaction in the journal as an observation
 ```
 
-`verify` finds the multisig's transaction through the six `Upgraded` events, requires them all in one
+`verify` finds the multisig's transaction through the eight `Upgraded` events, requires them all in one
 transaction, and writes it to `journal.jsonl` as an observed step D, since no local receipt exists.

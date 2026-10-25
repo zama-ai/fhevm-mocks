@@ -84,7 +84,7 @@ contract ForkCleartextContextTest is Test {
         }
         require(generation == FhevmGeneration.Previous, "ForkCleartextContext: the fork is neither generation");
 
-        address[10] memory addresses;
+        address[11] memory addresses;
         addresses[uint8(FhevmAddressRole.ACL)] = acl;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = executor;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = kmsVerifier;

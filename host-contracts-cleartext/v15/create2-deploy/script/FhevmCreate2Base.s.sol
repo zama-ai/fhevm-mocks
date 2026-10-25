@@ -86,6 +86,7 @@ abstract contract FhevmCreate2Base is Script {
     string internal constant R_HCU_LIMIT = "HCU_LIMIT_ADDRESS";
     string internal constant R_PROTOCOL_CONFIG = "PROTOCOL_CONFIG_ADDRESS";
     string internal constant R_KMS_GENERATION = "KMS_GENERATION_ADDRESS";
+    string internal constant R_PADDED_INPUTTER = "PADDED_INPUTTER_ADDRESS";
     string internal constant R_CLEARTEXT_ARITHMETIC = "CLEARTEXT_ARITHMETIC_ADDRESS";
     string internal constant R_CLEARTEXT_DB = "CLEARTEXT_DB_ADDRESS";
 
@@ -94,15 +95,16 @@ abstract contract FhevmCreate2Base is Script {
 
     /// @dev The non-ACL proxies, in the order step D's ops array uses.
     function _sharedProxyRoles() internal pure returns (string[] memory r) {
-        r = new string[](8);
+        r = new string[](9);
         r[0] = R_FHEVM_EXECUTOR;
         r[1] = R_KMS_VERIFIER;
         r[2] = R_INPUT_VERIFIER;
         r[3] = R_HCU_LIMIT;
         r[4] = R_PROTOCOL_CONFIG;
         r[5] = R_KMS_GENERATION;
-        r[6] = R_CLEARTEXT_ARITHMETIC;
-        r[7] = R_CLEARTEXT_DB;
+        r[6] = R_PADDED_INPUTTER; // v15, RFC-030
+        r[7] = R_CLEARTEXT_ARITHMETIC;
+        r[8] = R_CLEARTEXT_DB;
     }
 
     /// @dev Every proxy, ACL first. Same order as step D's ops array.
@@ -167,8 +169,9 @@ abstract contract FhevmCreate2Base is Script {
         if (i == 4) return "pkg/src/cleartext/CleartextHCULimit.sol:CleartextHCULimit";
         if (i == 5) return "pkg/src/contracts/ProtocolConfig.sol:ProtocolConfig";
         if (i == 6) return "pkg/src/contracts/KMSGeneration.sol:KMSGeneration";
-        if (i == 7) return "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
-        if (i == 8) return "pkg/src/cleartext/CleartextDB.sol:CleartextDB";
+        if (i == 7) return "pkg/src/cleartext/CleartextPaddedInputter.sol:CleartextPaddedInputter";
+        if (i == 8) return "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
+        if (i == 9) return "pkg/src/cleartext/CleartextDB.sol:CleartextDB";
         revert("FhevmCreate2Base: implementation index out of range");
     }
 

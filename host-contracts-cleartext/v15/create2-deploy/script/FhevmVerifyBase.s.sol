@@ -231,6 +231,11 @@ abstract contract FhevmVerifyBase is FhevmCreate2Base {
             arithmetic,
             "CleartextFHEVMExecutor.getCleartextArithmeticAddress()"
         );
+        _expectAddr(
+            IWiredFHEVMExecutor(executor).getPaddedInputterAddress(),
+            _readManifestAddress(manifest, R_PADDED_INPUTTER),
+            "CleartextFHEVMExecutor.getPaddedInputterAddress()"
+        );
 
         _expectAddr(
             IWiredHCULimit(_readManifestAddress(manifest, R_HCU_LIMIT)).getFHEVMExecutorAddress(),

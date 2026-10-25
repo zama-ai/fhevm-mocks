@@ -26,7 +26,7 @@ contract CleartextArithmetic is CleartextArithmeticBase, UUPSUpgradeableEmptyPro
     uint256 private constant MAJOR_VERSION = 0;
 
     /// @dev Minor version of the contract.
-    uint256 private constant MINOR_VERSION = 5;
+    uint256 private constant MINOR_VERSION = 6;
 
     /// @dev Patch version of the contract.
     uint256 private constant PATCH_VERSION = 0;
@@ -35,7 +35,7 @@ contract CleartextArithmetic is CleartextArithmeticBase, UUPSUpgradeableEmptyPro
      * @dev Constant used for making sure the version number used in the `reinitializer` modifier is
      * identical between `initializeFromEmptyProxy` and any future `reinitializeVX` method.
      */
-    uint64 private constant REINITIALIZER_VERSION = 4;
+    uint64 private constant REINITIALIZER_VERSION = 5;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -46,9 +46,10 @@ contract CleartextArithmetic is CleartextArithmeticBase, UUPSUpgradeableEmptyPro
     /// @custom:oz-upgrades-validate-as-initializer
     function initializeFromEmptyProxy() public virtual onlyFromEmptyProxy reinitializer(REINITIALIZER_VERSION) {}
 
-    /// @notice Re-initializer for the v13→v14 upgrade, which adds the `recordMulDiv` selector. Stateless
-    ///         (pure math), so it only marks the freshly deployed v14 implementation initialized.
-    function reinitializeV3() public virtual onlyACLOwner reinitializer(REINITIALIZER_VERSION) {}
+    /// @notice Re-initializer for the v14→v15 upgrade, which adds the RFC-030 pad-based input unmasking to
+    ///         `recordVerifyInput`. Stateless (pure math), so it only marks the freshly deployed v15
+    ///         implementation initialized.
+    function reinitializeV4() public virtual onlyACLOwner reinitializer(REINITIALIZER_VERSION) {}
 
     /// @notice Getter for the name and version of the contract.
     /// @return string Name and the version of the contract.

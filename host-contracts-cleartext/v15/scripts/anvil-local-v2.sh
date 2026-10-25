@@ -36,10 +36,10 @@
 #
 # `anvil_setCode` writes runtime code. Of the fourteen blobs only PauserSet ships runtime (it has no
 # constructor, so the generator classifies it that way); the rest ship creation code, which has to be run
-# to produce anything. And the nine proxies need initialised storage — ERC-1967 slot, owner, signer arrays,
+# to produce anything. And the ten proxies need initialised storage — ERC-1967 slot, owner, signer arrays,
 # EIP-712 domains — which setCode never touches, so those initializers have to actually execute.
 #
-# setCode also consumes no nonce, and PauserSet must occupy nonce 11 or ACLOwner takes it and lands on
+# setCode also consumes no nonce, and PauserSet must occupy nonce 12 or ACLOwner takes it and lands on
 # PauserSet's address. Hence the paired `anvil_setNonce`. That pairing works here but NOT inside a forge
 # script: `forge script` derives CREATE addresses from its own simulation, which an RPC never reaches
 # (measured: after anvil_setNonce to 5, vm.getNonce still read 1). With plain `cast` there is no
@@ -116,7 +116,7 @@ create_proxy() {
     log "$what at $got (matches the compiled-in address)"
 }
 
-# Phase 1 — the nine empty proxies, nonces 0-10.
+# Phase 1 — the ten empty proxies, nonces 0-11.
 #
 # Interleaved, and the order IS the address set: EmptyUUPSProxyACL at nonce 0, the ACL proxy at 1,
 # EmptyUUPSProxy at 2, the remaining eight from 3. Deploying both empty implementations up front would
@@ -136,12 +136,13 @@ deploy_empty_proxies() {
     create_proxy "$EMPTY_IMPL" "$init_empty" "$HCU_LIMIT_ADDRESS" "HCULimit proxy"
     create_proxy "$EMPTY_IMPL" "$init_empty" "$PROTOCOL_CONFIG_ADDRESS" "ProtocolConfig proxy"
     create_proxy "$EMPTY_IMPL" "$init_empty" "$KMS_GENERATION_ADDRESS" "KMSGeneration proxy"
+    create_proxy "$EMPTY_IMPL" "$init_empty" "$PADDED_INPUTTER_ADDRESS" "PaddedInputter proxy"
     create_proxy "$EMPTY_IMPL" "$init_empty" "$CLEARTEXT_ARITHMETIC_ADDRESS" "CleartextArithmetic proxy"
     create_proxy "$EMPTY_IMPL" "$init_empty" "$CLEARTEXT_DB_ADDRESS" "CleartextDB proxy"
     echo "   ✅ 9 empty proxies at their canonical addresses"
 }
 
-# Phase 2 — PauserSet at nonce 11, the only anvil_setCode here.
+# Phase 2 — PauserSet at nonce 12, the only anvil_setCode here.
 #
 # PauserSet is the sole blob shipped as runtime code (no constructor), so it is the only one setCode can
 # place. setCode consumes no nonce, so PauserSet's nonce is skipped by hand — otherwise ACLOwner takes
@@ -157,7 +158,7 @@ install_pauser_set() {
     echo "   ✅ PauserSet installed via anvil_setCode, nonce advanced to $(cast nonce "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL")"
 }
 
-# Phase 3 — ACLOwner at nonce 12, then ownership moves to it two-step.
+# Phase 3 — ACLOwner at nonce 13, then ownership moves to it two-step.
 #
 # addPauser is onlyACLOwner, so it has to happen while the deployer still owns ACL.
 setup_acl_owner() {
@@ -168,7 +169,7 @@ setup_acl_owner() {
     echo "   ✅ ACLOwner $ACL_OWNER owns ACL"
 }
 
-# Phase 4 — the nine real implementations. Deployed AFTER the proxies on purpose: from nonce 0 they would
+# Phase 4 — the ten real implementations. Deployed AFTER the proxies on purpose: from nonce 0 they would
 # land on canonical addresses.
 deploy_implementations() {
     deploy_real_implementations

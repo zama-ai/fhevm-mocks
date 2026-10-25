@@ -34,6 +34,7 @@ import {
   callAddresses,
   callString,
   callUint,
+  PREVIOUS_SURVEY_TARGETS,
   sameAddressList,
   type RepointAdapter,
   runRepointCli,
@@ -112,7 +113,10 @@ const PREVIOUS_ROLES: readonly string[] = [
   'ACL_OWNER',
 ];
 
-/** The six live proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table. */
+/**
+ * The eight proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table: seven
+ * live ones, then the PaddedInputter `creates` makes.
+ */
 const UPGRADED_ROLES: readonly string[] = [
   'ACL_ADDRESS',
   'FHEVM_EXECUTOR_ADDRESS',
@@ -120,14 +124,20 @@ const UPGRADED_ROLES: readonly string[] = [
   'INPUT_VERIFIER_ADDRESS',
   'PROTOCOL_CONFIG_ADDRESS',
   'KMS_GENERATION_ADDRESS',
+  'CLEARTEXT_ARITHMETIC_ADDRESS',
+  'PADDED_INPUTTER_ADDRESS',
 ];
 
-// The three proxies outside this table (HCULimit, CleartextArithmetic, CleartextDB) are byte-identical across
-// the two generations, so the op list leaves them alone; the engine derives them, and one create per op.
+// The proxy this generation adds (RFC-030): created by `creates` over an empty implementation, then initialized
+// by its op. The copy of the Solidity `_newProxyRoles()`.
+const CREATED_ROLES: readonly string[] = ['PADDED_INPUTTER_ADDRESS'];
+
+// The two proxies outside this table (HCULimit, CleartextDB) are byte-identical across the two generations, so
+// the op list leaves them alone; the engine derives them.
 
 const REPORT_STEPS: ReadonlyArray<{ readonly label: string; readonly title: string }> = [
   { label: 'creates', title: 'every CREATE2 through the factory' },
-  { label: 'D', title: 'ACLOwner.upgrade — 6 reinitializations' },
+  { label: 'D', title: 'ACLOwner.upgrade — 7 reinitializations, 1 initialization' },
 ];
 
 const DEFAULT_CONFIG_NAME = 'upgrade.config.json';
@@ -174,6 +184,9 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
   --pauser-set 0x...             --cleartext-db 0x...
   --acl-owner 0x...
 
+  PaddedInputter (RFC-030) is not one of them: the previous generation has none, so the upgrade CREATES its
+  proxy (creates) and initializes it (materialize). Its address is derived, never supplied.
+
   --deployment PATH    a stack folder of deployments/<chain>/ (deployments/README.md): its LATEST event is
                        the live stack. Its sealed manifest is the previous manifest, and its config gives
                        rpcUrl, account, adminAccount and admin, below the config file and the flags (so a
@@ -197,7 +210,7 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
                        precedence — the config file's "existing" block and the flags above both still
                        win, so one address can be corrected without editing anything
 
-  Every one is validated against the live chain before anything is computed, because the six new
+  Every one is validated against the live chain before anything is computed, because the eight new
   implementations BAKE these addresses into their creation code: a wrong entry produces a stack that
   materializes cleanly and fails only in use. Eight are cross-checked against the stack's own wiring;
   --kms-verifier, --protocol-config and --kms-generation cannot be (no contract exposes a getter
@@ -295,7 +308,7 @@ function previousAbiDir(ctx: Ctx): string {
  * Every supplied address, checked against the live chain before anything is computed.
  *
  * This is the most important thing this coordinator does, and the reason is worth stating where the code
- * is: the six new implementations bake these addresses into their CREATION CODE. A wrong entry does not
+ * is: the eight new implementations bake these addresses into their CREATION CODE. A wrong entry does not
  * fail here-and-now — it produces implementations at addresses derived from the wrong inputs, whose
  * compiled-in references point at nothing. The stack materializes cleanly and fails in use.
  *
@@ -461,7 +474,7 @@ function validateExisting(ctx: Ctx): void {
     fail(
       '',
       `Error: ${String(bad)} of the supplied addresses do not match the live stack.`,
-      '       Nothing has been computed. Fix them before re-running: the six new implementations bake',
+      '       Nothing has been computed. Fix them before re-running: the eight new implementations bake',
       '       these addresses into their creation code, so a wrong one produces a stack that deploys',
       '       cleanly and fails only in use.',
     );
@@ -510,7 +523,7 @@ function snapshotExtras(ctx: Ctx, blockNumber: number): Readonly<Record<string, 
     fail('Error: could not capture the pre-upgrade authority and signer snapshot.');
   }
   say(`    every previous-generation zero-argument getter, from ${previousAbiDir(ctx)}`);
-  const readings = surveyStack(ctx, previousAbiDir(ctx), 'previous-generation', blockNumber);
+  const readings = surveyStack(ctx, previousAbiDir(ctx), 'previous-generation', blockNumber, PREVIOUS_SURVEY_TARGETS);
   say(`    ${String(Object.keys(readings).length)} getter readings captured at block ${String(blockNumber)}`);
 
   return {
@@ -570,6 +583,7 @@ const MAY_CHANGE = new Set([
   'InputVerifier.getVersion',
   'ProtocolConfig.getVersion',
   'KMSGeneration.getVersion',
+  'CleartextArithmetic.getVersion',
   // The ACL's protocol-version marker: the previous generation's number before the upgrade, this one's after,
   // by construction. `IS_CLEARTEXT`
   // is deliberately NOT here — it reads true on both sides, so it must not move.
@@ -581,7 +595,7 @@ function verifySurveyAndHandles(ctx: Ctx): void {
   const manifest = readJson<{ readonly preUpgrade?: PreUpgradeSnapshot }>(manifestPath(ctx));
   const before = manifest?.preUpgrade;
   if (before === undefined) fail('Error: manifest has no pre-upgrade snapshot.');
-  const after = surveyStack(ctx, previousAbiDir(ctx), 'previous-generation');
+  const after = surveyStack(ctx, previousAbiDir(ctx), 'previous-generation', undefined, PREVIOUS_SURVEY_TARGETS);
 
   const vanished = Object.keys(before.readings).filter((key) => !(key in after));
   if (vanished.length > 0)
@@ -619,16 +633,27 @@ const UPGRADE_INIT_CALLS: readonly string[] = [
   'InputVerifier.reinitializeV3()',
   'ProtocolConfig.reinitializeV3()',
   'KMSGeneration.reinitializeV3()',
+  'CleartextArithmetic.reinitializeV4()',
+  'PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)',
 ];
 
 /**
- * `--stage params`: the init calls this upgrade sends. Every one is a no-argument reinitializer, so there is
- * nothing to seal or decode: the list is the whole payload, the same table `UpgradeInitData.sol` encodes.
+ * `--stage params`: the init calls this upgrade sends, the same table `UpgradeInitData.sol` encodes. Seven are
+ * no-argument reinitializers; the eighth initializes the PaddedInputter the upgrade creates, with the PRF
+ * instances compute sealed (`.paddedInputterPrfInstances`), which materialize refuses to send if they moved.
  */
 function stageParams(ctx: Ctx): void {
   say(`🧬  init calls  ${ctx.opt.deploymentId}`, '');
   for (const call of UPGRADE_INIT_CALLS) say(`  ${call}`);
-  say('', '  no arguments: the upgrade migrates nothing');
+  const sealed = readJson<{ readonly paddedInputterPrfInstances?: readonly number[] }>(manifestPath(ctx));
+  const prfs = sealed?.paddedInputterPrfInstances;
+  say(
+    '',
+    prfs === undefined
+      ? '  initialPrfInstances: not sealed yet — run compute first'
+      : `  initialPrfInstances: [${prfs.join(', ')}]${prfs.length === 0 ? '  (FIXME: none — every pad-based input is refused)' : ''}`,
+    '  nothing else is migrated',
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -662,10 +687,11 @@ const UPGRADE_ADAPTER: RepointAdapter = {
     verify: 'FhevmVerifyUpgrade.s.sol:FhevmVerifyUpgrade',
   },
   computeTitle: '🍟 Compute: 2 passes, 1 rebuild',
+  created: CREATED_ROLES,
   repointed: () => UPGRADED_ROLES,
   validateLive: { label: 'validate the eleven live addresses against the stack', run: validateExisting },
   snapshotExtras,
-  // Nothing is sealed into forge's environment: every reinitializer takes no arguments.
+  // Nothing is sealed into forge's environment: the one init argument is sealed in the manifest.
   sealedEnv: () => ({}),
   verifyExtras: {
     label: 'survey: every previous-generation getter and every sealed handle',

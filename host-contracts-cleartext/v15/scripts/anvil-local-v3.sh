@@ -13,7 +13,7 @@
 #   anvil_setStorageAt(proxy, ERC1967_IMPL_SLOT,  empty implementation)
 #   anvil_setStorageAt(proxy, INITIALIZABLE_SLOT, 1)
 #   anvil_setStorageAt(proxy, OWNABLE_SLOT,       deployer)      # ACL only
-#   ... then ONE ACLOwner.upgrade(ops) that materializes all nine at once.
+#   ... then ONE ACLOwner.upgrade(ops) that materializes all ten at once.
 #
 # ACL's owner slot is written with the ACLOwner address, not the deployer. That
 # is precisely the state a finished Ownable2Step transfer leaves behind, so the
@@ -155,7 +155,7 @@ capture_proxy_runtime() {
     echo "   ✅ ERC1967 runtime captured ($(( (${#PROXY_RUNTIME_CODE} - 2) / 2 )) bytes)"
 }
 
-# Place all nine proxies. No transactions here at all — setCode and setStorageAt are RPC calls, so this
+# Place all ten proxies. No transactions here at all — setCode and setStorageAt are RPC calls, so this
 # whole phase is free. ACL's owner slot gets the ACLOwner address rather than the deployer: that is
 # exactly the state a completed Ownable2Step transfer would leave (pendingOwner stays zero), and it is
 # what authorizes the single upgrade below. It also means no transferOwnership/acceptACLOwnership pair.
@@ -167,9 +167,10 @@ materialize_all_proxies() {
     materialize_proxy "$HCU_LIMIT_ADDRESS" "$EMPTY_IMPL"
     materialize_proxy "$PROTOCOL_CONFIG_ADDRESS" "$EMPTY_IMPL"
     materialize_proxy "$KMS_GENERATION_ADDRESS" "$EMPTY_IMPL"
+    materialize_proxy "$PADDED_INPUTTER_ADDRESS" "$EMPTY_IMPL"
     materialize_proxy "$CLEARTEXT_ARITHMETIC_ADDRESS" "$EMPTY_IMPL"
     materialize_proxy "$CLEARTEXT_DB_ADDRESS" "$EMPTY_IMPL"
-    echo "   ✅ 9 proxies placed at their canonical addresses (0 transactions)"
+    echo "   ✅ 10 proxies placed at their canonical addresses (0 transactions)"
 }
 
 # PauserSet has no constructor and no proxy, so its runtime blob is complete as shipped.
