@@ -6,7 +6,11 @@ import {externalEuint32} from "encrypted-types/EncryptedTypes.sol";
 import {TestFhevm} from "../../pkg/src/TestFhevm.sol";
 import {LibFhevmProtocol} from "../../pkg/src/LibFhevmProtocol.sol";
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
-import {ACL_ADDRESS, DEPLOYER_ADDRESS} from "../../pkg/src/_host/_internal/LocalHostAddresses.sol";
+import {
+    ACL_ADDRESS,
+    ADDRESSED_NONCE_COUNT,
+    DEPLOYER_ADDRESS
+} from "../../pkg/src/_host/_internal/LocalHostAddresses.sol";
 
 import {FHECounterPublicDecrypt} from "../examples/contracts/FHECounterPublicDecrypt.sol";
 
@@ -90,7 +94,10 @@ contract AnvilForkTest is TestFhevm {
 
         assertGt(ACL_ADDRESS.code.length, 0, "in the fork");
         assertTrue(LibFhevmProtocol.currentConfig().isCleartext, "and it is the cleartext one");
-        assertEq(fvm.getNonce(DEPLOYER_ADDRESS), 13, "deployed in the fork by the canonical sequence");
+        // Every addressed nonce, then the ACLOwner: from the generated layout, so a new host contract moves it.
+        assertEq(
+            fvm.getNonce(DEPLOYER_ADDRESS), ADDRESSED_NONCE_COUNT + 1, "deployed in the fork by the canonical sequence"
+        );
     }
 
     /// @dev Read from the NODE, not the fork: the rpc cheat is a raw request to the endpoint behind the
