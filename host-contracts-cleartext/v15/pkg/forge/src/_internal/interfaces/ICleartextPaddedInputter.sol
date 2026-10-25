@@ -124,10 +124,6 @@ interface ICleartextPaddedInputter {
     function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function addPrfInstance(uint16 prf) external;
-    function computePadLabel(uint8 witnessVersion, uint16 prf, uint64 chainId, PadWitness memory witness)
-        external
-        pure
-        returns (bytes32);
     function getCleartextPadSharesMaterial(PadDecryptRequest memory request)
         external
         view

@@ -191,31 +191,6 @@ contract CleartextPaddedInputter is PaddedInputter {
         }
     }
 
-    /**
-     * @notice Computes an RFC-030 label:
-     *         keccak256("FHE_padl" ‖ witnessVersion ‖ prf ‖ chainId ‖ submitter ‖ consumer ‖
-     *                   expirationTimestamp ‖ decryptorCount ‖ decryptors ‖ nonce)
-     * @dev Fixed-width big-endian fields; each decryptor is 20 bytes (not ABI-padded).
-     *      `witness.label` and `witness.padLength` are ignored.
-     *      Production: the client (SDK) computes the label; Connector, PaddedInputter, coprocessor verify it.
-     */
-    function computePadLabel(uint8 witnessVersion, uint16 prf, uint64 chainId, PadWitness calldata witness)
-        public
-        pure
-        returns (bytes32)
-    {
-        return LibCleartextPad.padLabel(
-            witnessVersion,
-            prf,
-            chainId,
-            witness.submitter,
-            witness.consumer,
-            witness.expirationTimestamp,
-            witness.decryptors,
-            witness.nonce
-        );
-    }
-
     // ---- RFC-030 internals ----
 
     /// @dev Steps 1 to 7 of the RFC: check and authenticate the permit, resolve the context, check and authorize
@@ -363,7 +338,17 @@ contract CleartextPaddedInputter is PaddedInputter {
                 revert PadDecryptWitnessExpired(w.label, w.expirationTimestamp);
             }
 
-            bytes32 expectedLabel = computePadLabel(payload.witnessVersion, payload.prf, payload.chainId, w);
+            // Production: the client (SDK) computes the label; the Connector, PaddedInputter and coprocessor verify it.
+            bytes32 expectedLabel = LibCleartextPad.padLabel(
+                payload.witnessVersion,
+                payload.prf,
+                payload.chainId,
+                w.submitter,
+                w.consumer,
+                w.expirationTimestamp,
+                w.decryptors,
+                w.nonce
+            );
             if (expectedLabel != w.label) revert PadLabelMismatch(w.label, expectedLabel);
         }
     }
