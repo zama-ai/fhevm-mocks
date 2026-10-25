@@ -92,6 +92,10 @@ interface ICleartextACL {
     function isAccountDenied(address account) external view returns (bool);
     function isAllowed(bytes32 handle, address account) external view returns (bool);
     function isAllowedForDecryption(bytes32 handle) external view returns (bool);
+    function isDelegatedForUserDecryption(address delegator, address delegate, address contractAddress)
+        external
+        view
+        returns (bool);
     function isHandleDelegatedForUserDecryption(
         address delegator,
         address delegate,

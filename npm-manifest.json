@@ -224,11 +224,15 @@
             "repository": "https://github.com/zama-ai/fhevm",
             "tag": "v0.15.0-6",
             "commit": "4aa9f1c3bf984c48f3772e589ca6abe1ab494767",
-            "digest": "sha256-yv9zR3cmftS973OYmjcLoZ6MRHAn04fUvtF4z7S5S2c=",
+            "digest": "sha256-ro0rbMcxe78vjTF1M4OEyYWQf/j4mlDd78s5iHoEowE=",
             "from": "host-contracts/contracts"
           },
           "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation.",
           "localPatches": [
+            {
+              "file": "ACL.sol",
+              "reason": "Backports fhevm#4536 (a1b969d1c, on main, in no tag yet): the handle-free isDelegatedForUserDecryption view that RFC-030 pad decryption's delegation fallback reads. Keeps v0.15.0-6's version (MINOR 6, REINITIALIZER 7, reinitializeV6) on purpose: upstream's v7 is v6 plus this view, and v6 as pinned is never released alone. Drop once the pinned tag ships it."
+            },
             {
               "file": "FHEVMExecutor.sol",
               "reason": "RFC-030 wiring ahead of upstream: verifyInput routes pad-based packages (packageType 0x00) to PaddedInputter and marks the result minted. Drop once the pinned tag ships it."

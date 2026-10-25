@@ -518,6 +518,24 @@ contract ACL is
     }
 
     /**
+     * @notice Returns whether an account is delegated for user decryption on `contractAddress` or on all contracts.
+     * @param delegator The address of the account that delegates access to its handles.
+     * @param delegate The address of the account that receives the delegation.
+     * @param contractAddress The app contract to check the delegation for.
+     * @return isDelegated Whether the delegation is active.
+     */
+    function isDelegatedForUserDecryption(address delegator, address delegate, address contractAddress)
+        external
+        view
+        virtual
+        returns (bool)
+    {
+        ACLStorage storage $ = _getACLStorage();
+        return _isUserDecryptionDelegationActive($, delegator, delegate, WILDCARD_DELEGATION_ADDRESS)
+            || _isUserDecryptionDelegationActive($, delegator, delegate, contractAddress);
+    }
+
+    /**
      * @notice Returns whether an account is delegated to access the handle for user decryption.
      * @dev Succeeds when the delegator and `contractAddress` are both persistently allowed on the handle, and either
      *      a non-expired delegation exists for `(delegator, delegate, contractAddress)` or for

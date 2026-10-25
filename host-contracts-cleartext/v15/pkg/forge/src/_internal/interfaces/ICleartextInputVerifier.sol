@@ -12,6 +12,56 @@ library FHEVMExecutor {
 }
 
 interface ICleartextInputVerifier {
+    struct CleartextPadSharesMaterial {
+        bytes32 requestId;
+        uint32 packingFactor;
+        uint32 degree;
+        bytes extraData;
+        PadShare[] padShares;
+        address[] signers;
+        uint32[] partyIds;
+        bytes32[] digests;
+        uint256 threshold;
+    }
+
+    struct PadDecryptRequest {
+        UserDecryptRequestVerification auth;
+        bytes signature;
+        PadDecryptRequestPayload payload;
+    }
+
+    struct PadDecryptRequestPayload {
+        uint8 witnessVersion;
+        uint16 prf;
+        uint64 chainId;
+        PadWitness[] witnesses;
+    }
+
+    struct PadShare {
+        bytes32 label;
+        bytes16 sessionId;
+        bytes share;
+    }
+
+    struct PadWitness {
+        address submitter;
+        address consumer;
+        uint64 expirationTimestamp;
+        address[] decryptors;
+        bytes16 nonce;
+        bytes32 label;
+        uint16 padLength;
+    }
+
+    struct UserDecryptRequestVerification {
+        address userAddress;
+        bytes publicKey;
+        address[] allowedContracts;
+        uint256 startTimestamp;
+        uint256 durationSeconds;
+        bytes extraData;
+    }
+
     error AddressEmptyCode(address target);
     error CoprocessorAlreadySigner();
     error CoprocessorSignerNull();
@@ -33,6 +83,24 @@ interface ICleartextInputVerifier {
     error NotHostOwner(address sender);
     error NotInitializing();
     error NotInitializingFromEmptyProxy();
+    error PadConsumerNotAllowed(bytes32 label, address consumer);
+    error PadDuplicateLabel(bytes32 label);
+    error PadInvalidChainId(uint64 chainId);
+    error PadInvalidExtraData(bytes extraData);
+    error PadInvalidKmsContextOrEpoch(uint256 contextId, uint256 epochId);
+    error PadInvalidPadLength(bytes32 label, uint16 padLength);
+    error PadInvalidSignature(address userAddress);
+    error PadInvalidUserAddress();
+    error PadInvalidWitnessCount(uint256 count);
+    error PadLabelMismatch(bytes32 label, bytes32 expectedLabel);
+    error PadNullWitnessAddress(bytes32 label);
+    error PadPublicKeyTooShort(uint256 length);
+    error PadRequestExpired(uint256 startTimestamp, uint256 durationSeconds);
+    error PadSignatureInvalidated(address userAddress, uint256 startTimestamp, uint256 invalidatedBefore);
+    error PadTooManyDecryptors(bytes32 label, uint256 count);
+    error PadUnsupportedWitnessVersion(uint8 witnessVersion);
+    error PadUserNotAuthorized(bytes32 label, address userAddress);
+    error PadWitnessExpired(bytes32 label, uint64 expirationTimestamp);
     error SignatureThresholdNotReached(uint256 numSignatures);
     error SignaturesVerificationFailed();
     error SignersSetIsEmpty();
@@ -47,11 +115,21 @@ interface ICleartextInputVerifier {
     event NewContextSet(address[] newSignersSet, uint256 newThreshold);
     event Upgraded(address indexed implementation);
 
+    function CLEARTEXT_PAD_BLOCK_BITS() external view returns (uint256);
+    function CLEARTEXT_PAD_PACKING_FACTOR() external view returns (uint32);
     function EIP712_INPUT_VERIFICATION_TYPE() external view returns (string memory);
     function EIP712_INPUT_VERIFICATION_TYPEHASH() external view returns (bytes32);
     function IS_CLEARTEXT() external view returns (bool);
+    function MAX_DECRYPTORS() external view returns (uint256);
+    function MAX_PAD_LENGTH() external view returns (uint16);
+    function MAX_WITNESSES() external view returns (uint256);
+    function PAD_WITNESS_VERSION() external view returns (uint8);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function cleanTransientStorage() external;
+    function computePadLabel(uint8 witnessVersion, uint16 prf, uint64 chainId, PadWitness memory witness)
+        external
+        pure
+        returns (bytes32);
     function defineNewContext(address[] memory newSignersSet, uint256 newThreshold) external;
     function eip712Domain()
         external
@@ -65,6 +143,10 @@ interface ICleartextInputVerifier {
             bytes32 salt,
             uint256[] memory extensions
         );
+    function getCleartextPadSharesMaterial(PadDecryptRequest memory request)
+        external
+        view
+        returns (CleartextPadSharesMaterial memory material);
     function getCoprocessorSigners() external view returns (address[] memory);
     function getHandleVersion() external pure returns (uint8);
     function getThreshold() external view returns (uint256);

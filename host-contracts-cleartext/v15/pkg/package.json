@@ -71,6 +71,7 @@
       "from": "host-contracts/contracts",
       "to": "src/contracts",
       "localPatches": [
+        "ACL.sol",
         "FHEVMExecutor.sol",
         "PaddedInputter.sol"
       ]
