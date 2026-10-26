@@ -104,12 +104,12 @@ interface ICleartextPaddedInputter {
     error PadMalformedPackage();
     error PadNullWitnessAddress();
     error PadPackageTooLarge(uint256 bits);
-    error PadPrfAlreadySupported(uint16 prf);
-    error PadPrfRetired(uint16 prf);
+    error PadPrfAlreadySupported(uint16 prfId);
+    error PadPrfRetired(uint16 prfId);
     error PadSubmitterMismatch(address claimedSubmitter, address submitter);
     error PadTooManyDecryptors(uint256 count);
     error PadUnknownPartType(uint256 partIndex, uint8 partType);
-    error PadUnsupportedPrf(uint16 prf);
+    error PadUnsupportedPrf(uint16 prfId);
     error PadUnsupportedWitnessVersion(uint8 witnessVersion);
     error PadZeroPrfInstance();
     error PublicKeyTooShort(uint256 length);
@@ -117,24 +117,24 @@ interface ICleartextPaddedInputter {
     error UUPSUnsupportedProxiableUUID(bytes32 slot);
 
     event Initialized(uint64 version);
-    event PrfInstanceAdded(uint16 prf);
-    event PrfInstanceRetired(uint16 prf);
+    event PrfInstanceAdded(uint16 prfId);
+    event PrfInstanceRetired(uint16 prfId);
     event Unmask(bytes32 externalHandle, bytes inputPackage, bytes32 computeHandle);
     event Upgraded(address indexed implementation);
 
     function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
-    function addPrfInstance(uint16 prf) external;
+    function addPrfInstance(uint16 prfId) external;
     function getCleartextPadSharesMaterial(PadDecryptRequest memory request)
         external
         view
         returns (CleartextPadSharesMaterial memory material);
     function getVersion() external pure returns (string memory);
     function initializeFromEmptyProxy(uint16[] memory initialPrfInstances) external;
-    function isRetiredPrfInstance(uint16 prf) external view returns (bool);
-    function isSupportedPrfInstance(uint16 prf) external view returns (bool);
+    function isRetiredPrfInstance(uint16 prfId) external view returns (bool);
+    function isSupportedPrfInstance(uint16 prfId) external view returns (bool);
     function proxiableUUID() external view returns (bytes32);
-    function retirePrfInstance(uint16 prf) external;
+    function retirePrfInstance(uint16 prfId) external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
     function verifyInput(
         FHEVMExecutor.ContextUserInputs memory context,

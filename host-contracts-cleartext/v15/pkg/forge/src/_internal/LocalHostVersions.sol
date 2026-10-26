@@ -42,4 +42,7 @@ library LocalHostVersions {
 
     /// @dev src/contracts/ProtocolConfig.sol
     string internal constant PROTOCOL_CONFIG = "ProtocolConfig v0.3.0";
+
+    /// @dev src/contracts/ProtocolConfigReplica.sol
+    string internal constant PROTOCOL_CONFIG_REPLICA = "ProtocolConfigReplica v0.3.0";
 }

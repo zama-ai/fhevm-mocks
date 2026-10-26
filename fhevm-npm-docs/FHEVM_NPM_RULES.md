@@ -888,13 +888,13 @@ dropped when upstream catches up instead of being kept by inertia. The published
 names them too: a consumer can see the copy is not pure upstream.
 
 ```jsonc
-// ✅ Upstream's tree, minus two files this repository owns until the tag ships them.
+// ✅ Upstream's tree, minus files this repository owns until upstream ships them (two shown).
 {
   "relPath": "./src/contracts",
   "source": {
     "repository": "https://github.com/zama-ai/fhevm",
-    "tag": "v0.15.0-6",
-    "commit": "4aa9f1c…",
+    "tag": "v1.0.0-0-g10702a230",
+    "commit": "10702a2…",
     "from": "host-contracts/contracts",
     "digest": "sha256-…",
   },

@@ -253,10 +253,10 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
         if (bytes29(externalHandle) != bytes29(packageDigest)) {
             revert PadHandleDigestMismatch(externalHandle, packageDigest);
         }
-        
+
         // 2.2 The handle must be of the current handle layout.
         if (uint8(externalHandle[31]) != HANDLE_VERSION) revert PadHandleVersionMismatch(uint8(externalHandle[31]));
-        
+
         uint8 inputIndex = uint8(externalHandle[29]);
 
         // 2.3 The handle's part index must exist in this package.
@@ -441,8 +441,7 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
      *      (⌈w/8⌉): Bool=1, Uint8=1, Uint16=2, Uint32=4, Uint64=8, Uint128=16, Uint160=20, Uint256=32; every
      *      other byte, including every `FheType` not supported by this flow, is 0.
      */
-    bytes32 private constant PADDED_PART_BYTES =
-        0x0100010204081014200000000000000000000000000000000000000000000000;
+    bytes32 private constant PADDED_PART_BYTES = 0x0100010204081014200000000000000000000000000000000000000000000000;
 
     /// @dev Bytes a part of `partType` occupies in the packed stream, or 0 for an unsupported type. The `BYTE`
     ///      opcode returns 0 for `partType >= 32`, covering every `FheType` value beyond `PADDED_PART_BYTES`

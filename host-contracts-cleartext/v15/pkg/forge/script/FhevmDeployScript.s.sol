@@ -16,8 +16,7 @@ import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
 import {PaddedInputter} from "../../src/contracts/PaddedInputter.sol";
 import {CleartextPaddedInputter} from "../../src/cleartext/CleartextPaddedInputter.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
-import {IProtocolConfig} from "../../src/contracts/interfaces/IProtocolConfig.sol";
-import {KmsNodeParams, PcrValues} from "../../src/contracts/shared/Structs.sol";
+import {KmsNodeParams, KmsThresholds, PcrValues} from "../../src/contracts/shared/Structs.sol";
 import {CleartextACL} from "../../src/cleartext/CleartextACL.sol";
 import {CleartextFHEVMExecutor} from "../../src/cleartext/CleartextFHEVMExecutor.sol";
 import {CleartextKMSVerifier} from "../../src/cleartext/CleartextKMSVerifier.sol";
@@ -392,9 +391,8 @@ contract FhevmDeployScript is Script {
     }
 
     /// @dev Every threshold is the node count, as ts/constants.ts DEFAULT_KMS_THRESHOLDS has it.
-    function _defaultKmsThresholds() private pure returns (IProtocolConfig.KmsThresholds memory) {
+    function _defaultKmsThresholds() private pure returns (KmsThresholds memory) {
         uint256 count = LocalHostBootstrap.KMS_NODE_COUNT;
-        return
-            IProtocolConfig.KmsThresholds({publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count});
+        return KmsThresholds({publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count});
     }
 }

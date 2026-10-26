@@ -18,4 +18,5 @@ export const CONTRACT_VERSIONS = {
   paddedInputter: 'PaddedInputter v0.1.0',
   pauserSet: 'PauserSet v0.1.0',
   protocolConfig: 'ProtocolConfig v0.3.0',
+  protocolConfigReplica: 'ProtocolConfigReplica v0.3.0',
 } as const;

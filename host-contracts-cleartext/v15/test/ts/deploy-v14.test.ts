@@ -535,10 +535,14 @@ test('every deployed contract reports its expected getVersion()', async () => {
       ['cleartextDB', deployed.cleartextAddresses.cleartextDbAddress],
     ];
 
-    // Guard against a contract being added to the stack and silently escaping this check.
-    expect(cases.length, 'every getVersion-bearing contract must be covered').toBe(
-      Object.keys(EXPECTED_VERSIONS).length,
-    );
+    // Guard against a contract being added to the stack and silently escaping this check. A versioned contract the
+    // stack does not deploy is named here instead, explicitly: `ProtocolConfigReplica` serves non-canonical host
+    // chains only, and is vendored source, not part of a local stack.
+    const notDeployed: ReadonlyArray<keyof typeof EXPECTED_VERSIONS> = ['protocolConfigReplica'];
+    expect(
+      [...cases.map(([key]) => key), ...notDeployed].sort(),
+      'every getVersion-bearing contract must be covered',
+    ).toEqual(Object.keys(EXPECTED_VERSIONS).sort());
 
     for (const [key, address] of cases) {
       const version = await publicClient.readContract({

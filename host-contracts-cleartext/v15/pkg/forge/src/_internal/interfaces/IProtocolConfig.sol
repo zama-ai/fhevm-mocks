@@ -98,7 +98,6 @@ interface IProtocolConfig {
     error KmsTxSenderAlreadyRegistered(address txSender);
     error LatestActiveKmsContextCannotBeDestroyed(uint256 kmsContextId);
     error LatestActiveKmsEpochCannotBeDestroyed(uint256 epochId);
-    error NonIncreasingEpochId(uint256 epochId, uint256 currentEpochId);
     error NonIncreasingKmsContextId(uint256 contextId, uint256 latestActiveKmsContextId);
     error NotHostOwner(address sender);
     error NotInitializing();
@@ -128,15 +127,6 @@ interface IProtocolConfig {
     );
     event KmsContextDestroyed(uint256 indexed kmsContextId);
     event KmsEpochDestroyed(uint256 indexed epochId);
-    event MirrorKmsContextAndEpoch(
-        uint256 indexed contextId,
-        uint256 indexed epochId,
-        KmsNodeParams[] kmsNodeParams,
-        KmsThresholds thresholds,
-        string softwareVersion,
-        PcrValues[] pcrValues
-    );
-    event MirrorKmsEpoch(uint256 indexed contextId, uint256 indexed epochId);
     event NewKmsContext(
         uint256 indexed contextId,
         uint256 indexed previousContextId,
@@ -188,12 +178,6 @@ interface IProtocolConfig {
     function getUserDecryptionThreshold() external view returns (uint256);
     function getUserDecryptionThresholdForContext(uint256 kmsContextId) external view returns (uint256);
     function getVersion() external pure returns (string memory);
-    function initializeFromCanonical(
-        uint256 canonicalContextId,
-        uint256 canonicalEpochId,
-        KmsNodeParams[] memory canonicalKmsNodeParams,
-        KmsThresholds memory canonicalThresholds
-    ) external;
     function initializeFromEmptyProxy(
         KmsNodeParams[] memory initialKmsNodeParams,
         KmsThresholds memory initialThresholds,
@@ -206,15 +190,6 @@ interface IProtocolConfig {
     function isLiveKmsContext(uint256 kmsContextId) external view returns (bool);
     function isValidEpochForContext(uint256 kmsContextId, uint256 epochId) external view returns (bool);
     function isValidKmsContext(uint256 kmsContextId) external view returns (bool);
-    function mirrorKmsContextAndEpoch(
-        uint256 contextId,
-        uint256 epochId,
-        KmsNodeParams[] memory kmsNodeParams,
-        KmsThresholds memory thresholds,
-        string memory softwareVersion,
-        PcrValues[] memory pcrValues
-    ) external;
-    function mirrorKmsEpoch(uint256 contextId, uint256 epochId) external;
     function proposeCoprocessorUpgrade(
         uint256 proposalId,
         string memory softwareVersion,

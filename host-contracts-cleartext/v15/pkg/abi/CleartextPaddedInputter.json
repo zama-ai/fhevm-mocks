@@ -30,7 +30,7 @@
     "name": "addPrfInstance",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -260,7 +260,7 @@
     "name": "isRetiredPrfInstance",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -279,7 +279,7 @@
     "name": "isSupportedPrfInstance",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -311,7 +311,7 @@
     "name": "retirePrfInstance",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -396,7 +396,7 @@
     "name": "PrfInstanceAdded",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
@@ -409,7 +409,7 @@
     "name": "PrfInstanceRetired",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "indexed": false,
         "internalType": "uint16"
@@ -924,7 +924,7 @@
     "name": "PadPrfAlreadySupported",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -935,7 +935,7 @@
     "name": "PadPrfRetired",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }
@@ -989,7 +989,7 @@
     "name": "PadUnsupportedPrf",
     "inputs": [
       {
-        "name": "prf",
+        "name": "prfId",
         "type": "uint16",
         "internalType": "uint16"
       }

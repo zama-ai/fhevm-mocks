@@ -193,8 +193,8 @@
           "relPath": "./internal/zama-config",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.15.0-6",
-            "commit": "4aa9f1c3bf984c48f3772e589ca6abe1ab494767",
+            "tag": "v1.0.0-0-g10702a230",
+            "commit": "10702a23009147252950a69059968b8a20599549",
             "digest": "sha256-0ftNPGsVZmP5VLHmlACenc2Pi7/vl88A/XalaEyDR7k=",
             "from": "library-solidity/config"
           },
@@ -222,16 +222,24 @@
           "relPath": "./src/contracts",
           "source": {
             "repository": "https://github.com/zama-ai/fhevm",
-            "tag": "v0.15.0-6",
-            "commit": "4aa9f1c3bf984c48f3772e589ca6abe1ab494767",
-            "digest": "sha256-ro0rbMcxe78vjTF1M4OEyYWQf/j4mlDd78s5iHoEowE=",
+            "tag": "v1.0.0-0-g10702a230",
+            "commit": "10702a23009147252950a69059968b8a20599549",
+            "digest": "sha256-5YBGR9HCb+xkVZc2V6zYAzYu2fkLMwP4+6qo0t+sfgg=",
             "from": "host-contracts/contracts"
           },
           "reason": "Upstream ships Solidity with no npm package a consumer could import, so the sources are copied and frozen per generation.",
           "localPatches": [
             {
               "file": "ACL.sol",
-              "reason": "Backports fhevm#4536 (a1b969d1c, on main, in no tag yet): the handle-free isDelegatedForUserDecryption view that RFC-030 pad decryption's delegation fallback reads. Keeps v0.15.0-6's version (MINOR 6, REINITIALIZER 7, reinitializeV6) on purpose: upstream's v7 is v6 plus this view, and v6 as pinned is never released alone. Drop once the pinned tag ships it."
+              "reason": "Keeps v0.15's version (MINOR 6, REINITIALIZER 7, reinitializeV6) where upstream main moved to v7: upstream's v7 is v6 plus the handle-free isDelegatedForUserDecryption view (fhevm#4536), and v6 as pinned is never released alone, so this generation ships both as v6. Drop once a tag ships the ACL at the version this generation wants."
+            },
+            {
+              "file": "ProtocolConfig.sol",
+              "reason": "Keeps v0.15's version (MINOR 3, REINITIALIZER 4, reinitializeV3) where upstream main moved to v0.4.0 / reinitializeV4 with the ProtocolConfigBase split (fhevm#4162, #4216): the split is a pure refactor (same ERC-7201 storage), so it ships in this generation's existing reinitializer step. Drop once a tag ships it at the version this generation wants."
+            },
+            {
+              "file": "ProtocolConfigReplica.sol",
+              "reason": "Same version as ProtocolConfig.sol (MINOR 3, REINITIALIZER 4, reinitializeV3) where upstream main has v0.4.0 / reinitializeV4: both belong to this generation's step. Drop with ProtocolConfig.sol's patch."
             },
             {
               "file": "FHEVMExecutor.sol",

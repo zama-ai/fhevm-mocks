@@ -13,8 +13,7 @@ import {KMSGeneration} from "../../pkg/src/contracts/KMSGeneration.sol";
 import {PaddedInputter} from "../../pkg/src/contracts/PaddedInputter.sol";
 import {CleartextArithmetic} from "../../pkg/src/cleartext/CleartextArithmetic.sol";
 import {CleartextDB} from "../../pkg/src/cleartext/CleartextDB.sol";
-import {IProtocolConfig} from "../../pkg/src/contracts/interfaces/IProtocolConfig.sol";
-import {KmsNodeParams, PcrValues} from "../../pkg/src/contracts/shared/Structs.sol";
+import {KmsNodeParams, KmsThresholds, PcrValues} from "../../pkg/src/contracts/shared/Structs.sol";
 import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
 
 /**
@@ -161,9 +160,8 @@ library MaterializeInitData {
     }
 
     /// @dev Every threshold is the node count, as ts/constants.ts DEFAULT_KMS_THRESHOLDS has it.
-    function _kmsThresholds() private pure returns (IProtocolConfig.KmsThresholds memory) {
+    function _kmsThresholds() private pure returns (KmsThresholds memory) {
         uint256 count = LocalHostBootstrap.KMS_NODE_COUNT;
-        return
-            IProtocolConfig.KmsThresholds({publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count});
+        return KmsThresholds({publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count});
     }
 }
