@@ -32,7 +32,7 @@ import {aclAdd, fhevmExecutorAdd} from "../addresses/FHEVMHostAddresses.sol";
  *      truth the KMS checks pad decryption requests against. Instance identifiers are never reused.
  *
  *      Input package layout (big-endian integers):
- *        packageType 1 | witnessVersion 1 | prf 2 | chainId 8 | submitter 20 | consumer 20 |
+ *        packageType 1 | witnessVersion 1 | prfId 2 | chainId 8 | submitter 20 | consumer 20 |
  *        expirationTimestamp 8 | decryptorCount 1 | decryptors 20×decryptorCount | nonce 16 |
  *        label 32 | partCount 1 | parts 1×partCount | ciphertext N/8
  *      The witness fields are encoded exactly as in the label preimage, so
@@ -98,8 +98,8 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
 
     /// @custom:storage-location erc7201:fhevm.storage.PaddedInputter
     struct PaddedInputterStorage {
-        mapping(uint16 prf => bool isSupported) isSupportedPrf; /// @notice PRF instances packages may name
-        mapping(uint16 prf => bool isRetired) isRetiredPrf; /// @notice Retired instances, never admitted again
+        mapping(uint16 prfId => bool isSupported) isSupportedPrf; /// @notice PRF instances packages may name
+        mapping(uint16 prfId => bool isRetired) isRetiredPrf; /// @notice Retired instances, never admitted again
     }
 
     /// keccak256(abi.encode(uint256(keccak256("fhevm.storage.PaddedInputter")) - 1)) & ~bytes32(uint256(0xff))
@@ -115,7 +115,7 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     /// @notice A parsed input package; offsets index into the package bytes.
     struct PaddedPackage {
         uint8 witnessVersion;
-        uint16 prf;
+        uint16 prfId;
         uint64 chainId;
         address submitter;
         address consumer;
@@ -136,10 +136,10 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     event Unmask(bytes32 externalHandle, bytes inputPackage, bytes32 computeHandle);
 
     /// @notice Emitted when a PRF instance is admitted: packages naming it are now accepted.
-    event PrfInstanceAdded(uint16 prf);
+    event PrfInstanceAdded(uint16 prfId);
 
     /// @notice Emitted when a PRF instance is retired: packages naming it are now refused, for good.
-    event PrfInstanceRetired(uint16 prf);
+    event PrfInstanceRetired(uint16 prfId);
 
     // ---- Errors ----
 
@@ -147,18 +147,18 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     error CallerMustBeFHEVMExecutorContract();
 
     /// @notice Returned when adding a PRF instance that is already supported.
-    error PadPrfAlreadySupported(uint16 prf);
+    error PadPrfAlreadySupported(uint16 prfId);
 
     /// @notice Returned when adding a PRF instance that was retired: identifiers are never reused.
-    error PadPrfRetired(uint16 prf);
+    error PadPrfRetired(uint16 prfId);
 
-    /// @notice Returned when adding PRF instance 0, which is never an instance: an unset `prf` reads as 0, and
+    /// @notice Returned when adding PRF instance 0, which is never an instance: an unset `prfId` reads as 0, and
     ///         must be refused (`PadUnsupportedPrf(0)`) rather than silently taken as a live instance.
     error PadZeroPrfInstance();
 
     error PadMalformedPackage();
     error PadUnsupportedWitnessVersion(uint8 witnessVersion);
-    error PadUnsupportedPrf(uint16 prf);
+    error PadUnsupportedPrf(uint16 prfId);
     error PadInvalidChainId(uint64 chainId);
     error PadTooManyDecryptors(uint256 count);
     error PadNullWitnessAddress();
@@ -201,10 +201,10 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
 
     /**
      * @notice Admits a PRF instance. The coprocessor must evaluate it before it is admitted here.
-     * @param prf The PRF instance identifier.
+     * @param prfId The PRF instance identifier.
      */
-    function addPrfInstance(uint16 prf) public virtual onlyACLOwner {
-        _addPrfInstance(prf);
+    function addPrfInstance(uint16 prfId) public virtual onlyACLOwner {
+        _addPrfInstance(prfId);
     }
 
     /**
@@ -212,14 +212,14 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
      *         identifier can never be admitted again, since a stale package would otherwise pass the
      *         on-chain check and be unmasked under the wrong instance.
      * @dev The coprocessor drops the instance only once every `Unmask` emitted before retirement is processed.
-     * @param prf The PRF instance identifier.
+     * @param prfId The PRF instance identifier.
      */
-    function retirePrfInstance(uint16 prf) public virtual onlyACLOwner {
+    function retirePrfInstance(uint16 prfId) public virtual onlyACLOwner {
         PaddedInputterStorage storage $ = _getPaddedInputterStorage();
-        if (!$.isSupportedPrf[prf]) revert PadUnsupportedPrf(prf);
-        $.isSupportedPrf[prf] = false;
-        $.isRetiredPrf[prf] = true;
-        emit PrfInstanceRetired(prf);
+        if (!$.isSupportedPrf[prfId]) revert PadUnsupportedPrf(prfId);
+        $.isSupportedPrf[prfId] = false;
+        $.isRetiredPrf[prfId] = true;
+        emit PrfInstanceRetired(prfId);
     }
 
     // ---- Verification ----
@@ -248,13 +248,23 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
         }
 
         // 2. External handle checks.
+
+        // 2.1 The handle must name this very package, not one that merely shares an index and type.
         if (bytes29(externalHandle) != bytes29(packageDigest)) {
             revert PadHandleDigestMismatch(externalHandle, packageDigest);
         }
+        
+        // 2.2 The handle must be of the current handle layout.
         if (uint8(externalHandle[31]) != HANDLE_VERSION) revert PadHandleVersionMismatch(uint8(externalHandle[31]));
+        
         uint8 inputIndex = uint8(externalHandle[29]);
+
+        // 2.3 The handle's part index must exist in this package.
         if (inputIndex >= pkg.partCount) revert PadInputIndexOutOfBounds(inputIndex, pkg.partCount);
+
         uint8 partType = uint8(inputPackage[pkg.partsOffset + inputIndex]);
+
+        // 2.4 The handle's type must match the type of the part it points to.
         if (uint8(externalHandle[30]) != partType) {
             revert PadInputTypeMismatch(inputIndex, uint8(externalHandle[30]), partType);
         }
@@ -277,19 +287,19 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     // ---- Getters ----
 
     /**
-     * @notice Whether `prf` names a PRF instance packages may currently use.
-     * @param prf The PRF instance identifier.
+     * @notice Whether `prfId` names a PRF instance packages may currently use.
+     * @param prfId The PRF instance identifier.
      */
-    function isSupportedPrfInstance(uint16 prf) public view virtual returns (bool) {
-        return _getPaddedInputterStorage().isSupportedPrf[prf];
+    function isSupportedPrfInstance(uint16 prfId) public view virtual returns (bool) {
+        return _getPaddedInputterStorage().isSupportedPrf[prfId];
     }
 
     /**
-     * @notice Whether `prf` names a retired PRF instance, which can never be admitted again.
-     * @param prf The PRF instance identifier.
+     * @notice Whether `prfId` names a retired PRF instance, which can never be admitted again.
+     * @param prfId The PRF instance identifier.
      */
-    function isRetiredPrfInstance(uint16 prf) public view virtual returns (bool) {
-        return _getPaddedInputterStorage().isRetiredPrf[prf];
+    function isRetiredPrfInstance(uint16 prfId) public view virtual returns (bool) {
+        return _getPaddedInputterStorage().isRetiredPrf[prfId];
     }
 
     /**
@@ -312,13 +322,13 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
 
     // ---- Internals ----
 
-    function _addPrfInstance(uint16 prf) internal virtual {
-        if (prf == 0) revert PadZeroPrfInstance();
+    function _addPrfInstance(uint16 prfId) internal virtual {
+        if (prfId == 0) revert PadZeroPrfInstance();
         PaddedInputterStorage storage $ = _getPaddedInputterStorage();
-        if ($.isRetiredPrf[prf]) revert PadPrfRetired(prf);
-        if ($.isSupportedPrf[prf]) revert PadPrfAlreadySupported(prf);
-        $.isSupportedPrf[prf] = true;
-        emit PrfInstanceAdded(prf);
+        if ($.isRetiredPrf[prfId]) revert PadPrfRetired(prfId);
+        if ($.isSupportedPrf[prfId]) revert PadPrfAlreadySupported(prfId);
+        $.isSupportedPrf[prfId] = true;
+        emit PrfInstanceAdded(prfId);
     }
 
     /// @dev Parses the package header and counters, reverting if they do not fit in the package.
@@ -328,15 +338,15 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
         if (uint8(p[0]) != PAD_PACKAGE_TYPE) revert PadMalformedPackage();
 
         pkg.witnessVersion = uint8(p[OFFSET_WITNESS_VERSION]);
-        pkg.prf = uint16(_readUint(p, OFFSET_PRF, 2));
-        pkg.chainId = uint64(_readUint(p, OFFSET_CHAIN_ID, 8));
-        pkg.submitter = address(uint160(_readUint(p, OFFSET_SUBMITTER, 20)));
-        pkg.consumer = address(uint160(_readUint(p, OFFSET_CONSUMER, 20)));
+        pkg.prfId = uint16(_extractBytes2(_loadWord(p, OFFSET_PRF)));
+        pkg.chainId = uint64(_extractBytes8(_loadWord(p, OFFSET_CHAIN_ID)));
+        pkg.submitter = address(_extractBytes20(_loadWord(p, OFFSET_SUBMITTER)));
+        pkg.consumer = address(_extractBytes20(_loadWord(p, OFFSET_CONSUMER)));
         pkg.decryptorCount = uint8(p[OFFSET_DECRYPTOR_COUNT]);
 
         pkg.witnessEnd = OFFSET_DECRYPTORS + uint256(pkg.decryptorCount) * 20 + 16;
         if (p.length < pkg.witnessEnd + 32 + 1) revert PadMalformedPackage();
-        pkg.label = bytes32(_readUint(p, pkg.witnessEnd, 32));
+        pkg.label = _loadWord(p, pkg.witnessEnd);
         pkg.partCount = uint8(p[pkg.witnessEnd + 32]);
         pkg.partsOffset = pkg.witnessEnd + 33;
         pkg.ciphertextOffset = pkg.partsOffset + pkg.partCount;
@@ -346,13 +356,15 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     /// @dev RFC-030 step 1 checks (the counters were checked while parsing).
     function _checkPaddedPackage(bytes memory p, PaddedPackage memory pkg) private view {
         if (pkg.witnessVersion != PAD_WITNESS_VERSION) revert PadUnsupportedWitnessVersion(pkg.witnessVersion);
-        if (!isSupportedPrfInstance(pkg.prf)) revert PadUnsupportedPrf(pkg.prf);
+        if (!isSupportedPrfInstance(pkg.prfId)) revert PadUnsupportedPrf(pkg.prfId);
         if (pkg.chainId != block.chainid) revert PadInvalidChainId(pkg.chainId);
 
         if (pkg.decryptorCount > PAD_MAX_DECRYPTORS) revert PadTooManyDecryptors(pkg.decryptorCount);
         if (pkg.submitter == address(0)) revert PadNullWitnessAddress();
         for (uint256 i = 0; i < pkg.decryptorCount; ++i) {
-            if (_readUint(p, OFFSET_DECRYPTORS + i * 20, 20) == 0) revert PadNullWitnessAddress();
+            if (address(_extractBytes20(_loadWord(p, OFFSET_DECRYPTORS + i * 20))) == address(0)) {
+                revert PadNullWitnessAddress();
+            }
         }
 
         // Every part names a known type; N = Σ ⌈w/8⌉·8 bounds the pad and sizes the ciphertext.
@@ -369,8 +381,13 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
 
         // label = hash(witness): the witness fields are the package bytes [1, witnessEnd).
         bytes memory witness = new bytes(pkg.witnessEnd - 1);
-        for (uint256 i = 0; i < witness.length; ++i) {
-            witness[i] = p[1 + i];
+        // Previous implementation, O(length) byte-by-byte instead of a single copy:
+        //
+        // for (uint256 i = 0; i < witness.length; ++i) {
+        //     witness[i] = p[1 + i];
+        // }
+        assembly ("memory-safe") {
+            mcopy(add(witness, 0x20), add(p, 0x21), mload(witness))
         }
         bytes32 expectedLabel = keccak256(abi.encodePacked(PAD_LABEL_DOMAIN_SEPARATOR, witness));
         if (expectedLabel != pkg.label) revert PadLabelMismatch(pkg.label, expectedLabel);
@@ -404,23 +421,78 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
         handle = handle | bytes32(uint256(HANDLE_VERSION));
     }
 
-    /// @dev Bytes a part of `partType` occupies in the packed stream (⌈w/8⌉), or 0 for an unknown type.
-    function _paddedPartBytes(uint8 partType) private pure returns (uint256) {
-        if (partType == uint8(FheType.Bool)) return 1;
-        if (partType == uint8(FheType.Uint8)) return 1;
-        if (partType == uint8(FheType.Uint16)) return 2;
-        if (partType == uint8(FheType.Uint32)) return 4;
-        if (partType == uint8(FheType.Uint64)) return 8;
-        if (partType == uint8(FheType.Uint128)) return 16;
-        if (partType == uint8(FheType.Uint160)) return 20;
-        if (partType == uint8(FheType.Uint256)) return 32;
-        return 0;
+    // Previous implementation, an 8-comparison chain in the worst case instead of a single lookup:
+    //
+    // /// @dev Bytes a part of `partType` occupies in the packed stream (⌈w/8⌉), or 0 for an unknown type.
+    // function _paddedPartBytes(uint8 partType) private pure returns (uint256) {
+    //     if (partType == uint8(FheType.Bool)) return 1;
+    //     if (partType == uint8(FheType.Uint8)) return 1;
+    //     if (partType == uint8(FheType.Uint16)) return 2;
+    //     if (partType == uint8(FheType.Uint32)) return 4;
+    //     if (partType == uint8(FheType.Uint64)) return 8;
+    //     if (partType == uint8(FheType.Uint128)) return 16;
+    //     if (partType == uint8(FheType.Uint160)) return 20;
+    //     if (partType == uint8(FheType.Uint256)) return 32;
+    //     return 0;
+    // }
+
+    /**
+     * @dev Byte `i` (big-endian) of this table is the size, in bytes, of a part of `FheType` value `i`
+     *      (⌈w/8⌉): Bool=1, Uint8=1, Uint16=2, Uint32=4, Uint64=8, Uint128=16, Uint160=20, Uint256=32; every
+     *      other byte, including every `FheType` not supported by this flow, is 0.
+     */
+    bytes32 private constant PADDED_PART_BYTES =
+        0x0100010204081014200000000000000000000000000000000000000000000000;
+
+    /// @dev Bytes a part of `partType` occupies in the packed stream, or 0 for an unsupported type. The `BYTE`
+    ///      opcode returns 0 for `partType >= 32`, covering every `FheType` value beyond `PADDED_PART_BYTES`
+    ///      without an explicit bounds check.
+    function _paddedPartBytes(uint8 partType) private pure returns (uint256 size) {
+        bytes32 table = PADDED_PART_BYTES;
+        assembly ("memory-safe") {
+            size := byte(partType, table)
+        }
     }
 
-    /// @dev Big-endian unsigned integer of `length` (≤ 32) bytes at `offset`; the caller checks bounds.
-    function _readUint(bytes memory p, uint256 offset, uint256 length) private pure returns (uint256 value) {
-        for (uint256 i = 0; i < length; ++i) {
-            value = (value << 8) | uint8(p[offset + i]);
+    // Previous implementation, O(length) per field instead of O(1):
+    //
+    // /// @dev Big-endian unsigned integer of `length` (≤ 32) bytes at `offset`; the caller checks bounds.
+    // function _readUint(bytes memory p, uint256 offset, uint256 length) private pure returns (uint256 value) {
+    //     for (uint256 i = 0; i < length; ++i) {
+    //         value = (value << 8) | uint8(p[offset + i]);
+    //     }
+    // }
+
+    /// @dev Loads the 32-byte word starting at `offset` in `p`'s data; caller checks bounds.
+    function _loadWord(bytes memory p, uint256 offset) private pure returns (bytes32 word) {
+        assembly ("memory-safe") {
+            word := mload(add(add(p, 0x20), offset))
+        }
+    }
+
+    // The three extractors below are inlined, specialized copies of OpenZeppelin Contracts'
+    // Packing.extract_32_2 / extract_32_8 / extract_32_20 (utils/Packing.sol, MIT License,
+    // Copyright (c) 2016-2025 zOS Global Limited and contributors), reproduced here to avoid
+    // importing the whole library for three fixed-offset extractions.
+
+    /// @dev Top 2 bytes of `word`, right-aligned.
+    function _extractBytes2(bytes32 word) private pure returns (bytes2 result) {
+        assembly ("memory-safe") {
+            result := and(word, shl(240, not(0)))
+        }
+    }
+
+    /// @dev Top 8 bytes of `word`, right-aligned.
+    function _extractBytes8(bytes32 word) private pure returns (bytes8 result) {
+        assembly ("memory-safe") {
+            result := and(word, shl(192, not(0)))
+        }
+    }
+
+    /// @dev Top 20 bytes of `word`, right-aligned.
+    function _extractBytes20(bytes32 word) private pure returns (bytes20 result) {
+        assembly ("memory-safe") {
+            result := and(word, shl(96, not(0)))
         }
     }
 
