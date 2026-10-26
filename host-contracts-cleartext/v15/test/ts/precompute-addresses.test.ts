@@ -47,6 +47,7 @@ const LAYOUT = {
   cleartextArithmeticAddress: 10n,
   cleartextDbAddress: 11n,
   pauserSetAddress: 12n,
+  protocolConfigReplicaAddress: 13n,
 } as const;
 
 /**
@@ -124,12 +125,13 @@ const viemEthUtils: AbstractEthereumUtils = {
   },
 };
 
-/** The eleven placed addresses as one flat record, keyed the same way as {@link LAYOUT}. */
+/** The twelve placed addresses as one flat record, keyed the same way as {@link LAYOUT}. */
 function flatten(result: ReturnType<typeof precomputeAddresses>): Record<keyof typeof LAYOUT, string> {
   return {
     ...result.fhevmAddresses,
     ...result.cleartextAddresses,
     pauserSetAddress: result.pauserSetAddress,
+    protocolConfigReplicaAddress: result.protocolConfigReplicaAddress,
   };
 }
 
@@ -184,6 +186,7 @@ const LOCALHOST_ADDRESSES: Readonly<Record<keyof typeof LAYOUT, string>> = {
   cleartextArithmeticAddress: '0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E',
   cleartextDbAddress: '0x590e3330386Fa042843773541aaBb3a45EC3164D',
   pauserSetAddress: '0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2',
+  protocolConfigReplicaAddress: '0x492e52843AE2eCF9daae6B951E12C3614Ee115C1',
 };
 
 /** The three `ZamaConfig._getLocalConfig()` returns — the ones consumers are bound to. */

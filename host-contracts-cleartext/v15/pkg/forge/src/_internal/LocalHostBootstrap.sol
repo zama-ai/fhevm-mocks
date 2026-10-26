@@ -34,6 +34,15 @@ library LocalHostBootstrap {
     uint48 internal constant MAX_HCU_DEPTH_PER_TX = 5000000;
     uint48 internal constant MAX_HCU_PER_TX = 20000000;
 
+    /// @dev The KMS context and epoch the canonical ProtocolConfig activates at deploy (`initializeFromEmptyProxy`):
+    ///      the first of each, `KMS_CONTEXT_COUNTER_BASE + 1` and `EPOCH_COUNTER_BASE + 1` (Constants.sol: the
+    ///      0x07 and 0x08 type tags, shifted by 248). ProtocolConfigReplica is seeded with the same ids, the same
+    ///      KMS nodes and the same thresholds (`initializeFromCanonical`), so on one chain both answer alike.
+    ///      Hex literals rather than `(uint256(7) << 248) + 1`, so scripts/anvil-lib.sh can read them as-is.
+    uint256 internal constant INITIAL_KMS_CONTEXT_ID =
+        0x0700000000000000000000000000000000000000000000000000000000000001;
+    uint256 internal constant INITIAL_KMS_EPOCH_ID = 0x0800000000000000000000000000000000000000000000000000000000000001;
+
     /// @dev The RFC-030 PRF instance every deploy path registers on PaddedInputter (cleartext-config.json
     ///      `CLEARTEXT_PAD_PRF_INSTANCE`). Never 0: an unset `prf` must be refused, not taken as the default.
     uint16 internal constant PAD_PRF_INSTANCE = 1;

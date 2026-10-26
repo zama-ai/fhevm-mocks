@@ -11,6 +11,7 @@ import {HCULimit} from "../../src/contracts/HCULimit.sol";
 import {ProtocolConfig} from "../../src/contracts/ProtocolConfig.sol";
 import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
 import {PaddedInputter} from "../../src/contracts/PaddedInputter.sol";
+import {ProtocolConfigReplica} from "../../src/contracts/ProtocolConfigReplica.sol";
 import {PauserSet} from "../../src/contracts/immutable/PauserSet.sol";
 import {KmsNode} from "../../src/contracts/shared/Structs.sol";
 import {CleartextArithmetic} from "../../src/cleartext/CleartextArithmetic.sol";
@@ -30,7 +31,8 @@ import {
     pauserSetAdd,
     cleartextArithmeticAdd,
     cleartextDbAdd,
-    paddedInputterAdd
+    paddedInputterAdd,
+    protocolConfigReplicaAdd
 } from "../../src/addresses/FHEVMHostAddresses.sol";
 
 /// @dev The EIP-712 domain view (ERC-5267), used to check what each verifier was initialized with.
@@ -129,6 +131,7 @@ contract VerifyFhevmDeploy is Script {
         _checkThresholds();
         _checkHcuLimits();
         _checkPadPrfInstance();
+        _checkProtocolConfigReplica();
         _checkEip712Domains();
 
         console.log("");
@@ -152,9 +155,11 @@ contract VerifyFhevmDeploy is Script {
         _hasCode("HCULimit", hcuLimitAdd);
         _hasCode("ProtocolConfig", protocolConfigAdd);
         _hasCode("KMSGeneration", kmsGenerationAdd);
+        _hasCode("PaddedInputter", paddedInputterAdd);
         _hasCode("CleartextArithmetic", cleartextArithmeticAdd);
         _hasCode("CleartextDB", cleartextDbAdd);
         _hasCode("PauserSet", pauserSetAdd);
+        _hasCode("ProtocolConfigReplica", protocolConfigReplicaAdd);
     }
 
     // ------------------------------------------------------------------
@@ -196,6 +201,16 @@ contract VerifyFhevmDeploy is Script {
             LocalHostVersions.CLEARTEXT_ARITHMETIC
         );
         _eqStr("PauserSet.getVersion", PauserSet(pauserSetAdd).getVersion(), LocalHostVersions.PAUSER_SET);
+        _eqStr(
+            "PaddedInputter.getVersion",
+            PaddedInputter(paddedInputterAdd).getVersion(),
+            LocalHostVersions.PADDED_INPUTTER
+        );
+        _eqStr(
+            "ProtocolConfigReplica.getVersion",
+            ProtocolConfigReplica(protocolConfigReplicaAdd).getVersion(),
+            LocalHostVersions.PROTOCOL_CONFIG_REPLICA
+        );
     }
 
     // ------------------------------------------------------------------
@@ -325,6 +340,29 @@ contract VerifyFhevmDeploy is Script {
         _eqUint("globalHCUCapPerBlock", h.getGlobalHCUCapPerBlock(), LocalHostBootstrap.HCU_CAP_PER_BLOCK);
         _eqUint("maxHCUDepthPerTx", h.getMaxHCUDepthPerTx(), LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX);
         _eqUint("maxHCUPerTx", h.getMaxHCUPerTx(), LocalHostBootstrap.MAX_HCU_PER_TX);
+    }
+
+    /// @dev The replica a non-canonical host runs, seeded like the canonical ProtocolConfig: on one chain both answer
+    ///      alike (context, epoch, signers, thresholds).
+    function _checkProtocolConfigReplica() private {
+        console.log("[bootstrap: ProtocolConfigReplica mirrors ProtocolConfig]");
+        ProtocolConfig canonical = ProtocolConfig(protocolConfigAdd);
+        ProtocolConfigReplica replica = ProtocolConfigReplica(protocolConfigReplicaAdd);
+        (uint256 contextId, uint256 epochId) = replica.getCurrentKmsContextAndEpoch();
+        (uint256 canonicalContextId, uint256 canonicalEpochId) = canonical.getCurrentKmsContextAndEpoch();
+        _eqUint("context id", contextId, canonicalContextId);
+        _eqUint("epoch id", epochId, canonicalEpochId);
+        _eqAddrArray("signers", replica.getKmsSigners(), canonical.getKmsSigners());
+        _eqUint(
+            "publicDecryption threshold",
+            replica.getPublicDecryptionThreshold(),
+            canonical.getPublicDecryptionThreshold()
+        );
+        _eqUint(
+            "userDecryption threshold", replica.getUserDecryptionThreshold(), canonical.getUserDecryptionThreshold()
+        );
+        _eqUint("kmsGen threshold", replica.getKmsGenThreshold(), canonical.getKmsGenThreshold());
+        _eqUint("mpc threshold", replica.getMpcThreshold(), canonical.getMpcThreshold());
     }
 
     /// @dev The default RFC-030 PRF instance is registered, or every pad-based input is refused.

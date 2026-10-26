@@ -197,6 +197,7 @@ test('precomputeCreate2Addresses predicts where a real create2 deploy actually l
       [CREATE2_ROLES.cleartextArithmetic, predicted.cleartextAddresses.cleartextArithmeticAddress],
       [CREATE2_ROLES.cleartextDb, predicted.cleartextAddresses.cleartextDbAddress],
       [CREATE2_ROLES.pauserSet, predicted.pauserSetAddress],
+      [CREATE2_ROLES.protocolConfigReplica, predicted.protocolConfigReplicaAddress],
       [CREATE2_ROLES.aclOwner, predicted.aclOwnerAddress],
     ];
 
@@ -246,6 +247,7 @@ test('precomputeCreate2Addresses predicts where a real create2 deploy actually l
         fhevmAddresses: predicted.fhevmAddresses,
         cleartextAddresses: predicted.cleartextAddresses,
         pauserSetAddress: predicted.pauserSetAddress,
+        protocolConfigReplicaAddress: predicted.protocolConfigReplicaAddress,
         aclOwnerAddress: predicted.aclOwnerAddress,
       };
       const report = await verify({
@@ -293,6 +295,7 @@ test('precomputeCreate2Addresses predicts where a real create2 deploy actually l
       other.cleartextAddresses.cleartextArithmeticAddress,
       other.cleartextAddresses.cleartextDbAddress,
       other.pauserSetAddress,
+      other.protocolConfigReplicaAddress,
       other.aclOwnerAddress,
     ].map((a) => a.toLowerCase());
 

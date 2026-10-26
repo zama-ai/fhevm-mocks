@@ -48,31 +48,6 @@ export const OUTPUT_PATH = join(PKG_DIR_ABS_PATH, 'forge', 'script', 'ComputeAdd
 /** Address name created at each offset, inverted from NONCE_OFFSET. */
 const NAME_AT_OFFSET = new Map<bigint, AddressName>(ADDRESS_NAMES.map((name) => [NONCE_OFFSET[name], name]));
 
-/**
- * Local variable holding each address inside the generated `run()`.
- *
- * Written out rather than derived from the address name, for the same reason CONSTANT_NAMES is: no
- * transformation produces these. `ACL_ADDRESS` becomes `aclProxy` (loses "Address", gains "Proxy") and
- * `PAUSER_SET_ADDRESS` becomes `pauserSetAddr` — a different suffix, because PauserSet is not a proxy.
- *
- * Keyed by AddressName, so this map is the ONE place a new address has to be named. Before, the same
- * name appeared in three textual sites in the script and omitting one failed nowhere near the edit; now
- * omitting it here is a compile error.
- */
-const SCRIPT_VARIABLE: Readonly<Record<AddressName, string>> = {
-  ACL_ADDRESS: 'aclProxy',
-  FHEVM_EXECUTOR_ADDRESS: 'fhevmExecutorProxy',
-  KMS_VERIFIER_ADDRESS: 'kmsVerifierProxy',
-  INPUT_VERIFIER_ADDRESS: 'inputVerifierProxy',
-  HCU_LIMIT_ADDRESS: 'hcuLimitProxy',
-  PROTOCOL_CONFIG_ADDRESS: 'protocolConfigProxy',
-  KMS_GENERATION_ADDRESS: 'kmsGenerationProxy',
-  PADDED_INPUTTER_ADDRESS: 'paddedInputterProxy',
-  CLEARTEXT_ARITHMETIC_ADDRESS: 'cleartextArithmeticProxy',
-  CLEARTEXT_DB_ADDRESS: 'cleartextDbProxy',
-  PAUSER_SET_ADDRESS: 'pauserSetAddr',
-};
-
 /** Indentation of a statement inside `run()`. */
 const BODY_INDENT = ' '.repeat(8);
 
@@ -87,14 +62,19 @@ function namesInNonceOrder(): readonly AddressName[] {
   return [...ADDRESS_NAMES].sort((left, right) => (NONCE_OFFSET[left] < NONCE_OFFSET[right] ? -1 : 1));
 }
 
-/** `address <var> = vm.computeCreateAddress(deployer, nonce + <offset>);` per address. */
+/** `vm.computeCreateAddress(deployer, nonce + <offset>)` for one address, used where its value is needed. */
+function computeAt(name: AddressName): string {
+  return `vm.computeCreateAddress(deployer, nonce + ${String(NONCE_OFFSET[name])})`;
+}
+
+/**
+ * No declaration per address: each is computed where it is used (`computeAt`). One local per address ran
+ * legacy codegen out of stack slots at twelve ("Stack too deep"; scripts compile with via_ir off), so the
+ * script's stack must not grow with the role count.
+ */
 export function renderAddressDeclarations(): string {
-  return namesInNonceOrder()
-    .map(
-      (name) =>
-        `${BODY_INDENT}address ${SCRIPT_VARIABLE[name]} = vm.computeCreateAddress(deployer, nonce + ${NONCE_OFFSET[name]});`,
-    )
-    .join('\n');
+  return `${BODY_INDENT}// Each address is computed where it is used, not held in a local: one local per address runs legacy
+${BODY_INDENT}// codegen out of stack slots ("Stack too deep"), and scripts are compiled with via_ir off.`;
 }
 
 /**
@@ -115,14 +95,17 @@ export function renderAddressLogs(): string {
   return [
     line('Deployer:', 'deployer'),
     line('Starting nonce:', 'nonce'),
-    ...names.map((name) => line(`${name}:`, SCRIPT_VARIABLE[name])),
+    ...names.map((name) => line(`${name}:`, computeAt(name))),
   ].join('\n');
 }
 
-/** `content = string.concat(content, _constant("<NAME>", <var>));` per address. */
+/** `content = string.concat(content, _constantAt("<NAME>", deployer, nonce + <offset>));` per address. */
 export function renderAddressConstants(): string {
   return namesInNonceOrder()
-    .map((name) => `${BODY_INDENT}content = string.concat(content, _constant("${name}", ${SCRIPT_VARIABLE[name]}));`)
+    .map(
+      (name) =>
+        `${BODY_INDENT}content = string.concat(content, _constantAt("${name}", deployer, nonce + ${String(NONCE_OFFSET[name])}));`,
+    )
     .join('\n');
 }
 

@@ -919,7 +919,7 @@ contract FhevmVm is IFhevmVm {
     ///      creates them. So is `PaddedInputter` (RFC-030): the chain table does not carry it and the stock
     ///      executor exposes no getter, so the upgrade creates one, as it does for a previous-generation
     ///      stack that has none.
-    function _rolesOf(StdFhevmChains.FhevmChain memory chain) private view returns (address[11] memory addresses) {
+    function _rolesOf(StdFhevmChains.FhevmChain memory chain) private view returns (address[12] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = chain.acl;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = chain.fhevmExecutor;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = chain.kmsVerifier;
@@ -935,7 +935,7 @@ contract FhevmVm is IFhevmVm {
     ///      creating one. A stack already on this generation is left alone; anything else falls to the
     ///      gate, which refuses it by name.
     function _upgradeCleartextIfOneGenerationBehind(StdFhevmChains.FhevmChain memory chain) private {
-        address[11] memory addresses = _rolesOf(chain);
+        address[12] memory addresses = _rolesOf(chain);
         HostVersions memory versions = LibFhevmVersion.read(
             chain.acl,
             chain.fhevmExecutor,
@@ -970,7 +970,7 @@ contract FhevmVm is IFhevmVm {
         // contracts do. The cleartext roles stay zero — no host implementation names them, and a real
         // deployment has no such contract. `PaddedInputter` stays zero too: the previous generation has none,
         // and the upgrade creates it.
-        address[11] memory addresses;
+        address[12] memory addresses;
         addresses[uint8(FhevmAddressRole.ACL)] = chain.acl;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = chain.fhevmExecutor;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = chain.kmsVerifier;

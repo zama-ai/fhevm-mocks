@@ -297,7 +297,7 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       transport: http(anvil.rpcUrl),
     });
 
-    const { fhevmAddresses, cleartextAddresses, pauserSetAddress } = precomputeAddresses({
+    const { fhevmAddresses, cleartextAddresses, pauserSetAddress, protocolConfigReplicaAddress } = precomputeAddresses({
       ethUtils: adapters.utils,
       from: deployerAddress,
       startNonce: 0n,
@@ -309,11 +309,11 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       ethUtils: adapters.utils,
       deployer: adapters.signer,
       admin: adapters.signer,
-      precomputed: { fhevmAddresses, cleartextAddresses, pauserSetAddress },
+      precomputed: { fhevmAddresses, cleartextAddresses, pauserSetAddress, protocolConfigReplicaAddress },
       config: bootstrapConfig(deployerAddress, kmsSigner),
     });
 
-    // (a) All 10 proxies are materialized (non-zero ERC-1967 implementation slot).
+    // (a) All 11 proxies are materialized (non-zero ERC-1967 implementation slot).
     const proxies: readonly Address[] = [
       deployed.fhevmAddresses.aclAddress,
       deployed.fhevmAddresses.fhevmExecutorAddress,
@@ -325,6 +325,7 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
       deployed.fhevmAddresses.paddedInputterAddress,
       deployed.cleartextAddresses.cleartextArithmeticAddress,
       deployed.cleartextAddresses.cleartextDbAddress,
+      deployed.protocolConfigReplicaAddress,
     ].map((address) => address as Address);
     for (const proxy of proxies) {
       const impl = await publicClient.getStorageAt({ address: proxy, slot: IMPL_SLOT });
@@ -533,16 +534,13 @@ test('every deployed contract reports its expected getVersion()', async () => {
       ['pauserSet', deployed.pauserSetAddress],
       ['cleartextArithmetic', deployed.cleartextAddresses.cleartextArithmeticAddress],
       ['cleartextDB', deployed.cleartextAddresses.cleartextDbAddress],
+      ['protocolConfigReplica', deployed.protocolConfigReplicaAddress],
     ];
 
-    // Guard against a contract being added to the stack and silently escaping this check. A versioned contract the
-    // stack does not deploy is named here instead, explicitly: `ProtocolConfigReplica` serves non-canonical host
-    // chains only, and is vendored source, not part of a local stack.
-    const notDeployed: ReadonlyArray<keyof typeof EXPECTED_VERSIONS> = ['protocolConfigReplica'];
-    expect(
-      [...cases.map(([key]) => key), ...notDeployed].sort(),
-      'every getVersion-bearing contract must be covered',
-    ).toEqual(Object.keys(EXPECTED_VERSIONS).sort());
+    // Guard against a contract being added to the stack and silently escaping this check.
+    expect(cases.map(([key]) => key).sort(), 'every getVersion-bearing contract must be covered').toEqual(
+      Object.keys(EXPECTED_VERSIONS).sort(),
+    );
 
     for (const [key, address] of cases) {
       const version = await publicClient.readContract({

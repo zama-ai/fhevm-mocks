@@ -89,13 +89,14 @@ abstract contract FhevmCreate2Base is Script {
     string internal constant R_PADDED_INPUTTER = "PADDED_INPUTTER_ADDRESS";
     string internal constant R_CLEARTEXT_ARITHMETIC = "CLEARTEXT_ARITHMETIC_ADDRESS";
     string internal constant R_CLEARTEXT_DB = "CLEARTEXT_DB_ADDRESS";
+    string internal constant R_PROTOCOL_CONFIG_REPLICA = "PROTOCOL_CONFIG_REPLICA_ADDRESS";
 
     string internal constant R_PAUSER_SET = "PAUSER_SET_ADDRESS";
     string internal constant R_ACL_OWNER = "ACL_OWNER";
 
     /// @dev The non-ACL proxies, in the order step D's ops array uses.
     function _sharedProxyRoles() internal pure returns (string[] memory r) {
-        r = new string[](9);
+        r = new string[](10);
         r[0] = R_FHEVM_EXECUTOR;
         r[1] = R_KMS_VERIFIER;
         r[2] = R_INPUT_VERIFIER;
@@ -105,6 +106,7 @@ abstract contract FhevmCreate2Base is Script {
         r[6] = R_PADDED_INPUTTER; // v15, RFC-030
         r[7] = R_CLEARTEXT_ARITHMETIC;
         r[8] = R_CLEARTEXT_DB;
+        r[9] = R_PROTOCOL_CONFIG_REPLICA; // last, as in the nonce path's ops
     }
 
     /// @dev Every proxy, ACL first. Same order as step D's ops array.
@@ -172,6 +174,7 @@ abstract contract FhevmCreate2Base is Script {
         if (i == 7) return "pkg/src/cleartext/CleartextPaddedInputter.sol:CleartextPaddedInputter";
         if (i == 8) return "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
         if (i == 9) return "pkg/src/cleartext/CleartextDB.sol:CleartextDB";
+        if (i == 10) return "pkg/src/contracts/ProtocolConfigReplica.sol:ProtocolConfigReplica";
         revert("FhevmCreate2Base: implementation index out of range");
     }
 

@@ -560,6 +560,7 @@
           "  fhevmAddresses: dummyFhevmAddresses,",
           "  cleartextAddresses: dummyCleartextAddresses,",
           "  pauserSetAddress: ADDRESS,",
+          "  protocolConfigReplicaAddress: ADDRESS,",
           "  aclOwnerAddress: ADDRESS,",
           "}"
         ]
@@ -643,6 +644,7 @@
           "  fhevmAddresses: dummyFhevmAddresses,",
           "  cleartextAddresses: dummyCleartextAddresses,",
           "  pauserSetAddress: ADDRESS,",
+          "  protocolConfigReplicaAddress: ADDRESS,",
           "  aclOwnerAddress: ADDRESS,",
           "  emptyImplementations: { acl: ADDRESS, shared: ADDRESS },",
           "  factory: CREATE2_FACTORY,",

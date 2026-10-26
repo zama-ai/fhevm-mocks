@@ -32,7 +32,7 @@ library LibHostUpgradeCode {
     /// @notice The address for each role, indexed by `FhevmAddressRole`'s position.
     /// @dev An array rather than a struct: the packed table names its role by number, so indexing is
     ///      what the data already speaks. A role no site references may be left zero.
-    uint256 internal constant ROLE_COUNT = 11;
+    uint256 internal constant ROLE_COUNT = 12;
 
     /// @notice A patch-site table whose length is not a whole number of records.
     error MalformedSiteTable(uint256 length);

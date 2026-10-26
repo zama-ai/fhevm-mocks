@@ -10,6 +10,7 @@ import { abi as kmsGenerationAbi } from './artifacts/KMSGeneration.js';
 import { abi as paddedInputterAbi } from './artifacts/CleartextPaddedInputter.js';
 import { abi as pauserSetAbi } from './artifacts/PauserSet.js';
 import { abi as protocolConfigAbi } from './artifacts/ProtocolConfig.js';
+import { abi as protocolConfigReplicaAbi } from './artifacts/ProtocolConfigReplica.js';
 import type {
   AbstractEthereumProvider,
   Deployed,
@@ -130,6 +131,14 @@ function targetsOf(deployed: PartialStack): readonly Target[] {
       abi: pauserSetAbi,
       versionKey: 'pauserSet',
       isProxy: false,
+    },
+    // Absent from a v14 stack, like PaddedInputter: the upgrade creates it.
+    {
+      label: 'ProtocolConfigReplica',
+      address: deployed.protocolConfigReplicaAddress,
+      abi: protocolConfigReplicaAbi,
+      versionKey: 'protocolConfigReplica',
+      isProxy: true,
     },
     { label: 'ACLOwner', address: deployed.aclOwnerAddress, abi: aclOwnerAbi, isProxy: false },
   ].map((t) => (t.address === undefined ? null : ({ ...t, address: t.address } as Target)));
@@ -599,6 +608,37 @@ async function checkBootstrap(
   }
 }
 
+/**
+ * ProtocolConfigReplica answers what the canonical ProtocolConfig answers: the same KMS context and epoch, the
+ * same signers, the same thresholds. Unconditional, unlike `checkBootstrap`: the replica is seeded from what
+ * ProtocolConfig holds, whatever that is, so the canonical contract is the expectation.
+ */
+async function checkProtocolConfigReplica(
+  report: Report,
+  ethProvider: AbstractEthereumProvider,
+  deployed: Deployed,
+): Promise<void> {
+  const canonical = deployed.fhevmAddresses.protocolConfigAddress;
+  const replica = deployed.protocolConfigReplicaAddress;
+  const mirrored: ReadonlyArray<readonly [string, string]> = [
+    ['contextAndEpoch', 'getCurrentKmsContextAndEpoch'],
+    ['kmsSigners', 'getKmsSigners'],
+    ['publicDecryptionThreshold', 'getPublicDecryptionThreshold'],
+    ['userDecryptionThreshold', 'getUserDecryptionThreshold'],
+    ['kmsGenThreshold', 'getKmsGenThreshold'],
+    ['mpcThreshold', 'getMpcThreshold'],
+  ];
+  for (const [label, functionName] of mirrored) {
+    const want = await ethProvider.readContract({ address: canonical, abi: protocolConfigAbi, functionName });
+    const got = await ethProvider.readContract({ address: replica, abi: protocolConfigReplicaAbi, functionName });
+    report.expect(
+      `replica.${label}`,
+      stringifyReading(got).toLowerCase() === stringifyReading(want).toLowerCase(),
+      () => `got ${stringifyReading(got)}, want ${stringifyReading(want)}`,
+    );
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Survival — upgrade mode only
 ////////////////////////////////////////////////////////////////////////////////
@@ -609,8 +649,8 @@ async function checkBootstrap(
  * `getVersion` moves on exactly the contracts an upgrade re-points — which `checkVersions` asserts
  * positively, so here it is only excused. `HCULimit` and `CleartextDB` are deliberately absent: their
  * bytecode is unchanged between generations, so a moved version there means something re-pointed a proxy
- * nobody intended to touch. `PaddedInputter` is absent for another reason: the upgrade CREATES it, so
- * there is no earlier reading to differ from.
+ * nobody intended to touch. `PaddedInputter` and `ProtocolConfigReplica` are absent for another reason: the
+ * upgrade CREATES them, so there is no earlier reading to differ from.
  */
 export const DEFAULT_MAY_CHANGE: readonly string[] = [
   'ACL.getVersion',
@@ -747,7 +787,7 @@ async function checkNoAuthorityEvents(
  * @example
  * ```ts
  * const before = await snapshotStack({ ethProvider, history, deployed: previousStack });
- * await updateV14ToV15({ ... }); // creates no proxy: the address set is unchanged
+ * await updateV14ToV15({ ... }); // adds PaddedInputter and ProtocolConfigReplica; every earlier address is unchanged
  * const report = await verify({ ethProvider, history, deployed: previousStack, mode: 'upgrade', before });
  * if (!report.ok) throw new Error(report.failures.map((f) => `${f.name}: ${f.detail ?? ''}`).join('\n'));
  * ```
@@ -764,6 +804,7 @@ export async function verify(parameters: VerifyParameters): Promise<VerifyReport
   await checkOwnership(report, ethProvider, deployed, expected);
   await checkPausers(report, ethProvider, deployed, expected);
   await checkBootstrap(report, ethProvider, deployed, expected);
+  await checkProtocolConfigReplica(report, ethProvider, deployed);
 
   if (parameters.mode === 'upgrade') {
     const after = await readAll(ethProvider, withAbiOverrides(targets, parameters.abis));

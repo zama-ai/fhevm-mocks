@@ -12,6 +12,8 @@ import {InputVerifier} from "../../src/contracts/InputVerifier.sol";
 import {CleartextHCULimit} from "../../src/cleartext/CleartextHCULimit.sol";
 import {HCULimit} from "../../src/contracts/HCULimit.sol";
 import {ProtocolConfig} from "../../src/contracts/ProtocolConfig.sol";
+import {ProtocolConfigReplica} from "../../src/contracts/ProtocolConfigReplica.sol";
+import {EPOCH_COUNTER_BASE, KMS_CONTEXT_COUNTER_BASE} from "../../src/contracts/shared/Constants.sol";
 import {KMSGeneration} from "../../src/contracts/KMSGeneration.sol";
 import {PaddedInputter} from "../../src/contracts/PaddedInputter.sol";
 import {CleartextPaddedInputter} from "../../src/cleartext/CleartextPaddedInputter.sol";
@@ -36,6 +38,7 @@ import {
     protocolConfigAdd,
     kmsGenerationAdd,
     paddedInputterAdd,
+    protocolConfigReplicaAdd,
     pauserSetAdd,
     cleartextArithmeticAdd,
     cleartextDbAdd
@@ -150,7 +153,7 @@ contract FhevmDeployScript is Script {
         // ACL must come first: every other EmptyUUPSProxy imports aclAdd via
         // ACLOwnable and checks the ACL owner in _authorizeUpgrade.
         // ----------------------------------------------------------------
-        _deployEmptyProxies(deployer);
+        EmptyUUPSProxy sharedImpl = _deployEmptyProxies(deployer);
 
         // ----------------------------------------------------------------
         // Step 2: Deploy PauserSet (immutable, no proxy).
@@ -163,10 +166,14 @@ contract FhevmDeployScript is Script {
             console.log("PauserSet:                  ", address(ps));
         }
 
+        // nonce+13: the ProtocolConfigReplica proxy → must equal protocolConfigReplicaAdd. The read-replica a
+        // non-canonical host runs, deployed beside ProtocolConfig on every stack.
+        _emptyProxy(sharedImpl, protocolConfigReplicaAdd, "ProtocolConfigReplica");
+
         // ----------------------------------------------------------------
         // Step 3: Install the standing ACLOwner and hand it ACL ownership.
         //
-        // nonce+13: ACLOwner. Nothing compiled in refers to it, so unlike the
+        // nonce+14: ACLOwner. Nothing compiled in refers to it, so unlike the
         // creations above its address is free to move.
         // ----------------------------------------------------------------
         ACLOwner aclOwner = _setupACLOwner(deployer);
@@ -194,6 +201,7 @@ contract FhevmDeployScript is Script {
         console.log("cleartextArithmeticAdd: ", cleartextArithmeticAdd);
         console.log("cleartextDbAdd:         ", cleartextDbAdd);
         console.log("pauserSetAdd:           ", pauserSetAdd);
+        console.log("protocolConfigReplicaAdd:", protocolConfigReplicaAdd);
         console.log("aclOwner:               ", address(aclOwner));
     }
 
@@ -201,7 +209,7 @@ contract FhevmDeployScript is Script {
     // Step 1 helpers
     // ------------------------------------------------------------------
 
-    function _deployEmptyProxies(address deployer) private {
+    function _deployEmptyProxies(address deployer) private returns (EmptyUUPSProxy sharedImpl) {
         // nonce+0: EmptyUUPSProxyACL implementation
         // nonce+1: ACL proxy → must equal aclAdd
         {
@@ -214,7 +222,7 @@ contract FhevmDeployScript is Script {
 
         // nonce+2: the single EmptyUUPSProxy implementation shared by every
         // remaining proxy. Deployed once, unlike forge-fhevm's per-slot impl.
-        EmptyUUPSProxy sharedImpl = new EmptyUUPSProxy();
+        sharedImpl = new EmptyUUPSProxy();
         console.log("EmptyUUPSProxy shared impl: ", address(sharedImpl));
 
         _emptyProxy(sharedImpl, fhevmExecutorAdd, "FHEVMExecutor"); // nonce+3
@@ -314,6 +322,16 @@ contract FhevmDeployScript is Script {
             cleartextDbAdd,
             address(new CleartextDB()),
             abi.encodeCall(CleartextDB.initializeFromEmptyProxy, (cleartextArithmeticAdd))
+        );
+        // The replica, seeded with what ProtocolConfig's initializer activates: its first context and epoch, and the
+        // same nodes and thresholds.
+        ops[10] = ACLOwner.Op(
+            protocolConfigReplicaAdd,
+            address(new ProtocolConfigReplica()),
+            abi.encodeCall(
+                ProtocolConfigReplica.initializeFromCanonical,
+                (KMS_CONTEXT_COUNTER_BASE + 1, EPOCH_COUNTER_BASE + 1, _defaultKmsNodes(), _defaultKmsThresholds())
+            )
         );
 
         aclOwner.upgrade(ops);

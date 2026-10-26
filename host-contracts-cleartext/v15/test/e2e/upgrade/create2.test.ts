@@ -12,8 +12,8 @@
 // no code, which is the point. The library path can be correct while the CREATE2 path is broken, and the
 // CREATE2 path is the one an operator actually runs against a testnet.
 //
-// It also exercises the thing neither unit tests nor the library e2e can: that the eight implementations and the
-// PaddedInputter proxy this generation's `compute` predicts land beside the eleven live addresses it was handed, and that a `materialize`
+// It also exercises the thing neither unit tests nor the library e2e can: that the nine implementations and the
+// PaddedInputter and ProtocolConfigReplica proxies this generation's `compute` predicts land beside the eleven live addresses it was handed, and that a `materialize`
 // built from a sealed manifest lands on a stack that was deployed by a different package, at a different
 // version, in a different process.
 //
@@ -668,7 +668,7 @@ void test(
       );
 
       await t.test(
-        "the eight re-pointed contracts now report this generation's versions",
+        "the nine re-pointed contracts now report this generation's versions",
         { skip: upgradeSkip },
         async (st) => {
           if (needsCur(st)) return;
@@ -685,6 +685,7 @@ void test(
             ['KMS_GENERATION_ADDRESS', 'kmsGeneration'],
             ['CLEARTEXT_ARITHMETIC_ADDRESS', 'cleartextArithmetic'],
             ['PADDED_INPUTTER_ADDRESS', 'paddedInputter'],
+            ['PROTOCOL_CONFIG_REPLICA_ADDRESS', 'protocolConfigReplica'],
           ] as const) {
             assert.equal(
               await versionOf(provider, addressOf(cur, role)),
@@ -716,11 +717,11 @@ void test(
       );
 
       await t.test(
-        'one proxy was created, PaddedInputter, wired into the executor; the rest is the live address set',
+        'two proxies were created, PaddedInputter wired into the executor and ProtocolConfigReplica; the rest is the live address set',
         { skip: upgradeSkip },
         async (st) => {
           if (needsCur(st)) return;
-          announce(10, STEPS, 'check the sealed address set, the eight implementations, the created PaddedInputter');
+          announce(10, STEPS, 'check the sealed address set, the nine implementations, the two created proxies');
           assert.ok(provider);
           const cur = manifestAddresses(curRoot);
           for (const live of LIVE_ROLES) {
@@ -743,6 +744,8 @@ void test(
             'IMPL_CLEARTEXT_ARITHMETIC_ADDRESS',
             'IMPL_PADDED_INPUTTER_ADDRESS',
             'PADDED_INPUTTER_ADDRESS',
+            'IMPL_PROTOCOL_CONFIG_REPLICA_ADDRESS',
+            'PROTOCOL_CONFIG_REPLICA_ADDRESS',
             'UPGRADE_EMPTY_UUPS_PROXY',
           ] as const;
           for (const role of predicted) {
@@ -777,6 +780,20 @@ void test(
             (await executor.getPaddedInputterAddress()).toLowerCase(),
             padded.toLowerCase(),
             'the upgraded executor calls the created PaddedInputter',
+          );
+
+          // The created replica: past its empty implementation, initialized once by `initializeFromCanonical`,
+          // which runs at its reinitializer(4).
+          const replica = addressOf(cur, 'PROTOCOL_CONFIG_REPLICA_ADDRESS');
+          assert.equal(
+            `0x${(await provider.getStorage(replica, IMPLEMENTATION_SLOT)).slice(-40)}`,
+            addressOf(cur, 'IMPL_PROTOCOL_CONFIG_REPLICA_ADDRESS').toLowerCase(),
+            'ProtocolConfigReplica runs its sealed implementation',
+          );
+          assert.equal(
+            BigInt(await provider.getStorage(replica, INITIALIZABLE_STORAGE)) & ((1n << 64n) - 1n),
+            4n,
+            'ProtocolConfigReplica is initialized at reinitializer(4)',
           );
         },
       );
@@ -897,7 +914,7 @@ void test(
           ]);
           assert.ok(again.ok, `second --stage all failed:\n${again.output.slice(-4000)}`);
           assert.match(again.output, /Compute: already sealed .* skipping/, 'compute is skipped, from the chain');
-          assert.match(again.output, /already present 10/, 'no create is re-sent');
+          assert.match(again.output, /already present 12/, 'no create is re-sent');
           assert.match(again.output, /already materialized; run verify/, 'the gate recognizes the upgraded stack');
           assert.match(again.output, /nothing left to rehearse/, 'the rehearsal steps aside');
           assert.match(again.output, /materialize already complete/, 'the atomic call is not repeated');
@@ -908,7 +925,8 @@ void test(
           assert.ok(status.ok, status.output.slice(-2000));
           assert.match(status.output, /materialize: done/, status.output.slice(-2000));
 
-          // The init calls: seven no-argument reinitializers, then PaddedInputter's initializer with the sealed PRFs.
+          // The init calls: seven no-argument reinitializers, then PaddedInputter's initializer with the sealed PRFs,
+          // then the replica's with its sealed seed.
           note('params');
           const params = await runCoordinator(curRoot, UPGRADE_CLI, [...common, '--stage', 'params']);
           assert.ok(params.ok, params.output.slice(-2000));
@@ -921,6 +939,7 @@ void test(
             'KMSGeneration.reinitializeV3()',
             'CleartextArithmetic.reinitializeV4()',
             'PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)',
+            'ProtocolConfigReplica.initializeFromCanonical(',
           ]) {
             assert.ok(params.output.includes(call), `params lists ${call}:\n${params.output.slice(-2000)}`);
           }

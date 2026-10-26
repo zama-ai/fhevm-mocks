@@ -164,6 +164,12 @@ export type Deployed = {
   readonly fhevmAddresses: FhevmAddresses;
   readonly cleartextAddresses: CleartextAddresses;
   readonly pauserSetAddress: string;
+  /**
+   * `ProtocolConfigReplica`, the read-replica a non-canonical host runs instead of ProtocolConfig. Deployed beside
+   * it on every stack (a single-chain simulator holds both), seeded with its KMS context, epoch, nodes and
+   * thresholds. Nothing on the stack reads it: the contracts bake `fhevmAddresses.protocolConfigAddress`.
+   */
+  readonly protocolConfigReplicaAddress: string;
   readonly aclOwnerAddress: string;
 };
 
@@ -264,6 +270,7 @@ export type PartialStack = {
   readonly fhevmAddresses: Partial<FhevmAddresses> & { readonly aclAddress: string };
   readonly cleartextAddresses?: Partial<CleartextAddresses>;
   readonly pauserSetAddress?: string;
+  readonly protocolConfigReplicaAddress?: string;
   readonly aclOwnerAddress?: string;
 };
 
@@ -327,6 +334,8 @@ export type Create2Addresses = {
   readonly fhevmAddresses: FhevmAddresses;
   readonly cleartextAddresses: CleartextAddresses;
   readonly pauserSetAddress: string;
+  /** See `Deployed.protocolConfigReplicaAddress`. */
+  readonly protocolConfigReplicaAddress: string;
   readonly aclOwnerAddress: string;
   /**
    * The two `EmptyUUPSProxy` implementations every proxy is constructed over before it is materialized.

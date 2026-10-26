@@ -59,6 +59,7 @@ void test('deploys the stack onto the precomputed addresses, once', async () => 
       await version(client, expected.fhevmAddresses.paddedInputterAddress),
       CONTRACT_VERSIONS.paddedInputter,
     );
+    assert.equal(await version(client, expected.protocolConfigReplicaAddress), CONTRACT_VERSIONS.protocolConfigReplica);
 
     const deployer = LOCALHOST_DEPLOYER.address as Address;
     const nonceAfter = await client.getTransactionCount({ address: deployer });

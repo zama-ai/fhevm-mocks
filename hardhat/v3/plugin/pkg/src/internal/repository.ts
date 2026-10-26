@@ -25,6 +25,7 @@ export async function createRepository(
     protocolConfigAddress: fhevmAddresses.protocolConfigAddress,
     kmsGenerationAddress: fhevmAddresses.kmsGenerationAddress,
     paddedInputterAddress: fhevmAddresses.paddedInputterAddress,
+    protocolConfigReplicaAddress: stack.protocolConfigReplicaAddress,
     pauserSetAddress: stack.pauserSetAddress,
     cleartextArithmeticAddress: cleartextAddresses.cleartextArithmeticAddress,
     cleartextDbAddress: cleartextAddresses.cleartextDbAddress,

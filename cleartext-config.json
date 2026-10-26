@@ -395,9 +395,9 @@
 
     "generations": {
       "0.15.0": {
-        "PROXY_COUNT": "10",
-        "ADDRESSED_NONCE_COUNT": "13",
-        "_note": "0.14.0 plus PaddedInputter (RFC-030), a primary host contract created right after KMSGeneration at nonce 9. The primary block grows by one, so the whole secondary block shifts by one, as v13's did when it added ProtocolConfig and KMSGeneration.",
+        "PROXY_COUNT": "11",
+        "ADDRESSED_NONCE_COUNT": "14",
+        "_note": "0.14.0 plus PaddedInputter (RFC-030), a primary host contract created right after KMSGeneration at nonce 9. The primary block grows by one, so the whole secondary block shifts by one, as v13's did when it added ProtocolConfig and KMSGeneration. Plus ProtocolConfigReplica, appended to the secondary block at nonce 13: nothing bakes its address, so it moves nothing.",
         "nonces": {
           "primary": [
             { "nonce": 0, "address": "0x34e3eD8472e409dbF8FDf933cA996DC75e4Be126", "role": "EmptyUUPSProxyACL" },
@@ -418,7 +418,12 @@
               "role": "CLEARTEXT_ARITHMETIC_ADDRESS"
             },
             { "nonce": 11, "address": "0x590e3330386Fa042843773541aaBb3a45EC3164D", "role": "CLEARTEXT_DB_ADDRESS" },
-            { "nonce": 12, "address": "0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2", "role": "PAUSER_SET_ADDRESS" }
+            { "nonce": 12, "address": "0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2", "role": "PAUSER_SET_ADDRESS" },
+            {
+              "nonce": 13,
+              "address": "0x492e52843AE2eCF9daae6B951E12C3614Ee115C1",
+              "role": "PROTOCOL_CONFIG_REPLICA_ADDRESS"
+            }
           ]
         }
       },

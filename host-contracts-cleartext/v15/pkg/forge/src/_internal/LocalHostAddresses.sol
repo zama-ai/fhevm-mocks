@@ -26,11 +26,11 @@ address constant DEPLOYER_ADDRESS = 0x8B8f5091f8b9817EF69cFC1E8B2f721BafF60DF4;
 uint64 constant DEPLOYER_START_NONCE = 0;
 
 /// @dev How many ERC-1967 proxies the stack materializes — the arity of the ACLOwner ops array.
-uint256 constant PROXY_COUNT = 10;
+uint256 constant PROXY_COUNT = 11;
 
 /// @dev Nonces the address-critical part of the deploy consumes: every named contract plus the two
 ///      empty-proxy implementations. The first nonce NOT pinned by any baked-in address.
-uint64 constant ADDRESSED_NONCE_COUNT = 13;
+uint64 constant ADDRESSED_NONCE_COUNT = 14;
 
 /// @dev Contracts created at each nonce, in deploy order.
 ///   nonce  0  0x34e3eD8472e409dbF8FDf933cA996DC75e4Be126  EmptyUUPSProxyACL
@@ -46,6 +46,7 @@ uint64 constant ADDRESSED_NONCE_COUNT = 13;
 ///   nonce 10  0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E  CLEARTEXT_ARITHMETIC_ADDRESS
 ///   nonce 11  0x590e3330386Fa042843773541aaBb3a45EC3164D  CLEARTEXT_DB_ADDRESS
 ///   nonce 12  0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2  PAUSER_SET_ADDRESS
+///   nonce 13  0x492e52843AE2eCF9daae6B951E12C3614Ee115C1  PROTOCOL_CONFIG_REPLICA_ADDRESS
 
 address constant ACL_ADDRESS = 0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D;
 address constant FHEVM_EXECUTOR_ADDRESS = 0xe3a9105a3a932253A70F126eb1E3b589C643dD24;
@@ -58,3 +59,4 @@ address constant PAUSER_SET_ADDRESS = 0xcF5De2DbC4Ea85426db47845537A90ec4e6316E2
 address constant CLEARTEXT_ARITHMETIC_ADDRESS = 0x6933Afcf0F4bCE1A611baD0A6FaafF0337a7ba1E;
 address constant CLEARTEXT_DB_ADDRESS = 0x590e3330386Fa042843773541aaBb3a45EC3164D;
 address constant PADDED_INPUTTER_ADDRESS = 0xded0D2a71268DC12622BdD1b55d68a1CB5662327;
+address constant PROTOCOL_CONFIG_REPLICA_ADDRESS = 0x492e52843AE2eCF9daae6B951E12C3614Ee115C1;

@@ -69,6 +69,8 @@ export const TARGET_CONTRACTS: TargetContract[] = [
   // v0.13.0
   { contractName: 'ProtocolConfig', kind: 'proxy', sourcePath: 'src/contracts/ProtocolConfig.sol' },
   { contractName: 'KMSGeneration', kind: 'proxy', sourcePath: 'src/contracts/KMSGeneration.sol' },
+  // v15, the upstream ProtocolConfig split: deployed beside ProtocolConfig on every stack.
+  { contractName: 'ProtocolConfigReplica', kind: 'proxy', sourcePath: 'src/contracts/ProtocolConfigReplica.sol' },
   // v0.15.0 (RFC-030)
   {
     contractName: 'CleartextPaddedInputter',

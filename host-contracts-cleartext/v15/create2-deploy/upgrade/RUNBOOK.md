@@ -38,19 +38,21 @@ Create `upgrade.config.json`, in `create2-deploy/`:
 
 Relative paths in it (`outDir`, `previousManifest`) are relative to this file's folder, `create2-deploy/`.
 
-There is no migration file: seven ops are no-argument reinitializers and the eighth initializes the
-`PaddedInputter` the upgrade creates with the deploy's own PRF instances, so the only inputs are the live addresses.
+There is no migration file: seven ops are no-argument reinitializers, the eighth initializes the
+`PaddedInputter` the upgrade creates with the deploy's own PRF instances, and the ninth seeds the
+`ProtocolConfigReplica` it creates from the live `ProtocolConfig`, so the only inputs are the live addresses.
 
 ```sh
 ./upgrade/upgrade-cli --stage params
 ```
 
-Lists the eight init calls the atomic upgrade sends, one per re-pointed proxy: `ACL.reinitializeV6()`,
+Lists the nine init calls the atomic upgrade sends, one per re-pointed proxy: `ACL.reinitializeV6()`,
 `FHEVMExecutor.reinitializeV7()`, `KMSVerifier.reinitializeV5()`, `InputVerifier.reinitializeV3()`,
 `ProtocolConfig.reinitializeV3()`, `KMSGeneration.reinitializeV3()`, `CleartextArithmetic.reinitializeV4()`,
-`PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)`, then the sealed `initialPrfInstances`
-(after compute): the default RFC-030 PRF instance, `CLEARTEXT_PAD_PRF_INSTANCE` in the root
-`cleartext-config.json`.
+`PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)`,
+`ProtocolConfigReplica.initializeFromCanonical(...)`, then the sealed `initialPrfInstances` (after compute): the
+default RFC-030 PRF instance, `CLEARTEXT_PAD_PRF_INSTANCE` in the root `cleartext-config.json`, and the replica
+seed's KMS context and epoch.
 
 ## 1. Compute and seal
 
@@ -59,7 +61,8 @@ Lists the eight init calls the atomic upgrade sends, one per re-pointed proxy: `
 ```
 
 Good: `11 addresses verified against the live stack`, then `wrote .../manifest.json`. The seal snapshots the KMS
-context and epoch, the KMS and coprocessor signers and thresholds, and every readable value of the live stack.
+context and epoch, the KMS and coprocessor signers and thresholds, and every readable value of the live stack,
+and the `ProtocolConfigReplica` seed read off the live `ProtocolConfig`.
 
 ```sh
 git add -f .out-upgrade-*/manifest.json .out-upgrade-*/addresses.sol
@@ -67,15 +70,16 @@ git commit -m "seal: upgrade <deploymentId>"
 git push
 ```
 
-## 2. Deploy the ten creates
+## 2. Deploy the twelve creates
 
 ```sh
 ./upgrade/upgrade-cli --stage creates
 ```
 
-Good: `created 10` (or `already present N` on a re-run), no `REVERTED`. The first two are the empty implementation
-(`UPGRADE_EMPTY_UUPS_PROXY`) and the `PaddedInputter` proxy v15 adds on top of it; the other eight are the
-implementations. The proxy's address is derived from the committed `LocalHostBytecode.sol`, not supplied.
+Good: `created 12` (or `already present N` on a re-run), no `REVERTED`. The first three are the empty
+implementation (`UPGRADE_EMPTY_UUPS_PROXY`) and the `PaddedInputter` and `ProtocolConfigReplica` proxies v15 adds
+on top of it; the other nine are the implementations. The proxies' addresses are derived from the committed
+`LocalHostBytecode.sol`, not supplied.
 
 ## 3. Gate
 

@@ -38,6 +38,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
     address internal existingArithmetic;
     address internal existingDb;
     address internal existingPaddedInputter;
+    address internal existingProtocolConfigReplica;
     address internal existingPauserSet;
     address internal existingAclOwner;
 
@@ -54,28 +55,30 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         existingDb = vm.envAddress("FHEVM_EXISTING_CLEARTEXT_DB_ADDRESS");
         existingPauserSet = vm.envAddress("FHEVM_EXISTING_PAUSER_SET_ADDRESS");
         existingAclOwner = vm.envAddress("FHEVM_EXISTING_ACL_OWNER");
-        _loadPaddedInputter();
+        existingPaddedInputter = _loadCreatable(R_PADDED_INPUTTER);
+        existingProtocolConfigReplica = _loadCreatable(R_PROTOCOL_CONFIG_REPLICA);
     }
 
     /**
-     * @dev A flow that CREATES the PaddedInputter proxy derives its address and takes no input for it: the
-     *      address is the CREATE2 of this build's code under this deployment's salt, so a supplied value can
-     *      only agree with it or be a mistake. One that does not create it is given the live one, and the
-     *      coordinator cross-checks it against `CleartextFHEVMExecutor.getPaddedInputterAddress()`.
+     * @dev A role the previous generation lacks (PaddedInputter, ProtocolConfigReplica). A flow that CREATES its
+     *      proxy derives its address and takes no input for it: the address is the CREATE2 of this build's code
+     *      under this deployment's salt, so a supplied value can only agree with it or be a mistake. One that does
+     *      not create it is given the live one (`FHEVM_EXISTING_<role>`), which the coordinator cross-checks where
+     *      the stack names it.
      */
-    function _loadPaddedInputter() private {
-        address supplied = vm.envOr("FHEVM_EXISTING_PADDED_INPUTTER_ADDRESS", address(0));
-        if (_contains(_newProxyRoles(), R_PADDED_INPUTTER)) {
-            address derived = _predictCreate2Address(R_PADDED_INPUTTER, _newProxyInitCode());
+    function _loadCreatable(string memory role) private view returns (address) {
+        string memory env = string.concat("FHEVM_EXISTING_", role);
+        address supplied = vm.envOr(env, address(0));
+        if (_contains(_newProxyRoles(), role)) {
+            address derived = _predictCreate2Address(role, _newProxyInitCode());
             require(
                 supplied == address(0) || supplied == derived,
-                "FhevmRepointBase: FHEVM_EXISTING_PADDED_INPUTTER_ADDRESS is not the proxy this flow creates"
+                string.concat("FhevmRepointBase: ", env, " is not the proxy this flow creates")
             );
-            existingPaddedInputter = derived;
-        } else {
-            require(supplied != address(0), "FhevmRepointBase: FHEVM_EXISTING_PADDED_INPUTTER_ADDRESS is required");
-            existingPaddedInputter = supplied;
+            return derived;
         }
+        require(supplied != address(0), string.concat("FhevmRepointBase: ", env, " is required"));
+        return supplied;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -163,6 +166,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         if (key == keccak256(bytes(R_PROTOCOL_CONFIG))) return LocalHostVersions.PROTOCOL_CONFIG;
         if (key == keccak256(bytes(R_KMS_GENERATION))) return LocalHostVersions.KMS_GENERATION;
         if (key == keccak256(bytes(R_PADDED_INPUTTER))) return LocalHostVersions.PADDED_INPUTTER;
+        if (key == keccak256(bytes(R_PROTOCOL_CONFIG_REPLICA))) return LocalHostVersions.PROTOCOL_CONFIG_REPLICA;
         if (key == keccak256(bytes(R_INPUT_VERIFIER))) return LocalHostVersions.INPUT_VERIFIER;
         if (key == keccak256(bytes(R_CLEARTEXT_DB))) return LocalHostVersions.CLEARTEXT_DB;
         if (key == keccak256(bytes(R_PAUSER_SET))) return LocalHostVersions.PAUSER_SET;
@@ -181,6 +185,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
         if (key == keccak256(bytes(R_CLEARTEXT_ARITHMETIC))) return existingArithmetic;
         if (key == keccak256(bytes(R_CLEARTEXT_DB))) return existingDb;
         if (key == keccak256(bytes(R_PADDED_INPUTTER))) return existingPaddedInputter;
+        if (key == keccak256(bytes(R_PROTOCOL_CONFIG_REPLICA))) return existingProtocolConfigReplica;
         if (key == keccak256(bytes(R_PAUSER_SET))) return existingPauserSet;
         if (key == keccak256(bytes(R_ACL_OWNER))) return existingAclOwner;
         revert("FhevmRepointBase: unknown existing role");
@@ -197,7 +202,7 @@ abstract contract FhevmRepointBase is FhevmCreate2Base {
      *      Pass 2 asserts it equals this build's `EmptyUUPSProxy`.
      */
     function _newProxyEmptyImplCode() internal view returns (bytes memory) {
-        address[11] memory addresses; // LibHostUpgradeCode.ROLE_COUNT: an array length must be a literal here
+        address[12] memory addresses; // LibHostUpgradeCode.ROLE_COUNT: an array length must be a literal here
         addresses[uint8(FhevmAddressRole.ACL)] = existingAcl;
         return LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses);
     }

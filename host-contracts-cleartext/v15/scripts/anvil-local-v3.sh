@@ -13,7 +13,7 @@
 #   anvil_setStorageAt(proxy, ERC1967_IMPL_SLOT,  empty implementation)
 #   anvil_setStorageAt(proxy, INITIALIZABLE_SLOT, 1)
 #   anvil_setStorageAt(proxy, OWNABLE_SLOT,       deployer)      # ACL only
-#   ... then ONE ACLOwner.upgrade(ops) that materializes all ten at once.
+#   ... then ONE ACLOwner.upgrade(ops) that materializes all eleven at once.
 #
 # ACL's owner slot is written with the ACLOwner address, not the deployer. That
 # is precisely the state a finished Ownable2Step transfer leaves behind, so the
@@ -118,7 +118,7 @@ resolve_deployer() {
     log "deployer $derived (mnemonic index $ACCOUNT_INDEX)"
 
     # Raw code deploys go through a DIFFERENT account, and that is not cosmetic. The canonical
-    # addresses are exactly CREATE(deployer, 0..11), so a raw deploy from the deployer at a low nonce
+    # addresses are exactly CREATE(deployer, 0..13), so a raw deploy from the deployer at a low nonce
     # lands on one of them — and the setCode that follows then overwrites the implementation we just
     # deployed. Measured: EmptyUUPSProxy landed at nonce 1, which is the ACL address, and every
     # subsequent proxy delegated into the overwritten slot and reverted with no data.
@@ -155,7 +155,7 @@ capture_proxy_runtime() {
     echo "   ✅ ERC1967 runtime captured ($(( (${#PROXY_RUNTIME_CODE} - 2) / 2 )) bytes)"
 }
 
-# Place all ten proxies. No transactions here at all — setCode and setStorageAt are RPC calls, so this
+# Place all eleven proxies. No transactions here at all — setCode and setStorageAt are RPC calls, so this
 # whole phase is free. ACL's owner slot gets the ACLOwner address rather than the deployer: that is
 # exactly the state a completed Ownable2Step transfer would leave (pendingOwner stays zero), and it is
 # what authorizes the single upgrade below. It also means no transferOwnership/acceptACLOwnership pair.
@@ -170,7 +170,8 @@ materialize_all_proxies() {
     materialize_proxy "$PADDED_INPUTTER_ADDRESS" "$EMPTY_IMPL"
     materialize_proxy "$CLEARTEXT_ARITHMETIC_ADDRESS" "$EMPTY_IMPL"
     materialize_proxy "$CLEARTEXT_DB_ADDRESS" "$EMPTY_IMPL"
-    echo "   ✅ 10 proxies placed at their canonical addresses (0 transactions)"
+    materialize_proxy "$PROTOCOL_CONFIG_REPLICA_ADDRESS" "$EMPTY_IMPL"
+    echo "   ✅ 11 proxies placed at their canonical addresses (0 transactions)"
 }
 
 # PauserSet has no constructor and no proxy, so its runtime blob is complete as shipped.
@@ -208,7 +209,7 @@ main() {
     deploy_empty_implementation
     deploy_real_implementations
     deploy_acl_owner
-    echo "   ✅ 2 empty + 9 real implementations + ACLOwner deployed"
+    echo "   ✅ 2 empty + 11 real implementations + ACLOwner deployed"
     capture_proxy_runtime
     build_initializer_calldata
     materialize_all_proxies

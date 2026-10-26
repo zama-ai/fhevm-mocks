@@ -773,7 +773,8 @@ void test('ComputeAddresses.s.sol matches its template rendered with the current
  *
  * Created proxies are excluded for a reason worth keeping straight: before the upgrade they do not exist,
  * so they produce no reading to compare. They are NEW, not changed, and exempting them would mean claiming
- * a reading moved when there was never a first one. This upgrade creates one: PaddedInputter (RFC-030).
+ * a reading moved when there was never a first one. This upgrade creates two: PaddedInputter (RFC-030) and
+ * ProtocolConfigReplica.
  */
 void test('verify DEFAULT_MAY_CHANGE matches the proxies updateV14ToV15 re-points', () => {
   const upgradeSrc = readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'upgrade.ts'), 'utf8');
@@ -784,7 +785,7 @@ void test('verify DEFAULT_MAY_CHANGE matches the proxies updateV14ToV15 re-point
 
   // The proxies the upgrade CREATES rather than re-points. Named here rather than inferred, because the
   // distinction is the whole point of the check and inferring it would just move the assumption.
-  const created = new Set<string>(['PaddedInputter']);
+  const created = new Set<string>(['PaddedInputter', 'ProtocolConfigReplica']);
 
   const block = verifySrc.slice(verifySrc.indexOf('DEFAULT_MAY_CHANGE'));
   const exempted = [...block.slice(0, block.indexOf('];')).matchAll(/'([A-Za-z]+)\.getVersion'/g)].map(

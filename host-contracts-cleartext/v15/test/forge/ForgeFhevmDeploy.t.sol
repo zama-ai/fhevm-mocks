@@ -15,8 +15,10 @@ import {
     INPUT_VERIFIER_ADDRESS,
     KMS_GENERATION_ADDRESS,
     KMS_VERIFIER_ADDRESS,
+    PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
-    PROTOCOL_CONFIG_ADDRESS
+    PROTOCOL_CONFIG_ADDRESS,
+    PROTOCOL_CONFIG_REPLICA_ADDRESS
 } from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextACL} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextArithmetic} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
@@ -28,6 +30,7 @@ import {ICleartextHCULimit} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {IKMSGeneration} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {IPauserSet} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {IProtocolConfig} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {IProtocolConfigReplica} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
 import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions.sol";
 import {LibFhevmHandle} from "../../pkg/src/cleartext/shared/LibFhevmHandle.sol";
@@ -47,7 +50,7 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
 
     /// The address set is the product; a stack anywhere else is useless to a ZamaConfig consumer.
     function test_everyContractIsAtItsCanonicalAddress() public view {
-        address[11] memory expected = [
+        address[13] memory expected = [
             ACL_ADDRESS,
             FHEVM_EXECUTOR_ADDRESS,
             KMS_VERIFIER_ADDRESS,
@@ -55,9 +58,11 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
             HCU_LIMIT_ADDRESS,
             PROTOCOL_CONFIG_ADDRESS,
             KMS_GENERATION_ADDRESS,
+            PADDED_INPUTTER_ADDRESS,
             CLEARTEXT_ARITHMETIC_ADDRESS,
             CLEARTEXT_DB_ADDRESS,
             PAUSER_SET_ADDRESS,
+            PROTOCOL_CONFIG_REPLICA_ADDRESS,
             fhevmACLOwner()
         ];
         for (uint256 i = 0; i < expected.length; i++) {
@@ -81,6 +86,10 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
             ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).getVersion(), LocalHostVersions.CLEARTEXT_ARITHMETIC
         );
         assertEq(IPauserSet(PAUSER_SET_ADDRESS).getVersion(), LocalHostVersions.PAUSER_SET);
+        assertEq(
+            IProtocolConfigReplica(PROTOCOL_CONFIG_REPLICA_ADDRESS).getVersion(),
+            LocalHostVersions.PROTOCOL_CONFIG_REPLICA
+        );
     }
 
     /**
@@ -342,6 +351,26 @@ contract FhevmDeployTest is Test, ForgeFhevmDeploy {
             assertEq(onChain[i].ipAddress, ips[i], "kms node ip");
             assertEq(onChain[i].storageUrl, urls[i], "kms node storage url");
         }
+    }
+
+    /// The replica a non-canonical host would run, beside the canonical ProtocolConfig: seeded with its first context
+    /// and epoch, so on one chain both answer alike.
+    function test_theReplicaMirrorsTheCanonicalProtocolConfig() public view {
+        IProtocolConfig canonical = IProtocolConfig(PROTOCOL_CONFIG_ADDRESS);
+        IProtocolConfigReplica replica = IProtocolConfigReplica(PROTOCOL_CONFIG_REPLICA_ADDRESS);
+
+        (uint256 contextId, uint256 epochId) = replica.getCurrentKmsContextAndEpoch();
+        (uint256 canonicalContextId, uint256 canonicalEpochId) = canonical.getCurrentKmsContextAndEpoch();
+        assertEq(contextId, canonicalContextId, "context id");
+        assertEq(epochId, canonicalEpochId, "epoch id");
+        assertEq(contextId, LocalHostBootstrap.INITIAL_KMS_CONTEXT_ID, "the generated seed");
+        assertEq(epochId, LocalHostBootstrap.INITIAL_KMS_EPOCH_ID, "the generated seed");
+
+        assertEq(replica.getKmsSigners(), canonical.getKmsSigners(), "signers");
+        assertEq(replica.getPublicDecryptionThreshold(), canonical.getPublicDecryptionThreshold(), "publicDecryption");
+        assertEq(replica.getUserDecryptionThreshold(), canonical.getUserDecryptionThreshold(), "userDecryption");
+        assertEq(replica.getKmsGenThreshold(), canonical.getKmsGenThreshold(), "kmsGen");
+        assertEq(replica.getMpcThreshold(), canonical.getMpcThreshold(), "mpc");
     }
 
     /// Every threshold defaults to the node count (ts/constants.ts DEFAULT_KMS_THRESHOLDS).

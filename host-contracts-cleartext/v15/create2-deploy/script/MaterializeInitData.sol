@@ -11,6 +11,7 @@ import {HCULimit} from "../../pkg/src/contracts/HCULimit.sol";
 import {ProtocolConfig} from "../../pkg/src/contracts/ProtocolConfig.sol";
 import {KMSGeneration} from "../../pkg/src/contracts/KMSGeneration.sol";
 import {PaddedInputter} from "../../pkg/src/contracts/PaddedInputter.sol";
+import {ProtocolConfigReplica} from "../../pkg/src/contracts/ProtocolConfigReplica.sol";
 import {CleartextArithmetic} from "../../pkg/src/cleartext/CleartextArithmetic.sol";
 import {CleartextDB} from "../../pkg/src/cleartext/CleartextDB.sol";
 import {KmsNodeParams, KmsThresholds, PcrValues} from "../../pkg/src/contracts/shared/Structs.sol";
@@ -62,7 +63,7 @@ import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstr
 library MaterializeInitData {
     /// @dev Indexed by _allProxyRoles() position: 0 ACL, 1 FHEVMExecutor, 2 KMSVerifier,
     ///      3 InputVerifier, 4 HCULimit, 5 ProtocolConfig, 6 KMSGeneration, 7 PaddedInputter,
-    ///      8 CleartextArithmetic, 9 CleartextDB.
+    ///      8 CleartextArithmetic, 9 CleartextDB, 10 ProtocolConfigReplica.
     function initData(uint256 i, address cleartextArithmeticAdd) internal pure returns (bytes memory) {
         if (i == 0) return abi.encodeCall(ACL.initializeFromEmptyProxy, ());
         if (i == 1) return abi.encodeCall(FHEVMExecutor.initializeFromEmptyProxy, ());
@@ -76,6 +77,7 @@ library MaterializeInitData {
         // CleartextDB's initial writer is CleartextArithmetic — the one argument here that is a host
         // address rather than bootstrap config, hence the parameter.
         if (i == 9) return abi.encodeCall(CleartextDB.initializeFromEmptyProxy, (cleartextArithmeticAdd));
+        if (i == 10) return _protocolConfigReplica();
         revert("MaterializeInitData: index out of range");
     }
 
@@ -130,6 +132,20 @@ library MaterializeInitData {
         return abi.encodeCall(
             ProtocolConfig.initializeFromEmptyProxy,
             (_kmsNodes(), _kmsThresholds(), LocalHostBootstrap.KMS_SOFTWARE_VERSION, new PcrValues[](0))
+        );
+    }
+
+    /// @dev Seeded with what `_protocolConfig()` activates: its first KMS context and epoch, the same nodes and
+    ///      thresholds. Its own initializer, not an empty-proxy bootstrap.
+    function _protocolConfigReplica() private pure returns (bytes memory) {
+        return abi.encodeCall(
+            ProtocolConfigReplica.initializeFromCanonical,
+            (
+                LocalHostBootstrap.INITIAL_KMS_CONTEXT_ID,
+                LocalHostBootstrap.INITIAL_KMS_EPOCH_ID,
+                _kmsNodes(),
+                _kmsThresholds()
+            )
         );
     }
 

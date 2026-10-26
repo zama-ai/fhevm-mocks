@@ -341,10 +341,11 @@ export const PREVIOUS_SURVEY_TARGETS: readonly SurveyTarget[] = [
   { label: 'ACLOwner', role: 'ACL_OWNER', abi: 'ACLOwner.json' },
 ];
 
-/** Every contract of this generation's stack: the previous generation's, then the ones it adds (RFC-030). */
+/** Every contract of this generation's stack: the previous generation's, then the ones it adds. */
 export const SURVEY_TARGETS: readonly SurveyTarget[] = [
   ...PREVIOUS_SURVEY_TARGETS,
   { label: 'PaddedInputter', role: 'PADDED_INPUTTER_ADDRESS', abi: 'CleartextPaddedInputter.json' },
+  { label: 'ProtocolConfigReplica', role: 'PROTOCOL_CONFIG_REPLICA_ADDRESS', abi: 'ProtocolConfigReplica.json' },
 ];
 
 export function abiType(parameter: AbiParameter): string {
@@ -700,6 +701,7 @@ function writeInitialAddresses(ctx: Ctx): void {
     // A created proxy is not known before pass 1, which derives it and rewrites this file: zero for the first build.
     ['PADDED_INPUTTER_ADDRESS', ctx.opt.existing.PADDED_INPUTTER_ADDRESS ?? ZERO_ADDRESS],
     ['PAUSER_SET_ADDRESS', address('PAUSER_SET_ADDRESS')],
+    ['PROTOCOL_CONFIG_REPLICA_ADDRESS', ctx.opt.existing.PROTOCOL_CONFIG_REPLICA_ADDRESS ?? ZERO_ADDRESS],
   ];
   const source = [
     '// SPDX-License-Identifier: BSD-3-Clause-Clear',

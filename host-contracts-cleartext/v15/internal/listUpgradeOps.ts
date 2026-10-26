@@ -8,10 +8,11 @@
 //
 //   1. bytecode — each generation's template, with every placeholder patched to one COMMON address set
 //      so the two are comparable (the generations use different marker values), then compared by hash.
-//   2. is it a proxy target — does abi/<C>.json expose `initializeFromEmptyProxy`? That, not the
-//      reinitializer, is what marks a contract as living behind a proxy: `CleartextDB`, `KMSGeneration`
-//      and `ProtocolConfig` are proxy targets with no reinitializer at all. A contract without it
-//      (ACLOwner, PauserSet, the proxies themselves) is reported as `not a proxy target`.
+//   2. is it a proxy target — does abi/<C>.json expose an empty-proxy initializer (`MATERIALIZERS`)? That,
+//      not the reinitializer, is what marks a contract as living behind a proxy: `CleartextDB`,
+//      `KMSGeneration` and `ProtocolConfig` are proxy targets with no reinitializer at all, and
+//      `ProtocolConfigReplica` is one through `initializeFromCanonical`. A contract with none (ACLOwner,
+//      PauserSet, the proxies themselves) is reported as `not a proxy target`.
 //   3. reinitializer — the `reinitializeV<n>` name. Solidity ABIs are flattened, so an inherited
 //      reinitializer shows up too: CleartextKMSVerifier reports KMSVerifier's `reinitializeV3` without
 //      this having to follow `is` clauses.
@@ -68,7 +69,7 @@ type Initializers = {
   readonly materializers: readonly string[];
 };
 
-const MATERIALIZERS = ['initializeFromEmptyProxy', 'initializeFromMigration'] as const;
+const MATERIALIZERS = ['initializeFromEmptyProxy', 'initializeFromMigration', 'initializeFromCanonical'] as const;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -136,7 +137,7 @@ function _readInitializers(abiDir: string, contractName: string): Initializers {
   const abi = JSON.parse(readFileSync(path, 'utf8')) as readonly AbiEntry[];
   const names = new Set(abi.filter((entry) => entry.type === 'function').map((entry) => entry.name));
   return {
-    isProxyTarget: names.has('initializeFromEmptyProxy'),
+    isProxyTarget: MATERIALIZERS.some((name) => names.has(name)),
     reinitializer: [...names].find((name) => name?.startsWith('reinitializeV') === true),
     materializers: MATERIALIZERS.filter((name) => names.has(name)),
   };

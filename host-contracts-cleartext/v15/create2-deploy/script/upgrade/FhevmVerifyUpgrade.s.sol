@@ -7,13 +7,14 @@ import {IWiredInputVerifier, IWiredProtocolConfig} from "../Interfaces.sol";
 
 /**
  * @notice The upgrade's terminal conditions: the re-point engine's, plus what only this generation step
- *         can get wrong — every proxy took its reinitializer, and the KMS and coprocessor state it migrates
- *         nothing of came through unchanged.
+ *         can get wrong — every proxy took its reinitializer, the KMS and coprocessor state it migrates
+ *         nothing of came through unchanged, and the ProtocolConfigReplica it creates was seeded with that state.
  */
 contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
     function _verifyExtras(string memory manifest) internal override {
         _checkReinitialized(manifest);
         _checkSurvivedValues(manifest);
+        _checkReplicaSeeded(manifest);
     }
 
     /// @dev Each proxy is initialized at its v15 version: the reinitializer ran, exactly once.
@@ -74,6 +75,49 @@ contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
             iv.getThreshold(),
             vm.parseJsonUint(manifest, ".preUpgrade.coprocessorThreshold"),
             "InputVerifier.getThreshold() untouched"
+        );
+    }
+
+    /// @dev The replica the upgrade created answers what ProtocolConfig answered before it: same context and
+    ///      epoch, same signers, same thresholds. Its seed was sealed from that state and refused if it moved.
+    function _checkReplicaSeeded(string memory manifest) private {
+        IWiredProtocolConfig replica = IWiredProtocolConfig(_readManifestAddress(manifest, R_PROTOCOL_CONFIG_REPLICA));
+        (uint256 contextId, uint256 epochId) = replica.getCurrentKmsContextAndEpoch();
+        _expectUint(
+            contextId,
+            vm.parseJsonUint(manifest, ".preUpgrade.kmsContextId"),
+            "ProtocolConfigReplica context == the pre-upgrade context"
+        );
+        _expectUint(
+            epochId,
+            vm.parseJsonUint(manifest, ".preUpgrade.kmsEpochId"),
+            "ProtocolConfigReplica epoch == the pre-upgrade epoch"
+        );
+        _expectSignerSet(
+            replica.getKmsSigners(),
+            vm.parseJsonAddressArray(manifest, ".preUpgrade.kmsSigners"),
+            "ProtocolConfigReplica.getKmsSigners() == the pre-upgrade KMS set"
+        );
+        string memory t = ".preUpgrade.kmsThresholds.";
+        _expectUint(
+            replica.getPublicDecryptionThreshold(),
+            vm.parseJsonUint(manifest, string.concat(t, "publicDecryption")),
+            "ProtocolConfigReplica publicDecryption threshold"
+        );
+        _expectUint(
+            replica.getUserDecryptionThreshold(),
+            vm.parseJsonUint(manifest, string.concat(t, "userDecryption")),
+            "ProtocolConfigReplica userDecryption threshold"
+        );
+        _expectUint(
+            replica.getKmsGenThreshold(),
+            vm.parseJsonUint(manifest, string.concat(t, "kmsGen")),
+            "ProtocolConfigReplica kmsGen threshold"
+        );
+        _expectUint(
+            replica.getMpcThreshold(),
+            vm.parseJsonUint(manifest, string.concat(t, "mpc")),
+            "ProtocolConfigReplica mpc threshold"
         );
     }
 }

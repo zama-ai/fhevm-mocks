@@ -35,19 +35,20 @@ import {Script, console} from "forge-std/Script.sol";
  * serves every proxy but ACL, rather than one implementation per slot.
  *
  *   N+0  EmptyUUPSProxyACL
- *   N+1  ERC1967Proxy (ACL)                 → ACL_ADDRESS
+ *   N+1  ERC1967Proxy (ACL)                   → ACL_ADDRESS
  *   N+2  EmptyUUPSProxy (shared implementation)
- *   N+3  ERC1967Proxy (FHEVMExecutor)       → FHEVM_EXECUTOR_ADDRESS
- *   N+4  ERC1967Proxy (KMSVerifier)         → KMS_VERIFIER_ADDRESS
- *   N+5  ERC1967Proxy (InputVerifier)       → INPUT_VERIFIER_ADDRESS
- *   N+6  ERC1967Proxy (HCULimit)            → HCU_LIMIT_ADDRESS
- *   N+7  ERC1967Proxy (ProtocolConfig)      → PROTOCOL_CONFIG_ADDRESS
- *   N+8  ERC1967Proxy (KMSGeneration)       → KMS_GENERATION_ADDRESS
- *   N+9  ERC1967Proxy (PaddedInputter)      → PADDED_INPUTTER_ADDRESS
- *   N+10 ERC1967Proxy (CleartextArithmetic) → CLEARTEXT_ARITHMETIC_ADDRESS
- *   N+11 ERC1967Proxy (CleartextDB)         → CLEARTEXT_DB_ADDRESS
- *   N+12 PauserSet                          → PAUSER_SET_ADDRESS
- *   N+13 ACLOwner                            (address referenced by nothing)
+ *   N+3  ERC1967Proxy (FHEVMExecutor)         → FHEVM_EXECUTOR_ADDRESS
+ *   N+4  ERC1967Proxy (KMSVerifier)           → KMS_VERIFIER_ADDRESS
+ *   N+5  ERC1967Proxy (InputVerifier)         → INPUT_VERIFIER_ADDRESS
+ *   N+6  ERC1967Proxy (HCULimit)              → HCU_LIMIT_ADDRESS
+ *   N+7  ERC1967Proxy (ProtocolConfig)        → PROTOCOL_CONFIG_ADDRESS
+ *   N+8  ERC1967Proxy (KMSGeneration)         → KMS_GENERATION_ADDRESS
+ *   N+9  ERC1967Proxy (PaddedInputter)        → PADDED_INPUTTER_ADDRESS
+ *   N+10 ERC1967Proxy (CleartextArithmetic)   → CLEARTEXT_ARITHMETIC_ADDRESS
+ *   N+11 ERC1967Proxy (CleartextDB)           → CLEARTEXT_DB_ADDRESS
+ *   N+12 PauserSet                            → PAUSER_SET_ADDRESS
+ *   N+13 ERC1967Proxy (ProtocolConfigReplica) → PROTOCOL_CONFIG_REPLICA_ADDRESS
+ *   N+14 ACLOwner                              (address referenced by nothing)
  *
  * Mirrors pkg/ts/addresses.ts, which is where the order is actually decided.
  */
@@ -62,31 +63,23 @@ contract ComputeAddresses is Script {
         address deployer = vm.addr(vm.envUint("DEPLOYER_PRIVATE_KEY"));
         uint64 nonce = vm.getNonce(deployer);
 
-        address aclProxy = vm.computeCreateAddress(deployer, nonce + 1);
-        address fhevmExecutorProxy = vm.computeCreateAddress(deployer, nonce + 3);
-        address kmsVerifierProxy = vm.computeCreateAddress(deployer, nonce + 4);
-        address inputVerifierProxy = vm.computeCreateAddress(deployer, nonce + 5);
-        address hcuLimitProxy = vm.computeCreateAddress(deployer, nonce + 6);
-        address protocolConfigProxy = vm.computeCreateAddress(deployer, nonce + 7);
-        address kmsGenerationProxy = vm.computeCreateAddress(deployer, nonce + 8);
-        address paddedInputterProxy = vm.computeCreateAddress(deployer, nonce + 9);
-        address cleartextArithmeticProxy = vm.computeCreateAddress(deployer, nonce + 10);
-        address cleartextDbProxy = vm.computeCreateAddress(deployer, nonce + 11);
-        address pauserSetAddr = vm.computeCreateAddress(deployer, nonce + 12);
+        // Each address is computed where it is used, not held in a local: one local per address runs legacy
+        // codegen out of stack slots ("Stack too deep"), and scripts are compiled with via_ir off.
 
-        console.log("Deployer:                     ", deployer);
-        console.log("Starting nonce:               ", nonce);
-        console.log("ACL_ADDRESS:                  ", aclProxy);
-        console.log("FHEVM_EXECUTOR_ADDRESS:       ", fhevmExecutorProxy);
-        console.log("KMS_VERIFIER_ADDRESS:         ", kmsVerifierProxy);
-        console.log("INPUT_VERIFIER_ADDRESS:       ", inputVerifierProxy);
-        console.log("HCU_LIMIT_ADDRESS:            ", hcuLimitProxy);
-        console.log("PROTOCOL_CONFIG_ADDRESS:      ", protocolConfigProxy);
-        console.log("KMS_GENERATION_ADDRESS:       ", kmsGenerationProxy);
-        console.log("PADDED_INPUTTER_ADDRESS:      ", paddedInputterProxy);
-        console.log("CLEARTEXT_ARITHMETIC_ADDRESS: ", cleartextArithmeticProxy);
-        console.log("CLEARTEXT_DB_ADDRESS:         ", cleartextDbProxy);
-        console.log("PAUSER_SET_ADDRESS:           ", pauserSetAddr);
+        console.log("Deployer:                        ", deployer);
+        console.log("Starting nonce:                  ", nonce);
+        console.log("ACL_ADDRESS:                     ", vm.computeCreateAddress(deployer, nonce + 1));
+        console.log("FHEVM_EXECUTOR_ADDRESS:          ", vm.computeCreateAddress(deployer, nonce + 3));
+        console.log("KMS_VERIFIER_ADDRESS:            ", vm.computeCreateAddress(deployer, nonce + 4));
+        console.log("INPUT_VERIFIER_ADDRESS:          ", vm.computeCreateAddress(deployer, nonce + 5));
+        console.log("HCU_LIMIT_ADDRESS:               ", vm.computeCreateAddress(deployer, nonce + 6));
+        console.log("PROTOCOL_CONFIG_ADDRESS:         ", vm.computeCreateAddress(deployer, nonce + 7));
+        console.log("KMS_GENERATION_ADDRESS:          ", vm.computeCreateAddress(deployer, nonce + 8));
+        console.log("PADDED_INPUTTER_ADDRESS:         ", vm.computeCreateAddress(deployer, nonce + 9));
+        console.log("CLEARTEXT_ARITHMETIC_ADDRESS:    ", vm.computeCreateAddress(deployer, nonce + 10));
+        console.log("CLEARTEXT_DB_ADDRESS:            ", vm.computeCreateAddress(deployer, nonce + 11));
+        console.log("PAUSER_SET_ADDRESS:              ", vm.computeCreateAddress(deployer, nonce + 12));
+        console.log("PROTOCOL_CONFIG_REPLICA_ADDRESS: ", vm.computeCreateAddress(deployer, nonce + 13));
 
         // Appended one constant at a time rather than in one string.concat over
         // all ten: with this many arguments legacy codegen runs out of stack
@@ -106,17 +99,18 @@ contract ComputeAddresses is Script {
             "\n"
         );
 
-        content = string.concat(content, _constant("ACL_ADDRESS", aclProxy));
-        content = string.concat(content, _constant("FHEVM_EXECUTOR_ADDRESS", fhevmExecutorProxy));
-        content = string.concat(content, _constant("KMS_VERIFIER_ADDRESS", kmsVerifierProxy));
-        content = string.concat(content, _constant("INPUT_VERIFIER_ADDRESS", inputVerifierProxy));
-        content = string.concat(content, _constant("HCU_LIMIT_ADDRESS", hcuLimitProxy));
-        content = string.concat(content, _constant("PROTOCOL_CONFIG_ADDRESS", protocolConfigProxy));
-        content = string.concat(content, _constant("KMS_GENERATION_ADDRESS", kmsGenerationProxy));
-        content = string.concat(content, _constant("PADDED_INPUTTER_ADDRESS", paddedInputterProxy));
-        content = string.concat(content, _constant("CLEARTEXT_ARITHMETIC_ADDRESS", cleartextArithmeticProxy));
-        content = string.concat(content, _constant("CLEARTEXT_DB_ADDRESS", cleartextDbProxy));
-        content = string.concat(content, _constant("PAUSER_SET_ADDRESS", pauserSetAddr));
+        content = string.concat(content, _constantAt("ACL_ADDRESS", deployer, nonce + 1));
+        content = string.concat(content, _constantAt("FHEVM_EXECUTOR_ADDRESS", deployer, nonce + 3));
+        content = string.concat(content, _constantAt("KMS_VERIFIER_ADDRESS", deployer, nonce + 4));
+        content = string.concat(content, _constantAt("INPUT_VERIFIER_ADDRESS", deployer, nonce + 5));
+        content = string.concat(content, _constantAt("HCU_LIMIT_ADDRESS", deployer, nonce + 6));
+        content = string.concat(content, _constantAt("PROTOCOL_CONFIG_ADDRESS", deployer, nonce + 7));
+        content = string.concat(content, _constantAt("KMS_GENERATION_ADDRESS", deployer, nonce + 8));
+        content = string.concat(content, _constantAt("PADDED_INPUTTER_ADDRESS", deployer, nonce + 9));
+        content = string.concat(content, _constantAt("CLEARTEXT_ARITHMETIC_ADDRESS", deployer, nonce + 10));
+        content = string.concat(content, _constantAt("CLEARTEXT_DB_ADDRESS", deployer, nonce + 11));
+        content = string.concat(content, _constantAt("PAUSER_SET_ADDRESS", deployer, nonce + 12));
+        content = string.concat(content, _constantAt("PROTOCOL_CONFIG_REPLICA_ADDRESS", deployer, nonce + 13));
 
         // forge-lint: disable-next-line(unsafe-cheatcode)
         vm.createDir(ADDRESSES_DIR, true);
@@ -125,6 +119,11 @@ contract ComputeAddresses is Script {
         console.log("");
         console.log("Written:", ADDRESSES_FILE);
         console.log("Next: forge build with fhevm-config-0.15.0/ remapped to", ADDRESSES_DIR);
+    }
+
+    /// @dev The declaration for the address `deployer` creates at `nonce`.
+    function _constantAt(string memory name, address deployer, uint64 nonce) private pure returns (string memory) {
+        return _constant(name, vm.computeCreateAddress(deployer, nonce));
     }
 
     /// @dev One `address constant NAME = address(0x...);` declaration.

@@ -176,6 +176,7 @@ const dummyDeployed: Deployed = {
   fhevmAddresses: dummyFhevmAddresses,
   cleartextAddresses: dummyCleartextAddresses,
   pauserSetAddress: ADDRESS,
+  protocolConfigReplicaAddress: ADDRESS,
   aclOwnerAddress: ADDRESS,
 };
 const dummyVerifyCheck: VerifyCheck = { name: 'ACL.getVersion', status: 'skip', detail: 'no history adapter' };
@@ -218,6 +219,7 @@ const dummyCreate2Addresses: Create2Addresses = {
   fhevmAddresses: dummyFhevmAddresses,
   cleartextAddresses: dummyCleartextAddresses,
   pauserSetAddress: ADDRESS,
+  protocolConfigReplicaAddress: ADDRESS,
   aclOwnerAddress: ADDRESS,
   emptyImplementations: { acl: ADDRESS, shared: ADDRESS },
   factory: CREATE2_FACTORY,

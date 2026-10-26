@@ -47,6 +47,7 @@ export function formatStackBanner(
     ['ProtocolConfig', fhevmAddresses.protocolConfigAddress],
     ['KMSGeneration', fhevmAddresses.kmsGenerationAddress],
     ['PaddedInputter', fhevmAddresses.paddedInputterAddress],
+    ['ProtocolConfigReplica', stack.protocolConfigReplicaAddress],
     ['PauserSet', stack.pauserSetAddress],
     ['CleartextArithmetic', cleartextAddresses.cleartextArithmeticAddress],
     ['CleartextDB', cleartextAddresses.cleartextDbAddress],

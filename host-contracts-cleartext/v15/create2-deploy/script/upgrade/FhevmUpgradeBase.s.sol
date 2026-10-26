@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import {FhevmRepointBase} from "../repoint/FhevmRepointBase.s.sol";
 import {UpgradeInitData} from "./UpgradeInitData.sol";
 import {MaterializeInitData} from "../MaterializeInitData.sol";
+import {LibForgeFhevmUpgrade} from "../../../pkg/forge/src/LibForgeFhevmUpgrade.sol";
+import {IWiredProtocolConfig} from "../Interfaces.sol";
 
 /**
  *  The v14 -> v15 CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
@@ -15,29 +17,34 @@ import {MaterializeInitData} from "../MaterializeInitData.sol";
  *  The table is upstream's rule applied to the two generations: a contract is upgraded exactly when its
  *  `REINITIALIZER_VERSION` moves, through a reinitializer that takes no arguments. Nothing is migrated.
  *
- *  One contract is new in v15: `PaddedInputter` (RFC-030). The upgrade creates its proxy over an empty
- *  implementation, exactly as a fresh deploy would (`_newProxyRoles`), and its op initializes it from there.
+ *  Two contracts are new in v15: `PaddedInputter` (RFC-030) and `ProtocolConfigReplica`. The upgrade creates
+ *  their proxies over an empty implementation, exactly as a fresh deploy would (`_newProxyRoles`), and their ops
+ *  initialize them from there. The replica is seeded from the live ProtocolConfig, sealed at compute.
  */
 abstract contract FhevmUpgradeBase is FhevmRepointBase {
     /// @dev OpenZeppelin `Initializable`'s namespaced storage: the low 8 bytes are the proxy's initialized version.
     bytes32 private constant INITIALIZABLE_STORAGE = 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
 
-    /// @dev The op of the proxy the upgrade creates, in `_upgradeProxyRoles()`.
+    /// @dev The ops of the proxies the upgrade creates, in `_upgradeProxyRoles()`.
     uint256 private constant PADDED_INPUTTER_OP = 7;
+    uint256 private constant PROTOCOL_CONFIG_REPLICA_OP = 8;
+
+    /// @dev `ProtocolConfigReplica`'s `REINITIALIZER_VERSION`: `initializeFromCanonical` runs at it, from 1.
+    uint64 private constant PROTOCOL_CONFIG_REPLICA_VERSION = 4;
 
     // ---------------------------------------------------------------------------------------
     // Roles
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Eight proxies re-pointed by the atomic upgrade, in ACLOwner.Op order — the order of upstream's
+     * Nine proxies re-pointed by the atomic upgrade, in ACLOwner.Op order — the order of upstream's
      * `upgrade-manifest.json`, then `CleartextArithmetic`, which is cleartext-only and so not in it: v15 changes
-     * its bytecode (RFC-030 pad-based unmasking) and moves its reinitializer. Then `PaddedInputter`, which v14
-     * does not have: its proxy is created by this upgrade's `creates`, so it is the one op on a proxy that is
-     * not live yet when compute seals.
+     * its bytecode (RFC-030 pad-based unmasking) and moves its reinitializer. Then `PaddedInputter` and
+     * `ProtocolConfigReplica`, which v14 does not have: their proxies are created by this upgrade's `creates`, so
+     * they are the ops on proxies that are not live yet when compute seals.
      */
     function _upgradeProxyRoles() internal pure returns (string[] memory roles) {
-        roles = new string[](8);
+        roles = new string[](9);
         roles[0] = R_ACL;
         roles[1] = R_FHEVM_EXECUTOR;
         roles[2] = R_KMS_VERIFIER;
@@ -46,6 +53,7 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         roles[5] = R_KMS_GENERATION;
         roles[6] = R_CLEARTEXT_ARITHMETIC;
         roles[7] = R_PADDED_INPUTTER;
+        roles[8] = R_PROTOCOL_CONFIG_REPLICA;
     }
 
     /// @dev The table's artifacts, index-aligned with `_upgradeProxyRoles()`: the deploy path's own, by role.
@@ -58,11 +66,12 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         if (i == 5) return "pkg/src/contracts/KMSGeneration.sol:KMSGeneration";
         if (i == 6) return "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
         if (i == 7) return "pkg/src/cleartext/CleartextPaddedInputter.sol:CleartextPaddedInputter";
+        if (i == 8) return "pkg/src/contracts/ProtocolConfigReplica.sol:ProtocolConfigReplica";
         revert("FhevmUpgradeBase: implementation index out of range");
     }
 
     /// @dev The version each proxy is initialized at on a v14 stack: the reinitializer the upgrade starts from.
-    ///      PaddedInputter's is its empty proxy's `initialize()`, as `creates` left it.
+    ///      The created proxies' is their empty proxy's `initialize()`, as `creates` left them.
     function _upgradeFromVersion(uint256 i) internal pure returns (uint64) {
         if (i == 0) return 6;
         if (i == 1) return 7;
@@ -72,11 +81,14 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         if (i == 5) return 3;
         if (i == 6) return 4;
         if (i == 7) return 1;
+        if (i == 8) return 1;
         revert("FhevmUpgradeBase: version index out of range");
     }
 
-    /// @dev The version each proxy is initialized at once upgraded: the v15 `REINITIALIZER_VERSION`.
+    /// @dev The version each proxy is initialized at once upgraded: the v15 `REINITIALIZER_VERSION`. One step
+    ///      for every op but the replica's, whose initializer jumps from its empty proxy's 1 to its own 4.
     function _upgradeToVersion(uint256 i) internal pure returns (uint64) {
+        if (i == PROTOCOL_CONFIG_REPLICA_OP) return PROTOCOL_CONFIG_REPLICA_VERSION;
         return _upgradeFromVersion(i) + 1;
     }
 
@@ -90,15 +102,16 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
     // ---------------------------------------------------------------------------------------
 
     function _newProxyRoles() internal pure override returns (string[] memory roles) {
-        roles = new string[](1);
+        roles = new string[](2);
         roles[0] = R_PADDED_INPUTTER;
+        roles[1] = R_PROTOCOL_CONFIG_REPLICA;
     }
 
     function _flowName() internal pure override returns (string memory) {
         return "upgrade";
     }
 
-    /// @dev The table, whatever the live stack runs: every one of the eight moves to this generation.
+    /// @dev The table, whatever the live stack runs: every one of the nine moves to this generation.
     function _candidateRoles() internal pure override returns (string[] memory) {
         return _upgradeProxyRoles();
     }
@@ -111,7 +124,8 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         return _upgradeProxyRoles();
     }
 
-    /// @dev The one op with arguments, PaddedInputter's, is sent only with the PRF instances compute sealed.
+    /// @dev The two ops with arguments are sent only with what compute sealed: PaddedInputter's PRF instances, and
+    ///      the replica's seed, which `_liveStateFresh` has already found unchanged on the live ProtocolConfig.
     function _initData(uint256 i, string memory) internal view override returns (bytes memory) {
         if (i == PADDED_INPUTTER_OP) {
             require(
@@ -120,10 +134,17 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
                 "FhevmUpgradeBase: the PaddedInputter PRF instances moved since the seal"
             );
         }
+        if (i == PROTOCOL_CONFIG_REPLICA_OP) {
+            require(_replicaSeedFresh(), "FhevmUpgradeBase: the canonical ProtocolConfig moved since the seal");
+            return _sealedReplicaSeed();
+        }
         return UpgradeInitData.initData(i);
     }
 
-    /// @dev The PRF instances PaddedInputter is initialized with, sealed for the operator to read as values.
+    /**
+     * @dev Sealed for the operator to read as values, and for materialize to send as sealed: PaddedInputter's PRF
+     *      instances, and the replica's `initializeFromCanonical` payload, read from the live ProtocolConfig.
+     */
     function _sealExtras(string memory o) internal override {
         uint16[] memory prfs = MaterializeInitData.paddedInputterPrfInstances();
         uint256[] memory values = new uint256[](prfs.length);
@@ -131,6 +152,26 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
             values[i] = prfs[i];
         }
         vm.serializeUint(o, "paddedInputterPrfInstances", values);
+        vm.serializeBytes(o, "protocolConfigReplicaInitData", _liveReplicaSeed());
+        // The payload's context and epoch, as values: what the op listing names.
+        (uint256 contextId, uint256 epochId) =
+            IWiredProtocolConfig(existingProtocolConfig).getCurrentKmsContextAndEpoch();
+        vm.serializeUint(o, "protocolConfigReplicaContextId", contextId);
+        vm.serializeUint(o, "protocolConfigReplicaEpochId", epochId);
+    }
+
+    /// @dev The replica's seed as the live canonical ProtocolConfig gives it now: its current context and epoch.
+    function _liveReplicaSeed() private view returns (bytes memory) {
+        return LibForgeFhevmUpgrade.protocolConfigReplicaInitData(existingProtocolConfig);
+    }
+
+    function _sealedReplicaSeed() private view returns (bytes memory) {
+        return vm.parseJsonBytes(_loadManifest(), ".protocolConfigReplicaInitData");
+    }
+
+    /// @dev A KMS context or epoch change between compute and materialize would seed the replica with a stale set.
+    function _replicaSeedFresh() private view returns (bool) {
+        return keccak256(_liveReplicaSeed()) == keccak256(_sealedReplicaSeed());
     }
 
     function _sealedPrfInstances() private view returns (uint16[] memory prfs) {
@@ -141,13 +182,28 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         }
     }
 
-    function _initName(uint256 i, string memory) internal pure override returns (string memory) {
+    function _initName(uint256 i, string memory) internal view override returns (string memory) {
+        if (i == PROTOCOL_CONFIG_REPLICA_OP) {
+            string memory manifest = _loadManifest();
+            return string.concat(
+                "ProtocolConfigReplica.initializeFromCanonical(context ",
+                vm.toString(vm.parseJsonUint(manifest, ".protocolConfigReplicaContextId")),
+                ", epoch ",
+                vm.toString(vm.parseJsonUint(manifest, ".protocolConfigReplicaEpochId")),
+                ", the sealed nodes and thresholds)"
+            );
+        }
         return UpgradeInitData.initName(i);
     }
 
     /// @dev Every proxy is still initialized at its v14 version: a v14 stack, and not upgraded yet. The created
-    ///      PaddedInputter at its empty proxy's: created, and not initialized by anyone else since.
+    ///      proxies at their empty proxy's: created, and not initialized by anyone else since. And the canonical
+    ///      ProtocolConfig still holds the KMS context the replica's seed was sealed from.
     function _liveStateFresh() internal view override returns (bool ok, string memory why) {
+        if (!_replicaSeedFresh()) {
+            return
+                (false, "the canonical ProtocolConfig's KMS context, epoch, nodes or thresholds moved since the seal");
+        }
         string[] memory roles = _upgradeProxyRoles();
         for (uint256 i; i < roles.length; i++) {
             uint64 live = _initializedVersion(_existingAddress(roles[i]));
@@ -164,6 +220,6 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
                 );
             }
         }
-        return (true, "every proxy is initialized at its v14 version");
+        return (true, "every proxy is initialized at its v14 version, and the replica's seed is current");
     }
 }

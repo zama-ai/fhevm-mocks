@@ -287,8 +287,9 @@ npm run test:upgrade
 
 It starts a dedicated anvil, deploys the previous generation's stack with that generation's own
 `create2-deploy/deploy-cli`, creates a `trivialEncrypt` handle, passes the eleven addresses of its manifest as
-CLI inputs to `upgrade/upgrade-cli`, and verifies this generation's versions on the eight re-pointed contracts,
-the created PaddedInputter and the executor's wiring to it, the preserved handle, every zero-argument getter reading of the previous stack, the
+CLI inputs to `upgrade/upgrade-cli`, and verifies this generation's versions on the nine re-pointed contracts,
+the created PaddedInputter and the executor's wiring to it, the created ProtocolConfigReplica and its seed, the
+preserved handle, every zero-argument getter reading of the previous stack, the
 unchanged KMS context and signers, ownership, pausers, and forbidden-event absence.
 
 For a manual run, start anvil in one terminal and deploy the previous generation from a second:
@@ -418,9 +419,9 @@ gate printed the same digest, derived from the build rather than from the file �
 the digest the wallet shows for the signed payload must match both.** Then:
 
 ```sh
-./upgrade/upgrade-cli --stage status                  # materialize: done — all eight implementation slots match the seal
+./upgrade/upgrade-cli --stage status                  # materialize: done — all nine implementation slots match the seal
 ./upgrade/upgrade-cli --stage verify                  # records the multisig's transaction in the journal as an observation
 ```
 
-`verify` finds the multisig's transaction through the eight `Upgraded` events, requires them all in one
+`verify` finds the multisig's transaction through the nine `Upgraded` events, requires them all in one
 transaction, and writes it to `journal.jsonl` as an observed step D, since no local receipt exists.

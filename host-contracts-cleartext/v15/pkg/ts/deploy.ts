@@ -5,6 +5,10 @@ import { abi as kmsVerifierAbi, template as kmsVerifierTemplate } from './artifa
 import { abi as hcuLimitAbi, template as hcuLimitTemplate } from './artifacts/CleartextHCULimit.js';
 import { abi as inputVerifierAbi, template as inputVerifierTemplate } from './artifacts/CleartextInputVerifier.js';
 import { abi as protocolConfigAbi, template as protocolConfigTemplate } from './artifacts/ProtocolConfig.js';
+import {
+  abi as protocolConfigReplicaAbi,
+  template as protocolConfigReplicaTemplate,
+} from './artifacts/ProtocolConfigReplica.js';
 import { abi as kmsGenerationAbi, template as kmsGenerationTemplate } from './artifacts/KMSGeneration.js';
 import { abi as paddedInputterAbi, template as paddedInputterTemplate } from './artifacts/CleartextPaddedInputter.js';
 import { abi as aclOwnerAbi } from './artifacts/ACLOwner.js';
@@ -39,16 +43,16 @@ import { setupACLOwner, toACLOwnerOps } from './aclOwner.js';
 import type { ContractUpgradeSpec, DeployedImplementation, UpgradeTarget } from './types/private.js';
 import { deployPauserSet } from './pauserSet.js';
 import { precomputeAddresses } from './addresses.js';
-import { DEFAULT_BOOTSTRAP_CONFIG } from './constants.js';
+import { DEFAULT_BOOTSTRAP_CONFIG, INITIAL_KMS_CONTEXT_ID, INITIAL_KMS_EPOCH_ID } from './constants.js';
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Deploy a fresh host-contract stack of this generation from scratch.
  *
- * End to end: deploy the 8 empty host proxies, the 2 cleartext-infra proxies and PauserSet, install a
- * standing `ACLOwner` (owned by `admin`), then atomically materialize all 10 proxies in a single
- * `ACLOwner.upgrade(...)` transaction.
+ * End to end: deploy the 8 empty host proxies, the 2 cleartext-infra proxies, PauserSet and the
+ * ProtocolConfigReplica proxy, install a standing `ACLOwner` (owned by `admin`), then atomically materialize all
+ * 11 proxies in a single `ACLOwner.upgrade(...)` transaction.
  * The `deployer` funds/sends the permissionless deployments; `admin` owns `ACLOwner` and signs the
  * one owner-gated upgrade transaction.
  */
@@ -66,6 +70,7 @@ export async function deploy(parameters: {
         readonly fhevmAddresses: FhevmAddresses;
         readonly cleartextAddresses: CleartextAddresses;
         readonly pauserSetAddress: string;
+        readonly protocolConfigReplicaAddress: string;
       }
     | undefined;
   readonly config?: BootstrapConfig | undefined;
@@ -98,6 +103,15 @@ export async function deploy(parameters: {
     precomputedPauserSetAddress: precomputed.pauserSetAddress,
   });
 
+  // 2b. The ProtocolConfigReplica proxy, on the shared impl: after PauserSet, so every earlier address is unmoved.
+  await deployProtocolConfigReplicaProxy({
+    ethProvider: parameters.ethProvider,
+    ethUtils: parameters.ethUtils,
+    deployer: parameters.deployer,
+    precomputedAddress: precomputed.protocolConfigReplicaAddress,
+    emptyUUPSProxyAddress: emptyUUPSProxyAddress.contractAddress,
+  });
+
   // 3. Install the standing ACLOwner (owned by `admin`) and hand it ACL ownership.
   const { aclOwnerAddress } = await setupACLOwner({
     deployer: parameters.deployer,
@@ -107,12 +121,13 @@ export async function deploy(parameters: {
     pauserSetAddress: precomputed.pauserSetAddress,
   });
 
-  // 4. Deploy the 10 real implementations (permissionless) — bootstrap specs, empty→real.
+  // 4. Deploy the 11 real implementations (permissionless) — bootstrap specs, empty→real.
   const { implementations } = await buildBootstrapPlan({
     ethUtils: parameters.ethUtils,
     deployer: parameters.deployer,
     precomputedAddresses: fhevmAddresses,
     cleartextAddresses,
+    protocolConfigReplicaAddress: precomputed.protocolConfigReplicaAddress,
     config: bootstrapUpgradeConfig({
       pauserSetAddress: precomputed.pauserSetAddress,
       cleartextAddresses,
@@ -120,7 +135,7 @@ export async function deploy(parameters: {
     }),
   });
 
-  // 5. Materialize all 10 atomically via the standing ACLOwner.
+  // 5. Materialize all 11 atomically via the standing ACLOwner.
   await sendStep({
     label: 'ACLOwner.upgrade',
     send: () =>
@@ -136,6 +151,7 @@ export async function deploy(parameters: {
     fhevmAddresses,
     cleartextAddresses,
     pauserSetAddress: precomputed.pauserSetAddress,
+    protocolConfigReplicaAddress: precomputed.protocolConfigReplicaAddress,
     aclOwnerAddress,
   };
 }
@@ -153,6 +169,7 @@ async function precomputeFromDeployerNonce(parameters: {
   readonly fhevmAddresses: FhevmAddresses;
   readonly cleartextAddresses: CleartextAddresses;
   readonly pauserSetAddress: string;
+  readonly protocolConfigReplicaAddress: string;
 }> {
   const from = (await parameters.deployer.getAddress()) as `0x${string}`;
   const startNonce = BigInt(await parameters.ethProvider.getTransactionCount({ address: from }));
@@ -162,7 +179,7 @@ async function precomputeFromDeployerNonce(parameters: {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Phase 1 for a fresh stack: deploys all 10 real implementations (patched with this generation's host addresses)
+ * Phase 1 for a fresh stack: deploys all 11 real implementations (patched with this generation's host addresses)
  * and encodes their `upgradeToAndCall` calldata. Sends no owner-gated transaction.
  */
 async function buildBootstrapPlan(parameters: {
@@ -170,6 +187,7 @@ async function buildBootstrapPlan(parameters: {
   readonly deployer: AbstractEthereumSigner;
   readonly precomputedAddresses: FhevmAddresses;
   readonly cleartextAddresses: CleartextAddresses;
+  readonly protocolConfigReplicaAddress: string;
   readonly config: UpgradeConfig;
 }): Promise<{ readonly implementations: readonly DeployedImplementation[] }> {
   const addressReplacements = buildHostAddressReplacements({
@@ -249,6 +267,13 @@ async function buildBootstrapPlan(parameters: {
       template: cleartextDbTemplate,
       abi: cleartextDbAbi,
       spec: parameters.config.cleartextDb,
+    },
+    {
+      contractName: 'ProtocolConfigReplica',
+      proxyAddress: parameters.protocolConfigReplicaAddress,
+      template: protocolConfigReplicaTemplate,
+      abi: protocolConfigReplicaAbi,
+      spec: parameters.config.protocolConfigReplica,
     },
   ];
 
@@ -385,6 +410,34 @@ async function deployCleartextEmptyProxies(parameters: {
   });
 }
 
+/**
+ * Deploys the ProtocolConfigReplica ERC1967 proxy on the shared `EmptyUUPSProxy` implementation. Called after
+ * PauserSet, so its CREATE address matches `precomputeAddresses`.
+ */
+async function deployProtocolConfigReplicaProxy(parameters: {
+  readonly ethProvider: AbstractEthereumProvider;
+  readonly ethUtils: AbstractEthereumUtils;
+  readonly deployer: AbstractEthereumSigner;
+  readonly precomputedAddress: string;
+  readonly emptyUUPSProxyAddress: string;
+}): Promise<void> {
+  await assertNoCodeAt({
+    ethProvider: parameters.ethProvider,
+    contractName: 'ProtocolConfigReplica',
+    address: parameters.precomputedAddress,
+  });
+  const proxy = await deployERC1967Proxy({
+    ethUtils: parameters.ethUtils,
+    deployer: parameters.deployer,
+    emptyUUPSProxyAddress: parameters.emptyUUPSProxyAddress,
+  });
+  assertDeployedAddress({
+    contractName: 'ProtocolConfigReplica',
+    expectedAddress: parameters.precomputedAddress,
+    actualAddress: proxy.contractAddress,
+  });
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -451,6 +504,7 @@ type UpgradeConfig = {
   readonly paddedInputter: ContractUpgradeSpec;
   readonly cleartextArithmetic: ContractUpgradeSpec;
   readonly cleartextDb: ContractUpgradeSpec;
+  readonly protocolConfigReplica: ContractUpgradeSpec;
 };
 
 /** Maps the typed bootstrap config to a full `UpgradeConfig` of `initializeFromEmptyProxy` specs. */
@@ -483,6 +537,17 @@ function bootstrapUpgradeConfig(parameters: {
     cleartextArithmetic: bootstrap([]),
     // CleartextDB.initializeFromEmptyProxy(initialWriter) — seed CleartextArithmetic as the writer.
     cleartextDb: bootstrap([parameters.cleartextAddresses.cleartextArithmeticAddress]),
+    // Seeded with what ProtocolConfig's initializer activates: its first context and epoch, the same nodes and
+    // thresholds. Its own initializer: a replica is never created from an empty proxy's bootstrap.
+    protocolConfigReplica: {
+      initFn: 'initializeFromCanonical',
+      initArgs: [
+        INITIAL_KMS_CONTEXT_ID,
+        INITIAL_KMS_EPOCH_ID,
+        config.protocolConfig.initialKmsNodes,
+        config.protocolConfig.initialThresholds,
+      ],
+    },
   };
 }
 

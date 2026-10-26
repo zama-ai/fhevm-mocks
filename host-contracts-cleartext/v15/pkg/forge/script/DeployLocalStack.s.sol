@@ -20,7 +20,8 @@ import {
     MNEMONIC,
     PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
-    PROTOCOL_CONFIG_ADDRESS
+    PROTOCOL_CONFIG_ADDRESS,
+    PROTOCOL_CONFIG_REPLICA_ADDRESS
 } from "../src/_internal/LocalHostAddresses.sol";
 
 import {
@@ -38,7 +39,8 @@ import {
     KMS_GENERATION_CREATION_CODE,
     CLEARTEXT_PADDED_INPUTTER_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
-    PROTOCOL_CONFIG_CREATION_CODE
+    PROTOCOL_CONFIG_CREATION_CODE,
+    PROTOCOL_CONFIG_REPLICA_CREATION_CODE
 } from "../src/_internal/LocalHostBytecode.sol";
 
 import {LocalHostBootstrap} from "../src/_internal/LocalHostBootstrap.sol";
@@ -57,6 +59,7 @@ import {IKMSGeneration} from "../src/_internal/interfaces/IKMSGeneration.sol";
 import {ICleartextPaddedInputter} from "../src/_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IPauserSet} from "../src/_internal/interfaces/IPauserSet.sol";
 import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
+import {IProtocolConfigReplica} from "../src/_internal/interfaces/IProtocolConfigReplica.sol";
 
 /**
  * @title DeployLocalStack
@@ -83,8 +86,8 @@ import {IProtocolConfig} from "../src/_internal/interfaces/IProtocolConfig.sol";
  *   An `anvil_setNonce` changes the node, not the simulation. Measured: after setting the nonce to 5 by
  *   RPC, `vm.getNonce` still reported 1 and the next CREATE landed at nonce 1.
  *
- * If PauserSet did not consume nonce 12, ACLOwner would take it and land on PauserSet's address. So the
- * nonce has to be consumed by a real creation. Only PauserSet's *runtime* blob is shipped (it has no
+ * If PauserSet did not consume nonce 12, the ProtocolConfigReplica proxy would take it and land on PauserSet's
+ * address. So the nonce has to be consumed by a real creation. Only PauserSet's *runtime* blob is shipped (it has no
  * constructor, so `CODE_KIND` classifies it as runtime), and `_asCreationCode` below wraps that runtime in
  * a 12-byte prelude that returns it — a real CREATE whose result is byte-for-byte the shipped blob.
  *
@@ -112,8 +115,14 @@ contract DeployLocalStack is Script {
         require(ACL_ADDRESS.code.length == 0, "DeployLocalStack: ACL already has code; the chain is not fresh");
 
         vm.startBroadcast(deployerKey);
-        _deployEmptyProxies(deployer);
+        address emptyImpl = _deployEmptyProxies(deployer);
         _deployPauserSet();
+        _createProxy(
+            emptyImpl,
+            abi.encodeCall(IEmptyUUPSProxy.initialize, ()),
+            PROTOCOL_CONFIG_REPLICA_ADDRESS,
+            "ProtocolConfigReplica proxy"
+        );
         address aclOwner = _setupACLOwner(deployer);
         _materialize(aclOwner);
         vm.stopBroadcast();
@@ -129,6 +138,7 @@ contract DeployLocalStack is Script {
         console.log("CleartextArithmetic: ", CLEARTEXT_ARITHMETIC_ADDRESS);
         console.log("CleartextDB:         ", CLEARTEXT_DB_ADDRESS);
         console.log("PauserSet:           ", PAUSER_SET_ADDRESS);
+        console.log("ProtocolConfigReplica:", PROTOCOL_CONFIG_REPLICA_ADDRESS);
         console.log("ACLOwner:            ", aclOwner);
     }
 
@@ -136,11 +146,11 @@ contract DeployLocalStack is Script {
     // Phase 1 — the empty proxies (nonces 0-11)
     ////////////////////////////////////////////////////////////////////////////
 
-    function _deployEmptyProxies(address deployer) private {
+    function _deployEmptyProxies(address deployer) private returns (address emptyImpl) {
         address emptyAclImpl = _create(EMPTY_UUPS_PROXY_ACL_CREATION_CODE, "EmptyUUPSProxyACL");
         _createProxy(emptyAclImpl, abi.encodeCall(IEmptyUUPSProxyACL.initialize, (deployer)), ACL_ADDRESS, "ACL proxy");
 
-        address emptyImpl = _create(EMPTY_UUPS_PROXY_CREATION_CODE, "EmptyUUPSProxy");
+        emptyImpl = _create(EMPTY_UUPS_PROXY_CREATION_CODE, "EmptyUUPSProxy");
         bytes memory initEmpty = abi.encodeCall(IEmptyUUPSProxy.initialize, ());
 
         _createProxy(emptyImpl, initEmpty, FHEVM_EXECUTOR_ADDRESS, "FHEVMExecutor proxy");
@@ -155,7 +165,7 @@ contract DeployLocalStack is Script {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Phase 2 — PauserSet (nonce 12)
+    // Phase 2 — PauserSet (nonce 12); the ProtocolConfigReplica proxy follows it (nonce 13)
     ////////////////////////////////////////////////////////////////////////////
 
     function _deployPauserSet() private {
@@ -263,6 +273,11 @@ contract DeployLocalStack is Script {
             _create(CLEARTEXT_DB_CREATION_CODE, "CleartextDB impl"),
             abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (CLEARTEXT_ARITHMETIC_ADDRESS))
         );
+        ops[10] = ACLOwner.Op(
+            PROTOCOL_CONFIG_REPLICA_ADDRESS,
+            _create(PROTOCOL_CONFIG_REPLICA_CREATION_CODE, "ProtocolConfigReplica impl"),
+            _protocolConfigReplicaInit()
+        );
 
         IACLOwner(aclOwner).upgrade(ops);
     }
@@ -303,6 +318,25 @@ contract DeployLocalStack is Script {
     }
 
     function _protocolConfigInit() private pure returns (bytes memory) {
+        return abi.encodeCall(
+            IProtocolConfig.initializeFromEmptyProxy,
+            (_kmsNodes(), _kmsThresholds(), LocalHostBootstrap.KMS_SOFTWARE_VERSION, new IProtocolConfig.PcrValues[](0))
+        );
+    }
+
+    /// @dev The replica, seeded with the canonical ProtocolConfig's first context and epoch, nodes and thresholds.
+    ///      By selector: the generated interface declares its own copies of the structs, with the same ABI.
+    function _protocolConfigReplicaInit() private pure returns (bytes memory) {
+        return abi.encodeWithSelector(
+            IProtocolConfigReplica.initializeFromCanonical.selector,
+            LocalHostBootstrap.INITIAL_KMS_CONTEXT_ID,
+            LocalHostBootstrap.INITIAL_KMS_EPOCH_ID,
+            _kmsNodes(),
+            _kmsThresholds()
+        );
+    }
+
+    function _kmsNodes() private pure returns (IProtocolConfig.KmsNodeParams[] memory nodes) {
         address[] memory signers = LocalHostBootstrap.kmsSigners();
         address[] memory txSenders = LocalHostBootstrap.kmsTxSenders();
         string[] memory ips = LocalHostBootstrap.kmsIpAddresses();
@@ -312,8 +346,7 @@ contract DeployLocalStack is Script {
         string[] memory prefixes = LocalHostBootstrap.kmsStoragePrefixes();
         int32[] memory partyIds = LocalHostBootstrap.kmsPartyIds();
 
-        IProtocolConfig.KmsNodeParams[] memory nodes =
-            new IProtocolConfig.KmsNodeParams[](LocalHostBootstrap.KMS_NODE_COUNT);
+        nodes = new IProtocolConfig.KmsNodeParams[](LocalHostBootstrap.KMS_NODE_COUNT);
         for (uint256 i = 0; i < nodes.length; i++) {
             nodes[i] = IProtocolConfig.KmsNodeParams({
                 txSenderAddress: txSenders[i],
@@ -326,20 +359,13 @@ contract DeployLocalStack is Script {
                 storagePrefix: prefixes[i]
             });
         }
+    }
 
-        // Every threshold is the node count, as ts/constants.ts DEFAULT_KMS_THRESHOLDS has it.
+    /// @dev Every threshold is the node count, as ts/constants.ts DEFAULT_KMS_THRESHOLDS has it.
+    function _kmsThresholds() private pure returns (IProtocolConfig.KmsThresholds memory) {
         uint256 count = LocalHostBootstrap.KMS_NODE_COUNT;
-        return abi.encodeCall(
-            IProtocolConfig.initializeFromEmptyProxy,
-            (
-                nodes,
-                IProtocolConfig.KmsThresholds({
-                    publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count
-                }),
-                LocalHostBootstrap.KMS_SOFTWARE_VERSION,
-                new IProtocolConfig.PcrValues[](0)
-            )
-        );
+        return
+            IProtocolConfig.KmsThresholds({publicDecryption: count, userDecryption: count, kmsGen: count, mpc: count});
     }
 
     ////////////////////////////////////////////////////////////////////////////

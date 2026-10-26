@@ -20,6 +20,7 @@ export type FhevmContractName =
   | 'ProtocolConfig'
   | 'KMSGeneration'
   | 'PaddedInputter'
+  | 'ProtocolConfigReplica'
   | 'PauserSet'
   | 'CleartextArithmetic'
   | 'CleartextDB';
@@ -34,6 +35,7 @@ const ABI_FILE: Readonly<Record<FhevmContractName, string>> = {
   ProtocolConfig: 'ProtocolConfig',
   KMSGeneration: 'KMSGeneration',
   PaddedInputter: 'CleartextPaddedInputter',
+  ProtocolConfigReplica: 'ProtocolConfigReplica',
   CleartextArithmetic: 'CleartextArithmetic',
   CleartextDB: 'CleartextDB',
   PauserSet: 'PauserSet',
@@ -50,6 +52,8 @@ export type FhevmHostContractsAddresses = {
   readonly kmsGenerationAddress?: string | undefined;
   /** RFC-030 pad-based inputs. Since v15. */
   readonly paddedInputterAddress?: string | undefined;
+  /** The read-replica a non-canonical host runs; every v15 stack deploys one beside ProtocolConfig. */
+  readonly protocolConfigReplicaAddress?: string | undefined;
   readonly pauserSetAddress?: string | undefined;
 };
 
@@ -107,6 +111,7 @@ export class FhevmContractsRepository {
   readonly protocolConfig: FhevmContractWrapper | undefined;
   readonly kmsGeneration: FhevmContractWrapper | undefined;
   readonly paddedInputter: FhevmContractWrapper | undefined;
+  readonly protocolConfigReplica: FhevmContractWrapper | undefined;
   readonly pauserSet: FhevmContractWrapper | undefined;
 
   /** The read client every wrapper is bound to. */
@@ -124,6 +129,7 @@ export class FhevmContractsRepository {
     this.protocolConfig = this.registerOptional('ProtocolConfig', addresses.protocolConfigAddress);
     this.kmsGeneration = this.registerOptional('KMSGeneration', addresses.kmsGenerationAddress);
     this.paddedInputter = this.registerOptional('PaddedInputter', addresses.paddedInputterAddress);
+    this.protocolConfigReplica = this.registerOptional('ProtocolConfigReplica', addresses.protocolConfigReplicaAddress);
     this.pauserSet = this.registerOptional('PauserSet', addresses.pauserSetAddress);
   }
 

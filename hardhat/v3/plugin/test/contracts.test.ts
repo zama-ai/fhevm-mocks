@@ -105,6 +105,17 @@ void test('PaddedInputter (RFC-030) is an optional host contract, wrapped with t
   });
 });
 
+void test('ProtocolConfigReplica is an optional host contract, wrapped with its own ABI', async () => {
+  await withFixture(({ client, host, spare: [replica] }) => {
+    const repository = new FhevmContractsRepository(client, { ...host, protocolConfigReplicaAddress: replica });
+
+    assert.equal(repository.getContractFromName('ProtocolConfigReplica'), repository.protocolConfigReplica);
+    assert.equal(repository.getContractFromAddress(replica), repository.protocolConfigReplica);
+    const abi = repository.protocolConfigReplica?.abi ?? [];
+    assert.ok(abi.some((entry) => entry.type === 'function' && entry.name === 'initializeFromCanonical'));
+  });
+});
+
 void test('the cleartext repository adds the two cleartext-only contracts', async () => {
   await withFixture(({ client, host, spare: [arithmetic, db] }) => {
     const repository = new FhevmCleartextContractsRepository(client, {

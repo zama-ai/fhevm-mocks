@@ -16,9 +16,11 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
  *
  *  The first seven take no arguments: v14 -> v15 moves each reinitializer by one and migrates nothing. The
  *  eighth initializes the PaddedInputter proxy the upgrade creates, with the deploy's own payload — the PRF
- *  instances it registers are bootstrap config, as on a fresh stack. Where the implementation deployed is a
- *  cleartext subclass, the payload is encoded against the base contract, which declares the function — solc
- *  cannot form a pointer to an inherited member. Same selector.
+ *  instances it registers are bootstrap config, as on a fresh stack. The ninth op, the ProtocolConfigReplica the
+ *  upgrade also creates, is not here: its seed is the live ProtocolConfig's state, read and sealed at compute by
+ *  `FhevmUpgradeBase`, not a constant. Where the implementation deployed is a cleartext subclass, the payload is
+ *  encoded against the base contract, which declares the function — solc cannot form a pointer to an inherited
+ *  member. Same selector.
  */
 library UpgradeInitData {
     function initData(uint256 i) internal pure returns (bytes memory) {

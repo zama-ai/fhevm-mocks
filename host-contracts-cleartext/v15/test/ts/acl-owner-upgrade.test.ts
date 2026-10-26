@@ -128,7 +128,7 @@ async function deployStack(port: number): Promise<DeployedStack> {
   const adapters = createViemEthereumAdapters({ rpcUrl: anvil.rpcUrl, privateKey: deployerKey });
   const publicClient = createPublicClient({ chain: foundry, transport: http(anvil.rpcUrl) });
 
-  const { fhevmAddresses, cleartextAddresses, pauserSetAddress } = precomputeAddresses({
+  const { fhevmAddresses, cleartextAddresses, pauserSetAddress, protocolConfigReplicaAddress } = precomputeAddresses({
     ethUtils: adapters.utils,
     from: deployerAddress,
     startNonce: 0n,
@@ -139,7 +139,7 @@ async function deployStack(port: number): Promise<DeployedStack> {
     ethUtils: adapters.utils,
     deployer: adapters.signer,
     admin: adapters.signer,
-    precomputed: { fhevmAddresses, cleartextAddresses, pauserSetAddress },
+    precomputed: { fhevmAddresses, cleartextAddresses, pauserSetAddress, protocolConfigReplicaAddress },
     config: bootstrapConfig({
       verifyingContractSource: deployerAddress,
       coprocessorSigner: deployerAddress,

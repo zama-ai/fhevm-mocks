@@ -515,14 +515,16 @@ export const HOST_ROLES: readonly string[] = [
   'PADDED_INPUTTER_ADDRESS',
   'CLEARTEXT_ARITHMETIC_ADDRESS',
   'CLEARTEXT_DB_ADDRESS',
+  // Last of the proxies, as in the Solidity `_sharedProxyRoles()`.
+  'PROTOCOL_CONFIG_REPLICA_ADDRESS',
   'PAUSER_SET_ADDRESS',
 ];
 
 /** The stack's UUPS proxies: every host role but the PauserSet, which is not upgradeable. */
 export const PROXY_ROLES: readonly string[] = HOST_ROLES.filter((role) => role !== 'PAUSER_SET_ADDRESS');
 
-/** Widest role name is IMPL_CLEARTEXT_ARITHMETIC_ADDRESS, at 34. */
-export const ROLE_WIDTH = 34;
+/** Widest role name is IMPL_PROTOCOL_CONFIG_REPLICA_ADDRESS, at 36. */
+export const ROLE_WIDTH = 36;
 
 /** Width of the rule under a report step's header. Sized to the block+status+hash columns. */
 export const RULE_WIDTH = 92;
@@ -589,6 +591,7 @@ export const EXISTING_FLAGS: Readonly<Record<string, string>> = {
   '--cleartext-arithmetic': 'CLEARTEXT_ARITHMETIC_ADDRESS',
   '--cleartext-db': 'CLEARTEXT_DB_ADDRESS',
   '--padded-inputter': 'PADDED_INPUTTER_ADDRESS',
+  '--protocol-config-replica': 'PROTOCOL_CONFIG_REPLICA_ADDRESS',
   '--pauser-set': 'PAUSER_SET_ADDRESS',
   '--acl-owner': 'ACL_OWNER',
 };

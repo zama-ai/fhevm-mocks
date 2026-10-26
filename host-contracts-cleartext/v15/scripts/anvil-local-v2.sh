@@ -34,13 +34,13 @@
 #
 # ## Why PauserSet is the only anvil_setCode
 #
-# `anvil_setCode` writes runtime code. Of the fourteen blobs only PauserSet ships runtime (it has no
+# `anvil_setCode` writes runtime code. Of the fifteen blobs only PauserSet ships runtime (it has no
 # constructor, so the generator classifies it that way); the rest ship creation code, which has to be run
-# to produce anything. And the ten proxies need initialised storage — ERC-1967 slot, owner, signer arrays,
+# to produce anything. And the eleven proxies need initialised storage — ERC-1967 slot, owner, signer arrays,
 # EIP-712 domains — which setCode never touches, so those initializers have to actually execute.
 #
-# setCode also consumes no nonce, and PauserSet must occupy nonce 12 or ACLOwner takes it and lands on
-# PauserSet's address. Hence the paired `anvil_setNonce`. That pairing works here but NOT inside a forge
+# setCode also consumes no nonce, and PauserSet must occupy nonce 12 or the ProtocolConfigReplica proxy takes
+# it and lands on PauserSet's address. Hence the paired `anvil_setNonce`. That pairing works here but NOT inside a forge
 # script: `forge script` derives CREATE addresses from its own simulation, which an RPC never reaches
 # (measured: after anvil_setNonce to 5, vm.getNonce still read 1). With plain `cast` there is no
 # simulation — every transaction reads the nonce back from the node — so it behaves as intended.
@@ -145,20 +145,31 @@ deploy_empty_proxies() {
 # Phase 2 — PauserSet at nonce 12, the only anvil_setCode here.
 #
 # PauserSet is the sole blob shipped as runtime code (no constructor), so it is the only one setCode can
-# place. setCode consumes no nonce, so PauserSet's nonce is skipped by hand — otherwise ACLOwner takes
-# it and lands on
-# PauserSet's own address. That pairing works with `cast` because there is no local simulation to desync;
-# inside a forge script it silently would not.
+# place. setCode consumes no nonce, so PauserSet's nonce is skipped by hand — otherwise the next CREATE
+# takes it and lands on PauserSet's own address. That pairing works with `cast` because there is no local
+# simulation to desync; inside a forge script it silently would not.
 install_pauser_set() {
+    local nonce
+    nonce="$(cast nonce "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL")"
+    expect_at "$(cast compute-address "$DEPLOYER_ADDRESS" --nonce "$nonce" | awk '{print $NF}')" \
+        "$PAUSER_SET_ADDRESS" "PauserSet"
     anvil_rpc anvil_setCode "$PAUSER_SET_ADDRESS" "0x$(read_blob PAUSER_SET_RUNTIME_CODE)"
-    anvil_rpc anvil_setNonce "$DEPLOYER_ADDRESS" "$(printf '0x%x' $((START_NONCE + $(read_scalar ADDRESSED_NONCE_COUNT))))"
+    anvil_rpc anvil_setNonce "$DEPLOYER_ADDRESS" "$(printf '0x%x' $((nonce + 1)))"
     local code
     code="$(cast code "$PAUSER_SET_ADDRESS" --rpc-url "$RPC_URL")"
     [ "${#code}" -gt 2 ] || { echo "Error: anvil_setCode left no code at PauserSet." >&2; exit 1; }
     echo "   ✅ PauserSet installed via anvil_setCode, nonce advanced to $(cast nonce "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL")"
 }
 
-# Phase 3 — ACLOwner at nonce 13, then ownership moves to it two-step.
+# Phase 3 — the ProtocolConfigReplica proxy at nonce 13, the last addressed nonce. Created like the other
+# proxies; materialized with them in Phase 5.
+deploy_protocol_config_replica_proxy() {
+    create_proxy "$EMPTY_IMPL" "$(cast calldata "$SIG_EMPTY_INIT")" "$PROTOCOL_CONFIG_REPLICA_ADDRESS" \
+        "ProtocolConfigReplica proxy"
+    echo "   ✅ ProtocolConfigReplica proxy at its canonical address"
+}
+
+# Phase 4 — ACLOwner at nonce 14, then ownership moves to it two-step.
 #
 # addPauser is onlyACLOwner, so it has to happen while the deployer still owns ACL.
 setup_acl_owner() {
@@ -169,11 +180,11 @@ setup_acl_owner() {
     echo "   ✅ ACLOwner $ACL_OWNER owns ACL"
 }
 
-# Phase 4 — the ten real implementations. Deployed AFTER the proxies on purpose: from nonce 0 they would
+# Phase 5 — the eleven real implementations. Deployed AFTER the proxies on purpose: from nonce 0 they would
 # land on canonical addresses.
 deploy_implementations() {
     deploy_real_implementations
-    echo "   ✅ 9 implementations deployed"
+    echo "   ✅ 11 implementations deployed"
 }
 
 main() {
@@ -210,6 +221,7 @@ main() {
     echo "🚀 deploying from the pre-compiled blobs (cast only, no solc)"
     deploy_empty_proxies
     install_pauser_set
+    deploy_protocol_config_replica_proxy
     setup_acl_owner
     deploy_implementations
     build_initializer_calldata

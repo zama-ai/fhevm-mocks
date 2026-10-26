@@ -132,7 +132,7 @@ contract ForkForgeVariantMeasurementTest is Test {
             .upgradeToAndCall(arithmeticImpl, abi.encodeCall(ICleartextArithmetic.initializeFromEmptyProxy, ()));
     }
 
-    function _roles() private view returns (address[11] memory addresses) {
+    function _roles() private view returns (address[12] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = ACL;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = EXECUTOR;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = KMS_VERIFIER;

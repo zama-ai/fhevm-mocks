@@ -282,7 +282,7 @@ void test(
         announce(
           2,
           STEPS,
-          `deploy ${GENERATION} with deploy-cli --stage all (3 forge builds, 22 creates, steps A-F, verify)`,
+          `deploy ${GENERATION} with deploy-cli --stage all (3 forge builds, 26 creates, steps A-F, verify)`,
         );
         rmSync(outDirAbs(), { recursive: true, force: true });
         writeOperatorConfig();

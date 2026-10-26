@@ -79,6 +79,8 @@ SIG_INIT_PROTOCOL_CONFIG="initializeFromEmptyProxy((address,address,string,strin
 SIG_INIT_CLEARTEXT_DB="initializeFromEmptyProxy(address)"
 # (uint16[] initialPrfInstances) — RFC-030
 SIG_INIT_PADDED_INPUTTER="initializeFromEmptyProxy(uint16[])"
+# (contextId, epochId, KmsNodeParams[], KmsThresholds) — the replica's own seed, not an empty-proxy bootstrap
+SIG_INIT_PROTOCOL_CONFIG_REPLICA="initializeFromCanonical(uint256,uint256,(address,address,string,string,int32,string,bytes,string)[],(uint256,uint256,uint256,uint256))"
 SIG_UPGRADE="upgrade((address,address,bytes)[])"
 
 # -----------------------------------------------------------------------------
@@ -310,11 +312,18 @@ read_scalar() { sed -n "s/^[a-z0-9]* constant $1 = \([^;]*\);.*/\1/p" "$ADDRESSE
 
 # One scalar from LocalHostBootstrap.sol — the mirror of DEFAULT_BOOTSTRAP_CONFIG. Matches any
 # visibility, so `internal constant` is found too. Values come back in the source's own form: decimal for
-# the numeric ones, 0x-prefixed for addresses.
-#   read_bootstrap_scalar GATEWAY_CHAIN_ID    -> 100733346448153
-#   read_bootstrap_scalar DECRYPTION_ADDRESS  -> 0xEaaA2FC6BC259dF015Aa7Dc8e59e0B67df622721
-#   read_bootstrap_scalar HCU_CAP_PER_BLOCK   -> 281474976710655
-read_bootstrap_scalar() { sed -n "s/.*constant $1 = \([^;]*\);.*/\1/p" "$BOOTSTRAP_SOL"; }
+# the numeric ones, 0x-prefixed for addresses and the 256-bit ids. A declaration forge fmt wrapped after
+# its `=` is read through to the `;`.
+#   read_bootstrap_scalar GATEWAY_CHAIN_ID        -> 100733346448153
+#   read_bootstrap_scalar DECRYPTION_ADDRESS      -> 0xEaaA2FC6BC259dF015Aa7Dc8e59e0B67df622721
+#   read_bootstrap_scalar HCU_CAP_PER_BLOCK       -> 281474976710655
+#   read_bootstrap_scalar INITIAL_KMS_CONTEXT_ID  -> 0x0700…0001
+read_bootstrap_scalar() {
+    awk -v name="$1" '
+        !grab && index($0, "constant " name " =") { grab = 1; sub(".*constant " name " =", "") }
+        grab { value = value $0; if (index(value, ";")) { sub(/;.*/, "", value); gsub(/[ \t]/, "", value); print value; exit } }
+    ' "$BOOTSTRAP_SOL"
+}
 
 # One array-returning LocalHostBootstrap function, flattened to a comma-joined list — the form cast wants
 # inside brackets. Strings come back unquoted, so requote them per element when building a tuple array.
@@ -340,7 +349,8 @@ read_bootstrap_array() {
 # Sets, from LocalHostAddresses.sol:
 #   ACL_ADDRESS FHEVM_EXECUTOR_ADDRESS KMS_VERIFIER_ADDRESS INPUT_VERIFIER_ADDRESS HCU_LIMIT_ADDRESS
 #   PROTOCOL_CONFIG_ADDRESS KMS_GENERATION_ADDRESS PADDED_INPUTTER_ADDRESS PAUSER_SET_ADDRESS
-#   CLEARTEXT_ARITHMETIC_ADDRESS CLEARTEXT_DB_ADDRESS DEPLOYER_ADDRESS ACCOUNT_INDEX START_NONCE
+#   CLEARTEXT_ARITHMETIC_ADDRESS CLEARTEXT_DB_ADDRESS PROTOCOL_CONFIG_REPLICA_ADDRESS DEPLOYER_ADDRESS
+#   ACCOUNT_INDEX START_NONCE
 #
 # from scripts/cleartext-config.sh, the shell face of the source of truth — not parsed out of generated
 # Solidity, whose line wrapping is forge fmt's to choose:
@@ -348,7 +358,7 @@ read_bootstrap_array() {
 #
 # and from LocalHostBootstrap.sol — the Solidity mirror of DEFAULT_BOOTSTRAP_CONFIG:
 #   GATEWAY_CHAIN_ID DECRYPTION_ADDRESS INPUT_VERIFICATION_ADDRESS COPROCESSOR_THRESHOLD KMS_NODE_COUNT
-#   HCU_CAP_PER_BLOCK MAX_HCU_DEPTH_PER_TX MAX_HCU_PER_TX
+#   HCU_CAP_PER_BLOCK MAX_HCU_DEPTH_PER_TX MAX_HCU_PER_TX INITIAL_KMS_CONTEXT_ID INITIAL_KMS_EPOCH_ID
 #   COPROCESSOR_SIGNERS KMS_SIGNERS KMS_TX_SENDERS KMS_IPS KMS_URLS KMS_MPC_IDENTITIES
 #   KMS_STORAGE_PREFIXES   (comma-joined lists)
 #
@@ -369,6 +379,7 @@ load_generated_addresses_and_bootstrap() {
     PAUSER_SET_ADDRESS="$(read_address PAUSER_SET_ADDRESS)"
     CLEARTEXT_ARITHMETIC_ADDRESS="$(read_address CLEARTEXT_ARITHMETIC_ADDRESS)"
     CLEARTEXT_DB_ADDRESS="$(read_address CLEARTEXT_DB_ADDRESS)"
+    PROTOCOL_CONFIG_REPLICA_ADDRESS="$(read_address PROTOCOL_CONFIG_REPLICA_ADDRESS)"
     DEPLOYER_ADDRESS="$(read_address DEPLOYER_ADDRESS)"
     ANVIL_MNEMONIC="$MNEMONIC"
     ACCOUNT_INDEX="$(read_scalar DEPLOYER_ADDRESS_INDEX)"
@@ -382,6 +393,8 @@ load_generated_addresses_and_bootstrap() {
     HCU_CAP_PER_BLOCK="$(read_bootstrap_scalar HCU_CAP_PER_BLOCK)"
     MAX_HCU_DEPTH_PER_TX="$(read_bootstrap_scalar MAX_HCU_DEPTH_PER_TX)"
     MAX_HCU_PER_TX="$(read_bootstrap_scalar MAX_HCU_PER_TX)"
+    INITIAL_KMS_CONTEXT_ID="$(read_bootstrap_scalar INITIAL_KMS_CONTEXT_ID)"
+    INITIAL_KMS_EPOCH_ID="$(read_bootstrap_scalar INITIAL_KMS_EPOCH_ID)"
 
     COPROCESSOR_SIGNERS="$(read_bootstrap_array coprocessorSigners)"
     KMS_SIGNERS="$(read_bootstrap_array kmsSigners)"
@@ -392,7 +405,8 @@ load_generated_addresses_and_bootstrap() {
     KMS_STORAGE_PREFIXES="$(read_bootstrap_array kmsStoragePrefixes)"
 
     [ -n "$ACL_ADDRESS" ] && [ -n "$DEPLOYER_ADDRESS" ] && [ -n "$ANVIL_MNEMONIC" ] \
-        && [ -n "$KMS_SIGNERS" ] && [ -n "$GATEWAY_CHAIN_ID" ] || {
+        && [ -n "$KMS_SIGNERS" ] && [ -n "$GATEWAY_CHAIN_ID" ] \
+        && [ -n "$PROTOCOL_CONFIG_REPLICA_ADDRESS" ] && [ -n "$INITIAL_KMS_CONTEXT_ID" ] || {
         echo "Error: could not parse the generated files; their format may have changed." >&2
         echo "       Regenerate with: npm run generate:local-host-bytecode" >&2
         exit 1
@@ -405,7 +419,7 @@ load_generated_addresses_and_bootstrap() {
 
 # The deployed stack, for a human. Addresses come from the generated files, so this is the same table
 # whichever launcher produced them. ACLOwner is printed only when the caller knows it — its address is not
-# in the generated set, because nothing compiles against it (on a fresh deploy it is CREATE(deployer, 13),
+# in the generated set, because nothing compiles against it (on a fresh deploy it is CREATE(deployer, 14),
 # but it survives an upgrade and so can come from an earlier generation entirely).
 report_stack() {
     echo ""
@@ -420,6 +434,7 @@ report_stack() {
     echo "   CleartextArithmetic $CLEARTEXT_ARITHMETIC_ADDRESS"
     echo "   CleartextDB         $CLEARTEXT_DB_ADDRESS"
     echo "   PauserSet           $PAUSER_SET_ADDRESS"
+    echo "   ProtocolConfigReplica $PROTOCOL_CONFIG_REPLICA_ADDRESS"
     [ -n "${ACL_OWNER:-}" ] && echo "   ACLOwner            $ACL_OWNER"
     return 0
 }
@@ -431,7 +446,7 @@ report_stack() {
 #
 #   - anvil-local-v3.sh places proxies with setCode, so nothing depends on a nonce. It deploys all of
 #     this up front, signed by CREATE_PRIVATE_KEY.
-#   - anvil-local-v2.sh CREATEs its proxies at CREATE(deployer, 0..12), so it must deploy the real
+#   - anvil-local-v2.sh CREATEs its proxies at CREATE(deployer, 0..13), so it must deploy the real
 #     implementations AFTER them — deploying first would put an implementation on a canonical address.
 #
 # Splitting the steps keeps that ordering the caller's decision while the blob list stays in one place.
@@ -458,7 +473,8 @@ deploy_empty_implementation() {
 # The real implementations. Permissionless, and nothing refers to their addresses, so the nonce they
 # land at does not matter — only that it is not a canonical one, which the guard below enforces.
 # Sets IMPL_ACL, IMPL_EXECUTOR, IMPL_KMS_VERIFIER, IMPL_INPUT_VERIFIER, IMPL_HCU_LIMIT,
-# IMPL_PROTOCOL_CONFIG, IMPL_KMS_GENERATION, IMPL_PADDED_INPUTTER, IMPL_ARITHMETIC, IMPL_DB.
+# IMPL_PROTOCOL_CONFIG, IMPL_KMS_GENERATION, IMPL_PADDED_INPUTTER, IMPL_ARITHMETIC, IMPL_DB,
+# IMPL_PROTOCOL_CONFIG_REPLICA.
 deploy_real_implementations() {
     IMPL_ACL="$(deploy_contract "0x$(read_blob CLEARTEXT_ACL_CREATION_CODE)" "ACL impl")"
     IMPL_EXECUTOR="$(deploy_contract "0x$(read_blob CLEARTEXT_FHEVM_EXECUTOR_CREATION_CODE)" "CleartextFHEVMExecutor impl")"
@@ -470,6 +486,7 @@ deploy_real_implementations() {
     IMPL_PADDED_INPUTTER="$(deploy_contract "0x$(read_blob CLEARTEXT_PADDED_INPUTTER_CREATION_CODE)" "CleartextPaddedInputter impl")"
     IMPL_ARITHMETIC="$(deploy_contract "0x$(read_blob CLEARTEXT_ARITHMETIC_CREATION_CODE)" "CleartextArithmetic impl")"
     IMPL_DB="$(deploy_contract "0x$(read_blob CLEARTEXT_DB_CREATION_CODE)" "CleartextDB impl")"
+    IMPL_PROTOCOL_CONFIG_REPLICA="$(deploy_contract "0x$(read_blob PROTOCOL_CONFIG_REPLICA_CREATION_CODE)" "ProtocolConfigReplica impl")"
     assert_no_canonical_collision
 }
 
@@ -491,10 +508,10 @@ assert_no_canonical_collision() {
     local canonical deployed impl target
     canonical="$ACL_ADDRESS $FHEVM_EXECUTOR_ADDRESS $KMS_VERIFIER_ADDRESS $INPUT_VERIFIER_ADDRESS
         $HCU_LIMIT_ADDRESS $PROTOCOL_CONFIG_ADDRESS $KMS_GENERATION_ADDRESS $PADDED_INPUTTER_ADDRESS
-        $PAUSER_SET_ADDRESS $CLEARTEXT_ARITHMETIC_ADDRESS $CLEARTEXT_DB_ADDRESS"
+        $PAUSER_SET_ADDRESS $CLEARTEXT_ARITHMETIC_ADDRESS $CLEARTEXT_DB_ADDRESS $PROTOCOL_CONFIG_REPLICA_ADDRESS"
     deployed="${EMPTY_ACL_IMPL:-} ${EMPTY_IMPL:-} ${IMPL_ACL:-} ${IMPL_EXECUTOR:-} ${IMPL_KMS_VERIFIER:-}
         ${IMPL_INPUT_VERIFIER:-} ${IMPL_HCU_LIMIT:-} ${IMPL_PROTOCOL_CONFIG:-} ${IMPL_KMS_GENERATION:-}
-        ${IMPL_PADDED_INPUTTER:-} ${IMPL_ARITHMETIC:-} ${IMPL_DB:-} ${ACL_OWNER:-}"
+        ${IMPL_PADDED_INPUTTER:-} ${IMPL_ARITHMETIC:-} ${IMPL_DB:-} ${IMPL_PROTOCOL_CONFIG_REPLICA:-} ${ACL_OWNER:-}"
     for impl in $deployed; do
         for target in $canonical; do
             if [ "$(printf '%s' "$impl" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$target" | tr 'A-Z' 'a-z')" ]; then
@@ -513,7 +530,7 @@ assert_no_canonical_collision() {
 
 # Builds the initializeFromEmptyProxy calldata for every proxy, from the values
 # load_generated_addresses_and_bootstrap read. Sets INIT_NOARGS, INIT_KMS_VERIFIER, INIT_INPUT_VERIFIER,
-# INIT_HCU_LIMIT, INIT_PROTOCOL_CONFIG, INIT_PADDED_INPUTTER, INIT_CLEARTEXT_DB.
+# INIT_HCU_LIMIT, INIT_PROTOCOL_CONFIG, INIT_PADDED_INPUTTER, INIT_CLEARTEXT_DB, INIT_PROTOCOL_CONFIG_REPLICA.
 #
 # Most take no arguments and share INIT_NOARGS; the other three plus ProtocolConfig carry the
 # bootstrap. Nothing here is hardcoded — only the signatures are, in the SIG_* table above.
@@ -546,6 +563,9 @@ build_initializer_calldata() {
     local n="$KMS_NODE_COUNT"
     INIT_PROTOCOL_CONFIG="$(cast calldata "$SIG_INIT_PROTOCOL_CONFIG" \
         "[$nodes]" "($n,$n,$n,$n)" "$CLEARTEXT_KMS_SOFTWARE_VERSION" "[]")"
+    # The replica mirrors what ProtocolConfig activates: its first context and epoch, the same nodes and thresholds.
+    INIT_PROTOCOL_CONFIG_REPLICA="$(cast calldata "$SIG_INIT_PROTOCOL_CONFIG_REPLICA" \
+        "$INITIAL_KMS_CONTEXT_ID" "$INITIAL_KMS_EPOCH_ID" "[$nodes]" "($n,$n,$n,$n)")"
 }
 
 # Materializes every proxy in ONE ACLOwner.upgrade, mirroring pkg/ts/deploy.ts and FhevmCleartextDeploy.sol.
@@ -567,10 +587,11 @@ upgrade_stack_atomically() {
     ops="$ops,($KMS_GENERATION_ADDRESS,$IMPL_KMS_GENERATION,$INIT_NOARGS)"
     ops="$ops,($PADDED_INPUTTER_ADDRESS,$IMPL_PADDED_INPUTTER,$INIT_PADDED_INPUTTER)"
     ops="$ops,($CLEARTEXT_ARITHMETIC_ADDRESS,$IMPL_ARITHMETIC,$INIT_NOARGS)"
-    ops="$ops,($CLEARTEXT_DB_ADDRESS,$IMPL_DB,$INIT_CLEARTEXT_DB)]"
+    ops="$ops,($CLEARTEXT_DB_ADDRESS,$IMPL_DB,$INIT_CLEARTEXT_DB)"
+    ops="$ops,($PROTOCOL_CONFIG_REPLICA_ADDRESS,$IMPL_PROTOCOL_CONFIG_REPLICA,$INIT_PROTOCOL_CONFIG_REPLICA)]"
 
     send_tx "$ACL_OWNER" "$SIG_UPGRADE" "$ops"
-    echo "   ✅ all 10 proxies materialized in ONE ACLOwner.upgrade"
+    echo "   ✅ all 11 proxies materialized in ONE ACLOwner.upgrade"
 }
 
 # ---------------------------------------------------------------------------
@@ -659,13 +680,14 @@ smoke_check() {
         "PaddedInputter:$PADDED_INPUTTER_ADDRESS" \
         "CleartextArithmetic:$CLEARTEXT_ARITHMETIC_ADDRESS" \
         "CleartextDB:$CLEARTEXT_DB_ADDRESS" \
-        "PauserSet:$PAUSER_SET_ADDRESS"; do
+        "PauserSet:$PAUSER_SET_ADDRESS" \
+        "ProtocolConfigReplica:$PROTOCOL_CONFIG_REPLICA_ADDRESS"; do
         name="${entry%%:*}"
         address="${entry##*:}"
         code="$(cast code "$address" --rpc-url "$RPC_URL" 2>/dev/null || echo 0x)"
         [ "${#code}" -le 2 ] && _smoke_fail "$name $address — no code"
     done
-    [ "$_smoke_failed" -eq 0 ] && _smoke_pass "all 11 addresses hold code"
+    [ "$_smoke_failed" -eq 0 ] && _smoke_pass "all 12 addresses hold code"
 
     # 2. getVersion answers on every contract that declares one. A proxy with code but no implementation
     #    slot still has code, so this is what distinguishes placed from materialized. CleartextDB has no
@@ -681,7 +703,8 @@ smoke_check() {
         "KMSGeneration:$KMS_GENERATION_ADDRESS" \
         "PaddedInputter:$PADDED_INPUTTER_ADDRESS" \
         "CleartextArithmetic:$CLEARTEXT_ARITHMETIC_ADDRESS" \
-        "PauserSet:$PAUSER_SET_ADDRESS"; do
+        "PauserSet:$PAUSER_SET_ADDRESS" \
+        "ProtocolConfigReplica:$PROTOCOL_CONFIG_REPLICA_ADDRESS"; do
         name="${entry%%:*}"
         address="${entry##*:}"
         version="$(cast call "$address" 'getVersion()(string)' --rpc-url "$RPC_URL" 2>/dev/null || echo '')"
@@ -758,6 +781,11 @@ smoke_check() {
         'getMaxHCUDepthPerTx()(uint48)' "$MAX_HCU_DEPTH_PER_TX"
     _smoke_expect_uint "HCULimit.getMaxHCUPerTx()" "$HCU_LIMIT_ADDRESS" \
         'getMaxHCUPerTx()(uint48)' "$MAX_HCU_PER_TX"
+    # The replica was seeded, not merely materialized: the same signers and context ProtocolConfig holds.
+    _smoke_expect_array_len "ProtocolConfigReplica.getKmsSigners()" "$PROTOCOL_CONFIG_REPLICA_ADDRESS" \
+        'getKmsSigners()(address[])' "$KMS_NODE_COUNT"
+    _smoke_expect_uint "ProtocolConfigReplica.getCurrentKmsContextId()" "$PROTOCOL_CONFIG_REPLICA_ADDRESS" \
+        'getCurrentKmsContextId()(uint256)' "$(cast to-dec "$INITIAL_KMS_CONTEXT_ID")"
     # The default RFC-030 PRF instance is registered, or every pad-based input is refused.
     _smoke_expect_bool "PaddedInputter.isSupportedPrfInstance($CLEARTEXT_PAD_PRF_INSTANCE)" "$PADDED_INPUTTER_ADDRESS" \
         'isSupportedPrfInstance(uint16)(bool)' true "$CLEARTEXT_PAD_PRF_INSTANCE"

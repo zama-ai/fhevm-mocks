@@ -22,7 +22,8 @@ import {
     MNEMONIC,
     PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
-    PROTOCOL_CONFIG_ADDRESS
+    PROTOCOL_CONFIG_ADDRESS,
+    PROTOCOL_CONFIG_REPLICA_ADDRESS
 } from "./_internal/LocalHostAddresses.sol";
 
 import {
@@ -40,7 +41,8 @@ import {
     KMS_GENERATION_CREATION_CODE,
     CLEARTEXT_PADDED_INPUTTER_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
-    PROTOCOL_CONFIG_CREATION_CODE
+    PROTOCOL_CONFIG_CREATION_CODE,
+    PROTOCOL_CONFIG_REPLICA_CREATION_CODE
 } from "./_internal/LocalHostBytecode.sol";
 
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
@@ -59,6 +61,7 @@ import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
 import {ICleartextPaddedInputter} from "./_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
+import {IProtocolConfigReplica} from "./_internal/interfaces/IProtocolConfigReplica.sol";
 // forge-lint: disable-end(unused-import)
 
 import {LibForgeFhevmStack} from "./LibForgeFhevmStack.sol";

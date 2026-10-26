@@ -65,6 +65,7 @@ export const REINITIALIZER_SOURCES: Readonly<Record<string, string>> = {
   CLEARTEXT_ARITHMETIC_ADDRESS: 'pkg/src/cleartext/CleartextArithmetic.sol',
   CLEARTEXT_DB_ADDRESS: 'pkg/src/cleartext/CleartextDB.sol',
   PADDED_INPUTTER_ADDRESS: 'pkg/src/contracts/PaddedInputter.sol',
+  PROTOCOL_CONFIG_REPLICA_ADDRESS: 'pkg/src/contracts/ProtocolConfigReplica.sol',
 };
 
 /** `uint64 private constant REINITIALIZER_VERSION = <n>;` in a Solidity source, or null when it has none. */

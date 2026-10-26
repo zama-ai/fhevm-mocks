@@ -246,25 +246,31 @@ npm run list:upgrade-ops -- ../v14
 #   contract                 bytecode  initializer                              verdict
 #   ACLOwner                 -                                                  not a proxy target
 #   CleartextACL             CHANGED   reinitializeV5 -> reinitializeV6         reinitialize
-#   CleartextArithmetic      same      reinitializeV3 -> reinitializeV3         no op
+#   CleartextArithmetic      CHANGED   reinitializeV3 -> reinitializeV4         reinitialize
 #   CleartextDB              same      - -> -                                   no op
 #   CleartextFHEVMExecutor   CHANGED   reinitializeV6 -> reinitializeV7         reinitialize
 #   CleartextHCULimit        same      reinitializeV4 -> reinitializeV4         no op
 #   CleartextInputVerifier   CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
 #   CleartextKMSVerifier     CHANGED   reinitializeV4 -> reinitializeV5         reinitialize
+#   CleartextPaddedInputter  -         initializeFromEmptyProxy()               materialize
+#   ERC1967Proxy             -                                                  not a proxy target
+#   EmptyUUPSProxy           -                                                  not a proxy target
+#   EmptyUUPSProxyACL        -                                                  not a proxy target
 #   KMSGeneration            CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
 #   PauserSet                -                                                  not a proxy target
 #   ProtocolConfig           CHANGED   reinitializeV2 -> reinitializeV3         reinitialize
+#   ProtocolConfigReplica    -         initializeFromCanonical()                materialize
 #
-#   0 materializations, 6 reinitializations
+#   2 materializations, 7 reinitializations
 ```
 
 It reads only committed JSON (`templates/` and `abi/`), so it needs no compilation and works against a
 published tarball as easily as a sibling checkout. Two details make it trustworthy: it patches both
 generations' placeholders to a **common** address set before comparing (the marker values differ per
 generation, so a raw comparison would call everything changed), and it keys "is this a proxy target" off
-`initializeFromEmptyProxy` rather than off the reinitializer — `CleartextDB`, `KMSGeneration` and
-`ProtocolConfig` are proxy targets with no reinitializer at all.
+an empty-proxy initializer (`initializeFromEmptyProxy`, or `initializeFromCanonical` for `ProtocolConfigReplica`)
+rather than off the reinitializer — `CleartextDB`, `KMSGeneration` and `ProtocolConfig` are proxy targets with
+no reinitializer at all.
 
 Its output is a starting point, not a spec. It cannot tell you what arguments a reinitializer takes — for
 v14→v15 none takes any, but v13→v14's `ProtocolConfig.reinitializeV2` took the re-declared KMS node set, the

@@ -16,6 +16,7 @@ import {IInputVerifier} from "./_internal/interfaces/IInputVerifier.sol";
 import {IKMSGeneration} from "./_internal/interfaces/IKMSGeneration.sol";
 import {IKMSVerifier} from "./_internal/interfaces/IKMSVerifier.sol";
 import {IProtocolConfig} from "./_internal/interfaces/IProtocolConfig.sol";
+import {IProtocolConfigReplica} from "./_internal/interfaces/IProtocolConfigReplica.sol";
 
 /// @notice `upgradeToAndCall` is on every UUPS proxy but on none of the generated interfaces as a
 ///         standalone, so it is named here once for all six.
@@ -117,8 +118,9 @@ library LibForgeFhevmUpgrade {
     /**
      * @notice Runs the whole upgrade against the stack `addresses` describes.
      * @param addresses One address per `FhevmAddressRole`, by position: the FORK's, not this package's.
-     *                  The cleartext roles are unused and may be zero. `PaddedInputter` may be zero too: the
-     *                  previous generation has none, so one is created and its address written back here.
+     *                  The cleartext roles are unused and may be zero. `PaddedInputter` and
+     *                  `ProtocolConfigReplica` may be zero too: the previous generation has neither, so each is
+     *                  created and its address written back here.
      *                  The length is written out because
      *                  Solidity refuses another library's constant as an array length;
      *                  `LibForgeFhevmUpgrade.t.sol` pins it against `LibHostUpgradeCode.ROLE_COUNT`.
@@ -127,11 +129,12 @@ library LibForgeFhevmUpgrade {
      *      transaction per op, each pranked as the ACL owner, in the order the table gives — upstream's,
      *      kept as is even though no reinitializer here reads another contract's state.
      */
-    function upgradeFromPreviousGeneration(address[11] memory addresses) internal {
+    function upgradeFromPreviousGeneration(address[12] memory addresses) internal {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
 
         // v15 adds PaddedInputter, which the previous generation does not have and the new executor bakes.
         _ensurePaddedInputter(owner, addresses, FhevmHostContracts.PaddedInputter);
+        _ensureProtocolConfigReplica(owner, addresses);
 
         for (uint256 index = 0; index < OP_COUNT; index++) {
             address proxy = addresses[uint8(opProxyRole(index))];
@@ -181,7 +184,7 @@ library LibForgeFhevmUpgrade {
      *      and forge grants those per address to what IT created -- a forked chain's proxy is not that, so
      *      each one is granted explicitly. Miss a grant and the stack reverts on its first FHE operation.
      */
-    function upgradeToCleartext(address[11] memory addresses) internal returns (address arithmetic, address db) {
+    function upgradeToCleartext(address[12] memory addresses) internal returns (address arithmetic, address db) {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
 
         // The cleartext executor bakes PaddedInputter too. A chain that has none gets one, created straight on
@@ -270,7 +273,7 @@ library LibForgeFhevmUpgrade {
      *      written back into `addresses`. A stack that already has one (nonzero role) is left as it is.
      *      Must run before the executor is deployed, which is every caller's first step.
      */
-    function _ensurePaddedInputter(address owner, address[11] memory addresses, FhevmHostContracts implementation)
+    function _ensurePaddedInputter(address owner, address[12] memory addresses, FhevmHostContracts implementation)
         private
     {
         if (addresses[uint8(FhevmAddressRole.PaddedInputter)] != address(0)) return;
@@ -297,12 +300,71 @@ library LibForgeFhevmUpgrade {
         );
     }
 
+    /**
+     * @dev v15 deploys `ProtocolConfigReplica` beside ProtocolConfig on every stack. A stack from the previous
+     *      generation has none, so it is CREATED here like the PaddedInputter, and seeded from the live canonical
+     *      ProtocolConfig (`protocolConfigReplicaInitData`). Nothing bakes its address, so the order relative to
+     *      the other ops is free. A stack that already has one (nonzero role) is left as it is.
+     */
+    function _ensureProtocolConfigReplica(address owner, address[12] memory addresses) private {
+        if (addresses[uint8(FhevmAddressRole.ProtocolConfigReplica)] != address(0)) return;
+
+        FhevmHostContracts implementation = FhevmHostContracts.ProtocolConfigReplica;
+        address emptyImplementation = _deploy(
+            uint8(implementation), LibHostUpgradeCode.creationCodeFor(FhevmHostContracts.EmptyUUPSProxy, addresses)
+        );
+        address proxy = _deploy(
+            uint8(implementation),
+            abi.encodePacked(
+                ERC1967_PROXY_CREATION_CODE,
+                abi.encode(emptyImplementation, abi.encodeCall(IEmptyUUPSProxy.initialize, ()))
+            )
+        );
+        addresses[uint8(FhevmAddressRole.ProtocolConfigReplica)] = proxy;
+
+        _materialize(
+            owner,
+            proxy,
+            implementation,
+            addresses,
+            protocolConfigReplicaInitData(addresses[uint8(FhevmAddressRole.ProtocolConfig)])
+        );
+    }
+
+    /**
+     * @notice The `initializeFromCanonical` call that seeds a ProtocolConfigReplica with what the live canonical
+     *         `protocolConfig` holds now: its current KMS context and epoch, that context's nodes and thresholds.
+     * @dev Reads only getters both generations have, so it serves a v14 stack before its upgrade as well as a v15
+     *      one. The replica stores a node's `KmsNode` part only and drops the MPC metadata (`partyId`,
+     *      `mpcIdentity`, `caCert`, `storagePrefix`), which no getter returns either: left empty.
+     *      Shared by every v14 -> v15 path that creates a replica, so they seed it alike.
+     */
+    function protocolConfigReplicaInitData(address protocolConfig) internal view returns (bytes memory) {
+        IProtocolConfig canonical = IProtocolConfig(protocolConfig);
+        (uint256 contextId, uint256 epochId) = canonical.getCurrentKmsContextAndEpoch();
+        IProtocolConfig.KmsNode[] memory live = canonical.getKmsNodesForContext(contextId);
+        IProtocolConfigReplica.KmsNodeParams[] memory nodes = new IProtocolConfigReplica.KmsNodeParams[](live.length);
+        for (uint256 i; i < live.length; i++) {
+            nodes[i].txSenderAddress = live[i].txSenderAddress;
+            nodes[i].signerAddress = live[i].signerAddress;
+            nodes[i].ipAddress = live[i].ipAddress;
+            nodes[i].storageUrl = live[i].storageUrl;
+        }
+        IProtocolConfigReplica.KmsThresholds memory thresholds = IProtocolConfigReplica.KmsThresholds({
+            publicDecryption: canonical.getPublicDecryptionThresholdForContext(contextId),
+            userDecryption: canonical.getUserDecryptionThresholdForContext(contextId),
+            kmsGen: canonical.getKmsGenThresholdForContext(contextId),
+            mpc: canonical.getMpcThresholdForContext(contextId)
+        });
+        return abi.encodeCall(IProtocolConfigReplica.initializeFromCanonical, (contextId, epochId, nodes, thresholds));
+    }
+
     /// @dev Deploy `implementation` patched for `addresses`, then point `proxy` at it as the ACL owner.
     function _materialize(
         address owner,
         address proxy,
         FhevmHostContracts implementation,
-        address[11] memory addresses,
+        address[12] memory addresses,
         bytes memory initData
     ) private {
         address deployed = _deploy(uint8(implementation), LibHostUpgradeCode.creationCodeFor(implementation, addresses));
@@ -333,15 +395,16 @@ library LibForgeFhevmUpgrade {
      *      bytecode (RFC-030 pad-based unmasking), and a real deployment has no such contract, so it is
      *      not in the generation's op list. Its proxy and its store stay, so every recorded value survives.
      */
-    function upgradeCleartextFromPreviousGeneration(address[11] memory addresses)
+    function upgradeCleartextFromPreviousGeneration(address[12] memory addresses)
         internal
         returns (address arithmetic, address db)
     {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
         address executor = addresses[uint8(FhevmAddressRole.FHEVMExecutor)];
 
-        // v15 adds PaddedInputter; the previous generation's cleartext stack has none.
+        // v15 adds PaddedInputter and ProtocolConfigReplica; the previous generation's cleartext stack has neither.
         _ensurePaddedInputter(owner, addresses, FhevmHostContracts.CleartextPaddedInputter);
+        _ensureProtocolConfigReplica(owner, addresses);
 
         // Asked of the stack, so the values it already holds stay reachable.
         arithmetic = ICleartextFHEVMExecutor(executor).getCleartextArithmeticAddress();
@@ -383,7 +446,7 @@ library LibForgeFhevmUpgrade {
 
     /// @dev The four that call cheatcodes. A forked chain's proxy is not something forge created, so it
     ///      has no access until it is granted -- and without it the stack reverts at its first FHE call.
-    function _grantCheatcodes(address[11] memory addresses, address arithmetic) private {
+    function _grantCheatcodes(address[12] memory addresses, address arithmetic) private {
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.ACL)]);
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.FHEVMExecutor)]);
         fvm.allowCheatcodes(addresses[uint8(FhevmAddressRole.HCULimit)]);

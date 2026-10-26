@@ -95,9 +95,9 @@ contract LibForgeFhevmUpgradeTest is Test {
     }
 
     /// `upgradeFromPreviousGeneration` writes its array length out, so the two must agree.
-    function test_theRoleCountIsStillEleven() public pure {
-        assertEq(LibHostUpgradeCode.ROLE_COUNT, 11, "the signature's array literal assumes it");
-        assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 11, "and so does the generated table");
+    function test_theRoleCountIsStillTwelve() public pure {
+        assertEq(LibHostUpgradeCode.ROLE_COUNT, 12, "the signature's array literal assumes it");
+        assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 12, "and so does the generated table");
     }
 
     // External wrappers, so `vm.expectRevert` has a call frame to catch.

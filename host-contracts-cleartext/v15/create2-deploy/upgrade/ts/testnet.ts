@@ -114,8 +114,8 @@ const PREVIOUS_ROLES: readonly string[] = [
 ];
 
 /**
- * The eight proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table: seven
- * live ones, then the PaddedInputter `creates` makes.
+ * The nine proxies `ACLOwner.upgrade` re-points, in op order — the coordinator's copy of the Solidity table: seven
+ * live ones, then the PaddedInputter and the ProtocolConfigReplica `creates` makes.
  */
 const UPGRADED_ROLES: readonly string[] = [
   'ACL_ADDRESS',
@@ -126,18 +126,19 @@ const UPGRADED_ROLES: readonly string[] = [
   'KMS_GENERATION_ADDRESS',
   'CLEARTEXT_ARITHMETIC_ADDRESS',
   'PADDED_INPUTTER_ADDRESS',
+  'PROTOCOL_CONFIG_REPLICA_ADDRESS',
 ];
 
-// The proxy this generation adds (RFC-030): created by `creates` over an empty implementation, then initialized
-// by its op. The copy of the Solidity `_newProxyRoles()`.
-const CREATED_ROLES: readonly string[] = ['PADDED_INPUTTER_ADDRESS'];
+// The proxies this generation adds (PaddedInputter, RFC-030, and ProtocolConfigReplica): created by `creates` over
+// an empty implementation, then initialized by their ops. The copy of the Solidity `_newProxyRoles()`.
+const CREATED_ROLES: readonly string[] = ['PADDED_INPUTTER_ADDRESS', 'PROTOCOL_CONFIG_REPLICA_ADDRESS'];
 
 // The two proxies outside this table (HCULimit, CleartextDB) are byte-identical across the two generations, so
 // the op list leaves them alone; the engine derives them.
 
 const REPORT_STEPS: ReadonlyArray<{ readonly label: string; readonly title: string }> = [
   { label: 'creates', title: 'every CREATE2 through the factory' },
-  { label: 'D', title: 'ACLOwner.upgrade — 7 reinitializations, 1 initialization' },
+  { label: 'D', title: 'ACLOwner.upgrade — 7 reinitializations, 2 initializations' },
 ];
 
 const DEFAULT_CONFIG_NAME = 'upgrade.config.json';
@@ -184,8 +185,10 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
   --pauser-set 0x...             --cleartext-db 0x...
   --acl-owner 0x...
 
-  PaddedInputter (RFC-030) is not one of them: the previous generation has none, so the upgrade CREATES its
-  proxy (creates) and initializes it (materialize). Its address is derived, never supplied.
+  PaddedInputter (RFC-030) and ProtocolConfigReplica are not among them: the previous generation has neither,
+  so the upgrade CREATES their proxies (creates) and initializes them (materialize). Their addresses are
+  derived, never supplied. The replica is seeded from the live ProtocolConfig's current KMS context, sealed
+  by compute; materialize refuses to send it if that context moved since.
 
   --deployment PATH    a stack folder of deployments/<chain>/ (deployments/README.md): its LATEST event is
                        the live stack. Its sealed manifest is the previous manifest, and its config gives
@@ -210,7 +213,7 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
                        precedence — the config file's "existing" block and the flags above both still
                        win, so one address can be corrected without editing anything
 
-  Every one is validated against the live chain before anything is computed, because the eight new
+  Every one is validated against the live chain before anything is computed, because the nine new
   implementations BAKE these addresses into their creation code: a wrong entry produces a stack that
   materializes cleanly and fails only in use. Eight are cross-checked against the stack's own wiring;
   --kms-verifier, --protocol-config and --kms-generation cannot be (no contract exposes a getter
@@ -635,23 +638,34 @@ const UPGRADE_INIT_CALLS: readonly string[] = [
   'KMSGeneration.reinitializeV3()',
   'CleartextArithmetic.reinitializeV4()',
   'PaddedInputter.initializeFromEmptyProxy(uint16[] initialPrfInstances)',
+  'ProtocolConfigReplica.initializeFromCanonical(uint256 contextId, uint256 epochId, KmsNodeParams[], KmsThresholds)',
 ];
 
 /**
- * `--stage params`: the init calls this upgrade sends, the same table `UpgradeInitData.sol` encodes. Seven are
+ * `--stage params`: the init calls this upgrade sends, the same table `FhevmUpgradeBase` encodes. Seven are
  * no-argument reinitializers; the eighth initializes the PaddedInputter the upgrade creates, with the PRF
- * instances compute sealed (`.paddedInputterPrfInstances`), which materialize refuses to send if they moved.
+ * instances compute sealed (`.paddedInputterPrfInstances`), which materialize refuses to send if they moved; the
+ * ninth seeds the ProtocolConfigReplica with the live ProtocolConfig's KMS context, sealed the same way.
  */
 function stageParams(ctx: Ctx): void {
   say(`🧬  init calls  ${ctx.opt.deploymentId}`, '');
   for (const call of UPGRADE_INIT_CALLS) say(`  ${call}`);
-  const sealed = readJson<{ readonly paddedInputterPrfInstances?: readonly number[] }>(manifestPath(ctx));
+  const sealed = readJson<{
+    readonly paddedInputterPrfInstances?: readonly number[];
+    readonly protocolConfigReplicaContextId?: number | string;
+    readonly protocolConfigReplicaEpochId?: number | string;
+  }>(manifestPath(ctx));
   const prfs = sealed?.paddedInputterPrfInstances;
+  const contextId = sealed?.protocolConfigReplicaContextId;
+  const epochId = sealed?.protocolConfigReplicaEpochId;
   say(
     '',
     prfs === undefined
       ? '  initialPrfInstances: not sealed yet — run compute first'
       : `  initialPrfInstances: [${prfs.join(', ')}]${prfs.length === 0 ? '  (none: every pad-based input is refused)' : ''}`,
+    contextId === undefined || epochId === undefined
+      ? '  replica seed: not sealed yet — run compute first'
+      : `  replica seed: context ${String(contextId)}, epoch ${String(epochId)}, and that context's nodes and thresholds`,
     '  nothing else is migrated',
   );
 }

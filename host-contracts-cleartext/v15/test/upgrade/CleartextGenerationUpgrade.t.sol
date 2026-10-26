@@ -23,6 +23,8 @@ import {LocalHostVersions} from "../../pkg/forge/src/_internal/LocalHostVersions
 import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextDB} from "../../pkg/forge/src/_internal/interfaces/ICleartextDB.sol";
 import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/_internal/interfaces/ICleartextFHEVMExecutor.sol";
+import {IProtocolConfig} from "../../pkg/forge/src/_internal/interfaces/IProtocolConfig.sol";
+import {IProtocolConfigReplica} from "../../pkg/forge/src/_internal/interfaces/IProtocolConfigReplica.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
@@ -80,6 +82,28 @@ contract CleartextGenerationUpgradeTest is Test, V13Deploy {
 
         address after_ = ICleartextArithmetic(executor.getCleartextArithmeticAddress()).getCleartextDBAddress();
         assertEq(after_, before, "same store, same address");
+    }
+
+    /// v15 deploys a ProtocolConfigReplica beside ProtocolConfig; the upgrade creates one, seeded from the live
+    /// canonical: the same context and epoch, signers and thresholds.
+    function test_theUpgradeCreatesAReplicaMirroringProtocolConfig() public {
+        IProtocolConfig canonical = IProtocolConfig(PROTOCOL_CONFIG_ADDRESS);
+        (uint256 contextId, uint256 epochId) = canonical.getCurrentKmsContextAndEpoch();
+
+        address[12] memory addresses = _upgrade();
+
+        IProtocolConfigReplica replica =
+            IProtocolConfigReplica(addresses[uint8(FhevmAddressRole.ProtocolConfigReplica)]);
+        assertTrue(address(replica).code.length != 0, "created");
+        assertEq(replica.getVersion(), LocalHostVersions.PROTOCOL_CONFIG_REPLICA, "this generation's replica");
+        (uint256 replicaContextId, uint256 replicaEpochId) = replica.getCurrentKmsContextAndEpoch();
+        assertEq(replicaContextId, contextId, "context");
+        assertEq(replicaEpochId, epochId, "epoch");
+        assertEq(replica.getKmsSigners(), canonical.getKmsSigners(), "signers");
+        assertEq(replica.getPublicDecryptionThreshold(), canonical.getPublicDecryptionThreshold(), "publicDecryption");
+        assertEq(replica.getUserDecryptionThreshold(), canonical.getUserDecryptionThreshold(), "userDecryption");
+        assertEq(replica.getKmsGenThreshold(), canonical.getKmsGenThreshold(), "kmsGen");
+        assertEq(replica.getMpcThreshold(), canonical.getMpcThreshold(), "mpc");
     }
 
     // -- What survives ------------------------------------------------------------------------------
@@ -160,8 +184,7 @@ contract CleartextGenerationUpgradeTest is Test, V13Deploy {
 
     // -- the upgrade under test ---------------------------------------------------------------------
 
-    function _upgrade() private {
-        address[11] memory addresses;
+    function _upgrade() private returns (address[12] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = ACL_ADDRESS;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = FHEVM_EXECUTOR_ADDRESS;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = KMS_VERIFIER_ADDRESS;

@@ -31,12 +31,12 @@ export type LocalhostAddresses = Omit<Deployed, 'aclOwnerAddress'>;
 
 /** Where the local stack lands, derived by the package from the deployer and its start nonce. */
 export function precomputeLocalhostAddresses(): LocalhostAddresses {
-  const { fhevmAddresses, cleartextAddresses, pauserSetAddress } = precomputeAddresses({
+  const { fhevmAddresses, cleartextAddresses, pauserSetAddress, protocolConfigReplicaAddress } = precomputeAddresses({
     ethUtils: createViemEthereumUtils(),
     from: LOCALHOST_DEPLOYER.address,
     startNonce: BigInt(LOCALHOST_DEPLOYER.startNonce),
   });
-  return { fhevmAddresses, cleartextAddresses, pauserSetAddress };
+  return { fhevmAddresses, cleartextAddresses, pauserSetAddress, protocolConfigReplicaAddress };
 }
 
 /** True when the ACL already carries code: the stack is on the chain and `deployCleartextStack` will reuse it. */

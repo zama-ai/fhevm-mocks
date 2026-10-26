@@ -83,6 +83,7 @@ export function precomputeAddresses(parameters: {
   fhevmAddresses: FhevmAddresses;
   cleartextAddresses: CleartextAddresses;
   pauserSetAddress: string;
+  protocolConfigReplicaAddress: string;
   nextStartNonce: bigint;
 } {
   const { fhevmAddresses, nextStartNonce } = precomputeFhevmAddresses(parameters);
@@ -99,6 +100,9 @@ export function precomputeAddresses(parameters: {
     fhevmAddresses,
     cleartextAddresses,
     pauserSetAddress: at(nextStartNonce + 2n),
-    nextStartNonce: nextStartNonce + 3n,
+    // The read-replica a non-canonical host runs, deployed beside ProtocolConfig on every stack. After PauserSet,
+    // so every earlier address is unmoved; nothing bakes it.
+    protocolConfigReplicaAddress: at(nextStartNonce + 3n),
+    nextStartNonce: nextStartNonce + 4n,
   };
 }

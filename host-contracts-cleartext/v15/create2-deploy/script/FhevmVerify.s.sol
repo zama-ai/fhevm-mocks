@@ -193,6 +193,19 @@ contract FhevmVerify is FhevmVerifyBase {
                 .isSupportedPrfInstance(C.CLEARTEXT_PAD_PRF_INSTANCE),
             "PaddedInputter.isSupportedPrfInstance(CLEARTEXT_PAD_PRF_INSTANCE)"
         );
+
+        // ProtocolConfigReplica: seeded with what ProtocolConfig activated — its context and epoch, the same KMS
+        // set and thresholds.
+        IWiredProtocolConfig replica = IWiredProtocolConfig(_readManifestAddress(manifest, R_PROTOCOL_CONFIG_REPLICA));
+        (uint256 contextId, uint256 epochId) = replica.getCurrentKmsContextAndEpoch();
+        (uint256 canonicalContextId, uint256 canonicalEpochId) = pc.getCurrentKmsContextAndEpoch();
+        _expectUint(contextId, canonicalContextId, "ProtocolConfigReplica context == ProtocolConfig's");
+        _expectUint(epochId, canonicalEpochId, "ProtocolConfigReplica epoch == ProtocolConfig's");
+        _expectSignerSet(replica.getKmsSigners(), kmsSigners, "ProtocolConfigReplica.getKmsSigners()");
+        _expectUint(replica.getPublicDecryptionThreshold(), kms, "ProtocolConfigReplica publicDecryption threshold");
+        _expectUint(replica.getUserDecryptionThreshold(), kms, "ProtocolConfigReplica userDecryption threshold");
+        _expectUint(replica.getKmsGenThreshold(), kms, "ProtocolConfigReplica kmsGen threshold");
+        _expectUint(replica.getMpcThreshold(), kms, "ProtocolConfigReplica mpc threshold");
     }
 
     /// @dev The EIP-712 domain a verifier's signatures are made in: the gateway chain and the gateway contract.

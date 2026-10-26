@@ -10,7 +10,7 @@ import {LibFhevmCleartextConfig} from "../../pkg/src/cleartext/shared/LibFhevmCl
 
 /**
  * @title Create2UpgradeOrdinalsTest
- * @notice Pins the index alignment of the independent 10-create / 8-op table used only by the
+ * @notice Pins the index alignment of the independent 12-create / 9-op table used only by the
  *         v14 -> v15 upgrade, the way its sibling `Create2Ordinals.t.sol` pins the fresh deploy's lists.
  *
  * The upgrade table is INDEPENDENT of the deploy one: it visits a different set of roles, in a
@@ -39,7 +39,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
 
     function test_upgradeRolesAndArtifactsAreIndexAligned() public pure {
         string[] memory roles = _upgradeProxyRoles();
-        assertEq(roles.length, 8, "upgrade op count");
+        assertEq(roles.length, 9, "upgrade op count");
         assertEq(roles[0], "ACL_ADDRESS");
         assertEq(roles[1], "FHEVM_EXECUTOR_ADDRESS");
         assertEq(roles[2], "KMS_VERIFIER_ADDRESS");
@@ -48,6 +48,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(roles[5], "KMS_GENERATION_ADDRESS");
         assertEq(roles[6], "CLEARTEXT_ARITHMETIC_ADDRESS");
         assertEq(roles[7], "PADDED_INPUTTER_ADDRESS");
+        assertEq(roles[8], "PROTOCOL_CONFIG_REPLICA_ADDRESS");
 
         assertEq(_upgradeImplArtifact(0), "pkg/src/cleartext/CleartextACL.sol:CleartextACL");
         assertEq(_upgradeImplArtifact(1), "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor");
@@ -57,6 +58,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(_upgradeImplArtifact(5), "pkg/src/contracts/KMSGeneration.sol:KMSGeneration");
         assertEq(_upgradeImplArtifact(6), "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic");
         assertEq(_upgradeImplArtifact(7), "pkg/src/cleartext/CleartextPaddedInputter.sol:CleartextPaddedInputter");
+        assertEq(_upgradeImplArtifact(8), "pkg/src/contracts/ProtocolConfigReplica.sol:ProtocolConfigReplica");
     }
 
     /// The engine creates from the deploy path's artifact per role; this table must name the same one.
@@ -67,42 +69,47 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         }
     }
 
-    /// v15 adds one proxy, PaddedInputter: the upgrade creates it over an empty implementation, first.
-    function test_upgradeCreatesTheNewProxyFirst() public pure {
+    /// v15 adds two proxies, PaddedInputter and ProtocolConfigReplica: the upgrade creates them over an empty
+    /// implementation, first.
+    function test_upgradeCreatesTheNewProxiesFirst() public pure {
         string[] memory created = _newProxyRoles();
-        assertEq(created.length, 1, "created proxy count");
+        assertEq(created.length, 2, "created proxy count");
         assertEq(created[0], "PADDED_INPUTTER_ADDRESS");
+        assertEq(created[1], "PROTOCOL_CONFIG_REPLICA_ADDRESS");
     }
 
-    /// The empty implementation, the created proxy, then one implementation create per op.
-    function test_upgradeArtifactsResolveAndCreateCountIsTen() public {
+    /// The empty implementation, the created proxies, then one implementation create per op.
+    function test_upgradeArtifactsResolveAndCreateCountIsTwelve() public {
         existingAcl = address(0xA11CE);
         string[] memory roles = _upgradeProxyRoles();
         for (uint256 i; i < roles.length; i++) {
             assertGt(vm.getCode(_upgradeImplArtifact(i)).length, 0);
         }
         UpgradeCreate[] memory t = _upgradeCreateTable();
-        assertEq(t.length, 10, "an empty implementation, one proxy, eight implementations");
+        assertEq(t.length, 12, "an empty implementation, two proxies, nine implementations");
         assertEq(t[0].role, "UPGRADE_EMPTY_UUPS_PROXY");
         assertEq(t[1].role, "PADDED_INPUTTER_ADDRESS");
+        assertEq(t[2].role, "PROTOCOL_CONFIG_REPLICA_ADDRESS");
         for (uint256 i; i < roles.length; i++) {
-            assertEq(t[i + 2].role, string.concat("IMPL_", roles[i]));
+            assertEq(t[i + 3].role, string.concat("IMPL_", roles[i]));
         }
     }
 
-    /// The created proxy sits on the empty implementation's predicted address, initialized like the deploy's.
-    function test_createdProxyIsOverTheEmptyImplementation() public {
+    /// The created proxies sit on the empty implementation's predicted address, initialized like the deploy's.
+    function test_createdProxiesAreOverTheEmptyImplementation() public {
         existingAcl = address(0xA11CE);
         UpgradeCreate[] memory t = _upgradeCreateTable();
         address emptyImpl = _predictCreate2Address(t[0].role, t[0].initCode);
-        assertEq(
-            keccak256(t[1].initCode),
-            keccak256(_proxyInitCode(emptyImpl, abi.encodeWithSignature("initialize()"))),
-            "the committed ERC1967Proxy, over the empty implementation"
-        );
+        for (uint256 i = 1; i <= 2; i++) {
+            assertEq(
+                keccak256(t[i].initCode),
+                keccak256(_proxyInitCode(emptyImpl, abi.encodeWithSignature("initialize()"))),
+                "the committed ERC1967Proxy, over the empty implementation"
+            );
+        }
     }
 
-    /// The untouched set and the op set partition the ten live proxies.
+    /// The untouched set and the op set partition the stack's eleven proxies.
     function test_untouchedAndUpgradedRolesPartitionTheStack() public view {
         string[] memory untouched = _untouchedProxyRoles();
         assertEq(untouched.length, 2, "untouched count");
@@ -160,13 +167,20 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         );
     }
 
+    /// The replica starts at its empty proxy's `initialize()` and ends at its own reinitializer(4), in one op.
+    function test_createdReplicaVersions() public pure {
+        assertEq(_upgradeFromVersion(8), 1);
+        assertEq(_upgradeToVersion(8), 4);
+    }
+
+    /// Op 8's payload is not in `UpgradeInitData`: it is read from the live ProtocolConfig and sealed at compute.
     function test_upgradeTablesRejectOutOfRange() public {
         vm.expectRevert(bytes("FhevmUpgradeBase: implementation index out of range"));
-        this.callUpgradeArtifact(8);
+        this.callUpgradeArtifact(9);
         vm.expectRevert(bytes("UpgradeInitData: index out of range"));
         this.callUpgradeInitData(8);
         vm.expectRevert(bytes("FhevmUpgradeBase: version index out of range"));
-        this.callUpgradeFromVersion(8);
+        this.callUpgradeFromVersion(9);
     }
 
     function _contractName(uint256 i) private pure returns (string memory) {

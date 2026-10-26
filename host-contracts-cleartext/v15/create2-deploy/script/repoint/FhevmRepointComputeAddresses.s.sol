@@ -34,8 +34,16 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         console.log("  PROTOCOL_CONFIG_ADDRESS", existingProtocolConfig);
         console.log("  KMS_GENERATION_ADDRESS ", existingKmsGeneration);
         console.log(
-            _newProxyRoles().length == 0 ? "  PADDED_INPUTTER_ADDRESS" : "  PADDED_INPUTTER_ADDRESS (created)",
+            _contains(_newProxyRoles(), R_PADDED_INPUTTER)
+                ? "  PADDED_INPUTTER_ADDRESS (created)"
+                : "  PADDED_INPUTTER_ADDRESS",
             existingPaddedInputter
+        );
+        console.log(
+            _contains(_newProxyRoles(), R_PROTOCOL_CONFIG_REPLICA)
+                ? "  PROTOCOL_CONFIG_REPLICA_ADDRESS (created)"
+                : "  PROTOCOL_CONFIG_REPLICA_ADDRESS",
+            existingProtocolConfigReplica
         );
         console.log("  wrote", _addressesPath());
     }
@@ -123,6 +131,7 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         source = string.concat(source, _constant(R_CLEARTEXT_DB, existingDb));
         source = string.concat(source, _constant(R_PADDED_INPUTTER, existingPaddedInputter));
         source = string.concat(source, _constant(R_PAUSER_SET, existingPauserSet));
+        source = string.concat(source, _constant(R_PROTOCOL_CONFIG_REPLICA, existingProtocolConfigReplica));
         vm.writeFile(_addressesPath(), source);
     }
 
@@ -164,6 +173,7 @@ abstract contract FhevmRepointComputeAddresses is FhevmRepointBase {
         vm.serializeAddress(o, R_CLEARTEXT_ARITHMETIC, existingArithmetic);
         vm.serializeAddress(o, R_CLEARTEXT_DB, existingDb);
         vm.serializeAddress(o, R_PADDED_INPUTTER, existingPaddedInputter);
+        vm.serializeAddress(o, R_PROTOCOL_CONFIG_REPLICA, existingProtocolConfigReplica);
         vm.serializeAddress(o, R_PAUSER_SET, existingPauserSet);
         vm.serializeAddress(o, R_ACL_OWNER, existingAclOwner);
         if (_newProxyRoles().length != 0) {

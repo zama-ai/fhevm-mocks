@@ -1518,5 +1518,10 @@ export const template: ContractTemplate = {
       bytecodeOffsets: [],
       deployedBytecodeOffsets: [],
     },
+    PROTOCOL_CONFIG_REPLICA_ADDRESS: {
+      placeholder: '0xdacbc72e66c52bb3d352a7b50234ef4e749d2f36',
+      bytecodeOffsets: [],
+      deployedBytecodeOffsets: [],
+    },
   },
 };

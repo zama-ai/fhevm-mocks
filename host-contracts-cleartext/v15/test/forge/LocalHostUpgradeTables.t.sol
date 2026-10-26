@@ -54,6 +54,7 @@ contract LocalHostUpgradeTablesTest is Test {
         all[18] = FhevmHostContracts.EmptyUUPSProxy;
         all[19] = FhevmHostContracts.PaddedInputter;
         all[20] = FhevmHostContracts.CleartextPaddedInputter;
+        all[21] = FhevmHostContracts.ProtocolConfigReplica;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -100,10 +101,10 @@ contract LocalHostUpgradeTablesTest is Test {
 
     /// Catches an append on either enum, which the per-member checks above cannot see.
     function test_neitherEnumHasGrownAMember() public pure {
-        assertEq(uint8(type(FhevmHostContracts).max), 20, "host contracts");
-        assertEq(uint8(type(FhevmAddressRole).max), 10, "address roles");
-        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 21, "and the count the tables were built with");
-        assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 11, "and the role count");
+        assertEq(uint8(type(FhevmHostContracts).max), 21, "host contracts");
+        assertEq(uint8(type(FhevmAddressRole).max), 11, "address roles");
+        assertEq(LocalHostUpgrade.HOST_CONTRACT_COUNT, 22, "and the count the tables were built with");
+        assertEq(LocalHostUpgrade.ADDRESS_ROLE_COUNT, 12, "and the role count");
     }
 
     // ---------------------------------------------------------------------------------------------

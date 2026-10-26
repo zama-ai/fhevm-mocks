@@ -33,7 +33,7 @@ import {MaterializeInitData} from "../create2-deploy/script/MaterializeInitData.
 contract Create2OrdinalsTest is Test, FhevmCreate2Base {
     /// @dev The role at each position, ACL first. Must equal `_allProxyRoles()` exactly.
     function _expectedRoles() private pure returns (string[] memory r) {
-        r = new string[](10);
+        r = new string[](11);
         r[0] = "ACL_ADDRESS";
         r[1] = "FHEVM_EXECUTOR_ADDRESS";
         r[2] = "KMS_VERIFIER_ADDRESS";
@@ -44,6 +44,7 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
         r[7] = "PADDED_INPUTTER_ADDRESS";
         r[8] = "CLEARTEXT_ARITHMETIC_ADDRESS";
         r[9] = "CLEARTEXT_DB_ADDRESS";
+        r[10] = "PROTOCOL_CONFIG_REPLICA_ADDRESS";
     }
 
     // `vm.expectRevert` only observes reverts one call frame down, and the two functions under test are
@@ -58,7 +59,7 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
 
     /// @dev The implementation artifact at each position, index-aligned with _expectedRoles().
     function _expectedArtifacts() private pure returns (string[] memory a) {
-        a = new string[](10);
+        a = new string[](11);
         a[0] = "pkg/src/cleartext/CleartextACL.sol:CleartextACL";
         a[1] = "pkg/src/cleartext/CleartextFHEVMExecutor.sol:CleartextFHEVMExecutor";
         a[2] = "pkg/src/cleartext/CleartextKMSVerifier.sol:CleartextKMSVerifier";
@@ -69,6 +70,7 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
         a[7] = "pkg/src/cleartext/CleartextPaddedInputter.sol:CleartextPaddedInputter";
         a[8] = "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic";
         a[9] = "pkg/src/cleartext/CleartextDB.sol:CleartextDB";
+        a[10] = "pkg/src/contracts/ProtocolConfigReplica.sol:ProtocolConfigReplica";
     }
 
     /// The two role lists agree, and the longer one is the shorter plus ACL.
@@ -128,6 +130,19 @@ contract Create2OrdinalsTest is Test, FhevmCreate2Base {
         }
         vm.expectRevert(bytes("MaterializeInitData: index out of range"));
         this.callInitData(count);
+    }
+
+    /// The replica is seeded by its own initializer, not an empty-proxy bootstrap: the canonical's first ids.
+    function test_theReplicaIsSeededFromTheCanonicalBootstrap() public pure {
+        bytes memory payload = MaterializeInitData.initData(10, address(0xA11CE));
+        assertEq(
+            bytes4(payload),
+            bytes4(
+                keccak256(
+                    "initializeFromCanonical(uint256,uint256,(address,address,string,string,int32,string,bytes,string)[],(uint256,uint256,uint256,uint256))"
+                )
+            )
+        );
     }
 
     /// The `_allCreates` arity: 2 empty implementations + N proxies + PauserSet + ACLOwner + N

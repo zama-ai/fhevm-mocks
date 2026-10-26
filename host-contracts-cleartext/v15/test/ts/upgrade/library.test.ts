@@ -590,6 +590,7 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
 
     // --- 3. Upgrade the live stack to this generation (single atomic ACLOwner.upgrade). ---
     const upgraded = await updateV14ToV15({
+      ethProvider: adapters.provider,
       ethUtils: adapters.utils,
       deployer: adapters.signer,
       admin: adapters.signer,
@@ -615,6 +616,11 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
         functionName: 'IS_CLEARTEXT',
       }),
     ).toBe(true);
+
+    // --- 3c. And the ProtocolConfigReplica every v15 stack deploys: created too, at none of the earlier addresses.
+    const replicaAddress = upgraded.protocolConfigReplicaAddress;
+    expect([...existingAddresses, paddedInputterAddress.toLowerCase()]).not.toContain(replicaAddress.toLowerCase());
+    expect(await version(replicaAddress)).toBe(CONTRACT_VERSIONS.protocolConfigReplica);
 
     // --- 4. Exactly the six changed host proxies and CleartextArithmetic were re-pointed; nothing else moved. ---
     const implementationsAfter = await implementations();
@@ -792,16 +798,17 @@ test('e2e: the upgrade migrates nothing — KMS and coprocessor state survive on
     const protocolConfig = prev.fhevmAddresses.protocolConfigAddress as Address;
     const inputVerifier = prev.fhevmAddresses.inputVerifierAddress as Address;
 
-    const readContextAndEpoch = async (): Promise<readonly [bigint, bigint]> =>
+    // Each reads ProtocolConfig, or the replica the upgrade creates, which answers the same getters.
+    const readContextAndEpoch = async (address: Address = protocolConfig): Promise<readonly [bigint, bigint]> =>
       await publicClient.readContract({
-        address: protocolConfig,
+        address,
         abi: KMS_CONTEXT_ABI,
         functionName: 'getCurrentKmsContextAndEpoch',
       });
-    const readSigners = async (): Promise<string[]> =>
+    const readSigners = async (address: Address = protocolConfig): Promise<string[]> =>
       [
         ...(await publicClient.readContract({
-          address: protocolConfig,
+          address,
           abi: KMS_CONTEXT_ABI,
           functionName: 'getKmsSigners',
         })),
@@ -815,12 +822,10 @@ test('e2e: the upgrade migrates nothing — KMS and coprocessor state survive on
         })),
       ].map((s) => s.toLowerCase());
 
-    const readThresholds = async (): Promise<bigint[]> => {
+    const readThresholds = async (address: Address = protocolConfig): Promise<bigint[]> => {
       const out: bigint[] = [];
       for (const getter of KMS_THRESHOLD_GETTERS) {
-        out.push(
-          await publicClient.readContract({ address: protocolConfig, abi: KMS_THRESHOLDS_ABI, functionName: getter }),
-        );
+        out.push(await publicClient.readContract({ address, abi: KMS_THRESHOLDS_ABI, functionName: getter }));
       }
       return out;
     };
@@ -858,7 +863,8 @@ test('e2e: the upgrade migrates nothing — KMS and coprocessor state survive on
     const blockBeforeUpgrade = await publicClient.getBlockNumber();
 
     // --- 3. Upgrade. No migration input exists: every reinitializer takes no arguments. ---
-    await updateV14ToV15({
+    const { protocolConfigReplicaAddress } = await updateV14ToV15({
+      ethProvider: adapters.provider,
       ethUtils: adapters.utils,
       deployer: adapters.signer,
       admin: adapters.signer,
@@ -872,6 +878,12 @@ test('e2e: the upgrade migrates nothing — KMS and coprocessor state survive on
     expect(await readSigners()).toEqual(signersBefore);
     expect(await readThresholds()).toEqual(thresholdsBefore);
     expect(await readCoprocessorSigners()).toEqual(coprocessorSignersBefore);
+
+    // --- 4a. The ProtocolConfigReplica the upgrade created was seeded with that same live state. ---
+    const replica = protocolConfigReplicaAddress as Address;
+    expect(await readContextAndEpoch(replica)).toEqual([contextBefore, epochBefore]);
+    expect(await readSigners(replica)).toEqual(signersBefore);
+    expect(await readThresholds(replica)).toEqual(thresholdsBefore);
 
     // And nothing was announced: during the upgrade, ProtocolConfig emitted only its proxy's own `Upgraded` and
     // `Initialized`. A KMS context or epoch event here would mean the upgrade migrated state it must not touch.

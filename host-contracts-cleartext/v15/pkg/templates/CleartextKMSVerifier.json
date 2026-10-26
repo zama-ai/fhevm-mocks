@@ -112,6 +112,11 @@
       "placeholder": "0x3926754e840cb4b99bb08044530f5d18045daa21",
       "bytecodeOffsets": [],
       "deployedBytecodeOffsets": []
+    },
+    "PROTOCOL_CONFIG_REPLICA_ADDRESS": {
+      "placeholder": "0xdacbc72e66c52bb3d352a7b50234ef4e749d2f36",
+      "bytecodeOffsets": [],
+      "deployedBytecodeOffsets": []
     }
   }
 }

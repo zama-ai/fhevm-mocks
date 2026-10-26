@@ -94,8 +94,8 @@ export DEPLOYER_PRIVATE_KEY="$PRIVATE_KEY"
 
 START_NONCE="$(cast nonce "$DEPLOYER" --rpc-url "$RPC_URL")"
 
-# ACLOwner is created at start nonce + ADDRESSED_NONCE_COUNT — one past the last address any bytecode
-# refers to, i.e. right after PauserSet. Read from the generated LocalHostAddresses.sol rather than
+# ACLOwner is created at start nonce + ADDRESSED_NONCE_COUNT — one past the last addressed nonce, i.e.
+# right after the ProtocolConfigReplica proxy. Read from the generated LocalHostAddresses.sol rather than
 # written down: it is the one number here that moves when the protocol generation adds or drops a host
 # contract, and a stale literal makes this check compare against an address nothing was deployed to.
 #

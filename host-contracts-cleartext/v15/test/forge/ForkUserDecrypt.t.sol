@@ -119,7 +119,7 @@ contract ForkUserDecryptTest is Test {
 
     /// @dev EVERY role, although this suite installs only two contracts: the patcher refuses a role it
     ///      has no address for, whichever contract happens to reference it. From the chain table.
-    function _roles() private view returns (address[11] memory addresses) {
+    function _roles() private view returns (address[12] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = MAINNET_ACL;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = MAINNET_EXECUTOR;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = MAINNET_KMS_VERIFIER;

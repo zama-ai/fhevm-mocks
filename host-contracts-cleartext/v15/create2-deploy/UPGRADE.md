@@ -5,18 +5,20 @@ example chain is **Arbitrum Sepolia** (chain id `421614`).
 
 What the upgrade does:
 
-- creates 10 contracts through the CREATE2 factory: the `PaddedInputter` proxy v15 adds (RFC-030) with the
-  empty implementation it starts on, then the 8 v15 implementations;
-- re-points 8 proxies in **one atomic transaction** (`ACLOwner.upgrade`), sent by the current admin:
+- creates 12 contracts through the CREATE2 factory: the two proxies v15 adds, `PaddedInputter` (RFC-030) and
+  `ProtocolConfigReplica`, with the empty implementation they start on, then the 9 v15 implementations;
+- re-points 9 proxies in **one atomic transaction** (`ACLOwner.upgrade`), sent by the current admin:
   `ACL`, `FHEVMExecutor`, `KMSVerifier`, `InputVerifier`, `ProtocolConfig`, `KMSGeneration` and
   `CleartextArithmetic`, each with its no-argument reinitializer, then the new `PaddedInputter`, with the
-  initializer a fresh deploy sends (its PRF instances). Nothing is migrated.
+  initializer a fresh deploy sends (its PRF instances), and the new `ProtocolConfigReplica`, seeded with the
+  live `ProtocolConfig`'s current KMS context, epoch, nodes and thresholds (sealed by `compute`). Nothing is
+  migrated.
 
 What it never touches: the existing addresses, the owner, the pausers, the KMS context and its signers and
 thresholds, the coprocessor signers, `HCULimit`, and `CleartextDB` and its data.
 
-> The `PaddedInputter` address is derived, never supplied: it is the CREATE2 of its proxy over an empty
-> implementation patched for your ACL. That empty implementation comes from the committed
+> The `PaddedInputter` and `ProtocolConfigReplica` addresses are derived, never supplied: each is the CREATE2 of
+> its proxy over an empty implementation patched for your ACL. That empty implementation comes from the committed
 > `pkg/forge/src/_internal/LocalHostBytecode.sol`, not from the build, so the address depends on that file:
 > `compute` refuses a checkout whose build disagrees with it (`run make generate`).
 
@@ -194,9 +196,10 @@ upgrade folder. If you open a new terminal, set `RPC` from step 4 again.
 upgrade-cli --stage params
 ```
 
-It lists the eight init calls the upgrade sends, one per re-pointed proxy: seven reinitializers that take no
+It lists the nine init calls the upgrade sends, one per re-pointed proxy: seven reinitializers that take no
 arguments, then `PaddedInputter.initializeFromEmptyProxy` with its PRF instances, which `compute` seals
-(`initialPrfInstances`). There is no migration file to write.
+(`initialPrfInstances`), and `ProtocolConfigReplica.initializeFromCanonical` with the replica seed `compute` reads
+off the live `ProtocolConfig` and seals (its context and epoch are printed). There is no migration file to write.
 
 ### Step 9: compute and seal
 
@@ -331,10 +334,12 @@ upgrade-cli --stage all
    `KMS_VERIFIER_ADDRESS`, `PROTOCOL_CONFIG_ADDRESS` and `KMS_GENERATION_ADDRESS` — are checked only weakly
    (right kind of contract, right version line): make sure they are **your** stack's.
 5. **Nothing is migrated, so nothing may move.** Every reinitializer takes no arguments (the new
-   `PaddedInputter` takes only its sealed PRF instances); `verify` requires the
-   KMS context, epoch, signers and thresholds and the coprocessor signers to read as they did at the seal.
+   `PaddedInputter` takes only its sealed PRF instances, the new `ProtocolConfigReplica` only its sealed seed);
+   `verify` requires the KMS context, epoch, signers and thresholds and the coprocessor signers to read as they
+   did at the seal, on `ProtocolConfig` and on the replica.
 6. **Do not change the stack between compute and verify.** No other upgrade, no ownership transfer, no
-   pauser change, no KMS rotation. `precheck` refuses if a proxy moved or is no longer at its v14 version,
+   pauser change, no KMS rotation. `precheck` refuses if a proxy moved or is no longer at its v14 version, or
+   if `ProtocolConfig` no longer holds the KMS context the replica's seed was sealed from,
    and `verify` fails on any ownership or pauser event since the seal, or on a KMS context that changed.
    Start over instead.
 7. **Never reseal once the creates are on chain.** To start over, use a new `outDir` and keep the same

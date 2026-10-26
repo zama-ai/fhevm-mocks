@@ -47,6 +47,7 @@ export const CREATE2_ROLES = {
   paddedInputter: 'PADDED_INPUTTER_ADDRESS',
   cleartextArithmetic: 'CLEARTEXT_ARITHMETIC_ADDRESS',
   cleartextDb: 'CLEARTEXT_DB_ADDRESS',
+  protocolConfigReplica: 'PROTOCOL_CONFIG_REPLICA_ADDRESS',
   pauserSet: 'PAUSER_SET_ADDRESS',
   aclOwner: 'ACL_OWNER',
 } as const;
@@ -67,7 +68,7 @@ function concatHex(...parts: readonly string[]): `0x${string}` {
  *
  * ## What it does not return
  *
- * The ten implementation addresses. Their init code bakes in the COMPLETE address set — that is what
+ * The eleven implementation addresses. Their init code bakes in the COMPLETE address set — that is what
  * makes the stack's wiring immutable — so predicting them needs the output of this function fed back into
  * a rebuild, which is the deploy coordinator's three-pass pipeline and not something a pure function can
  * do. Everything a consumer needs to talk to a stack is here; the implementations only matter to whoever
@@ -151,8 +152,8 @@ export async function precomputeCreate2Addresses(parameters: Create2Parameters):
 
   // --- 4. every other proxy: ONE init code, distinguished purely by salt ---
   //
-  // Worth being explicit about, because it looks like a bug: nine proxies with byte-identical init code
-  // land on nine different addresses. That is the whole reason the role name is in the salt.
+  // Worth being explicit about, because it looks like a bug: ten proxies with byte-identical init code
+  // land on ten different addresses. That is the whole reason the role name is in the salt.
   const emptyInitData = await ethUtils.encodeCall({ abi: emptyProxyAbi, functionName: 'initialize', args: [] });
   const sharedProxyInitCode = proxyInitCode(implEmptyProxy, emptyInitData);
   const sharedProxy = (role: string): `0x${string}` => predict(role, sharedProxyInitCode);
@@ -183,6 +184,7 @@ export async function precomputeCreate2Addresses(parameters: Create2Parameters):
       cleartextDbAddress: sharedProxy(CREATE2_ROLES.cleartextDb),
     },
     pauserSetAddress,
+    protocolConfigReplicaAddress: sharedProxy(CREATE2_ROLES.protocolConfigReplica),
     aclOwnerAddress,
     emptyImplementations: { acl: implEmptyProxyAcl, shared: implEmptyProxy },
     factory,

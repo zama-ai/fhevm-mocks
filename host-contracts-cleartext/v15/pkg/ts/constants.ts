@@ -155,6 +155,15 @@ function generateDefaultCoprocessors(num: number): string[] {
   return signers;
 }
 
+/**
+ * The KMS context and epoch ProtocolConfig activates at deploy (`initializeFromEmptyProxy`): the first of each,
+ * `KMS_CONTEXT_COUNTER_BASE + 1` and `EPOCH_COUNTER_BASE + 1` (Constants.sol: the 0x07 and 0x08 type tags,
+ * shifted by 248). ProtocolConfigReplica is seeded with the same ids, so on one chain both answer alike.
+ * Mirrors `LocalHostBootstrap.INITIAL_KMS_CONTEXT_ID` / `INITIAL_KMS_EPOCH_ID`.
+ */
+export const INITIAL_KMS_CONTEXT_ID: bigint = (7n << 248n) + 1n;
+export const INITIAL_KMS_EPOCH_ID: bigint = (8n << 248n) + 1n;
+
 export const DEFAULT_BOOTSTRAP_CONFIG: BootstrapConfig = {
   hcuLimit: {
     hcuCapPerBlock: CLEARTEXT_HCU_CAP_PER_BLOCK,

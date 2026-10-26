@@ -19,7 +19,8 @@ import {
     MNEMONIC,
     PADDED_INPUTTER_ADDRESS,
     PAUSER_SET_ADDRESS,
-    PROTOCOL_CONFIG_ADDRESS
+    PROTOCOL_CONFIG_ADDRESS,
+    PROTOCOL_CONFIG_REPLICA_ADDRESS
 } from "./_internal/LocalHostAddresses.sol";
 
 import {
@@ -37,7 +38,8 @@ import {
     KMS_GENERATION_CREATION_CODE,
     CLEARTEXT_PADDED_INPUTTER_CREATION_CODE,
     PAUSER_SET_RUNTIME_CODE,
-    PROTOCOL_CONFIG_CREATION_CODE
+    PROTOCOL_CONFIG_CREATION_CODE,
+    PROTOCOL_CONFIG_REPLICA_CREATION_CODE
 } from "./_internal/LocalHostBytecode.sol";
 
 import {LocalHostBootstrap} from "./_internal/LocalHostBootstrap.sol";
@@ -58,6 +60,7 @@ import {IPauserSet} from "./_internal/interfaces/IPauserSet.sol";
 import {IACL} from "./_internal/interfaces/IACL.sol";
 import {IInputVerifier} from "./_internal/interfaces/IInputVerifier.sol";
 import {IKMSVerifier} from "./_internal/interfaces/IKMSVerifier.sol";
+import {IProtocolConfigReplica} from "./_internal/interfaces/IProtocolConfigReplica.sol";
 import {
     IProtocolConfig,
     IKMSGeneration as IProtocolConfigKMSGeneration
@@ -110,7 +113,7 @@ import {LibForgeFhevmSigners} from "./LibForgeFhevmSigners.sol";
  *
  * The five phases, mirroring `ts/deploy.ts`:
  *   1. the empty proxies (nonces 0-11), each an ERC-1967 proxy over an empty UUPS implementation
- *   2. PauserSet (nonce 12)
+ *   2. PauserSet (nonce 12), then the ProtocolConfigReplica proxy (nonce 13)
  *   3. ACLOwner, registered as a pauser and handed ACL ownership two-step
  *   4. the real implementations, deployed permissionlessly
  *   5. one atomic `ACLOwner.upgrade` swapping every proxy empty -> real and running its initializer
@@ -221,8 +224,9 @@ library LibForgeFhevmStack {
         );
 
         fvm.startPrank(DEPLOYER_ADDRESS);
-        _deployEmptyProxies();
+        address emptyImpl = _deployEmptyProxies();
         _deployPauserSet();
+        _deployProtocolConfigReplicaProxy(emptyImpl);
         fvm.stopPrank();
 
         aclOwner_ = _setupACLOwner();
@@ -242,13 +246,13 @@ library LibForgeFhevmStack {
      *      ACL is special: its proxy sits over `EmptyUUPSProxyACL`, whose `initialize` takes the initial
      *      owner. Every other proxy shares one `EmptyUUPSProxy` implementation, deployed once at nonce 2.
      */
-    function _deployEmptyProxies() private {
+    function _deployEmptyProxies() private returns (address emptyImpl) {
         address emptyACLImpl = _create(EMPTY_UUPS_PROXY_ACL_CREATION_CODE, "EmptyUUPSProxyACL");
         _createProxy(
             emptyACLImpl, abi.encodeCall(IEmptyUUPSProxyACL.initialize, (DEPLOYER_ADDRESS)), ACL_ADDRESS, "ACL proxy"
         );
 
-        address emptyImpl = _create(EMPTY_UUPS_PROXY_CREATION_CODE, "EmptyUUPSProxy");
+        emptyImpl = _create(EMPTY_UUPS_PROXY_CREATION_CODE, "EmptyUUPSProxy");
         bytes memory initEmpty = abi.encodeCall(IEmptyUUPSProxy.initialize, ());
 
         _createProxy(emptyImpl, initEmpty, FHEVM_EXECUTOR_ADDRESS, "FHEVMExecutor proxy");
@@ -274,6 +278,19 @@ library LibForgeFhevmStack {
     function _deployPauserSet() private {
         fvm.etch(PAUSER_SET_ADDRESS, PAUSER_SET_RUNTIME_CODE);
         fvm.setNonce(DEPLOYER_ADDRESS, uint64(fvm.getNonce(DEPLOYER_ADDRESS) + 1));
+    }
+
+    /**
+     * @dev The read-replica a non-canonical host runs, deployed beside ProtocolConfig on every stack (a single-chain
+     *      simulator holds both). Nothing bakes its address; it follows PauserSet so every earlier one is unmoved.
+     */
+    function _deployProtocolConfigReplicaProxy(address emptyImpl) private {
+        _createProxy(
+            emptyImpl,
+            abi.encodeCall(IEmptyUUPSProxy.initialize, ()),
+            PROTOCOL_CONFIG_REPLICA_ADDRESS,
+            "ProtocolConfigReplica proxy"
+        );
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -327,6 +344,7 @@ library LibForgeFhevmStack {
         implementations[7] = _create(CLEARTEXT_PADDED_INPUTTER_CREATION_CODE, "PaddedInputter impl");
         implementations[8] = _create(CLEARTEXT_FORGE_ARITHMETIC_CREATION_CODE, "CleartextArithmetic impl (forge)");
         implementations[9] = _create(CLEARTEXT_DB_CREATION_CODE, "CleartextDB impl");
+        implementations[10] = _create(PROTOCOL_CONFIG_REPLICA_CREATION_CODE, "ProtocolConfigReplica impl");
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -384,6 +402,7 @@ library LibForgeFhevmStack {
             implementations[9],
             abi.encodeCall(ICleartextDB.initializeFromEmptyProxy, (CLEARTEXT_ARITHMETIC_ADDRESS))
         );
+        ops[10] = ACLOwner.Op(PROTOCOL_CONFIG_REPLICA_ADDRESS, implementations[10], _protocolConfigReplicaInitData());
 
         fvm.prank(_fhevmAdmin());
         IACLOwner(aclOwner_).upgrade(ops);
@@ -392,6 +411,20 @@ library LibForgeFhevmStack {
     function _paddedInputterInitData() private pure returns (bytes memory) {
         // The default PRF instance (cleartext-config.json `CLEARTEXT_PAD_PRF_INSTANCE`), as every deploy path.
         return abi.encodeCall(ICleartextPaddedInputter.initializeFromEmptyProxy, (LocalHostBootstrap.padPrfInstances()));
+    }
+
+    /// @dev The replica, seeded with the canonical ProtocolConfig's first context and epoch, nodes and thresholds.
+    ///      By selector: the generated interface declares its own copies of the structs, with the same ABI.
+    function _protocolConfigReplicaInitData() private pure returns (bytes memory) {
+        (IProtocolConfig.KmsNodeParams[] memory nodes, IProtocolConfig.KmsThresholds memory thresholds) =
+            _fhevmProtocolConfig();
+        return abi.encodeWithSelector(
+            IProtocolConfigReplica.initializeFromCanonical.selector,
+            LocalHostBootstrap.INITIAL_KMS_CONTEXT_ID,
+            LocalHostBootstrap.INITIAL_KMS_EPOCH_ID,
+            nodes,
+            thresholds
+        );
     }
 
     /// @dev Encodes whatever `_fhevmProtocolConfig()` returns; the seed itself is the override point.
