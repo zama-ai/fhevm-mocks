@@ -613,9 +613,22 @@ void test('every generation has the same secondary roles in the same order', () 
   // generations. The secondary block is the same three contracts every time and merely starts later, so a
   // generation whose secondary list differs has either gained a cleartext contract — which would need
   // saying out loud — or miss-assigned a role across the boundary.
-  const roleLists = Object.entries(readLocalhost().generations).map(
-    ([gen, t]) => [gen, t.nonces.secondary.map((e) => e.role)] as const,
-  );
+  //
+  // Said out loud: the roles a generation APPENDS to the secondary block. 0.15.0 deploys ProtocolConfigReplica
+  // right after PauserSet; nothing bakes its address, so it moves nothing before it.
+  const appended: Readonly<Record<string, readonly string[]>> = {
+    '0.15.0': ['PROTOCOL_CONFIG_REPLICA_ADDRESS'],
+  };
+  const roleLists = Object.entries(readLocalhost().generations).map(([gen, t]) => {
+    const roles = t.nonces.secondary.map((e) => e.role);
+    const gained = appended[gen] ?? [];
+    assert.deepEqual(
+      roles.slice(roles.length - gained.length),
+      [...gained],
+      `generation ${gen}: the roles it is declared to append must close its secondary block`,
+    );
+    return [gen, roles.slice(0, roles.length - gained.length)] as const;
+  });
   const [first, ...rest] = roleLists;
   assert.ok(first, 'no generations declared');
   for (const [gen, roles] of rest) {
