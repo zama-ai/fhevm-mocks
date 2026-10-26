@@ -111,6 +111,7 @@ interface ICleartextPaddedInputter {
     error PadUnknownPartType(uint256 partIndex, uint8 partType);
     error PadUnsupportedPrf(uint16 prf);
     error PadUnsupportedWitnessVersion(uint8 witnessVersion);
+    error PadZeroPrfInstance();
     error PublicKeyTooShort(uint256 length);
     error UUPSUnauthorizedCallContext();
     error UUPSUnsupportedProxiableUUID(bytes32 slot);

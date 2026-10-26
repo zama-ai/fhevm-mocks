@@ -239,7 +239,7 @@
             },
             {
               "file": "PaddedInputter.sol",
-              "reason": "RFC-030 PaddedInputter, absent upstream at this tag: written to follow the RFC and the stack's patterns, as close as possible to what upstream will ship. Drop once the pinned tag ships it."
+              "reason": "RFC-030 PaddedInputter, absent upstream at this tag: written to follow the RFC and the stack's patterns, as close as possible to what upstream will ship. One rule of our own: PRF instance 0 can never be added (PadZeroPrfInstance), so an unset prf is always refused. Drop once the pinned tag ships it."
             }
           ]
         },

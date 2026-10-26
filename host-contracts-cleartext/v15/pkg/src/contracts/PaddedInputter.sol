@@ -152,6 +152,10 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     /// @notice Returned when adding a PRF instance that was retired: identifiers are never reused.
     error PadPrfRetired(uint16 prf);
 
+    /// @notice Returned when adding PRF instance 0, which is never an instance: an unset `prf` reads as 0, and
+    ///         must be refused (`PadUnsupportedPrf(0)`) rather than silently taken as a live instance.
+    error PadZeroPrfInstance();
+
     error PadMalformedPackage();
     error PadUnsupportedWitnessVersion(uint8 witnessVersion);
     error PadUnsupportedPrf(uint16 prf);
@@ -309,6 +313,7 @@ contract PaddedInputter is UUPSUpgradeableEmptyProxy, ACLOwnable {
     // ---- Internals ----
 
     function _addPrfInstance(uint16 prf) internal virtual {
+        if (prf == 0) revert PadZeroPrfInstance();
         PaddedInputterStorage storage $ = _getPaddedInputterStorage();
         if ($.isRetiredPrf[prf]) revert PadPrfRetired(prf);
         if ($.isSupportedPrf[prf]) revert PadPrfAlreadySupported(prf);

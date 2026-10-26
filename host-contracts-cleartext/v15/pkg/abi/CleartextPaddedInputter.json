@@ -1008,6 +1008,11 @@
   },
   {
     "type": "error",
+    "name": "PadZeroPrfInstance",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "PublicKeyTooShort",
     "inputs": [
       {
