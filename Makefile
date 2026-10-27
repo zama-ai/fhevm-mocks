@@ -628,8 +628,9 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check dependencies)
 	$(call run-fhevm-npm,check pinned-dependencies)
 	$(call run-fhevm-npm,check generations)
-	# TEMPORARY: v14's cleartext-config-mirror test is patched for the 0.15.0 ProtocolConfigReplica entry but
-	# release/0.14.x is not yet; re-enable once that branch carries the change.
+	# TEMPORARY: v14 carries the mirror test of devex/alexb/v14/v1.0-naming (fhevm-mocks-v14), not merged into
+	# release/0.14.x yet. Re-enabled against that branch in step 0.3 of RENAME-V15-TO-V1.0.md
+	# (FHEVM_PARITY_REF_V14); plainly, once that branch is merged.
 	# $(call run-fhevm-npm,check generation-parity)
 	$(call run-fhevm-npm,check scripts)
 	$(call run-fhevm-npm,check tsc-mode)
