@@ -1,7 +1,13 @@
 {
   "$schema": "./fhevm-npm/schemas/npm-manifest.schema.json",
   "inventory": {
-    "exclude": ["./js-sdk", "./cli-js-sdk", "./host-contracts-cleartext/v15", "./host-contracts-cleartext/v16"]
+    "exclude": [
+      "./js-sdk",
+      "./cli-js-sdk",
+      "./host-contracts-cleartext/v15",
+      "./host-contracts-cleartext/v16",
+      "./host-contracts-cleartext/v1.0"
+    ]
   },
   "dependencies": {
     "forbidden": ["solhint"],
