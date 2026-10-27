@@ -39,6 +39,13 @@ import { relative, resolve, sep } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
+import {
+  generationNameFromEnvSuffix,
+  generationVersionLabel,
+  isNeverReleased,
+  parseGenerationName,
+  releaseBranchOf,
+} from '../generation-names.ts';
 import { generationFamilies } from './generations.ts';
 
 export const RULE = '3.4.6';
@@ -57,19 +64,22 @@ export type GenerationParityInspection = {
   readonly violations: readonly Violation[];
 };
 
-/** `FHEVM_PARITY_REF_V13=<ref>` overrides the ref generation `v13` is compared against. */
+/**
+ * `FHEVM_PARITY_REF_V13=<ref>` overrides the ref generation `v13` is compared against; `FHEVM_PARITY_REF_V1_0`
+ * the one `v1.0` is (a variable name cannot hold a dot).
+ */
 export const OVERRIDE_PREFIX = 'FHEVM_PARITY_REF_';
 
 /**
- * The overrides an environment declares, keyed by generation name (`v13`), lowercased to match the
- * directory names `npm-manifest.json#generations` holds. An empty value is treated as unset, so
+ * The overrides an environment declares, keyed by generation name (`v13`, `v1.0`), spelled back from the variable
+ * suffix to match the directory names `npm-manifest.json#generations` holds. An empty value is treated as unset, so
  * `FHEVM_PARITY_REF_V13= ...` in a shell prefix does not silently mean "compare with nothing".
  */
 export function parityRefOverrides(env: Readonly<Record<string, string | undefined>>): Record<string, string> {
   const overrides: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
     if (!key.startsWith(OVERRIDE_PREFIX) || value === undefined || value.trim() === '') continue;
-    overrides[key.slice(OVERRIDE_PREFIX.length).toLowerCase()] = value.trim();
+    overrides[generationNameFromEnvSuffix(key.slice(OVERRIDE_PREFIX.length))] = value.trim();
   }
   return overrides;
 }
@@ -79,13 +89,11 @@ function runGit(args: readonly string[], cwd: string): string {
 }
 
 /**
- * `v13` -> `release/0.13.x`. The generation number IS the release minor, which is what lets this check
- * follow a rotation without an edit: when v15 lands, v14 becomes V(N-1) and answers `release/0.14.x`.
+ * `v13` -> `release/0.13.x`, `v1.0` -> `release/1.0.x` (generation-names.ts). The generation name IS the release
+ * line, which is what lets this check follow a rotation without an edit: whichever generation becomes V(N-1)
+ * answers its own branch.
  */
-export function releaseBranchOf(generationName: string): string | undefined {
-  const match = /^v(\d+)$/.exec(generationName);
-  return match === null ? undefined : `release/0.${match[1]}.x`;
-}
+export { releaseBranchOf };
 
 /** The local branch if it exists, else the remote-tracking copy, else undefined. */
 function resolveRef(git: GitRunner, repoRoot: string, branch: string): string | undefined {
@@ -129,12 +137,16 @@ export function inspectGenerationParity(
     // exists only to DERIVE that ref — has nothing left to enforce.
     const branch = override ?? releaseBranch;
     if (branch === undefined) {
+      const version = parseGenerationName(name);
       violations.push({
         rule: RULE,
         packageKey: './npm-manifest.json',
         message:
-          `generation directory '${name}' is not named 'v<number>', so the release branch that owns it ` +
-          `cannot be derived; rename it or drop it from npm-manifest.json#generations`,
+          version !== undefined && isNeverReleased(version)
+            ? `generation directory '${name}' is ${generationVersionLabel(version)}, a line that is never ` +
+              `released, so it owns no release branch to compare with; rename it to the version it ships as`
+            : `generation directory '${name}' is not named 'v<minor>' (below 1.0) or 'v<major>.<minor>', so the ` +
+              `release branch that owns it cannot be derived; rename it or drop it from npm-manifest.json#generations`,
       });
       continue;
     }
