@@ -418,6 +418,39 @@ function thisGeneration(l: Localhost): NonceTable {
   return table;
 }
 
+/** `0.15.0` -> `[0, 15, 0]`, so generations order numerically rather than as strings. */
+function versionParts(key: string): number[] {
+  const parts = key.split('.').map(Number);
+  assert.ok(parts.length === 3 && parts.every(Number.isInteger), `not a generation key: ${key}`);
+  return parts;
+}
+
+function compareGenerations(a: string, b: string): number {
+  const [x, y] = [versionParts(a), versionParts(b)];
+  for (let i = 0; i < 3; i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * The nonce tables this generation may judge, oldest first: its own and every OLDER one, never a newer one.
+ *
+ * The JSON is shared, so it also carries generations that did not exist when this one was written. Once this
+ * package is the previous generation it is frozen — a byte-identical copy of its release branch — and a check
+ * here that read a newer table would assert, from the past, what the future may look like: the first change
+ * it did not foresee would break a package nobody may edit. Looking only backward keeps every check here true
+ * for as long as the JSON's history holds, and a newer generation is judged by its own package, which knows it.
+ */
+function generationsUpToThisOne(l: Localhost): Array<readonly [string, NonceTable]> {
+  const own = generationKey();
+  thisGeneration(l);
+  return Object.entries(l.generations)
+    .filter(([gen]) => compareGenerations(gen, own) <= 0)
+    .sort(([a], [b]) => compareGenerations(a, b));
+}
+
 /** `<type> constant NAME = VALUE;` from the generated LocalHostAddresses.sol. */
 function readGeneratedLocalHost(): Map<string, string> {
   const src = readFileSync(LOCAL_HOST_ADDRESSES_PATH, 'utf8');
@@ -448,8 +481,8 @@ void test('every recorded address is CREATE(deployer, its nonce)', () => {
   const from = getAddress(l.DEPLOYER_ADDRESS.value);
   const start = BigInt(l.DEPLOYER_START_NONCE.value);
 
-  for (const [gen, table] of Object.entries(l.generations)) {
-    // Every generation's table is re-derived, not just this package's. The derivation needs nothing from
+  for (const [gen, table] of generationsUpToThisOne(l)) {
+    // Every table up to this generation's is re-derived, not just its own. The derivation needs nothing from
     // the generation itself — only the deployer and a nonce — so there is no reason to check less.
     const entries = allNonces(table);
     assert.equal(
@@ -578,7 +611,7 @@ void test('secondary starts exactly where primary ends', () => {
   // its first nonce must be the primary block's length. Anything else would mean a gap or an overlap, and
   // in a CREATE(deployer, nonce) layout both are silent — every address stays a valid address, just of a
   // different contract than the role says.
-  for (const [gen, table] of Object.entries(readLocalhost().generations)) {
+  for (const [gen, table] of generationsUpToThisOne(readLocalhost())) {
     const first = table.nonces.secondary[0];
     assert.ok(first, `generation ${gen}: no secondary entries`);
     assert.equal(
@@ -591,7 +624,7 @@ void test('secondary starts exactly where primary ends', () => {
 });
 
 void test('the categories hold what their definitions say', () => {
-  for (const [gen, table] of Object.entries(readLocalhost().generations)) {
+  for (const [gen, table] of generationsUpToThisOne(readLocalhost())) {
     // The two empty-proxy implementations are the only entries with no baked-in address, and they belong to
     // the primary block by construction — they are what its proxies are constructed over.
     const unnamed = allNonces(table).filter((e) => !e.role.endsWith('_ADDRESS'));
@@ -608,35 +641,34 @@ void test('the categories hold what their definitions say', () => {
   }
 });
 
-void test('every generation has the same secondary roles in the same order', () => {
-  // The invariant the split exists to make visible: only the PRIMARY block changes shape between
-  // generations. The secondary block is the same three contracts every time and merely starts later, so a
-  // generation whose secondary list differs has either gained a cleartext contract — which would need
-  // saying out loud — or miss-assigned a role across the boundary.
-  //
-  // Said out loud: the roles a generation APPENDS to the secondary block. 0.15.0 deploys ProtocolConfigReplica
-  // right after PauserSet; nothing bakes its address, so it moves nothing before it.
-  const appended: Readonly<Record<string, readonly string[]>> = {
-    '0.15.0': ['PROTOCOL_CONFIG_REPLICA_ADDRESS'],
-  };
-  const roleLists = Object.entries(readLocalhost().generations).map(([gen, t]) => {
-    const roles = t.nonces.secondary.map((e) => e.role);
-    const gained = appended[gen] ?? [];
+/**
+ * The roles a generation APPENDS to the secondary block, relative to the generation before it, keyed by the
+ * generation that appends them. Said out loud here, by the package of that generation, because a gained
+ * secondary role is a layout change nothing else would name. A generation is only ever compared with OLDER
+ * ones, so this table names nothing that did not exist when its package was written.
+ *
+ * 0.15.0 deploys ProtocolConfigReplica right after PauserSet; nothing bakes its address, so it moves nothing.
+ */
+const APPENDED_SECONDARY_ROLES: Readonly<Record<string, readonly string[]>> = {
+  '0.15.0': ['PROTOCOL_CONFIG_REPLICA_ADDRESS'],
+};
+
+void test('each generation keeps the secondary roles of the one before it, in order', () => {
+  // The invariant the split exists to make visible: the PRIMARY block is what changes shape between
+  // generations. The secondary block carries over unchanged and merely starts later, so a generation whose
+  // secondary list is not its predecessor's has either gained a contract — which must be declared in
+  // APPENDED_SECONDARY_ROLES — or miss-assigned a role across the boundary.
+  const tables = generationsUpToThisOne(readLocalhost());
+  assert.ok(tables.length > 0, 'no generations declared');
+  for (let i = 1; i < tables.length; i++) {
+    const [older, olderTable] = tables[i - 1] ?? [];
+    const [gen, table] = tables[i] ?? [];
+    assert.ok(olderTable && table && gen !== undefined);
     assert.deepEqual(
-      roles.slice(roles.length - gained.length),
-      [...gained],
-      `generation ${gen}: the roles it is declared to append must close its secondary block`,
-    );
-    return [gen, roles.slice(0, roles.length - gained.length)] as const;
-  });
-  const [first, ...rest] = roleLists;
-  assert.ok(first, 'no generations declared');
-  for (const [gen, roles] of rest) {
-    assert.deepEqual(
-      roles,
-      first[1],
-      `generation ${gen}'s secondary roles differ from ${first[0]}'s. If a generation genuinely gained or ` +
-        `lost one, say so here rather than relaxing the check.`,
+      table.nonces.secondary.map((e) => e.role),
+      [...olderTable.nonces.secondary.map((e) => e.role), ...(APPENDED_SECONDARY_ROLES[gen] ?? [])],
+      `generation ${gen}'s secondary roles are not ${String(older)}'s plus the ones it declares appending. If ` +
+        `it genuinely gained one, declare it in APPENDED_SECONDARY_ROLES rather than relaxing the check.`,
     );
   }
 });
