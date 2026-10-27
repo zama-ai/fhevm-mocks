@@ -202,11 +202,16 @@ function validateFileSpec(
   violations: Violation[],
 ): void {
   if (declaration.spec.endsWith('.tgz')) {
-    violations.push({
-      rule: '3.1.2',
-      packageKey: packageJsonPath(source.key),
-      message: `package '${declaration.name}' in '${declaration.field}' uses forbidden tarball spec "${declaration.spec}"`,
-    });
+    // Rule 3.1.2 forbids a tarball for a name that is also a member: npm links the member and ignores the tarball.
+    // A tarball of any other package is an external one, allowed only as a tarball pin (rule 3.3.4), which
+    // `check pinned-dependencies` enforces.
+    if (packages.some((pkg) => pkg.inventory.member && pkg.packageJson.name === declaration.name)) {
+      violations.push({
+        rule: '3.1.2',
+        packageKey: packageJsonPath(source.key),
+        message: `package '${declaration.name}' in '${declaration.field}' uses forbidden tarball spec "${declaration.spec}"`,
+      });
+    }
     return;
   }
 

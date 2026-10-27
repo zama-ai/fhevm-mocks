@@ -15,6 +15,10 @@
 // Each file is edited as text, one spec string at a time, never re-serialized: formatting, key order and every
 // other entry stay byte for byte. The result is then proven: parsed, it differs from the original in the
 // planned specs and nowhere else.
+//
+// A tarball pin (`file:<path>.tgz`, see tarball-pins.ts) is copied as the spec each declaration must carry — a
+// `file:` path relative to the declaring package, or a range on the tarball's version for a peer — and is never
+// raised: it names a file, not a registry version a lockfile could have moved past.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,9 +30,11 @@ import {
   isNewer,
   resolvedCopies,
   versionOfPin,
+  workspaceRootOf,
 } from './checks/pinned-dependencies.ts';
 import { packageJsonKey } from './checks/package-names.ts';
 import { type DependencyField, type LoadedPackage, declarationsByName } from './npm.ts';
+import { type TarballVersionReader, expectedPinnedSpec, isTarballPin, readTarballVersion } from './tarball-pins.ts';
 
 export type PinnedEdit = {
   readonly file: string;
@@ -47,7 +53,7 @@ export function planPinRaises(
   packages: readonly LoadedPackage[],
   readLockfile: LockfileReader = defaultLockfileReader,
 ): readonly PinRaise[] {
-  const pinned = Object.entries(manifest.dependencies?.pinned ?? {});
+  const pinned = Object.entries(manifest.dependencies?.pinned ?? {}).filter(([, pin]) => !isTarballPin(pin));
   const copies = packages.flatMap((pkg) => resolvedCopies(pkg, pinned, readLockfile));
   const raises: PinRaise[] = [];
   for (const [name, pin] of pinned) {
@@ -105,21 +111,33 @@ export function renderPinRaises(file: string, text: string, raises: readonly Pin
 }
 
 /** Every declaration of a pinned package whose spec differs from the pin, in package then field order. */
-export function planPinnedSync(manifest: NpmManifest, packages: readonly LoadedPackage[]): readonly PinnedEdit[] {
+export function planPinnedSync(
+  manifest: NpmManifest,
+  packages: readonly LoadedPackage[],
+  readVersion: TarballVersionReader = readTarballVersion,
+): readonly PinnedEdit[] {
   const pinned = Object.entries(manifest.dependencies?.pinned ?? {});
+  const workspaceRoot = pinned.some(([, pin]) => isTarballPin(pin)) ? workspaceRootOf(packages) : '';
   const edits: PinnedEdit[] = [];
   for (const pkg of packages) {
     const declared = declarationsByName(pkg.packageJson);
     for (const [name, pin] of pinned) {
       for (const declaration of declared.get(name) ?? []) {
-        if (declaration.spec === pin) continue;
+        const to = expectedPinnedSpec({
+          workspaceRoot,
+          pin,
+          directory: pkg.directory,
+          field: declaration.field,
+          readVersion,
+        });
+        if (declaration.spec === to) continue;
         edits.push({
           file: join(pkg.directory, 'package.json'),
           packageKey: packageJsonKey(pkg),
           field: declaration.field,
           name,
           from: declaration.spec,
-          to: pin,
+          to,
         });
       }
     }

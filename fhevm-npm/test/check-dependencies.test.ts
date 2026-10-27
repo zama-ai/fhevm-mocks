@@ -242,7 +242,12 @@ test('rule 3.1.1 lets an npm-distributed package link only npm-published members
   assert.match(privateLink[0]?.message ?? '', /must not link private/);
 });
 
-test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', () => {
+test('rule 3.1.2 rejects a tarball of a member even in mirror-only consumers', () => {
+  const plugin = loadedPackage(
+    './plugin/pkg',
+    { kind: 'published', name: '@scope/plugin', member: true, distribution: ['npm'] },
+    { name: '@scope/plugin', version: '1.0.0' },
+  );
   const consumer = loadedPackage(
     './template/pkg',
     {
@@ -259,7 +264,7 @@ test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', ()
     },
   );
 
-  assert.deepEqual(validateWorkspaceMemberSpecs([root, consumer]), [
+  assert.deepEqual(validateWorkspaceMemberSpecs([root, plugin, consumer]), [
     {
       rule: '3.1.2',
       packageKey: './template/pkg/package.json',
@@ -267,6 +272,18 @@ test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', ()
         "package '@scope/plugin' in 'devDependencies' uses forbidden tarball spec \"file:../../tarballs/plugin.tgz\"",
     },
   ]);
+});
+
+test('rule 3.1.2 leaves a tarball of an external package to the pin check', () => {
+  // Not a member: npm installs the tarball itself, so 3.1.2 does not apply. Whether it is allowed is rule 3.3.4's
+  // question (a tarball pin), answered by check pinned-dependencies.
+  const consumer = loadedPackage(
+    './template/pkg',
+    { kind: 'published', name: 'template', member: true, distribution: ['npm'] },
+    { name: 'template', version: '0.0.0', devDependencies: { '@ext/sdk': 'file:../../tarballs/sdk.tgz' } },
+  );
+
+  assert.deepEqual(validateWorkspaceMemberSpecs([root, consumer]), []);
 });
 
 test('rule 4.2.1 requires imported root pins exactly and rejects unused declarations', () => {

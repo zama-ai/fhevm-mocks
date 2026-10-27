@@ -21,12 +21,14 @@ import { type ModuleKind, consumerModuleKinds } from './module-kind.ts';
 import { declaredEntryPoints } from './publish-check.ts';
 import {
   type DependencyDeclaration,
+  type DependencyField,
   type LoadedPackage,
   type PackageJson,
   dependencyDeclarations,
   loadPackages,
   readPackageJson,
 } from './npm.ts';
+import { isTarballSpec, tarballSpecPath } from './tarball-pins.ts';
 import { type Verbosity, hasDetailedOutput, hasProgress, npmVerbosityArguments } from './verbosity.ts';
 
 /**
@@ -637,7 +639,8 @@ function resolveLinkedDependencies(
   };
 
   for (const declaration of dependencyDeclarations(consumer.packageJson)) {
-    if (!declaration.spec.startsWith('file:')) continue;
+    // A tarball is an external package pinned by the manifest (rule 3.3.4), not a payload to build and link.
+    if (!declaration.spec.startsWith('file:') || isTarballSpec(declaration.spec)) continue;
     add({
       declaration,
       declaredBy: consumer,
@@ -653,6 +656,7 @@ function resolveLinkedDependencies(
     const parent = queue[index];
     if (parent === undefined) throw new Error('unreachable');
     for (const declaration of runtimeDependencyDeclarations(parent.package)) {
+      if (isTarballSpec(declaration.spec)) continue;
       let candidate: LoadedPackage | undefined;
       if (declaration.spec.startsWith('file:')) {
         candidate = resolveFileDependency(workspaceRoot, parent.package, declaration, packagesByDirectory);
@@ -1101,12 +1105,53 @@ function patchLocalDependencies(
       absoluteSpec,
     });
   }
+  // A pinned tarball's `file:` path is relative to the fixture, which this copy no longer sits next to: it is
+  // installed from its absolute path instead, the same file, so the committed lock's integrity still holds.
+  const tarballs = new Map<
+    string,
+    { readonly field: DependencyField; readonly spec: string; readonly absolute: string }
+  >();
+  for (const declaration of dependencyDeclarations(packageJson)) {
+    if (!isTarballSpec(declaration.spec)) continue;
+    const absolute = pathToFileURL(tarballSpecPath(sourceDirectory, declaration.spec)).href;
+    tarballs.set(declaration.name, { field: declaration.field, spec: declaration.spec, absolute });
+    packageJson[declaration.field]![declaration.name] = absolute;
+  }
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
   if (useCommittedLock) {
     patchLocalDependencyLock(destination, rewritten);
+    patchTarballLock(destination, sourceDirectory, tarballs);
   } else {
     rmSync(join(destination, 'package-lock.json'), { force: true });
   }
+}
+
+/** The committed lock's half of the tarball rewrite: its root spec and the installed copy's `resolved`. */
+function patchTarballLock(
+  destination: string,
+  sourceDirectory: string,
+  tarballs: ReadonlyMap<string, { readonly field: DependencyField; readonly spec: string; readonly absolute: string }>,
+): void {
+  if (tarballs.size === 0) return;
+  const packageLockPath = join(destination, 'package-lock.json');
+  const packageLock = JSON.parse(readFileSync(packageLockPath, 'utf8')) as {
+    packages?: Record<string, Partial<Record<DependencyField, Record<string, string>>> & { resolved?: string }>;
+  };
+  const root = packageLock.packages?.[''];
+  if (root === undefined) throw new Error(`Consumer lockfile ${packageLockPath} has no root package`);
+  for (const [name, tarball] of tarballs) {
+    const locked = packageLock.packages?.[`node_modules/${name}`];
+    const from =
+      locked?.resolved?.startsWith('file:') === true ? tarballSpecPath(sourceDirectory, locked.resolved) : undefined;
+    if (root[tarball.field]?.[name] !== tarball.spec || from !== tarballSpecPath(sourceDirectory, tarball.spec)) {
+      throw new Error(
+        `Consumer lockfile ${packageLockPath} does not lock '${name}' from "${tarball.spec}"; regenerate the committed lockfile`,
+      );
+    }
+    root[tarball.field]![name] = tarball.absolute;
+    locked!.resolved = tarball.absolute;
+  }
+  writeFileSync(packageLockPath, `${JSON.stringify(packageLock, null, 2)}\n`);
 }
 
 function patchLocalDependencyLock(

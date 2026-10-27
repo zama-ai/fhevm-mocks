@@ -53,8 +53,8 @@
           },
           "additionalProperties": {
             "type": "string",
-            "description": "An exact, caret or tilde version, optionally behind an npm alias: npm:<name>@<version>.",
-            "pattern": "^(npm:(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*@)?[~^]?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+            "description": "An exact, caret or tilde version, optionally behind an npm alias: npm:<name>@<version>. Or a tarball pin, file:<path>.tgz, for a package not published yet: the path is absolute or relative to the workspace root, every peer declaration carries ~<the tarball's version>, and every other declaration a file: path to the tarball relative to its own package.json.",
+            "pattern": "^((npm:(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*@)?[~^]?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?|file:.+\\.tgz)$"
           }
         }
       }

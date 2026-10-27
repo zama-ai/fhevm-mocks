@@ -7,9 +7,10 @@ const UNPREFIXED_PATH = /^(?!\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/(?!\.{1,2}(?:\/
 const FILE_NAME = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
 const HTTPS_URL = /^https:\/\/[^\s]+$/;
 // An exact, caret or tilde version, optionally behind an npm alias (`npm:<name>@`) so one installation can hold two
-// versions of the same package under two names.
+// versions of the same package under two names; or a tarball pin, `file:<path>.tgz` (base/tarball-pins.ts), for a
+// package not published yet.
 const DEPENDENCY_PIN =
-  /^(?:npm:(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*@)?[~^]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+  /^(?:(?:npm:(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*@)?[~^]?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?|file:.+\.tgz)$/;
 
 export const packageKinds = [
   'published',
@@ -78,7 +79,7 @@ const dependencyPolicySchema = z
           .string()
           .regex(
             DEPENDENCY_PIN,
-            'must be an exact, caret, or tilde version such as ^1.2.3, optionally as an npm alias such as npm:pkg@^1.2.3',
+            'must be an exact, caret, or tilde version such as ^1.2.3, optionally as an npm alias such as npm:pkg@^1.2.3, or a tarball pin such as file:../pkg-1.2.3.tgz',
           ),
       )
       .refine((value) => Object.keys(value).length > 0, 'must pin at least one package')

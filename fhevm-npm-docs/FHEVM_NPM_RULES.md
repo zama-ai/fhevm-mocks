@@ -262,7 +262,8 @@ publication rewrites it; an unrendered `file:` spec must never reach npmjs.com.
 ```
 
 **3.1.2 Never use `file:*.tgz` for a name that is also a member.** npm links members by name before reading the spec,
-so the tarball is ignored and the edge is marked `invalid` — after which the whole subtree stops resolving.
+so the tarball is ignored and the edge is marked `invalid` — after which the whole subtree stops resolving. A tarball of
+an external package is not a member link: it is allowed, but only as a tarball pin (rule 3.3.4).
 
 ```jsonc
 // ✅ Same package, linked as a directory instead of packed. No pack step, nothing to rebuild first.
@@ -392,6 +393,24 @@ name, with its full spec, and is compared like any other pin: the target is part
 roles rather than versions (`<name>` for the current line, `<name>-prev<k>` for k lines back), the specs move forward
 together at each generation rotation, and only V(N) may declare them: V(N-1) drops them, so no name ever carries two
 specs.
+
+A pin may also be a **tarball pin**, `file:<path>.tgz`, for a package that is not published yet: a release candidate
+built elsewhere, which the workspace is developed and tested against before it reaches npm. The path is absolute or
+relative to the workspace root, and the manifest is the only place it is written, so moving the tarball is one edit
+of the pin, then `fhevm-npm sync pinned` and a reinstall. A tarball pin cannot be repeated verbatim — npm resolves a
+`file:` spec from the `package.json` that holds it — so each declaration carries the spec derived for it: a peer
+dependency carries `~<the tarball's version>` (a peer stays a range a published package can carry), every other
+declaration a `file:` path to the tarball relative to its own package. Every copy a lockfile resolves must be
+installed from that tarball (`resolved` names it) at the version inside it, the tarball must exist, and a tarball
+dependency no pin names is a violation. A tarball pin is never raised by `sync pinned`. While a published payload
+declares the pinned package outside its peers, `publish check` refuses it: a `file:` spec cannot reach npmjs.com.
+
+```jsonc
+// ✅ npm-manifest.json, and what `sync pinned` derives from it.
+{ "dependencies": { "pinned": { "@fhevm/sdk": "file:../fhevm/sdk/js-sdk/fhevm-sdk-1.0.0-0.tgz" } } }
+"devDependencies":  { "@fhevm/sdk": "file:../../../../fhevm/sdk/js-sdk/fhevm-sdk-1.0.0-0.tgz" }  // hardhat/v3/plugin
+"peerDependencies": { "@fhevm/sdk": "~1.0.0-0" }                                                 // hardhat/v3/plugin/pkg
+```
 
 ```jsonc
 // ✅ The current line under its own name, the previous line under an alias.
