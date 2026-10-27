@@ -6,14 +6,15 @@ import {FheType, LibFheType} from "./LibFheType.sol";
 /**
  * @title LibCleartextPad
  * @notice Cleartext stand-in for the RFC-030 homomorphic PRF `PRF_{FHE(k)}(label)`, cleartext mode only.
- * @dev Counter mode: block `i` is keccak256("FHE_cpad" ‖ prf ‖ label ‖ uint32(i)) (256 bits); the stream is
+ * @dev Counter mode: block `i` is keccak256("FHE_cpad" ‖ prf ‖ label ‖ i) (256 bits), `i` a little-endian 32-bit
+ *      index as RFC-030 seeds the PRF with `label ‖ i` (tech-spec#553); the stream is
  *      the blocks' bytes concatenated, and stream bit `j` is bit `j % 8` (least significant first) of byte
  *      `j / 8`. Deterministic in `(prf, label)` only, as RFC-030 requires. The pad decryption mock and the
  *      unmasking mock must both use it so they see the same pad.
  *
  *      `padBlock` and `padBlocks` are ported from fhevm's sdk/js-sdk/contracts/src/v0.16.0/cleartext/
- *      CleartextPad.sol; keep them byte-compatible, since the SDK's cleartext pad decryption derives the same
- *      stream. `unmaskPart` is added here: upstream keeps it in its CleartextFHEVMExecutor. `padLabel`,
+ *      CleartextPad.sol, which still encodes the index big-endian: the SDK's cleartext pad decryption derives the
+ *      same stream, so it must move to the little-endian index too. `unmaskPart` is added here: upstream keeps it in its CleartextFHEVMExecutor. `padLabel`,
  *      `sessionId` and `xorMask` are the pure parts of upstream's CleartextInputVerifier pad decryption mock,
  *      byte-compatible with it too: the SDK computes the same label, and reads the session id and the mask back.
  */
@@ -123,7 +124,13 @@ library LibCleartextPad {
     /// @notice PRF block `blockIndex` of the pad stream of `(prf, label)`.
     function padBlock(uint16 prf, bytes32 label, uint256 blockIndex) internal pure returns (bytes32) {
         // forge-lint: disable-next-line(unsafe-typecast)
-        return keccak256(abi.encodePacked(CLEARTEXT_PAD_DOMAIN_SEPARATOR, prf, label, uint32(blockIndex)));
+        return
+            keccak256(abi.encodePacked(CLEARTEXT_PAD_DOMAIN_SEPARATOR, prf, label, littleEndian32(uint32(blockIndex))));
+    }
+
+    /// @notice `value` as 4 bytes, least significant first: the RFC-030 encoding of a block index.
+    function littleEndian32(uint32 value) internal pure returns (bytes4) {
+        return bytes4((value >> 24) | ((value >> 8) & 0xff00) | ((value << 8) & 0xff0000) | (value << 24));
     }
 
     /// @notice The ⌈padLength/256⌉ whole blocks covering the first `padLength` bits of the pad stream.
