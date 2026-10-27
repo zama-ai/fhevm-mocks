@@ -26,7 +26,7 @@ export type {
  * Deliberately unsuffixed. A package is already pinned to one protocol generation by its own `version`,
  * so a version suffix would restate inside the package what the package name and version say outside it —
  * and it is what made every previous-generation port a rename of ~70 call sites. Where two generations
- * genuinely meet, the version stays in the name: see `FhevmAddressesV14` below and `updateV14ToV15`.
+ * genuinely meet, the version stays in the name: see `FhevmAddressesV14` below and `updateV<N-1>ToV<N>`.
  */
 export type FhevmAddresses = {
   readonly aclAddress: string;
@@ -41,7 +41,7 @@ export type FhevmAddresses = {
 };
 
 /**
- * The **previous** generation's host address set — what `updateV14ToV15` upgrades *from*.
+ * The **previous** generation's host address set — what `updateV<N-1>ToV<N>` upgrades *from*.
  *
  * Spelled out rather than aliased: v15 adds `PaddedInputter` to the host set, which a v14 stack does not
  * have, so the two no longer coincide. This is the change the separate name was kept for.
@@ -159,7 +159,7 @@ export type {
   KmsEpochActivator,
 } from '../kmsLifecycle/types.js';
 
-/** Result of `deploy` / `updateV14ToV15`: the full host address set plus the standing admin. */
+/** Result of `deploy` / `updateV<N-1>ToV<N>`: the full host address set plus the standing admin. */
 export type Deployed = {
   readonly fhevmAddresses: FhevmAddresses;
   readonly cleartextAddresses: CleartextAddresses;

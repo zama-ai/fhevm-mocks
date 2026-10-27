@@ -787,7 +787,7 @@ async function checkNoAuthorityEvents(
  * @example
  * ```ts
  * const before = await snapshotStack({ ethProvider, history, deployed: previousStack });
- * await updateV14ToV15({ ... }); // adds PaddedInputter and ProtocolConfigReplica; every earlier address is unchanged
+ * await updateV<N-1>ToV<N>({ ... }); // adds PaddedInputter and ProtocolConfigReplica; every earlier address is unchanged
  * const report = await verify({ ethProvider, history, deployed: previousStack, mode: 'upgrade', before });
  * if (!report.ok) throw new Error(report.failures.map((f) => `${f.name}: ${f.detail ?? ''}`).join('\n'));
  * ```

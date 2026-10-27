@@ -209,7 +209,7 @@ Three groups, in increasing order of effort:
    now simply imported through the link npm creates. A tarball is for testing a PUBLISH CONTRACT; using one to
    read a sibling's source bought nothing.
 
-2. **The public API** — `pkg/ts/upgrade.ts` exports `updateV14ToV15`, and `pkg/ts/types/public.ts` declares
+2. **The public API** — `pkg/ts/upgrade.ts` exports `updateV<N-1>ToV<N>`, and `pkg/ts/types/public.ts` declares
    `FhevmAddressesV14` beside `FhevmAddresses`. Renaming these is a breaking change for consumers, so decide
    deliberately whether N-1→N gets new names or the old ones are kept. v15 renamed, and dropped the
    `UpdateV13ToV14MigrationConfig` input with the migration it described: a v14 consumer calling
@@ -292,7 +292,7 @@ the rule is two-sided:
 
 So a missing bump is not automatically a defect. `HCULimit` is the worked example for v14→v15: its v15
 bytecode is identical to v14's, it kept `MINOR_VERSION = 4` / `REINITIALIZER_VERSION = 5`, and it is therefore
-**deliberately absent** from `updateV14ToV15`'s op list — upstream's own CI skips it for the same reason.
+**deliberately absent** from `updateV<N-1>ToV<N>`'s op list — upstream's own CI skips it for the same reason.
 `InputVerifier` was the same example one rotation earlier (unchanged v13→v14) and is IN the list this time,
 because v0.15 changed and bumped it. `CleartextArithmetic` and `CleartextDB` are `same` too, and absent.
 
@@ -365,7 +365,7 @@ inside `forge script`, because placeholder patching defeats forge's cache by des
 keeps everything that has actually caught an upgrade regression and drops the coordinator: the
 `Create2UpgradeOrdinals` forge test (the init-data table), `stack-order.test.ts` (the deploy order across
 every notation), `list:upgrade-ops` (the bytecode/reinitializer table — add `--strict` to fail on a ⚠),
-and the library upgrade e2e on a fresh anvil (`updateV14ToV15`, versions, ownership, cleartext survival).
+and the library upgrade e2e on a fresh anvil (`updateV<N-1>ToV<N>`, versions, ownership, cleartext survival).
 Iterate on the fast lane; run the full one before committing a bump. `make test-cleartext-upgrade-fast`
 and `make test-cleartext-upgrade` are the workspace-level names.
 

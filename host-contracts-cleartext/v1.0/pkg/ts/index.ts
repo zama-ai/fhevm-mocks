@@ -2,12 +2,12 @@
 // DO NOT EDIT — your changes will be overwritten.
 
 export { deploy } from './deploy.js';
-export { updateV14ToV15 } from './upgrade.js';
+export { updateV14ToV1Dot0 } from './upgrade.js';
 export { precomputeAddresses } from './addresses.js';
 // The deterministic-deployment counterpart: addresses that depend on nothing but the factory, the salt
 // inputs and the init code — no deployer nonce, so they survive any transaction that moves it.
 export { precomputeCreate2Addresses, CREATE2_FACTORY, CREATE2_ROLES } from './create2Addresses.js';
-// Installs a standing `ACLOwner` over an EOA-owned ACL — the prerequisite for `updateV14ToV15`.
+// Installs a standing `ACLOwner` over an EOA-owned ACL — the prerequisite for `updateV<N-1>ToV<N>`.
 export { setupACLOwner } from './aclOwner.js';
 // Emergency pause / unpause of the ACL, driven through the standing `ACLOwner` by its admin.
 export { pauseACL, unpauseACL } from './aclOwner.js';
@@ -41,11 +41,11 @@ export type {
   DeployReturnType,
   EncodeCallParameters,
   // Address sets. `FhevmAddresses` is this package's own; the suffixed one is the PREVIOUS generation,
-  // and exists only because `updateV14ToV15` takes it as input.
+  // and exists only because `updateV<N-1>ToV<N>` takes it as input.
   FhevmAddresses,
   CleartextAddresses,
   FhevmAddressesV14,
-  // `deploy` config + shared result of `deploy` / `updateV14ToV15`.
+  // `deploy` config + shared result of `deploy` / `updateV<N-1>ToV<N>`.
   BootstrapConfig,
   Deployed,
   // Per-contract bootstrap init configs.

@@ -116,7 +116,7 @@ import {
  *    from the deployer EOA. Matching pkg/ts/deploy.ts matters for two reasons:
  *    the stack is never left half-materialized (separate per-proxy upgrades can fail
  *    midway, leaving some proxies real and some still empty), and
- *    `updateV14ToV15` requires the ACL owner to already be an ACLOwner rather
+ *    `updateV<N-1>ToV<N>` requires the ACL owner to already be an ACLOwner rather
  *    than an EOA.
  *
  * ---------------------------------------------------------------------------

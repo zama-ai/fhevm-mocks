@@ -61,7 +61,7 @@ import { DEFAULT_BOOTSTRAP_CONFIG } from './constants.js';
  *      `admin` to be that `ACLOwner`'s owner. If the stack is EOA-owned, install one first
  *      (`setupACLOwner`).
  */
-export async function updateV14ToV15(parameters: {
+export async function updateV14ToV1Dot0(parameters: {
   // Reads the live ProtocolConfig the replica is seeded from.
   readonly ethProvider: AbstractEthereumProvider;
   readonly ethUtils: AbstractEthereumUtils;
@@ -103,7 +103,7 @@ export async function updateV14ToV15(parameters: {
   const protocolConfigReplicaAddress = protocolConfigReplicaProxy.contractAddress;
 
   // 1. Phase 1: deploy the v15 implementations (permissionless).
-  const { implementations } = await buildUpdateV14ToV15Plan({
+  const { implementations } = await buildUpdateV14ToV1Dot0Plan({
     ethUtils: parameters.ethUtils,
     deployer: parameters.deployer,
     fhevmAddresses,
@@ -175,9 +175,9 @@ async function readProtocolConfigReplicaSeed(parameters: {
  * new ones (patched with the actual live addresses) and encodes their `upgradeToAndCall` calldata.
  * Sends no owner-gated transaction. `HCULimit` is intentionally absent (its reinitializer and bytecode are
  * unchanged).
- * @internal — used by `updateV14ToV15`; not part of the public API.
+ * @internal — used by `updateV<N-1>ToV<N>`; not part of the public API.
  */
-async function buildUpdateV14ToV15Plan(parameters: {
+async function buildUpdateV14ToV1Dot0Plan(parameters: {
   readonly ethUtils: AbstractEthereumUtils;
   readonly deployer: AbstractEthereumSigner;
   readonly fhevmAddresses: FhevmAddresses;
@@ -246,7 +246,7 @@ async function buildUpdateV14ToV15Plan(parameters: {
       abi: cleartextArithmeticAbi,
       spec: noArgs('reinitializeV4'),
     },
-    // New in v15: materialized from the empty proxy `updateV14ToV15` created, not reinitialized.
+    // New in v15: materialized from the empty proxy `updateV<N-1>ToV<N>` created, not reinitialized.
     {
       contractName: 'PaddedInputter',
       proxyAddress: addr.paddedInputterAddress,

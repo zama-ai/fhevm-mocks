@@ -63,7 +63,7 @@ parity and had to be reverted.
 
 They mention v14, but they are not going anywhere:
 
-- `pkg/ts` — `updateV14ToV15`, `FhevmAddressesV14`. v15 still upgrades v14 deployments; only the test is going.
+- `pkg/ts` — `updateV<N-1>ToV<N>`, `FhevmAddressesV14`. v15 still upgrades v14 deployments; only the test is going.
 - `pkg/forge/src/LibForgeFhevmUpgrade.sol` and `LibForgeFhevmHostVersions.sol` — a fork of a chain still on 0.14 is
   still brought forward in memory, and forge-fhevm-std ships this payload.
 - `test/forge/LibForgeFhevmUpgrade.t.sol`, `LibForgeFhevmHostVersions*.t.sol`, `ForkCleartextUpgrade.t.sol` — they

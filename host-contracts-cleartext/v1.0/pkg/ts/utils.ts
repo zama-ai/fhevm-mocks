@@ -339,7 +339,7 @@ export function buildHostAddressReplacements(parameters: {
   readonly fhevmAddresses: FhevmAddresses;
   readonly pauserSetAddress: string;
   // Optional: a caller with no cleartext-infra contracts leaves their placeholders unpatched. Both callers
-  // pass them today — `deploy` for the contracts it creates, `updateV14ToV15` for the live stack's, which the
+  // pass them today — `deploy` for the contracts it creates, `updateV<N-1>ToV<N>` for the live stack's, which the
   // new `CleartextFHEVMExecutor` names as a compile-time constant.
   readonly cleartextAddresses?: CleartextAddresses;
 }): AddressReplacement[] {

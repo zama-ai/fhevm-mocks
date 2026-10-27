@@ -17,7 +17,7 @@
 //
 // ## What is NOT here
 //
-// The nonce path (scripts/deploy.sh) and the TypeScript `updateV14ToV15` in pkg/ts are both untouched and
+// The nonce path (scripts/deploy.sh) and the TypeScript `updateV<N-1>ToV<N>` in pkg/ts are both untouched and
 // remain what they were. This is a third path, for a stack whose addresses have to be predictable before
 // anything is sent.
 

@@ -6,7 +6,7 @@
 //
 // ## Why this exists separately from test/ts/upgrade/library.test.ts
 //
-// That test drives the same upgrade through the TypeScript library — `deploy()` then `updateV14ToV15()`
+// That test drives the same upgrade through the TypeScript library — `deploy()` then `updateV<N-1>ToV<N>()`
 // — from inside one Node process. This drives it through the OPERATOR-FACING path: two CLI coordinators,
 // each spawning `forge script`, each broadcasting real transactions and sealing a manifest. The two share
 // no code, which is the point. The library path can be correct while the CREATE2 path is broken, and the

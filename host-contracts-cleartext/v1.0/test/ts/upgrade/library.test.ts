@@ -18,7 +18,7 @@ import {
   precomputeAddresses as precomputePrev,
   type BootstrapConfig as BootstrapConfigPrev,
 } from '@fhevm/host-contracts-cleartext-v14-dev/pkg/ts/index.ts';
-import { CONTRACT_VERSIONS, updateV14ToV15 } from '../../../pkg/ts/index.ts';
+import { CONTRACT_VERSIONS, updateV14ToV1Dot0 } from '../../../pkg/ts/index.ts';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -141,7 +141,7 @@ function surveyTargets(deployed: {
 /**
  * The only readings allowed to differ across the upgrade, and why. Anything not here must be identical.
  *
- * `getVersion` changes on exactly the contracts `updateV14ToV15` re-points — which is asserted positively
+ * `getVersion` changes on exactly the contracts `updateV<N-1>ToV<N>` re-points — which is asserted positively
  * elsewhere in this test, so here it is only excused. `HCULimit` and `CleartextDB` are deliberately absent:
  * their bytecode is unchanged between the two generations, so their versions must NOT move.
  */
@@ -590,7 +590,7 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
     expect(await isPauser(aclOwner)).toBe(true);
 
     // --- 3. Upgrade the live stack to this generation (single atomic ACLOwner.upgrade). ---
-    const upgraded = await updateV14ToV15({
+    const upgraded = await updateV14ToV1Dot0({
       ethProvider: adapters.provider,
       ethUtils: adapters.utils,
       deployer: adapters.signer,
@@ -866,7 +866,7 @@ test('e2e: the upgrade migrates nothing — KMS and coprocessor state survive on
     const blockBeforeUpgrade = await publicClient.getBlockNumber();
 
     // --- 3. Upgrade. No migration input exists: every reinitializer takes no arguments. ---
-    const { protocolConfigReplicaAddress } = await updateV14ToV15({
+    const { protocolConfigReplicaAddress } = await updateV14ToV1Dot0({
       ethProvider: adapters.provider,
       ethUtils: adapters.utils,
       deployer: adapters.signer,

@@ -3,7 +3,7 @@
 
 import {
   deploy,
-  updateV14ToV15,
+  updateV14ToV1Dot0,
   precomputeAddresses,
   precomputeCreate2Addresses,
   CREATE2_FACTORY,
@@ -266,7 +266,7 @@ const SAMPLES: readonly unknown[] = [
 
 void test('every value export arrives with the type a consumer relies on', () => {
   assert.equal(typeof deploy, 'function');
-  assert.equal(typeof updateV14ToV15, 'function');
+  assert.equal(typeof updateV14ToV1Dot0, 'function');
   assert.equal(typeof precomputeAddresses, 'function');
   assert.equal(typeof precomputeCreate2Addresses, 'function');
   assert.equal(typeof CREATE2_FACTORY, 'string');

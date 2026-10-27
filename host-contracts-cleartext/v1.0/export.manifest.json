@@ -43,7 +43,7 @@
       "module": "./upgrade.js",
       "exports": [
         {
-          "name": "updateV14ToV15",
+          "name": "updateV14ToV1Dot0",
           "kind": "function"
         }
       ]
@@ -82,7 +82,7 @@
       ]
     },
     {
-      "comment": ["Installs a standing `ACLOwner` over an EOA-owned ACL — the prerequisite for `updateV14ToV15`."],
+      "comment": ["Installs a standing `ACLOwner` over an EOA-owned ACL — the prerequisite for `updateV<N-1>ToV<N>`."],
       "module": "./aclOwner.js",
       "exports": [
         {
@@ -217,7 +217,7 @@
         {
           "comment": [
             "Address sets. `FhevmAddresses` is this package's own; the suffixed one is the PREVIOUS generation,",
-            "and exists only because `updateV14ToV15` takes it as input."
+            "and exists only because `updateV<N-1>ToV<N>` takes it as input."
           ],
           "name": "FhevmAddresses"
         },
@@ -228,7 +228,7 @@
           "name": "FhevmAddressesV14"
         },
         {
-          "comment": ["`deploy` config + shared result of `deploy` / `updateV14ToV15`."],
+          "comment": ["`deploy` config + shared result of `deploy` / `updateV<N-1>ToV<N>`."],
           "name": "BootstrapConfig"
         },
         {

@@ -12,7 +12,8 @@ below was verified at `2080015`.
 - **Names:**
   - Directory and generation key: `v1.0`, so `host-contracts-cleartext/v1.0`, `cleartext-config-v1.0.ts`,
     workspace `@fhevm/host-contracts-cleartext-v1.0-dev`.
-  - Identifiers use `V1_0`, since an identifier cannot hold a dot. Example: `updateV14ToV1_0`.
+  - Identifiers use `V1Dot0`, since an identifier cannot hold a dot, and the camelCase lint rule refuses an
+    underscore. Example: `updateV14ToV1Dot0`. Prose names the operation generically: `updateV<N-1>ToV<N>`.
   - Legacy names stay as they are: `v13`, `v14`.
 - **Name ↔ version mapping**, defined once in `fhevm-npm`:
 
@@ -295,7 +296,7 @@ folder, so moving any input without its readers leaves a red commit.
 ### Step 3: identifiers
 
 - **Names:**
-  - `updateV14ToV15` and related names → `…V1_0`.
+  - `updateV14ToV15` and related names → `…V1Dot0`; comments and docs say `updateV<N-1>ToV<N>`.
 - Nothing here changes behaviour: every derivation of the generation, and the prefix, moved to step 2.
 - Then `make generate`, in case a renamed identifier reaches generated output.
 

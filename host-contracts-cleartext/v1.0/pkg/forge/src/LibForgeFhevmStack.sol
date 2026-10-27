@@ -198,7 +198,7 @@ library LibForgeFhevmStack {
      * @notice The standing ACLOwner: owner of ACL, and the only account that can upgrade the stack.
      *
      * @dev READ FROM THE CHAIN, because a library holds no state. `ACL.owner()` is the ACLOwner phase 3
-     *      installed, and stays so across an upgrade — `updateV14ToV15` takes the standing one as a
+     *      installed, and stays so across an upgrade — `updateV<N-1>ToV<N>` takes the standing one as a
      *      parameter and deploys none — which is exactly why this was never a generated constant. It is
      *      also the only answer that can be right on a FORK the caller did not deploy, and the one
      *      `generateGenesis.ts` uses. A caller that moves ACL ownership afterwards is asking a different

@@ -763,7 +763,7 @@ void test('ComputeAddresses.s.sol matches its template rendered with the current
 });
 
 /**
- * `DEFAULT_MAY_CHANGE`'s version exemptions are exactly the proxies `updateV14ToV15` re-points, minus the
+ * `DEFAULT_MAY_CHANGE`'s version exemptions are exactly the proxies `updateV<N-1>ToV<N>` re-points, minus the
  * ones it CREATES.
  *
  * The list in `pkg/ts/verify.ts` is a copy of a decision made in `pkg/ts/upgrade.ts`, and a copy nothing
@@ -776,7 +776,7 @@ void test('ComputeAddresses.s.sol matches its template rendered with the current
  * a reading moved when there was never a first one. This upgrade creates two: PaddedInputter (RFC-030) and
  * ProtocolConfigReplica.
  */
-void test('verify DEFAULT_MAY_CHANGE matches the proxies updateV14ToV15 re-points', () => {
+void test('verify DEFAULT_MAY_CHANGE matches the proxies updateV<N-1>ToV<N> re-points', () => {
   const upgradeSrc = readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'upgrade.ts'), 'utf8');
   const verifySrc = readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'pkg', 'ts', 'verify.ts'), 'utf8');
 
