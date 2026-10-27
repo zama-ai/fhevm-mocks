@@ -318,6 +318,64 @@ test('versions: the folder name and the manifest agree', () => {
   );
 });
 
+/** history(), then one more upgrade from v14.1 to the event `name` declares. */
+function historyThen(name: string, version: string, packageVersion: string): Files {
+  const deploy = eventFiles(
+    `${S}/${DEPLOY}`,
+    { name: DEPLOY, kind: 'deploy', version: '0.13', blocks: [100, 200, 200] },
+    false,
+  );
+  const hotfix = eventFiles(`${S}/${HOTFIX}`, {
+    name: HOTFIX,
+    kind: 'hotfix',
+    version: '0.13',
+    packageVersion: '0.13.1',
+    blocks: [300, 310, 320],
+    previous: { name: DEPLOY, manifest: deploy.manifest },
+  });
+  const upgrade = eventFiles(`${S}/${UPGRADE}`, {
+    name: UPGRADE,
+    kind: 'upgrade',
+    version: '0.14',
+    packageVersion: '0.14.1',
+    blocks: [400, 410, 420],
+    previous: { name: HOTFIX, manifest: hotfix.manifest },
+  });
+  const next = eventFiles(`${S}/${name}`, {
+    name,
+    kind: 'upgrade',
+    version,
+    packageVersion,
+    blocks: [500, 510, 520],
+    previous: { name: UPGRADE, manifest: upgrade.manifest },
+  });
+  return { ...CHAINS, ...deploy.files, ...hotfix.files, ...upgrade.files, ...next.files };
+}
+
+test('from 1.0 on a record is named v<major>.<minor>.<patch>, and 0.14 upgrades to 1.0', () => {
+  withTree(historyThen('03-upgrade-v1.0.0-2026-11-10', '1.0', '1.0.0'), (root) => {
+    assert.deepEqual(inspectDeploymentRecords(root).violations, []);
+  });
+});
+
+test('0.15 is never released: 0.14 does not upgrade to it', () => {
+  expectOne(
+    historyThen('03-upgrade-v15.0-2026-11-10', '0.15', '0.15.0'),
+    /an upgrade moves exactly one generation up: v14 -> v15/,
+  );
+});
+
+test('a 1.0 record must say 1.0 in its version and packageVersion', () => {
+  expectOne(
+    historyThen('03-upgrade-v1.0.0-2026-11-10', '0.1', '1.0.0'),
+    /version is '0\.1', the folder name says generation v1\.0 \(1\.0\)/,
+  );
+  expectOne(
+    historyThen('03-upgrade-v1.0.0-2026-11-10', '1.0', '1.0.1'),
+    /packageVersion is '1\.0\.1', the folder name says v1\.0\.0/,
+  );
+});
+
 test('kinds: an upgrade moves one generation, a hotfix moves the patch within its generation', () => {
   // Names changed together with what they seal, so only the kind rule is at fault.
   const twoUp = edit(

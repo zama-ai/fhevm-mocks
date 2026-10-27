@@ -26,6 +26,14 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { CHAINS_CONFIG_FILE } from '../fhevm-chains.ts';
 import type { Violation } from '../diagnostics.ts';
+import {
+  type GenerationVersion,
+  generationName,
+  generationVersionLabel,
+  nextGenerations,
+  parseGenerationVersion,
+  sameGeneration,
+} from '../generation-names.ts';
 
 export const DEPLOYMENTS_DIR = 'deployments';
 export const ABORTED_DIR = 'aborted';
@@ -51,10 +59,27 @@ export const RECORD_SCRATCH = [
 export const EVENT_KINDS = ['deploy', 'upgrade', 'hotfix'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
-/** `<seq>-<kind>-v<generation>.<patch>-<YYYY-MM-DD>` */
-export const EVENT_NAME = /^(\d{2})-(deploy|upgrade|hotfix)-v(\d+)\.(\d+)-(\d{4}-\d{2}-\d{2})$/;
-/** `<YYYY-MM-DD>-<kind>-v<generation>.<patch>-<n>`, under `aborted/` */
-export const ATTEMPT_NAME = /^(\d{4}-\d{2}-\d{2})-(deploy|upgrade|hotfix)-v(\d+)\.(\d+)-(\d+)$/;
+/**
+ * `<seq>-<kind>-<release>-<YYYY-MM-DD>`, where `<release>` is the generation name and the patch: `v13.0` below 1.0
+ * (generation 0.13, patch 0), `v1.0.0` from 1.0 on (generation 1.0, patch 0). The dot count tells them apart.
+ */
+export const EVENT_NAME = /^(\d{2})-(deploy|upgrade|hotfix)-v(\d+)\.(\d+)(?:\.(\d+))?-(\d{4}-\d{2}-\d{2})$/;
+/** `<YYYY-MM-DD>-<kind>-<release>-<n>`, under `aborted/` */
+export const ATTEMPT_NAME = /^(\d{4}-\d{2}-\d{2})-(deploy|upgrade|hotfix)-v(\d+)\.(\d+)(?:\.(\d+))?-(\d+)$/;
+
+/** The generation and patch a `<release>` spells: two numbers below 1.0 (`13.0`), three from 1.0 on (`1.0.0`). */
+function releaseOf(
+  first: string,
+  second: string,
+  third: string | undefined,
+): { readonly generation: GenerationVersion; readonly patch: number } | undefined {
+  if (third === undefined) return { generation: { major: 0, minor: Number(first) }, patch: Number(second) };
+  if (Number(first) === 0) return undefined; // below 1.0 the name is `v<minor>.<patch>`
+  return { generation: { major: Number(first), minor: Number(second) }, patch: Number(third) };
+}
+
+/** `v13.0`, `v1.0.0`: a generation and a patch, as a record name spells them. */
+const releaseLabel = (generation: GenerationVersion, patch: number): string => `${generationName(generation)}.${patch}`;
 
 /** The config each kind of event is run with. The legacy flat record uses the deploy one. */
 export const configFileOf = (kind: EventKind): string => `${kind}.config.json`;
@@ -64,8 +89,7 @@ const RULE = 'deployments';
 const COMMIT = /^[0-9a-f]{40}$/;
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const GENERATION = /^0\.(\d+)$/;
-const PACKAGE_VERSION = /^0\.(\d+)\.(\d+)$/;
+const PACKAGE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 export type DeploymentsInspection = {
   readonly checkedRecordKeys: readonly string[];
@@ -332,7 +356,7 @@ type ParsedEvent = {
   readonly name: string;
   readonly seq: number;
   readonly kind: EventKind;
-  readonly generation: number;
+  readonly generation: GenerationVersion;
   readonly patch: number;
   readonly day: string;
 };
@@ -340,22 +364,18 @@ type ParsedEvent = {
 function parseEvent(name: string): ParsedEvent | undefined {
   const m = EVENT_NAME.exec(name);
   if (m === null) return undefined;
-  return {
-    name,
-    seq: Number(m[1]),
-    kind: m[2] as EventKind,
-    generation: Number(m[3]),
-    patch: Number(m[4]),
-    day: m[5] ?? '',
-  };
+  const release = releaseOf(m[3] ?? '', m[4] ?? '', m[5]);
+  if (release === undefined) return undefined;
+  return { name, seq: Number(m[1]), kind: m[2] as EventKind, ...release, day: m[6] ?? '' };
 }
 
 /** The manifest's own versions agree with the folder name. A legacy deploy may lack `packageVersion`. */
 function checkVersions(manifest: Record<string, unknown>, event: ParsedEvent, fail: Report): void {
-  const generation = GENERATION.exec(String(manifest['version']));
-  if (generation === null || Number(generation[1]) !== event.generation) {
+  const generation = parseGenerationVersion(String(manifest['version']));
+  if (generation === undefined || !sameGeneration(generation, event.generation)) {
     fail(
-      `manifest.json: version is '${String(manifest['version'])}', the folder name says generation v${event.generation}`,
+      `manifest.json: version is '${String(manifest['version'])}', the folder name says generation ` +
+        `${generationName(event.generation)} (${generationVersionLabel(event.generation)})`,
     );
   }
   const packageVersion = manifest['packageVersion'];
@@ -364,10 +384,14 @@ function checkVersions(manifest: Record<string, unknown>, event: ParsedEvent, fa
     return;
   }
   const parsed = PACKAGE_VERSION.exec(String(packageVersion));
-  if (parsed === null || Number(parsed[1]) !== event.generation || Number(parsed[2]) !== event.patch) {
+  const matches =
+    parsed !== null &&
+    sameGeneration({ major: Number(parsed[1]), minor: Number(parsed[2]) }, event.generation) &&
+    Number(parsed[3]) === event.patch;
+  if (!matches) {
     fail(
       `manifest.json: packageVersion is '${String(packageVersion)}', the folder name says ` +
-        `v${event.generation}.${event.patch}`,
+        `${releaseLabel(event.generation, event.patch)}`,
     );
   }
 }
@@ -417,7 +441,9 @@ function checkPrevious(
   // A legacy deploy's manifest has no packageVersion: its folder name stands for it.
   const beforePackage =
     before['packageVersion'] ??
-    (target.event === undefined ? undefined : `0.${target.event.generation}.${target.event.patch}`);
+    (target.event === undefined
+      ? undefined
+      : `${generationVersionLabel(target.event.generation)}.${target.event.patch}`);
   if (previous['packageVersion'] !== beforePackage) {
     fail(
       `manifest.json: previous.packageVersion is ${JSON.stringify(previous['packageVersion'])}, ` +
@@ -515,13 +541,22 @@ function inspectStack(
         fail('manifest.json: a deploy starts nothing, so it has no previous');
       return;
     }
-    if (event.kind === 'upgrade' && event.generation !== before.generation + 1) {
-      fail(`an upgrade moves exactly one generation up: v${before.generation} -> v${event.generation}`);
-    }
-    if (event.kind === 'hotfix' && (event.generation !== before.generation || event.patch <= before.patch)) {
+    if (
+      event.kind === 'upgrade' &&
+      !nextGenerations(before.generation).some((next) => sameGeneration(next, event.generation))
+    ) {
       fail(
-        `a hotfix stays in its generation with a higher patch: v${before.generation}.${before.patch} -> ` +
-          `v${event.generation}.${event.patch}`,
+        `an upgrade moves exactly one generation up: ${generationName(before.generation)} -> ` +
+          `${generationName(event.generation)}`,
+      );
+    }
+    if (
+      event.kind === 'hotfix' &&
+      (!sameGeneration(event.generation, before.generation) || event.patch <= before.patch)
+    ) {
+      fail(
+        `a hotfix stays in its generation with a higher patch: ${releaseLabel(before.generation, before.patch)} -> ` +
+          `${releaseLabel(event.generation, event.patch)}`,
       );
     }
     if (event.day < before.day) fail(`dated ${event.day}, before the event it follows (${before.day})`);
@@ -551,7 +586,8 @@ function inspectStack(
     const m = isDirectory(dir) ? ATTEMPT_NAME.exec(entry) : null;
     if (m === null) {
       failStack(
-        `'${ABORTED_DIR}/${entry}' is not an attempt folder (<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>) or ${README_FILE}`,
+        `'${ABORTED_DIR}/${entry}' is not an attempt folder (<YYYY-MM-DD>-<kind>-<release>-<n>, <release> as ` +
+          `v13.0 or v1.0.0) or ${README_FILE}`,
       );
       continue;
     }

@@ -785,9 +785,11 @@ $EDITOR sdk/versions.json && make version-plan && make version-apply && git add 
 npm --prefix hardhat/v3/plugin/pkg version patch
 ```
 
-**4.3.4 A rendered dependency range is a caret on the target's central version: `^<version>`.** A payload built
-against contracts `0.13.4` renders `^0.13.4`: at least the version it was built and tested against, up to the next
-generation, which the caret on a `0.x` version excludes. The floor is never lower than that version: a lower one lets a
+**4.3.4 A rendered dependency range is the target's central version, up to the end of its generation: `^<version>`
+below 1.0, `~<version>` from 1.0 on.** A generation is `major.minor` at every version. A payload built against
+contracts `0.13.4` renders `^0.13.4`: at least the version it was built and tested against, up to the next
+generation, which the caret on a `0.x` version excludes. From 1.0 on a caret would accept the next minor, which is the
+next generation, so a payload built against `1.0.2` renders `~1.0.2`, which stops at 1.0.x. The floor is never lower than that version: a lower one lets a
 consumer who upgrades the payload keep, from their lockfile, an older dependency that may lack a fix the payload relies
 on. A contracts patch still never forces a payload release; the payload raises its floor on its next release. A
 prerelease central version renders exactly, since a caret range does not match prereleases. This is the one range
@@ -799,6 +801,9 @@ the range, so the target's version must be on npmjs.com before the payload that 
 ```jsonc
 // ✅ In the v3 plugin's tarball, rendered from the file: link by `publish pack` (target central 0.13.4).
 "@fhevm/host-contracts-cleartext": "^0.13.4"
+
+// ✅ The same from 1.0 on (target central 1.0.2): a tilde, so 1.1.x, the next generation, is excluded.
+"@fhevm/host-contracts-cleartext": "~1.0.2"
 
 // ❌ The generation floor: a consumer upgrading the plugin can keep contracts 0.13.0-0.13.3 and miss a fix.
 "@fhevm/host-contracts-cleartext": "^0.13.0"

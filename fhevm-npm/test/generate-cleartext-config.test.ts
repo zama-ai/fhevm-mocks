@@ -279,6 +279,8 @@ test('rejects a malformed source of truth instead of emitting a wrong face', () 
     [{}, undefined, /declares no "constants"/],
     [{ OK: entry }, { appliesTo: { generations: [] } }, /no "appliesTo.generations"/],
     [{ OK: entry }, { appliesTo: { generations: ['0.13.0'] } }, /not a generation key/],
+    // Below 1.0 the name is v<minor>: `v0.15` is not one, and `v15` would be the (never released) 0.15.
+    [{ OK: entry }, { appliesTo: { generations: ['v0.15'] } }, /not a generation key like 'v13' or 'v1\.0'/],
     [{ OK: entry }, { localhost: undefined }, /no "localhost" block/],
     [{ EMPTY_SCOPE: { ...entry, generations: [] } }, undefined, /"generations" is empty/],
     [{ DUP_SCOPE: { ...entry, generations: ['v13', 'v13'] } }, undefined, /repeats a generation/],

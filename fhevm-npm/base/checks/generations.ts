@@ -4,6 +4,7 @@ import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
 import { packageJsonPath } from './package-names.ts';
 import { CLEARTEXT_CONFIG_FILE } from '../generate-cleartext-config.ts';
+import { GENERATION_NAME_SOURCE } from '../generation-names.ts';
 import {
   type DependencyDeclaration,
   type DependencyMap,
@@ -244,12 +245,16 @@ export function validateGenerationVendoredDestinations(
 
 /**
  * The generation each SOURCE file is named for, `<name>-<gen>.<ext>` → `./<family>/<gen>`, grouped: the
- * files that name none are not in the map. `cleartext-config-v14.ts` → `./host-contracts-cleartext/v14`.
+ * files that name none are not in the map. `cleartext-config-v14.ts` → `./host-contracts-cleartext/v14`, and
+ * `cleartext-config-v1.0.ts` → `./host-contracts-cleartext/v1.0`.
  */
+/** `<name>-<gen>.<ext>`: the extension has no dot, so `-v1.0.ts` reads as `v1.0`, never as `v1` + `.0.ts`. */
+const SCOPED_FILE = new RegExp(`-(${GENERATION_NAME_SOURCE})\\.[^.]+$`);
+
 function scopedGenerations(family: GenerationFamily, files: readonly string[]): Map<string, string[]> {
   const scoped = new Map<string, string[]>();
   for (const file of files) {
-    const match = /-(v\d+)\.[^.]+$/.exec(file);
+    const match = SCOPED_FILE.exec(file);
     if (match === null) continue;
     const key = `./${family.family}/${match[1]!}`;
     scoped.set(key, [...(scoped.get(key) ?? []), file]);

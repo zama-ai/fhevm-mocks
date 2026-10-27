@@ -25,7 +25,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^v[0-9]+$"
+            "pattern": "^v(0|[1-9][0-9]*|[1-9][0-9]*\\.(0|[1-9][0-9]*))$"
           }
         },
         "_note": {
@@ -114,7 +114,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^v[0-9]+$"
+            "pattern": "^v(0|[1-9][0-9]*|[1-9][0-9]*\\.(0|[1-9][0-9]*))$"
           }
         },
         "note": {

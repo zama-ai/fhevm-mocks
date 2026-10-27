@@ -29,6 +29,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { isGenerationName } from './generation-names.ts';
+
 export type GeneratedCleartextConfigStatus = {
   readonly path: string;
   readonly status: 'identical' | 'missing' | 'different';
@@ -141,7 +143,9 @@ function loadCleartextConfig(configFile: string): CleartextConfig {
   const generations = parsed.appliesTo?.generations ?? [];
   if (generations.length === 0) throw new Error(`${configFile} declares no "appliesTo.generations".`);
   for (const gen of generations) {
-    if (!/^v\d+$/.test(gen)) throw new Error(`appliesTo.generations: '${gen}' is not a generation key like 'v13'`);
+    if (!isGenerationName(gen)) {
+      throw new Error(`appliesTo.generations: '${gen}' is not a generation key like 'v13' or 'v1.0'`);
+    }
   }
 
   const constants = new Map(Object.entries(parsed.constants ?? {}));

@@ -76,6 +76,9 @@ test('the release branch comes from the generation number, so a rotation needs n
   assert.equal(releaseBranchOf('v100'), 'release/0.100.x');
   // Nothing else names a branch: no version is hardcoded anywhere, so an unparseable name has none.
   assert.equal(releaseBranchOf('legacy'), undefined);
+  assert.equal(releaseBranchOf('v1.0'), 'release/1.0.x');
+  // 0.15 is never released: it owns no branch.
+  assert.equal(releaseBranchOf('v15'), undefined);
   assert.equal(releaseBranchOf('v13-rc'), undefined);
   assert.equal(releaseBranchOf('13'), undefined);
 });
@@ -192,7 +195,7 @@ test('a generation directory that names no version is a violation, not a silent 
 
   assert.deepEqual(rest, []);
   assert.equal(violation?.packageKey, './npm-manifest.json');
-  assert.match(violation?.message ?? '', /is not named 'v<number>'/);
+  assert.match(violation?.message ?? '', /is not named 'v<minor>' \(below 1\.0\) or 'v<major>\.<minor>'/);
 });
 
 test('no generations block at all checks nothing', () => {
@@ -241,6 +244,8 @@ test('only FHEVM_PARITY_REF_* is read, and an empty value is not an override', (
     // Lowercased, because that is how `npm-manifest.json#generations` names the directories.
     { v13: TOPIC, v9: 'release/0.9.x' },
   );
+  // A variable name cannot hold a dot: V1_0 spells v1.0.
+  assert.deepEqual(parityRefOverrides({ FHEVM_PARITY_REF_V1_0: TOPIC }), { 'v1.0': TOPIC });
   assert.deepEqual(parityRefOverrides({}), {});
 });
 
