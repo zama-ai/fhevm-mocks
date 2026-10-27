@@ -1,0 +1,4 @@
+@fhevm/host-contracts-cleartext-v14-dev/=../v14/
+fhevm-config-1.0.0/=internal/placeholders/
+forge-std-1.11.0/=dependencies/forge-std-1.11.0/
+forge-std/=dependencies/forge-std-1.11.0/src/

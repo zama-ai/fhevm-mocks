@@ -9,8 +9,8 @@
     "common",
     "common-vendored",
     "host-contracts-cleartext/v14",
-    "host-contracts-cleartext/v15",
-    "host-contracts-cleartext/v15/pkg",
+    "host-contracts-cleartext/v1.0",
+    "host-contracts-cleartext/v1.0/pkg",
     "foundry/forge-fhevm-std",
     "foundry/forge-fhevm-std/pkg"
   ],

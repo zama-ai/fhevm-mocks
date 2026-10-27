@@ -64,7 +64,7 @@
   ],
 
   "appliesTo": {
-    "generations": ["v14", "v15"],
+    "generations": ["v14", "v1.0"],
     "_note": [
       "Every constant reaches every generation listed here unless it says otherwise: a constant carrying its own",
       "`generations` list is emitted only into those generations' faces. Each generation gets its own complete",
@@ -264,7 +264,7 @@
       "ts": "string",
       "solidity": "string",
       "summary": "v14 only. First half of `mpcIdentity`: node i is `<prefix><i + 1><infix><i + 1>`.",
-      "generations": ["v14", "v15"],
+      "generations": ["v14", "v1.0"],
       "note": "v14 only: the first half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
     },
 
@@ -273,7 +273,7 @@
       "ts": "string",
       "solidity": "string",
       "summary": "v14 only. Second half of `mpcIdentity`, naming the cluster as cleartext.",
-      "generations": ["v14", "v15"],
+      "generations": ["v14", "v1.0"],
       "note": "v14 only: the second half of `KmsNodeParams.mpcIdentity`. Node i is `${PREFIX}${i + 1}${INFIX}${i + 1}`, so `kms-core-1-cleartext-core-1`, the shape the Sepolia devnet uses (`kms-core-1-zws-dev-core-1`) with the cluster name saying cleartext."
     },
 
@@ -282,7 +282,7 @@
       "ts": "string",
       "solidity": "string",
       "summary": "v14 only. Prefix inside the storage bucket; node i gets `<prefix><i + 1>`.",
-      "generations": ["v14", "v15"],
+      "generations": ["v14", "v1.0"],
       "note": "v14 only: `KmsNodeParams.storagePrefix`, the prefix WITHIN the storage bucket where KMS Core writes public material (upstream: proto `MpcNode.public_storage_prefix`; devnet: `PUB-pN`). Node i gets `${prefix}${i + 1}`. Distinct from CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX, which is the bucket itself."
     },
 
@@ -291,7 +291,7 @@
       "ts": "string",
       "solidity": "string",
       "summary": "v14 only. The KMS `softwareVersion` a context is created under. No build exists.",
-      "generations": ["v14", "v15"],
+      "generations": ["v14", "v1.0"],
       "note": "v14 only: the `softwareVersion` argument of `ProtocolConfig.initializeFromEmptyProxy` and `reinitializeV2`, naming the KMS build a context was created under (devnet: `v0.13.20`). There is no KMS build behind a cleartext stack; valid semver with a prerelease tag says exactly that, and nothing on-chain parses it."
     },
 
@@ -300,16 +300,16 @@
       "ts": "string",
       "solidity": "string",
       "summary": "v14 only. `KmsNodeParams.caCert` as hex. Empty: there is no MPC peer to verify.",
-      "generations": ["v14", "v15"],
+      "generations": ["v14", "v1.0"],
       "note": "v14 only: `KmsNodeParams.caCert`, the node's CA certificate as HEX (devnet: a ~768-byte PEM). Carried as a hex string because that is what viem takes for `bytes` and the only bytes-like type the config faces know; the generated LocalHostBootstrap turns it into a Solidity `bytes` constant. A cleartext stack has no MPC peer to verify, so it is empty: `0x`."
     },
     "CLEARTEXT_PAD_PRF_INSTANCE": {
       "value": "1",
       "ts": "number",
       "solidity": "uint16",
-      "summary": "v15 only. The RFC-030 PRF instance the stack registers on PaddedInputter at deploy. Never 0.",
-      "generations": ["v15"],
-      "note": "v15 only: the RFC-030 PRF instance identifier every deploy path registers on PaddedInputter (`initializeFromEmptyProxy([id])`), so pad-based inputs and pad decryptions work out of the box. RFC-030 types it as a 16-bit, protocol-assigned value with no internal structure, global across host chains and never reused, and requires a new one whenever the label-to-pad mapping changes: the cleartext stand-in PRF (keccak, `FHE_cpad`, LibCleartextPad) is a mapping of its own, so it is an instance of its own. NEVER 0: an unset `prf` field, a missing argument or a forgotten parameter is 0, and must be refused (`PadUnsupportedPrf(0)`) rather than silently accepted as the default instance. A client that builds packages or pad decryption requests (the js-sdk's cleartext mode) must use this same value."
+      "summary": "v1.0 only. The RFC-030 PRF instance the stack registers on PaddedInputter at deploy. Never 0.",
+      "generations": ["v1.0"],
+      "note": "v1.0 only: the RFC-030 PRF instance identifier every deploy path registers on PaddedInputter (`initializeFromEmptyProxy([id])`), so pad-based inputs and pad decryptions work out of the box. RFC-030 types it as a 16-bit, protocol-assigned value with no internal structure, global across host chains and never reused, and requires a new one whenever the label-to-pad mapping changes: the cleartext stand-in PRF (keccak, `FHE_cpad`, LibCleartextPad) is a mapping of its own, so it is an instance of its own. NEVER 0: an unset `prf` field, a missing argument or a forgotten parameter is 0, and must be refused (`PadUnsupportedPrf(0)`) rather than silently accepted as the default instance. A client that builds packages or pad decryption requests (the js-sdk's cleartext mode) must use this same value."
     }
   },
 
@@ -394,7 +394,7 @@
     },
 
     "generations": {
-      "0.15.0": {
+      "1.0.0": {
         "PROXY_COUNT": "11",
         "ADDRESSED_NONCE_COUNT": "14",
         "_note": "0.14.0 plus PaddedInputter (RFC-030), a primary host contract created right after KMSGeneration at nonce 9. The primary block grows by one, so the whole secondary block shifts by one, as v13's did when it added ProtocolConfig and KMSGeneration. Plus ProtocolConfigReplica, appended to the secondary block at nonce 13: nothing bakes its address, so it moves nothing.",

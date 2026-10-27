@@ -3,8 +3,8 @@
   "schemaVersion": 1,
   "packages": {
     "./host-contracts-cleartext/v14/pkg": "0.14.0",
-    "./host-contracts-cleartext/v15/pkg": "0.15.0-0",
-    "./foundry/forge-fhevm-std/pkg": "0.15.0-0",
-    "./hardhat/v3/plugin/pkg": "0.15.0-0"
+    "./host-contracts-cleartext/v1.0/pkg": "1.0.0-0",
+    "./foundry/forge-fhevm-std/pkg": "1.0.0-0",
+    "./hardhat/v3/plugin/pkg": "1.0.0-0"
   }
 }
