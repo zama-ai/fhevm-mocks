@@ -2,6 +2,7 @@ import type { NpmManifest } from '../manifest.ts';
 import type { CommandReport } from '../base/diagnostics.ts';
 import type { AuditLevel } from '../base/publish-audit.ts';
 import { inspectPublishedTarball } from '../base/publish-check.ts';
+import { devOnlyTarballPinViolations } from '../base/tarball-pins.ts';
 
 export type PublishCheckOptions = {
   readonly payload: string;
@@ -37,6 +38,7 @@ export async function publishCheck(
     command: 'publish check',
     checkedPackageKeys: [inspection.tarball],
     checkedItemLabel: 'tarball(s)',
-    violations: inspection.violations,
+    // A tarball pin is for development only: nothing is published while any is set.
+    violations: [...devOnlyTarballPinViolations(manifest, 'publish'), ...inspection.violations],
   };
 }

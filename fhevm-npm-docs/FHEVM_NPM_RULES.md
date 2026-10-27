@@ -402,8 +402,12 @@ of the pin, then `fhevm-npm sync pinned` and a reinstall. A tarball pin cannot b
 dependency carries `~<the tarball's version>` (a peer stays a range a published package can carry), every other
 declaration a `file:` path to the tarball relative to its own package. Every copy a lockfile resolves must be
 installed from that tarball (`resolved` names it) at the version inside it, the tarball must exist, and a tarball
-dependency no pin names is a violation. A tarball pin is never raised by `sync pinned`. While a published payload
-declares the pinned package outside its peers, `publish check` refuses it: a `file:` spec cannot reach npmjs.com.
+dependency no pin names is a violation. A tarball pin is never raised by `sync pinned`.
+
+A tarball pin is for **development only**. The tarball is a file on one machine, so CI cannot install it, and a
+payload built against an unpublished package must never reach npm. `check pinned-dependencies` refuses every tarball
+pin in a CI run (the `CI` environment variable set), and `publish check` refuses every one, always: restore a registry
+version before pushing or publishing.
 
 ```jsonc
 // ✅ npm-manifest.json, and what `sync pinned` derives from it.

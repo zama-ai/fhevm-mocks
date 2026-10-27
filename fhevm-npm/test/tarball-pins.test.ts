@@ -7,7 +7,13 @@ import test from 'node:test';
 import { type LockfileReader, validatePinnedDependencies } from '../base/checks/pinned-dependencies.ts';
 import type { LoadedPackage, PackageJson } from '../base/npm.ts';
 import { planPinRaises, planPinnedSync } from '../base/sync-pinned.ts';
-import { expectedPinnedSpec, isTarballPin, tarballPinPath } from '../base/tarball-pins.ts';
+import {
+  devOnlyTarballPinViolations,
+  expectedPinnedSpec,
+  isCi,
+  isTarballPin,
+  tarballPinPath,
+} from '../base/tarball-pins.ts';
 import { loadedPackage, parseTestNpmManifest } from './helpers.ts';
 
 const VERSION = '1.0.0-0';
@@ -238,4 +244,25 @@ test('the manifest accepts a tarball pin, relative or absolute, and still reject
   assert.doesNotThrow(() => manifestWithPin('file:tarballs/sdk-1.0.0-0.tgz'));
   assert.doesNotThrow(() => manifestWithPin('file:/abs/path/sdk-1.0.0-0.tgz'));
   assert.throws(() => manifestWithPin('file:../sdk'), /exact, caret, or tilde/);
+});
+
+test('a CI run is one whose CI variable is set to anything but empty, false or 0', () => {
+  assert.equal(isCi({ CI: 'true' }), true);
+  assert.equal(isCi({ CI: '1' }), true);
+  assert.equal(isCi({}), false);
+  assert.equal(isCi({ CI: '' }), false);
+  assert.equal(isCi({ CI: 'false' }), false);
+  assert.equal(isCi({ CI: '0' }), false);
+});
+
+test('tarball pins are for development only: CI and publication refuse every one, and nothing else', () => {
+  const tarball = manifestWithPin('file:tarballs/ext-sdk-1.0.0-0.tgz');
+  for (const where of ['ci', 'publish'] as const) {
+    const violations = devOnlyTarballPinViolations(tarball, where);
+    assert.equal(violations.length, 1, where);
+    assert.equal(violations[0]?.packageKey, './npm-manifest.json');
+    assert.match(violations[0]?.message ?? '', /tarball pins are for development only/);
+  }
+  assert.deepEqual(devOnlyTarballPinViolations(manifestWithPin('^1.0.0'), 'ci'), []);
+  assert.deepEqual(devOnlyTarballPinViolations(manifestWithPin('^1.0.0'), 'publish'), []);
 });

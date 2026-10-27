@@ -11,11 +11,17 @@
 //     installs the package, so it must stay a range a published package can carry;
 //   - every other field gets a `file:` spec relative to the declaring package, since npm resolves a `file:` spec
 //     from the package.json that holds it, so one verbatim string cannot be right at every depth.
+//
+// A tarball pin is for DEVELOPMENT ONLY. The tarball is a file on one machine, so CI cannot install it, and a payload
+// built against an unpublished package must never reach npm: CI and `publish check` refuse any tarball pin outright
+// (`devOnlyTarballPinViolations`), rather than failing later on a missing file or a dangling range.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
+import type { NpmManifest } from '../manifest.ts';
+import type { Violation } from './diagnostics.ts';
 import type { DependencyField } from './npm.ts';
 
 const TARBALL_PIN = /^file:(.+\.tgz)$/;
@@ -78,4 +84,25 @@ export function expectedPinnedSpec(parameters: {
   if (field === 'peerDependencies') return `~${(parameters.readVersion ?? readTarballVersion)(tarball)}`;
   const path = relative(directory, tarball).split(sep).join('/');
   return `file:${path.startsWith('.') ? path : `./${path}`}`;
+}
+
+/** Is this process a CI run? `CI` is set by GitHub Actions and every other CI service; `false`/`0` say it is not. */
+export function isCi(environment: NodeJS.ProcessEnv = process.env): boolean {
+  const value = environment.CI;
+  return value !== undefined && value !== '' && value !== 'false' && value !== '0';
+}
+
+/** Every tarball pin, refused where none may exist: a CI run, or a publication. */
+export function devOnlyTarballPinViolations(manifest: NpmManifest, where: 'ci' | 'publish'): readonly Violation[] {
+  const reason =
+    where === 'ci'
+      ? 'CI cannot install a tarball that lives on one machine'
+      : 'a payload built against an unpublished package must not be published';
+  return Object.entries(manifest.dependencies?.pinned ?? {})
+    .filter(([, pin]) => isTarballPin(pin))
+    .map(([name, pin]) => ({
+      rule: '3.3.4',
+      packageKey: './npm-manifest.json',
+      message: `pin '${name}' is the tarball "${pin}": tarball pins are for development only, and ${reason}. Restore a registry version in npm-manifest.json#dependencies.pinned, then 'make sync-pinned'`,
+    }));
 }
