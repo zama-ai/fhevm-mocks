@@ -600,7 +600,7 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
       cleartext: prev.cleartextAddresses,
     });
 
-    // --- 3b. Exactly ONE proxy was created: PaddedInputter (RFC-030), the one contract v15 adds. Every
+    // --- 3b. Exactly ONE proxy was created: PaddedInputter (RFC-030), the one contract this generation adds. Every
     //         other address is the one deployed above, and the new one is none of them. ---
     const { paddedInputterAddress, ...unchanged } = upgraded.fhevmAddresses;
     expect(unchanged).toEqual(prev.fhevmAddresses);
@@ -618,7 +618,7 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
       }),
     ).toBe(true);
 
-    // --- 3c. And the ProtocolConfigReplica every v15 stack deploys: created too, at none of the earlier addresses.
+    // --- 3c. And the ProtocolConfigReplica every stack of this generation deploys: created too, at none of the earlier addresses.
     const replicaAddress = upgraded.protocolConfigReplicaAddress;
     expect([...existingAddresses, paddedInputterAddress.toLowerCase()]).not.toContain(replicaAddress.toLowerCase());
     expect(await version(replicaAddress)).toBe(CONTRACT_VERSIONS.protocolConfigReplica);
@@ -642,7 +642,7 @@ test('e2e: deploy a previous-generation cleartext stack, then upgrade it — cle
     // Every re-pointed proxy now reports the version THIS package ships, read from the generated
     // `CONTRACT_VERSIONS` rather than restated here — a patch bump upstream then changes the expectation
     // and the contracts together. HCULimit is left where it was (its bytecode is unchanged), and reports
-    // the same version on both generations; CleartextArithmetic moves (v15 adds the RFC-030 unmasking).
+    // the same version on both generations; CleartextArithmetic moves (this generation adds the RFC-030 unmasking).
     expect(await versions()).toEqual({
       acl: CONTRACT_VERSIONS.acl,
       fhevmExecutor: CONTRACT_VERSIONS.fhevmExecutor,

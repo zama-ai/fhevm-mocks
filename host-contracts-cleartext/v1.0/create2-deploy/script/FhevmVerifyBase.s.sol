@@ -196,7 +196,7 @@ abstract contract FhevmVerifyBase is FhevmCreate2Base {
      *      build, a FOUNDRY_REMAPPINGS that silently did not apply, or placeholder markers that survived
      *      into the implementations.
      *
-     *      Common to both flows because it is the same assertion about the same v15 code: the address set
+     *      Common to both flows because it is the same assertion about the same code: the address set
      *      compiled into the implementations is the one actually deployed. Only WHEN it is answerable
      *      differs — after a deploy's step D, and after an upgrade's materialize — and that is the
      *      caller's call, not this function's. Before either, the proxies point at empty implementations

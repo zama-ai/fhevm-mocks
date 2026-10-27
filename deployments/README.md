@@ -27,15 +27,15 @@ Other files in an event folder (a README, an `addresses.json` of account labels)
 
 ## Names
 
-- **Event folder**: `<seq>-<kind>-v<N>.<p>-<YYYY-MM-DD>`.
+- **Event folder**: `<seq>-<kind>-v<release>-<YYYY-MM-DD>`.
   - `<seq>`: the order of events, two digits, contiguous from `00`. `00` is the one deploy.
   - `<kind>`: `deploy`, `upgrade` (exactly one generation up) or `hotfix` (same generation, higher patch).
-  - `v<N>.<p>`: the package version the tool ran at, `0.<N>.<p>`. A generation upgrade made with package `0.14.1`
-    is `upgrade-v14.1`.
+  - `v<release>`: the package version the tool ran at. Below 1.0 it drops the major: package `0.14.1` gives
+    `v14.1`. From 1.0 on it is written in full: package `1.0.0` gives `v1.0.0`.
   - `<YYYY-MM-DD>`: **the UTC day of the block** holding the event's defining transaction: an upgrade's or
     hotfix's `ACLOwner.upgrade`, a deploy's last transaction. Never the operator's clock. The name is therefore
     known only once that transaction is mined.
-- **Attempt folder**, under `aborted/`: `<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>`, dated by its first transaction's block.
+- **Attempt folder**, under `aborted/`: `<YYYY-MM-DD>-<kind>-v<release>-<n>`, dated by its first transaction's block.
   An attempt is recorded when it sent at least one transaction and will not be finished (its transactions are on
   chain for good); a sealed attempt that sent nothing is not recorded. It is never in the sequence. Add an
   `ABORTED.md` saying why; the checks do not read it.

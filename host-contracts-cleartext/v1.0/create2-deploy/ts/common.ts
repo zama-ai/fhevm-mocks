@@ -511,7 +511,7 @@ export const HOST_ROLES: readonly string[] = [
   'HCU_LIMIT_ADDRESS',
   'PROTOCOL_CONFIG_ADDRESS',
   'KMS_GENERATION_ADDRESS',
-  // v15, RFC-030. Same place as in the Solidity `_sharedProxyRoles()`.
+  // Since v1.0, RFC-030. Same place as in the Solidity `_sharedProxyRoles()`.
   'PADDED_INPUTTER_ADDRESS',
   'CLEARTEXT_ARITHMETIC_ADDRESS',
   'CLEARTEXT_DB_ADDRESS',
@@ -1612,7 +1612,7 @@ export type LatestEvent = {
 export function findLatestEvent(stackDir: string): LatestEvent | string {
   if (!existsSync(stackDir) || !statSync(stackDir).isDirectory()) return 'not a folder';
   if (existsSync(join(stackDir, 'deploy.config.json'))) {
-    return 'a legacy flat record (deploy.config.json at the top). Relocate it into 00-deploy-v<N>.<p>-<YYYY-MM-DD>/ first';
+    return 'a legacy flat record (deploy.config.json at the top). Relocate it into 00-deploy-v<release>-<YYYY-MM-DD>/ first';
   }
   const events = readdirSync(stackDir)
     .map((name) => ({ name, parts: EVENT_FOLDER_PARTS.exec(name) }))

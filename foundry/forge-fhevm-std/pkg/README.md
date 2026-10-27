@@ -92,7 +92,7 @@ mkdir src test
   "name": "hello-fhevm",
   "private": true,
   "dependencies": {
-    "@fhevm/forge": "^0.15.0-0",
+    "@fhevm/forge": "~1.0.0-0",
     "@fhevm/solidity": "^0.13.4",
     "encrypted-types": "^0.0.4",
     "forge-std": "git+https://github.com/foundry-rs/forge-std.git#v1.11.0"

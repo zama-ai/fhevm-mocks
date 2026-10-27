@@ -27,7 +27,7 @@ contract ProtocolConfigReplica is IProtocolConfigReplica, ProtocolConfigBase, UU
     uint256 private constant PATCH_VERSION = 0;
 
     /// @dev Shared between `initializeFromCanonical` and `reinitializeV3`, matching ProtocolConfig's own
-    ///      REINITIALIZER_VERSION for this generation step: both contracts belong to the same v15 release.
+    ///      REINITIALIZER_VERSION for this generation step: both contracts belong to the same release.
     uint64 private constant REINITIALIZER_VERSION = 4;
 
     // -----------------------------------------------------------------------------------------

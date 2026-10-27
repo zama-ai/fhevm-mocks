@@ -50,9 +50,9 @@ export type FhevmHostContractsAddresses = {
   readonly hcuLimitAddress?: string | undefined;
   readonly protocolConfigAddress?: string | undefined;
   readonly kmsGenerationAddress?: string | undefined;
-  /** RFC-030 pad-based inputs. Since v15. */
+  /** RFC-030 pad-based inputs. Since v1.0. */
   readonly paddedInputterAddress?: string | undefined;
-  /** The read-replica a non-canonical host runs; every v15 stack deploys one beside ProtocolConfig. */
+  /** The read-replica a non-canonical host runs; every stack since v1.0 deploys one beside ProtocolConfig. */
   readonly protocolConfigReplicaAddress?: string | undefined;
   readonly pauserSetAddress?: string | undefined;
 };

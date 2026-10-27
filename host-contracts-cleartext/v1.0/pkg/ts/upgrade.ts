@@ -35,25 +35,25 @@ import { DEFAULT_BOOTSTRAP_CONFIG } from './constants.js';
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Update an already-deployed v14 stack to v15.
+ * Update an already-deployed stack of the previous generation (v14) to this one.
  *
- * v15 adds TWO contracts to the host set, `PaddedInputter` (RFC-030) and `ProtocolConfigReplica`, so this
+ * This generation adds TWO contracts to the host set, `PaddedInputter` (RFC-030) and `ProtocolConfigReplica`, so this
  * creates TWO proxies: ERC-1967 proxies over a fresh `EmptyUUPSProxy` implementation, deployed first
- * (permissionless) because the v15 `FHEVMExecutor` bakes PaddedInputter's address. Every other address is
+ * (permissionless) because this generation's `FHEVMExecutor` bakes PaddedInputter's address. Every other address is
  * unchanged. Then, in one atomic `ACLOwner.upgrade(...)`, it re-points + version-bumps the six host contracts
  * whose reinitializer moves, in the order of upstream's `upgrade-manifest.json`, then `CleartextArithmetic`,
  * then materializes the new proxies last:
  *   - `ACL.reinitializeV6()`, `FHEVMExecutor.reinitializeV7()`, `KMSVerifier.reinitializeV5()`,
  *     `InputVerifier.reinitializeV3()`, `ProtocolConfig.reinitializeV3()`, `KMSGeneration.reinitializeV3()`
- *     — all no-arg: v14 -> v15 migrates nothing.
- *   - `CleartextArithmetic.reinitializeV4()` — no-arg; v15 adds the RFC-030 pad-based unmasking to it.
+ *     — all no-arg: V(N-1) -> V(N) migrates nothing.
+ *   - `CleartextArithmetic.reinitializeV4()` — no-arg; this generation adds the RFC-030 pad-based unmasking to it.
  *   - `PaddedInputter.initializeFromEmptyProxy(initialPrfInstances)`.
  *   - `ProtocolConfigReplica.initializeFromCanonical(...)`, seeded with what the live ProtocolConfig holds when
  *     this runs: its current KMS context and epoch, that context's nodes and thresholds.
  * `HCULimit` is untouched (its reinitializer and bytecode are unchanged), and so is `CleartextDB` (its
  * bytecode is identical across the two generations).
  *
- * All v15 implementations are patched with the ACTUAL addresses of the live stack, plus the new
+ * All implementations of this generation are patched with the ACTUAL addresses of the live stack, plus the new
  * PaddedInputter's. The new addresses are plain CREATE addresses of `deployer` at upgrade time, not the
  * fresh-deploy localhost ones, so they are RETURNED: it is the only way a caller learns them.
  *
@@ -69,7 +69,7 @@ export async function updateV14ToV1Dot0(parameters: {
   readonly admin: AbstractEthereumSigner;
   readonly aclOwnerAddress: string;
   readonly existing: FhevmAddressesV14 & { readonly pauserSetAddress: string };
-  // Live cleartext-infra proxies of the running v14 stack. The new v15 `CleartextFHEVMExecutor` impl
+  // Live cleartext-infra proxies of the running previous-generation stack. The new `CleartextFHEVMExecutor` impl
   // bakes `cleartextArithmeticAdd`, so it must be patched with the real proxy address (not the
   // placeholder) or the post-upgrade cleartext round-trip would call a dead address.
   readonly cleartext: CleartextAddresses;
@@ -102,7 +102,7 @@ export async function updateV14ToV1Dot0(parameters: {
   };
   const protocolConfigReplicaAddress = protocolConfigReplicaProxy.contractAddress;
 
-  // 1. Phase 1: deploy the v15 implementations (permissionless).
+  // 1. Phase 1: deploy this generation's implementations (permissionless).
   const { implementations } = await buildUpdateV14ToV1Dot0Plan({
     ethUtils: parameters.ethUtils,
     deployer: parameters.deployer,
@@ -119,7 +119,7 @@ export async function updateV14ToV1Dot0(parameters: {
 
   // 2. One atomic ACLOwner.upgrade: 7 reinitializations, then the two new proxies' initializations.
   await sendStep({
-    label: 'ACLOwner.upgrade (v14 -> v15)',
+    label: 'ACLOwner.upgrade (V(N-1) -> V(N))',
     send: () =>
       parameters.admin.writeContract({
         address: parameters.aclOwnerAddress,
@@ -171,7 +171,7 @@ async function readProtocolConfigReplicaSeed(parameters: {
 }
 
 /**
- * Phase 1 for a v14→v15 update: deploys the v15 implementations for the seven changed contracts and the two
+ * Phase 1 for a V(N-1)→V(N) update: deploys this generation's implementations for the seven changed contracts and the two
  * new ones (patched with the actual live addresses) and encodes their `upgradeToAndCall` calldata.
  * Sends no owner-gated transaction. `HCULimit` is intentionally absent (its reinitializer and bytecode are
  * unchanged).
@@ -238,7 +238,7 @@ async function buildUpdateV14ToV1Dot0Plan(parameters: {
       abi: kmsGenerationAbi,
       spec: noArgs('reinitializeV3'),
     },
-    // Cleartext-only, so not in upstream's manifest: v15 changes its bytecode (RFC-030 unmasking).
+    // Cleartext-only, so not in upstream's manifest: this generation changes its bytecode (RFC-030 unmasking).
     {
       contractName: 'CleartextArithmetic',
       proxyAddress: parameters.cleartextAddresses.cleartextArithmeticAddress,
@@ -246,7 +246,7 @@ async function buildUpdateV14ToV1Dot0Plan(parameters: {
       abi: cleartextArithmeticAbi,
       spec: noArgs('reinitializeV4'),
     },
-    // New in v15: materialized from the empty proxy `updateV<N-1>ToV<N>` created, not reinitialized.
+    // New in this generation: materialized from the empty proxy `updateV<N-1>ToV<N>` created, not reinitialized.
     {
       contractName: 'PaddedInputter',
       proxyAddress: addr.paddedInputterAddress,
@@ -254,7 +254,7 @@ async function buildUpdateV14ToV1Dot0Plan(parameters: {
       abi: paddedInputterAbi,
       spec: { initFn: 'initializeFromEmptyProxy', initArgs: [parameters.paddedInputter.initialPrfInstances] },
     },
-    // New in v15 too, seeded from the live ProtocolConfig. Nothing bakes its address.
+    // New in this generation too, seeded from the live ProtocolConfig. Nothing bakes its address.
     {
       contractName: 'ProtocolConfigReplica',
       proxyAddress: parameters.protocolConfigReplicaAddress,

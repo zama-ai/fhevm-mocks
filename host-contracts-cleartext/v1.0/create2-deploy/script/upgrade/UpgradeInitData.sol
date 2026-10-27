@@ -14,7 +14,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 /**
  *  Index-aligned initializer payloads for FhevmUpgradeBase._upgradeProxyRoles().
  *
- *  The first seven take no arguments: v14 -> v15 moves each reinitializer by one and migrates nothing. The
+ *  The first seven take no arguments: V(N-1) -> V(N) moves each reinitializer by one and migrates nothing. The
  *  eighth initializes the PaddedInputter proxy the upgrade creates, with the deploy's own payload — the PRF
  *  instances it registers are bootstrap config, as on a fresh stack. The ninth op, the ProtocolConfigReplica the
  *  upgrade also creates, is not here: its seed is the live ProtocolConfig's state, read and sealed at compute by

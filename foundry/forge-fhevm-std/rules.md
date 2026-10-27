@@ -8,7 +8,7 @@ Short rules, each with the reason it exists. When a rule and a convenience disag
 
 Everything under `pkg/src/_host/` is **generated**. It is a copy of the CURRENT cleartext generation's
 `pkg/forge/src/` — `host-contracts-cleartext/<vN>/`, where `<vN>` is `generations.current` in `npm-manifest.json`
-(v15 today; the generator reads it from there) — and the generator deletes the destination before
+(the generator reads it from there) — and the generator deletes the destination before
 copying (`rmSync(pkg/src/_host)`), so an edit made there is lost on the next `npm run generate` —
 silently, with no conflict and no warning.
 
@@ -491,8 +491,8 @@ that one is safe.)
 ## 8. Before you call it done
 
 ```bash
-# host package (the source): the current generation, v15 today
-cd host-contracts-cleartext/v15
+# host package (the source): the current generation, V(N) (v1.0 today)
+cd host-contracts-cleartext/v1.0
 npm run generate && npm run forge:fmt && npm run forge:lint && forge test
 MAINNET_RPC_URL=… forge test --match-contract Fork
 

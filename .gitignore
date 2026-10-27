@@ -68,7 +68,7 @@ tmp/
 fhevm-npm/.tmp-*/
 
 # Forge scratch output from the create2-deploy scripts. Each cleartext generation already ignores these,
-# but npm-manifest.json reserves v14 and v15, and a generation added without its own .gitignore would
+# but a generation npm-manifest.json reserves and that is added without its own .gitignore would
 # otherwise leak them.
 .out
 .out-*

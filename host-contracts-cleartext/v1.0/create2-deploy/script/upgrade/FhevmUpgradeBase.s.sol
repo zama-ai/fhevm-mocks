@@ -8,7 +8,7 @@ import {LibForgeFhevmUpgrade} from "../../../pkg/forge/src/LibForgeFhevmUpgrade.
 import {IWiredProtocolConfig} from "../Interfaces.sol";
 
 /**
- *  The v14 -> v15 CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
+ *  The V(N-1) -> V(N) CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
  *  with this generation's table and its reinitializers.
  *
  *  Every script of the upgrade — compute, creates, precheck, materialize, verify — is the engine's script with
@@ -17,7 +17,7 @@ import {IWiredProtocolConfig} from "../Interfaces.sol";
  *  The table is upstream's rule applied to the two generations: a contract is upgraded exactly when its
  *  `REINITIALIZER_VERSION` moves, through a reinitializer that takes no arguments. Nothing is migrated.
  *
- *  Two contracts are new in v15: `PaddedInputter` (RFC-030) and `ProtocolConfigReplica`. The upgrade creates
+ *  Two contracts are new in this generation: `PaddedInputter` (RFC-030) and `ProtocolConfigReplica`. The upgrade creates
  *  their proxies over an empty implementation, exactly as a fresh deploy would (`_newProxyRoles`), and their ops
  *  initialize them from there. The replica is seeded from the live ProtocolConfig, sealed at compute.
  */
@@ -38,7 +38,7 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
 
     /**
      * Nine proxies re-pointed by the atomic upgrade, in ACLOwner.Op order — the order of upstream's
-     * `upgrade-manifest.json`, then `CleartextArithmetic`, which is cleartext-only and so not in it: v15 changes
+     * `upgrade-manifest.json`, then `CleartextArithmetic`, which is cleartext-only and so not in it: this generation changes
      * its bytecode (RFC-030 pad-based unmasking) and moves its reinitializer. Then `PaddedInputter` and
      * `ProtocolConfigReplica`, which v14 does not have: their proxies are created by this upgrade's `creates`, so
      * they are the ops on proxies that are not live yet when compute seals.
@@ -85,7 +85,7 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         revert("FhevmUpgradeBase: version index out of range");
     }
 
-    /// @dev The version each proxy is initialized at once upgraded: the v15 `REINITIALIZER_VERSION`. One step
+    /// @dev The version each proxy is initialized at once upgraded: this generation's `REINITIALIZER_VERSION`. One step
     ///      for every op but the replica's, whose initializer jumps from its empty proxy's 1 to its own 4.
     function _upgradeToVersion(uint256 i) internal pure returns (uint64) {
         if (i == PROTOCOL_CONFIG_REPLICA_OP) return PROTOCOL_CONFIG_REPLICA_VERSION;

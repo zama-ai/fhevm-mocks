@@ -130,7 +130,7 @@ contract LibForgeFhevmUpgradeTest is Test {
         assertTrue(vm.contains(LibForgeFhevmUpgrade.opName(index), expectedInitializer), "name matches selector");
     }
 
-    /// @dev Every op is no-arg: v14 -> v15 migrates nothing. Its payload is the selector and nothing else.
+    /// @dev Every op is no-arg: V(N-1) -> V(N) migrates nothing. Its payload is the selector and nothing else.
     function _signature(uint256 index) private pure returns (string memory) {
         assertEq(LibForgeFhevmUpgrade.opInitData(index).length, 4, "no reinitializer takes arguments");
         return "()";

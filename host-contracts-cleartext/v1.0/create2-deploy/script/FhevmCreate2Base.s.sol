@@ -103,7 +103,7 @@ abstract contract FhevmCreate2Base is Script {
         r[3] = R_HCU_LIMIT;
         r[4] = R_PROTOCOL_CONFIG;
         r[5] = R_KMS_GENERATION;
-        r[6] = R_PADDED_INPUTTER; // v15, RFC-030
+        r[6] = R_PADDED_INPUTTER; // since v1.0, RFC-030
         r[7] = R_CLEARTEXT_ARITHMETIC;
         r[8] = R_CLEARTEXT_DB;
         r[9] = R_PROTOCOL_CONFIG_REPLICA; // last, as in the nonce path's ops

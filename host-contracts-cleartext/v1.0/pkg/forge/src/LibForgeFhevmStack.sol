@@ -579,7 +579,7 @@ library LibForgeFhevmStack {
 
     /**
      * @notice The same rotation, with thresholds of the caller's choosing.
-     * @dev WHY THIS EXISTS. Since v15 a context's thresholds are fixed when it is defined: upstream dropped
+     * @dev WHY THIS EXISTS. Since v1.0 a context's thresholds are fixed when it is defined: upstream dropped
      *      the `update*ThresholdForContext` setters, so the only way to a stack whose thresholds differ —
      *      a user-decryption threshold that is not the public one, say — is a new context that carries them.
      */

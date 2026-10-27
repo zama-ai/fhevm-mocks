@@ -1,4 +1,4 @@
-# Upgrade run-book: v14 → v15, CREATE2 path
+# Upgrade run-book: previous generation → this one, CREATE2 path
 
 > **Start here instead:** [UPGRADE.md](../UPGRADE.md) is the step-by-step guide, with the warnings. This
 > file is the condensed checklist.
@@ -9,7 +9,7 @@ For the reasoning behind each step see [GUIDE.md](../GUIDE.md) and [README.md](.
 ## To test the tooling first
 
 ```sh
-npm run test:create2-deploy-e2e     # fresh v15 deploy through the CREATE2 coordinator, on a throwaway anvil
+npm run test:create2-deploy-e2e     # fresh deploy of this generation through the CREATE2 coordinator, on a throwaway anvil
 npm run test:upgrade                # every suite needing the previous generation: a v14 deploy, then this upgrade
 ```
 
@@ -18,7 +18,7 @@ npm run test:upgrade                # every suite needing the previous generatio
 ```sh
 which forge cast anvil node          # foundry + node >= 22.18
 cast wallet list                     # the deployer keystore must be listed
-cd host-contracts-cleartext/v15/create2-deploy
+cd host-contracts-cleartext/v1.0/create2-deploy
 ```
 
 Create `upgrade.config.json`, in `create2-deploy/`:
@@ -77,7 +77,7 @@ git push
 ```
 
 Good: `created 12` (or `already present N` on a re-run), no `REVERTED`. The first three are the empty
-implementation (`UPGRADE_EMPTY_UUPS_PROXY`) and the `PaddedInputter` and `ProtocolConfigReplica` proxies v15 adds
+implementation (`UPGRADE_EMPTY_UUPS_PROXY`) and the `PaddedInputter` and `ProtocolConfigReplica` proxies this generation adds
 on top of it; the other nine are the implementations. The proxies' addresses are derived from the committed
 `LocalHostBytecode.sol`, not supplied.
 
@@ -126,7 +126,7 @@ Good: `6 proxies upgraded atomically` (key path), or the multisig transaction co
 
 Waits until the materialize block is finalized, then checks. Good: `OK - every terminal condition for the
 upgrade`, `N previous-generation getter readings survived`, `one atomic ACLOwner.upgrade, 6 ops`,
-`wrote .../verify-report.json`. The terminal conditions include every re-pointed proxy initialized at its v15
+`wrote .../verify-report.json`. The terminal conditions include every re-pointed proxy initialized at this generation's
 version, and the KMS context, epoch, signers and thresholds and the coprocessor signers unchanged since the seal.
 
 Run it again later, at greater depth:

@@ -148,7 +148,7 @@ export const EXPECTED_POOLED_SITES: Readonly<Record<string, Readonly<Partial<Rec
  * of contracts with two or more pooled addresses, so it cannot quietly grow to hide a new failure.
  */
 export const POOL_REORDER_EXEMPT: Readonly<Record<string, string>> = {
-  // Empty since v15: no contract pools two addresses any more. Up to v14 `CleartextFHEVMExecutor` was here — it
+  // Empty since v1.0: no contract pools two addresses any more. Up to v14 `CleartextFHEVMExecutor` was here — it
   // pooled ACL_ADDRESS and HCU_LIMIT_ADDRESS, whose relative order under the markers was the reverse of their
   // order under the real localhost addresses, so the compiler emitted the two table slots swapped and
   // patching could not reorder them.

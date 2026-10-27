@@ -34,7 +34,7 @@ contract OwnerStub {
  * duplicated by hand, so the two cannot drift apart in this fixture), and checks they agree.
  *
  * `pkg/src/contracts/*` compiles here against `internal/placeholders/addresses.sol` (this package's own
- * `fhevm-config-0.15.0/addresses.sol` remapping), not the real local stack's addresses from
+ * `fhevm-config-<major>.<minor>.0/addresses.sol` remapping), not the real local stack's addresses from
  * `deployLocalFhevm()` — a fresh `new ProtocolConfig()` therefore bakes in a placeholder `aclAdd` with no
  * code at it. `OwnerStub` is etched at that placeholder address so `onlyACLOwner` has something to call,
  * entirely independent of the real stack's own ACL (deployed separately, at its own real address, for the

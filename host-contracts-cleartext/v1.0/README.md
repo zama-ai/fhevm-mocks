@@ -53,7 +53,7 @@ the consuming layer (`forge-fhevm`) declares one more remapping:
 ```toml
 [profile.default]
 remappings = [
-    'fhevm-config-0.15.0/=config/',
+    'fhevm-config-<major>.<minor>.0/=config/',  # this generation's prefix, e.g. fhevm-config-1.0.0/
     'host-contracts-cleartext-forge/=lib/host-contracts-cleartext/forge/src/',
 ]
 ```
@@ -106,8 +106,8 @@ One command, run from the workspace root, moves every pin THIS generation takes 
 contracts and its config together, and nothing of the previous generation's:
 
 ```sh
-make bump-vendored PKG=./host-contracts-cleartext/v15 TAG=v0.15.0-3
-# = fhevm-npm bump vendored ./host-contracts-cleartext/v15 --tag v0.15.0-3
+make bump-vendored PKG=./host-contracts-cleartext/v1.0 TAG=v0.15.0-3
+# = fhevm-npm bump vendored ./host-contracts-cleartext/v1.0 --tag v0.15.0-3
 ```
 
 It resolves the tag to its commit (a tag can be moved later; the commit is what makes the record
@@ -158,9 +158,7 @@ Addresses, if the host address set changed
 4. `internal/placeholders/addresses.sol` is **generated** — do not hand-edit it. Run
    `npm run generate:placeholders` (also runs as the first step of `build:templates`).
 
-## 5. If the protocol minor changed (e.g. 0.14 → 0.15)
-
-If the protocol minor changed (e.g. 0.14 → 0.15)
+## 5. If the protocol generation changed
 
 The config remapping prefix is version-pinned, so find every occurrence rather than trusting a list:
 
@@ -184,7 +182,7 @@ This section is the AUTHORING side: what the NEW generation must point at. For t
 THIS generation deletes once it stops being V(N) — see [ROTATION.md](ROTATION.md).
 
 The upgrade path and its e2e are hardcoded to a specific pair of generations. For version N the
-previous generation becomes N-1 everywhere. Today the pair is v14 → v15:
+previous generation becomes N-1 everywhere. Today the pair is v14 → v1.0:
 
 ```sh
 # excludes build output (_cjs/_esm/_types) and the tarball fixture under test/ts/node_modules
@@ -211,7 +209,7 @@ Three groups, in increasing order of effort:
 
 2. **The public API** — `pkg/ts/upgrade.ts` exports `updateV<N-1>ToV<N>`, and `pkg/ts/types/public.ts` declares
    `FhevmAddressesV14` beside `FhevmAddresses`. Renaming these is a breaking change for consumers, so decide
-   deliberately whether N-1→N gets new names or the old ones are kept. v15 renamed, and dropped the
+   deliberately whether N-1→N gets new names or the old ones are kept. v1.0 renamed, and dropped the
    `UpdateV13ToV14MigrationConfig` input with the migration it described: a v14 consumer calling
    `updateV13ToV14` gets a compile error, not a silently different upgrade.
 3. **The upgrade's own tables** — `pkg/forge/src/LibForgeFhevmUpgrade.sol` (the in-memory op list forge-fhevm-std
@@ -221,7 +219,7 @@ Three groups, in increasing order of effort:
 
 The create2 e2e is designed to **skip rather than fail** when the sibling package is missing, so a half-finished
 rename here is silent: `npm run test:upgrade` still passes while the create2 upgrade is no longer covered. It
-happened in the v15 rotation — the e2e looked for `../v13` and skipped. Confirm the e2e actually ran rather than
+happened in the v14 → v1.0 rotation — the e2e looked for `../v13` and skipped. Confirm the e2e actually ran rather than
 assuming a green suite means it did.
 
 ## 7. Check the reinitializer versions (do not "fix" them)
@@ -241,7 +239,7 @@ reports, per contract, whether the bytecode changed and whether the reinitialize
 
 ```sh
 npm run list:upgrade-ops -- ../v14
-#   v14 -> v15
+#   v14 -> v1.0
 #
 #   contract                 bytecode  initializer                              verdict
 #   ACLOwner                 -                                                  not a proxy target
@@ -273,11 +271,11 @@ rather than off the reinitializer — `CleartextDB`, `KMSGeneration` and `Protoc
 no reinitializer at all.
 
 Its output is a starting point, not a spec. It cannot tell you what arguments a reinitializer takes — for
-v14→v15 none takes any, but v13→v14's `ProtocolConfig.reinitializeV2` took the re-declared KMS node set, the
+v14→v1.0 none takes any, but v13→v14's `ProtocolConfig.reinitializeV2` took the re-declared KMS node set, the
 software version and the PCR values — and it says nothing about ordering. Upstream decides both: its upgrade CI
 (`.github/workflows/host-contracts-upgrade-tests.yml`) upgrades exactly the contracts whose
 `REINITIALIZER_VERSION` moved, in the order of `host-contracts/upgrade-manifest.json`, with no arguments.
-Compare against `pkg/ts/upgrade.ts`; for v14→v15 the two agree on the six reinitializations.
+Compare against `pkg/ts/upgrade.ts`; for v14→v1.0 the two agree on the six reinitializations.
 
 The helper takes the previous generation as an argument and hardcodes no version, so step 6's rename
 does not touch it — only the path you pass changes.
@@ -290,7 +288,7 @@ the rule is two-sided:
 | yes               | `REINITIALIZER_VERSION` bumped, `reinitializeV<n>` renamed | upgrading that proxy has no replay guard and no on-chain generation marker | `⚠ CHANGED, NOT BUMPED` |
 | no                | **both untouched**                                         | a gratuitous bump forces a pointless upgrade op and burns a version number | `⚠ BUMPED, UNCHANGED`   |
 
-So a missing bump is not automatically a defect. `HCULimit` is the worked example for v14→v15: its v15
+So a missing bump is not automatically a defect. `HCULimit` is the worked example for v14→v1.0: its v1.0
 bytecode is identical to v14's, it kept `MINOR_VERSION = 4` / `REINITIALIZER_VERSION = 5`, and it is therefore
 **deliberately absent** from `updateV<N-1>ToV<N>`'s op list — upstream's own CI skips it for the same reason.
 `InputVerifier` was the same example one rotation earlier (unchanged v13→v14) and is IN the list this time,
@@ -386,7 +384,7 @@ The rules 15/17 gate — the localhost address set still being the one `ZamaConf
 ```sh
 npm run check:zama-config         # also runs inside `npm run build`
 #   🔎 rules 15 and 17: ZAMA_LOCAL_CONFIG must match ZamaConfig.sol _getLocalConfig()
-#      host-contracts-cleartext/v15/internal/zama-config/ZamaConfig.sol
+#      host-contracts-cleartext/v1.0/internal/zama-config/ZamaConfig.sol
 #      ✅ ACLAddress           aclAddress             0x50157CFfD6bBFA2DECe204a89ec419c23ef5755D
 #      ✅ CoprocessorAddress   fhevmExecutorAddress   0xe3a9105a3a932253A70F126eb1E3b589C643dD24
 #      ✅ KMSVerifierAddress   kmsVerifierAddress     0x901F8942346f7AB3a01F6D7613119Bca447Bb030

@@ -197,7 +197,7 @@ contract ForkForgeVariantUpgradeTest is Test {
         addresses[uint8(FhevmAddressRole.PaddedInputter)] = paddedInputterProxy;
     }
 
-    /// @dev v15's executor bakes PaddedInputter (RFC-030), which the forked chain does not have: one of this
+    /// @dev This generation's executor bakes PaddedInputter (RFC-030), which the forked chain does not have: one of this
     ///      suite's own, created once and before anything patches the executor, or the patcher refuses the
     ///      executor for a role it has no address for. Registers no PRF instance: none is exercised here.
     function _installPaddedInputter() private {

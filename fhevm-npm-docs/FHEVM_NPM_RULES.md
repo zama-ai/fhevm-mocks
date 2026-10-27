@@ -244,14 +244,14 @@ publication rewrites it; an unrendered `file:` spec must never reach npmjs.com.
 
 // ✅ In hardhat/v3/plugin/pkg (npm-distributed) to an npm-published member of another root.
 //    Rendered to a registry range at publish time.
-"@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v15/pkg"
+"@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v1.0/pkg"
 
-// ❌ Names the member by version. Correct today; after the plugin bumps to 0.15.1 npm fetches
-//    npmjs.com's 0.15.0, and the workspace stops testing the member without a word.
-"@fhevm/hardhat-plugin-v3": "0.15.0"
+// ❌ Names the member by version. Correct today; after the plugin bumps to 1.0.1 npm fetches
+//    npmjs.com's 1.0.0, and the workspace stops testing the member without a word.
+"@fhevm/hardhat-plugin-v3": "1.0.0"
 
 // ❌ A range has the same failure, one step earlier.
-"@fhevm/hardhat-plugin-v3": "^0.16.0"
+"@fhevm/hardhat-plugin-v3": "~1.0.0"
 
 // ❌ A link must resolve to the manifest member having this package name.
 "@fhevm/hardhat-plugin-v3": "file:../../another-package/pkg"
@@ -287,7 +287,7 @@ for the same reason: in an isolated copy there is no member to find by name, so 
 
 // ❌ No member to link. npm fetches whatever npmjs.com published as 0.15.0 — an older build of the
 //    payload, or nothing at all — instead of the candidate under test, silently.
-"@fhevm/hardhat-plugin-v3": "0.15.0"
+"@fhevm/hardhat-plugin-v3": "1.0.0"
 ```
 
 ### 3.3 Declaring what you use
@@ -679,7 +679,7 @@ requirements); dev owners and internal consumers use `devDependencies`, because 
 // ✅ sdk/package.json is the version source of truth.
 "devDependencies": { "ethers": "6.17.0" }
 
-// ✅ host-contracts-cleartext/v15 imports ethers, so its private manifest repeats the exact root pin.
+// ✅ A cleartext generation (host-contracts-cleartext/v<N>) imports ethers, so its private manifest repeats the exact root pin.
 "devDependencies": { "ethers": "6.17.0" }
 
 // ✅ common is a shared helper whose exported runtime imports viem.
@@ -1394,7 +1394,7 @@ the packed contents, exercising `files` and ignore rules without putting a `.tgz
 "@fhevm/hardhat-plugin-v3": "file:/repo/sdk/hardhat/v3/plugin/pkg"
 
 // ❌ A plain workspace version resolves to the workspace link, not the packed payload.
-"@fhevm/hardhat-plugin-v3": "0.15.0"
+"@fhevm/hardhat-plugin-v3": "1.0.0"
 ```
 
 **5.3.5 Packages released together are installed together.** One clean install names every candidate in the release
@@ -1404,7 +1404,7 @@ set, so a local plugin cannot silently test against an older dependency fetched 
 // ✅ Both candidates are under test in the same dependency graph.
 "devDependencies": {
   "@fhevm/hardhat-plugin-v3": "file:/repo/sdk/hardhat/v3/plugin/pkg",
-  "@fhevm/host-contracts-cleartext": "file:/repo/sdk/host-contracts-cleartext/v15/pkg"
+  "@fhevm/host-contracts-cleartext": "file:/repo/sdk/host-contracts-cleartext/v1.0/pkg"
 }
 
 // ❌ The plugin candidate can resolve the host-contracts package from the registry.
@@ -1651,13 +1651,14 @@ event. The layout and the operator's side are in `deployments/README.md`; this s
 `fhevm-chains.config.json` and `<stack>` the stack's `deploymentId`. Under a stack: event folders, `aborted/` and a
 `README.md`, nothing else.
 
-**8.1.2 Event folders are numbered.** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`, the sequence contiguous
-from `00`, exactly one `deploy`, first. `v<N>.<p>` is the package version the tool ran at; the date is the UTC day of
+**8.1.2 Event folders are numbered.** `<seq>-<deploy|upgrade|hotfix>-v<release>-<YYYY-MM-DD>`, the sequence contiguous
+from `00`, exactly one `deploy`, first. `v<release>` is the package version the tool ran at, without the major below 1.0 (`v14.1` is 0.14.1) and with
+it from 1.0 on (`v1.0.0`); the date is the UTC day of
 the block holding the event's defining transaction (an upgrade's or hotfix's `ACLOwner.upgrade`, a deploy's last
 transaction), as recorded in `record/event.json`.
 
 **8.1.3 Attempts are outside the sequence.** An attempt that sent transactions and was not finished goes under
-`aborted/<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>/`, dated by its first transaction. It never carries a `verify-report.json`
+`aborted/<YYYY-MM-DD>-<kind>-v<release>-<n>/`, dated by its first transaction. It never carries a `verify-report.json`
 and is never a `previous`.
 
 ### 8.2 Each record
@@ -1692,7 +1693,7 @@ merge base may be added, modified, deleted, renamed or retyped, committed or not
 READMEs are free.
 
 **8.4.2 One exception: the legacy relocation.** A flat record (`<stack>/deploy.config.json`, the layout before events
-had folders) may move into `<stack>/00-deploy-v<N>.<p>-<YYYY-MM-DD>/` once, as a pure move: every file renamed with
+had folders) may move into `<stack>/00-deploy-v<release>-<YYYY-MM-DD>/` once, as a pure move: every file renamed with
 identical bytes to the same relative path under one such folder, nothing added to it. Until then it is checked as a
 record and reported as a note.
 

@@ -1,12 +1,12 @@
-# Upgrade a running cleartext FHEVM stack from v14 to v15
+# Upgrade a running cleartext FHEVM stack from the previous generation to this one
 
-This guide upgrades a **live v14** cleartext FHEVM stack to v15, in place, on a public **testnet**. The
+This guide upgrades a **live** cleartext FHEVM stack of the previous generation (today: v14) to this one (v1.0), in place, on a public **testnet**. The
 example chain is **Arbitrum Sepolia** (chain id `421614`).
 
 What the upgrade does:
 
-- creates 12 contracts through the CREATE2 factory: the two proxies v15 adds, `PaddedInputter` (RFC-030) and
-  `ProtocolConfigReplica`, with the empty implementation they start on, then the 9 v15 implementations;
+- creates 12 contracts through the CREATE2 factory: the two proxies this generation adds, `PaddedInputter` (RFC-030) and
+  `ProtocolConfigReplica`, with the empty implementation they start on, then the 9 implementations of this generation;
 - re-points 9 proxies in **one atomic transaction** (`ACLOwner.upgrade`), sent by the current admin:
   `ACL`, `FHEVMExecutor`, `KMSVerifier`, `InputVerifier`, `ProtocolConfig`, `KMSGeneration` and
   `CleartextArithmetic`, each with its no-argument reinitializer, then the new `PaddedInputter`, with the
@@ -27,7 +27,7 @@ You work with two folders:
 | folder                                       | what it is                                                                       |
 | -------------------------------------------- | -------------------------------------------------------------------------------- |
 | `~/src/fhevm-mocks`                          | the tool. You install it once and never edit it                                  |
-| `~/fhevm-deployments/arbsepolia-upgrade-v15` | **your upgrade folder**: your config, the seal, the journal. A git repo of yours |
+| `~/fhevm-deployments/arbsepolia-upgrade-v1.0` | **your upgrade folder**: your config, the seal, the journal. A git repo of yours |
 
 Both paths are examples: put them wherever you like.
 
@@ -86,7 +86,7 @@ make install
 Put the `upgrade-cli` command on your `PATH`, and check it runs:
 
 ```sh
-export PATH="$HOME/src/fhevm-mocks/host-contracts-cleartext/v15/create2-deploy/upgrade:$PATH"
+export PATH="$HOME/src/fhevm-mocks/host-contracts-cleartext/v1.0/create2-deploy/upgrade:$PATH"
 upgrade-cli --help
 ```
 
@@ -95,8 +95,8 @@ To have it in every new terminal, add the `export` line to `~/.zshrc` (or `~/.ba
 ### Step 2: create your upgrade folder
 
 ```sh
-mkdir -p ~/fhevm-deployments/arbsepolia-upgrade-v15
-cd ~/fhevm-deployments/arbsepolia-upgrade-v15
+mkdir -p ~/fhevm-deployments/arbsepolia-upgrade-v1.0
+cd ~/fhevm-deployments/arbsepolia-upgrade-v1.0
 git init
 git remote add origin <your git remote>
 ```
@@ -155,7 +155,7 @@ Keep the printed `0x…` handle.
 ### Step 7: write the config file
 
 Create `upgrade.config.json` in your upgrade folder, for example
-`~/fhevm-deployments/arbsepolia-upgrade-v15/upgrade.config.json`:
+`~/fhevm-deployments/arbsepolia-upgrade-v1.0/upgrade.config.json`:
 
 ```json
 {
@@ -185,8 +185,8 @@ upgrade folder. If you open a new terminal, set `RPC` from step 4 again.
 > | `"outDir"` in `upgrade.config.json`                              | result                                                                         |
 > | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 > | `"out"`                                                          | ✅ OK: `out/` next to `upgrade.config.json`                                    |
-> | `"/home/me/fhevm-deployments/arbsepolia-upgrade-v15/out"`        | ✅ OK: the same folder, written in full                                        |
-> | `"~/fhevm-deployments/arbsepolia-upgrade-v15/out"`               | ❌ Not OK: `~` is not expanded in a JSON file. Write `"out"`, or the full path |
+> | `"/home/me/fhevm-deployments/arbsepolia-upgrade-v1.0/out"`        | ✅ OK: the same folder, written in full                                        |
+> | `"~/fhevm-deployments/arbsepolia-upgrade-v1.0/out"`               | ❌ Not OK: `~` is not expanded in a JSON file. Write `"out"`, or the full path |
 > | `"out"`, reused for a second upgrade                             | ❌ Not OK: one `outDir` per upgrade. Use a new upgrade folder                  |
 > | `"/home/me/src/fhevm-mocks"` (or any folder containing the tool) | ❌ Not OK: the tool refuses to start                                           |
 
@@ -275,7 +275,7 @@ upgrade-cli --stage verify
 
 You should see `OK - every terminal condition for the upgrade`, `previous-generation getter readings survived`,
 `pre-upgrade cleartext handle(s) survived` and `one atomic ACLOwner.upgrade, 6 ops`. Among the terminal
-conditions: each re-pointed proxy is initialized at its v15 version, and the KMS context, epoch, signers and
+conditions: each re-pointed proxy is initialized at this generation's version, and the KMS context, epoch, signers and
 thresholds and the coprocessor signers read as they did at the seal.
 
 ### Step 15: commit the record
@@ -289,7 +289,7 @@ git push
 ### What your folder contains
 
 ```text
-arbsepolia-upgrade-v15/
+arbsepolia-upgrade-v1.0/
 ├── upgrade.config.json    you wrote it                       commit it (step 9)
 ├── v14-manifest.json      copied from the v14 deploy         commit it (step 9)
 └── out/

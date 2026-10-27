@@ -321,7 +321,7 @@ contract CleartextKMSVerifierRequestChecksTest is Test, ForgeFhevmDeploy {
         uint256 signerCount = protocolConfig.getKmsSignersForContext(contextId).length;
         vm.skip(signerCount < 2);
         uint256 userThreshold = publicThreshold == 1 ? 2 : 1;
-        // A context's thresholds are fixed since v15 (no `update*ThresholdForContext`), so the user
+        // A context's thresholds are fixed since v1.0 (no `update*ThresholdForContext`), so the user
         // threshold moves by rotating to a context that carries it, the public one kept as it was.
         LibForgeFhevmStack.defineCleartextKmsContext(
             PROTOCOL_CONFIG_ADDRESS,

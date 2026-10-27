@@ -46,8 +46,8 @@ contract CleartextArithmetic is CleartextArithmeticBase, UUPSUpgradeableEmptyPro
     /// @custom:oz-upgrades-validate-as-initializer
     function initializeFromEmptyProxy() public virtual onlyFromEmptyProxy reinitializer(REINITIALIZER_VERSION) {}
 
-    /// @notice Re-initializer for the v14→v15 upgrade, which adds the RFC-030 pad-based input unmasking to
-    ///         `recordVerifyInput`. Stateless (pure math), so it only marks the freshly deployed v15
+    /// @notice Re-initializer for the V(N-1)→V(N) upgrade, which adds the RFC-030 pad-based input unmasking to
+    ///         `recordVerifyInput`. Stateless (pure math), so it only marks the freshly deployed
     ///         implementation initialized.
     function reinitializeV4() public virtual onlyACLOwner reinitializer(REINITIALIZER_VERSION) {}
 

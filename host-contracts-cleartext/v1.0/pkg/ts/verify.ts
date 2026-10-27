@@ -103,7 +103,7 @@ function targetsOf(deployed: PartialStack): readonly Target[] {
       versionKey: 'kmsGeneration',
       isProxy: true,
     },
-    // v15 (RFC-030). Absent from a v14 stack, so a pre-upgrade snapshot drops it and the upgrade reads as NEW.
+    // Since v1.0 (RFC-030). Absent from a v14 stack, so a pre-upgrade snapshot drops it and the upgrade reads as NEW.
     {
       label: 'PaddedInputter',
       address: f.paddedInputterAddress,

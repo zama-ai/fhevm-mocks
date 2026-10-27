@@ -1,7 +1,7 @@
 // A hotfix, as it happens in real life: the stack is deployed by the current release, and the NEXT release
 // (a patch of the same generation) hotfixes it.
 //
-//   1. a fresh anvil; this package's deploy-cli deploys the stack, archived as `00-deploy-v<N>.<p>-<day>`
+//   1. a fresh anvil; this package's deploy-cli deploys the stack, archived as `00-deploy-v<release>-<day>`
 //   2. a copy of this package becomes the next patch: package version +1, and CleartextDB hotfixed —
 //      MINOR_VERSION +1, REINITIALIZER_VERSION +1 with its no-argument `reinitializeV<old>()`, and a new
 //      `helloWorld()`; its version table regenerated. This checkout is never edited.

@@ -84,7 +84,7 @@ contract CleartextGenerationUpgradeTest is Test, V13Deploy {
         assertEq(after_, before, "same store, same address");
     }
 
-    /// v15 deploys a ProtocolConfigReplica beside ProtocolConfig; the upgrade creates one, seeded from the live
+    /// This generation deploys a ProtocolConfigReplica beside ProtocolConfig; the upgrade creates one, seeded from the live
     /// canonical: the same context and epoch, signers and thresholds.
     function test_theUpgradeCreatesAReplicaMirroringProtocolConfig() public {
         IProtocolConfig canonical = IProtocolConfig(PROTOCOL_CONFIG_ADDRESS);

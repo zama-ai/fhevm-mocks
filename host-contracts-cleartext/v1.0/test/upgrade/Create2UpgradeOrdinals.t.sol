@@ -11,7 +11,7 @@ import {LibFhevmCleartextConfig} from "../../pkg/src/cleartext/shared/LibFhevmCl
 /**
  * @title Create2UpgradeOrdinalsTest
  * @notice Pins the index alignment of the independent 12-create / 9-op table used only by the
- *         v14 -> v15 upgrade, the way its sibling `Create2Ordinals.t.sol` pins the fresh deploy's lists.
+ *         V(N-1) -> V(N) upgrade, the way its sibling `Create2Ordinals.t.sol` pins the fresh deploy's lists.
  *
  * The upgrade table is INDEPENDENT of the deploy one: it visits a different set of roles, in a
  * different order, with a per-position initializer that depends on which version each live proxy is
@@ -69,7 +69,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         }
     }
 
-    /// v15 adds two proxies, PaddedInputter and ProtocolConfigReplica: the upgrade creates them over an empty
+    /// This generation adds two proxies, PaddedInputter and ProtocolConfigReplica: the upgrade creates them over an empty
     /// implementation, first.
     function test_upgradeCreatesTheNewProxiesFirst() public pure {
         string[] memory created = _newProxyRoles();

@@ -3,7 +3,7 @@
 > **Start here instead:** [DEPLOY.md](DEPLOY.md) to deploy a stack on a live testnet, and
 > [UPGRADE.md](UPGRADE.md) to upgrade a running previous-generation stack. This file is the detailed reference.
 
-Run every command below from `host-contracts-cleartext/v15/create2-deploy`. The two launchers,
+Run every command below from `host-contracts-cleartext/v1.0/create2-deploy`. The two launchers,
 `deploy-cli` and `upgrade/upgrade-cli`, locate the package root from their own path, so they work from
 any directory; without `--config` they read `deploy.config.json` / `upgrade.config.json` from the
 **current** directory, which is why this guide runs them from here. Paths behave as follows:
@@ -32,8 +32,8 @@ per deployment:
   "rpcUrl": "https://sepolia.example",
   "account": "fhevm-testnet-deployer",
   "admin": "<address-of-future-owner-of-the-ACLOwner>",
-  "deploymentId": "cleartext-v15-sepolia-2026-08",
-  "outDir": ".out-cleartext-v15-sepolia-2026-08",
+  "deploymentId": "cleartext-v1.0-sepolia-2026-08",
+  "outDir": ".out-cleartext-v1.0-sepolia-2026-08",
   "confirmations": 3
 }
 ```
@@ -90,7 +90,7 @@ git push
 ```
 
 ```
-📋  report  cleartext-v15-sepolia-2026-08
+📋  report  cleartext-v1.0-sepolia-2026-08
   chain      11155111
   deployer   0x1111…
   admin      0x2222…
@@ -111,7 +111,7 @@ git push
 One directory per chain, set by `--out-dir` (default `create2-deploy/.out`):
 
 ```
-.out-cleartext-v15-sepolia/
+.out-cleartext-v1.0-sepolia/
 ├── journal.jsonl                                  tx hashes, blocks, gas, reverts
 ├── broadcast/<Script>.s.sol/<chainId>/run-latest.json   forge's raw records
 ├── manifest.json                                  salts + addresses (commit this)
@@ -129,8 +129,8 @@ jq -r '.address.ACL_OWNER' .out-*/manifest.json
 ## A second deployment on the same chain
 
 ```sh
-./deploy-cli --deployment-id cleartext-v15-sepolia-2026-09 \
-   --out-dir .out-cleartext-v15-sepolia-2026-09 --stage compute
+./deploy-cli --deployment-id cleartext-v1.0-sepolia-2026-09 \
+   --out-dir .out-cleartext-v1.0-sepolia-2026-09 --stage compute
 ```
 
 ```
@@ -242,7 +242,7 @@ Everything is already in `anvil-config.json`, including `"git": false`, so every
 `--config anvil-config.json`:
 
 ```sh
-cd host-contracts-cleartext/v15/create2-deploy
+cd host-contracts-cleartext/v1.0/create2-deploy
 ```
 
 **5. Run it, one stage at a time.**
@@ -275,13 +275,13 @@ Restart anvil (step 3) to discard the chain too, then go to step 4.
 
 ## Upgrade rehearsal
 
-This generation upgrades a stack of the previous one (today: v14 → v15). For the operator's checklist —
+This generation upgrades a stack of the previous one (today: v14 → v1.0). For the operator's checklist —
 commands only, in order — see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md).
 
 The automated cross-generation rehearsal is the shortest authoritative example:
 
 ```sh
-cd host-contracts-cleartext/v15
+cd host-contracts-cleartext/v1.0
 npm run test:upgrade
 ```
 
@@ -302,7 +302,7 @@ anvil --silent
 cd host-contracts-cleartext/v14/create2-deploy
 ./deploy-cli \
   --config anvil-config.json \
-  --out-dir .out-v14-for-v15 \
+  --out-dir .out-v14-for-v1.0 \
   --deployment-id anvil-rehearsal \
   --stage all
 ```
@@ -318,7 +318,7 @@ Point the upgrade at the manifest that deploy just sealed, rather than retyping 
   "finality": false,
   "git": false,
   "previousAbiDir": "../../v14/pkg/abi",
-  "previousManifest": "../../v14/create2-deploy/.out-v14-for-v15/manifest.json"
+  "previousManifest": "../../v14/create2-deploy/.out-v14-for-v1.0/manifest.json"
 }
 ```
 
@@ -354,7 +354,7 @@ Either way `validating the live stack` tags each address with where it came from
 Then run from this generation, reusing the previous deploy's id:
 
 ```sh
-cd ../../v15/create2-deploy
+cd ../../v1.0/create2-deploy
 ./upgrade/upgrade-cli \
   --stage all \
   --handle 0xHANDLE

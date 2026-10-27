@@ -301,7 +301,7 @@ export const UPGRADE_IMPLEMENTATIONS = [
     contractName: 'CleartextPaddedInputter',
     sourcePath: 'src/cleartext/CleartextPaddedInputter.sol',
   },
-  // v15, the upstream ProtocolConfig split. Appended: a stack from the previous generation has no replica, so
+  // Since v1.0, the upstream ProtocolConfig split. Appended: a stack from the previous generation has no replica, so
   // an upgrade CREATES its proxy and materializes one of these behind it; it bakes the ACL.
   {
     enumMember: 'ProtocolConfigReplica',

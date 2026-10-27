@@ -1458,7 +1458,7 @@ export function stageAbandon(ctx: Ctx): void {
   writeEventRecord(ctx, 'aborted', null);
   say(
     '',
-    '  Archive it, unchanged, as deployments/<chain>/<stack>/aborted/<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>/, the date being',
+    '  Archive it, unchanged, as deployments/<chain>/<stack>/aborted/<YYYY-MM-DD>-<kind>-v<release>-<n>/, the date being',
     "  event.json's first transaction's block day, with an ABORTED.md saying why it was abandoned.",
   );
 }

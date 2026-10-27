@@ -36,14 +36,14 @@ export type FhevmAddresses = {
   readonly hcuLimitAddress: string;
   readonly protocolConfigAddress: string;
   readonly kmsGenerationAddress: string;
-  /** RFC-030 pad-based inputs. Since v15. */
+  /** RFC-030 pad-based inputs. Since v1.0. */
   readonly paddedInputterAddress: string;
 };
 
 /**
  * The **previous** generation's host address set — what `updateV<N-1>ToV<N>` upgrades *from*.
  *
- * Spelled out rather than aliased: v15 adds `PaddedInputter` to the host set, which a v14 stack does not
+ * Spelled out rather than aliased: this generation adds `PaddedInputter` to the host set, which a v14 stack does not
  * have, so the two no longer coincide. This is the change the separate name was kept for.
  */
 export type FhevmAddressesV14 = {
@@ -135,7 +135,7 @@ export type PcrValues = {
   readonly pcr2: string;
 };
 
-/** Bootstrap init values for `PaddedInputter.initializeFromEmptyProxy` (since v15, RFC-030). */
+/** Bootstrap init values for `PaddedInputter.initializeFromEmptyProxy` (since v1.0, RFC-030). */
 export type PaddedInputterInitConfig = {
   /** The PRF instances packages may name from the start; the coprocessor must already evaluate each. */
   readonly initialPrfInstances: readonly number[];

@@ -49,13 +49,13 @@ import {
  * @notice Step 2 of the two-phase FHEVM host deployment.
  *
  * Must be run AFTER ComputeAddresses.s.sol has written the generated
- * `fhevm-config-0.15.0/addresses.sol` and `forge build` has been executed with
+ * `fhevm-config-<major>.<minor>.0/addresses.sol` and `forge build` has been executed with
  * that directory remapped, so that all implementation contracts carry the
  * correct baked-in addresses.
  *
  * Usage (from the package root):
  *
- *   FOUNDRY_REMAPPINGS=fhevm-config-0.15.0/=internal/.deploy-config/ \
+ *   FOUNDRY_REMAPPINGS=fhevm-config-<major>.<minor>.0/=internal/.deploy-config/ \
  *     forge script pkg/forge/script/FhevmDeployScript.s.sol \
  *       --rpc-url <rpc> \
  *       --broadcast \
@@ -90,7 +90,7 @@ import {
  * Differences from the forge-fhevm original this is adapted from
  * ---------------------------------------------------------------------------
  *
- * 1. Ten proxies, not five: v13 adds ProtocolConfig and KMSGeneration, v15 adds
+ * 1. Ten proxies, not five: v13 adds ProtocolConfig and KMSGeneration, v1.0 adds
  *    PaddedInputter (RFC-030), and the cleartext build adds CleartextArithmetic
  *    and CleartextDB.
  *

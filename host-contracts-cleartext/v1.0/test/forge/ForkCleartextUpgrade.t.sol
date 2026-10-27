@@ -63,7 +63,7 @@ abstract contract ForkCleartextUpgrade is Test {
 
     bool internal forked;
     address internal owner;
-    /// @dev v15's executor bakes it (RFC-030) and the chain has none: created by the generation upgrade when
+    /// @dev This generation's executor bakes it (RFC-030) and the chain has none: created by the generation upgrade when
     ///      that runs, otherwise by `_installPaddedInputter`, before anything patches the executor.
     address internal paddedInputterProxy;
 
@@ -195,7 +195,7 @@ abstract contract ForkCleartextUpgrade is Test {
         // -- 6. BEHAVIOUR ONLY THIS GENERATION HAS, which is what makes this test able to fail ---------
         //
         // Steps 4 and 5 cannot tell the two generations apart: both implement those operations the same
-        // way, so they pass whether or not the generation upgrade really ran. Since v15 the executor bounds a
+        // way, so they pass whether or not the generation upgrade really ran. Since v1.0 the executor bounds a
         // scalar shift amount to uint8 (`_checkScalarShiftAmount`): a previous-generation executor shifts by
         // 256 and answers, this one refuses with `ScalarOutOfRange()`.
         vm.expectRevert(bytes4(keccak256("ScalarOutOfRange()")));

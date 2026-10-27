@@ -480,7 +480,7 @@ function inspectStack(
     }
     inspectFolder(stackDir, { type: 'legacy' }, stack, chainId, failStack);
     notes.push(
-      `${stackKey} is a legacy flat record: relocate it, as a pure move, into ${stackKey}/00-deploy-v<N>.<p>-<YYYY-MM-DD>/ ` +
+      `${stackKey} is a legacy flat record: relocate it, as a pure move, into ${stackKey}/00-deploy-v<release>-<YYYY-MM-DD>/ ` +
         "(the date is the UTC day of the deploy's last transaction's block)",
     );
     return;
@@ -494,7 +494,7 @@ function inspectStack(
     const event = isDirectory(path) ? parseEvent(entry) : undefined;
     if (event === undefined) {
       failStack(
-        `'${entry}' is not an event folder (<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>), '${ABORTED_DIR}/' or ${README_FILE}`,
+        `'${entry}' is not an event folder (<seq>-<deploy|upgrade|hotfix>-v<release>-<YYYY-MM-DD>), '${ABORTED_DIR}/' or ${README_FILE}`,
       );
       continue;
     }
@@ -785,7 +785,7 @@ function inspectRelocation(
     ) {
       fail(
         `${from} -> ${to}: a legacy flat record may only move, byte for byte, to the same path under ` +
-          `00-deploy-v<N>.<p>-<YYYY-MM-DD>/`,
+          `00-deploy-v<release>-<YYYY-MM-DD>/`,
       );
       continue;
     }

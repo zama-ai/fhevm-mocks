@@ -94,7 +94,7 @@ fhevm-npm: `hardhat/v3` is its own npm workspace (own package.json `workspaces`,
 node_modules). One root per hardhat major is what guarantees every
 member of a generation resolves the SAME hardhat instance — natively, with no symlinks: hardhat's
 environment is a per-module singleton, and a plugin and its consumer must share one copy. Cross-root
-dependencies are explicit `file:` links (plugin -> host-contracts v15/pkg, owners -> common); the
+dependencies are explicit `file:` links (plugin -> the current host-contracts generation's pkg, owners -> common); the
 future js-sdk joins the sdk ROOT and is consumed the same way. Cluster members are reached with
 `npm --prefix hardhat/v3 run -w <name> <script>` — the Makefile's run-hh-v3 macro.
 
@@ -147,7 +147,8 @@ versions drifted from the central file fails ci.
 # Publishing a payload (rendering the file: links)
 
 A published payload links other payloads with `file:` (RULES 3.1.1) — correct here, meaningless on npmjs.com.
-`publish pack` renders each link to a caret on the target's version (`^0.13.4`, RULES 4.3.4) in a staged copy
+`publish pack` renders each link to a range on the target's version, a caret below 1.0 (`^0.13.4`) and a tilde
+from 1.0 on (`~1.0.2`, RULES 4.3.4), in a staged copy
 and packs that; `publish check` proves the tarball; `publish order` says which payload goes first. Nothing
 in fhevm-npm publishes — `npm publish <tarball>` is CI's, with its credentials and dist-tag:
 

@@ -132,7 +132,7 @@ library LibForgeFhevmUpgrade {
     function upgradeFromPreviousGeneration(address[12] memory addresses) internal {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
 
-        // v15 adds PaddedInputter, which the previous generation does not have and the new executor bakes.
+        // This generation adds PaddedInputter, which the previous generation does not have and the new executor bakes.
         _ensurePaddedInputter(owner, addresses, FhevmHostContracts.PaddedInputter);
         _ensureProtocolConfigReplica(owner, addresses);
 
@@ -267,7 +267,7 @@ library LibForgeFhevmUpgrade {
     }
 
     /**
-     * @dev v15 adds `PaddedInputter` (RFC-030) to the host set, and the v15 executor bakes its address. A
+     * @dev This generation adds `PaddedInputter` (RFC-030) to the host set, and its executor bakes its address. A
      *      stack from the previous generation has none, so it is CREATED here — an empty proxy first, so its
      *      address exists before anything is patched against it, then materialized as the ACL owner — and
      *      written back into `addresses`. A stack that already has one (nonzero role) is left as it is.
@@ -301,7 +301,7 @@ library LibForgeFhevmUpgrade {
     }
 
     /**
-     * @dev v15 deploys `ProtocolConfigReplica` beside ProtocolConfig on every stack. A stack from the previous
+     * @dev This generation deploys `ProtocolConfigReplica` beside ProtocolConfig on every stack. A stack from the previous
      *      generation has none, so it is CREATED here like the PaddedInputter, and seeded from the live canonical
      *      ProtocolConfig (`protocolConfigReplicaInitData`). Nothing bakes its address, so the order relative to
      *      the other ops is free. A stack that already has one (nonzero role) is left as it is.
@@ -334,10 +334,10 @@ library LibForgeFhevmUpgrade {
     /**
      * @notice The `initializeFromCanonical` call that seeds a ProtocolConfigReplica with what the live canonical
      *         `protocolConfig` holds now: its current KMS context and epoch, that context's nodes and thresholds.
-     * @dev Reads only getters both generations have, so it serves a v14 stack before its upgrade as well as a v15
+     * @dev Reads only getters both generations have, so it serves a previous-generation stack before its upgrade as well as a current
      *      one. The replica stores a node's `KmsNode` part only and drops the MPC metadata (`partyId`,
      *      `mpcIdentity`, `caCert`, `storagePrefix`), which no getter returns either: left empty.
-     *      Shared by every v14 -> v15 path that creates a replica, so they seed it alike.
+     *      Shared by every V(N-1) -> V(N) path that creates a replica, so they seed it alike.
      */
     function protocolConfigReplicaInitData(address protocolConfig) internal view returns (bytes memory) {
         IProtocolConfig canonical = IProtocolConfig(protocolConfig);
@@ -391,7 +391,7 @@ library LibForgeFhevmUpgrade {
      *
      * @dev THE REINITIALIZERS RUN, unlike in `upgradeToCleartext`: this IS the generation upgrade, so
      *      each proxy takes the same init data `upgradeFromPreviousGeneration` would send it.
-     *      `CleartextArithmetic` is visited too, through its own no-arg reinitializer: v15 changes its
+     *      `CleartextArithmetic` is visited too, through its own no-arg reinitializer: this generation changes its
      *      bytecode (RFC-030 pad-based unmasking), and a real deployment has no such contract, so it is
      *      not in the generation's op list. Its proxy and its store stay, so every recorded value survives.
      */
@@ -402,7 +402,7 @@ library LibForgeFhevmUpgrade {
         address owner = IACL(addresses[uint8(FhevmAddressRole.ACL)]).owner();
         address executor = addresses[uint8(FhevmAddressRole.FHEVMExecutor)];
 
-        // v15 adds PaddedInputter and ProtocolConfigReplica; the previous generation's cleartext stack has neither.
+        // This generation adds PaddedInputter and ProtocolConfigReplica; the previous generation's cleartext stack has neither.
         _ensurePaddedInputter(owner, addresses, FhevmHostContracts.CleartextPaddedInputter);
         _ensureProtocolConfigReplica(owner, addresses);
 

@@ -17,14 +17,16 @@ contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
         _checkReplicaSeeded(manifest);
     }
 
-    /// @dev Each proxy is initialized at its v15 version: the reinitializer ran, exactly once.
+    /// @dev Each proxy is initialized at this generation's version: the reinitializer ran, exactly once.
     function _checkReinitialized(string memory manifest) private {
         string[] memory roles = _upgradeProxyRoles();
         for (uint256 i; i < roles.length; i++) {
             _expectUint(
                 uint256(_initializedVersion(_readManifestAddress(manifest, roles[i]))),
                 uint256(_upgradeToVersion(i)),
-                string.concat(_initName(i, roles[i]), " ran: ", roles[i], " is initialized at its v15 version")
+                string.concat(
+                    _initName(i, roles[i]), " ran: ", roles[i], " is initialized at this generation's version"
+                )
             );
         }
     }

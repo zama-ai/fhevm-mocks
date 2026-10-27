@@ -64,7 +64,7 @@ export const ADDRESS_NAMES = [
   // APPENDED, never inserted: this order indexes the generated `FhevmAddressRole` enum, a permanent ABI.
   // Its NONCE is in the host block below (after KMSGeneration); the two orders are independent.
   'PADDED_INPUTTER_ADDRESS',
-  // v15, from the upstream ProtocolConfig split: the read-replica a non-canonical host runs. Deployed beside
+  // Since v1.0, from the upstream ProtocolConfig split: the read-replica a non-canonical host runs. Deployed beside
   // ProtocolConfig on every stack (a single-chain simulator holds both). No bytecode bakes it.
   'PROTOCOL_CONFIG_REPLICA_ADDRESS',
 ] as const;
