@@ -68,10 +68,36 @@ function installedVersion(name: string): string {
  */
 const NEVER_RELEASED_SDK_LINE = '0.15.';
 
-export const SDK_LINES = Object.keys(packageJson.devDependencies ?? {})
+/**
+ * Why a line is not tested, when npm-manifest.json#dependencies.unavailable says so (fhevm-npm's
+ * base/pin-availability.ts, restated: this suite cannot import the CLI). Unavailable means no usable release yet,
+ * and it is usable anyway through a tarball pin, which is development only, so a CI run always skips the line.
+ */
+function unavailableReason(name: string): string | undefined {
+  const manifest = JSON.parse(readFileSync(join(PACKAGE_ROOT_ABS_PATH, '..', '..', 'npm-manifest.json'), 'utf8')) as {
+    dependencies?: { pinned?: Record<string, string>; unavailable?: Record<string, string> };
+  };
+  const reason = manifest.dependencies?.unavailable?.[name];
+  const pin = manifest.dependencies?.pinned?.[name] ?? '';
+  return reason !== undefined && !/^file:.+\.tgz$/.test(pin) ? reason : undefined;
+}
+
+const declaredLines = Object.keys(packageJson.devDependencies ?? {})
   .filter((name) => SDK_NAME.test(name))
-  .filter((name) => !installedVersion(name).startsWith(NEVER_RELEASED_SDK_LINE))
   .sort();
+
+/** The lines declared but not tested, and why: each suite reports them as skipped, so a skip is never silent. */
+export const SKIPPED_SDK_LINES: ReadonlyArray<{ readonly name: string; readonly reason: string }> =
+  declaredLines.flatMap((name) => {
+    const reason = unavailableReason(name);
+    if (reason !== undefined) return [{ name, reason }];
+    if (installedVersion(name).startsWith(NEVER_RELEASED_SDK_LINE)) {
+      return [{ name, reason: `installed ${installedVersion(name)}: the 0.15 line is never released` }];
+    }
+    return [];
+  });
+
+export const SDK_LINES = declaredLines.filter((name) => !SKIPPED_SDK_LINES.some((skipped) => skipped.name === name));
 
 // The sdk surface the tests use, typed structurally: no import names a line, so tsc needs no generation number.
 type TypedValue = { readonly type: string; readonly value: unknown };

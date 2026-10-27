@@ -28,6 +28,7 @@ import {
   loadPackages,
   readPackageJson,
 } from './npm.ts';
+import { unavailableDependencies } from './pin-availability.ts';
 import { isTarballSpec, tarballSpecPath } from './tarball-pins.ts';
 import { type Verbosity, hasDetailedOutput, hasProgress, npmVerbosityArguments } from './verbosity.ts';
 
@@ -124,7 +125,10 @@ export function prepareTestConsumer(options: PrepareTestConsumerOptions): void {
     printTargets(targets);
     return;
   }
-  const selected = selectTargetsToRun(targets, options.packageSelector, options.all, packages);
+  const chosen = selectTargetsToRun(targets, options.packageSelector, options.all, packages);
+  // A consumer that needs a dependency npm-manifest.json declares unavailable (no usable release, and no tarball pin
+  // in development) cannot say anything meaningful: it is skipped, loudly, before anything is built or installed.
+  const selected = options.run ? chosen.filter((target) => runnableConsumer(options.manifest, target)) : chosen;
   for (const target of selected) {
     const testScript = target.source.packageJson.scripts?.test;
     if (testScript === undefined || testScript.trim() === '') {
@@ -688,6 +692,14 @@ function resolveLinkedDependencies(
   }
 
   return [...selectedByName.values()].sort((left, right) => left.package.key.localeCompare(right.package.key));
+}
+
+function runnableConsumer(manifest: NpmManifest, target: TestConsumerTarget): boolean {
+  const unavailable = unavailableDependencies(manifest, target.source.packageJson);
+  for (const { name, reason } of unavailable) {
+    console.log(`⏭️  SKIPPED consumer '${target.source.key}': '${name}' is unavailable — ${reason}`);
+  }
+  return unavailable.length === 0;
 }
 
 function runtimeDependencyDeclarations(pkg: LoadedPackage): readonly DependencyDeclaration[] {

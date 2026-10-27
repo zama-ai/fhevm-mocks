@@ -84,8 +84,24 @@ const dependencyPolicySchema = z
       )
       .refine((value) => Object.keys(value).length > 0, 'must pin at least one package')
       .optional(),
+    // A pinned dependency with no usable release yet, and why. Its tests are skipped unless its pin is a tarball
+    // (development only): see base/pin-availability.ts. Removed by hand once a usable release is pinned.
+    unavailable: z
+      .record(z.string().min(1), z.string().min(1, 'must say why the dependency is unavailable'))
+      .refine((value) => Object.keys(value).length > 0, 'must name at least one package')
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((policy, context) => {
+    for (const name of Object.keys(policy.unavailable ?? {})) {
+      if (policy.pinned?.[name] !== undefined) continue;
+      context.addIssue({
+        code: 'custom',
+        path: ['unavailable', name],
+        message: `'${name}' is not pinned: only a pinned dependency can be declared unavailable`,
+      });
+    }
+  });
 
 const foundryPolicySchema = z
   .object({

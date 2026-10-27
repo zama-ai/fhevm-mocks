@@ -38,6 +38,7 @@ import { generateExportsCommand } from './commands/generate-exports.ts';
 import { cleanForgeDependencies } from './commands/clean-forge-dependencies.ts';
 import { installForgeDependencies } from './commands/install-forge-dependencies.ts';
 import { listPackages } from './commands/list-packages.ts';
+import { pinAvailableCommand } from './commands/pin-available.ts';
 import { scaffoldCommand } from './commands/scaffold.ts';
 import { publishCheck } from './commands/publish-check.ts';
 import { publishOrder } from './commands/publish-order.ts';
@@ -175,6 +176,10 @@ async function main(): Promise<void> {
   }
   if (options.command === 'list-packages') {
     listPackages(manifest);
+    return;
+  }
+  if (options.command === 'pin-available') {
+    pinAvailableCommand(manifest, options.name);
     return;
   }
   if (options.command === 'scaffold') {

@@ -56,6 +56,18 @@
             "description": "An exact, caret or tilde version, optionally behind an npm alias: npm:<name>@<version>. Or a tarball pin, file:<path>.tgz, for a package not published yet: the path is absolute or relative to the workspace root, every peer declaration carries ~<the tarball's version>, and every other declaration a file: path to the tarball relative to its own package.json.",
             "pattern": "^((npm:(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*@)?[~^]?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?|file:.+\\.tgz)$"
           }
+        },
+        "unavailable": {
+          "type": "object",
+          "description": "Pinned package name to why it has no usable release yet. The tests that need it are skipped, with that reason printed, unless its pin is a tarball (development only); CI therefore always skips them. Removed by hand once a usable release is pinned.",
+          "minProperties": 1,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },

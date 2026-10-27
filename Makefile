@@ -102,6 +102,16 @@ run = npm run --silent $(2) -w $(1)
 # selects the cluster, `-w` the member inside it.
 run-hh-v3 = npm --prefix $(DIR_HH_V3) run --silent $(2) -w $(1)
 
+# Runs the shell command $(2) only when the pinned dependency $(1) is usable here. npm-manifest.json#
+# dependencies.unavailable declares one with no usable release yet; it is usable only through a tarball pin, which
+# is development only, so a CI run always skips. The skip prints the reason and SUCCEEDS: there is nothing
+# meaningful to test, which is not a failure. Exit 10 means unavailable; anything else from the CLI is an error.
+when-pin-available = status=0; $(FHEVM_NPM_CLI) $(FHEVM_NPM_ARGS) pin-available $(1) || status=$$?; \
+  if [ $$status -eq 10 ]; then echo "⏭️  SKIPPED: needs $(1)"; elif [ $$status -ne 0 ]; then exit $$status; else $(2); fi
+
+# The pinned dependency every hardhat v3 suite runs against: the plugin loads the sdk at import time.
+HH_V3_SDK            := @fhevm/sdk
+
 # `fhevm-npm` is deliberately NOT a workspace member, so `-w` cannot reach it. It still needs
 # formatting: it was once outside `fmt` entirely, which is how unformatted files reached ci.
 # (`scripts/` holds only .sh by policy — nothing there for prettier.)
@@ -727,7 +737,7 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 ########################################################################################################
 
 .PHONY: test-cleartext-v-prev test-cleartext-v-cur test-cleartext-v-cur-fast test-fast test-cleartext-upgrade test-cleartext-upgrade-fast test-hh-v3-plugin test-hh-v3-template
-.PHONY: test-hh-v3-e2e test-hh-v3-e2e-anvil test-consumer test-consumer-ci clean-scratch
+.PHONY: test-hh-v3-e2e test-hh-v3-e2e-anvil test-sdk-dev test-consumer test-consumer-ci clean-scratch
 .PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil test-forge-std-anvil-refusals test-forge-std-anvil-mirror
 .PHONY: test-anvil test-anvil-ci test-anvil-hh-v3-e2e
 
@@ -794,17 +804,28 @@ test-forge-std-anvil-mirror: compile-forge-std ## forge-fhevm-std mirror suite (
 	$(call run,$(W_FORGE_STD),test:anvil-mirror)
 
 test-hh-v3-plugin: compile-hh-v3-plugin ## Hardhat v3 plugin tests (skip themselves until the cluster is installed)
-	$(call run-hh-v3,$(W_HH_V3_PLUGIN),test)
+	@$(call when-pin-available,$(HH_V3_SDK),$(call run-hh-v3,$(W_HH_V3_PLUGIN),test))
 
 test-hh-v3-template: compile-hh-v3-template ## Hardhat v3 template tests
-	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),test)
+	@$(call when-pin-available,$(HH_V3_SDK),$(call run-hh-v3,$(W_HH_V3_TEMPLATE),test))
 
 # The in-process network, so this needs nothing running. The anvil variant below needs a local node.
 test-hh-v3-e2e: compile-hh-v3-e2e ## Hardhat v3 e2e tests on the in-process network
-	$(call run-hh-v3,$(W_HH_V3_E2E),test)
+	@$(call when-pin-available,$(HH_V3_SDK),$(call run-hh-v3,$(W_HH_V3_E2E),test))
 
 test-hh-v3-e2e-anvil: compile-hh-v3-e2e ## Hardhat v3 e2e tests against a local anvil (must already be running)
-	$(call run-hh-v3,$(W_HH_V3_E2E),test:anvil)
+	@$(call when-pin-available,$(HH_V3_SDK),$(call run-hh-v3,$(W_HH_V3_E2E),test:anvil))
+
+# Development only, the fast lane for a not-yet-released sdk pinned as a tarball (npm-manifest.json#dependencies.
+# pinned: "@fhevm/sdk": "file:<path>.tgz", then `make sync-pinned`): every suite that needs it, nothing else. It
+# FAILS instead of skipping when the sdk is unavailable, because running it is asking for exactly those suites.
+test-sdk-dev: compile-hh-v3-e2e compile-hh-v3-template ## Dev only: every suite needing the current sdk, against its tarball pin
+	$(FHEVM_NPM_CLI) $(FHEVM_NPM_ARGS) pin-available $(HH_V3_SDK)
+	npm exec --silent -w $(W_CLEARTEXT_V_CUR) -- vitest run --config test/ts/vitest.config.ts sdk-compatibility sdk-kms-rotation
+	$(call run-hh-v3,$(W_HH_V3_PLUGIN),test)
+	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),test)
+	$(call run-hh-v3,$(W_HH_V3_E2E),test)
+	$(call run-fhevm-npm,test-consumer ./hardhat/v3/plugin/test-consumer/esm --build-linked-dependencies --run)
 
 # Separate tier: packs and installs each payload into a temp project and runs its suite. Minutes, not
 # seconds, so it is deliberately not part of `make test`.

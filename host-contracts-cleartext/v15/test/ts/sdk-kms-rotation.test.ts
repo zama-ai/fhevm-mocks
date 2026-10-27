@@ -13,6 +13,7 @@ import {
   type Env,
   type GapContext,
   SDK_LINES,
+  SKIPPED_SDK_LINES,
   type Scenario,
   type SdkClient,
   type SdkLine,
@@ -85,3 +86,8 @@ describe.skipIf(SDK_LINES.length === 0)('after a KMS rotation, in a process that
     });
   });
 });
+
+// A declared sdk line that is not tested is reported, with why, rather than dropped silently.
+for (const { name, reason } of SKIPPED_SDK_LINES) {
+  test.skip(`${name}: ${reason}`, () => undefined);
+}

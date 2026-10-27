@@ -46,6 +46,7 @@ export type CliOptions = {
     | 'generate-exports'
     | 'install-forge-dependencies'
     | 'list-packages'
+    | 'pin-available'
     | 'scaffold'
     | 'version-apply'
     | 'version-check'
@@ -81,6 +82,7 @@ export type CliOptions = {
       readonly force: boolean;
     }
   | { readonly command: 'list-packages' }
+  | { readonly command: 'pin-available'; readonly name: string }
   | {
       readonly command: 'scaffold';
       readonly selector: string;
@@ -191,6 +193,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let cleanForgeDependencies:
     { readonly packageSelector?: string; readonly dryRun: boolean; readonly force: boolean } | undefined;
   let listPackagesSelected = false;
+  let pinAvailableName: string | undefined;
   let scaffoldOptions:
     | { readonly selector: string; readonly out: string; readonly registry?: string; readonly force: boolean }
     | undefined;
@@ -591,6 +594,14 @@ Why:
       listPackagesSelected = true;
     });
   program
+    .command('pin-available <name>')
+    .description(
+      'Exit 0 if a pinned dependency is usable here, 10 if npm-manifest.json declares it unavailable and its pin is not a tarball.',
+    )
+    .action((name: string) => {
+      pinAvailableName = name;
+    });
+  program
     .command('scaffold <package>')
     .description('Copy a package out as a standalone project a user could install from a registry.')
     .requiredOption('-o, --out <path>', 'directory to write the project into')
@@ -794,6 +805,7 @@ Why:
     forgeDependencyPackageSelector === undefined &&
     cleanForgeDependencies === undefined &&
     !listPackagesSelected &&
+    pinAvailableName === undefined &&
     scaffoldOptions === undefined &&
     listVersions === undefined &&
     !versionCheckSelected &&
@@ -990,6 +1002,16 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...testConsumer,
+    };
+  }
+  if (pinAvailableName !== undefined) {
+    return {
+      command: 'pin-available',
+      name: pinAvailableName,
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
     };
   }
   if (listPackagesSelected) {

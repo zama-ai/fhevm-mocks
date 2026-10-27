@@ -17,6 +17,7 @@ import {
   type GapContext,
   type Permit,
   SDK_LINES,
+  SKIPPED_SDK_LINES,
   type Scenario,
   UPGRADES,
   type SdkClient,
@@ -248,3 +249,8 @@ describe.skipIf(SDK_LINES.length === 0)('after the previous KMS context is destr
     });
   });
 });
+
+// A declared sdk line that is not tested is reported, with why, rather than dropped silently.
+for (const { name, reason } of SKIPPED_SDK_LINES) {
+  test.skip(`${name}: ${reason}`, () => undefined);
+}

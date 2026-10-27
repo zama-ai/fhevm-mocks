@@ -13,6 +13,9 @@
       "encrypted-types": "^0.0.4",
       "@openzeppelin/contracts": "5.1.0",
       "@openzeppelin/contracts-upgradeable": "5.1.0"
+    },
+    "unavailable": {
+      "@fhevm/sdk": "no @fhevm/sdk is released for this generation (v1.0) yet, and the 0.15.x line never will be; its tests run only against a tarball pin, in development"
     }
   },
   "foundry": {

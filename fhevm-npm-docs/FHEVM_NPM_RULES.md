@@ -409,6 +409,16 @@ payload built against an unpublished package must never reach npm. `check pinned
 pin in a CI run (the `CI` environment variable set), and `publish check` refuses every one, always: restore a registry
 version before pushing or publishing.
 
+A pinned dependency may have **no usable release yet** — the next generation's SDK while only a tarball of it exists,
+say. `dependencies.unavailable` declares it, keyed by its pin name, with the reason. It is then unavailable unless its
+pin is a tarball, so a CI run always treats it as unavailable, and a developer with a tarball pin never does. The tests
+that need it are skipped with that reason printed, never run against a release known not to be the real one: the
+Makefile's test targets that need it (`fhevm-npm pin-available <name>`, exit 10 when unavailable), every consumer
+fixture that declares it (`test-consumer`), and any suite that reads the manifest itself. `make test-sdk-dev` is the
+development lane: every suite that needs the current SDK, against its tarball pin, and it fails rather than skips
+when the SDK is unavailable. An `unavailable` entry must name a pinned dependency; remove it once a usable release is
+pinned.
+
 ```jsonc
 // ✅ npm-manifest.json, and what `sync pinned` derives from it.
 { "dependencies": { "pinned": { "@fhevm/sdk": "file:../fhevm/sdk/js-sdk/fhevm-sdk-1.0.0-0.tgz" } } }
