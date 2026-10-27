@@ -37,6 +37,7 @@ import {
   CLEARTEXT_GATEWAY_CHAIN_ID,
   CLEARTEXT_INPUT_VERIFICATION_ADDRESS,
   deploy,
+  destroyKmsContext,
   rotateKmsContext,
 } from '../../../pkg/ts/index.ts';
 import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
@@ -50,8 +51,26 @@ const SDK_NAME = /^@fhevm\/sdk(?:-prev\d+)?$/;
 const packageJson = JSON.parse(readFileSync(join(PACKAGE_ROOT_ABS_PATH, 'package.json'), 'utf8')) as {
   devDependencies?: Record<string, string>;
 };
+
+const requireFromPackage = createRequire(join(PACKAGE_ROOT_ABS_PATH, 'package.json'));
+
+/** The version of the copy actually installed for `name`, which is what a line is judged by, never its range. */
+function installedVersion(name: string): string {
+  return (JSON.parse(readFileSync(requireFromPackage.resolve(`${name}/package.json`), 'utf8')) as { version: string })
+    .version;
+}
+
+/**
+ * SDK release lines that are never tested. There will be no 0.15 release: the generation ships as 1.0, and the sdk
+ * is ported to it afterwards, in the fhevm repo, with this package as the source of truth. The 0.15.x prereleases
+ * installed meanwhile predate that port and do not work against this host, so they are skipped, whatever the
+ * dependency that brings them in.
+ */
+const NEVER_RELEASED_SDK_LINE = '0.15.';
+
 export const SDK_LINES = Object.keys(packageJson.devDependencies ?? {})
   .filter((name) => SDK_NAME.test(name))
+  .filter((name) => !installedVersion(name).startsWith(NEVER_RELEASED_SDK_LINE))
   .sort();
 
 // The sdk surface the tests use, typed structurally: no import names a line, so tsc needs no generation number.
@@ -109,12 +128,8 @@ type SdkCleartextModule = {
 };
 type SdkChainsModule = { defineFhevmChain(definition: unknown): unknown };
 
-const requireFromPackage = createRequire(join(PACKAGE_ROOT_ABS_PATH, 'package.json'));
-
 async function loadSdkLine(name: string): Promise<SdkLine> {
-  const manifest = JSON.parse(readFileSync(requireFromPackage.resolve(`${name}/package.json`), 'utf8')) as {
-    version: string;
-  };
+  const manifest = { version: installedVersion(name) };
   const viem = (await import(`${name}/viem`)) as SdkViemModule;
   const cleartext = (await import(`${name}/viem/cleartext`)) as SdkCleartextModule;
   const chains = (await import(`${name}/chains`)) as SdkChainsModule;
@@ -132,18 +147,10 @@ async function loadSdkLine(name: string): Promise<SdkLine> {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// The chain definitions a client is given.
+// The chain definition a client is given.
 // ---------------------------------------------------------------------------------------------------------------
 
-export const CHAIN_VARIANTS = [
-  { name: 'full chain definition', protocolConfig: true },
-  // !!! TEMPORARY — the "no protocolConfig" trick of the hardhat plugins (MIGRATION-v14 Annex A.5). Delete this
-  // variant when the patched sdk releases are pinned and the trick is removed.
-  { name: 'without protocolConfig (TEMPORARY trick)', protocolConfig: false },
-] as const;
-export type ChainVariant = (typeof CHAIN_VARIANTS)[number];
-
-function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unknown {
+function cleartextChain(sdk: SdkLine, stack: Stack): unknown {
   const contract = (address: string) => ({ address: getAddress(address) });
   const { fhevmAddresses } = stack;
   return sdk.defineChain({
@@ -153,7 +160,7 @@ function cleartextChain(sdk: SdkLine, stack: Stack, variant: ChainVariant): unkn
         acl: contract(fhevmAddresses.aclAddress),
         inputVerifier: contract(fhevmAddresses.inputVerifierAddress),
         kmsVerifier: contract(fhevmAddresses.kmsVerifierAddress),
-        ...(variant.protocolConfig ? { protocolConfig: contract(fhevmAddresses.protocolConfigAddress) } : {}),
+        protocolConfig: contract(fhevmAddresses.protocolConfigAddress),
       },
       // Required by the type, unused in cleartext mode.
       relayerUrl: 'http://localhost:8545',
@@ -173,25 +180,18 @@ const linesBack = (sdkName: string): number => Number(/-prev(\d+)$/.exec(sdkName
 
 /** Every (older line, newer line) pair: a permit the older one signed, which the newer one goes on using. */
 export const UPGRADES = SDK_LINES.flatMap((olderName) =>
-  SDK_LINES.filter((newerName) => linesBack(newerName) < linesBack(olderName)).flatMap((newerName) =>
-    CHAIN_VARIANTS.map((variant) => ({ olderName, newerName, variant })),
-  ),
+  SDK_LINES.filter((newerName) => linesBack(newerName) < linesBack(olderName)).map((newerName) => ({
+    olderName,
+    newerName,
+  })),
 );
 
-/** Every (sdk line, chain variant) pair, the unit each scenario runs for. */
-export const COMBINATIONS = SDK_LINES.flatMap((sdkName) => CHAIN_VARIANTS.map((variant) => ({ sdkName, variant })));
+/** A distinct clear value per sdk line and per stack, so a decryption cannot pass by reading another line's handle. */
+export const clearValueOf = (sdkName: string, offset: number) => BigInt(offset + 1 + SDK_LINES.indexOf(sdkName));
 
-/** A distinct clear value per pair and per stack, so a decryption cannot pass by reading another pair's handle. */
-export const clearValueOf = (sdkName: string, variant: ChainVariant, offset: number) =>
-  BigInt(offset + 1 + SDK_LINES.indexOf(sdkName) * CHAIN_VARIANTS.length + CHAIN_VARIANTS.indexOf(variant));
-
-export async function connect(
-  env: Env,
-  sdkName: string,
-  variant: ChainVariant,
-): Promise<{ sdk: SdkLine; client: SdkClient }> {
+export async function connect(env: Env, sdkName: string): Promise<{ sdk: SdkLine; client: SdkClient }> {
   const sdk = await loadSdkLine(sdkName);
-  const client = sdk.createClient(env.publicClient, cleartextChain(sdk, env.stack, variant));
+  const client = sdk.createClient(env.publicClient, cleartextChain(sdk, env.stack));
   await client.ready;
   return { sdk, client };
 }
@@ -211,7 +211,6 @@ export type Scenario =
   | 'userDecryptWithAStaleKmsContext';
 export type GapContext = {
   sdk: SdkLine;
-  variant: ChainVariant;
   kmsVerifierVersion: readonly number[];
   scenario: Scenario;
 };
@@ -224,10 +223,13 @@ const atLeast = (version: readonly number[], floor: readonly number[]): boolean 
   }
   return true;
 };
-// sdk 0.14 builds KMS extraData version 2 when the KMSVerifier is 0.4.0 or newer and the chain names protocolConfig;
-// every other combination builds version 1.
-const sdkBuildsExtraDataV2 = (c: GapContext) =>
-  c.sdk.protocolLine >= 14 && c.variant.protocolConfig && atLeast(c.kmsVerifierVersion, [0, 4, 0]);
+// sdk 0.14 builds KMS extraData version 2 when the KMSVerifier is 0.4.0 or newer (the chain definition names
+// protocolConfig); every other combination builds version 1.
+const sdkBuildsExtraDataV2 = (c: GapContext) => c.sdk.protocolLine >= 14 && atLeast(c.kmsVerifierVersion, [0, 4, 0]);
+// sdk 0.14.4 is the first release whose cleartext path passes the extraData it verifies against to the host
+// (publicDecrypt(handles, extraData), userDecrypt(..., extraData)), and the host serves the context it names. Every
+// gap below is an older release not passing it, so none applies from there on.
+const sdkPassesExtraData = (sdk: SdkLine) => atLeast(sdk.version.split(/[.-]/).map(Number), [0, 14, 4]);
 
 // The host's custom error, which the sdk cannot name (it does not carry the host's ABI): CleartextKMSVerifier's
 // CleartextErrorInvalidUserDecryptSignature().
@@ -238,10 +240,12 @@ const UNKNOWN_KMS_SIGNER = /is not in the list of kms signers/;
 const GAPS: readonly Gap[] = [
   {
     // MIGRATION-v14 Annex A.3: the sdk's cleartext path calls publicDecrypt(handles) without the extraData it then
-    // verifies against, and the host answers with version 1 (the temporary default).
+    // verifies against, and the host answers with version 1 (what the sdk releases that call it build).
     id: 'public decryption, extraData v2 (Annex A.3)',
     when: (c) =>
-      (c.scenario === 'publicDecrypt' || c.scenario === 'publicDecryptWithAStaleKmsContext') && sdkBuildsExtraDataV2(c),
+      (c.scenario === 'publicDecrypt' || c.scenario === 'publicDecryptWithAStaleKmsContext') &&
+      sdkBuildsExtraDataV2(c) &&
+      !sdkPassesExtraData(c.sdk),
     error: UNKNOWN_KMS_SIGNER,
   },
   {
@@ -249,7 +253,7 @@ const GAPS: readonly Gap[] = [
     // but the sdk's cleartext path calls userDecrypt without that extraData, and the host only tries the current
     // context's: the user's signature does not verify. userDecrypt(..., extraData) serves it once the sdk passes it.
     id: 'user decryption with a permit from an earlier KMS context (Annex A.3)',
-    when: (c) => c.scenario === 'permitFromAnEarlierKmsContext',
+    when: (c) => c.scenario === 'permitFromAnEarlierKmsContext' && !sdkPassesExtraData(c.sdk),
     error: INVALID_USER_DECRYPT_SIGNATURE,
   },
   {
@@ -259,12 +263,12 @@ const GAPS: readonly Gap[] = [
     // public decryptions against the previous signers. Fixed by the sdk passing the extraData (the host then serves
     // the context it names), or by an sdk cache that a new client refreshes.
     id: 'an sdk process that used the previous KMS context keeps it after a rotation',
-    when: (c) => c.scenario === 'userDecryptWithAStaleKmsContext',
+    when: (c) => c.scenario === 'userDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c.sdk),
     error: INVALID_USER_DECRYPT_SIGNATURE,
   },
   {
     id: 'an sdk process that used the previous KMS context keeps it after a rotation (public decryption)',
-    when: (c) => c.scenario === 'publicDecryptWithAStaleKmsContext',
+    when: (c) => c.scenario === 'publicDecryptWithAStaleKmsContext' && !sdkPassesExtraData(c.sdk),
     error: UNKNOWN_KMS_SIGNER,
   },
 ];
@@ -279,6 +283,17 @@ export async function expectOutcome(context: GapContext, run: () => Promise<void
   await expect(run(), `expected known gap: ${gap.id}`).rejects.toThrow(gap.error);
 }
 
+// CleartextKMSVerifier's CleartextErrorInvalidKmsContext(uint256): the context a request names is not valid.
+const INVALID_KMS_CONTEXT = /0x88b507cc/;
+
+/**
+ * How the host refuses a permit signed in a KMS context the ACL owner has since destroyed. Not a gap: production
+ * refuses it too. An sdk that passes the permit's extraData names the destroyed context and is refused for it; one
+ * that does not leaves the host to guess the current context, which the permit was not signed for.
+ */
+export const destroyedKmsContextRefusal = (sdk: SdkLine): RegExp =>
+  sdkPassesExtraData(sdk) ? INVALID_KMS_CONTEXT : INVALID_USER_DECRYPT_SIGNATURE;
+
 // ---------------------------------------------------------------------------------------------------------------
 // The stack: one anvil, the cleartext host, and SdkProbes.
 // ---------------------------------------------------------------------------------------------------------------
@@ -292,6 +307,7 @@ const KMS_VERIFIER_ABI = parseAbi([
   'function getVersion() view returns (string)',
   'function verifyDecryptionEIP712KMSSignatures(bytes32[] handlesList, bytes decryptedResult, bytes decryptionProof) returns (bool)',
 ]);
+const PROTOCOL_CONFIG_ABI = parseAbi(['function getCurrentKmsContextId() view returns (uint256)']);
 const FHE_TYPE_UINT8 = 2;
 export const DAY = 24 * 60 * 60;
 
@@ -358,8 +374,16 @@ export async function startEnv(anvil: AnvilNode): Promise<Env> {
 // The default KMS pools are derived from the FHEVM test mnemonic, signers at m/44'/60'/0'/3/<i>.
 const FHEVM_MNEMONIC = 'test test test test test test test future home engine virtual motion';
 
-/** Replaces the KMS committee (signers 0-3 by 4-7): a new KMS context and epoch; the previous context stays valid. */
-export async function rotateKms(env: Env): Promise<void> {
+/**
+ * Replaces the KMS committee (signers 0-3 by 4-7): a new KMS context and epoch; the previous context stays valid.
+ * Returns the previous context's id.
+ */
+export async function rotateKms(env: Env): Promise<bigint> {
+  const previousKmsContextId = await env.publicClient.readContract({
+    address: env.stack.fhevmAddresses.protocolConfigAddress as Address,
+    abi: PROTOCOL_CONFIG_ABI,
+    functionName: 'getCurrentKmsContextId',
+  });
   // The incoming committee attests; the outgoing one supplies the previous-committee confirmations the creation
   // quorum also needs. Both pools come from the FHEVM mnemonic, so both need gas first.
   const incoming = defaultKmsEpochActivators({ rpcUrl: env.rpcUrl, mnemonic: FHEVM_MNEMONIC, indices: [4, 5, 6, 7] });
@@ -376,6 +400,19 @@ export async function rotateKms(env: Env): Promise<void> {
     activators: incoming,
     previousTxSenders: outgoing.map((activator) => activator.txSender),
     attestation: FIXTURE_ATTESTATION,
+  });
+  return previousKmsContextId;
+}
+
+/** Destroys a KMS context that is no longer the current one, as the ACL owner does once its committee retires. */
+export async function destroyPreviousKms(env: Env, kmsContextId: bigint): Promise<void> {
+  const adapters = createViemEthereumAdapters({ rpcUrl: env.rpcUrl, privateKey: env.deployerKey });
+  await destroyKmsContext({
+    ethUtils: adapters.utils,
+    admin: adapters.signer,
+    aclOwnerAddress: env.stack.aclOwnerAddress,
+    protocolConfigAddress: env.stack.fhevmAddresses.protocolConfigAddress,
+    kmsContextId,
   });
 }
 

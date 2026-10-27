@@ -25,20 +25,7 @@ export function cleartextChain(chainId: number, deployed: Deployed): FhevmChain 
         acl: contract(fhevmAddresses.aclAddress),
         inputVerifier: contract(fhevmAddresses.inputVerifierAddress),
         kmsVerifier: contract(fhevmAddresses.kmsVerifierAddress),
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // !!! TEMPORARY TRICK — REMOVE WHEN THE PATCHED @fhevm/sdk RELEASES ARE PINNED !!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // `protocolConfig` is DELIBERATELY LEFT OUT of this chain definition. Without it, @fhevm/sdk 0.14 takes
-        // its protocol-0.13 path and builds KMS extraData v1 (`0x01 | contextId`), exactly like sdk 0.13 —
-        // instead of v2 (`0x02 | contextId | epochId`). The sdk's cleartext path does not pass the extraData it
-        // verifies against to the host, so the host can only serve one version, and it serves v1.
-        // This CONTRADICTS golden rule 5 ("sdk 14 always has the protocolConfig address"): it is a stopgap.
-        // EXIT: once @fhevm/sdk 0.13.x and 0.14.x pass the extraData to the cleartext host, restore
-        //   protocolConfig: contract(fhevmAddresses.protocolConfigAddress),
-        // here, and set CleartextKMSVerifier's one-argument publicDecrypt(handles) back to extraData v2.
-        // Counterpart of this trick: host-contracts-cleartext/v15/pkg/src/cleartext/CleartextKMSVerifier.sol,
-        // publicDecrypt(handles).
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        protocolConfig: contract(fhevmAddresses.protocolConfigAddress),
       },
       relayerUrl: 'http://localhost:8545',
       gateway: {
