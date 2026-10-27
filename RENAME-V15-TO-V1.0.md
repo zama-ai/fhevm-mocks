@@ -25,7 +25,7 @@ below was verified at `2080015`.
   next of `v<M>.<m>` is the next one that exists, not "+1".
 
 - **Branches (owner decision D1).**
-  - No `release/1.0.x` is created: we lack the permission. All 1.0 work stays on **`devex/alexb/v16/new`**, and
+  - No `release/1.0.x` is created: we lack the permission. All 1.0 work stays on **`devex/alexb/v1.0/new`**, and
     `release/0.15.x` stays where it is, as the line's existing integration branch.
   - #219 (`a9b5fb1`, the tip of `release/0.15.x`, one commit past this line's base `3f35897`) is **not** merged:
     it restores `hardhat/v2`, and **hardhat v2 is dead for 1.0.x**. Nothing else in it is missing here (its
@@ -178,7 +178,7 @@ Where the marker is compared: for equality in `hotfix.ts:169-172` and the tests 
 ### Step 0: prerequisites (before anything is renamed)
 
 0. **Owner decisions (taken):**
-   - **D1, branches:** no `release/1.0.x`; work stays on `devex/alexb/v16/new`; `release/0.15.x` kept; #219 not
+   - **D1, branches:** no `release/1.0.x`; work stays on `devex/alexb/v1.0/new`; `release/0.15.x` kept; #219 not
      merged (hardhat v2 is dead for 1.0.x). A dry run (`git merge-tree HEAD a9b5fb1`) had shown it would conflict in
      `Makefile`, a workflow, four `fhevm-npm` files and seven `hardhat/v2` files.
    - **D2, backports to v14:** everything v14 needs is ported in the separate checkout
