@@ -1669,7 +1669,8 @@ has one); the out dir holds `manifest.json`, `addresses.sol`, `journal.jsonl`, `
 hotfix `progress.jsonl` and `verify-report.json`; no forge scratch, no `.git`.
 
 **8.2.2 Identity.** The manifest's `deploymentId` is the stack, its `chainId` the chain folder's, the config's `admin`
-the sealed one. Its `version` is `0.<N>` and its `packageVersion` `0.<N>.<p>`, as the folder name says.
+the sealed one. Its `version` is the generation, `<major>.<minor>` (`0.14`, `1.0`), and its `packageVersion`
+`<major>.<minor>.<p>`, as the folder name says: `v14.1` is `0.14.1`, `v1.0.0` is `1.0.0`.
 
 **8.2.3 Dated by the chain.** `event.json`'s `defining`, `first` and `last` transactions are in the journal at the
 blocks it claims, in that order of blocks; `defining` is `last` for a deploy and `first` for an attempt. The folder's
