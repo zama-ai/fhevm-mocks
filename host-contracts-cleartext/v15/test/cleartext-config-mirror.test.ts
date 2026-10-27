@@ -426,7 +426,7 @@ function thisGeneration(l: Localhost): NonceTable {
 type GenerationVersion = readonly [major: number, minor: number, patch: number];
 
 /**
- * `0.15.0` -> `[0, 15, 0]`, so generations order numerically rather than as strings. `undefined` for anything
+ * `0.14.0` -> `[0, 14, 0]`, so generations order numerically rather than as strings. `undefined` for anything
  * else: a key in another shape cannot be this generation's (`generationKey()` only reads `x.y.z`), so it is not
  * this package's to reject — refusing it would be the forward assertion `generationsUpToThisOne` exists to avoid.
  */
