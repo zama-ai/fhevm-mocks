@@ -14,13 +14,10 @@ library FHEVMExecutor {
 interface ICleartextPaddedInputter {
     struct CleartextPadSharesMaterial {
         bytes32 requestId;
-        uint32 packingFactor;
-        uint32 degree;
-        bytes extraData;
-        PadShare[] padShares;
+        PadShare[] shares;
         address[] signers;
         uint32[] partyIds;
-        bytes32[] digests;
+        bytes32[][] shareDigests;
         uint256 threshold;
     }
 
@@ -37,10 +34,19 @@ interface ICleartextPaddedInputter {
         PadWitness[] witnesses;
     }
 
+    struct PadDecryptResponsePayload {
+        PadShare[] shares;
+    }
+
     struct PadShare {
         bytes32 label;
+        bytes rawShares;
+        uint32 partyId;
+        uint32 degree;
+        bytes32 contextId;
         bytes16 sessionId;
-        bytes share;
+        bytes extraData;
+        bytes signature;
     }
 
     struct PadWitness {
@@ -125,6 +131,10 @@ interface ICleartextPaddedInputter {
     function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function addPrfInstance(uint16 prfId) external;
+    function cleartextEncryptPadPayload(PadDecryptResponsePayload memory payload, bytes memory publicKey)
+        external
+        pure
+        returns (bytes memory encryptedPayload);
     function getCleartextPadSharesMaterial(PadDecryptRequest memory request)
         external
         view
@@ -133,6 +143,7 @@ interface ICleartextPaddedInputter {
     function initializeFromEmptyProxy(uint16[] memory initialPrfInstances) external;
     function isRetiredPrfInstance(uint16 prfId) external view returns (bool);
     function isSupportedPrfInstance(uint16 prfId) external view returns (bool);
+    function padDecryptResponseDigest(bytes32 requestId, bytes memory encryptedPayload) external view returns (bytes32);
     function proxiableUUID() external view returns (bytes32);
     function retirePrfInstance(uint16 prfId) external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;

@@ -64,39 +64,61 @@ library LibCleartextPad {
         return keccak256(abi.encodePacked(preimage, nonce));
     }
 
-    /// @notice RFC-030 `PadShare` EIP-712 typehash.
-    bytes32 internal constant PAD_SHARE_TYPEHASH = keccak256("PadShare(bytes32 label,bytes16 sessionId,bytes share)");
-
-    /**
-     * @notice RFC-030 `PadDecryptResponsePayload` EIP-712 typehash. The RFC names the struct but does not pin its
-     *         encoding yet: this is the SDK's (`kmsPadDecryptResponseEip712Types`), field names included.
-     */
-    bytes32 internal constant PAD_DECRYPT_RESPONSE_TYPEHASH = keccak256(
-        "PadDecryptResponsePayload(uint32 packingFactor,bytes extraData,uint32 degree,uint32 partyId,PadShare[] pad_shares)"
-        "PadShare(bytes32 label,bytes16 sessionId,bytes share)"
+    /// @notice RFC-030 `PadShareVerification` EIP-712 typehash: the share signature, one per pad share.
+    bytes32 internal constant PAD_SHARE_VERIFICATION_TYPEHASH = keccak256(
+        "PadShareVerification(bytes32 label,bytes rawShares,uint32 partyId,uint32 degree,bytes32 contextId,bytes16 sessionId,bytes extraData)"
     );
 
-    /// @notice EIP-712 struct hash of one `PadShare`.
-    function padShareStructHash(bytes32 label, bytes16 sessionId_, bytes memory share) internal pure returns (bytes32) {
-        return keccak256(abi.encode(PAD_SHARE_TYPEHASH, label, sessionId_, keccak256(share)));
-    }
+    /// @notice RFC-030 `PadDecryptResponseVerification` EIP-712 typehash: the transport signature, one per response.
+    bytes32 internal constant PAD_DECRYPT_RESPONSE_VERIFICATION_TYPEHASH =
+        keccak256("PadDecryptResponseVerification(bytes32 requestId,bytes encryptedPayload)");
 
     /**
-     * @notice EIP-712 struct hash of a `PadDecryptResponsePayload`.
-     * @param padSharesHash keccak256 of the concatenated `padShareStructHash`es, in order.
+     * @notice Version byte leading every cleartext `rawShares`: the RFC leaves the encoding of the ring elements to
+     *         the KMS. Version 0 (cleartext mode only) is the pad itself, not a share of it: one 256-bit PRF block
+     *         per ring element, `rawShares = 0x00 ‖ block_0 ‖ … ‖ block_{k-1}` for `k = ⌈padLength/256⌉`.
      */
-    function padDecryptResponseStructHash(
-        uint32 packingFactor,
-        bytes memory extraData,
-        uint32 degree,
+    uint8 internal constant CLEARTEXT_RAW_SHARES_VERSION = 0x00;
+
+    /// @notice The `extraData` of every cleartext share: version 0, no metadata.
+    bytes internal constant CLEARTEXT_SHARE_EXTRA_DATA = hex"00";
+
+    /// @notice EIP-712 struct hash of one share's `PadShareVerification`.
+    function padShareVerificationStructHash(
+        bytes32 label,
+        bytes memory rawShares,
         uint32 partyId,
-        bytes32 padSharesHash
+        uint32 degree,
+        bytes32 contextId,
+        bytes16 sessionId_,
+        bytes memory extraData
     ) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                PAD_DECRYPT_RESPONSE_TYPEHASH, packingFactor, keccak256(extraData), degree, partyId, padSharesHash
+                PAD_SHARE_VERIFICATION_TYPEHASH,
+                label,
+                keccak256(rawShares),
+                partyId,
+                degree,
+                contextId,
+                sessionId_,
+                keccak256(extraData)
             )
         );
+    }
+
+    /// @notice EIP-712 struct hash of a response's `PadDecryptResponseVerification`.
+    function padDecryptResponseVerificationStructHash(bytes32 requestId, bytes memory encryptedPayload)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(PAD_DECRYPT_RESPONSE_VERIFICATION_TYPEHASH, requestId, keccak256(encryptedPayload)));
+    }
+
+    /// @notice The cleartext `rawShares` of a pad: `CLEARTEXT_RAW_SHARES_VERSION` then its whole blocks.
+    function cleartextRawShares(uint16 prf, bytes32 label, uint256 padLength) internal pure returns (bytes memory) {
+        return abi.encodePacked(CLEARTEXT_RAW_SHARES_VERSION, padBlocks(prf, label, padLength));
     }
 
     /// @notice The cleartext mock's request id: keccak256(label_1 ‖ … ‖ label_n ‖ extraData ‖ signature).

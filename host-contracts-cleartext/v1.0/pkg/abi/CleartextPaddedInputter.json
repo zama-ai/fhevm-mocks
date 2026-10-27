@@ -40,6 +40,79 @@
   },
   {
     "type": "function",
+    "name": "cleartextEncryptPadPayload",
+    "inputs": [
+      {
+        "name": "payload",
+        "type": "tuple",
+        "internalType": "struct PadDecryptResponsePayload",
+        "components": [
+          {
+            "name": "shares",
+            "type": "tuple[]",
+            "internalType": "struct PadShare[]",
+            "components": [
+              {
+                "name": "label",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "rawShares",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "partyId",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "degree",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "contextId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sessionId",
+                "type": "bytes16",
+                "internalType": "bytes16"
+              },
+              {
+                "name": "extraData",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "signature",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "encryptedPayload",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "getCleartextPadSharesMaterial",
     "inputs": [
       {
@@ -168,22 +241,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "packingFactor",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "degree",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extraData",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "padShares",
+            "name": "shares",
             "type": "tuple[]",
             "internalType": "struct PadShare[]",
             "components": [
@@ -193,12 +251,37 @@
                 "internalType": "bytes32"
               },
               {
+                "name": "rawShares",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "partyId",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "degree",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "contextId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
                 "name": "sessionId",
                 "type": "bytes16",
                 "internalType": "bytes16"
               },
               {
-                "name": "share",
+                "name": "extraData",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "signature",
                 "type": "bytes",
                 "internalType": "bytes"
               }
@@ -215,9 +298,9 @@
             "internalType": "uint32[]"
           },
           {
-            "name": "digests",
-            "type": "bytes32[]",
-            "internalType": "bytes32[]"
+            "name": "shareDigests",
+            "type": "bytes32[][]",
+            "internalType": "bytes32[][]"
           },
           {
             "name": "threshold",
@@ -289,6 +372,30 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "padDecryptResponseDigest",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "encryptedPayload",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
