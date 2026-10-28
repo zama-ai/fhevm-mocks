@@ -104,13 +104,16 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     function test_theBlockIndexIsLittleEndian() public pure {
         bytes32 label = keccak256("label");
         bytes8 tag = "FHE_cpad";
-        assertEq(LibCleartextPad.padBlock(PRF, label, 1), keccak256(abi.encodePacked(tag, PRF, label, hex"01000000")));
         assertEq(
-            LibCleartextPad.padBlock(PRF, label, 0x01020304),
+            LibCleartextPad.cleartextPrfBlock(PRF, label, 1),
+            keccak256(abi.encodePacked(tag, PRF, label, hex"01000000"))
+        );
+        assertEq(
+            LibCleartextPad.cleartextPrfBlock(PRF, label, 0x01020304),
             keccak256(abi.encodePacked(tag, PRF, label, hex"04030201"))
         );
 
-        bytes memory pad = LibCleartextPad.padBlocks(PRF, label, 257);
+        bytes memory pad = LibCleartextPad.cleartextPrfBlocks(PRF, label, 257);
         assertEq(pad.length, 64, "257 bits round up to two blocks");
         bytes32 second;
         assembly {

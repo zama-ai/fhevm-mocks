@@ -302,7 +302,7 @@ contract CleartextPaddedInputter is PaddedInputter {
         for (uint256 i = 0; i < witnesses.length; ++i) {
             labels[i] = witnesses[i].label;
         }
-        return LibCleartextPad.padRequestId(labels, request.auth.extraData, request.signature);
+        return LibCleartextPad.cleartextPadRequestId(labels, request.auth.extraData, request.signature);
     }
 
     /// @dev The EIP-712 digest of `structHash` under `domainHash`.
