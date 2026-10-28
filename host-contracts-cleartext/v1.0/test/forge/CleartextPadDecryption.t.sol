@@ -23,8 +23,9 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
  * RFC-030 pad-based inputs, end to end on the local stack: the pad decryption mock
- * (`CleartextPaddedInputter.getCleartextPadSharesMaterial`) and the input side (`FHEVMExecutor.verifyInput` →
- * `PaddedInputter` → `CleartextArithmetic`), which must agree on the pad, the label and the PRF registry.
+ * (`CleartextPaddedInputter.getCleartextPadSharesMaterial`, then `getCleartextPadResponsesMaterial`) and the input
+ * side (`FHEVMExecutor.verifyInput` → `PaddedInputter` → `CleartextArithmetic`), which must agree on the pad, the
+ * label and the PRF registry.
  *
  * Every expectation is built HERE, from the RFC's encodings, never through the contracts under test: the label
  * from `LibCleartextPad.padLabel` checked against the package `PaddedInputter` hashes itself, the response digests
@@ -233,57 +234,106 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     }
 
     /**
-     * A node's whole response, as the SDK assembles it from the material: each share signed with the node's key, the
-     * payload encrypted under the request's public key, and the transport signature over the request id and that
-     * ciphertext. The client then checks the transport signature first, decrypts, and checks each share's.
+     * Every node's whole response, as the SDK assembles it: the shares signed with each node's key, one batch call for
+     * every node's encrypted payload and transport digest, then the transport signatures. The client checks the
+     * transport signature first, decrypts, and checks each share's.
      */
-    function test_aNodeResponseVerifiesAtBothLayers() public view {
+    function test_everyNodeResponseVerifiesAtBothLayers() public view {
         ICleartextPaddedInputter.PadWitness[] memory ws = new ICleartextPaddedInputter.PadWitness[](2);
         ws[0] = _witness(alice, new address[](0), 32);
         ws[1] = _witness(alice, new address[](0), 600);
-        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m =
-            _material(_requestFor(alice, ALICE_PK, ws, _self()));
-        uint256 node = m.signers.length - 1;
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestFor(alice, ALICE_PK, ws, _self());
+        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(r);
 
-        (bytes memory encryptedPayload, bytes memory transportSignature) = _nodeResponse(m, node);
+        ICleartextPaddedInputter.CleartextPadResponsesMaterial memory responses =
+            inputter.getCleartextPadResponsesMaterial(r, _signAllShares(m));
+        assertEq(responses.requestId, m.requestId, "requestId");
+        assertEq(responses.signers, m.signers, "signers");
+        assertEq(responses.encryptedPayloads.length, m.signers.length, "one payload per node");
+        assertEq(responses.transportDigests.length, m.signers.length, "one digest per node");
 
-        // Client side: the transport signature first, before anything is decrypted.
-        bytes32 transportDigest = keccak256(
-            abi.encodePacked(
-                hex"1901",
-                _responseDomain(),
-                keccak256(abi.encode(RESPONSE_VERIFICATION_TYPEHASH, m.requestId, keccak256(encryptedPayload)))
-            )
-        );
-        assertEq(_recover(transportDigest, transportSignature), m.signers[node], "transport signer");
+        for (uint256 node; node < m.signers.length; ++node) {
+            bytes memory encryptedPayload = responses.encryptedPayloads[node];
+            uint256 nodeKey = LibForgeFhevmSigners.kmsNodeKeyFor(m.signers[node]);
+            bytes memory transportSignature = _signDigest(nodeKey, responses.transportDigests[node]);
 
-        ICleartextPaddedInputter.PadDecryptResponsePayload memory received =
-            abi.decode(_xorMask(encryptedPayload), (ICleartextPaddedInputter.PadDecryptResponsePayload));
-        assertEq(received.shares.length, 2);
-        for (uint256 j; j < received.shares.length; ++j) {
-            ICleartextPaddedInputter.PadShare memory share = received.shares[j];
-            assertEq(share.label, ws[j].label, "shares keyed by label");
-            assertEq(share.partyId, node + 1, "registered under its party id");
-            assertEq(_recover(_shareDigest(share, share.partyId), share.signature), m.signers[node], "share signer");
+            // Client side: the transport signature first, before anything is decrypted.
+            bytes32 transportDigest = keccak256(
+                abi.encodePacked(
+                    hex"1901",
+                    _responseDomain(),
+                    keccak256(abi.encode(RESPONSE_VERIFICATION_TYPEHASH, m.requestId, keccak256(encryptedPayload)))
+                )
+            );
+            assertEq(responses.transportDigests[node], transportDigest, "transport digest");
+            assertEq(_recover(transportDigest, transportSignature), m.signers[node], "transport signer");
+
+            ICleartextPaddedInputter.PadDecryptResponsePayload memory received =
+                abi.decode(_xorMask(encryptedPayload), (ICleartextPaddedInputter.PadDecryptResponsePayload));
+            assertEq(received.shares.length, 2);
+            for (uint256 j; j < received.shares.length; ++j) {
+                ICleartextPaddedInputter.PadShare memory share = received.shares[j];
+                assertEq(share.label, ws[j].label, "shares keyed by label");
+                assertEq(share.partyId, node + 1, "registered under its party id");
+                assertEq(_recover(_shareDigest(share, share.partyId), share.signature), m.signers[node], "share signer");
+            }
+            assertEq(received.shares[1].rawShares.length, 1 + 3 * 32, "600 bits round up to three blocks");
         }
-        assertEq(received.shares[1].rawShares.length, 1 + 3 * 32, "600 bits round up to three blocks");
     }
 
-    /// Node `node`'s response, as the SDK builds it from the material with that node's key.
-    function _nodeResponse(ICleartextPaddedInputter.CleartextPadSharesMaterial memory m, uint256 node)
-        private
-        view
-        returns (bytes memory encryptedPayload, bytes memory transportSignature)
-    {
-        uint256 nodeKey = LibForgeFhevmSigners.kmsNodeKeyFor(m.signers[node]);
-        ICleartextPaddedInputter.PadDecryptResponsePayload memory payload;
-        payload.shares = m.shares;
-        for (uint256 j; j < payload.shares.length; ++j) {
-            payload.shares[j].partyId = m.partyIds[node];
-            payload.shares[j].signature = _signDigest(nodeKey, m.shareDigests[node][j]);
+    /// The decrypt view undoes the cleartext encryption, byte for byte with the client's own decoding.
+    function test_theDecryptViewInvertsTheEncryption() public view {
+        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 300);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.CleartextPadResponsesMaterial memory responses =
+            inputter.getCleartextPadResponsesMaterial(r, _signAllShares(_material(r)));
+
+        bytes memory encryptedPayload = responses.encryptedPayloads[0];
+        ICleartextPaddedInputter.PadDecryptResponsePayload memory decrypted =
+            inputter.cleartextDecryptPadPayload(encryptedPayload, publicKey);
+        assertEq(abi.encode(decrypted), _xorMask(encryptedPayload), "same payload as the client decodes");
+    }
+
+    function test_refusesSignaturesForAnotherNodeCount() public {
+        ICleartextPaddedInputter.PadDecryptRequest memory r =
+            _request(alice, ALICE_PK, _witness(alice, new address[](0), 32));
+        bytes[][] memory signatures = _signAllShares(_material(r));
+        uint256 n = signatures.length;
+        bytes[][] memory fewer = new bytes[][](n - 1);
+        for (uint256 i; i < fewer.length; ++i) {
+            fewer[i] = signatures[i];
         }
-        encryptedPayload = inputter.cleartextEncryptPadPayload(payload, publicKey);
-        transportSignature = _signDigest(nodeKey, inputter.padDecryptResponseDigest(m.requestId, encryptedPayload));
+        vm.expectRevert(
+            abi.encodeWithSelector(ICleartextPaddedInputter.CleartextPadInvalidNodeCount.selector, n - 1, n)
+        );
+        inputter.getCleartextPadResponsesMaterial(r, fewer);
+    }
+
+    function test_refusesSignaturesForAnotherShareCount() public {
+        ICleartextPaddedInputter.PadDecryptRequest memory r =
+            _request(alice, ALICE_PK, _witness(alice, new address[](0), 32));
+        bytes[][] memory signatures = _signAllShares(_material(r));
+        signatures[1] = new bytes[](2);
+        vm.expectRevert(
+            abi.encodeWithSelector(ICleartextPaddedInputter.CleartextPadInvalidShareCount.selector, 1, 2, 1)
+        );
+        inputter.getCleartextPadResponsesMaterial(r, signatures);
+    }
+
+    /// Every node's share signatures, as the SDK signs them from the material.
+    function _signAllShares(ICleartextPaddedInputter.CleartextPadSharesMaterial memory m)
+        private
+        pure
+        returns (bytes[][] memory signatures)
+    {
+        signatures = new bytes[][](m.signers.length);
+        for (uint256 i; i < m.signers.length; ++i) {
+            uint256 nodeKey = LibForgeFhevmSigners.kmsNodeKeyFor(m.signers[i]);
+            signatures[i] = new bytes[](m.shareDigests[i].length);
+            for (uint256 j; j < signatures[i].length; ++j) {
+                signatures[i][j] = _signDigest(nodeKey, m.shareDigests[i][j]);
+            }
+        }
     }
 
     function _signDigest(uint256 key, bytes32 digest) private pure returns (bytes memory) {
@@ -365,7 +415,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     function test_refusesAnUnknownInstance() public {
         ICleartextPaddedInputter.PadWitness memory w = _witnessUnder(2, alice, new address[](0), 32);
         ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
-        r.payload.prf = 2;
+        r.payload.prfId = 2;
         vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadUnsupportedPrf.selector, uint16(2)));
         inputter.getCleartextPadSharesMaterial(r);
     }
@@ -573,7 +623,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         });
         r.signature = _sign(signerPk, r.auth);
         r.payload = ICleartextPaddedInputter.PadDecryptRequestPayload({
-            witnessVersion: 0x00, prf: PRF, chainId: uint64(block.chainid), witnesses: ws
+            witnessVersion: 0x00, prfId: PRF, chainId: uint64(block.chainid), witnesses: ws
         });
     }
 

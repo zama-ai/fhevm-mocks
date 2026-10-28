@@ -12,6 +12,13 @@ library FHEVMExecutor {
 }
 
 interface ICleartextPaddedInputter {
+    struct CleartextPadResponsesMaterial {
+        bytes32 requestId;
+        address[] signers;
+        bytes[] encryptedPayloads;
+        bytes32[] transportDigests;
+    }
+
     struct CleartextPadSharesMaterial {
         bytes32 requestId;
         PadShare[] shares;
@@ -29,7 +36,7 @@ interface ICleartextPaddedInputter {
 
     struct PadDecryptRequestPayload {
         uint8 witnessVersion;
-        uint16 prf;
+        uint16 prfId;
         uint64 chainId;
         PadWitness[] witnesses;
     }
@@ -82,6 +89,8 @@ interface ICleartextPaddedInputter {
     error CleartextErrorUserDecryptionRequestExpiredSeconds(
         uint256 currentTimestamp, uint256 startTimestamp, uint256 durationSeconds
     );
+    error CleartextPadInvalidNodeCount(uint256 count, uint256 expected);
+    error CleartextPadInvalidShareCount(uint256 node, uint256 count, uint256 expected);
     error ERC1967InvalidImplementation(address implementation);
     error ERC1967NonPayable();
     error FailedCall();
@@ -131,10 +140,14 @@ interface ICleartextPaddedInputter {
     function IS_CLEARTEXT() external view returns (bool);
     function UPGRADE_INTERFACE_VERSION() external view returns (string memory);
     function addPrfInstance(uint16 prfId) external;
-    function cleartextEncryptPadPayload(PadDecryptResponsePayload memory payload, bytes memory publicKey)
+    function cleartextDecryptPadPayload(bytes memory encryptedPayload, bytes memory publicKey)
         external
         pure
-        returns (bytes memory encryptedPayload);
+        returns (PadDecryptResponsePayload memory payload);
+    function getCleartextPadResponsesMaterial(PadDecryptRequest memory request, bytes[][] memory shareSignatures)
+        external
+        view
+        returns (CleartextPadResponsesMaterial memory responses);
     function getCleartextPadSharesMaterial(PadDecryptRequest memory request)
         external
         view
@@ -143,7 +156,6 @@ interface ICleartextPaddedInputter {
     function initializeFromEmptyProxy(uint16[] memory initialPrfInstances) external;
     function isRetiredPrfInstance(uint16 prfId) external view returns (bool);
     function isSupportedPrfInstance(uint16 prfId) external view returns (bool);
-    function padDecryptResponseDigest(bytes32 requestId, bytes memory encryptedPayload) external view returns (bytes32);
     function proxiableUUID() external view returns (bytes32);
     function retirePrfInstance(uint16 prfId) external;
     function upgradeToAndCall(address newImplementation, bytes memory data) external payable;

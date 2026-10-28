@@ -40,8 +40,20 @@
   },
   {
     "type": "function",
-    "name": "cleartextEncryptPadPayload",
+    "name": "cleartextDecryptPadPayload",
     "inputs": [
+      {
+        "name": "encryptedPayload",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "publicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
       {
         "name": "payload",
         "type": "tuple",
@@ -95,21 +107,163 @@
             ]
           }
         ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getCleartextPadResponsesMaterial",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "internalType": "struct PadDecryptRequest",
+        "components": [
+          {
+            "name": "auth",
+            "type": "tuple",
+            "internalType": "struct UserDecryptPermitV2",
+            "components": [
+              {
+                "name": "userAddress",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "publicKey",
+                "type": "bytes",
+                "internalType": "bytes"
+              },
+              {
+                "name": "allowedContracts",
+                "type": "address[]",
+                "internalType": "address[]"
+              },
+              {
+                "name": "startTimestamp",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "durationSeconds",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "extraData",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "signature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "payload",
+            "type": "tuple",
+            "internalType": "struct PadDecryptRequestPayload",
+            "components": [
+              {
+                "name": "witnessVersion",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "prfId",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "chainId",
+                "type": "uint64",
+                "internalType": "uint64"
+              },
+              {
+                "name": "witnesses",
+                "type": "tuple[]",
+                "internalType": "struct PadWitness[]",
+                "components": [
+                  {
+                    "name": "submitter",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "consumer",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "expirationTimestamp",
+                    "type": "uint64",
+                    "internalType": "uint64"
+                  },
+                  {
+                    "name": "decryptors",
+                    "type": "address[]",
+                    "internalType": "address[]"
+                  },
+                  {
+                    "name": "nonce",
+                    "type": "bytes16",
+                    "internalType": "bytes16"
+                  },
+                  {
+                    "name": "label",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "padLength",
+                    "type": "uint16",
+                    "internalType": "uint16"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       {
-        "name": "publicKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "shareSignatures",
+        "type": "bytes[][]",
+        "internalType": "bytes[][]"
       }
     ],
     "outputs": [
       {
-        "name": "encryptedPayload",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "responses",
+        "type": "tuple",
+        "internalType": "struct CleartextPadResponsesMaterial",
+        "components": [
+          {
+            "name": "requestId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "signers",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "encryptedPayloads",
+            "type": "bytes[]",
+            "internalType": "bytes[]"
+          },
+          {
+            "name": "transportDigests",
+            "type": "bytes32[]",
+            "internalType": "bytes32[]"
+          }
+        ]
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -173,7 +327,7 @@
                 "internalType": "uint8"
               },
               {
-                "name": "prf",
+                "name": "prfId",
                 "type": "uint16",
                 "internalType": "uint16"
               },
@@ -372,30 +526,6 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "padDecryptResponseDigest",
-    "inputs": [
-      {
-        "name": "requestId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "encryptedPayload",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -690,6 +820,43 @@
       },
       {
         "name": "durationSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextPadInvalidNodeCount",
+    "inputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expected",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextPadInvalidShareCount",
+    "inputs": [
+      {
+        "name": "node",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expected",
         "type": "uint256",
         "internalType": "uint256"
       }
