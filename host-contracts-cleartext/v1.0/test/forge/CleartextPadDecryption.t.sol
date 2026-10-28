@@ -6,12 +6,13 @@ import {Test} from "forge-std/Test.sol";
 import {ForgeFhevmDeploy} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {
     ACL_ADDRESS,
+    CLEARTEXT_ARITHMETIC_ADDRESS,
     FHEVM_EXECUTOR_ADDRESS,
     KMS_VERIFIER_ADDRESS,
     PADDED_INPUTTER_ADDRESS,
     PROTOCOL_CONFIG_ADDRESS
 } from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
-import {ICleartextACL, ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
+import {ICleartextACL, ICleartextArithmetic, ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol";
 import {ICleartextPaddedInputter} from "../../pkg/forge/src/_internal/interfaces/ICleartextPaddedInputter.sol";
 import {IProtocolConfig} from "../../pkg/forge/src/_internal/interfaces/IProtocolConfig.sol";
 import {LibForgeFhevmSigners} from "../../pkg/forge/src/LibForgeFhevmSigners.sol";
@@ -120,6 +121,45 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
             second := mload(add(pad, 64))
         }
         assertEq(second, keccak256(abi.encodePacked(tag, PRF, label, hex"01000000")), "the stream's second block");
+    }
+
+    /**
+     * The cleartext coprocessor re-checks that the package names this chain before unmasking anything (RFC-030,
+     * coprocessor step 1). PaddedInputter refuses such a package first, so it cannot come through the executor: the
+     * arithmetic is called directly here, as a compromised chain would emit the event.
+     */
+    function test_theCoprocessorRefusesAPackageForAnotherChain() public {
+        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
+        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(0xDEADBEEF, 4), new bytes(4));
+
+        uint64 otherChain = uint64(block.chainid) + 1;
+        for (uint256 i; i < 8; ++i) {
+            package[4 + i] = bytes1(uint8(otherChain >> (8 * (7 - i))));
+        }
+        // A pad-based compute handle (byte 21 = 0xff) on THIS chain, so only the package's chain is wrong.
+        bytes32 result = bytes32((uint256(0xff) << 80) | (uint256(uint64(block.chainid)) << 16));
+
+        vm.expectRevert(abi.encodeWithSignature("CleartextErrorPadPackageWrongChain(uint64)", otherChain));
+        ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).recordVerifyInput(result, handle, package, FheType.Uint32);
+    }
+
+    /**
+     * The other half of the coprocessor's step 1, the load-bearing one: the label must be the hash of the package's
+     * own witness. A foreign label under a local `chainId` passes the chain check alone, so it is refused here.
+     */
+    function test_theCoprocessorRefusesALabelThatIsNotItsWitnessHash() public {
+        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
+        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(0xDEADBEEF, 4), new bytes(4));
+
+        // No decryptors: the witness ends, and the label starts, at 61 + 16 = 77.
+        package[77] = bytes1(uint8(package[77]) ^ 0x01);
+        bytes32 foreignLabel = w.label ^ bytes32(uint256(1) << 248);
+        bytes32 result = bytes32((uint256(0xff) << 80) | (uint256(uint64(block.chainid)) << 16));
+
+        vm.expectRevert(
+            abi.encodeWithSignature("CleartextErrorPadPackageLabelMismatch(bytes32,bytes32)", foreignLabel, w.label)
+        );
+        ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).recordVerifyInput(result, handle, package, FheType.Uint32);
     }
 
     // --- the external handle must name the package it is presented with -------------------------

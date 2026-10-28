@@ -192,6 +192,35 @@ library LibCleartextPad {
     }
 
     /**
+     * @notice The host chain an RFC-030 input package names: package[4 .. 12), a big-endian uint64 (the witness's
+     *         `chainId`, in the encoding of the chain id embedded in handles).
+     * @dev The caller checks that the package is at least 12 bytes long; PaddedInputter already has.
+     */
+    function packageChainId(bytes memory inputPackage) internal pure returns (uint64 chainId) {
+        for (uint256 i = 4; i < 12; ++i) {
+            chainId = (chainId << 8) | uint8(inputPackage[i]);
+        }
+    }
+
+    /**
+     * @notice The label an RFC-030 input package carries, and the label its witness hashes to. They differ for a
+     *         package whose label was not derived from its own witness.
+     * @dev The witness is package[1 .. witnessEnd), with witnessEnd = 61 + 20 × decryptorCount + 16, encoded exactly
+     *      as in the label preimage, so `expectedLabel = keccak256("FHE_padl" ‖ package[1 .. witnessEnd))`. The
+     *      label follows it. The caller checks the package is long enough; PaddedInputter already has.
+     *      Label defined in https://github.com/zama-ai/tech-spec/blob/950587724a33f72066e864a8934ee0909144d147/rfcs/030-pad-based-input.md#L61
+     */
+    function packageLabels(bytes memory inputPackage) internal pure returns (bytes32 label, bytes32 expectedLabel) {
+        uint256 witnessEnd = 77 + 20 * uint256(uint8(inputPackage[60]));
+        bytes memory witness = new bytes(witnessEnd - 1);
+        assembly ("memory-safe") {
+            mcopy(add(witness, 0x20), add(inputPackage, 0x21), mload(witness))
+            label := mload(add(add(inputPackage, 0x20), witnessEnd))
+        }
+        expectedLabel = keccak256(abi.encodePacked(PAD_LABEL_DOMAIN_SEPARATOR, witness));
+    }
+
+    /**
      * @dev Cleartext unmasking of one RFC-030 input part: m = c ⊕ r over the part's bytes, least significant
      *      byte first, with the padding bits cleared (as the coprocessor does). The pad `r` is this library's
      *      stream; the caller normalizes the result to the type.

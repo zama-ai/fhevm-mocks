@@ -511,6 +511,33 @@
   },
   {
     "type": "error",
+    "name": "CleartextErrorPadPackageLabelMismatch",
+    "inputs": [
+      {
+        "name": "label",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedLabel",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CleartextErrorPadPackageWrongChain",
+    "inputs": [
+      {
+        "name": "chainId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CleartextErrorPlaintextTooWide",
     "inputs": [
       {

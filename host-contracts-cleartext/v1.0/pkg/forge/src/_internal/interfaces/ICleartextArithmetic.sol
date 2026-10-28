@@ -13,6 +13,8 @@ interface ICleartextArithmetic {
     error CleartextErrorHandleChainIdMismatch(bytes32 handle, uint64 handleChainId, uint64 blockChainId);
     error CleartextErrorHandleUninitialized(bytes32 handle);
     error CleartextErrorNotABoolean(uint256 value);
+    error CleartextErrorPadPackageLabelMismatch(bytes32 label, bytes32 expectedLabel);
+    error CleartextErrorPadPackageWrongChain(uint64 chainId);
     error CleartextErrorPlaintextTooWide(uint256 value, FheType fheType);
     error CleartextErrorUnsupportedBinaryOp(Operators op);
     error CleartextErrorUnsupportedNaryOp(Operators op);
