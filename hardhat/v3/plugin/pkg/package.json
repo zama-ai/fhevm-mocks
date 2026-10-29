@@ -34,7 +34,7 @@
   },
   "peerDependencies": {
     "@fhevm/sdk": "^0.15.0-3",
-    "hardhat": "^3.0.0",
+    "hardhat": "^3.21.0",
     "viem": "^2.55.19"
   }
 }
