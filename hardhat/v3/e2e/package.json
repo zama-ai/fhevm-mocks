@@ -38,11 +38,11 @@
     "@types/node": "^22.20.5",
     "chai": "5.3.3",
     "eslint": "^10.13.0",
-    "hardhat": "^3.20.0",
+    "hardhat": "^3.21.2",
     "mocha": "11.8.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "viem": "2.55.19"
   }
 }
