@@ -50,7 +50,8 @@
     "debug": "^4.1.1",
     "dotenv": "^16.5.0",
     "picocolors": "^1.1.1",
-    "resolve": "1.17.0"
+    "resolve": "1.17.0",
+    "typescript-eslint": "^8.72.1"
   },
   "peerDependencies": {
     "@fhevm/sdk": "^0.15.0-3",
