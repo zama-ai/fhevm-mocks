@@ -58,11 +58,11 @@
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
-    "hardhat": "^3.20.0",
+    "hardhat": "^3.21.2",
     "prettier": "^3.9.10",
     "rimraf": "^6.1.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "viem": "2.55.19"
   },
   "overrides": {
