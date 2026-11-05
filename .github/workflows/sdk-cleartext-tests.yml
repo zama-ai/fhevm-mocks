@@ -145,7 +145,7 @@ jobs:
       #    both must be bumped together. Locally: foundryup --install v1.5.1
       # -----------------------------------------------------------------------
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1.9.2
         with:
           version: v1.5.1
 
@@ -268,7 +268,7 @@ jobs:
           persist-credentials: 'false'
 
       - name: Run zizmor 🌈
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
         with:
           persona: pedantic
           version: 1.17.0
