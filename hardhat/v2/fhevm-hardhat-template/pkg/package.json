@@ -81,7 +81,7 @@
     "ts-node": "^10.9.2",
     "typechain": "^8.3.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.1"
   },
   "overrides": {
     "ws@>=7.0.0 <7.5.10": ">=7.5.10",
