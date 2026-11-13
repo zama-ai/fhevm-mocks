@@ -29,7 +29,8 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  *
  * Every expectation is built HERE, from the RFC's encodings, never through the contracts under test: the label
  * from `LibCleartextPad.padLabel` checked against the package `PaddedInputter` hashes itself, the response digests
- * from the type strings and the configured gateway domain, the permit digest from the connector's type string.
+ * from the type strings and the `fhevm-pad-decryption` domain on ProtocolConfig, the permit digest from the
+ * connector's type string.
  * `_sign` reads `eip712Domain()`, and `vm.expectRevert` binds to the next external call: every refusing test signs
  * first.
  */
@@ -38,7 +39,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         "UserDecryptRequestVerification(address userAddress,bytes publicKey,address[] allowedContracts,uint256 startTimestamp,uint256 durationSeconds,bytes extraData)"
     );
     bytes32 internal constant SHARE_VERIFICATION_TYPEHASH = keccak256(
-        "PadShareVerification(bytes32 label,bytes rawShares,uint32 partyId,uint32 degree,bytes32 contextId,bytes16 sessionId,bytes extraData)"
+        "PadShareVerification(bytes32 label,bytes rawShares,uint32 partyId,uint32 degree,bytes16 sessionId,bytes extraData)"
     );
     bytes32 internal constant RESPONSE_VERIFICATION_TYPEHASH =
         keccak256("PadDecryptResponseVerification(bytes32 requestId,bytes encryptedPayload)");
@@ -87,12 +88,12 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
      * label check proves its label hashing agrees with `LibCleartextPad.padLabel`.
      */
     function test_roundTrip() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(_request(alice, ALICE_PK, w));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(_request(alice, ALICE_PK, e));
 
         uint32 value = 0xDEADBEEF;
         bytes memory pad = _pad(m.shares[0].rawShares);
-        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(value, 4), pad);
+        (bytes32 handle, bytes memory package) = _package(e, FheType.Uint32, _le(value, 4), pad);
 
         bytes32 result = _verifyInput(handle, alice, package, FheType.Uint32);
         assertEq(ICleartextFHEVMExecutor(FHEVM_EXECUTOR_ADDRESS).plaintexts(result), value, "unmasked value");
@@ -130,8 +131,8 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
      * arithmetic is called directly here, as a compromised chain would emit the event.
      */
     function test_theCoprocessorRefusesAPackageForAnotherChain() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(0xDEADBEEF, 4), new bytes(4));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        (bytes32 handle, bytes memory package) = _package(e, FheType.Uint32, _le(0xDEADBEEF, 4), new bytes(4));
 
         uint64 otherChain = uint64(block.chainid) + 1;
         for (uint256 i; i < 8; ++i) {
@@ -149,16 +150,16 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
      * own witness. A foreign label under a local `chainId` passes the chain check alone, so it is refused here.
      */
     function test_theCoprocessorRefusesALabelThatIsNotItsWitnessHash() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(0xDEADBEEF, 4), new bytes(4));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        (bytes32 handle, bytes memory package) = _package(e, FheType.Uint32, _le(0xDEADBEEF, 4), new bytes(4));
 
         // No decryptors: the witness ends, and the label starts, at 61 + 16 = 77.
         package[77] = bytes1(uint8(package[77]) ^ 0x01);
-        bytes32 foreignLabel = w.label ^ bytes32(uint256(1) << 248);
+        bytes32 foreignLabel = e.label ^ bytes32(uint256(1) << 248);
         bytes32 result = bytes32((uint256(0xff) << 80) | (uint256(uint64(block.chainid)) << 16));
 
         vm.expectRevert(
-            abi.encodeWithSignature("CleartextErrorPadPackageLabelMismatch(bytes32,bytes32)", foreignLabel, w.label)
+            abi.encodeWithSignature("CleartextErrorPadPackageLabelMismatch(bytes32,bytes32)", foreignLabel, e.label)
         );
         ICleartextArithmetic(CLEARTEXT_ARITHMETIC_ADDRESS).recordVerifyInput(result, handle, package, FheType.Uint32);
     }
@@ -171,10 +172,10 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
      * against any package B whose parts share A's index and type, unmasking B's ciphertext under A's handle.
      */
     function test_refusesAHandleForAnotherPackage() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(_request(alice, ALICE_PK, w));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(_request(alice, ALICE_PK, e));
         bytes memory pad = _pad(m.shares[0].rawShares);
-        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(0xDEADBEEF, 4), pad);
+        (bytes32 handle, bytes memory package) = _package(e, FheType.Uint32, _le(0xDEADBEEF, 4), pad);
 
         bytes32 packageDigest = keccak256(abi.encodePacked(bytes8("FHE_padp"), package));
         // Flips a bit within bytes [0..28] only, leaving inputIndex, type and version untouched.
@@ -190,37 +191,36 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
 
     /// The handle's version byte (31) must equal `HANDLE_VERSION`, distinct from `witnessVersion`.
     function test_refusesAWrongHandleVersion() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(_request(alice, ALICE_PK, w));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(_request(alice, ALICE_PK, e));
         bytes memory pad = _pad(m.shares[0].rawShares);
-        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(0xDEADBEEF, 4), pad);
+        (bytes32 handle, bytes memory package) = _package(e, FheType.Uint32, _le(0xDEADBEEF, 4), pad);
 
         bytes32 badVersionHandle = handle | bytes32(uint256(1));
         vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadHandleVersionMismatch.selector, uint8(1)));
         _verifyInput(badVersionHandle, alice, package, FheType.Uint32);
     }
 
-    /// What every node signs for every share, rebuilt here from the RFC's encodings and the configured gateway domain.
+    /// What every node signs for every share, rebuilt here from the RFC's encodings and the `fhevm-pad-decryption`
+    /// domain.
     function test_materialIsReadyToSign() public view {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 300);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 300);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(r);
 
         uint256 contextId = protocolConfig.getCurrentKmsContextId();
         address[] memory signers = protocolConfig.getKmsSignersForContext(contextId);
         assertEq(m.signers, signers, "the context's signers");
         assertEq(m.threshold, protocolConfig.getUserDecryptionThresholdForContext(contextId), "threshold");
-        assertEq(m.requestId, keccak256(abi.encodePacked(w.label, r.auth.extraData, r.signature)), "requestId");
+        assertEq(m.requestId, keccak256(abi.encodePacked(e.label, r.auth.extraData, r.signature)), "requestId");
 
         assertEq(m.shares.length, 1);
         ICleartextPaddedInputter.PadShare memory share = m.shares[0];
-        assertEq(share.label, w.label);
+        assertEq(share.label, e.label);
         assertEq(uint8(share.rawShares[0]), 0x00, "rawShares version 0");
         assertEq(share.rawShares.length, 1 + 64, "version byte, then 300 bits rounded up to two 256-bit blocks");
         assertEq(share.degree, (signers.length - 1) / 3, "degree");
-        assertEq(share.contextId, bytes32(contextId), "the context the request names");
-        assertEq(share.sessionId, bytes16(keccak256(abi.encodePacked(bytes8("FHE_csid"), PRF, w.label))));
-        assertEq(share.extraData, hex"00", "version 0, no metadata");
+        assertEq(share.sessionId, bytes16(keccak256(abi.encodePacked(bytes8("FHE_csid"), PRF, e.label))));
         assertEq(share.partyId, 0, "set per node");
         assertEq(share.signature.length, 0, "signed off-chain");
 
@@ -229,7 +229,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         for (uint256 i; i < signers.length; ++i) {
             assertEq(m.partyIds[i], i + 1, "1-based party ids");
             assertEq(m.shareDigests[i].length, 1, "one digest per share");
-            assertEq(m.shareDigests[i][0], _shareDigest(share, uint32(i + 1)), "share digest");
+            assertEq(m.shareDigests[i][0], _shareDigest(share, uint32(i + 1), r.auth.extraData), "share digest");
         }
     }
 
@@ -239,10 +239,10 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
      * transport signature first, decrypts, and checks each share's.
      */
     function test_everyNodeResponseVerifiesAtBothLayers() public view {
-        ICleartextPaddedInputter.PadWitness[] memory ws = new ICleartextPaddedInputter.PadWitness[](2);
-        ws[0] = _witness(alice, new address[](0), 32);
-        ws[1] = _witness(alice, new address[](0), 600);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestFor(alice, ALICE_PK, ws, _self());
+        ICleartextPaddedInputter.PadEntry[] memory es = new ICleartextPaddedInputter.PadEntry[](2);
+        es[0] = _entry(alice, new address[](0), 32);
+        es[1] = _entry(alice, new address[](0), 600);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestFor(alice, ALICE_PK, es, _self());
         ICleartextPaddedInputter.CleartextPadSharesMaterial memory m = _material(r);
 
         ICleartextPaddedInputter.CleartextPadResponsesMaterial memory responses =
@@ -270,12 +270,17 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
 
             ICleartextPaddedInputter.PadDecryptResponsePayload memory received =
                 abi.decode(_xorMask(encryptedPayload), (ICleartextPaddedInputter.PadDecryptResponsePayload));
+            assertEq(received.extraData, r.auth.extraData, "names the request's context and epoch");
             assertEq(received.shares.length, 2);
             for (uint256 j; j < received.shares.length; ++j) {
                 ICleartextPaddedInputter.PadShare memory share = received.shares[j];
-                assertEq(share.label, ws[j].label, "shares keyed by label");
+                assertEq(share.label, es[j].label, "shares keyed by label");
                 assertEq(share.partyId, node + 1, "registered under its party id");
-                assertEq(_recover(_shareDigest(share, share.partyId), share.signature), m.signers[node], "share signer");
+                assertEq(
+                    _recover(_shareDigest(share, share.partyId, received.extraData), share.signature),
+                    m.signers[node],
+                    "share signer"
+                );
             }
             assertEq(received.shares[1].rawShares.length, 1 + 3 * 32, "600 bits round up to three blocks");
         }
@@ -283,8 +288,8 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
 
     /// The decrypt view undoes the cleartext encryption, byte for byte with the client's own decoding.
     function test_theDecryptViewInvertsTheEncryption() public view {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 300);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 300);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         ICleartextPaddedInputter.CleartextPadResponsesMaterial memory responses =
             inputter.getCleartextPadResponsesMaterial(r, _signAllShares(_material(r)));
 
@@ -296,7 +301,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
 
     function test_refusesSignaturesForAnotherNodeCount() public {
         ICleartextPaddedInputter.PadDecryptRequest memory r =
-            _request(alice, ALICE_PK, _witness(alice, new address[](0), 32));
+            _request(alice, ALICE_PK, _entry(alice, new address[](0), 32));
         bytes[][] memory signatures = _signAllShares(_material(r));
         uint256 n = signatures.length;
         bytes[][] memory fewer = new bytes[][](n - 1);
@@ -311,7 +316,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
 
     function test_refusesSignaturesForAnotherShareCount() public {
         ICleartextPaddedInputter.PadDecryptRequest memory r =
-            _request(alice, ALICE_PK, _witness(alice, new address[](0), 32));
+            _request(alice, ALICE_PK, _entry(alice, new address[](0), 32));
         bytes[][] memory signatures = _signAllShares(_material(r));
         signatures[1] = new bytes[](2);
         vm.expectRevert(
@@ -346,10 +351,11 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         return ecrecover(digest, uint8(signature[64]), r, s);
     }
 
-    /// The EIP-712 digest of `share`'s `PadShareVerification` as node `partyId` signs it.
-    function _shareDigest(ICleartextPaddedInputter.PadShare memory share, uint32 partyId)
+    /// The EIP-712 digest of `share`'s `PadShareVerification` as node `partyId` signs it, `extraData` being the
+    /// response payload's.
+    function _shareDigest(ICleartextPaddedInputter.PadShare memory share, uint32 partyId, bytes memory extraData)
         private
-        pure
+        view
         returns (bytes32)
     {
         return keccak256(
@@ -363,9 +369,8 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
                         keccak256(share.rawShares),
                         partyId,
                         share.degree,
-                        share.contextId,
                         share.sessionId,
-                        keccak256(share.extraData)
+                        keccak256(extraData)
                     )
                 )
             )
@@ -377,34 +382,34 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     function test_aListedDecryptorObtainsThePad() public view {
         address[] memory decryptors = new address[](1);
         decryptors[0] = bob;
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, decryptors, 32);
-        assertEq(_material(_request(bob, BOB_PK, w)).shares[0].label, w.label);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, decryptors, 32);
+        assertEq(_material(_request(bob, BOB_PK, e)).shares[0].label, e.label);
     }
 
     function test_aDelegateObtainsThePad() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
         vm.prank(alice);
         ICleartextACL(ACL_ADDRESS).delegateForUserDecryption(bob, address(this), uint64(block.timestamp + 1 days));
-        assertEq(_material(_request(bob, BOB_PK, w)).shares[0].label, w.label);
+        assertEq(_material(_request(bob, BOB_PK, e)).shares[0].label, e.label);
     }
 
     function test_refusesAnUnauthorizedUser() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(bob, BOB_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(bob, BOB_PK, e);
         vm.expectRevert(
-            abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptUserNotAuthorized.selector, w.label, bob)
+            abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptUserNotAuthorized.selector, e.label, bob)
         );
         inputter.getCleartextPadSharesMaterial(r);
     }
 
     function test_refusesAConsumerOutsideAllowedContracts() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
         address[] memory allowed = new address[](1);
         allowed[0] = address(0xC0FFEE);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestAllowing(alice, ALICE_PK, w, allowed);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestAllowing(alice, ALICE_PK, e, allowed);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ICleartextPaddedInputter.PadDecryptConsumerNotAllowed.selector, w.label, address(this)
+                ICleartextPaddedInputter.PadDecryptConsumerNotAllowed.selector, e.label, address(this)
             )
         );
         inputter.getCleartextPadSharesMaterial(r);
@@ -413,8 +418,8 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     // --- the PRF registry, on both sides --------------------------------------------------------
 
     function test_refusesAnUnknownInstance() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witnessUnder(2, alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entryUnder(2, alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         r.payload.prfId = 2;
         vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadUnsupportedPrf.selector, uint16(2)));
         inputter.getCleartextPadSharesMaterial(r);
@@ -423,10 +428,10 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     /// A retired instance is refused at decryption and at submission alike: the KMS and `fromExternal` read
     /// the same registry.
     function test_aRetiredInstanceIsRefusedOnBothSides() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         bytes memory pad = _pad(_material(r).shares[0].rawShares);
-        (bytes32 handle, bytes memory package) = _package(w, FheType.Uint32, _le(7, 4), pad);
+        (bytes32 handle, bytes memory package) = _package(e, FheType.Uint32, _le(7, 4), pad);
 
         vm.prank(fhevmACLOwner());
         inputter.retirePrfInstance(PRF);
@@ -440,8 +445,8 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     // --- the permit: held to userDecryptV2's rules ----------------------------------------------
 
     function test_refusesAnotherSigner() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, BOB_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, BOB_PK, e);
         vm.expectRevert(
             abi.encodeWithSelector(ICleartextPaddedInputter.CleartextErrorInvalidUserDecryptSignatureV2.selector, alice)
         );
@@ -449,8 +454,8 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     }
 
     function test_refusesAStartInTheFuture() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         r.auth.startTimestamp = block.timestamp + 1;
         r.signature = _sign(ALICE_PK, r.auth);
         vm.expectRevert(
@@ -464,11 +469,11 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     }
 
     function test_refusesTheUserInItsAllowedContracts() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
         address[] memory allowed = new address[](2);
         allowed[0] = address(this);
         allowed[1] = alice;
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestAllowing(alice, ALICE_PK, w, allowed);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestAllowing(alice, ALICE_PK, e, allowed);
         vm.expectRevert(
             abi.encodeWithSelector(ICleartextPaddedInputter.CleartextErrorUserAddressInAllowedContracts.selector, alice)
         );
@@ -476,10 +481,10 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
     }
 
     function test_refusesAnExpiredPermit() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        w.expirationTimestamp = uint64(block.timestamp + 10 days);
-        w.label = _label(PRF, w);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        e.witness.expirationTimestamp = uint64(block.timestamp + 10 days);
+        e.label = _label(PRF, e.witness);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         vm.warp(block.timestamp + 1 days + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -492,52 +497,59 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         inputter.getCleartextPadSharesMaterial(r);
     }
 
-    // --- the witnesses --------------------------------------------------------------------------
+    // --- the pads -------------------------------------------------------------------------------
+
+    function test_refusesARequestWithoutPads() public {
+        ICleartextPaddedInputter.PadDecryptRequest memory r =
+            _requestFor(alice, ALICE_PK, new ICleartextPaddedInputter.PadEntry[](0), _self());
+        vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptInvalidPadCount.selector, 0));
+        inputter.getCleartextPadSharesMaterial(r);
+    }
 
     function test_refusesALabelThatIsNotTheWitnessHash() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        bytes32 expected = w.label;
-        w.label = keccak256("forged");
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
-        vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadLabelMismatch.selector, w.label, expected));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        bytes32 expected = e.label;
+        e.label = keccak256("forged");
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
+        vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadLabelMismatch.selector, e.label, expected));
         inputter.getCleartextPadSharesMaterial(r);
     }
 
     function test_refusesAnExpiredWitness() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        w.expirationTimestamp = uint64(block.timestamp);
-        w.label = _label(PRF, w);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        e.witness.expirationTimestamp = uint64(block.timestamp);
+        e.label = _label(PRF, e.witness);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ICleartextPaddedInputter.PadDecryptWitnessExpired.selector, w.label, w.expirationTimestamp
+                ICleartextPaddedInputter.PadDecryptWitnessExpired.selector, e.label, e.witness.expirationTimestamp
             )
         );
         inputter.getCleartextPadSharesMaterial(r);
     }
 
     function test_refusesADuplicateLabel() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadWitness[] memory ws = new ICleartextPaddedInputter.PadWitness[](2);
-        ws[0] = w;
-        ws[1] = w;
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestFor(alice, ALICE_PK, ws, _self());
-        vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptDuplicateLabel.selector, w.label));
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadEntry[] memory es = new ICleartextPaddedInputter.PadEntry[](2);
+        es[0] = e;
+        es[1] = e;
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _requestFor(alice, ALICE_PK, es, _self());
+        vm.expectRevert(abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptDuplicateLabel.selector, e.label));
         inputter.getCleartextPadSharesMaterial(r);
     }
 
     function test_refusesAZeroPadLength() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 0);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 0);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         vm.expectRevert(
-            abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptInvalidPadLength.selector, w.label, uint16(0))
+            abi.encodeWithSelector(ICleartextPaddedInputter.PadDecryptInvalidPadLength.selector, e.label, uint16(0))
         );
         inputter.getCleartextPadSharesMaterial(r);
     }
 
     function test_refusesAnotherChain() public {
-        ICleartextPaddedInputter.PadWitness memory w = _witness(alice, new address[](0), 32);
-        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, w);
+        ICleartextPaddedInputter.PadEntry memory e = _entry(alice, new address[](0), 32);
+        ICleartextPaddedInputter.PadDecryptRequest memory r = _request(alice, ALICE_PK, e);
         r.payload.chainId = uint64(block.chainid + 1);
         vm.expectRevert(
             abi.encodeWithSelector(ICleartextPaddedInputter.PadInvalidChainId.selector, uint64(block.chainid + 1))
@@ -555,30 +567,30 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         return inputter.getCleartextPadSharesMaterial(r);
     }
 
-    function _witness(address submitter, address[] memory decryptors, uint16 padLength)
+    function _entry(address submitter, address[] memory decryptors, uint16 padLength)
         private
         view
-        returns (ICleartextPaddedInputter.PadWitness memory)
+        returns (ICleartextPaddedInputter.PadEntry memory)
     {
-        return _witnessUnder(PRF, submitter, decryptors, padLength);
+        return _entryUnder(PRF, submitter, decryptors, padLength);
     }
 
-    /// A fresh witness consumed by this contract, labelled under `prf` with `LibCleartextPad.padLabel`.
-    function _witnessUnder(uint16 prf, address submitter, address[] memory decryptors, uint16 padLength)
+    /// A requested pad for a fresh witness consumed by this contract, labelled under `prf` with
+    /// `LibCleartextPad.padLabel`.
+    function _entryUnder(uint16 prf, address submitter, address[] memory decryptors, uint16 padLength)
         private
         view
-        returns (ICleartextPaddedInputter.PadWitness memory w)
+        returns (ICleartextPaddedInputter.PadEntry memory e)
     {
-        w = ICleartextPaddedInputter.PadWitness({
+        e.witness = ICleartextPaddedInputter.PadWitness({
             submitter: submitter,
             consumer: address(this),
             expirationTimestamp: uint64(block.timestamp + 1 days),
             decryptors: decryptors,
-            nonce: bytes16(keccak256(abi.encode(submitter, padLength, decryptors.length))),
-            label: bytes32(0),
-            padLength: padLength
+            nonce: bytes16(keccak256(abi.encode(submitter, padLength, decryptors.length)))
         });
-        w.label = _label(prf, w);
+        e.label = _label(prf, e.witness);
+        e.padLength = padLength;
     }
 
     function _label(uint16 prf, ICleartextPaddedInputter.PadWitness memory w) private view returns (bytes32) {
@@ -587,29 +599,29 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         );
     }
 
-    function _request(address user, uint256 signerPk, ICleartextPaddedInputter.PadWitness memory w)
+    function _request(address user, uint256 signerPk, ICleartextPaddedInputter.PadEntry memory e)
         private
         view
         returns (ICleartextPaddedInputter.PadDecryptRequest memory)
     {
-        return _requestAllowing(user, signerPk, w, _self());
+        return _requestAllowing(user, signerPk, e, _self());
     }
 
     function _requestAllowing(
         address user,
         uint256 signerPk,
-        ICleartextPaddedInputter.PadWitness memory w,
+        ICleartextPaddedInputter.PadEntry memory e,
         address[] memory allowed
     ) private view returns (ICleartextPaddedInputter.PadDecryptRequest memory) {
-        ICleartextPaddedInputter.PadWitness[] memory ws = new ICleartextPaddedInputter.PadWitness[](1);
-        ws[0] = w;
-        return _requestFor(user, signerPk, ws, allowed);
+        ICleartextPaddedInputter.PadEntry[] memory es = new ICleartextPaddedInputter.PadEntry[](1);
+        es[0] = e;
+        return _requestFor(user, signerPk, es, allowed);
     }
 
     function _requestFor(
         address user,
         uint256 signerPk,
-        ICleartextPaddedInputter.PadWitness[] memory ws,
+        ICleartextPaddedInputter.PadEntry[] memory es,
         address[] memory allowed
     ) private view returns (ICleartextPaddedInputter.PadDecryptRequest memory r) {
         (uint256 contextId, uint256 epochId) = protocolConfig.getCurrentKmsContextAndEpoch();
@@ -623,7 +635,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         });
         r.signature = _sign(signerPk, r.auth);
         r.payload = ICleartextPaddedInputter.PadDecryptRequestPayload({
-            witnessVersion: 0x00, prfId: PRF, chainId: uint64(block.chainid), witnesses: ws
+            witnessVersion: 0x00, prfId: PRF, chainId: uint64(block.chainid), pads: es
         });
     }
 
@@ -671,14 +683,10 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
         }
     }
 
-    /// The domain KMS responses are signed under: `Decryption`, version 1, the configured gateway chain.
-    function _responseDomain() private pure returns (bytes32) {
-        return LibKmsVerifier.domainSeparatorFrom(
-            "Decryption",
-            "1",
-            LibFhevmCleartextConfig.CLEARTEXT_GATEWAY_CHAIN_ID,
-            LibFhevmCleartextConfig.CLEARTEXT_DECRYPTION_ADDRESS
-        );
+    /// The domain pad decryption responses are signed under (RFC-030): `fhevm-pad-decryption`, version 1, on
+    /// ProtocolConfig's chain id and address.
+    function _responseDomain() private view returns (bytes32) {
+        return LibKmsVerifier.domainSeparatorFrom("fhevm-pad-decryption", "1", block.chainid, PROTOCOL_CONFIG_ADDRESS);
     }
 
     /**
@@ -687,11 +695,12 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
      *   decryptorCount 1 | decryptors 20×n | nonce 16 | label 32 | partCount 1 | parts | ciphertext
      */
     function _package(
-        ICleartextPaddedInputter.PadWitness memory w,
+        ICleartextPaddedInputter.PadEntry memory e,
         FheType partType,
         bytes memory plaintext,
         bytes memory pad
     ) private view returns (bytes32 handle, bytes memory package) {
+        ICleartextPaddedInputter.PadWitness memory w = e.witness;
         bytes memory decryptors;
         for (uint256 i; i < w.decryptors.length; ++i) {
             decryptors = abi.encodePacked(decryptors, w.decryptors[i]);
@@ -713,7 +722,7 @@ contract CleartextPadDecryptionTest is Test, ForgeFhevmDeploy {
             ),
             decryptors,
             w.nonce,
-            w.label,
+            e.label,
             uint8(1),
             uint8(partType),
             ciphertext

@@ -38,11 +38,18 @@ interface ICleartextPaddedInputter {
         uint8 witnessVersion;
         uint16 prfId;
         uint64 chainId;
-        PadWitness[] witnesses;
+        PadEntry[] pads;
     }
 
     struct PadDecryptResponsePayload {
         PadShare[] shares;
+        bytes extraData;
+    }
+
+    struct PadEntry {
+        bytes32 label;
+        PadWitness witness;
+        uint16 padLength;
     }
 
     struct PadShare {
@@ -50,9 +57,7 @@ interface ICleartextPaddedInputter {
         bytes rawShares;
         uint32 partyId;
         uint32 degree;
-        bytes32 contextId;
         bytes16 sessionId;
-        bytes extraData;
         bytes signature;
     }
 
@@ -62,8 +67,6 @@ interface ICleartextPaddedInputter {
         uint64 expirationTimestamp;
         address[] decryptors;
         bytes16 nonce;
-        bytes32 label;
-        uint16 padLength;
     }
 
     struct UserDecryptPermitV2 {
@@ -104,8 +107,8 @@ interface ICleartextPaddedInputter {
     error PadDecryptDuplicateLabel(bytes32 label);
     error PadDecryptInvalidExtraData(bytes extraData);
     error PadDecryptInvalidKmsContextOrEpoch(uint256 contextId, uint256 epochId);
+    error PadDecryptInvalidPadCount(uint256 count);
     error PadDecryptInvalidPadLength(bytes32 label, uint16 padLength);
-    error PadDecryptInvalidWitnessCount(uint256 count);
     error PadDecryptNullWitnessAddress(bytes32 label);
     error PadDecryptTooManyDecryptors(bytes32 label, uint256 count);
     error PadDecryptUserNotAuthorized(bytes32 label, address userAddress);
