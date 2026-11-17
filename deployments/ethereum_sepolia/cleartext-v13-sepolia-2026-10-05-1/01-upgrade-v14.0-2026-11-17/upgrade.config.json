@@ -1,0 +1,14 @@
+{
+  "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "account": "fhevm-deployer",
+  "admin": "0xD9F9298BbcD72843586e7E08DAe577E3a0aC8866",
+  "adminAccount": "fhevm-admin",
+  "deploymentId": "cleartext-v13-sepolia-2026-10-05-1",
+  "outDir": "out",
+  "confirmations": 3,
+  "previousManifest": "v13-manifest.json",
+  "migration": "kms-migration.json",
+  "handles": [
+    "0xc150a618bff65748807120904cc12ecc5fb5d8f709ff0000000000aa36a70500"
+  ]
+}
