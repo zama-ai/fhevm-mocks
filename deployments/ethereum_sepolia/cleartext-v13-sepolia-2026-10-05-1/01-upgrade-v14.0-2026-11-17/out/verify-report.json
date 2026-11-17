@@ -1,0 +1,10 @@
+{
+  "deploymentId": "cleartext-v13-sepolia-2026-10-05-1",
+  "chainId": "11155111",
+  "verifiedAt": "2026-11-17T17:47:22.986Z",
+  "verifiedAtBlock": 12155972,
+  "finalizedBlock": 12155892,
+  "materializeTx": "0xc245cb128d307f2a6badd0da84114143e23a9d14cab134bd4467966ddb616670",
+  "materializeBlock": 12155681,
+  "buildOut": "/Users/alex/fhevm-cleartext-upgrade/fhevm-deployments/sepolia-upgrade-v14/out/build-check"
+}
