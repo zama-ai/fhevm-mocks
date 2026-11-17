@@ -3297,6 +3297,47 @@ export function forgeSendArgs(gasEstimateMultiplier: number | null): string[] {
   ];
 }
 
+/**
+ * Said right before `forge script --broadcast` starts with a keystore signer.
+ *
+ * forge unlocks the keystore itself, so it asks for the password, on the terminal, before it sends anything.
+ * Preflight's `cast wallet address` (resolving the deployer, or the admin) asked once already; that unlocked
+ * nothing for forge. Without this line, the prompt is easy to miss: it is one line among forge's output, and
+ * when a transcript is kept the heartbeat below prints after it, on the prompt's own line.
+ */
+export function keystorePromptNotice(account: string): string[] {
+  return [
+    `  🔑 forge will now ask for the password of keystore '${account}' (it signs this stage's transactions itself;`,
+    '     the check above unlocked the keystore only to read its address). Nothing is sent until you type it.',
+  ];
+}
+
+/**
+ * The heartbeat of a send, printed every 30 s while forge runs with its output piped into the transcript (and
+ * so shows none of its own progress). `sent` and `mined` count from the stage's start nonce (pending and latest
+ * nonce); null when the node did not answer.
+ *
+ * While nothing is sent it does NOT claim progress: on Sepolia an operator read "forge is still sending: 0
+ * mined" for eight minutes, printed over forge's "Enter keystore password:", while forge was waiting for the
+ * password. That line says so instead, and, with a keystore signer, starts on a fresh line: the prompt has no
+ * newline of its own, and the line would otherwise run on after it. A node that answers `pending` as `latest`
+ * shows a sent but unmined first transaction as nothing sent, which is why the line only says "if".
+ */
+export function sendProgressLine(
+  elapsed: string,
+  sent: number | null,
+  mined: number | null,
+  keystore: string | null,
+): string {
+  if (sent === 0) {
+    return keystore === null
+      ? `  … waiting (${elapsed}): forge has sent nothing yet`
+      : `\n  … waiting (${elapsed}): forge has sent nothing yet. If it is asking for the password of keystore '${keystore}', type it.`;
+  }
+  if (sent === null) return `  … forge is still running (${elapsed}); the node did not answer the sender's nonce`;
+  return `  … forge is sending (${elapsed}): ${String(sent)} transaction(s) sent, ${mined === null ? '?' : String(mined)} mined so far`;
+}
+
 export async function broadcast(
   ctx: Ctx,
   target: string,
@@ -3380,6 +3421,8 @@ export async function broadcast(
   // Before forge can sign anything: if the run is killed the instant after it sends, this line is what
   // lets the next run find the transaction on chain (reconcileJournal).
   recordStageStart(ctx, scriptFileOf(target), from, Number(startNonce));
+  const keystore = key.kind === 'keystore' ? key.account : null;
+  if (keystore !== null) say(...keystorePromptNotice(keystore));
   const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
@@ -3387,9 +3430,13 @@ export async function broadcast(
     env,
     transcriptActive()
       ? () => {
-          const nonce = capture('cast', ['nonce', from, '--rpc-url', ctx.opt.rpcUrl]).stdout;
-          const sent = /^\d+$/.test(nonce) && /^\d+$/.test(startNonce) ? Number(nonce) - Number(startNonce) : '?';
-          return `  … forge is still sending (${beat.elapsed()}): ${String(sent)} transaction(s) mined so far`;
+          // pending: what forge has handed to the node; latest: what is mined. Only the first tells "nothing
+          // sent yet" (forge still waiting for its password, or still estimating) from "sent, awaiting a receipt".
+          const since = (block: string): number | null => {
+            const nonce = capture('cast', ['nonce', from, '--block', block, '--rpc-url', ctx.opt.rpcUrl]).stdout;
+            return /^\d+$/.test(nonce) && /^\d+$/.test(startNonce) ? Number(nonce) - Number(startNonce) : null;
+          };
+          return sendProgressLine(beat.elapsed(), since('pending'), since('latest'), keystore);
         }
       : undefined,
   );
