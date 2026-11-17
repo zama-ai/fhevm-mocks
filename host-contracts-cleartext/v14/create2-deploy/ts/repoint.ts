@@ -35,9 +35,8 @@ import {
   preflight,
   previousLink,
   PROXY_ROLES,
-  readJournal,
   recordFinality,
-  recordObservation,
+  recordObservedTransaction,
   removeScratchIfSealed,
   requireBuiltArtifacts,
   resolveOptions,
@@ -63,13 +62,17 @@ import {
   captureOrFail,
   ensureDir,
   fail,
+  failIfRpcError,
   freePort,
   heartbeat,
   hexToNumber,
+  lastChildOutput,
   pad,
   readJson,
   readJsonl,
   removeIfPresent,
+  rpcFailure,
+  rpcFailureLines,
   requireTool,
   runLogged,
   say,
@@ -153,7 +156,13 @@ export const LOG_WINDOW = 2000;
 /** One progress clock for every event scan of this run. See scanLogs. */
 let scanBeat: ReturnType<typeof heartbeat> | null = null;
 
-/** Every `signature` event `address` emitted from `fromBlock` to the head, fetched in RPC-sized windows. */
+/**
+ * Every `signature` event `address` emitted from `fromBlock` to the head, fetched in RPC-sized windows.
+ *
+ * The head is read once, and the last window ends there. Behind a load-balanced RPC the next request can reach a
+ * backend one block behind it, which refuses the window ("block range extends beyond current head block"):
+ * `capture` waits and asks again, by which time that backend has the block.
+ */
 export function scanLogs(ctx: Ctx, address: string, signature: string, fromBlock: number): Log[] {
   const head = headBlock(ctx);
   const logs: Log[] = [];
@@ -182,6 +191,9 @@ export function scanLogs(ctx: Ctx, address: string, signature: string, fromBlock
       ctx.opt.rpcUrl,
     ]);
     if (!r.ok) {
+      const what = `the event scan for ${signature} on ${address} (blocks ${String(from)}-${String(to)})`;
+      const cause = rpcFailure(r.stderr);
+      if (cause !== null) fail(...rpcFailureLines(what, cause, 'Nothing was sent.'), r.stderr);
       fail(`Error: event scan failed for ${signature} on ${address} (blocks ${String(from)}-${String(to)}).`, r.stderr);
     }
     logs.push(...(JSON.parse(r.stdout === '' ? '[]' : r.stdout) as Log[]));
@@ -747,6 +759,7 @@ async function stageCompute(ctx: Ctx): Promise<void> {
       ...traceArgs(ctx),
     ];
     if ((await runLogged('forge', args, { ...env, FHEVM_PASS: String(n) })) !== 0) {
+      failIfRpcError(`compute pass ${String(n)}`, lastChildOutput(), 'Nothing was sent; nothing was sealed.');
       fail(`Error: compute pass ${String(n)} failed.`);
     }
   };
@@ -874,6 +887,7 @@ async function stagePrecheck(ctx: Ctx): Promise<void> {
   await step(ctx, 'precheck', 'pre-materialize check, from a fresh recompile', async () => {
     const ok = await runReadOnly(ctx, ...scriptAndContract('precheck'), checkBuildOut(ctx), env);
     if (!ok) {
+      failIfRpcError('the pre-materialize check', lastChildOutput(), 'Nothing was sent.');
       fail('Error: the pre-materialize check failed. Nothing was sent; read the FAIL lines above before retrying.');
     }
   });
@@ -907,7 +921,10 @@ async function prepareCalldata(ctx: Ctx): Promise<{ readonly calldata: string; r
     ],
     env,
   );
-  if (code !== 0) fail('Error: could not prepare the ACLOwner.upgrade payload.');
+  if (code !== 0) {
+    failIfRpcError('preparing the ACLOwner.upgrade payload', lastChildOutput(), 'Nothing was sent.');
+    fail('Error: could not prepare the ACLOwner.upgrade payload.');
+  }
   const path = join(ctx.outDir, 'materialize-calldata.txt');
   return { calldata: readFileSync(path, 'utf8').trim(), path };
 }
@@ -1063,6 +1080,7 @@ async function stageVerify(ctx: Ctx, rehearsal = false): Promise<void> {
   const env = { ...scriptEnv(ctx, existingEnv(ctx)), ...generatedConfigEnv(ctx), ...adapter().sealedEnv(ctx) };
   await step(ctx, 'verify', 'terminal conditions in Solidity, from a fresh recompile', async () => {
     if (!(await runReadOnly(ctx, ...scriptAndContract('verify'), out, env))) {
+      failIfRpcError('verify', lastChildOutput(), 'Nothing was sent; verify only reads.');
       fail('Error: verify failed.');
     }
   });
@@ -1151,15 +1169,20 @@ function verifyUpgradeEvents(ctx: Ctx): { readonly hash: string; readonly block:
   });
 
   say(`    ok   one atomic ACLOwner.upgrade, ${String(ops.length)} ops: ${hash} (block ${String(block)})`);
-  recordExternalMaterialize(ctx, hash, block);
+  recordExternalMaterialize(ctx, hash);
   return { hash, block };
 }
 
-/** A materialize this tooling did not send has no local receipt; the block it landed in is still worth a line. */
-function recordExternalMaterialize(ctx: Ctx, hash: string, block: number | null): void {
-  const known = readJournal(ctx).some((row) => row.hash === hash || row.note?.includes(hash) === true);
-  if (known) return;
-  recordObservation(ctx, 'D', `ACLOwner.upgrade sent externally: ${hash}`, block ?? 0);
+/**
+ * A materialize this tooling did not send (a multisig admin, or a key held elsewhere) has no local record:
+ * record it from the chain, WITH its hash, so that event.json can name it as the defining transaction and the
+ * record can be archived. A journal from before this fix may hold a hash-less observation of it; that line is
+ * left as it is, and the hashed line is added next to it.
+ */
+function recordExternalMaterialize(ctx: Ctx, hash: string): void {
+  if (recordObservedTransaction(ctx, 'D', hash, `ACLOwner.upgrade sent externally: ${hash}`)) {
+    say(`    journal: recorded the externally sent ACLOwner.upgrade ${hash} from the chain`);
+  }
 }
 
 function verifyNoAuthorityEvents(ctx: Ctx): void {

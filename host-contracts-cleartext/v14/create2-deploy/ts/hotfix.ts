@@ -314,7 +314,7 @@ reinitializeV<live>()), a build that changes nothing.
                        creates from anvil's test account 0, the admin impersonated on the fork. Defaults to 0
                        confirmations, no finality, no git seal and a temporary out dir; the record is marked
                        \`simulation\` and never archived
-  --confirmations N, --no-finality, --no-git, --no-confirm, --dry-run, --no-build, -v
+  --confirmations N, --no-finality, --gas-estimate-multiplier N, --no-git, --no-confirm, --dry-run, --no-build, -v
                        as for upgrade-cli
 
   abandon              an attempt that sent transactions and will not be finished: writes its event.json

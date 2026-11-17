@@ -103,6 +103,10 @@ export function run(cmd: string, args: readonly string[], env?: NodeJS.ProcessEn
   return r.status ?? 1;
 }
 
+/** How much of the last `runLogged` child's output is kept for `lastChildOutput`: its error is at the end. */
+const CHILD_OUTPUT_TAIL = 64 * 1024;
+let childOutput = '';
+
 /**
  * `run`, streaming the child's output live — and into the transcript, when one is being kept.
  *
@@ -122,6 +126,7 @@ export function runLogged(
   progress?: () => string,
   progressMs = 30_000,
 ): Promise<number> {
+  childOutput = '';
   return new Promise((resolveCode) => {
     const childEnv = env ? { ...process.env, ...env } : process.env;
     if (transcriptPath === null) {
@@ -136,6 +141,9 @@ export function runLogged(
     }
 
     const child = spawn(cmd, args as string[], { stdio: ['inherit', 'pipe', 'pipe'], env: childEnv });
+    const keep = (chunk: Buffer): void => {
+      childOutput = (childOutput + chunk.toString()).slice(-CHILD_OUTPUT_TAIL);
+    };
     // Piped, the child shows no live progress of its own, so something here must: the caller's line if it
     // has a better one, otherwise which command is still running and for how long.
     const beat = heartbeat(progressMs);
@@ -150,10 +158,12 @@ export function runLogged(
     child.stdout.on('data', (chunk: Buffer) => {
       process.stdout.write(chunk);
       transcribe(chunk.toString());
+      keep(chunk);
     });
     child.stderr.on('data', (chunk: Buffer) => {
       process.stderr.write(chunk);
       transcribe(chunk.toString());
+      keep(chunk);
     });
     child.on('error', () => {
       stop(1);
@@ -162,6 +172,14 @@ export function runLogged(
       stop(code ?? 1);
     });
   });
+}
+
+/**
+ * The end of what the last `runLogged` child printed, so a caller can tell why it failed (`rpcFailure`).
+ * Only when a transcript is kept: otherwise the child had the terminal, and its output was never seen here ('').
+ */
+export function lastChildOutput(): string {
+  return childOutput;
 }
 
 /** Is a transcript being kept? Then a child's output is piped, and its own live progress is not shown. */
@@ -193,8 +211,46 @@ export function heartbeat(ms = 60_000): { readonly due: () => boolean; readonly 
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/** Run a command and capture its output. Never throws; inspect `.ok`. */
+/**
+ * The `cast` subcommands that only read the chain. Only these are retried on an RPC error (`capture`): a
+ * transaction (`send`, `publish`) or a raw `rpc` call is never repeated behind the operator's back.
+ */
+const CAST_READS: ReadonlySet<string> = new Set([
+  'balance',
+  'block',
+  'block-number',
+  'call',
+  'chain-id',
+  'code',
+  'logs',
+  'nonce',
+  'receipt',
+  'storage',
+  'tx',
+]);
+
+/** The waits between attempts of a read that hit an RPC error: 15 s in all, more than a block on Ethereum. */
+const RPC_RETRY_MS: readonly number[] = [1_000, 2_000, 4_000, 8_000];
+
+/**
+ * Run a command and capture its output. Never throws; inspect `.ok`.
+ *
+ * A `cast` read that fails on an RPC error (`rpcFailure`: a rate limit, a backend behind the head, a dropped
+ * connection) is tried again, up to four times over 15 s, before its failure is returned. Without it, such an
+ * error comes back as an answer: `cast call` failing reads as "reverted", `cast code` as "no code", and the
+ * caller decides on it. Synchronous, like the rest of `capture`: the run waits.
+ */
 export function capture(cmd: string, args: readonly string[]): CaptureResult {
+  const retries = cmd === 'cast' && CAST_READS.has(args[0] ?? '') ? RPC_RETRY_MS : [];
+  for (let attempt = 0; ; attempt++) {
+    const r = captureOnce(cmd, args);
+    const wait = retries[attempt];
+    if (r.ok || wait === undefined || rpcFailure(r.stderr) === null) return r;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+  }
+}
+
+function captureOnce(cmd: string, args: readonly string[]): CaptureResult {
   const r = spawnSync(cmd, args as string[], { encoding: 'utf8' });
   // `r.error` is set when `cmd` itself doesn't exist (ENOENT) — nothing was spawned, so `r.stdout`/
   // `r.stderr` are `undefined` at runtime despite spawnSync's types promising a string once `encoding`
@@ -216,9 +272,70 @@ export function capture(cmd: string, args: readonly string[]): CaptureResult {
 export function captureOrFail(cmd: string, args: readonly string[]): string {
   const r = capture(cmd, args);
   if (!r.ok) {
+    const cause = rpcFailure(r.stderr);
+    if (cause !== null) {
+      fail(...rpcFailureLines(`\`${cmd} ${args[0] ?? ''}\``, cause, 'This call sent nothing.'), r.stderr);
+    }
     fail(`Error: \`${cmd} ${args.join(' ')}\` failed (exit ${r.code}).`, r.stderr === '' ? '' : `       ${r.stderr}`);
   }
   return r.stdout;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * The RPC errors that end a step without anything being wrong with what it checks, each with what it means.
+ *
+ * All three seen on Sepolia came from public endpoints, not from the stack: a load-balanced RPC whose backends
+ * are at different heights (forge forking at a head one backend has not seen: `block not found`, -32001; `cast
+ * logs` up to a head read a moment before from another backend: `beyond current head block`, -32602), and a
+ * free tier's rate limit (HTTP 429, -32005). The last row is the transport itself. Kept short on purpose: each
+ * pattern is specific to a node or transport error, never to anything a check prints.
+ */
+const RPC_ERRORS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/block not found|header not found/i, 'the node did not have a block it was asked for'],
+  [/beyond current head block/i, 'the node is behind the head this run read from it a moment earlier'],
+  [/HTTP error 429|error code -32005|too many requests|rate.?limit/i, 'the node rate-limited this run'],
+  [
+    /connection refused|connection reset|connection closed|error sending request|timed out/i,
+    'the connection to the node failed or timed out',
+  ],
+];
+
+/** A line a verify or precheck script prints for a failed check (FhevmVerifyBase.s.sol: `  FAIL <what>`). */
+const CHECK_FAILED = /^\s*FAIL\s/m;
+
+/**
+ * Why a forge or cast step failed, when it is the RPC: what that error means, or null when it is not one.
+ *
+ * Null as soon as the output holds a failed check (`FAIL`): then the checks speak, whatever else went wrong.
+ */
+export function rpcFailure(output: string): string | null {
+  if (CHECK_FAILED.test(output)) return null;
+  return RPC_ERRORS.find(([pattern]) => pattern.test(output))?.[1] ?? null;
+}
+
+/**
+ * The error for a step that failed on the RPC (`cause`, from `rpcFailure`): that it is not a check, what was
+ * sent (`sent`, the caller's to say), and what to do.
+ *
+ * No forge setting is suggested for a rate limit: forge already retries a rate-limited request with backoff, and its
+ * `--compute-units-per-second` has no environment or config equivalent this tool could pass on (Foundry 1.5.1).
+ */
+export function rpcFailureLines(what: string, cause: string, sent: string): string[] {
+  return [
+    `Error: ${what} failed on an RPC error, not on a check: ${cause}.`,
+    `       ${sent}`,
+    '       Run the same command again. If it recurs, point --rpc-url (rpcUrl in the config) at a single,',
+    '       non-load-balanced archive node rather than a load-balanced public endpoint, whose backends can be at',
+    '       different heights; a rate limit (HTTP 429) clears after a pause, or with a plan that allows more.',
+  ];
+}
+
+/** `fail` with `rpcFailureLines` when `output` shows an RPC error; returns otherwise, for the caller's own error. */
+export function failIfRpcError(what: string, output: string, sent: string): void {
+  const cause = rpcFailure(output);
+  if (cause !== null) fail(...rpcFailureLines(what, cause, sent));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

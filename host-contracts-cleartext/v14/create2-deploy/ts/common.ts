@@ -25,9 +25,11 @@ import {
   captureOrFail,
   ensureDir,
   fail,
+  failIfRpcError,
   heartbeat,
   hexToNumber,
   isInside,
+  lastChildOutput,
   pad,
   readJson,
   readJsonl,
@@ -102,6 +104,8 @@ export type Options = {
   readonly pauser: string | null;
   readonly adminAccount: string | null;
   readonly confirmations: number;
+  /** `--gas-estimate-multiplier`: percent applied to the node's gas estimate of each sent transaction; null = forge's default. */
+  readonly gasEstimateMultiplier: number | null;
   readonly minBlockOverride: number | null;
   readonly outDirArg: string | null;
   /** `--fork <url>`: a simulation against that anvil fork, which is then the only send target; else null. */
@@ -157,6 +161,8 @@ export type ConfigFile = {
   readonly pauser?: string;
   readonly adminAccount?: string;
   readonly confirmations?: number;
+  /** --gas-estimate-multiplier: a property of the chain's gas rules, so it may live with the deployment. */
+  readonly gasEstimateMultiplier?: number;
   readonly outDir?: string;
   /** Positive form of --no-finality: `false` disables the finality wait. */
   readonly finality?: boolean;
@@ -184,6 +190,7 @@ export type CliArgs = {
   pauser: string | null;
   adminAccount: string | null;
   confirmations: number | null;
+  gasEstimateMultiplier: number | null;
   outDirArg: string | null;
   /** `--fork <url>`, as typed. */
   forkUrl: string | null;
@@ -486,6 +493,7 @@ export const CONFIG_KEYS: readonly string[] = [
   'pauser',
   'adminAccount',
   'confirmations',
+  'gasEstimateMultiplier',
   'outDir',
   'finality',
   'git',
@@ -740,6 +748,7 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     pauser: null,
     adminAccount: null,
     confirmations: null,
+    gasEstimateMultiplier: null,
     outDirArg: null,
     useFinality: null,
     minBlockOverride: null,
@@ -800,6 +809,10 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
         break;
       case '--confirmations':
         cli.confirmations = Number(need(i, a));
+        i++;
+        break;
+      case '--gas-estimate-multiplier':
+        cli.gasEstimateMultiplier = parseGasEstimateMultiplier(need(i, a), a);
         i++;
         break;
       case '--min-block':
@@ -940,6 +953,10 @@ export function loadConfigFile(
       );
     }
     fail(`Error: unknown key '${key}' in ${path}.`, `       allowed: ${CONFIG_KEYS.join(', ')}`);
+  }
+  if (cfg.gasEstimateMultiplier !== undefined) {
+    // A JSON number: the string form is for the command line, where every value is a string.
+    parseGasEstimateMultiplier(cfg.gasEstimateMultiplier, `"gasEstimateMultiplier" in ${path}`, false);
   }
 
   return { cfg: cfg, path };
@@ -1186,6 +1203,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     adminAccount,
     pauser: cli.pauser ?? cfg.pauser ?? null,
     confirmations: fork !== null ? (cli.confirmations ?? 0) : (cli.confirmations ?? cfg.confirmations ?? 3),
+    gasEstimateMultiplier: cli.gasEstimateMultiplier ?? cfg.gasEstimateMultiplier ?? null,
     minBlockOverride: cli.minBlockOverride,
     outDirArg,
     fork,
@@ -2638,7 +2656,7 @@ function forgeRunFiles(ctx: Ctx, file: string): string[] {
 }
 
 /** A receipt as cast prints it with --json: hex numbers. */
-type ChainReceipt = {
+export type ChainReceipt = {
   readonly blockNumber?: string;
   readonly blockHash?: string;
   readonly status?: string;
@@ -2950,6 +2968,68 @@ export function recordObservation(ctx: Ctx, stage: string, note: string, block: 
   appendJsonl(ctx.journalPath, [entry]);
 }
 
+/** A transaction as cast prints it with --json: the fields an observed line records. */
+export type ChainTransaction = {
+  readonly from?: string;
+  readonly nonce?: string;
+  readonly to?: string | null;
+};
+
+/**
+ * The journal line for a transaction this tooling did NOT send but found on chain by its hash: an external
+ * admin's step (a multisig, or a key held elsewhere).
+ *
+ * Unlike recordObservation's line it carries the hash and the receipt's fields, like a line forge's records
+ * produce: eventRecord matches the defining transaction by hash, recordFinality finalizes by hash, and
+ * `fhevm-npm check deployments` reads each line's (hash, block). A hash-less observation can do none of that,
+ * so an upgrade materialized from outside could never get its event.json. Pure: the chain reads are the
+ * caller's.
+ */
+export function observedTransaction(
+  stage: string,
+  hash: string,
+  note: string,
+  tx: ChainTransaction | null,
+  rc: ChainReceipt | null,
+  ts: number,
+): JournalEntry {
+  return {
+    kind: 'tx',
+    stage,
+    hash: hash.toLowerCase(),
+    address: tx?.to?.toLowerCase() ?? null,
+    from: tx?.from?.toLowerCase() ?? null,
+    nonce: hexToNumber(tx?.nonce),
+    ...minedFields(rc),
+    observed: true,
+    note,
+    ts,
+  };
+}
+
+/**
+ * Record `hash`, a transaction this tooling did not send, once: with its sender, nonce and receipt read off the
+ * chain. A journal line that already carries the hash (forge's record of a send, or an earlier observation)
+ * counts; a hash-less observation does not, since nothing downstream can use it. Returns whether a line was
+ * added; its finality is recorded right away when its block is already settled.
+ */
+export function recordObservedTransaction(ctx: Ctx, stage: string, hash: string, note: string): boolean {
+  const wanted = hash.toLowerCase();
+  if ([...latestByHash(ctx).keys()].some((known) => known.toLowerCase() === wanted)) return false;
+  let tx: ChainTransaction | null = null;
+  const r = capture('cast', ['tx', hash, '--json', '--rpc-url', ctx.opt.rpcUrl]);
+  if (r.ok) {
+    try {
+      tx = JSON.parse(r.stdout) as ChainTransaction;
+    } catch {
+      // keep what the receipt alone gives
+    }
+  }
+  appendJsonl(ctx.journalPath, [observedTransaction(stage, hash, note, tx, chainReceipt(ctx, hash), Date.now())]);
+  recordFinality(ctx);
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -3177,6 +3257,89 @@ export function reportTxLine(e: JournalEntry, final: ReadonlySet<string> = new S
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/** Below 100% the gas limit is less than the node's own estimate, which is a revert waiting to happen. */
+const MIN_GAS_ESTIMATE_MULTIPLIER = 100;
+
+/**
+ * `--gas-estimate-multiplier` / `gasEstimateMultiplier`: a whole percentage, at least 100. A digit string is
+ * accepted only from the command line (`fromCli`); a config file holds a JSON number.
+ */
+export function parseGasEstimateMultiplier(value: unknown, source: string, fromCli = true): number {
+  const n = fromCli && typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < MIN_GAS_ESTIMATE_MULTIPLIER) {
+    fail(
+      `Error: ${source} must be a whole percentage of at least ${String(MIN_GAS_ESTIMATE_MULTIPLIER)}, got ${JSON.stringify(value)}.`,
+      "       It multiplies the node's gas estimate of each transaction: 130 is forge's default, 200 doubles it.",
+    );
+  }
+  return n;
+}
+
+/**
+ * How `forge script` takes the gas of each transaction it SENDS: from the node, not from its own simulation.
+ *
+ * Forge's own simulation runs with the EVM rules of the configured `evm_version` (cancun), which is also the
+ * compile target: it fixes the bytecode, so the CREATE2 addresses, and cannot follow the chain's hardforks. Once
+ * a chain reprices gas, every limit forge computes is wrong. Sepolia's fork of 2026-10-06 made contract creation
+ * about 5x dearer: forge set 7.8M for ProtocolConfig, the node needed 38.2M, and the create reverted out of gas.
+ *
+ * `--skip-simulation` makes forge ask the node (`eth_estimateGas`) for each transaction instead, with the node's
+ * current rules; with `--slow`, right before sending it, after the previous one is mined, so a transaction that
+ * depends on an earlier one is estimated against it. The estimate is multiplied by `--gas-estimate-multiplier`
+ * (forge's default 130%). What is skipped is only forge's pre-send replay of the batch: the script itself still
+ * runs locally first, every `require` included, and a transaction the node cannot estimate (it would revert) is
+ * refused before it is sent.
+ */
+export function forgeSendArgs(gasEstimateMultiplier: number | null): string[] {
+  return [
+    '--slow',
+    '--skip-simulation',
+    ...(gasEstimateMultiplier === null ? [] : ['--gas-estimate-multiplier', String(gasEstimateMultiplier)]),
+    '--broadcast',
+  ];
+}
+
+/**
+ * Said right before `forge script --broadcast` starts with a keystore signer.
+ *
+ * forge unlocks the keystore itself, so it asks for the password, on the terminal, before it sends anything.
+ * Preflight's `cast wallet address` (resolving the deployer, or the admin) asked once already; that unlocked
+ * nothing for forge. Without this line, the prompt is easy to miss: it is one line among forge's output, and
+ * when a transcript is kept the heartbeat below prints after it, on the prompt's own line.
+ */
+export function keystorePromptNotice(account: string): string[] {
+  return [
+    `  🔑 forge will now ask for the password of keystore '${account}' (it signs this stage's transactions itself;`,
+    '     the check above unlocked the keystore only to read its address). Nothing is sent until you type it.',
+  ];
+}
+
+/**
+ * The heartbeat of a send, printed every 30 s while forge runs with its output piped into the transcript (and
+ * so shows none of its own progress). `sent` and `mined` count from the stage's start nonce (pending and latest
+ * nonce); null when the node did not answer.
+ *
+ * While nothing is sent it does NOT claim progress: on Sepolia an operator read "forge is still sending: 0
+ * mined" for eight minutes, printed over forge's "Enter keystore password:", while forge was waiting for the
+ * password. That line says so instead, and, with a keystore signer, starts on a fresh line: the prompt has no
+ * newline of its own, and the line would otherwise run on after it. A node that answers `pending` as `latest`
+ * shows a sent but unmined first transaction as nothing sent, which is why the line only says "if".
+ */
+export function sendProgressLine(
+  elapsed: string,
+  sent: number | null,
+  mined: number | null,
+  keystore: string | null,
+): string {
+  if (sent === 0) {
+    return keystore === null
+      ? `  … waiting (${elapsed}): forge has sent nothing yet`
+      : `\n  … waiting (${elapsed}): forge has sent nothing yet. If it is asking for the password of keystore '${keystore}', type it.`;
+  }
+  if (sent === null) return `  … forge is still running (${elapsed}); the node did not answer the sender's nonce`;
+  return `  … forge is sending (${elapsed}): ${String(sent)} transaction(s) sent, ${mined === null ? '?' : String(mined)} mined so far`;
+}
+
 export async function broadcast(
   ctx: Ctx,
   target: string,
@@ -3220,7 +3383,10 @@ export async function broadcast(
       FHEVM_MIN_BLOCK: String(ctx.opt.minBlockOverride ?? 0),
     };
     const code = await runLogged('forge', [...base, '--sender', from], env);
-    if (code !== 0) process.exit(code);
+    if (code !== 0) {
+      failIfRpcError('the dry run', lastChildOutput(), 'Nothing was sent: a dry run sends nothing.');
+      process.exit(code);
+    }
     return;
   }
 
@@ -3245,6 +3411,7 @@ export async function broadcast(
   // --slow: one transaction at a time, waiting for each receipt. The two hard edges (impl₁ before
   // the ACL proxy, impl₃ before the rest) are satisfied by nonce ordering alone, but --slow turns a
   // mid-run failure into "stop here" instead of "the rest also fail in the same block".
+  // Each transaction's gas comes from the node, not from forge's simulation: see forgeSendArgs.
   //
   // The exit code is captured rather than thrown, so the journal is written even when the stage
   // dies. A half-finished stage is the case the audit trail exists for.
@@ -3259,16 +3426,22 @@ export async function broadcast(
   // Before forge can sign anything: if the run is killed the instant after it sends, this line is what
   // lets the next run find the transaction on chain (reconcileJournal).
   recordStageStart(ctx, scriptFileOf(target), from, Number(startNonce));
+  const keystore = key.kind === 'keystore' ? key.account : null;
+  if (keystore !== null) say(...keystorePromptNotice(keystore));
   const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
-    [...base, ...forgeSignerArgs(key), '--sender', from, '--slow', '--broadcast'],
+    [...base, ...forgeSignerArgs(key), '--sender', from, ...forgeSendArgs(ctx.opt.gasEstimateMultiplier)],
     env,
     transcriptActive()
       ? () => {
-          const nonce = capture('cast', ['nonce', from, '--rpc-url', ctx.opt.rpcUrl]).stdout;
-          const sent = /^\d+$/.test(nonce) && /^\d+$/.test(startNonce) ? Number(nonce) - Number(startNonce) : '?';
-          return `  … forge is still sending (${beat.elapsed()}): ${String(sent)} transaction(s) mined so far`;
+          // pending: what forge has handed to the node; latest: what is mined. Only the first tells "nothing
+          // sent yet" (forge still waiting for its password, or still estimating) from "sent, awaiting a receipt".
+          const since = (block: string): number | null => {
+            const nonce = capture('cast', ['nonce', from, '--block', block, '--rpc-url', ctx.opt.rpcUrl]).stdout;
+            return /^\d+$/.test(nonce) && /^\d+$/.test(startNonce) ? Number(nonce) - Number(startNonce) : null;
+          };
+          return sendProgressLine(beat.elapsed(), since('pending'), since('latest'), keystore);
         }
       : undefined,
   );
@@ -3276,6 +3449,12 @@ export async function broadcast(
   recordJournal(ctx, target);
   recordFinality(ctx);
   if (code !== 0) {
+    // forge may have sent part of the stage before the RPC failed it: the journal just recorded what.
+    failIfRpcError(
+      `sending ${scriptFileOf(target)}`,
+      lastChildOutput(),
+      'What forge sent before the error is in --stage log; the stage is idempotent, so running it again resumes it.',
+    );
     console.error(`  stage failed (forge exit ${code}). What was sent is in --stage log.`);
     process.exit(code);
   }
