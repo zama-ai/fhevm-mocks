@@ -752,9 +752,11 @@ $EDITOR sdk/versions.json && make version-plan && make version-apply && git add 
 npm --prefix hardhat/v3/plugin/pkg version patch
 ```
 
-**4.3.4 A rendered dependency range is a caret on the target's central version: `^<version>`.** A payload built
-against contracts `0.13.4` renders `^0.13.4`: at least the version it was built and tested against, up to the next
-generation, which the caret on a `0.x` version excludes. The floor is never lower than that version: a lower one lets a
+**4.3.4 A rendered dependency range is the target's central version, up to the end of its generation: `^<version>`
+below 1.0, `~<version>` from 1.0 on.** A generation is `major.minor` at every version. A payload built against
+contracts `0.13.4` renders `^0.13.4`: at least the version it was built and tested against, up to the next
+generation, which the caret on a `0.x` version excludes. From 1.0 on a caret would accept the next minor, which is the
+next generation, so a payload built against `1.0.2` renders `~1.0.2`, which stops at 1.0.x. The floor is never lower than that version: a lower one lets a
 consumer who upgrades the payload keep, from their lockfile, an older dependency that may lack a fix the payload relies
 on. A contracts patch still never forces a payload release; the payload raises its floor on its next release. A
 prerelease central version renders exactly, since a caret range does not match prereleases. This is the one range
@@ -766,6 +768,9 @@ the range, so the target's version must be on npmjs.com before the payload that 
 ```jsonc
 // ✅ In the v3 plugin's tarball, rendered from the file: link by `publish pack` (target central 0.13.4).
 "@fhevm/host-contracts-cleartext": "^0.13.4"
+
+// ✅ The same from 1.0 on (target central 1.0.2): a tilde, so 1.1.x, the next generation, is excluded.
+"@fhevm/host-contracts-cleartext": "~1.0.2"
 
 // ❌ The generation floor: a consumer upgrading the plugin can keep contracts 0.13.0-0.13.3 and miss a fix.
 "@fhevm/host-contracts-cleartext": "^0.13.0"
@@ -1580,13 +1585,14 @@ event. The layout and the operator's side are in `deployments/README.md`; this s
 `fhevm-chains.config.json` and `<stack>` the stack's `deploymentId`. Under a stack: event folders, `aborted/` and a
 `README.md`, nothing else.
 
-**8.1.2 Event folders are numbered.** `<seq>-<deploy|upgrade|hotfix>-v<N>.<p>-<YYYY-MM-DD>`, the sequence contiguous
-from `00`, exactly one `deploy`, first. `v<N>.<p>` is the package version the tool ran at; the date is the UTC day of
+**8.1.2 Event folders are numbered.** `<seq>-<deploy|upgrade|hotfix>-v<release>-<YYYY-MM-DD>`, the sequence contiguous
+from `00`, exactly one `deploy`, first. `v<release>` is the package version the tool ran at, without the major below 1.0 (`v14.1` is 0.14.1) and with
+it from 1.0 on (`v1.0.0`); the date is the UTC day of
 the block holding the event's defining transaction (an upgrade's or hotfix's `ACLOwner.upgrade`, a deploy's last
 transaction), as recorded in `record/event.json`.
 
 **8.1.3 Attempts are outside the sequence.** An attempt that sent transactions and was not finished goes under
-`aborted/<YYYY-MM-DD>-<kind>-v<N>.<p>-<n>/`, dated by its first transaction. It never carries a `verify-report.json`
+`aborted/<YYYY-MM-DD>-<kind>-v<release>-<n>/`, dated by its first transaction. It never carries a `verify-report.json`
 and is never a `previous`.
 
 ### 8.2 Each record
@@ -1597,7 +1603,8 @@ has one); the out dir holds `manifest.json`, `addresses.sol`, `journal.jsonl`, `
 hotfix `progress.jsonl` and `verify-report.json`; no forge scratch, no `.git`.
 
 **8.2.2 Identity.** The manifest's `deploymentId` is the stack, its `chainId` the chain folder's, the config's `admin`
-the sealed one. Its `version` is `0.<N>` and its `packageVersion` `0.<N>.<p>`, as the folder name says.
+the sealed one. Its `version` is the generation, `<major>.<minor>` (`0.14`, `1.0`), and its `packageVersion`
+`<major>.<minor>.<p>`, as the folder name says: `v14.1` is `0.14.1`, `v1.0.0` is `1.0.0`.
 
 **8.2.3 Dated by the chain.** `event.json`'s `defining`, `first` and `last` transactions are in the journal at the
 blocks it claims, in that order of blocks; `defining` is `last` for a deploy and `first` for an attempt. The folder's
@@ -1621,7 +1628,7 @@ merge base may be added, modified, deleted, renamed or retyped, committed or not
 READMEs are free.
 
 **8.4.2 One exception: the legacy relocation.** A flat record (`<stack>/deploy.config.json`, the layout before events
-had folders) may move into `<stack>/00-deploy-v<N>.<p>-<YYYY-MM-DD>/` once, as a pure move: every file renamed with
+had folders) may move into `<stack>/00-deploy-v<release>-<YYYY-MM-DD>/` once, as a pure move: every file renamed with
 identical bytes to the same relative path under one such folder, nothing added to it. Until then it is checked as a
 record and reported as a note.
 

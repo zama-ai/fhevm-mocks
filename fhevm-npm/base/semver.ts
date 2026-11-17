@@ -58,22 +58,33 @@ function comparePrerelease(left: readonly string[], right: readonly string[]): n
 }
 
 /**
- * The range a published tarball carries for a dependency at this central version (RULES 4.3.4): a caret
- * on the version itself, `^0.13.4` for `0.13.4`. The floor is the version the payload was built and tested
- * against, so upgrading the payload can never leave a consumer on an older dependency (one missing a fix
- * the payload relies on); the caret still stops at the next generation. A prerelease pins itself exactly.
+ * The range a published tarball carries for a dependency at this central version (RULES 4.3.4): the version itself
+ * as the floor, and an operator that stops at the end of its generation. A generation is `major.minor`, so below 1.0
+ * that is a caret (`^0.13.4`: npm's caret already stays in 0.13.x) and from 1.0 on a tilde (`~1.0.2`: a caret would
+ * accept 1.1.x, another generation). The floor is the version the payload was built and tested against, so
+ * upgrading the payload can never leave a consumer on an older dependency (one missing a fix the payload relies
+ * on). A prerelease pins itself exactly.
  */
 export function dependencyRange(version: ParsedVersion): string {
-  return isPrerelease(version) ? formatVersion(version) : `^${formatVersion(version)}`;
+  if (isPrerelease(version)) return formatVersion(version);
+  return `${version.major === 0 ? '^' : '~'}${formatVersion(version)}`;
 }
 
-/** Does a published release satisfy a range produced by `dependencyRange`? Prereleases never do. */
+/**
+ * Does a published release satisfy `range`, as npm reads it? A range `dependencyRange` produces, or any caret or
+ * tilde on a release: a caret stays in the minor below 1.0 and in the major from 1.0, a tilde stays in the minor.
+ * Anything else is an exact version. Prereleases never satisfy a range.
+ */
 export function satisfiesDependencyRange(candidate: ParsedVersion, range: string): boolean {
-  if (!range.startsWith('^')) return formatVersion(candidate) === range;
+  const operator = range[0];
+  if (operator !== '^' && operator !== '~') return formatVersion(candidate) === range;
   const floor = parseVersion(range.slice(1));
   if (floor === undefined || isPrerelease(candidate)) return false;
-  const sameGeneration = floor.major === 0 ? candidate.minor === floor.minor : candidate.major === floor.major;
-  return candidate.major === floor.major && sameGeneration && compareVersions(candidate, floor) >= 0;
+  const inRange =
+    operator === '~' || floor.major === 0
+      ? candidate.major === floor.major && candidate.minor === floor.minor
+      : candidate.major === floor.major;
+  return inRange && compareVersions(candidate, floor) >= 0;
 }
 
 export function formatVersion(version: ParsedVersion): string {
