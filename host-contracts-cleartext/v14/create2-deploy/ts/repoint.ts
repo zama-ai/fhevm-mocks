@@ -35,9 +35,8 @@ import {
   preflight,
   previousLink,
   PROXY_ROLES,
-  readJournal,
   recordFinality,
-  recordObservation,
+  recordObservedTransaction,
   removeScratchIfSealed,
   requireBuiltArtifacts,
   resolveOptions,
@@ -1151,15 +1150,20 @@ function verifyUpgradeEvents(ctx: Ctx): { readonly hash: string; readonly block:
   });
 
   say(`    ok   one atomic ACLOwner.upgrade, ${String(ops.length)} ops: ${hash} (block ${String(block)})`);
-  recordExternalMaterialize(ctx, hash, block);
+  recordExternalMaterialize(ctx, hash);
   return { hash, block };
 }
 
-/** A materialize this tooling did not send has no local receipt; the block it landed in is still worth a line. */
-function recordExternalMaterialize(ctx: Ctx, hash: string, block: number | null): void {
-  const known = readJournal(ctx).some((row) => row.hash === hash || row.note?.includes(hash) === true);
-  if (known) return;
-  recordObservation(ctx, 'D', `ACLOwner.upgrade sent externally: ${hash}`, block ?? 0);
+/**
+ * A materialize this tooling did not send (a multisig admin, or a key held elsewhere) has no local record:
+ * record it from the chain, WITH its hash, so that event.json can name it as the defining transaction and the
+ * record can be archived. A journal from before this fix may hold a hash-less observation of it; that line is
+ * left as it is, and the hashed line is added next to it.
+ */
+function recordExternalMaterialize(ctx: Ctx, hash: string): void {
+  if (recordObservedTransaction(ctx, 'D', hash, `ACLOwner.upgrade sent externally: ${hash}`)) {
+    say(`    journal: recorded the externally sent ACLOwner.upgrade ${hash} from the chain`);
+  }
 }
 
 function verifyNoAuthorityEvents(ctx: Ctx): void {

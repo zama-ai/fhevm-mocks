@@ -2638,7 +2638,7 @@ function forgeRunFiles(ctx: Ctx, file: string): string[] {
 }
 
 /** A receipt as cast prints it with --json: hex numbers. */
-type ChainReceipt = {
+export type ChainReceipt = {
   readonly blockNumber?: string;
   readonly blockHash?: string;
   readonly status?: string;
@@ -2948,6 +2948,68 @@ export function recordFinality(ctx: Ctx): void {
 export function recordObservation(ctx: Ctx, stage: string, note: string, block: number): void {
   const entry: JournalEntry = { kind: 'tx', stage, observed: true, note, block, hash: null, status: 'ok' };
   appendJsonl(ctx.journalPath, [entry]);
+}
+
+/** A transaction as cast prints it with --json: the fields an observed line records. */
+export type ChainTransaction = {
+  readonly from?: string;
+  readonly nonce?: string;
+  readonly to?: string | null;
+};
+
+/**
+ * The journal line for a transaction this tooling did NOT send but found on chain by its hash: an external
+ * admin's step (a multisig, or a key held elsewhere).
+ *
+ * Unlike recordObservation's line it carries the hash and the receipt's fields, like a line forge's records
+ * produce: eventRecord matches the defining transaction by hash, recordFinality finalizes by hash, and
+ * `fhevm-npm check deployments` reads each line's (hash, block). A hash-less observation can do none of that,
+ * so an upgrade materialized from outside could never get its event.json. Pure: the chain reads are the
+ * caller's.
+ */
+export function observedTransaction(
+  stage: string,
+  hash: string,
+  note: string,
+  tx: ChainTransaction | null,
+  rc: ChainReceipt | null,
+  ts: number,
+): JournalEntry {
+  return {
+    kind: 'tx',
+    stage,
+    hash: hash.toLowerCase(),
+    address: tx?.to?.toLowerCase() ?? null,
+    from: tx?.from?.toLowerCase() ?? null,
+    nonce: hexToNumber(tx?.nonce),
+    ...minedFields(rc),
+    observed: true,
+    note,
+    ts,
+  };
+}
+
+/**
+ * Record `hash`, a transaction this tooling did not send, once: with its sender, nonce and receipt read off the
+ * chain. A journal line that already carries the hash (forge's record of a send, or an earlier observation)
+ * counts; a hash-less observation does not, since nothing downstream can use it. Returns whether a line was
+ * added; its finality is recorded right away when its block is already settled.
+ */
+export function recordObservedTransaction(ctx: Ctx, stage: string, hash: string, note: string): boolean {
+  const wanted = hash.toLowerCase();
+  if ([...latestByHash(ctx).keys()].some((known) => known.toLowerCase() === wanted)) return false;
+  let tx: ChainTransaction | null = null;
+  const r = capture('cast', ['tx', hash, '--json', '--rpc-url', ctx.opt.rpcUrl]);
+  if (r.ok) {
+    try {
+      tx = JSON.parse(r.stdout) as ChainTransaction;
+    } catch {
+      // keep what the receipt alone gives
+    }
+  }
+  appendJsonl(ctx.journalPath, [observedTransaction(stage, hash, note, tx, chainReceipt(ctx, hash), Date.now())]);
+  recordFinality(ctx);
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

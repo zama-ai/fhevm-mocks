@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 import {
   eventRecord,
+  observedTransaction,
   previousLink,
   PROXY_ROLES,
   recordedImplementations,
@@ -136,6 +137,62 @@ void test('event record: refused rather than guessed', () => {
     reason(eventRecord('deploy', [tx(1, 10)], null, () => null)),
     /did not return the timestamp of block 10/,
   );
+});
+
+void test('event record: an upgrade materialized from outside the tool is dated by its observed line', () => {
+  const hash = `0x${'c245'.padEnd(64, '7')}`;
+  const creates = [tx(1, 10), tx(2, 11)];
+  const note = `ACLOwner.upgrade sent externally: ${hash}`;
+
+  // What verify recorded before the fix: the hash only in the note. No hash, so no defining transaction.
+  const hashless: JournalEntry = { kind: 'tx', stage: 'D', observed: true, note, block: 20, hash: null, status: 'ok' };
+  assert.match(
+    reason(eventRecord('upgrade', [...creates, hashless], hash, timestamps)),
+    /defining transaction 0x.* is not in the journal/,
+  );
+
+  // What it records now: the hash and the receipt's fields, read off the chain.
+  const observed = observedTransaction(
+    'D',
+    hash.toUpperCase().replace('0X', '0x'),
+    note,
+    {
+      from: '0xD9F9298BbcD72843586e7E08DAe577E3a0aC8866',
+      nonce: '0xf',
+      to: '0xbBD7CAa5B0f924E35cd318e6Ea86Eef70A59248b',
+    },
+    { blockNumber: '0x14', blockHash: `0x${'ab'.repeat(32)}`, status: '0x1', gasUsed: '0x141c58' },
+    1_790_000_000,
+  );
+  assert.deepEqual(observed, {
+    kind: 'tx',
+    stage: 'D',
+    hash,
+    address: '0xbbd7caa5b0f924e35cd318e6ea86eef70a59248b',
+    from: '0xd9f9298bbcd72843586e7e08dae577e3a0ac8866',
+    nonce: 15,
+    block: 20,
+    blockHash: `0x${'ab'.repeat(32)}`,
+    gasUsed: 1_317_976,
+    status: 'ok',
+    observed: true,
+    note,
+    ts: 1_790_000_000,
+  });
+
+  // A journal from before the fix keeps its hash-less line; the hashed line next to it is what dates the event.
+  const record = eventRecord('upgrade', [...creates, hashless, observed], hash, timestamps);
+  assert.notEqual(typeof record, 'string', reason(record));
+  if (typeof record !== 'string') {
+    assert.deepEqual(record.defining, { hash, block: 20, blockTimestamp: timestamps(20) });
+    assert.equal(record.first.block, 10);
+    assert.equal(record.last.block, 20);
+  }
+
+  // A reverted external send is recorded as such, and dates nothing.
+  const reverted = observedTransaction('D', hash, note, null, { blockNumber: '0x14', status: '0x0' }, 0);
+  assert.equal(reverted.status, 'REVERTED');
+  assert.match(reason(eventRecord('upgrade', [...creates, reverted], hash, timestamps)), /is not in the journal/);
 });
 
 void test('recorded implementations: a deploy seals every proxy, an upgrade keeps what it left alone', () => {
