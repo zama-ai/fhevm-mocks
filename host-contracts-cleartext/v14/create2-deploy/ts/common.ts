@@ -25,9 +25,11 @@ import {
   captureOrFail,
   ensureDir,
   fail,
+  failIfRpcError,
   heartbeat,
   hexToNumber,
   isInside,
+  lastChildOutput,
   pad,
   readJson,
   readJsonl,
@@ -3381,7 +3383,10 @@ export async function broadcast(
       FHEVM_MIN_BLOCK: String(ctx.opt.minBlockOverride ?? 0),
     };
     const code = await runLogged('forge', [...base, '--sender', from], env);
-    if (code !== 0) process.exit(code);
+    if (code !== 0) {
+      failIfRpcError('the dry run', lastChildOutput(), 'Nothing was sent: a dry run sends nothing.');
+      process.exit(code);
+    }
     return;
   }
 
@@ -3444,6 +3449,12 @@ export async function broadcast(
   recordJournal(ctx, target);
   recordFinality(ctx);
   if (code !== 0) {
+    // forge may have sent part of the stage before the RPC failed it: the journal just recorded what.
+    failIfRpcError(
+      `sending ${scriptFileOf(target)}`,
+      lastChildOutput(),
+      'What forge sent before the error is in --stage log; the stage is idempotent, so running it again resumes it.',
+    );
     console.error(`  stage failed (forge exit ${code}). What was sent is in --stage log.`);
     process.exit(code);
   }
