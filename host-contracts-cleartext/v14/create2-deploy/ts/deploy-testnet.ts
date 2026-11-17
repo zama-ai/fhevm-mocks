@@ -173,6 +173,10 @@ Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID 
   --no-finality        between stages wait only for --confirmations of depth, NOT for the previous
                        stage to finalize. Depth is a heuristic — ~3 min at 15 blocks vs ~12.8 min to
                        PoS finality — and testnets are where that gap bites
+  --gas-estimate-multiplier N
+                       percent applied to the node's gas estimate of each transaction sent (default
+                       130, forge's). The gas always comes from the node, which knows the chain's
+                       current gas rules; raise this only if a send still runs out of gas
   --admin-account NAME forge keystore account that SIGNS step F on the admin's behalf. Without
                        --admin, the admin address is read from it (one password prompt); with
                        --admin, it must resolve to that address. Without --admin-account, step F
@@ -202,7 +206,7 @@ Usage: deploy-cli --rpc-url URL --account NAME --admin 0x... --deployment-id ID 
                        For throwaway rehearsals. Also settable as "git": false in a config file
   --config PATH        JSON file holding the stable arguments, so they are not retyped every
                        invocation: rpcUrl, account, admin, deploymentId, pauser, adminAccount,
-                       confirmations, outDir, finality. An explicit flag always overrides it. Its
+                       confirmations, gasEstimateMultiplier, outDir, finality. An explicit flag always overrides it. Its
                        relative paths are relative to the config file's own folder.
                        Without --config, ./deploy.config.json in the CURRENT directory is used
                        if it exists. Unknown keys are rejected, and so are stage/dryRun/minBlock/noConfirm —

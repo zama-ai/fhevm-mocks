@@ -226,6 +226,11 @@ THE LIVE STACK — eleven addresses, best supplied through --previous-manifest o
 
   --confirmations N    reorg DEPTH floor for the between-stage waits
   --no-finality        wait only for --confirmations of depth, not for finality
+  --gas-estimate-multiplier N
+                       percent applied to the node's gas estimate of each transaction sent (default
+                       130, forge's). Config key gasEstimateMultiplier. The gas always comes from the
+                       node, which knows the chain's current gas rules; raise this only if a send still
+                       runs out of gas
   --out-dir PATH       where this upgrade's seal, generated config and journal go. Any folder, inside
                        the repository or not; relative to the current directory on the command line
   --dry-run            run the chosen stage WITHOUT --broadcast

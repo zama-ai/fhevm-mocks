@@ -102,6 +102,8 @@ export type Options = {
   readonly pauser: string | null;
   readonly adminAccount: string | null;
   readonly confirmations: number;
+  /** `--gas-estimate-multiplier`: percent applied to the node's gas estimate of each sent transaction; null = forge's default. */
+  readonly gasEstimateMultiplier: number | null;
   readonly minBlockOverride: number | null;
   readonly outDirArg: string | null;
   /** `--fork <url>`: a simulation against that anvil fork, which is then the only send target; else null. */
@@ -157,6 +159,8 @@ export type ConfigFile = {
   readonly pauser?: string;
   readonly adminAccount?: string;
   readonly confirmations?: number;
+  /** --gas-estimate-multiplier: a property of the chain's gas rules, so it may live with the deployment. */
+  readonly gasEstimateMultiplier?: number;
   readonly outDir?: string;
   /** Positive form of --no-finality: `false` disables the finality wait. */
   readonly finality?: boolean;
@@ -184,6 +188,7 @@ export type CliArgs = {
   pauser: string | null;
   adminAccount: string | null;
   confirmations: number | null;
+  gasEstimateMultiplier: number | null;
   outDirArg: string | null;
   /** `--fork <url>`, as typed. */
   forkUrl: string | null;
@@ -486,6 +491,7 @@ export const CONFIG_KEYS: readonly string[] = [
   'pauser',
   'adminAccount',
   'confirmations',
+  'gasEstimateMultiplier',
   'outDir',
   'finality',
   'git',
@@ -740,6 +746,7 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
     pauser: null,
     adminAccount: null,
     confirmations: null,
+    gasEstimateMultiplier: null,
     outDirArg: null,
     useFinality: null,
     minBlockOverride: null,
@@ -800,6 +807,10 @@ export function parseCliArgs(flow: Flow, argv: readonly string[]): CliArgs {
         break;
       case '--confirmations':
         cli.confirmations = Number(need(i, a));
+        i++;
+        break;
+      case '--gas-estimate-multiplier':
+        cli.gasEstimateMultiplier = parseGasEstimateMultiplier(need(i, a), a);
         i++;
         break;
       case '--min-block':
@@ -940,6 +951,10 @@ export function loadConfigFile(
       );
     }
     fail(`Error: unknown key '${key}' in ${path}.`, `       allowed: ${CONFIG_KEYS.join(', ')}`);
+  }
+  if (cfg.gasEstimateMultiplier !== undefined) {
+    // A JSON number: the string form is for the command line, where every value is a string.
+    parseGasEstimateMultiplier(cfg.gasEstimateMultiplier, `"gasEstimateMultiplier" in ${path}`, false);
   }
 
   return { cfg: cfg, path };
@@ -1186,6 +1201,7 @@ export function resolveOptions(flow: Flow, cli: CliArgs, cfg: ConfigFile, config
     adminAccount,
     pauser: cli.pauser ?? cfg.pauser ?? null,
     confirmations: fork !== null ? (cli.confirmations ?? 0) : (cli.confirmations ?? cfg.confirmations ?? 3),
+    gasEstimateMultiplier: cli.gasEstimateMultiplier ?? cfg.gasEstimateMultiplier ?? null,
     minBlockOverride: cli.minBlockOverride,
     outDirArg,
     fork,
@@ -3239,6 +3255,48 @@ export function reportTxLine(e: JournalEntry, final: ReadonlySet<string> = new S
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/** Below 100% the gas limit is less than the node's own estimate, which is a revert waiting to happen. */
+const MIN_GAS_ESTIMATE_MULTIPLIER = 100;
+
+/**
+ * `--gas-estimate-multiplier` / `gasEstimateMultiplier`: a whole percentage, at least 100. A digit string is
+ * accepted only from the command line (`fromCli`); a config file holds a JSON number.
+ */
+export function parseGasEstimateMultiplier(value: unknown, source: string, fromCli = true): number {
+  const n = fromCli && typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < MIN_GAS_ESTIMATE_MULTIPLIER) {
+    fail(
+      `Error: ${source} must be a whole percentage of at least ${String(MIN_GAS_ESTIMATE_MULTIPLIER)}, got ${JSON.stringify(value)}.`,
+      "       It multiplies the node's gas estimate of each transaction: 130 is forge's default, 200 doubles it.",
+    );
+  }
+  return n;
+}
+
+/**
+ * How `forge script` takes the gas of each transaction it SENDS: from the node, not from its own simulation.
+ *
+ * Forge's own simulation runs with the EVM rules of the configured `evm_version` (cancun), which is also the
+ * compile target: it fixes the bytecode, so the CREATE2 addresses, and cannot follow the chain's hardforks. Once
+ * a chain reprices gas, every limit forge computes is wrong. Sepolia's fork of 2026-10-06 made contract creation
+ * about 5x dearer: forge set 7.8M for ProtocolConfig, the node needed 38.2M, and the create reverted out of gas.
+ *
+ * `--skip-simulation` makes forge ask the node (`eth_estimateGas`) for each transaction instead, with the node's
+ * current rules; with `--slow`, right before sending it, after the previous one is mined, so a transaction that
+ * depends on an earlier one is estimated against it. The estimate is multiplied by `--gas-estimate-multiplier`
+ * (forge's default 130%). What is skipped is only forge's pre-send replay of the batch: the script itself still
+ * runs locally first, every `require` included, and a transaction the node cannot estimate (it would revert) is
+ * refused before it is sent.
+ */
+export function forgeSendArgs(gasEstimateMultiplier: number | null): string[] {
+  return [
+    '--slow',
+    '--skip-simulation',
+    ...(gasEstimateMultiplier === null ? [] : ['--gas-estimate-multiplier', String(gasEstimateMultiplier)]),
+    '--broadcast',
+  ];
+}
+
 export async function broadcast(
   ctx: Ctx,
   target: string,
@@ -3307,6 +3365,7 @@ export async function broadcast(
   // --slow: one transaction at a time, waiting for each receipt. The two hard edges (impl₁ before
   // the ACL proxy, impl₃ before the rest) are satisfied by nonce ordering alone, but --slow turns a
   // mid-run failure into "stop here" instead of "the rest also fail in the same block".
+  // Each transaction's gas comes from the node, not from forge's simulation: see forgeSendArgs.
   //
   // The exit code is captured rather than thrown, so the journal is written even when the stage
   // dies. A half-finished stage is the case the audit trail exists for.
@@ -3324,7 +3383,7 @@ export async function broadcast(
   const beat = heartbeat(30_000);
   const code = await runLogged(
     'forge',
-    [...base, ...forgeSignerArgs(key), '--sender', from, '--slow', '--broadcast'],
+    [...base, ...forgeSignerArgs(key), '--sender', from, ...forgeSendArgs(ctx.opt.gasEstimateMultiplier)],
     env,
     transcriptActive()
       ? () => {
