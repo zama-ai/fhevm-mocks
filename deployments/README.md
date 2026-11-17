@@ -48,7 +48,9 @@ Other files in an event folder (a README, an `addresses.json` of account labels)
 - **A later event gets a new folder**, with the next sequence number. Its manifest's `previous` names the record it
   started from: `path` (relative, to the previous event's `record/manifest.json`) and the `sha256` of that file's
   bytes, with its `deploymentId`, `chainId`, `version` and `packageVersion`. The chain of `previous` links is the
-  stack's history, checked link by link.
+  stack's history, checked link by link. Start the next event from the archived record (`--deployment
+  deployments/<chain>/<stack>`, or `previousManifest` pointing at it), not from a copy: a seal made from a copy has a
+  `path` to that copy, and is accepted only if the copy is archived in the event folder with identical bytes.
 - **Every record is produced by the tools and proven against the chain. None is written by hand.** A repair that
   completes what was sealed is that event, resumed; a repair that departs from the seal is a new event with its own
   seal, and the earlier attempt goes under `aborted/`.

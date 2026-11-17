@@ -98,6 +98,13 @@ export type DeploymentsInspection = {
 };
 
 const isDirectory = (path: string): boolean => existsSync(path) && statSync(path).isDirectory();
+/** `path` lies strictly inside `dir`. Lexical, like every path comparison here. */
+const isWithin = (dir: string, path: string): boolean => {
+  const rel = relative(dir, path);
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+};
+/** Two absolute paths name the same file. Lexical, like every path comparison here. */
+const sameFile = (a: string, b: string): boolean => resolve(a) === resolve(b);
 const toPosix = (path: string): string => path.split(sep).join('/');
 const keyOf = (workspaceRoot: string, dir: string): string => `./${toPosix(relative(workspaceRoot, dir))}`;
 
@@ -169,6 +176,8 @@ type FolderRole =
 
 /** What the chain checks need from a folder that passed its own checks far enough to be read. */
 type FolderReading = {
+  /** The record folder itself: where its config file sits, and what its config's relative paths start from. */
+  readonly dir: string;
   readonly manifestPath: string;
   readonly manifest: Record<string, unknown>;
   readonly config: Record<string, unknown>;
@@ -283,13 +292,13 @@ function inspectFolder(
   const eventPath = join(out, RECORD_EVENT_FILE);
   if (!existsSync(eventPath)) {
     if (role.type === 'legacy' || (role.type === 'event' && role.kind === 'deploy')) {
-      return { manifestPath, manifest, config };
+      return { dir, manifestPath, manifest, config };
     }
     fail(`missing ${shown}/${RECORD_EVENT_FILE} (the transactions that date the record, written by the tool)`);
-    return { manifestPath, manifest, config };
+    return { dir, manifestPath, manifest, config };
   }
   const defining = inspectEventFile(eventPath, join(out, 'journal.jsonl'), role, `${shown}/${RECORD_EVENT_FILE}`, fail);
-  return { manifestPath, manifest, config, ...(defining === undefined ? {} : { defining }) };
+  return { dir, manifestPath, manifest, config, ...(defining === undefined ? {} : { defining }) };
 }
 
 /** `event.json`: its kind, its three transactions, all in the journal at the blocks it claims. */
@@ -413,12 +422,35 @@ function checkPrevious(
     fail(`manifest.json: previous.path must be a relative path, found ${JSON.stringify(path)}`);
     return;
   }
-  if (resolve(dirname(reading.manifestPath), path) !== target.reading.manifestPath) {
-    fail(`manifest.json: previous.path '${path}' does not resolve to the manifest of the record before it`);
+  // The link is the sha256 below; the path says where to find those bytes. It leads either to the record before
+  // (what the tools write when `previousManifest` or `--deployment` names the archived record), or to a copy of
+  // that record's manifest kept INSIDE this record folder: what an operator gets by copying the previous manifest
+  // into the upgrade folder and pointing `previousManifest` at it. A seal is never rewritten, so such a record
+  // could otherwise never be archived. The copy counts only when its bytes are the previous record's, byte for
+  // byte; the sha256 check below then holds for both files at once.
+  const sealedAt = resolve(dirname(reading.manifestPath), path);
+  const beforeSha = sha256Of(target.reading.manifestPath);
+  const keptCopy =
+    sealedAt !== target.reading.manifestPath &&
+    isWithin(reading.dir, sealedAt) &&
+    existsSync(sealedAt) &&
+    statSync(sealedAt).isFile() &&
+    sha256Of(sealedAt) === beforeSha;
+  if (sealedAt !== target.reading.manifestPath && !keptCopy) {
+    fail(
+      `manifest.json: previous.path '${path}' does not resolve to the manifest of the record before it, ` +
+        'nor to a byte-identical copy of it inside this record',
+    );
     return;
   }
+  // The config's previousManifest is relative to the config file's folder, the sealed path to the manifest's: they
+  // agree when they are the same text (the archived layout), or when they name the same file.
   const configured = reading.config['previousManifest'];
-  if (configured !== undefined && configured !== path) {
+  if (
+    configured !== undefined &&
+    configured !== path &&
+    !sameFile(resolve(reading.dir, String(configured)), sealedAt)
+  ) {
     fail(`the config's previousManifest '${String(configured)}' differs from the sealed previous.path '${path}'`);
   }
   const sha = previous['sha256'];
@@ -444,7 +476,11 @@ function checkPrevious(
     (target.event === undefined
       ? undefined
       : `${generationVersionLabel(target.event.generation)}.${target.event.patch}`);
-  if (previous['packageVersion'] !== beforePackage) {
+  // Linked through a kept copy, the tool saw the copy and not the record folder: when the manifest has no
+  // packageVersion, the folder name that stands for it was out of its sight, so it could only leave the field out.
+  const unknowableThroughCopy =
+    keptCopy && before['packageVersion'] == null && previous['packageVersion'] === undefined;
+  if (previous['packageVersion'] !== beforePackage && !unknowableThroughCopy) {
     fail(
       `manifest.json: previous.packageVersion is ${JSON.stringify(previous['packageVersion'])}, ` +
         `that record is ${JSON.stringify(beforePackage)}`,

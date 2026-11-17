@@ -443,6 +443,85 @@ test('links: previous resolves to the event before, by path and sha256', () => {
   );
 });
 
+/**
+ * deploy (legacy-style) -> hotfix whose seal links the deploy through a copy of its manifest kept in the hotfix's
+ * own folder: what an operator gets by copying the previous manifest into the upgrade folder and pointing
+ * `previousManifest` at it. The tool then seals `previous.path: '../v13-manifest.json'` and, seeing no event
+ * folder, cannot know the legacy deploy's version, so it leaves `previous.packageVersion` out. The first real
+ * Sepolia upgrade was sealed exactly so.
+ */
+function throughKeptCopy(): { files: Files; deployManifest: string } {
+  const deploy = eventFiles(
+    `${S}/${DEPLOY}`,
+    { name: DEPLOY, kind: 'deploy', version: '0.13', blocks: [100, 200, 200] },
+    false,
+  );
+  const hotfix = eventFiles(`${S}/${HOTFIX}`, {
+    name: HOTFIX,
+    kind: 'hotfix',
+    version: '0.13',
+    packageVersion: '0.13.1',
+    blocks: [300, 310, 320],
+    previous: { name: DEPLOY, manifest: deploy.manifest },
+  });
+  let files: Files = {
+    ...CHAINS,
+    ...deploy.files,
+    ...hotfix.files,
+    [`${S}/${HOTFIX}/v13-manifest.json`]: deploy.manifest,
+  };
+  files = edit(files, `${S}/${HOTFIX}/record/manifest.json`, (m) => {
+    const previous = m['previous'] as Record<string, unknown>;
+    previous['path'] = '../v13-manifest.json';
+    delete previous['packageVersion'];
+  });
+  files = edit(files, `${S}/${HOTFIX}/hotfix.config.json`, (c) => {
+    c['previousManifest'] = 'v13-manifest.json';
+  });
+  return { files, deployManifest: deploy.manifest };
+}
+
+test('links: a byte-identical copy of the previous manifest kept inside the record links it too', () => {
+  const { files, deployManifest } = throughKeptCopy();
+  withTree(files, (root) => {
+    assert.deepEqual(found(root), []);
+  });
+
+  // The copy must be the previous record's bytes, exactly.
+  expectOne(
+    { ...files, [`${S}/${HOTFIX}/v13-manifest.json`]: `${deployManifest}\n` },
+    /does not resolve to the manifest of the record before it, nor to a byte-identical copy of it inside this record/,
+  );
+  // ...and inside this record: an identical file anywhere else is no link.
+  expectOne(
+    edit({ ...files, [`${S}/v13-manifest.json`]: deployManifest }, `${S}/${HOTFIX}/record/manifest.json`, (m) => {
+      (m['previous'] as Record<string, unknown>)['path'] = '../../v13-manifest.json';
+    }),
+    /does not resolve to the manifest of the record before it/,
+  );
+  // A packageVersion the seal does state is still checked, through a copy or not.
+  expectOne(
+    edit(files, `${S}/${HOTFIX}/record/manifest.json`, (m) => {
+      (m['previous'] as Record<string, unknown>)['packageVersion'] = '0.12.0';
+    }),
+    /previous\.packageVersion is "0\.12\.0", that record is "0\.13\.0"/,
+  );
+  // Leaving it out is tolerated only through a copy: a direct link always knew the folder name.
+  expectOne(
+    edit(files, `${S}/${HOTFIX}/record/manifest.json`, (m) => {
+      (m['previous'] as Record<string, unknown>)['path'] = `../../${DEPLOY}/record/manifest.json`;
+    }),
+    /previous\.packageVersion is undefined, that record is "0\.13\.0"/,
+  );
+  // The config's previousManifest, resolved from the config's folder, must name the same file.
+  expectOne(
+    edit(files, `${S}/${HOTFIX}/hotfix.config.json`, (c) => {
+      c['previousManifest'] = 'record/v13-manifest.json';
+    }),
+    /previousManifest 'record\/v13-manifest\.json' differs from the sealed previous\.path '\.\.\/v13-manifest\.json'/,
+  );
+});
+
 test('dates come from event.json, and follow the chain', () => {
   expectOne(
     edit(history(), `${S}/${HOTFIX}/record/event.json`, (e) => {

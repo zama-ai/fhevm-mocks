@@ -1619,7 +1619,11 @@ blocks strictly increase.
 **8.3.2 Each event links to the one before.** A deploy has no `previous`. Every other event's manifest has
 `previous.path` resolving to the previous event's manifest, `previous.sha256` equal to that file's bytes, and
 `previous.deploymentId`, `chainId`, `version`, `packageVersion` equal to it. An attempt links the same way to the event
-it started from.
+it started from. The sha256 is the link and the path only says where those bytes are, so the path may instead resolve to
+a copy of that manifest kept inside the event's own folder, provided its bytes are identical: what an operator's seal says
+when `previousManifest` pointed at a copy. A seal is never rewritten (8.4.1), so such an event could not otherwise be
+archived. Through such a copy, and only there, `previous.packageVersion` may be absent when the previous manifest has
+none: the folder name that stands for it was out of the tool's sight.
 
 ### 8.4 Frozen
 
