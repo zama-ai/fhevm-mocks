@@ -28,6 +28,8 @@ Desktop.ini
 .idea/
 .vscode/
 .claude/settings.local.json
+.claude/worktrees/
+.claude/skills/tdd/
 *.swp
 *.swo
 *~

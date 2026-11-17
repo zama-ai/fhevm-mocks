@@ -7,7 +7,7 @@ description: Write tests from a spec with independent agents that never see the 
 
 A test written after reading the code checks what the code does. A test written from the spec checks what the code must do. This skill keeps the test authors away from the code, so every gap between the code and the spec shows up as a failing test or as a question about the spec.
 
-Use this skill for a whole spec at once, to build a catalog of cases and the tests for it. For one change at a time, written test by test before the code, use the `tdd` skill.
+Use this skill for a whole spec at once, to build a catalog of cases and the tests for it.
 
 ```text
 spec.md + api.md                                  for people, in the repository
@@ -144,7 +144,7 @@ Then move the tests to the place that `conventions.md` names, and fix their impo
 
 Run the tests. Your blindness ends here, and you may now read the code under test.
 
-If the code does not exist yet, every test fails as expected. Hand the failing tests to the `tdd` skill, and stop here.
+If the code does not exist yet, every test fails as expected. Report the failing tests as the work left to do, and stop here.
 
 Otherwise, give each failure one of four causes:
 
