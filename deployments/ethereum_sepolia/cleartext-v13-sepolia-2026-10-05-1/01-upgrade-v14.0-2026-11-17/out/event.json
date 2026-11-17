@@ -1,0 +1,18 @@
+{
+  "kind": "upgrade",
+  "defining": {
+    "hash": "0xc245cb128d307f2a6badd0da84114143e23a9d14cab134bd4467966ddb616670",
+    "block": 12155681,
+    "blockTimestamp": 1794934104
+  },
+  "first": {
+    "hash": "0x9414ad829c2f017597f31c046849a5567f56b9c6bf8af8ca6cbdea64d3196f38",
+    "block": 12155485,
+    "blockTimestamp": 1794931728
+  },
+  "last": {
+    "hash": "0xc245cb128d307f2a6badd0da84114143e23a9d14cab134bd4467966ddb616670",
+    "block": 12155681,
+    "blockTimestamp": 1794934104
+  }
+}

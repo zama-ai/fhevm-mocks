@@ -1,0 +1,49 @@
+{"ts":"2026-11-17T15:24:35.105Z","stage":"compute","step":"validate the eleven live addresses against the stack","status":"start"}
+{"ts":"2026-11-17T15:24:41.703Z","stage":"compute","step":"validate the eleven live addresses against the stack","status":"ok","ms":6403,"block":12155268}
+{"ts":"2026-11-17T15:24:41.704Z","stage":"compute","step":"every proxy runs the implementation the previous record sealed","status":"start"}
+{"ts":"2026-11-17T15:24:43.700Z","stage":"compute","step":"every proxy runs the implementation the previous record sealed","status":"ok","ms":1808,"block":12155268}
+{"ts":"2026-11-17T15:24:43.700Z","stage":"compute","step":"snapshot the live stack at the settled block","status":"start"}
+{"ts":"2026-11-17T15:25:17.020Z","stage":"compute","step":"snapshot the live stack at the settled block","status":"ok","ms":33099,"block":12155271}
+{"ts":"2026-11-17T15:25:17.022Z","stage":"compute","step":"build, then pass 1: the live addresses file","status":"start"}
+{"ts":"2026-11-17T15:25:28.224Z","stage":"compute","step":"build, then pass 1: the live addresses file","status":"ok","ms":10958,"block":12155272}
+{"ts":"2026-11-17T15:25:28.224Z","stage":"compute","step":"rebuild, then pass 2: the 7 implementations, assert, seal","status":"start"}
+{"ts":"2026-11-17T15:25:37.036Z","stage":"compute","step":"rebuild, then pass 2: the 7 implementations, assert, seal","status":"fail","ms":8812}
+{"ts":"2026-11-17T15:33:35.186Z","stage":"compute","step":"validate the eleven live addresses against the stack","status":"start"}
+{"ts":"2026-11-17T15:33:48.835Z","stage":"compute","step":"validate the eleven live addresses against the stack","status":"ok","ms":13232,"block":12155313}
+{"ts":"2026-11-17T15:33:48.837Z","stage":"compute","step":"every proxy runs the implementation the previous record sealed","status":"start"}
+{"ts":"2026-11-17T15:33:53.353Z","stage":"compute","step":"every proxy runs the implementation the previous record sealed","status":"ok","ms":4097,"block":12155314}
+{"ts":"2026-11-17T15:33:53.353Z","stage":"compute","step":"snapshot the live stack at the settled block","status":"start"}
+{"ts":"2026-11-17T15:34:58.242Z","stage":"compute","step":"snapshot the live stack at the settled block","status":"ok","ms":64482,"block":12155319}
+{"ts":"2026-11-17T15:34:58.245Z","stage":"compute","step":"build, then pass 1: the live addresses file","status":"start"}
+{"ts":"2026-11-17T15:35:15.250Z","stage":"compute","step":"build, then pass 1: the live addresses file","status":"ok","ms":16571,"block":12155321}
+{"ts":"2026-11-17T15:35:15.251Z","stage":"compute","step":"rebuild, then pass 2: the 7 implementations, assert, seal","status":"start"}
+{"ts":"2026-11-17T15:35:29.166Z","stage":"compute","step":"rebuild, then pass 2: the 7 implementations, assert, seal","status":"ok","ms":13475,"block":12155322}
+{"ts":"2026-11-17T16:21:24.736Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T16:22:31.795Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"fail","ms":67059}
+{"ts":"2026-11-17T16:28:34.313Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T16:29:08.651Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"ok","ms":33913,"block":12155585}
+{"ts":"2026-11-17T16:30:58.253Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T16:32:01.377Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"ok","ms":62672,"block":12155600}
+{"ts":"2026-11-17T16:32:01.378Z","stage":"D","step":"write the external ACLOwner.upgrade payload","status":"start"}
+{"ts":"2026-11-17T16:32:54.436Z","stage":"D","step":"write the external ACLOwner.upgrade payload","status":"ok","ms":51695,"block":12155604}
+{"ts":"2026-11-17T16:36:45.272Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T16:37:19.242Z","stage":"precheck","step":"pre-materialize check, from a fresh recompile","status":"ok","ms":33514,"block":12155626}
+{"ts":"2026-11-17T16:37:19.768Z","stage":"rehearse","step":"prepare the exact ACLOwner.upgrade payload","status":"start"}
+{"ts":"2026-11-17T16:37:43.601Z","stage":"rehearse","step":"prepare the exact ACLOwner.upgrade payload","status":"ok","ms":23381,"block":12155628}
+{"ts":"2026-11-17T16:37:45.044Z","stage":"rehearse","step":"apply the payload on the fork as the impersonated admin","status":"start"}
+{"ts":"2026-11-17T16:37:54.538Z","stage":"rehearse","step":"apply the payload on the fork as the impersonated admin","status":"ok","ms":9053,"block":12155629}
+{"ts":"2026-11-17T16:37:54.539Z","stage":"rehearse","step":"verify against the fork","status":"start"}
+{"ts":"2026-11-17T16:38:32.456Z","stage":"rehearse","step":"verify against the fork","status":"ok","ms":37466,"block":12155632}
+{"ts":"2026-11-17T17:05:43.807Z","stage":"verify","step":"terminal conditions in Solidity, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T17:06:12.833Z","stage":"verify","step":"terminal conditions in Solidity, from a fresh recompile","status":"ok","ms":28566,"block":12155769}
+{"ts":"2026-11-17T17:06:12.834Z","stage":"verify","step":"survey: every v13 getter and every sealed handle","status":"start"}
+{"ts":"2026-11-17T17:07:06.710Z","stage":"verify","step":"survey: every v13 getter and every sealed handle","status":"ok","ms":53451,"block":12155773}
+{"ts":"2026-11-17T17:07:06.712Z","stage":"verify","step":"events: one atomic upgrade, nothing else","status":"start"}
+{"ts":"2026-11-17T17:07:21.750Z","stage":"verify","step":"events: one atomic upgrade, nothing else","status":"ok","ms":14620,"block":12155774}
+{"ts":"2026-11-17T17:44:25.966Z","stage":"verify","step":"terminal conditions in Solidity, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T17:46:28.685Z","stage":"verify","step":"terminal conditions in Solidity, from a fresh recompile","status":"start"}
+{"ts":"2026-11-17T17:46:51.667Z","stage":"verify","step":"terminal conditions in Solidity, from a fresh recompile","status":"ok","ms":22741,"block":12155970}
+{"ts":"2026-11-17T17:46:51.667Z","stage":"verify","step":"survey: every v13 getter and every sealed handle","status":"start"}
+{"ts":"2026-11-17T17:47:14.297Z","stage":"verify","step":"survey: every v13 getter and every sealed handle","status":"ok","ms":22396,"block":12155972}
+{"ts":"2026-11-17T17:47:14.297Z","stage":"verify","step":"events: one atomic upgrade, nothing else","status":"start"}
+{"ts":"2026-11-17T17:47:22.985Z","stage":"verify","step":"events: one atomic upgrade, nothing else","status":"ok","ms":8491,"block":12155972}

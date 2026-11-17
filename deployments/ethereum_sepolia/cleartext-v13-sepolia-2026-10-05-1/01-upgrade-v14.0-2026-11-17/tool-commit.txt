@@ -1,0 +1,5 @@
+336543bb0daa7fec4f28c1b4986ca2edc37667af
+# release/0.14.x, the commit that computed and reproduces the seal.
+# Foundry 1.5.1 sized gas with pre-fork rules, so the 7 creates and the ACLOwner.upgrade were sent by hand with
+# node estimates; the journal holds them as `recovered: nonce-scan` and `observed` lines. event.json was written by
+# `verify` at f463a7a (#242), which records an externally sent upgrade with its hash; no contract changed.

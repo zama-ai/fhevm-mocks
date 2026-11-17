@@ -6,3 +6,8 @@ broadcast/
 cache/
 .foundry/
 pass2.json
+
+# A record's out dir IS the record: the root .gitignore ignores every `out/` (build output), which silently
+# dropped the seal, journal and event.json of a record whose config says `"outDir": "out"`, the name UPGRADE.md
+# uses. Re-included here; the scratch above stays ignored inside it.
+!out/

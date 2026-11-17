@@ -1,0 +1,46 @@
+{
+  "kmsNodeParams": [
+    {
+      "signerAddress": "0x649c125E183640141C2AC329673A22dF9FA81b3C",
+      "txSenderAddress": "0x4c41862B9eb691CA197E97a53219E5d860d9dDbB",
+      "ipAddress": "127.0.0.1",
+      "storageUrl": "s3://kms-bucket-1",
+      "partyId": 1,
+      "mpcIdentity": "kms-core-1-cleartext-core-1",
+      "caCert": "0x",
+      "storagePrefix": "cleartext-1"
+    },
+    {
+      "signerAddress": "0xDB05A2EdF583E3b1644A59434a163aD178595EAf",
+      "txSenderAddress": "0x822D412944cE9CD7C92f96F162307cF4c9f88F15",
+      "ipAddress": "127.0.0.2",
+      "storageUrl": "s3://kms-bucket-2",
+      "partyId": 2,
+      "mpcIdentity": "kms-core-2-cleartext-core-2",
+      "caCert": "0x",
+      "storagePrefix": "cleartext-2"
+    },
+    {
+      "signerAddress": "0x03D684498fB1D52286D09Dd42e720c89b55C63c3",
+      "txSenderAddress": "0xA47E4a9AeaB93C7c2aC8fd5c4E4eC5cB70DD5F8f",
+      "ipAddress": "127.0.0.3",
+      "storageUrl": "s3://kms-bucket-3",
+      "partyId": 3,
+      "mpcIdentity": "kms-core-3-cleartext-core-3",
+      "caCert": "0x",
+      "storagePrefix": "cleartext-3"
+    },
+    {
+      "signerAddress": "0x8252dD4D1350BCd34f419aBD05f8cfA146d71C5D",
+      "txSenderAddress": "0xed3C9f5a6d4D8c00A375B8c79dbDF0f69BAAe547",
+      "ipAddress": "127.0.0.4",
+      "storageUrl": "s3://kms-bucket-4",
+      "partyId": 4,
+      "mpcIdentity": "kms-core-4-cleartext-core-4",
+      "caCert": "0x",
+      "storagePrefix": "cleartext-4"
+    }
+  ],
+  "softwareVersion": "0.0.0-cleartext",
+  "pcrValues": []
+}
