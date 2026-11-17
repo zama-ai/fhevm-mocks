@@ -163,10 +163,13 @@ In v13, the live KMS context is held by `ProtocolConfig`. Read it:
 
 ```sh
 PC=$(jq -r .address.PROTOCOL_CONFIG_ADDRESS v13-manifest.json)
-CTX=$(cast call $PC 'getCurrentKmsContextId()(uint256)' --rpc-url $RPC)
+CTX=$(cast call $PC 'getCurrentKmsContextId()(uint256)' --rpc-url $RPC --json | jq -r '.[0]')
 cast call $PC 'getKmsSigners()(address[])' --rpc-url $RPC
 cast call $PC 'getKmsNodesForContext(uint256)((address,address,string,string)[])' $CTX --rpc-url $RPC
 ```
+
+The context id is read through `--json`: plain `cast call` follows a large integer with an annotation such
+as `[3.166e75]`, which would end up in `$CTX` and break the next call.
 
 The last call prints, for each node: tx sender, signer, IP, storage URL.
 
