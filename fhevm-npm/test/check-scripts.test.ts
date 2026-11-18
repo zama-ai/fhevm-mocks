@@ -8,6 +8,7 @@ import {
   prettierTargetsSolidity,
   validateConfigContainment,
   validateEslintConfigs,
+  validateEslintLayoutModules,
   validatePrettierConfigs,
   validateScripts,
 } from '../base/checks/scripts.ts';
@@ -1299,6 +1300,91 @@ test("requires root 'eslint.base.mjs' and package-level 'eslint.config.js'", () 
       },
     ],
   );
+});
+
+test('holds a shared ESLint layout module to the 5.1.7 layout layer', () => {
+  const root = loadedPackage(
+    '.',
+    { kind: 'workspace-root', name: 'workspace', private: true, member: false },
+    { name: 'workspace', private: true },
+  );
+  const generation = (key: string) =>
+    loadedPackage(
+      key,
+      { kind: 'shared-helper', name: `@scope/${key.replaceAll('/', '-')}-dev`, private: true, member: true },
+      { scripts: { lint: 'eslint .' } },
+    );
+  const v1 = generation('./family/v1');
+  const v2 = generation('./family/v2');
+  const lone = generation('./lone/v1');
+  const outsider = generation('./other');
+  const importLayout = (specifier: string) =>
+    `import layout from '${specifier}';\nexport default [...layout(import.meta.dirname)];\n`;
+  const layoutModule = "import base from '../eslint.base.mjs';\nexport default (dir) => base({ packageDir: dir });\n";
+  const texts = new Map<string, string>([
+    ['/workspace/family/v1/eslint.config.js', importLayout('../eslint.family.mjs')],
+    ['/workspace/family/v2/eslint.config.js', importLayout('../eslint.family.mjs')],
+    ['/workspace/family/eslint.family.mjs', layoutModule],
+  ]);
+  const files = (directory: string) =>
+    directory.startsWith('/workspace/') && directory !== '/workspace/' ? ['eslint.config.js'] : [];
+
+  // The accepted shape: named after its folder, outside every package, imports the base, two importers.
+  assert.deepEqual(
+    validateEslintLayoutModules(
+      '/workspace',
+      [root, v1, v2],
+      ['family/eslint.family.mjs'],
+      [],
+      (file) => texts.get(file),
+      files,
+    ),
+    [],
+  );
+
+  // Every way to break it.
+  const broken = new Map<string, string>([
+    ['/workspace/family/v1/eslint.config.js', importLayout('../eslint.layout.mjs')],
+    ['/workspace/family/v2/eslint.config.js', ''],
+    ['/workspace/other/eslint.config.js', importLayout('../family/eslint.layout.mjs')],
+    ['/workspace/family/eslint.layout.mjs', "export default () => [{ rules: { 'no-console': 'off' } }];\n"],
+    ['/workspace/lone/eslint.lone.mjs', layoutModule],
+    ['/workspace/lone/v1/eslint.config.js', importLayout('../eslint.lone.mjs')],
+    ['/workspace/family/v2/eslint.shared.mjs', "import base from '../../eslint.base.mjs';\nexport default base;\n"],
+    ['/workspace/eslint.extra.mjs', "import base from './eslint.base.mjs';\nexport default base;\n"],
+    ['/workspace/excluded/eslint.excluded.mjs', ''],
+    ['/workspace/family/eslint.Family.cjs', layoutModule],
+  ]);
+  const reported = validateEslintLayoutModules(
+    '/workspace',
+    [root, v1, v2, lone, outsider],
+    [
+      'eslint.base.mjs',
+      'eslint.extra.mjs',
+      'family/eslint.layout.mjs',
+      'family/eslint.Family.cjs',
+      'family/v2/eslint.shared.mjs',
+      'family/v1/eslint.config.js',
+      'lone/eslint.lone.mjs',
+      'excluded/eslint.excluded.mjs',
+    ],
+    ['/workspace/excluded'],
+    (file) => broken.get(file),
+    files,
+  ).map((violation) => `${violation.packageKey}: ${violation.message}`);
+
+  assert.deepEqual(reported, [
+    'eslint.extra.mjs: the workspace root holds only eslint.base.mjs; a shared ESLint layout module sits in the folder of the packages it serves',
+    'eslint.extra.mjs: a shared ESLint layout module serves at least two packages; it is imported by 0, so inline it',
+    "family/eslint.Family.cjs: a shared ESLint layout module is named 'eslint.<name>.mjs', with a lower-case name",
+    'family/eslint.Family.cjs: a shared ESLint layout module serves at least two packages; it is imported by 0, so inline it',
+    "family/eslint.layout.mjs: a shared ESLint layout module imports the workspace root's 'eslint.base.mjs'",
+    'family/eslint.layout.mjs: a shared ESLint layout module gives paths only; rule settings belong to eslint.base.mjs',
+    "family/eslint.layout.mjs: imported by 'other/eslint.config.js', which is not below the module's folder",
+    "family/v2/eslint.shared.mjs: a shared ESLint layout module sits outside every package, but this one is inside 'family/v2'",
+    'family/v2/eslint.shared.mjs: a shared ESLint layout module serves at least two packages; it is imported by 0, so inline it',
+    'lone/eslint.lone.mjs: a shared ESLint layout module serves at least two packages; it is imported by 1, so inline it',
+  ]);
 });
 
 function devOwner(scripts: Readonly<Record<string, string>>) {
