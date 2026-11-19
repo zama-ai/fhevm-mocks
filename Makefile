@@ -932,8 +932,8 @@ test-hh-v2-e2e-anvil: compile-hh-v2-e2e ## Hardhat v2 e2e tests against a local 
 # WHICH consumers run is not this file's knowledge: `--all` runs every consumer registered in
 # npm-manifest.json#consumerTests, serially, in source order (`test-consumer --list` shows them). HOW each
 # is installed is derived per consumer by the CLI, not chosen here: a committed lockfile is replayed
-# (npm ci); a workspace MEMBER — both hardhat templates — has none BY DESIGN (rule 6.1.1: its installation
-# root locks it) and is resolved fresh (npm install). The templates' lock-replaying rehearsal belongs to
+# (npm ci); a workspace MEMBER — both hardhat templates — has none BY DESIGN (NR-64: its installation root
+# locks it) and is resolved fresh (npm install). The templates' lock-replaying rehearsal belongs to
 # the publish-mirror RENDER, which regenerates a public lockfile; until that lands their legs still prove
 # a fresh consumer install and test against the live workspace payloads. The v2 template is also the v2
 # PLUGIN's consumer test: it links the plugin payload, so the resolution checks the CLI runs on every

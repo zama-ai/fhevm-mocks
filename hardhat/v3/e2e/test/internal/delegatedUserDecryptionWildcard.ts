@@ -62,7 +62,7 @@ const ACL_ABI = [
 // Both helper types are DERIVED from the connection's own `ethers` rather than imported from the
 // `ethers` package. The suite reaches ethers through the hardhat connection everywhere else, so a direct
 // import — even a type-only one — would make `ethers` a dependency this package has to declare and pin
-// (rule 4.2.1), for two names.
+// (NR-31), for two names.
 type ContractRunnerLike = ConstructorParameters<typeof ethers.Contract>[2];
 type SentTransaction = { wait(): Promise<unknown> };
 

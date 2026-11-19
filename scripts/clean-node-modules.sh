@@ -36,7 +36,7 @@ ROOT="$(dirname -- "$SCRIPT_DIR")"
 
 # Subtrees not touched, relative to $ROOT. js-sdk sits under sdk/ but belongs to the OUTER fhevm
 # workspace, so an install here would not bring its trees back. fhevm-npm is the orchestrator and
-# stays runnable; --include-fhevm-npm lifts that one (broken-tree recovery, rules 6.2.x).
+# stays runnable; --include-fhevm-npm lifts that one (broken-tree recovery, NR-68).
 EXCLUDED_DIRS=("js-sdk" "fhevm-npm")
 
 # ------------------------------------------------------------------------------
