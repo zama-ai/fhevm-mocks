@@ -26,6 +26,15 @@ export function parseVersion(value: string): ParsedVersion | undefined {
   };
 }
 
+/**
+ * The major a simple dependency spec selects: `1.2.3`, `^1.2.3`, `~1.2.3`, `>=1.2.3` (optionally with a `<`
+ * upper bound), or undefined for anything else, such as a `file:` link, an `npm:` alias or a `||` union.
+ */
+export function rangeMajor(spec: string): number | undefined {
+  const match = /^(?:\^|~|>=\s*)?(0|[1-9]\d*)\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\s+<\s*\S+)?$/.exec(spec.trim());
+  return match === null ? undefined : Number(match[1]);
+}
+
 export function isCanonicalVersion(value: string): boolean {
   return parseVersion(value) !== undefined;
 }
