@@ -166,43 +166,30 @@ dependent is checked (`--retries`/`--retry-delay` absorb registry propagation). 
 
 # Changing a vendored origin (pin bump)
 
-Vendored folders are frozen copies of upstream content; `npm-manifest.json` declares each one's
-origin (`repository`, `tag`, `commit`, `from`). To move a pin to a new upstream release:
+Vendored folders are frozen copies of upstream content; `npm-manifest.json` declares each one's origin
+(`repository`, `tag`, `commit`, `digest`). `bump vendored` is the only writer of a pin (NR-42a): never edit
+the tag, the commit or the digest by hand.
 
-## 1. Make the target commit available locally
-
-The pin resolves through local `git show` — nothing is fetched during checks — so after a new
-upstream release:
+## 1. Move the pin
 
 ```sh
-git fetch --tags
+make bump-vendored PKG=./host-contracts-cleartext/<vN> TAG=<tag> CHECK=1   # report what would move, write nothing
+make bump-vendored PKG=./host-contracts-cleartext/<vN> TAG=<tag>
 ```
 
-## 2. Edit the pin in npm-manifest.json
+It resolves the tag to its commit with `git ls-remote`, downloads the upstream trees, rewrites the copies,
+writes the tag, commit and digest into `npm-manifest.json`, and regenerates `fhevm.vendoredFrom`. It needs
+the network. Every pin under `PKG` moves to the same commit (NR-42c).
 
-Update the vendored entry's `commit` (authoritative) and `tag` (documentation — keep both on the
-same release):
+## 2. Regenerate everything
 
-```jsonc
-"source": {
-  "repository": "https://github.com/zama-ai/fhevm",
-  "tag": "v0.12.6",                                       // ← bump
-  "commit": "<full sha of that tag>",                     // ← bump
-  "from": "host-contracts/contracts"
-}
-```
-
-## 3. Regenerate everything
-
-The sync step rewrites the vendored folder from the new pin — it is the ONLY legal writer of
-`pkg/src/contracts`, never edit it by hand — and everything derived from those sources regenerates
-behind it:
+Everything derived from the vendored sources regenerates behind them:
 
 ```sh
 make generate
 ```
 
-## 4. Audit
+## 3. Audit
 
 Copies current AND matching the new declared origin:
 
@@ -210,7 +197,7 @@ Copies current AND matching the new declared origin:
 make check-vendored
 ```
 
-## 5. Review and commit as ONE change
+## 4. Review and commit as ONE change
 
 The manifest pin, the re-vendored sources and the regeneration ripple belong in a single commit;
 splitting them leaves the regeneration gate red in between.
@@ -220,10 +207,11 @@ git diff          # review: the upstream contract diff plus the regenerated file
 git add -A && git commit
 ```
 
-## 6. Validate
+## 5. Validate
 
 New upstream contracts can shift ABIs, versions and test expectations — expect real follow-up work,
-not just churn:
+not just churn. For host-contracts-cleartext, follow the checklist in
+[host-contracts-cleartext/<vN>/README.md](../host-contracts-cleartext/v14/README.md), then:
 
 ```sh
 make build
