@@ -17,7 +17,7 @@ import {UpgradeInitData} from "../../create2-deploy/script/upgrade/UpgradeInitDa
  * other either — hence a second oracle here rather than a shared one.
  *
  * Its own file because it belongs to the cross-generation lane: it exercises
- * `create2-deploy/script/upgrade/`, which exists only while a V(N-1) is live. When the pair rotates,
+ * `create2-deploy/script/upgrade/`, which exists only while a <vN-1> is live. When the pair rotates,
  * this file goes with that directory, and `Create2Ordinals.t.sol` keeps testing the deploy path
  * untouched. Forge discovers tests from `test/` alone, which is why this sits here rather than beside
  * the scripts it pins.

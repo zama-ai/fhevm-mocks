@@ -186,7 +186,7 @@ export const AUTHENTIC_CONTRACTS = [
  * The PRODUCTION host implementations a FORK UPGRADE deploys, with the offsets of every address baked
  * into them.
  *
- * WHICH CONTRACTS, AND WHY NOT THE OTHERS. Every implementation the v(N-1) -> v(N) upgrade re-points on
+ * WHICH CONTRACTS, AND WHY NOT THE OTHERS. Every implementation the <vN-1> -> <vN> upgrade re-points on
  * a REAL stack, plus `InputVerifier`, which it does not: that one's bytecode is identical across the
  * two generations, so it is never re-pointed, and it is here because it is a host implementation like
  * the rest and a later generation may well move it. `CleartextArithmetic` and `CleartextDB` are
@@ -227,7 +227,7 @@ export const UPGRADE_IMPLEMENTATIONS = [
   // APPENDED, never inserted: the enum's order is the ABI of every table below it. These two joined
   // once the upgrade op list was written down — `ProtocolConfig` bakes in the ACL and `KMSGeneration`
   // bakes in both the ACL and `ProtocolConfig`, so neither can be deployed beside a remote stack
-  // unpatched, and the v(N-1) -> v(N) upgrade re-points both.
+  // unpatched, and the <vN-1> -> <vN> upgrade re-points both.
   { enumMember: 'ProtocolConfig', contractName: 'ProtocolConfig', sourcePath: 'src/contracts/ProtocolConfig.sol' },
   { enumMember: 'KMSGeneration', contractName: 'KMSGeneration', sourcePath: 'src/contracts/KMSGeneration.sol' },
   // The cleartext implementations, so a forked REAL stack can

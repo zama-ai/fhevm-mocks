@@ -85,7 +85,7 @@ const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path:
   {
     label: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
     path: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
-    // The CREATE2 upgrade lane is what a rotation deletes from V(N-1) (ROTATION.md § 1), so on the next
+    // The CREATE2 upgrade lane is what a rotation deletes from <vN-1> (ROTATION.md § 1), so on the next
     // generation's branch this file is legitimately gone. Everything else in the list stays for the life
     // of the generation, so only this entry may be absent.
     optional: true,

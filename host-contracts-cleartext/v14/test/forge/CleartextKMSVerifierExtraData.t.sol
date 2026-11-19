@@ -20,8 +20,8 @@ import {LibKmsVerifier, UserDecryptRequestV1} from "../../pkg/forge/src/shared/L
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
- * The v14 cleartext KMSVerifier serves the KMS extraData of BOTH sdk lines (golden rule 5: sdk v(N) works with
- * cleartext v(N)..v(N+2)): v1 (`0x01 | contextId`, what an sdk on protocol API 0.13 builds) and v2
+ * This generation's cleartext KMSVerifier serves the KMS extraData of BOTH sdk lines (a cleartext generation
+ * serves the sdk lines of its own generation and of the two before it): v1 (`0x01 | contextId`, what an sdk on protocol API 0.13 builds) and v2
  * (`0x02 | contextId | epochId`, what an sdk on protocol API 0.14 builds on a v14 chain).
  *
  * The extraData is part of every signed digest, and the sdk verifies the KMS signatures against ITS OWN
