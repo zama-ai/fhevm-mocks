@@ -61,13 +61,15 @@ A kind can mark a field as a command field, as the field `checked-by` of a rule.
 The proof is a question to the check. The option is `--` followed by the noun of the kind and `-id`, as in `--rule-id` for a rule:
 
 - `<value> --rule-id <ID of the entry>` must exit with code 0.
-- `<value> --rule-id <ID that no entry has>` must exit with another code. The script asks with several such IDs, picked at random for each run and shaped like real ones: a free number, as in `NR-94`, a free letter suffix on a taken number, as in `NR-07q`, and a number above every entry. A command that accepts anything, or anything shaped like an ID, therefore fails the proof.
+- `<value> --rule-id <ID that no entry has>` must exit with another code. The script asks with several such IDs, picked at random for each run and shaped like real ones: a free number, a free letter suffix on a taken number, as in `NR-07q`, and a number above every entry. IDs leave no gap, so a free number is always above the last entry. A command that accepts anything shaped like an ID fails.
+- `<value> --rule-id <ID of an entry that another check enforces>` must exit with another code for at least one such entry. The script asks up to ten of them, in random order, and stops at the first no. A command that accepts every ID that exists fails. One no is enough, because a check may also enforce part of an entry that another check owns.
 - No answer prints anything. A command that prints while it answers runs more than the answer.
 
 The proof is only as strong as the check script makes it, so a check script must:
 
 - answer only from its own list of the entries it enforces, and run nothing else: no check, no file read, no network
-- answer before it reads its other arguments and options, so that a required argument never decides the answer
+- read the rest of the line as it would without the option, and fail on an unknown option or an extra argument, so that a typo in the value fails the proof; a missing required argument or option can be excused, because the question does not need it
+- answer yes for an entry that it enforces only with an option, as `--base`, only when the value gives that option
 - exit with a code other than 0 when it does not know the check that the value names
 
 The script cannot see whether a check script keeps this contract. Check it by hand when you review a check script.
@@ -98,7 +100,7 @@ Only this flag runs anything. A normal run and `--check` never do. Never run `--
 - each field of type `choice`, as one of its values
 - each field with a condition: allowed only when its `allowedWhen` holds, and present whenever its `requiredWhen` holds
 - each command field: no quote and no shell character
-- with `--verify-commands`, each command field: it starts with a file of the repository, or an interpreter and that file, `<value> --rule-id <ID>` exits with code 0 for the ID of the entry, and with another code for IDs that no entry has, and prints nothing, which proves the check exists
+- with `--verify-commands`, each command field: it starts with a file of the repository, or an interpreter and that file, `<value> --rule-id <ID>` exits with code 0 for the ID of the entry, with another code for IDs that no entry has and for at least one of ten entries that other checks enforce, and prints nothing, which proves the check exists
 - each value: not empty, and no space at its start or its end
 - each condition: no value it does not allow, no value twice, and no condition that always holds, never holds, or holds only for retired entries
 - the values of the term fields that two live entries share, ignoring case
