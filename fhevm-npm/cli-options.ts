@@ -30,6 +30,7 @@ export const commandNames = [
   'generation-parity',
   'forge-fhevm-std-parity',
   'extraneous',
+  'forge-std-chains',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
 
@@ -410,6 +411,12 @@ Prerequisite:
     .description('Check that no package-lock.json carries an extraneous node.')
     .action(() => {
       selected = 'extraneous';
+    });
+  check
+    .command('forge-std-chains')
+    .description("Check that forge-fhevm-std's StdFhevmChains.sol carries the addresses of fhevm-chains.config.json.")
+    .action(() => {
+      selected = 'forge-std-chains';
     });
   check
     .command('generation-parity')

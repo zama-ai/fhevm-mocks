@@ -3359,3 +3359,41 @@ $EDITOR cleartext-config.json && ./fhevm-npm-cli generate cleartext-config && ./
 # ❌ One face now disagrees with the JSON and with the other two.
 $EDITOR host-contracts-cleartext/<vN>/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol
 ```
+
+<a id="nr-91"></a>
+
+## NR-91: Every copy of a deployed address follows fhevm-chains.config.json `[VIOLATED]`
+
+> A deployed FHEVM address written anywhere else in the workspace equals the one that `fhevm-chains.config.json` gives.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check forge-std-chains`
+
+Evidence:
+
+- `foundry/forge-fhevm-std/pkg/src/StdFhevmChains.sol:538,555,572,589`, the four `devnet` entries (`ethereum_sepolia`, `polygon_amoy`, `bnb_testnet`, `ethereum_hoodi`), still give the devnet addresses of the previous registry revision: `sync fhevm-chains` moved the config to the redeployed devnet, and 29 host and gateway fields of the table now differ from it. Fix: copy the devnet entries of `fhevm-chains.config.json` into the table.
+
+`fhevm-chains.config.json` at the workspace root is the one source of every deployed FHEVM address: the host
+contracts of each host chain, the gateway contracts, and the relayer URL of each network group. `fhevm-npm sync
+fhevm-chains` renders it from the protocol registry, and `fhevm-npm check fhevm-chains-origin` holds it to the
+registry. Everything else in the workspace that names a deployed address is a copy of it, and follows it.
+
+A copy that a generator writes is regenerated from the config. A copy that cannot read the config is written by hand,
+and is compared with it by a check. Today that is `foundry/forge-fhevm-std/pkg/src/StdFhevmChains.sol`: Solidity
+cannot read JSON, so its chain table repeats the config. For every chain of the `mainnet`, `testnet`, and `devnet`
+network groups, the table carries the five host contracts and `kmsGeneration` of that host (`address(0)` when the
+host has none), the gateway's `decryption` and `inputVerification`, and the group's relayer URL, all as the config
+gives them. Every host chain of the config has an entry, and the table has no entry the config does not know. The
+`local` group and each entry's `rpcUrl` are not deployed addresses, so they are free.
+
+When a network group is redeployed, sync the config from the registry first, then update every hand-written copy in
+the same change. A copy that moves alone has no source: the next sync can silently undo it.
+
+```solidity
+// ✅ The table carries what fhevm-chains.config.json gives networks.testnet.hosts.bsc_testnet.
+acl: 0x9Adac873Ae2f737AF011f0778305Cff0B220ac36,
+
+// ❌ An address that the config does not give for this chain. Fix the config from the registry, or the table.
+acl: 0x0000000000000000000000000000000000000001,
+```
