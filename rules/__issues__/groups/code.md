@@ -14,7 +14,7 @@ Old number: T1.
 
 #### Gap
 
-No rule states that the owner of a package containing Solidity must define `forge:fmt`, `forge:fmt:check` and `forge:lint`. The validator requires them under the label `package-scripts`, and 5.1.5 only states the mirror-only exception.
+No rule states that the owner of a package containing Solidity must define `forge:fmt`, `forge:fmt:check` and `forge:lint`. The validator requires them under the label `forge-scripts`, and [NR-44](../../fhevm-npm/rules/entries/NR-44.md) only states the mirror-only exception.
 
 #### Where
 

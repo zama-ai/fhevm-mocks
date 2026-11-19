@@ -26,7 +26,7 @@ export function validateLockfiles(
 
     if (required && !exists) {
       violations.push({
-        rule: '6.1.1',
+        rule: 'NR-64',
         packageKey: packageJsonPath(pkg.key),
         message: configuredConsumer
           ? 'manifest-selected consumer must have its own package-lock.json for isolated npm ci'
@@ -34,7 +34,7 @@ export function validateLockfiles(
       });
     } else if (!required && exists) {
       violations.push({
-        rule: '6.1.1',
+        rule: 'NR-64',
         packageKey: lockfilePath(pkg.key),
         message: `kind '${pkg.inventory.kind}' must use the workspace root lockfile; delete this one`,
       });

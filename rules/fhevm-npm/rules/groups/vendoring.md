@@ -67,7 +67,7 @@ Old number: 5.1.3a.
 
 Check: script.
 
-Checked by: `./fhevm-npm-cli sync vendored`
+Checked by: `./fhevm-npm-cli sync vendored --check`
 
 Issues: I-21.
 

@@ -1,5 +1,5 @@
 // `sync pinned`: copy npm-manifest.json#dependencies.pinned into every package.json that declares a pinned
-// package. The manifest is the authority (rule 3.3.4); this command makes the tree agree with it, so moving a
+// package. The manifest is the authority (rule NR-21); this command makes the tree agree with it, so moving a
 // pin is one edit of the manifest followed by one command, instead of a hand edit of every package.json.
 //
 // A pin that is BEHIND what the lockfiles resolve is raised first: when any lockfile resolves a newer version than

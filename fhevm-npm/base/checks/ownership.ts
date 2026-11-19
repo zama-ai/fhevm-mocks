@@ -12,7 +12,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     const targetKey = owner.inventory.publishedRelPath;
     if (targetKey === undefined) {
       violations.push({
-        rule: '5.3.2',
+        rule: 'NR-55',
         packageKey: packageJsonPath(owner.key),
         message: `dev owner has no 'publishedRelPath'`,
       });
@@ -22,7 +22,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     const expectedTargetKey = `${owner.key}/pkg`;
     if (targetKey !== expectedTargetKey) {
       violations.push({
-        rule: '2.1.2',
+        rule: 'NR-03',
         packageKey: packageJsonPath(owner.key),
         message: `'publishedRelPath' is '${targetKey}'; a dev owner's payload must be '${expectedTargetKey}'`,
       });
@@ -31,7 +31,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     const target = byKey.get(targetKey);
     if (target === undefined) {
       violations.push({
-        rule: '5.3.2',
+        rule: 'NR-55',
         packageKey: packageJsonPath(owner.key),
         message: `'publishedRelPath' target '${targetKey}' is absent from the manifest`,
       });
@@ -39,7 +39,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     }
     if (target.inventory.kind !== 'published') {
       violations.push({
-        rule: '5.3.2',
+        rule: 'NR-55',
         packageKey: packageJsonPath(owner.key),
         message: `'publishedRelPath' target '${targetKey}' has kind '${target.inventory.kind}', not 'published'`,
       });
@@ -55,7 +55,7 @@ export function validateOwnership(packages: readonly LoadedPackage[]): readonly 
     const owners = ownersByPublishedKey.get(published.key) ?? [];
     if (owners.length === 1) continue;
     violations.push({
-      rule: '5.3.2',
+      rule: 'NR-55',
       packageKey: packageJsonPath(published.key),
       message:
         owners.length === 0

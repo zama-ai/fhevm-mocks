@@ -54,7 +54,7 @@ test('requires top-level package.json entries to follow the standalone canonical
   assert.deepEqual(validatePackageJson([ordered]), []);
   assert.deepEqual(validatePackageJson([unordered]), [
     {
-      rule: 'package-json-order',
+      rule: 'NR-11',
       packageKey: './unordered/package.json',
       message: 'top-level entries must follow package-json-order.ts; expected: name, private, type, dependencies',
     },
@@ -178,17 +178,17 @@ test("requires an explicit package type and enforces each test-consumer director
 
   assert.deepEqual(validatePackageJson([missing, validCjs, invalidCjs, validEsm, missingEsmType]), [
     {
-      rule: 'package-json-type',
+      rule: 'NR-08',
       packageKey: './missing/package.json',
       message: "package.json must define 'type' as 'module' or 'commonjs'",
     },
     {
-      rule: 'package-json-type',
+      rule: 'NR-08',
       packageKey: './invalid/test-consumer/cjs/package.json',
       message: 'CJS consumer package must define "type": "commonjs"',
     },
     {
-      rule: 'package-json-type',
+      rule: 'NR-08',
       packageKey: './missing/test-consumer/esm/package.json',
       message: 'ESM consumer package must define "type": "module"',
     },
@@ -218,13 +218,13 @@ test('requires configured metadata and forbids private on published packages', (
     ),
     [
       {
-        rule: 'package-json-policy',
+        rule: 'NR-09',
         packageKey: './library/pkg/package.json',
         message:
           "kind 'published' must define 'description' as required by npm-manifest.json#packageJson.published.required",
       },
       {
-        rule: 'package-json-policy',
+        rule: 'NR-09',
         packageKey: './library/pkg/package.json',
         message:
           "kind 'published' must not contain 'private' as excluded by npm-manifest.json#packageJson.published.excluded",
@@ -249,12 +249,12 @@ test("requires the published license value and an exact root 'LICENSE' file", ()
     validatePackageJson([published], {}, () => false),
     [
       {
-        rule: 'published-license',
+        rule: 'NR-53',
         packageKey: './library/pkg/package.json',
         message: 'published package must set "license": "BSD-3-Clause-Clear"; found "MIT"',
       },
       {
-        rule: 'published-license',
+        rule: 'NR-53',
         packageKey: './library/pkg/package.json',
         message: "published package must contain a regular 'LICENSE' file next to package.json",
       },
@@ -287,10 +287,10 @@ test('forbids devDependencies in npm-distributed published packages but permits 
   );
 
   assert.deepEqual(
-    validatePackageJson([npmPackage, mirrorPackage], {}, () => true).filter((violation) => violation.rule === '2.1.2'),
+    validatePackageJson([npmPackage, mirrorPackage], {}, () => true).filter((violation) => violation.rule === 'NR-03'),
     [
       {
-        rule: '2.1.2',
+        rule: 'NR-03',
         packageKey: './library/pkg/package.json',
         message:
           "npm-distributed published package must not contain 'devDependencies'; development dependencies belong on its dev owner",
@@ -323,12 +323,12 @@ test("requires the '@types/node' major to match the minimum 'engines.node' major
   assert.deepEqual(validatePackageJson([matchingRange, matchingExact]), []);
   assert.deepEqual(validatePackageJson([mismatched, missingEngine]), [
     {
-      rule: 'node-types-version',
+      rule: 'NR-13',
       packageKey: './mismatched/package.json',
       message: "'@types/node' in 'devDependencies' has major 20, but 'engines.node' \">=22\" requires major 22",
     },
     {
-      rule: 'node-types-version',
+      rule: 'NR-13',
       packageKey: './missing-engine/package.json',
       message: `declares '@types/node' but must also define 'engines.node', for example "node": ">=22"`,
     },
@@ -340,7 +340,7 @@ test("requires the manifest's cjs, esm or dual type to match package.json entry 
 
   assert.deepEqual(validatePackageJson([mismatched]), [
     {
-      rule: 'package-json-type',
+      rule: 'NR-10',
       packageKey: './library/package.json',
       message: "manifest type 'dual' does not match package.json entry points 'esm'",
     },

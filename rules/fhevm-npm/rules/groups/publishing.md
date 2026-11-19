@@ -25,8 +25,8 @@ Issues: I-07, I-91.
 Exactly one entry per
 `kind: published` manifest package, keyed by its manifest key (names are not unique: two generations share
 `@fhevm/host-contracts-cleartext`), listed in manifest order, every value canonical SemVer (`x.y.z` or `x.y.z-pre`).
-`fhevm-npm version check` enforces coverage both ways (`version-coverage`), the value shape (`version-semver`) and the
-order (`version-order`); it runs in `check-pre`. A missing entry is never inferred from a package's `package.json`,
+`fhevm-npm version check` enforces coverage both ways, the value shape and the
+order; it runs in `check-pre`. A missing entry is never inferred from a package's `package.json`,
 because that would let derived state become authoritative — it is added by hand, once.
 
 ```jsonc
@@ -55,11 +55,11 @@ Evidence:
 
 Issues: I-01, I-07, I-92.
 
-A payload's `package.json` version (`version-package`); in every
+A payload's `package.json` version; in every
 installation root whose lockfile records the member — its own root, and any root that links it cross-root — the
-`version` npm wrote for it (`version-lockfile`); the version a committed generated file embeds, such as
-`foundry/forge-fhevm-std/pkg/src/StdFhevmVersion.sol` (`version-generated`); and the version each isolated consumer
-fixture's lockfile pins the payload at (`version-consumer-lockfile`, [NR-66](../entries/NR-66.md)). The remedy is `fhevm-npm version apply`:
+`version` npm wrote for it; the version a committed generated file embeds, such as
+`foundry/forge-fhevm-std/pkg/src/StdFhevmVersion.sol`; and the version each isolated consumer
+fixture's lockfile pins the payload at ([NR-66](../entries/NR-66.md)). The remedy is `fhevm-npm version apply`:
 edit `versions.json`, preview with `--dry-run`, apply. It accepts a clean worktree or exactly one unstaged change, that
 file; a central version only moves forward; `--allow-downgrade` waives that test whenever it is passed. It is meant for
 an old version nothing was ever published under, which the flag does not check: `--check-npmjs` asks the registry only

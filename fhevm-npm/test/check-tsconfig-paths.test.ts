@@ -39,12 +39,12 @@ test('checks literal paths in root, member, and non-package tsconfigs', () => {
     ]);
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.5',
+        rule: 'NR-06',
         packageKey: './scripts/tsconfig.build.json',
         message: "'extends' path './missing-base.json' does not exist",
       },
       {
-        rule: '2.1.5',
+        rule: 'NR-06',
         packageKey: './tsconfig.json',
         message: "'files' path './missing.ts' does not exist",
       },

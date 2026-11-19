@@ -18,7 +18,7 @@ This folder holds the rule books and the definitions of the repository. Each boo
 
 A change to a rule or a definition is critical. [global/README.md](global/README.md) says how to review one.
 
-The skills `registry`, `rules`, `definitions`, and `issues`, in `.claude/skills/` of the repository that holds this folder, give the format of every entry and the steps to add, change, and retire one. Edit the entry files, then run the script from the root of that repository:
+The skills `reg`, `reg-rules`, `reg-definitions`, and `reg-issues`, in `.claude/skills/` of the repository that holds this folder, give the format of every entry and the steps to add, change, and retire one. Edit the entry files, then run the script from the root of that repository:
 
 ```sh
 node .claude/skills/reg/generate-index.mjs --check rules/global/definitions

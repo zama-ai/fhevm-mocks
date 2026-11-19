@@ -20,7 +20,7 @@ export function validatePackageJson(
     const expectedFields = sortPackageJsonFields(actualFields);
     if (actualFields.some((field, index) => field !== expectedFields[index])) {
       violations.push({
-        rule: 'package-json-order',
+        rule: 'NR-11',
         packageKey: packageJsonKey,
         message: `top-level entries must follow package-json-order.ts; expected: ${expectedFields.join(', ')}`,
       });
@@ -37,7 +37,7 @@ export function validatePackageJson(
     const expectedConsumerType = consumerPackageType(pkg.key);
     if (pkg.packageJson.type === undefined) {
       violations.push({
-        rule: 'package-json-type',
+        rule: 'NR-08',
         packageKey: packageJsonKey,
         message:
           expectedConsumerType === undefined
@@ -46,7 +46,7 @@ export function validatePackageJson(
       });
     } else if (expectedConsumerType !== undefined && pkg.packageJson.type !== expectedConsumerType.type) {
       violations.push({
-        rule: 'package-json-type',
+        rule: 'NR-08',
         packageKey: packageJsonKey,
         message: `${expectedConsumerType.label} consumer package must define "type": "${expectedConsumerType.type}"`,
       });
@@ -56,7 +56,7 @@ export function validatePackageJson(
     const actualManifestType = moduleKinds.length === 2 ? 'dual' : moduleKinds[0];
     if (actualManifestType !== pkg.inventory.type) {
       violations.push({
-        rule: 'package-json-type',
+        rule: 'NR-10',
         packageKey: packageJsonKey,
         message: `manifest type '${pkg.inventory.type}' does not match package.json entry points '${actualManifestType}'`,
       });
@@ -65,7 +65,7 @@ export function validatePackageJson(
     if (pkg.inventory.kind === 'published') {
       if (isNpmDistributed(pkg) && Object.hasOwn(pkg.packageJson, 'devDependencies')) {
         violations.push({
-          rule: '2.1.2',
+          rule: 'NR-03',
           packageKey: packageJsonKey,
           message:
             "npm-distributed published package must not contain 'devDependencies'; development dependencies belong on its dev owner",
@@ -75,14 +75,14 @@ export function validatePackageJson(
         const actualLicense =
           typeof pkg.packageJson.license === 'string' ? `"${pkg.packageJson.license}"` : '<missing>';
         violations.push({
-          rule: 'published-license',
+          rule: 'NR-53',
           packageKey: packageJsonKey,
           message: `published package must set "license": "BSD-3-Clause-Clear"; found ${actualLicense}`,
         });
       }
       if (!isFile(join(pkg.directory, 'LICENSE'))) {
         violations.push({
-          rule: 'published-license',
+          rule: 'NR-53',
           packageKey: packageJsonKey,
           message: "published package must contain a regular 'LICENSE' file next to package.json",
         });
@@ -97,7 +97,7 @@ export function validatePackageJson(
         if (pkg.inventory.kind === 'published' && field === 'license') continue;
         if (Object.hasOwn(pkg.packageJson, field)) continue;
         violations.push({
-          rule: 'package-json-policy',
+          rule: 'NR-09',
           packageKey: packageJsonKey,
           message: `kind '${pkg.inventory.kind}' must define '${field}' as required by npm-manifest.json#packageJson.${pkg.inventory.kind}.required`,
         });
@@ -105,7 +105,7 @@ export function validatePackageJson(
       for (const field of policy.excluded) {
         if (!Object.hasOwn(pkg.packageJson, field)) continue;
         violations.push({
-          rule: 'package-json-policy',
+          rule: 'NR-09',
           packageKey: packageJsonKey,
           message: `kind '${pkg.inventory.kind}' must not contain '${field}' as excluded by npm-manifest.json#packageJson.${pkg.inventory.kind}.excluded`,
         });
@@ -146,7 +146,7 @@ function validateNodeTypesVersion(packageJsonKey: string, pkg: LoadedPackage): r
   if (engineMajor === undefined) {
     return [
       {
-        rule: 'node-types-version',
+        rule: 'NR-13',
         packageKey: packageJsonKey,
         message:
           engine === undefined
@@ -161,7 +161,7 @@ function validateNodeTypesVersion(packageJsonKey: string, pkg: LoadedPackage): r
     const typesMajor = nodeTypesMajor(declaration.spec);
     if (typesMajor === engineMajor) continue;
     violations.push({
-      rule: 'node-types-version',
+      rule: 'NR-13',
       packageKey: packageJsonKey,
       message:
         typesMajor === undefined

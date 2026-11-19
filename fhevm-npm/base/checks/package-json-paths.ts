@@ -29,7 +29,7 @@ export function inspectPackageJsonPaths(packages: readonly LoadedPackage[]): Pac
         successfulClaims.push(`${pkg.key} [${claim.field}] ${claim.target}`);
       } else {
         violations.push({
-          rule: '2.1.6',
+          rule: 'NR-07',
           packageKey: packageJsonPath(pkg.key),
           message: `'${claim.field}' target '${claim.target}' ${missing}`,
         });

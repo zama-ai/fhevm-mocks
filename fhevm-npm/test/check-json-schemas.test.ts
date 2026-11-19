@@ -64,7 +64,7 @@ test('reports the JSON file and precise instance path for a schema violation', (
     assert.ok(
       report(workspace).violations.some(
         (violation) =>
-          violation.rule === 'json-schema-validation' &&
+          violation.rule === 'NR-74' &&
           violation.packageKey === './fhevm-network-groups.config.json' &&
           violation.message.includes('/groups/devnet/relayerUrl'),
       ),
@@ -112,7 +112,7 @@ test('validates every discovered export manifest', () => {
     assert.ok(
       report(workspace).violations.some(
         (violation) =>
-          violation.rule === 'json-schema-validation' &&
+          violation.rule === 'NR-74' &&
           violation.packageKey === `./${relPath}` &&
           violation.message.includes('/packageSpecifier'),
       ),

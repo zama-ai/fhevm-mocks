@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { type ConsumerModuleKind, registeredConsumerKeys } from '../../manifest.ts';
-import type { Violation } from '../diagnostics.ts';
+import type { Violation, ViolationTag } from '../diagnostics.ts';
 import { packageJsonPath } from './package-names.ts';
 import { forgeArtifactDirectories, memoizedForgeConfigReader } from '../forge-config.ts';
 import { collectModuleSpecifiers, packageNameFromSpecifier } from '../imports.ts';
@@ -27,7 +27,7 @@ export function validateScripts(
 
   const violations: Violation[] = [];
   const checkedRequirements = new Set<string>();
-  const requireScript = (owner: LoadedPackage, script: string, rule: string, reason: string): void => {
+  const requireScript = (owner: LoadedPackage, script: string, rule: ViolationTag, reason: string): void => {
     const requirementKey = `${owner.key}\0${script}`;
     if (checkedRequirements.has(requirementKey)) return;
     checkedRequirements.add(requirementKey);
@@ -45,37 +45,27 @@ export function validateScripts(
     if (pkg.inventory.kind !== 'published' || !isNpmDistributed(pkg)) continue;
     if (Object.keys(pkg.packageJson.scripts ?? {}).length === 0) continue;
     violations.push({
-      rule: '2.1.2',
+      rule: 'NR-03',
       packageKey: packageJsonPath(pkg.key),
       message: "npm-distributed published package must not contain 'scripts'; scripts belong on its dev owner",
     });
   }
 
   for (const owner of packages.filter((pkg) => pkg.inventory.kind === 'dev')) {
-    requireScript(owner, 'compile', 'package-scripts', `published payload '${owner.inventory.publishedRelPath}'`);
-    requireScript(owner, 'clean', 'package-scripts', `published payload '${owner.inventory.publishedRelPath}'`);
-    requireScript(owner, 'lint', 'package-scripts', `published payload '${owner.inventory.publishedRelPath}'`);
+    requireScript(owner, 'compile', 'NR-43a', `published payload '${owner.inventory.publishedRelPath}'`);
+    requireScript(owner, 'clean', 'NR-43c', `published payload '${owner.inventory.publishedRelPath}'`);
+    requireScript(owner, 'lint', 'NR-43', `published payload '${owner.inventory.publishedRelPath}'`);
     const payload =
       owner.inventory.publishedRelPath === undefined ? undefined : packagesByKey.get(owner.inventory.publishedRelPath);
     if (payload !== undefined && isNpmDistributed(payload)) {
-      requireScript(owner, 'pack:tarball', '2.1.2', `npm-distributed payload '${payload.key}'`);
+      requireScript(owner, 'pack:tarball', 'NR-03', `npm-distributed payload '${payload.key}'`);
     }
-    requireScript(
-      owner,
-      'prettier:check',
-      'package-scripts',
-      `published payload '${owner.inventory.publishedRelPath}'`,
-    );
-    requireScript(
-      owner,
-      'prettier:write',
-      'package-scripts',
-      `published payload '${owner.inventory.publishedRelPath}'`,
-    );
+    requireScript(owner, 'prettier:check', 'NR-43', `published payload '${owner.inventory.publishedRelPath}'`);
+    requireScript(owner, 'prettier:write', 'NR-43', `published payload '${owner.inventory.publishedRelPath}'`);
     if (payload !== undefined && isNpmDistributed(payload)) {
-      requireScript(owner, 'check', '5.2.1', `npm-distributed payload '${payload.key}'`);
-      requireScript(owner, 'check:publint', '5.2.1', `npm-distributed payload '${payload.key}'`);
-      requireScript(owner, 'test:consumer', '5.3.1', `npm-distributed payload '${payload.key}'`);
+      requireScript(owner, 'check', 'NR-47', `npm-distributed payload '${payload.key}'`);
+      requireScript(owner, 'check:publint', 'NR-47', `npm-distributed payload '${payload.key}'`);
+      requireScript(owner, 'test:consumer', 'NR-54', `npm-distributed payload '${payload.key}'`);
     }
   }
 
@@ -83,11 +73,11 @@ export function validateScripts(
     ['dev', 'shared-helper', 'internal-consumer'].includes(candidate.inventory.kind),
   )) {
     const formatOwner = adjacentDevOwnerOf(pkg, packagesByKey) ?? pkg;
-    requireScript(formatOwner, 'fmt', '5.1.4', 'private workspace hygiene');
-    requireScript(formatOwner, 'fmt:check', '5.1.4', 'private workspace hygiene');
-    requireScript(pkg, 'lint', '5.1.4', 'private workspace hygiene');
-    requireScript(pkg, 'prettier:check', '5.1.4', 'private workspace hygiene');
-    requireScript(pkg, 'prettier:write', '5.1.4', 'private workspace hygiene');
+    requireScript(formatOwner, 'fmt', 'NR-43', 'private workspace hygiene');
+    requireScript(formatOwner, 'fmt:check', 'NR-43', 'private workspace hygiene');
+    requireScript(pkg, 'lint', 'NR-43', 'private workspace hygiene');
+    requireScript(pkg, 'prettier:check', 'NR-43', 'private workspace hygiene');
+    requireScript(pkg, 'prettier:write', 'NR-43', 'private workspace hygiene');
   }
 
   // A package that generates must expose the full round trip: `clean:generated` deletes and `generate`
@@ -97,14 +87,14 @@ export function validateScripts(
   // aggregates cannot round-trip, and aggregates without leaves are dead wiring.
   for (const pkg of packages) {
     if (hasGenerateLeaf(pkg)) {
-      requireScript(pkg, 'generate', 'package-scripts', "the 'generate:*' scripts it defines");
-      requireScript(pkg, 'clean:generated', 'package-scripts', "the 'generate:*' scripts it defines");
+      requireScript(pkg, 'generate', 'NR-43b', "the 'generate:*' scripts it defines");
+      requireScript(pkg, 'clean:generated', 'NR-43b', "the 'generate:*' scripts it defines");
       continue;
     }
     for (const script of ['generate', 'clean:generated'] as const) {
       if (pkg.packageJson.scripts?.[script] === undefined) continue;
       violations.push({
-        rule: 'package-scripts',
+        rule: 'NR-43b',
         packageKey: packageJsonPath(pkg.key),
         message: `'${script}' exists but the package defines no 'generate:*' script; an aggregate over nothing is dead wiring`,
       });
@@ -125,7 +115,7 @@ export function validateScripts(
         if (!script.startsWith('generate:') || GENERATE_GATE_EXEMPT.has(script)) continue;
         if (reachable.has(script)) continue;
         violations.push({
-          rule: '5.1.4b',
+          rule: 'NR-43b',
           packageKey: packageJsonPath(pkg.key),
           message: `'${script}' is not reachable from 'generate'; the regeneration gate would never run it`,
         });
@@ -142,7 +132,7 @@ export function validateScripts(
         if (/(^|\s)--check(\s|$)/.test(command)) continue;
         if (reachable.has(script)) continue;
         violations.push({
-          rule: '5.2.1',
+          rule: 'NR-47',
           packageKey: packageJsonPath(pkg.key),
           message: `'${script}' is not reachable from 'check'`,
         });
@@ -157,7 +147,7 @@ export function validateScripts(
       for (const member of ['fmt:check', 'lint', 'compile'] as const) {
         if (reachable.has(member)) continue;
         violations.push({
-          rule: 'package-scripts',
+          rule: 'NR-43a',
           packageKey: packageJsonPath(pkg.key),
           message: `'build' is the fmt:check → lint → compile sweep; it does not reach '${member}'`,
         });
@@ -173,7 +163,7 @@ export function validateScripts(
       for (const output of readExportManifestOutputs(pkg)) {
         if (cleanRemoves(expanded, output.replace(/^\.\//, ''))) continue;
         violations.push({
-          rule: '5.1.4b',
+          rule: 'NR-43b',
           packageKey: packageJsonPath(pkg.key),
           message: `'clean:generated' does not delete export-manifest output '${output}'`,
         });
@@ -182,7 +172,7 @@ export function validateScripts(
   }
 
   // Every source-owning private package must be able to delete its own build output. Published payloads
-  // carry no scripts at all (2.1.2) and a mirror's scripts are upstream's, so both are out of scope.
+  // carry no scripts at all (NR-03) and a mirror's scripts are upstream's, so both are out of scope.
   //
   // The content requirements are DERIVED from what the package actually does, never listed: a package
   // that runs tsc leaves a `*.tsbuildinfo` that makes the next typecheck resume from stale state, and a
@@ -193,7 +183,7 @@ export function validateScripts(
     ['dev', 'shared-helper', 'internal-consumer'].includes(candidate.inventory.kind),
   )) {
     if (isMirrorOnlyOwner(pkg, packages)) continue;
-    requireScript(pkg, 'clean', 'package-scripts', 'removing its own build output');
+    requireScript(pkg, 'clean', 'NR-43c', 'removing its own build output');
 
     const cleanScript = pkg.packageJson.scripts?.clean;
     if (cleanScript === undefined || cleanScript.trim() === '') continue;
@@ -201,7 +191,7 @@ export function validateScripts(
 
     if (runsTypeScriptCompiler(pkg) && !clean.includes('.tsbuildinfo')) {
       violations.push({
-        rule: 'package-scripts',
+        rule: 'NR-43c',
         packageKey: packageJsonPath(pkg.key),
         message:
           "'clean' must delete '*.tsbuildinfo'; the package runs tsc, and a surviving build-info file " +
@@ -212,7 +202,7 @@ export function validateScripts(
     for (const directory of forgeArtifactDirectoriesOf(pkg)) {
       if (cleanRemoves(clean, directory)) continue;
       violations.push({
-        rule: 'package-scripts',
+        rule: 'NR-43c',
         packageKey: packageJsonPath(pkg.key),
         message: `'clean' must delete the Forge directory '${directory}' reported by 'forge config --json'`,
       });
@@ -225,7 +215,7 @@ export function validateScripts(
       const command = pkg.packageJson.scripts?.[script];
       if (command === undefined || !prettierTargetsSolidity(command)) continue;
       violations.push({
-        rule: '5.1.5',
+        rule: 'NR-44',
         packageKey: packageJsonPath(pkg.key),
         message: `'${script}' must not target Solidity; use 'forge:fmt${script === 'prettier:check' ? ':check' : ''}'`,
       });
@@ -252,9 +242,9 @@ export function validateScripts(
       // payload's dev owner; do not force Forge scripts into the template users will eventually receive.
       owner = adjacentDevOwnerOf(pkg, packagesByKey) ?? pkg;
     }
-    requireScript(owner, 'forge:fmt', 'package-scripts', `package '${pkg.key}' containing Solidity`);
-    requireScript(owner, 'forge:fmt:check', 'package-scripts', `package '${pkg.key}' containing Solidity`);
-    requireScript(owner, 'forge:lint', 'package-scripts', `package '${pkg.key}' containing Solidity`);
+    requireScript(owner, 'forge:fmt', 'forge-scripts', `package '${pkg.key}' containing Solidity`);
+    requireScript(owner, 'forge:fmt:check', 'forge-scripts', `package '${pkg.key}' containing Solidity`);
+    requireScript(owner, 'forge:lint', 'forge-scripts', `package '${pkg.key}' containing Solidity`);
   }
 
   for (const published of packages.filter((pkg) => pkg.inventory.kind === 'published' && isNpmDistributed(pkg))) {
@@ -265,7 +255,7 @@ export function validateScripts(
       const registeredKeys = registeredConsumerKeys(published.inventory, moduleKind);
       if (registeredKeys.length === 0) {
         violations.push({
-          rule: '5.3.1',
+          rule: 'NR-54',
           packageKey: packageJsonPath(published.key),
           message: `published package exposes ${moduleKind.toUpperCase()} but registers no ${moduleKind.toUpperCase()} consumer in npm-manifest.json#consumerTests`,
         });
@@ -275,7 +265,7 @@ export function validateScripts(
         const registeredConsumer = packagesByKey.get(registeredKey);
         if (registeredConsumer === undefined) {
           violations.push({
-            rule: '5.3.1',
+            rule: 'NR-54',
             packageKey: packageJsonPath(published.key),
             message: `registered ${moduleKind.toUpperCase()} consumer '${registeredKey}' is not a package in npm-manifest.json`,
           });
@@ -299,7 +289,7 @@ export function validateScripts(
         const owners = ownersByPublishedKey.get(pkg.key) ?? [];
         if (owners.length !== 1) {
           violations.push({
-            rule: '5.1.3',
+            rule: 'NR-55',
             packageKey: packageJsonPath(pkg.key),
             message: `cannot require '${script}': published package has ${owners.length} dev owners instead of one`,
           });
@@ -309,7 +299,7 @@ export function validateScripts(
         if (resolvedOwner === undefined) continue;
         owner = resolvedOwner;
       }
-      requireScript(owner, script, '5.1.3', `the '${pkg.key}' capability`);
+      requireScript(owner, script, 'NR-42', `the '${pkg.key}' capability`);
     }
   }
 
@@ -318,7 +308,7 @@ export function validateScripts(
     for (const script of ['check:publint', 'test:consumer'] as const) {
       if (pkg.packageJson.scripts?.[script] !== undefined) {
         violations.push({
-          rule: '5.3.2',
+          rule: 'NR-55',
           packageKey: packageJsonPath(pkg.key),
           message: `'${script}' belongs on a dev owner, not kind '${pkg.inventory.kind}'`,
         });
@@ -351,7 +341,7 @@ function validateConsumer(
     member && (kind === 'internal-consumer' || (kind === 'published' && !isNpmDistributed(consumer)));
   if (!isolatedFixture && !memberConsumer) {
     violations.push({
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: packageJsonPath(consumer.key),
       message: `consumer must be a non-member 'standalone' fixture, or a member 'internal-consumer' or mirror-only 'published' template; found kind '${kind}' with member=${String(member)}`,
     });
@@ -359,7 +349,7 @@ function validateConsumer(
 
   if (kind !== 'published' && consumer.packageJson.private !== true) {
     violations.push({
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: packageJsonPath(consumer.key),
       message: `consumer fixture must set private=true`,
     });
@@ -367,7 +357,7 @@ function validateConsumer(
 
   if (!consumerModuleKinds(consumer.packageJson).includes(moduleKind)) {
     violations.push({
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: packageJsonPath(consumer.key),
       message: `consumer of '${published.key}' does not execute as ${moduleKind.toUpperCase()}`,
     });
@@ -387,7 +377,7 @@ function validateConsumer(
     );
   if (!linksCandidate) {
     violations.push({
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: packageJsonPath(consumer.key),
       message: `consumer must directly link '${packageName ?? published.key}' to '${published.key}' with a directory 'file:' dependency`,
     });
@@ -397,7 +387,7 @@ function validateConsumer(
   // consumer is installed by its installation root; its isolated rehearsal belongs to the publish layer.
   if (!member && !isFile(join(consumer.directory, 'package-lock.json'))) {
     violations.push({
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: packageJsonPath(consumer.key),
       message: `isolated consumer must contain a committed package-lock.json for --ci`,
     });
@@ -552,7 +542,7 @@ export function validatePrettierConfigs(
     if (isPayloadOnlyDevOwner(pkg, files, listDirectories(pkg.directory))) {
       for (const configFile of configFiles) {
         violations.push({
-          rule: '5.1.6',
+          rule: 'NR-45',
           packageKey: packageJsonPath(pkg.key),
           message: `source-empty dev owner must not contain Prettier configuration file '${configFile}'`,
         });
@@ -563,7 +553,7 @@ export function validatePrettierConfigs(
     for (const configFile of configFiles) {
       if (acceptedConfigNames.includes(configFile)) continue;
       violations.push({
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: packageJsonPath(pkg.key),
         message: `Prettier configuration file '${configFile}' is forbidden; use only ${acceptedList}`,
       });
@@ -575,7 +565,7 @@ export function validatePrettierConfigs(
       if (pkg.key === '.') {
         if (!configFiles.includes('prettier.base.mjs')) {
           violations.push({
-            rule: '5.1.6',
+            rule: 'NR-45',
             packageKey: packageJsonPath(pkg.key),
             message: "workspace root must contain 'prettier.base.mjs'",
           });
@@ -585,7 +575,7 @@ export function validatePrettierConfigs(
       if (pkg.key !== '.') {
         for (const configFile of configFiles) {
           violations.push({
-            rule: '5.1.6',
+            rule: 'NR-45',
             packageKey: packageJsonPath(pkg.key),
             message: `an installation root must not carry Prettier configuration '${configFile}'`,
           });
@@ -601,7 +591,7 @@ export function validatePrettierConfigs(
       const contents = readTextFile(configFile);
       if (contents === undefined) {
         violations.push({
-          rule: '5.1.6',
+          rule: 'NR-45',
           packageKey: packageJsonPath(pkg.key),
           message: "workspace-native pkg template must contain a self-contained 'prettier.config.js'",
         });
@@ -616,7 +606,7 @@ export function validatePrettierConfigs(
 
     if (contents === undefined) {
       violations.push({
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: packageJsonPath(pkg.key),
         message: `package with Prettier scripts must contain 'prettier.config.js' referencing '${normalizedImport}'`,
       });
@@ -629,7 +619,7 @@ export function validatePrettierConfigs(
           ? `module.exports = import('${normalizedImport}').then((module) => module.default);`
           : `export { default } from '${normalizedImport}';`;
       violations.push({
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: packageJsonPath(pkg.key),
         message: `'prettier.config.js' must contain: ${expectedStatement}`,
       });
@@ -669,7 +659,7 @@ export function validateConfigContainment(
         const workspacePackageName = packageNameFromSpecifier(specifier);
         if (workspacePackageName !== undefined && workspacePackageNames.has(workspacePackageName)) {
           violations.push({
-            rule: 'package-config-containment',
+            rule: 'NR-45',
             packageKey: packageJsonPath(pkg.key),
             message: `'${configFile}' imports workspace-only package '${workspacePackageName}'`,
           });
@@ -681,7 +671,7 @@ export function validateConfigContainment(
         const relativeTarget = relative(pkg.directory, target);
         if (relativeTarget !== '..' && !relativeTarget.startsWith(`..${sep}`) && !isAbsolute(relativeTarget)) continue;
         violations.push({
-          rule: 'package-config-containment',
+          rule: 'NR-45',
           packageKey: packageJsonPath(pkg.key),
           message: `'${configFile}' imports '${specifier}', which resolves outside the portable package`,
         });
@@ -707,7 +697,7 @@ export function validateEslintConfigs(
     if (isPayloadOnlyDevOwner(pkg, files, listDirectories(pkg.directory))) {
       for (const configFile of configFiles) {
         violations.push({
-          rule: '5.1.7',
+          rule: 'NR-46',
           packageKey: packageJsonPath(pkg.key),
           message: `source-empty dev owner must not contain ESLint configuration file '${configFile}'`,
         });
@@ -718,17 +708,17 @@ export function validateEslintConfigs(
     for (const configFile of configFiles) {
       if (configFile === expectedConfigName) continue;
       violations.push({
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: packageJsonPath(pkg.key),
         message: `ESLint configuration file '${configFile}' is forbidden; use only '${expectedConfigName}'`,
       });
     }
 
     if (pkg.inventory.kind === 'workspace-root') {
-      // Same asymmetry as 5.1.6: base configs live at the sdk root only.
+      // Same asymmetry as NR-45: base configs live at the sdk root only.
       if (pkg.key === '.' && !configFiles.includes('eslint.base.mjs')) {
         violations.push({
-          rule: '5.1.7',
+          rule: 'NR-46',
           packageKey: packageJsonPath(pkg.key),
           message: "workspace root must contain 'eslint.base.mjs'",
         });
@@ -736,7 +726,7 @@ export function validateEslintConfigs(
       if (pkg.key !== '.') {
         for (const configFile of configFiles) {
           violations.push({
-            rule: '5.1.7',
+            rule: 'NR-46',
             packageKey: packageJsonPath(pkg.key),
             message: `an installation root must not carry ESLint configuration '${configFile}'`,
           });
@@ -752,7 +742,7 @@ export function validateEslintConfigs(
       !configFiles.includes('eslint.config.js')
     ) {
       violations.push({
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: packageJsonPath(pkg.key),
         message: "package with a 'lint' script must contain the exact file 'eslint.config.js'",
       });
@@ -763,7 +753,7 @@ export function validateEslintConfigs(
 }
 
 /**
- * 5.1.7, the layout layer. ESLint configuration has three layers: the policy (the workspace root's
+ * NR-46, the layout layer. ESLint configuration has three layers: the policy (the workspace root's
  * `eslint.base.mjs`), the layout (which directories get which rules), and the local exceptions (each
  * package's `eslint.config.js`). A layout that several packages share may live once, in a module
  * `<family>/eslint.<name>.mjs` in the common parent folder of those packages. This check finds every
@@ -820,7 +810,7 @@ export function validateEslintLayoutModules({
     const label = relative(root, module).split(sep).join('/');
     const directory = dirname(module);
     const report = (message: string): void => {
-      violations.push({ rule: '5.1.7', packageKey: label, message });
+      violations.push({ rule: 'NR-46', packageKey: label, message });
     };
 
     if (directory === root) {
@@ -884,13 +874,13 @@ function validateRunnableConsumer(fixture: LoadedPackage, violations: Violation[
   const testScript = fixture.packageJson.scripts?.test;
   if (testScript === undefined || testScript.trim() === '') {
     violations.push({
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: packageJsonPath(fixture.key),
       message: `consumer fixture must define a non-empty 'test' script`,
     });
   } else if (invokesNodeTest(testScript) && !/(?:^|\s)--test-concurrency(?:=|\s+)1(?:\s|$)/.test(testScript)) {
     violations.push({
-      rule: '5.3.9',
+      rule: 'NR-62',
       packageKey: packageJsonPath(fixture.key),
       message: "test-consumer parallelism is forbidden; 'node --test' must set '--test-concurrency=1'",
     });
@@ -972,7 +962,7 @@ function rootPrettierConfigViolations(
   if (!configFiles.includes('prettier.config.js')) {
     return [
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: packageJsonPath(pkg.key),
         message: "workspace root must contain 'prettier.config.js' referencing './prettier.base.mjs'",
       },
@@ -985,7 +975,7 @@ function rootPrettierConfigViolations(
     : "export { default } from './prettier.base.mjs';";
   return [
     {
-      rule: '5.1.6',
+      rule: 'NR-45',
       packageKey: packageJsonPath(pkg.key),
       message: `'prettier.config.js' must contain: ${expectedStatement}`,
     },

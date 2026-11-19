@@ -30,7 +30,7 @@ test('flags project-mode and bare tsc invocations that target a solution-style t
     const inspection = inspectTscMode(workspace, testManifest());
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.13',
+        rule: 'NR-14',
         packageKey: './app/package.json',
         message:
           "'lint' runs 'tsc -p ./tsconfig.json --noEmit', which is in project mode; that tsconfig is " +
@@ -38,7 +38,7 @@ test('flags project-mode and bare tsc invocations that target a solution-style t
           "exits 0 — use 'tsc -b'",
       },
       {
-        rule: '2.1.13',
+        rule: 'NR-14',
         packageKey: './app/package.json',
         message:
           "'lint:bare' runs 'tsc --noEmit', which resolves to './tsconfig.json'; that tsconfig is " +
@@ -74,7 +74,7 @@ test('skips invocations whose tsconfig cannot silently pass', () => {
     const inspection = inspectTscMode(workspace, testManifest());
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.13',
+        rule: 'NR-14',
         packageKey: './app/package.json',
         message:
           "'lint:directory' runs 'tsc -p ./project --noEmit', which is in project mode; that tsconfig " +
@@ -96,7 +96,7 @@ test('refuses to pass vacuously when no tsc invocation exists', () => {
     const inspection = inspectTscMode(workspace, testManifest());
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.13',
+        rule: 'NR-14',
         packageKey: '.',
         message: 'found no tsc invocation to inspect; refusing to pass vacuously',
       },

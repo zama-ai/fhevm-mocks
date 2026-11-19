@@ -73,11 +73,11 @@ test('npm names the tarball from the package name, scope marker dropped, and the
   );
 });
 
-test('statically: a surviving file: spec or a version off the central one is a 5.3.10 violation', () => {
+test('statically: a surviving file: spec or a version off the central one is an NR-63 violation', () => {
   assert.deepEqual(validateNoFileSpecs(plugin, shipped('^0.13.0')), []);
   assert.deepEqual(
     validateNoFileSpecs(plugin, shipped('file:../../library/pkg')).map((v) => [v.rule, v.message]),
-    [['5.3.10', `tarball ships '@scope/library' as "file:../../library/pkg" in dependencies; render it`]],
+    [['NR-63', `tarball ships '@scope/library' as "file:../../library/pkg" in dependencies; render it`]],
   );
   assert.deepEqual(validateTarballVersion(plugin, shipped('^0.13.0'), '0.13.0'), []);
   assert.match(
@@ -102,7 +102,7 @@ test('a dependency on another payload must carry exactly the range its central v
   for (const wrong of ['^0.13.0', '^0.13.4', '0.13.4', '~0.12.0', '~0.14.0', 'not-a-version']) {
     const violations = validateRenderedRanges(plugin, shipped(wrong), [library, plugin], central);
     assert.equal(violations.length, 1, wrong);
-    assert.equal(violations[0]?.rule, '5.3.10');
+    assert.equal(violations[0]?.rule, 'NR-63');
     assert.match(violations[0]?.message ?? '', /its central version renders to "~0\.13\.4"/);
   }
   // An external dependency is not ours to judge, and a name that is no payload is left alone.
@@ -128,7 +128,7 @@ test('every entry point the shipped package.json declares is collected, from eve
   );
 });
 
-test('an entry point the tarball does not contain is a 5.3.10 violation; a subpath pattern needs one match', () => {
+test('an entry point the tarball does not contain is a NR-63 violation; a subpath pattern needs one match', () => {
   const shipped = {
     name: '@scope/plugin',
     version: '0.13.0',
@@ -144,7 +144,7 @@ test('an entry point the tarball does not contain is a 5.3.10 violation; a subpa
       v.rule,
       v.message,
     ]),
-    [['5.3.10', `package.json points at '_types/index.d.ts', which the tarball does not contain`]],
+    [['NR-63', `package.json points at '_types/index.d.ts', which the tarball does not contain`]],
   );
   // The pattern matches nothing: the whole abi/ tree was excluded.
   assert.deepEqual(

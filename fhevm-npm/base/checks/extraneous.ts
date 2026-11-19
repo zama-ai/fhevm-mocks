@@ -21,7 +21,7 @@ import type { Violation } from '../diagnostics.ts';
 import type { LoadedPackage } from '../npm.ts';
 import { lockfilePath } from './package-names.ts';
 
-export const RULE = '6.1.2';
+export const RULE = 'NR-65';
 
 /** Reads a lockfile, or returns undefined when there is none to read. */
 export type LockfileReader = (file: string) => string | undefined;
@@ -66,7 +66,7 @@ export function validateLockfileExtraneous(
 ): readonly Violation[] {
   const violations: Violation[] = [];
 
-  // Every lockfile that exists, not only the ones a package is required to have: rule 6.1.1 owns
+  // Every lockfile that exists, not only the ones a package is required to have: rule NR-64 owns
   // whether it belongs there at all, and a stale node is worth naming wherever it sits.
   for (const pkg of packages) {
     const content = readLockfile(join(pkg.directory, 'package-lock.json'));

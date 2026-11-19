@@ -1,7 +1,7 @@
 // `publish check`: is the tarball `publish pack` produced fit for npmjs.com? Statically: no `file:` spec
 // survived rendering, the version is the central one, every dependency on another payload carries the
 // range that payload's central version renders to, and every entry point the shipped package.json
-// declares is actually inside the tarball (rule 5.3.10). With --check-npmjs: every rendered
+// declares is actually inside the tarball (rule NR-63). With --check-npmjs: every rendered
 // dependency range has a satisfying version on the registry — retried, because the CI loop publishes the
 // dependency seconds earlier and the registry is eventually consistent (decision 8) — and the payload's own
 // version is NOT there yet, never retried, since absence is the answer wanted. With --audit, once the registry
@@ -23,7 +23,7 @@ import { isNpmDistributedPayload, resolvePayload } from './publish-render.ts';
 import { dependencyRange, parseVersion, satisfiesDependencyRange } from './semver.ts';
 import { type VersionsFile, loadVersions } from './versions.ts';
 
-export const RULE = '5.3.10';
+export const RULE = 'NR-63';
 
 export type RegistryOptions = {
   readonly fetchRegistry: RegistryFetch;
@@ -178,7 +178,7 @@ export function validateTarballVersion(
 
 /**
  * Every dependency on another payload carries exactly the range that payload's central version renders
- * to (rule 4.3.4). `publish pack` produces those ranges, so this re-derives them rather than trusting
+ * to (rule NR-38). `publish pack` produces those ranges, so this re-derives them rather than trusting
  * the artifact: a hand-edited or stale range is what an independent gate exists to catch.
  */
 export function validateRenderedRanges(

@@ -22,7 +22,7 @@ const root = loadedPackage(
   { name: 'workspace', private: true, devDependencies: { ethers: '6.17.0', hardhat: '2.28.6' } },
 );
 
-test('rule 3.3.3 rejects forbidden dependencies except on the exact package declaring an exception', () => {
+test('rule NR-20 rejects forbidden dependencies except on the exact package declaring an exception', () => {
   const manifest = parseTestNpmManifest({
     dependencies: { forbidden: ['solhint'] },
     packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
@@ -53,19 +53,19 @@ test('rule 3.3.3 rejects forbidden dependencies except on the exact package decl
 
   assert.deepEqual(validateForbiddenDependencies(manifest, [allowed, forbidden, stale]), [
     {
-      rule: '3.3.3',
+      rule: 'NR-20',
       packageKey: './forbidden/package.json',
       message: "package 'solhint' in 'peerDependencies' is forbidden by npm-manifest.json#dependencies.forbidden",
     },
     {
-      rule: '3.3.3',
+      rule: 'NR-20',
       packageKey: './stale/package.json',
       message: "dependency exception 'solhint' is unused; remove it from this package's manifest entry",
     },
   ]);
 });
 
-test("rule 4.2.4 requires kind 'dev' to use only devDependencies", () => {
+test("rule NR-34 requires kind 'dev' to use only devDependencies", () => {
   const valid = loadedPackage(
     './valid',
     {
@@ -95,12 +95,12 @@ test("rule 4.2.4 requires kind 'dev' to use only devDependencies", () => {
   assert.deepEqual(validateDevDependencyPlacement([valid]), []);
   assert.deepEqual(validateDevDependencyPlacement([invalid]), [
     {
-      rule: '4.2.4',
+      rule: 'NR-34',
       packageKey: './invalid/package.json',
       message: "kind 'dev' must declare 'ethers' in 'devDependencies', not 'dependencies'",
     },
     {
-      rule: '4.2.4',
+      rule: 'NR-34',
       packageKey: './invalid/package.json',
       message: "kind 'dev' must declare 'hardhat' in 'devDependencies', not 'peerDependencies'",
     },
@@ -137,7 +137,7 @@ test('dependency sections must be alphabetically ordered', () => {
   ]);
 });
 
-test('rule 3.1.1 requires a file: link for a workspace member, and ignores external packages', () => {
+test('rule NR-15 requires a file: link for a workspace member, and ignores external packages', () => {
   const target = loadedPackage(
     './library/pkg',
     { kind: 'published', name: '@scope/library', member: true },
@@ -158,13 +158,13 @@ test('rule 3.1.1 requires a file: link for a workspace member, and ignores exter
   for (const spec of ['^1.2.3', '1.2.3']) {
     const violations = validateWorkspaceMemberSpecs([root, target, consumer(spec)]);
     assert.equal(violations.length, 1, spec);
-    assert.equal(violations[0]?.rule, '3.1.1');
+    assert.equal(violations[0]?.rule, 'NR-15');
     assert.match(violations[0]?.message ?? '', /relative file: link/);
   }
   assert.deepEqual(validateWorkspaceMemberSpecs([root, target, consumer('file:../library/pkg')]), []);
 });
 
-test('rule 3.1.1 accepts a file: link only when it resolves to the member of that name', () => {
+test('rule NR-15 accepts a file: link only when it resolves to the member of that name', () => {
   const target = loadedPackage(
     './plugin/pkg',
     { kind: 'published', name: '@scope/plugin', member: true },
@@ -195,7 +195,7 @@ test('rule 3.1.1 accepts a file: link only when it resolves to the member of tha
   assert.equal(validateWorkspaceMemberSpecs([root, target, wrongTarget]).length, 1);
 });
 
-test('rule 3.1.1 lets an npm-distributed package link only npm-published members', () => {
+test('rule NR-15 lets an npm-distributed package link only npm-published members', () => {
   const target = loadedPackage(
     './library/pkg',
     { kind: 'published', name: '@scope/library', member: true },
@@ -243,7 +243,7 @@ test('rule 3.1.1 lets an npm-distributed package link only npm-published members
   assert.match(privateLink[0]?.message ?? '', /must not link private/);
 });
 
-test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', () => {
+test('rule NR-16 rejects tarball dependencies even in mirror-only consumers', () => {
   const consumer = loadedPackage(
     './template/pkg',
     {
@@ -262,7 +262,7 @@ test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', ()
 
   assert.deepEqual(validateWorkspaceMemberSpecs([root, consumer]), [
     {
-      rule: '3.1.2',
+      rule: 'NR-16',
       packageKey: './template/pkg/package.json',
       message:
         "package '@scope/plugin' in 'devDependencies' uses forbidden tarball spec \"file:../../tarballs/plugin.tgz\"",
@@ -270,7 +270,7 @@ test('rule 3.1.2 rejects tarball dependencies even in mirror-only consumers', ()
   ]);
 });
 
-test('rule 4.2.1 requires imported root pins exactly and rejects unused declarations', () => {
+test('rule NR-31 requires imported root pins exactly and rejects unused declarations', () => {
   const importedWrong = loadedPackage(
     './imported',
     { kind: 'shared-helper', name: '@scope/imported-dev', private: true, member: true },
@@ -294,7 +294,7 @@ test('rule 4.2.1 requires imported root pins exactly and rejects unused declarat
   ]);
   const violations = validatePrivateRootPins([root, importedWrong, unused, missing], imports);
   assert.equal(violations.length, 4);
-  assert.ok(violations.every((violation) => violation.rule === '4.2.1'));
+  assert.ok(violations.every((violation) => violation.rule === 'NR-31'));
   assert.equal(
     violations.find((violation) => violation.message.includes('must move'))?.message,
     "package 'ethers' must move from 'devDependencies' to 'dependencies' for kind 'shared-helper'",
@@ -305,7 +305,7 @@ test('rule 4.2.1 requires imported root pins exactly and rejects unused declarat
   );
 });
 
-test('rule 4.2.1 matches private root specs including ranges and standalone consumers', () => {
+test('rule NR-31 matches private root specs including ranges and standalone consumers', () => {
   const rangedRoot = loadedPackage(
     '.',
     { kind: 'workspace-root', name: 'workspace', private: true, member: false },
@@ -341,7 +341,7 @@ test('rule 4.2.1 matches private root specs including ranges and standalone cons
   assert.deepEqual(validatePrivateRootPins([rangedRoot, aligned, published, mirror], new Map()), []);
 });
 
-test("rule 4.3.1 requires published dependency range floors to equal the workspace's exact root pins", () => {
+test("rule NR-35 requires published dependency range floors to equal the workspace's exact root pins", () => {
   const pinnedRoot = loadedPackage(
     '.',
     { kind: 'workspace-root', name: 'workspace', private: true, member: false },
@@ -371,12 +371,12 @@ test("rule 4.3.1 requires published dependency range floors to equal the workspa
 
   assert.deepEqual(validatePublishedRootPinFloors([pinnedRoot, valid, invalid, privatePackage]), [
     {
-      rule: '4.3.1',
+      rule: 'NR-35',
       packageKey: './invalid/pkg/package.json',
       message: `'ethers' in 'dependencies' has unsupported range ">=6.17.0 <7"; use an exact, caret, or tilde range whose floor equals root pin "6.17.0"`,
     },
     {
-      rule: '4.3.1',
+      rule: 'NR-35',
       packageKey: './invalid/pkg/package.json',
       message: `'viem' in 'peerDependencies' has range "^2.54.0" with floor "2.54.0"; its floor must equal root pin "2.55.19"`,
     },
@@ -403,7 +403,7 @@ test('npm-script executable detection resolves commands without matching ordinar
   assert.equal(commandInvokesBinary('echo eslint', 'eslint'), false);
 });
 
-test('rule 3.3.1 requires npm-script tools in devDependencies', () => {
+test('rule NR-18 requires npm-script tools in devDependencies', () => {
   const toolRoot = loadedPackage(
     '.',
     { kind: 'workspace-root', name: 'workspace', private: true, member: false },
@@ -436,13 +436,13 @@ test('rule 3.3.1 requires npm-script tools in devDependencies', () => {
 
   assert.deepEqual(validateScriptDependencyDeclarations([toolRoot, consumer], scriptUses), [
     {
-      rule: '3.3.1',
+      rule: 'NR-18',
       packageKey: './e2e/package.json',
       message:
         "npm scripts invoke 'prettier' from package 'prettier'; move it from 'dependencies' to 'devDependencies'",
     },
     {
-      rule: '3.3.1',
+      rule: 'NR-18',
       packageKey: './e2e/package.json',
       message:
         "npm scripts invoke 'tsc' from root dependency 'typescript' but do not declare it; add \"typescript\": \"^6.0.2\" to 'devDependencies'",
@@ -450,7 +450,7 @@ test('rule 3.3.1 requires npm-script tools in devDependencies', () => {
   ]);
 });
 
-test('rule 4.2.2 keeps a dependency that differs by dependency group out of the root', () => {
+test('rule NR-32 keeps a dependency that differs by dependency group out of the root', () => {
   const first = loadedPackage(
     './family/v1',
     {
@@ -479,7 +479,7 @@ test('rule 4.2.2 keeps a dependency that differs by dependency group out of the 
   const violations = validateDependencyGroupPlacement([root, first, second]);
   assert.deepEqual(violations, [
     {
-      rule: '4.2.2',
+      rule: 'NR-32',
       packageKey: './package.json',
       message:
         "'hardhat' has master declaration \"2.28.6\" in sdk/package.json field 'devDependencies', but member packages across dependency groups use different ranges (./family/v1=^2.0.0, ./family/v2=^3.0.0); remove it from sdk/package.json, or align the member ranges if the difference is unintended",
@@ -487,7 +487,7 @@ test('rule 4.2.2 keeps a dependency that differs by dependency group out of the 
   ]);
 });
 
-test('rule 4.2.3 requires sibling ranges to agree', () => {
+test('rule NR-33 requires sibling ranges to agree', () => {
   const first = loadedPackage(
     './family/plugin',
     {
@@ -514,7 +514,7 @@ test('rule 4.2.3 requires sibling ranges to agree', () => {
 
   const violations = validateSiblingRanges([root, first, second]);
   assert.equal(violations.length, 2);
-  assert.ok(violations.every((violation) => violation.rule === '4.2.3'));
+  assert.ok(violations.every((violation) => violation.rule === 'NR-33'));
 
   // Two file: links from different depths to the same member agree: compared by directory, not text.
   const deeper = loadedPackage(
@@ -530,7 +530,7 @@ test('rule 4.2.3 requires sibling ranges to agree', () => {
   assert.deepEqual(validateSiblingRanges([root, deeper, shallower]), []);
 });
 
-test('rule 3.3.1 requires every package a private package imports in its sources to be declared there', () => {
+test('rule NR-18 requires every package a private package imports in its sources to be declared there', () => {
   const declared = loadedPackage(
     './declared',
     { kind: 'dev', name: '@scope/declared-dev', private: true, member: true },
@@ -568,12 +568,12 @@ test('rule 3.3.1 requires every package a private package imports in its sources
     }),
     [
       {
-        rule: '3.3.1',
+        rule: 'NR-18',
         packageKey: './undeclared/package.json',
         message: "its sources import '@scope/library', which package.json does not declare",
       },
       {
-        rule: '3.3.1',
+        rule: 'NR-18',
         packageKey: './undeclared/package.json',
         message: "its sources import 'chai', which package.json does not declare",
       },

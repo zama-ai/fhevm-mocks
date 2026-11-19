@@ -71,7 +71,7 @@ export function validatePackageVersions(
     if (derived === central) return [];
     return [
       {
-        rule: 'version-package',
+        rule: 'NR-37',
         packageKey: packageJsonPath(pkg.key),
         message: `package.json has ${derived ?? 'no version'}; central version is ${central} — run \`version apply\``,
       },
@@ -90,7 +90,7 @@ export function validateLockfileMemberVersions(
       memberEntries(lock, pkg.directory)
         .filter(([, entry]) => entry.version !== central)
         .map(([path, entry]) => ({
-          rule: 'version-lockfile',
+          rule: 'NR-37',
           packageKey: lockfilePath(lock.rootKey),
           message:
             `records ${entry.version ?? 'no version'} for '${path}'; ` +
@@ -142,7 +142,7 @@ export function validateGeneratedVersions(
     if (central === undefined || version === central) return [];
     return [
       {
-        rule: 'version-generated',
+        rule: 'NR-37',
         packageKey: `${file.packageKey}/${file.path}`,
         message:
           version === undefined
@@ -186,7 +186,7 @@ export function validateConsumerLockfileVersions(
     if (central === undefined || pin.version === central || (pin.link && pin.version === undefined)) return [];
     return [
       {
-        rule: 'version-consumer-lockfile',
+        rule: 'NR-37',
         packageKey: pin.lockKey,
         message:
           pin.version === undefined

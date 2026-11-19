@@ -33,7 +33,7 @@ export function validatePinnedDependencies(
         declaredSomewhere.add(name);
         if (declaration.spec === pin) continue;
         violations.push({
-          rule: '3.3.4',
+          rule: 'NR-21',
           packageKey: packageJsonKey(pkg),
           message: `'${name}' in '${declaration.field}' is "${declaration.spec}"; npm-manifest.json#dependencies.pinned requires "${pin}"`,
         });
@@ -48,7 +48,7 @@ export function validatePinnedDependencies(
   for (const [name, pin] of pinned) {
     if (declaredSomewhere.has(name)) continue;
     violations.push({
-      rule: '3.3.4',
+      rule: 'NR-21',
       packageKey: MANIFEST_KEY,
       message: `pin '${name}': "${pin}" is unused; no inventoried package declares it, so remove it from npm-manifest.json#dependencies.pinned`,
     });
@@ -80,7 +80,7 @@ function validateLockfile(
         const spec = (specs as Record<string, unknown>)[name];
         if (typeof spec !== 'string' || spec === pin) continue;
         violations.push({
-          rule: '3.3.4',
+          rule: 'NR-21',
           packageKey: lockfileKey,
           message: `stale lockfile: '${name}' in '${field}' of '${entryPath === '' ? '.' : entryPath}' is "${spec}"; npm-manifest.json#dependencies.pinned requires "${pin}". Regenerate with 'npm install --package-lock-only'`,
         });
@@ -143,7 +143,7 @@ function validateResolvedVersions(
     const pinnedVersion = versionOfPin(pin);
     if (copy.version === pinnedVersion) continue;
     violations.push({
-      rule: '3.3.4',
+      rule: 'NR-21',
       packageKey: copy.lockfileKey,
       message: isNewer(copy.version, pinnedVersion)
         ? `'${copy.name}' resolves to ${copy.version} at '${copy.entryPath}', newer than its pin "${pin}": the pin is behind what is installed. Move it to "${pin.replace(pinnedVersion, copy.version)}" in npm-manifest.json#dependencies.pinned, then run 'make sync-pinned'`

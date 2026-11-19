@@ -186,11 +186,13 @@ field that is wrong.
 
 Old number: 3.4.5.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check generations`
 
 Evidence:
 
-- Gap, no check: `fhevm-npm/base/checks/generations.ts:384-430` reads only the exact name `test:upgrade`, so a `test:upgrade:fast` left on <vN-1> passes. Fix: forbid every script whose name starts with `test:upgrade` on <vN-1>.
+- Gap, loose check: `fhevm-npm/base/checks/generations.ts:384-430` reads only the exact name `test:upgrade`, so a `test:upgrade:fast` left on <vN-1> passes. Fix: forbid every script whose name starts with `test:upgrade` on <vN-1>.
 
 Issues: I-09, I-50.
 

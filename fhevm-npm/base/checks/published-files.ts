@@ -1,5 +1,5 @@
-// Rule 5.2.6: every file in an npm-distributed payload directory is published or deliberately excluded.
-// Rule 5.2.7: every npm-distributed payload ships LICENSE and README.md, on disk and listed in `files`.
+// Rule NR-52: every file in an npm-distributed payload directory is published or deliberately excluded.
+// Rule NR-53: every npm-distributed payload ships LICENSE and README.md, on disk and listed in `files`.
 //
 // `files` in package.json is a whitelist, so a file that lives next to it without being selected is dead
 // weight nobody ships and nobody reviews — the failure mode is a stray note or fixture committed under
@@ -17,8 +17,8 @@ import { packageJsonPath } from './package-names.ts';
 import { type LoadedPackage, loadPackages } from '../npm.ts';
 import { gitVisibleFiles } from '../repository.ts';
 
-export const RULE = '5.2.6';
-export const REQUIRED_FILES_RULE = '5.2.7';
+export const RULE = 'NR-52';
+export const REQUIRED_FILES_RULE = 'NR-53';
 
 /** What npmjs.com shows on a package page: the license text and the front-page README. */
 export const REQUIRED_PAYLOAD_FILES: readonly string[] = ['LICENSE', 'README.md'];
@@ -77,7 +77,7 @@ export function validatePublishedFiles(pkg: LoadedPackage, probes: PublishedFile
     );
 }
 
-/** Rule 5.2.7: LICENSE and README.md exist in the payload directory and are named in `files`. */
+/** Rule NR-53: LICENSE and README.md exist in the payload directory and are named in `files`. */
 export function validateRequiredPayloadFiles(pkg: LoadedPackage, probes: PublishedFilesProbes): readonly Violation[] {
   const visible = new Set(probes.visibleFiles(pkg.directory));
   const files = filesField(pkg);
@@ -85,7 +85,7 @@ export function validateRequiredPayloadFiles(pkg: LoadedPackage, probes: Publish
     ...(visible.has(required)
       ? []
       : [requiredFileViolation(pkg, `'${required}' is missing from the payload directory`)]),
-    // Without `files` there is no list to be in; 5.2.6 already reports the missing whitelist itself.
+    // Without `files` there is no list to be in; NR-52 already reports the missing whitelist itself.
     ...(files === undefined || files.includes(required)
       ? []
       : [requiredFileViolation(pkg, `'${required}' is not listed in "files"; the whitelist must name what ships`)]),

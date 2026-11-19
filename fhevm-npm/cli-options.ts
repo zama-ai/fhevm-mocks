@@ -2,7 +2,7 @@ import { Command, Option } from 'commander';
 import { resolve } from 'node:path';
 
 import { defaultWorkspaceRoot } from './base/paths.ts';
-import { ENFORCED_RULES, type RuleId } from './enforced-rules.ts';
+import { ENFORCED_RULES, REQUIRED_OPTIONS, type RuleId } from './enforced-rules.ts';
 import { type AuditLevel, auditLevels, isAuditLevel } from './base/publish-audit.ts';
 import { type Verbosity, increaseVerbosity } from './base/verbosity.ts';
 
@@ -191,10 +191,11 @@ export function parseCli(argv: readonly string[]): CliOptions | RuleIdAnswer {
 }
 
 /**
- * Gives every leaf command `--rule-id <ID>`, which answers from `table` and runs nothing. The answer
- * comes from the option event, which commander fires while it reads options, so a required argument, a
- * mandatory option or the manifest never decide it. Global options are still read first: a broken one,
- * such as `-r` without a path, fails before the answer.
+ * Gives every leaf command `--rule-id <ID>`, which answers from `table` and runs nothing. Commander first
+ * reads the whole line as it would without the option, so an unknown option or an extra argument still
+ * fails; only a missing required argument or mandatory option is excused, because the question does not
+ * need them. The answer is then thrown from the command's preAction hook, before its action runs. A rule
+ * listed in REQUIRED_OPTIONS is answered yes only when those options are given.
  *
  * Throws when a key of `table` names no leaf command, since that command would answer no to every
  * rule without anyone noticing. Turns off the implicit `help` command, which would otherwise print help
@@ -229,8 +230,19 @@ function addRuleIdOptionBelow(
       new Option('--rule-id <id>', 'exit 0 if this command enforces the rule <id>, 1 if not; runs nothing'),
     );
     if (ids.length > 0) command.addHelpText('after', `\nEnforces the rules: ${ids.join(', ')}\n`);
-    command.on('option:rule-id', (id: string) => {
-      throw new RuleIdAnswered({ command: 'rule-id', enforced: ids.includes(id as RuleId) });
+    command.on('option:rule-id', () => {
+      for (const argument of command.registeredArguments) argument.required = false;
+      for (const option of command.options) option.mandatory = false;
+    });
+    command.hook('preAction', () => {
+      const id = command.opts<{ readonly ruleId?: string }>().ruleId;
+      if (id === undefined) return;
+      const given = command.opts<Record<string, unknown>>();
+      const needed = REQUIRED_OPTIONS[key]?.[id as RuleId];
+      const isSet = (option: string): boolean => ![undefined, false, ''].includes(given[option] as never);
+      const enforced =
+        ids.includes(id as RuleId) && (needed?.given ?? []).every(isSet) && !(needed?.absent ?? []).some(isSet);
+      throw new RuleIdAnswered({ command: 'rule-id', enforced });
     });
   }
 }
@@ -420,7 +432,7 @@ Checked scripts:
   prettier:check Required on every dev package, shared helper and internal consumer; must exclude Solidity.
   prettier:write Required on every dev package, shared helper and internal consumer; must exclude Solidity.
   prettier.config.js The only package-level Prettier config filename; references the root prettier.base.mjs.
-                     Required at the workspace root too, beside the base it re-exports (5.1.6's sole exception:
+                     Required at the workspace root too, beside the base it re-exports (NR-45's sole exception:
                      Prettier does not discover 'prettier.base.mjs', so sdk-level files need it).
   check:publint  Required on every dev owner of an npm-distributed package.
   test:consumer  Required on every dev owner of an npm-distributed package; mirror-only consumer projects are exempt.

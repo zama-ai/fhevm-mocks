@@ -100,7 +100,7 @@ Issues: I-07.
 
 The TypeScript validator canonicalizes the files found by [NR-70](../entries/NR-70.md),
 removes the trees listed by `inventory.exclude`, adds each non-excluded explicitly declared standalone root, and
-compares that set with `npm-manifest.json#packages`. A missing or stale key is a `7.1.3` error.
+compares that set with `npm-manifest.json#packages`. A missing or stale key is reported as `NR-72`.
 
 <a id="nr-73"></a>
 

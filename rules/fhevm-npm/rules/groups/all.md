@@ -603,11 +603,13 @@ package, never siblings or children. An exception naming no declared dependency 
 
 Old number: 3.3.4.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check pinned-dependencies`
 
 Evidence:
 
-- Gap, no check: Add @fhevm/sdk-prev1 with its exact pinned npm alias spec to a nongeneration helper such as common/package.json, or retain it on the previous generation during an approved rotation. The pin check compares the text but has no role-alias ownership test; it does not require the declaring package to be <vN>. Fix: issue I-83.
+- Gap, loose check: Add @fhevm/sdk-prev1 with its exact pinned npm alias spec to a nongeneration helper such as common/package.json, or retain it on the previous generation during an approved rotation. The pin check compares the text but has no role-alias ownership test; it does not require the declaring package to be <vN>. Fix: issue I-83.
 
 Issues: I-01, I-09, I-83.
 
@@ -858,11 +860,13 @@ field that is wrong.
 
 Old number: 3.4.5.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check generations`
 
 Evidence:
 
-- Gap, no check: `fhevm-npm/base/checks/generations.ts:384-430` reads only the exact name `test:upgrade`, so a `test:upgrade:fast` left on <vN-1> passes. Fix: forbid every script whose name starts with `test:upgrade` on <vN-1>.
+- Gap, loose check: `fhevm-npm/base/checks/generations.ts:384-430` reads only the exact name `test:upgrade`, so a `test:upgrade:fast` left on <vN-1> passes. Fix: forbid every script whose name starts with `test:upgrade` on <vN-1>.
 
 Issues: I-09, I-50.
 
@@ -1132,11 +1136,13 @@ entries stay under [NR-35](../entries/NR-35.md); non-packages, and whatever a st
 
 Old number: 4.2.2.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
-- Gap, no check: Move the v3 members into the v2 installation root by updating memberOf and the workspace lists together. The declared inventory and workspace lists can agree, while the two majors share a root; no check binds distinct Hardhat groups to distinct roots. Fix: issue I-89.
+- Gap, loose check: Move the v3 members into the v2 installation root by updating memberOf and the workspace lists together. The declared inventory and workspace lists can agree, while the two majors share a root; no check binds distinct Hardhat groups to distinct roots. Fix: issue I-89.
 
 Issues: I-01, I-89.
 
@@ -1160,11 +1166,13 @@ Issues: I-01, I-89.
 
 Old number: 4.2.3.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
-- Gap, no check: `fhevm-npm/base/checks/dependencies.ts:18` and `:398-401` compare only `dev`, `shared-helper` and `internal-consumer` packages; no check holds a standalone consumer's version inside the published payload's peer range. Fix: issue I-54.
+- Gap, loose check: `fhevm-npm/base/checks/dependencies.ts:18` and `:398-401` compare only `dev`, `shared-helper` and `internal-consumer` packages; no check holds a standalone consumer's version inside the published payload's peer range. Fix: issue I-54.
 
 Issues: I-09, I-54.
 
@@ -1227,11 +1235,13 @@ shared helper instead of the dev owner.
 
 Old number: 4.3.1.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
-- Gap, no check: Verified: removing `viem` from hardhat/v3/plugin/pkg/package.json peerDependencies, while pkg/src/internal/fhevmValue.ts imports it, passes `check dependencies`, `check pinned-dependencies`, `check package-json` and `check published-files`. Fix: issue I-90.
+- Gap, loose check: Verified: removing `viem` from hardhat/v3/plugin/pkg/package.json peerDependencies, while pkg/src/internal/fhevmValue.ts imports it, passes `check dependencies`, `check pinned-dependencies`, `check package-json` and `check published-files`. Fix: issue I-90.
 
 Issues: I-90.
 
@@ -1269,8 +1279,8 @@ Issues: I-07, I-91.
 Exactly one entry per
 `kind: published` manifest package, keyed by its manifest key (names are not unique: two generations share
 `@fhevm/host-contracts-cleartext`), listed in manifest order, every value canonical SemVer (`x.y.z` or `x.y.z-pre`).
-`fhevm-npm version check` enforces coverage both ways (`version-coverage`), the value shape (`version-semver`) and the
-order (`version-order`); it runs in `check-pre`. A missing entry is never inferred from a package's `package.json`,
+`fhevm-npm version check` enforces coverage both ways, the value shape and the
+order; it runs in `check-pre`. A missing entry is never inferred from a package's `package.json`,
 because that would let derived state become authoritative — it is added by hand, once.
 
 ```jsonc
@@ -1299,11 +1309,11 @@ Evidence:
 
 Issues: I-01, I-07, I-92.
 
-A payload's `package.json` version (`version-package`); in every
+A payload's `package.json` version; in every
 installation root whose lockfile records the member — its own root, and any root that links it cross-root — the
-`version` npm wrote for it (`version-lockfile`); the version a committed generated file embeds, such as
-`foundry/forge-fhevm-std/pkg/src/StdFhevmVersion.sol` (`version-generated`); and the version each isolated consumer
-fixture's lockfile pins the payload at (`version-consumer-lockfile`, [NR-66](../entries/NR-66.md)). The remedy is `fhevm-npm version apply`:
+`version` npm wrote for it; the version a committed generated file embeds, such as
+`foundry/forge-fhevm-std/pkg/src/StdFhevmVersion.sol`; and the version each isolated consumer
+fixture's lockfile pins the payload at ([NR-66](../entries/NR-66.md)). The remedy is `fhevm-npm version apply`:
 edit `versions.json`, preview with `--dry-run`, apply. It accepts a clean worktree or exactly one unstaged change, that
 file; a central version only moves forward; `--allow-downgrade` waives that test whenever it is passed. It is meant for
 an old version nothing was ever published under, which the flag does not check: `--check-npmjs` asks the registry only
@@ -1501,7 +1511,7 @@ Old number: 5.1.3a.
 
 Check: script.
 
-Checked by: `./fhevm-npm-cli sync vendored`
+Checked by: `./fhevm-npm-cli sync vendored --check`
 
 Issues: I-21.
 
@@ -1714,11 +1724,13 @@ receive.
 
 Old number: 5.1.4a.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
-- Gap, no check: A `compile` that rewrites a tracked file (e.g. emitting into a committed pkg/ts/index.ts) leaves a dirty tree that no gate in build-ci or ci reports. Fix: issue I-96.
+- Gap, loose check: A `compile` that rewrites a tracked file (e.g. emitting into a committed pkg/ts/index.ts) leaves a dirty tree that no gate in build-ci or ci reports. Fix: issue I-96.
 
 Issues: I-07, I-21, I-96.
 
@@ -1928,11 +1940,13 @@ export default { singleQuote: true };
 
 Old number: 5.1.7.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
-- Gap, no check: on `release/0.14.x`, `fhevm-npm/base/checks/scripts.ts:840-843` checks only the ESLint filenames inside packages; nothing checks the layout layer. Fix: the `validateEslintLayoutModules` check (issue I-62), pushed on a branch, not yet merged.
+- Gap, loose check: on `release/0.14.x`, `fhevm-npm/base/checks/scripts.ts:840-843` checks only the ESLint filenames inside packages; nothing checks the layout layer. Fix: the `validateEslintLayoutModules` check (issue I-62), pushed on a branch, not yet merged.
 
 Issues: I-01, I-09, I-11, I-62.
 
@@ -2209,11 +2223,13 @@ Issues: I-07, I-106.
 
 Old number: 5.3.1.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
-- Gap, no check: Add a Makefile target or workflow step running `npm --prefix host-contracts-cleartext/v14 run test:consumer:dev`: no check fails. Fix: issue I-107.
+- Gap, loose check: Add a Makefile target or workflow step running `npm --prefix host-contracts-cleartext/v14 run test:consumer:dev`: no check fails. Fix: issue I-107.
 
 Issues: I-02, I-107.
 
@@ -2488,6 +2504,8 @@ prerequisite of the daily workspace loop.
 Old number: 5.3.9.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
@@ -2806,7 +2824,7 @@ Issues: I-07.
 
 The TypeScript validator canonicalizes the files found by [NR-70](../entries/NR-70.md),
 removes the trees listed by `inventory.exclude`, adds each non-excluded explicitly declared standalone root, and
-compares that set with `npm-manifest.json#packages`. A missing or stale key is a `7.1.3` error.
+compares that set with `npm-manifest.json#packages`. A missing or stale key is reported as `NR-72`.
 
 <a id="nr-73"></a>
 

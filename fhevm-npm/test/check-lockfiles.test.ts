@@ -22,7 +22,7 @@ test('reports missing root and standalone lockfiles and a member lockfile', () =
   const existing = new Set([join(packages[1]!.directory, 'package-lock.json')]);
   const violations = validateLockfiles(packages, (file) => existing.has(file));
   assert.equal(violations.length, 3);
-  assert.ok(violations.every((violation) => violation.rule === '6.1.1'));
+  assert.ok(violations.every((violation) => violation.rule === 'NR-64'));
 });
 
 test('a member consumer needs no own lockfile; an isolated consumer still does', () => {

@@ -100,12 +100,12 @@ Old number: Q10.
 
 Old number: Q11.
 
-Most labels are old rule numbers, as in "a `7.1.3` error" in NR-72. A few are names, listed in the old table "What a check label means".
+Most labels were old rule numbers. A few were names, listed in the old table "What a check label means".
 
 - **Answer A (recommended):** each named label goes into the text of the rules it covers. The NR-12 row goes into NR-53. The index of the rules gets one sentence on how to resolve a label: a number through the column "Old number", a name by searching `groups/all.md`.
 - **Answer B:** a reference document next to the npm book.
 
-Either way, check the old table first: it maps `package-scripts` to 5.1.4a, but NR-43a says `check: missing`. NR-36 and NR-37 already name their labels.
+**Current state:** the labels are now rule IDs, as in `❌ [NR-72]`, or the names of checks that no rule covers, which `UnruledCheck` in `fhevm-npm/base/diagnostics.ts` lists. A label no longer needs resolving, so this question can be closed with that answer.
 
 Affects [NR-72](../../fhevm-npm/rules/entries/NR-72.md), [NR-53](../../fhevm-npm/rules/entries/NR-53.md), [NR-43a](../../fhevm-npm/rules/entries/NR-43a.md), [NR-36](../../fhevm-npm/rules/entries/NR-36.md), [NR-37](../../fhevm-npm/rules/entries/NR-37.md).
 
@@ -529,7 +529,7 @@ Old number: T1.
 
 #### Gap
 
-No rule states that the owner of a package containing Solidity must define `forge:fmt`, `forge:fmt:check` and `forge:lint`. The validator requires them under the label `package-scripts`, and 5.1.5 only states the mirror-only exception.
+No rule states that the owner of a package containing Solidity must define `forge:fmt`, `forge:fmt:check` and `forge:lint`. The validator requires them under the label `forge-scripts`, and [NR-44](../../fhevm-npm/rules/entries/NR-44.md) only states the mirror-only exception.
 
 #### Where
 

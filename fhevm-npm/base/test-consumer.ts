@@ -60,7 +60,7 @@ export type TestConsumerTarget = {
 
 /**
  * How a consumer is installed is a property of the CONSUMER, not a flag: a committed lockfile is replayed
- * (`npm ci`); a workspace member has none by policy (rule 6.1.1: its installation root locks it) and is
+ * (`npm ci`); a workspace member has none by policy (rule NR-64: its installation root locks it) and is
  * resolved fresh (`npm install`); an isolated consumer with no lockfile is resolved fresh too, but that is
  * a gap rather than a policy, so it warns, and `--ci` turns the warning into an error.
  */
@@ -338,12 +338,12 @@ export function regenerateTestConsumerPackageLocks(
   if (selected.length === 0) throw new Error('No registered test consumers are available.');
 
   // A workspace member is locked by its installation root and must not carry its own lockfile (rule
-  // 6.1.1). An explicit request for one is a mistake to explain; a bulk run skips it and says so.
+  // NR-64). An explicit request for one is a mistake to explain; a bulk run skips it and says so.
   const [members, isolated] = partition(selected, (target) => target.source.inventory.member);
   if (options.packageSelector !== undefined && members.length > 0) {
     throw new Error(
       `Consumer '${members.map((target) => target.source.key).join("', '")}' is a workspace member: its ` +
-        'dependencies are locked by its installation root, and a lockfile of its own is forbidden by rule 6.1.1',
+        'dependencies are locked by its installation root, and a lockfile of its own is forbidden by rule NR-64',
     );
   }
   for (const target of members) {
@@ -1200,7 +1200,7 @@ function verifyPhysicalInstallation(destination: string, published: LoadedPackag
 }
 
 /**
- * Does the INSTALLED package resolve to the entry points it declares? Rule 5.3.10 proves the tarball
+ * Does the INSTALLED package resolve to the entry points it declares? Rule NR-63 proves the tarball
  * CONTAINS them; this proves a real consumer reaches them. Everything is derived from the installed
  * `package.json` — never from a package name — so every payload is checked the same way.
  */

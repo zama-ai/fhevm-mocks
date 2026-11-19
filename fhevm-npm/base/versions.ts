@@ -61,14 +61,14 @@ export function validateVersionGraph(manifest: NpmManifest, versions: VersionsFi
 }
 
 function coverage(key: string, message: string): Violation {
-  return { rule: 'version-coverage', packageKey: `./${VERSIONS_FILE}`, message: `'${key}' ${message}` };
+  return { rule: 'NR-36', packageKey: `./${VERSIONS_FILE}`, message: `'${key}' ${message}` };
 }
 
 function canonical(key: string, value: string): readonly Violation[] {
   if (isCanonicalVersion(value)) return [];
   return [
     {
-      rule: 'version-semver',
+      rule: 'NR-36',
       packageKey: `./${VERSIONS_FILE}`,
       message: `'${key}' is "${value}", not canonical SemVer (x.y.z or x.y.z-pre)`,
     },
@@ -82,7 +82,7 @@ function orderViolations(expected: readonly string[], actual: readonly string[])
   if (shared.join('\n') === inManifestOrder.join('\n')) return [];
   return [
     {
-      rule: 'version-order',
+      rule: 'NR-36',
       packageKey: `./${VERSIONS_FILE}`,
       message: `entries must follow npm-manifest.json order: ${inManifestOrder.join(', ')}`,
     },

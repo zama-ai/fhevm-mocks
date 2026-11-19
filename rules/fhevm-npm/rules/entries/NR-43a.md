@@ -5,9 +5,10 @@ group: Tooling
 title: The artifact verb is compile
 short: The artifact verb is `compile`; `build` is the optional gated sweep.
 old: 5.1.4a
-check: missing
+check: script
+checked-by: "./fhevm-npm-cli check scripts"
 evidence:
-  - "Gap, no check: A `compile` that rewrites a tracked file (e.g. emitting into a committed pkg/ts/index.ts) leaves a dirty tree that no gate in build-ci or ci reports. Fix: issue I-96."
+  - "Gap, loose check: A `compile` that rewrites a tracked file (e.g. emitting into a committed pkg/ts/index.ts) leaves a dirty tree that no gate in build-ci or ci reports. Fix: issue I-96."
 issues:
   - I-07
   - I-21

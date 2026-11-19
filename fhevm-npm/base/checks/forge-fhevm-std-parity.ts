@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process';
 
 import type { Violation } from '../diagnostics.ts';
 
-export const RULE = '3.4.7';
+export const RULE = 'forge-fhevm-std-parity';
 
 /** Runs git and returns stdout; throws when git exits non-zero, which is how a missing ref reports. */
 export type GitRunner = (args: readonly string[], cwd: string) => string;
