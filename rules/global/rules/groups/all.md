@@ -139,3 +139,23 @@ A definition is registered or loose. A registered definition lives in the `entri
 - To give a term another meaning, change its registered definition with the skill, or register a new one. Never redefine a registered term locally.
 
 A registered definition has an ID that never changes, aliases that the script checks, and one place where every reader finds it. A loose definition has none of these, so two loose definitions of one term can drift apart and nothing notices.
+
+<a id="r-07"></a>
+
+## R-07: Every relative Markdown link resolves `[HOLD]`
+
+> Every relative link in a Markdown file that git does not ignore points at a file or folder that exists.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check md-links --offline`
+
+A broken link sends the reader nowhere. A file that moves or is renamed breaks every link to it, and nothing warns the author who moved it.
+
+The rule covers relative links, as `[the guide](GUIDE.md)` or `[step 7](../UPGRADE.md#step-7)`. It does not cover web links: an outside site can move or go down without any change in the repository, so a web link is checked by hand, with `./fhevm-npm-cli check md-links` without `--offline`.
+
+The files of the previous generation are exempt. [R-04](../entries/R-04.md) freezes them, so a broken link there is fixed on that generation's release branch, never in place. `check md-links` skips every folder that `npm-manifest.json#generations` names as `previous`, and says how many files it skipped.
+
+Vendored copies are exempt too. A vendored folder copies another repository's files, as `npm-manifest.json` declares, and `sync vendored` rewrites it from that source. A broken link there is fixed at the source, then synced, never in place.
+
+To follow the rule, update every link to a file in the same change that moves, renames, or deletes the file. `check md-links` needs `mlc`, the Markup Link Checker. Without it, the check prints a warning and checks nothing.

@@ -8,10 +8,20 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { addRuleIdOption, parseCli } from '../cli-options.ts';
-import { ENFORCED_RULES, REQUIRED_OPTIONS } from '../enforced-rules.ts';
+import {
+  ENFORCED_RULES,
+  REQUIRED_OPTIONS,
+  type RuleFileState,
+  type RuleId,
+  checkWithoutRule,
+  missingRuleFiles,
+} from '../enforced-rules.ts';
 
 const CLI = fileURLToPath(new URL('../fhevm-npm.ts', import.meta.url));
-const RULES = fileURLToPath(new URL('../../rules/fhevm-npm/rules/entries/', import.meta.url));
+// The rule books whose IDs fhevm-npm checks report: the npm rules and the global rules.
+const RULE_BOOKS = ['../../rules/fhevm-npm/rules/entries/', '../../rules/global/rules/entries/'].map((path) =>
+  fileURLToPath(new URL(path, import.meta.url)),
+);
 // Well formed, and no rule will ever have it: rule numbers start at 01.
 const UNKNOWN_RULE = 'NR-00';
 const LAUNCHER = './fhevm-npm-cli ';
@@ -52,19 +62,27 @@ function answer(command: string, id: string, extra: readonly string[] = []): boo
 type RuleEntry = { readonly id: string; readonly tag: string; readonly check: string; readonly checkedBy?: string };
 
 function readRuleEntries(): readonly RuleEntry[] {
-  return readdirSync(RULES)
-    .filter((file) => file.endsWith('.md'))
-    .map((file) => {
-      const frontMatter = readFileSync(join(RULES, file), 'utf8').split('\n---')[0] ?? '';
-      const field = (key: string): string | undefined =>
-        new RegExp(`^${key}: "?([^"\\n]*)"?$`, 'm').exec(frontMatter)?.[1];
-      return {
-        id: field('id') ?? file,
-        tag: field('tag') ?? '',
-        check: field('check') ?? '',
-        checkedBy: field('checked-by'),
-      };
-    });
+  return RULE_BOOKS.flatMap((book) =>
+    readdirSync(book)
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => ({ book, file })),
+  ).map(({ book, file }) => {
+    const frontMatter = readFileSync(join(book, file), 'utf8').split('\n---')[0] ?? '';
+    const field = (key: string): string | undefined => {
+      // Plain, double-quoted, or single-quoted, as Prettier writes it ('' is a quote inside single quotes).
+      const raw = new RegExp(`^${key}: (.*)$`, 'm').exec(frontMatter)?.[1];
+      if (raw === undefined) return undefined;
+      if (raw.startsWith("'")) return raw.slice(1, -1).replaceAll("''", "'");
+      if (raw.startsWith('"')) return JSON.parse(raw) as string;
+      return raw;
+    };
+    return {
+      id: field('id') ?? file,
+      tag: field('tag') ?? '',
+      check: field('check') ?? '',
+      checkedBy: field('checked-by'),
+    };
+  });
 }
 
 test('--rule-id exits 0 when the command enforces the rule and 1 when it does not', () => {
@@ -172,7 +190,7 @@ test('every rule of the table is a live rule checked by a script', () => {
   for (const [command, ids] of Object.entries(ENFORCED_RULES)) {
     for (const id of ids) {
       const entry = entries.get(id);
-      assert.ok(entry, `${command} lists ${id}, which has no file in rules/fhevm-npm/rules/entries/`);
+      assert.ok(entry, `${command} lists ${id}, which has no file in the rule books`);
       assert.notEqual(entry.tag, 'RETIRED', `${command} lists ${id}, which is retired`);
       assert.equal(entry.check, 'script', `${command} lists ${id}, whose front matter says check: ${entry.check}`);
       assert.ok(entry.checkedBy, `${command} lists ${id}, which has no checked-by`);
@@ -185,7 +203,7 @@ test('every checked-by that names this CLI names a command of the table that lis
     if (entry.checkedBy === undefined || !entry.checkedBy.startsWith(LAUNCHER)) continue;
     const command = commandOf(entry.checkedBy);
     assert.ok(
-      ENFORCED_RULES[command]?.includes(entry.id as `NR-${string}`),
+      ENFORCED_RULES[command]?.includes(entry.id as RuleId),
       `${entry.id} says checked-by: ${entry.checkedBy}, but ENFORCED_RULES['${command}'] does not list it`,
     );
   }
@@ -222,7 +240,7 @@ test('every rule ID a violation reports is a live rule', () => {
   let found = 0;
   for (const [source, text] of readSources()) {
     // Any quote, and any text after NR-, so that a malformed ID such as NR-4 or NR-42A is caught too.
-    for (const match of text.matchAll(/['"`](NR-[^'"`]*)['"`]/g)) {
+    for (const match of text.matchAll(/['"`]((?:NR|R)-[^'"`]*)['"`]/g)) {
       found += 1;
       assert.ok(live.has(match[1] ?? ''), `${source} reports ${match[1]}, which is not a live rule`);
     }
@@ -277,26 +295,67 @@ const PRINTED_BY: Readonly<Record<string, readonly string[]>> = {
   'base/version-check.ts': ['version check', 'version apply'],
   'base/versions.ts': ['version check', 'version apply'],
   'commands/check-json-schemas.ts': ['check json-schemas'],
+  'commands/check-md-links.ts': ['check md-links'],
   'commands/sync-pinned.ts': ['sync pinned'],
 };
 
 test('every rule ID a command prints is listed under that command', () => {
   const missing: string[] = [];
   for (const [source, text] of readSources()) {
-    const ids = [...text.matchAll(/['"`](NR-[^'"`]*)['"`]/g)].map((match) => match[1] ?? '');
+    const ids = [...text.matchAll(/['"`]((?:NR|R)-[^'"`]*)['"`]/g)].map((match) => match[1] ?? '');
     if (ids.length === 0) continue;
     const commands = PRINTED_BY[source];
     assert.ok(commands, `${source} reports ${[...new Set(ids)].join(', ')}; add it to PRINTED_BY`);
     for (const command of commands) {
       for (const id of new Set(ids)) {
-        if (!ENFORCED_RULES[command]?.includes(id as `NR-${string}`)) missing.push(`'${command}': ${id} (${source})`);
+        if (!ENFORCED_RULES[command]?.includes(id as RuleId)) missing.push(`'${command}': ${id} (${source})`);
       }
     }
   }
   assert.deepEqual(missing, []);
   const reporting = new Set(
-    [...readSources()].filter(([, text]) => /['"`]NR-[^'"`]*['"`]/.test(text)).map(([source]) => source),
+    [...readSources()].filter(([, text]) => /['"`](?:NR|R)-[^'"`]*['"`]/.test(text)).map(([source]) => source),
   );
   const stale = Object.keys(PRINTED_BY).filter((source) => !reporting.has(source));
   assert.deepEqual(stale, [], 'PRINTED_BY lists files that report no rule ID; remove them');
+});
+
+test('a check that no rule names fails loudly, after printing what it found', () => {
+  // The workspace itself: check lint-policy passes on it, so only the missing rule can fail it.
+  const result = spawnSync(process.execPath, [CLI, 'check', 'lint-policy'], { encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /'check lint-policy' is a check, but no rule names it/);
+});
+
+test('a global rule can be enforced too: check md-links enforces R-07', () => {
+  assert.equal(answer('check md-links', 'R-07'), true);
+  assert.equal(answer('check md-links', 'R-99'), false);
+});
+
+test('a run is a check when it is under check, is version or publish check, or writes nothing with --check', () => {
+  assert.match(checkWithoutRule('check lint-policy', false) ?? '', /'check lint-policy' is a check/);
+  assert.match(checkWithoutRule('sync hh-v2-constants', true) ?? '', /'sync hh-v2-constants --check' is a check/);
+  assert.equal(checkWithoutRule('sync hh-v2-constants', false), undefined, 'a write is not a check');
+  assert.equal(checkWithoutRule('list-packages', false), undefined);
+  assert.equal(checkWithoutRule('check names', false), undefined, 'check names has rules');
+  assert.equal(checkWithoutRule('version check', false), undefined, 'version check has rules');
+});
+
+test('a check fails loudly when a rule it lists has no entry file, or a retired one', () => {
+  const missing = (): RuleFileState => 'missing';
+  const retired = (): RuleFileState => 'retired';
+  assert.match(
+    missingRuleFiles('check md-links', missing) ?? '',
+    /'check md-links' enforces R-07, but rules\/global\/rules\/entries\/R-07\.md does not exist/,
+  );
+  assert.match(missingRuleFiles('check names', retired) ?? '', /enforces NR-01, but .*NR-01\.md is retired/);
+  assert.equal(
+    missingRuleFiles('check md-links', () => 'live'),
+    undefined,
+  );
+  assert.equal(missingRuleFiles('list-packages', missing), undefined, 'a command that lists no rule');
+});
+
+test('every rule the table lists has a live entry file in this repository', () => {
+  for (const command of Object.keys(ENFORCED_RULES)) assert.equal(missingRuleFiles(command), undefined, command);
 });

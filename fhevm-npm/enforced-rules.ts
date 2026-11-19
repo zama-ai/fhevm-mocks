@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 /**
  * The rules of rules/fhevm-npm/rules/ that each command enforces, keyed by the command path as typed
  * after `fhevm-npm`. `<command> --rule-id <ID>` answers from this table: exit 0 when the command lists
@@ -41,6 +44,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check consumer-lockfiles': ['NR-66'],
   'check manifest-coverage': ['NR-70', 'NR-71', 'NR-72', 'NR-73'],
   'check json-schemas': ['NR-74', 'NR-87'],
+  'check md-links': ['R-07'],
   // NR-53: README.md and LICENSE in `files`; `check package-json` checks the license and the LICENSE file.
   'check published-files': ['NR-52', 'NR-53'],
   'check deployments': ['NR-76', 'NR-77', 'NR-78', 'NR-79', 'NR-80', 'NR-81', 'NR-82', 'NR-83', 'NR-84', 'NR-85'],
@@ -70,5 +74,62 @@ export const REQUIRED_OPTIONS: Readonly<Record<string, Readonly<Partial<Record<R
 
 export type RequiredOptions = { readonly given: readonly string[]; readonly absent?: readonly string[] };
 
-/** The ID of a rule of rules/fhevm-npm/rules/, as `NR-01` or `NR-42a`. */
-export type RuleId = `NR-${string}`;
+/** The ID of a rule of rules/fhevm-npm/rules/, as `NR-01` or `NR-42a`, or of rules/global/rules/, as `R-07`. */
+export type RuleId = `NR-${string}` | `R-${string}`;
+
+/** Commands outside the `check` group that only read, and so are checks too. */
+const READ_ONLY_CHECKS = new Set(['version check', 'publish check']);
+
+/**
+ * Says why a run must fail when it is a check that no rule names, or undefined. A run is a check when
+ * its command is under `check`, is one of READ_ONLY_CHECKS, or runs with `--check`; a check without a
+ * rule enforces something nobody wrote down, so it fails until a rule says what it enforces.
+ */
+export function checkWithoutRule(commandPath: string, checkMode: boolean): string | undefined {
+  const isCheck = commandPath.startsWith('check ') || READ_ONLY_CHECKS.has(commandPath) || checkMode;
+  if (!isCheck || (ENFORCED_RULES[commandPath]?.length ?? 0) > 0) return undefined;
+  const shown = checkMode ? `${commandPath} --check` : commandPath;
+  return (
+    `🛑 '${shown}' is a check, but no rule names it. Add a rule to a rule book under rules/ with ` +
+    `checked-by: ./fhevm-npm-cli ${shown}, and list it under '${commandPath}' in fhevm-npm/enforced-rules.ts.`
+  );
+}
+
+/** Whether a rule has an entry file, and whether that entry is retired. */
+export type RuleFileState = 'live' | 'retired' | 'missing';
+
+/** The entry file of a rule, relative to the repository root: the npm book for NR-, the global one for R-. */
+export function ruleFile(id: RuleId): string {
+  return id.startsWith('NR-') ? `rules/fhevm-npm/rules/entries/${id}.md` : `rules/global/rules/entries/${id}.md`;
+}
+
+/**
+ * Reads the entry file of a rule in the repository that holds this tool, not under the workspace root a
+ * run is given: the table and the rule books it names live together.
+ */
+export function ruleFileState(id: RuleId): RuleFileState {
+  const path = fileURLToPath(new URL(`../${ruleFile(id)}`, import.meta.url));
+  if (!existsSync(path)) return 'missing';
+  return /^tag: ["']?RETIRED["']?$/m.test(readFileSync(path, 'utf8').split('\n---')[0] ?? '') ? 'retired' : 'live';
+}
+
+/**
+ * Says why a run must fail when the command lists a rule whose entry file is missing or retired, or
+ * undefined. A check that claims a rule nobody can read enforces nothing anyone agreed on.
+ */
+export function missingRuleFiles(
+  commandPath: string,
+  stateOf: (id: RuleId) => RuleFileState = ruleFileState,
+): string | undefined {
+  const problems = (ENFORCED_RULES[commandPath] ?? []).flatMap((id) => {
+    const state = stateOf(id);
+    return state === 'live'
+      ? []
+      : [`${id}, but ${ruleFile(id)} ${state === 'missing' ? 'does not exist' : 'is retired'}`];
+  });
+  if (problems.length === 0) return undefined;
+  return (
+    `🛑 '${commandPath}' enforces ${problems.join('; and ')}. Restore the rule, or remove it from ` +
+    `'${commandPath}' in fhevm-npm/enforced-rules.ts.`
+  );
+}

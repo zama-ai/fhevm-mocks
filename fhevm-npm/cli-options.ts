@@ -38,6 +38,7 @@ export type CliOptions = {
     | CommandName
     | 'check-fhevm-chains-origin'
     | 'check-deployments'
+    | 'check-md-links'
     | 'check-safechain'
     | 'check-mirror'
     | 'check-vendored-origin'
@@ -118,6 +119,7 @@ export type CliOptions = {
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
   | { readonly command: 'check-deployments'; readonly base?: string }
+  | { readonly command: 'check-md-links'; readonly offline: boolean }
   | { readonly command: 'check-safechain'; readonly minAgeHours: number }
   | { readonly command: 'update-dependencies'; readonly minAgeHours: number; readonly dryRun: boolean }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
@@ -180,10 +182,15 @@ class RuleIdAnswered extends Error {
   }
 }
 
+/** The parsed options of a run, with the path of the command that runs, as `check names`. */
+export type ParsedRun = CliOptions & { readonly commandPath: string };
+
 /** Parses the command line, or answers `--rule-id` without parsing the rest. */
-export function parseCli(argv: readonly string[]): CliOptions | RuleIdAnswer {
+export function parseCli(argv: readonly string[]): ParsedRun | RuleIdAnswer {
+  const ran: { commandPath?: string } = {};
   try {
-    return parseCliOptions(argv);
+    const options = parseCliOptions(argv, ran);
+    return { ...options, commandPath: ran.commandPath ?? '' };
   } catch (error) {
     if (error instanceof RuleIdAnswered) return error.answer;
     throw error;
@@ -201,9 +208,13 @@ export function parseCli(argv: readonly string[]): CliOptions | RuleIdAnswer {
  * rule without anyone noticing. Turns off the implicit `help` command, which would otherwise print help
  * and exit 0 for any `--rule-id`; `--help` still works.
  */
-export function addRuleIdOption(group: Command, table: Readonly<Record<string, readonly RuleId[]>>): void {
+export function addRuleIdOption(
+  group: Command,
+  table: Readonly<Record<string, readonly RuleId[]>>,
+  onRun: (commandPath: string) => void = () => {},
+): void {
   const leaves = new Set<string>();
-  addRuleIdOptionBelow(group, table, [], leaves);
+  addRuleIdOptionBelow(group, table, [], leaves, onRun);
   const unknown = Object.keys(table).filter((key) => !leaves.has(key));
   if (unknown.length > 0) {
     throw new Error(`ENFORCED_RULES names ${unknown.map((key) => `'${key}'`).join(', ')}, which is no command`);
@@ -215,12 +226,13 @@ function addRuleIdOptionBelow(
   table: Readonly<Record<string, readonly RuleId[]>>,
   path: readonly string[],
   leaves: Set<string>,
+  onRun: (commandPath: string) => void,
 ): void {
   group.helpCommand(false);
   for (const command of group.commands) {
     const commandPath = [...path, command.name()];
     if (command.commands.length > 0) {
-      addRuleIdOptionBelow(command, table, commandPath, leaves);
+      addRuleIdOptionBelow(command, table, commandPath, leaves, onRun);
       continue;
     }
     const key = commandPath.join(' ');
@@ -236,7 +248,10 @@ function addRuleIdOptionBelow(
     });
     command.hook('preAction', () => {
       const id = command.opts<{ readonly ruleId?: string }>().ruleId;
-      if (id === undefined) return;
+      if (id === undefined) {
+        onRun(key);
+        return;
+      }
       const given = command.opts<Record<string, unknown>>();
       const needed = REQUIRED_OPTIONS[key]?.[id as RuleId];
       const isSet = (option: string): boolean => ![undefined, false, ''].includes(given[option] as never);
@@ -247,7 +262,7 @@ function addRuleIdOptionBelow(
   }
 }
 
-export function parseCliOptions(argv: readonly string[]): CliOptions {
+export function parseCliOptions(argv: readonly string[], ran: { commandPath?: string } = {}): CliOptions {
   const program = new Command()
     .name('fhevm-npm')
     .description('Validate the npm workspace policy from npm-manifest.json.')
@@ -310,6 +325,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
   let checkDeployments: { readonly base?: string } | undefined;
+  let checkMdLinks: { readonly offline: boolean } | undefined;
   let checkSafechain: { readonly minAgeHours: number } | undefined;
   let updateDependencies: { readonly minAgeHours: number; readonly dryRun: boolean } | undefined;
   let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
@@ -630,6 +646,15 @@ Why:
     .action((options: { readonly base?: string }) => {
       checkDeployments = { base: options.base };
     });
+  check
+    .command('md-links')
+    .description(
+      'Check the links of every .md file git does not ignore, with mlc. Skipped with a warning when mlc is not on PATH.',
+    )
+    .option('--offline', 'do not check web links', false)
+    .action((options: { readonly offline: boolean }) => {
+      checkMdLinks = { offline: options.offline };
+    });
   // Network- and clock-dependent, so it is run by hand before a push and never from `make check`.
   check
     .command('safechain')
@@ -876,7 +901,9 @@ Why:
       regenerateConsumerPackageLocksFresh = options.fresh;
     });
 
-  addRuleIdOption(program, ENFORCED_RULES);
+  addRuleIdOption(program, ENFORCED_RULES, (commandPath) => {
+    ran.commandPath = commandPath;
+  });
   program.parse([...argv], { from: 'user' });
   if (
     selected === undefined &&
@@ -908,6 +935,7 @@ Why:
     syncHhV2Constants === undefined && // hh-v2-constants
     !checkFhevmChainsOrigin &&
     checkDeployments === undefined &&
+    checkMdLinks === undefined &&
     checkSafechain === undefined &&
     updateDependencies === undefined
   ) {
@@ -975,6 +1003,16 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...checkDeployments,
+    };
+  }
+  if (checkMdLinks !== undefined) {
+    return {
+      command: 'check-md-links',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...checkMdLinks,
     };
   }
   if (checkSafechain !== undefined) {

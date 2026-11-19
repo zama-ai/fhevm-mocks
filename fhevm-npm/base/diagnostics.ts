@@ -52,6 +52,11 @@ export type CommandReport = {
    * failure mode a note exists to prevent — and never affects the exit code.
    */
   readonly notes?: readonly string[];
+  /**
+   * What the check leaves out on purpose, by its rules, as a frozen folder. Not a finding and not a
+   * warning: printed only with detailed output, so a reader can still see the scope.
+   */
+  readonly skipped?: readonly string[];
   readonly violations: readonly Violation[];
   readonly timings?: readonly Timing[];
 };
@@ -77,6 +82,7 @@ export function printReport(report: CommandReport, verbosity: Verbosity): void {
   }
 
   if (hasDetailedOutput(verbosity)) {
+    for (const skipped of report.skipped ?? []) console.log(`⏭️  not checked: ${skipped}`);
     if (report.verboseSuccesses !== undefined) {
       for (const success of report.verboseSuccesses) console.log(`✅ ${success}`);
     } else {
