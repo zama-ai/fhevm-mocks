@@ -261,7 +261,7 @@ export default function eslintBase({
       files: targetFiles,
       plugins: { 'fhevm-devex': fhevmDevex },
       rules: {
-        // R-05: a comment names a generation by its place (<vN>), not by its number (v13, v14.0).
+        // R-05: a comment names a generation by its place (<vN>), not by its number (`v13`, `v14.0`).
         'fhevm-devex/no-generation-number': 'error',
       },
     },

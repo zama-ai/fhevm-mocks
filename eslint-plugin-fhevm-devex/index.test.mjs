@@ -46,24 +46,21 @@ ruleTester.run('fhevm-devex/no-generation-number', rule, {
   ],
 });
 
-// A deliberate number is marked as `[v14]` (R-05, case 3): the marked name passes, and the rest of the comment is
-// still checked.
-ruleTester.run('fhevm-devex/no-generation-number, with [vNN] marking a past fact', rule, {
+// A past fact about one release puts its generation name in backticks too (R-05, case 3): the backticked name
+// passes, and the rest of the comment is still checked.
+ruleTester.run('fhevm-devex/no-generation-number, with a past fact in backticks', rule, {
   valid: [
-    '// [v14] added no contract to the host set.',
-    "// [v13]'s [v12] -> [v13] update called `initializeFromMigration`.",
-    '// `ProtocolConfig`, which [v13] introduced. A fact about [v14.1] and [v1.0] too.',
-    '/**\n * Added in [v14]: the anchor.\n */',
+    '// `v14` added no contract to the host set.',
+    "// `v13`'s `v12` -> `v13` update called `initializeFromMigration`.",
+    '// `ProtocolConfig`, which `v13` introduced. A fact about `v14.1` and `v1.0` too.',
+    '/**\n * Added in `v14`: the anchor.\n */',
   ],
   invalid: [
-    // Only the marked name passes.
-    { code: '// [v14] added it, and the v13 stack is live.', errors: [error('v13')] },
-    // The marker is the brackets around one generation name, nothing looser.
-    { code: '// [ v14 ] and [v14, v13].', errors: [error('v14'), error('v14'), error('v13')] },
-    // The message offers the marker for the very name it reports.
-    {
-      code: '// v14 added no contract.',
-      errors: [{ message: /mark a past fact about one release as \[v14\]/ }],
-    },
+    // Only the backticked name passes.
+    { code: '// `v14` added it, and the v13 stack is live.', errors: [error('v13')] },
+    // Brackets are not a marker.
+    { code: '// [v14] added it.', errors: [error('v14')] },
+    // The message offers the backticks for the very name it reports.
+    { code: '// v14 added no contract.', errors: [{ message: /put the name in backticks: `v14`/ }] },
   ],
 });
