@@ -603,8 +603,9 @@ library LibForgeFhevmStack {
     // WHY STORAGE AND NOT A GETTER. `confirmKmsContextCreation` mints the new epoch id from a counter of
     // its own (`epochId = ++$.epochCounter`) and announces it only in the `NewKmsEpoch` event.
     // `ProtocolConfig` exposes no getter for a PENDING epoch — `isValidEpochForContext` answers for
-    // Active ones only — and the recorded-log buffer has an owner (FR-07): draining it here would
-    // starve the FHE replay and break the next decryption. So the counter is read where it lives.
+    // Active ones only — and the recorded-log buffer is not the SDK's (FR-07): the SDK neither arms
+    // recording nor reads the buffer, so `vm.recordLogs()` stays the test's own. Catching the event would
+    // break that. So the counter is read where it lives.
     //
     // WHAT MAKES THAT SAFE. The root is `ProtocolConfig`'s own ERC-7201 constant and the offset is the
     // field's position in `ProtocolConfigStorage`, both copied from the vendored source beside this file.
