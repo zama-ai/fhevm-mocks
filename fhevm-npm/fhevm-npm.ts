@@ -2,7 +2,8 @@
 import type { CheckCommand } from './base/command.ts';
 import { printReport } from './base/diagnostics.ts';
 import { hasDetailedOutput } from './base/verbosity.ts';
-import { type CommandName, parseCli } from './cli-options.ts';
+import { type CommandName, type ParsedRun, parseCli } from './cli-options.ts';
+import { checkWithoutRule, missingRuleFiles } from './enforced-rules.ts';
 import { checkDependencies } from './commands/check-dependencies.ts';
 import { checkFoundry } from './commands/check-foundry.ts';
 import { checkJsonSchemas } from './commands/check-json-schemas.ts';
@@ -28,6 +29,7 @@ import { checkTscMode } from './commands/check-tsc-mode.ts';
 import { checkTsconfigPaths } from './commands/check-tsconfig-paths.ts';
 import { checkFhevmChainsOrigin } from './commands/check-fhevm-chains-origin.ts';
 import { checkDeployments } from './commands/check-deployments.ts';
+import { checkMdLinks } from './commands/check-md-links.ts';
 import { checkVendoredOrigin } from './commands/check-vendored-origin.ts';
 import { syncFhevmChains } from './commands/sync-fhevm-chains.ts';
 import { syncHhV2ConstantsCommand } from './commands/sync-hh-v2-constants.ts'; // hh-v2-constants
@@ -82,14 +84,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   extraneous: checkExtraneous,
 };
 
-async function main(): Promise<void> {
-  const parsed = parseCli(process.argv.slice(2));
-  // Answers from ENFORCED_RULES alone: no file is read and nothing is printed.
-  if (parsed.command === 'rule-id') {
-    process.exitCode = parsed.enforced ? 0 : 1;
-    return;
-  }
-  const options = parsed;
+async function run(options: ParsedRun): Promise<void> {
   // Before the workspace manifest is loaded: this one is driven by a package's own export manifest and
   // needs nothing from npm-manifest.json.
   if (options.command === 'generate-exports') {
@@ -118,6 +113,13 @@ async function main(): Promise<void> {
   // Manifest-free: deployment records, the chains config and, with --base, git history.
   if (options.command === 'check-deployments') {
     const report = checkDeployments({ workspaceRoot: options.workspaceRoot, base: options.base });
+    printReport(report, options.verbosity);
+    if (report.violations.length > 0) process.exitCode = 1;
+    return;
+  }
+  // Manifest-free: every .md file git does not ignore, checked by the external mlc binary.
+  if (options.command === 'check-md-links') {
+    const report = checkMdLinks({ workspaceRoot: options.workspaceRoot, offline: options.offline });
     printReport(report, options.verbosity);
     if (report.violations.length > 0) process.exitCode = 1;
     return;
@@ -317,6 +319,24 @@ async function main(): Promise<void> {
   });
   printReport(report, options.verbosity);
   if (report.violations.length > 0) process.exitCode = 1;
+}
+
+async function main(): Promise<void> {
+  const parsed = parseCli(process.argv.slice(2));
+  // Answers from ENFORCED_RULES alone: no file is read and nothing is printed.
+  if (parsed.command === 'rule-id') {
+    process.exitCode = parsed.enforced ? 0 : 1;
+    return;
+  }
+  await run(parsed);
+  // After the check, so its findings print first; then a check that no rule names fails anyway.
+  const unruled = checkWithoutRule(parsed.commandPath, 'check' in parsed && parsed.check === true);
+  const unreadable = missingRuleFiles(parsed.commandPath);
+  for (const problem of [unruled, unreadable]) {
+    if (problem === undefined) continue;
+    console.error(problem);
+    process.exitCode = 1;
+  }
 }
 
 try {

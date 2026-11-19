@@ -18,6 +18,7 @@
     "check:json-schemas": "node ./fhevm-npm.ts check json-schemas",
     "check:lockfiles": "node ./fhevm-npm.ts check lockfiles",
     "check:manifest-coverage": "node ./fhevm-npm.ts check manifest-coverage",
+    "check:md-links": "node ./fhevm-npm.ts check md-links",
     "check:mirror": "node ./fhevm-npm.ts check mirror",
     "check:names": "node ./fhevm-npm.ts check names",
     "check:ownership": "node ./fhevm-npm.ts check ownership",
