@@ -11,21 +11,17 @@
  */
 const GENERATION_NUMBER = /(?<![A-Za-z0-9_$.])v(?:1\d(?:\.\d+)?|[1-9]\.\d+)(?![A-Za-z0-9_])/g;
 
-/** Text between backticks is a quoted value (R-05, case 4): an identifier, a path, a package name, a tag. */
+/**
+ * Text between backticks is a number written on purpose: a value the code reads, such as a path or a package name
+ * (R-05, case 4), or a past fact about one release, such as "`v14` added no contract" (R-05, case 3).
+ */
 const BACKTICK_SPAN = /`[^`\n]*`/g;
 
 /**
  * The header a generator writes as a file's first comment. A generated file is fixed at its source (R-05, case 1),
- * and the copy may name its own generation, as the cleartext-config faces do ("The v14 TypeScript face").
+ * and the copy may name its own generation, as the cleartext-config faces do ("The `v14` TypeScript face").
  */
 const GENERATED_HEADER = /\bAUTO-GENERATED\b|\bDO NOT EDIT\b|@generated\b/;
-
-/**
- * A generation name in square brackets, `[v14]`, marks a number written on purpose: a past fact about one release
- * (R-05, case 3), such as "[v14] added no contract". What that release added or lacked stays true in every later
- * generation, where the notation would point at the wrong one. Backticks keep their own meaning, a quoted value.
- */
-const MARKED_NUMBER = /\[v(?:1\d(?:\.\d+)?|[1-9]\.\d+)\]/g;
 
 /** @type {import('eslint').Rule.RuleModule} */
 const noGenerationNumber = {
@@ -40,7 +36,7 @@ const noGenerationNumber = {
         type: 'object',
         properties: {
           // Regular-expression sources. A name that lies inside a match of one of these is allowed. eslint.base.mjs
-          // passes none: a deliberate number is marked in the comment itself, as "[v14]" or "`v14`".
+          // passes none: a deliberate number is marked in the comment itself, in backticks.
           allow: { type: 'array', items: { type: 'string' } },
         },
         additionalProperties: false,
@@ -48,8 +44,8 @@ const noGenerationNumber = {
     ],
     messages: {
       generationNumber:
-        "'{{name}}' names a generation by its number. Write the notation (`<vN>`, `<vN-1>`, `<N>`), put a value " +
-        'the code needs in backticks, or mark a past fact about one release as [{{name}}] (R-05).',
+        "'{{name}}' names a generation by its number. Write the notation (`<vN>`, `<vN-1>`, `<N>`), or, for a " +
+        'value the code needs or a past fact about one release, put the name in backticks: `{{name}}` (R-05).',
     },
   },
 
@@ -64,10 +60,8 @@ const noGenerationNumber = {
         for (const comment of comments) {
           // `comment.value` excludes the delimiters: `//` and `/*` are both two characters long.
           const valueStart = comment.range[0] + 2;
-          // Blank the quoted values and the marked numbers in place, so every index still points at the same
-          // character.
-          const blank = (span) => ' '.repeat(span.length);
-          const text = comment.value.replace(BACKTICK_SPAN, blank).replace(MARKED_NUMBER, blank);
+          // Blank the backticked spans in place, so every index still points at the same character.
+          const text = comment.value.replace(BACKTICK_SPAN, (span) => ' '.repeat(span.length));
           const allowed = allowedRanges(comment.value, allow);
 
           for (const match of text.matchAll(GENERATION_NUMBER)) {
