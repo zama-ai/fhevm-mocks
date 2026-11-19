@@ -6,6 +6,7 @@ name: sdk-cleartext-docs
 # `changes` filter lists. Such a pull request can still break a rule entry, an index under rules/, or a
 # link in a .md file. This workflow checks those on every pull request:
 #
+# - Prettier on rules/**/*.md: the rule books belong to no package, so no fmt:check reaches them.
 # - `make check-rules` with RULES_BASE: every registry folder under rules/ is well formed, its index and
 #   group pages match its entries, and no ID indexed on the base branch was deleted or un-retired.
 # - `check md-links --offline`: every relative link in a .md file git does not ignore resolves. Web links
@@ -70,6 +71,11 @@ jobs:
       # Keep the version equal to the one in sdk-cleartext-tests.yml.
       - name: Install mlc
         run: cargo install --locked --version 1.3.0 mlc
+
+      # The rule books belong to no package, so this is the only CI step that checks their format. Uses
+      # fhevm-npm's Prettier, installed above; the root prettier.config.js applies to rules/.
+      - name: Check the format of the rule books
+        run: fhevm-npm/node_modules/.bin/prettier --check "rules/**/*.md"
 
       - name: Check the rule books
         env:
