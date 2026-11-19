@@ -54,7 +54,7 @@ evidence:
   - `missing`: a script could check it, and none does yet.
   - `impossible`: no script can check it, as for a recovery procedure.
   - `ignored`: the rule is not checked, on purpose, for now.
-- `checked-by`: only with `check: script`. A reference that proves the check exists, as the `reg` skill describes in "Prove that a check exists". `<checked-by> --help` must print the ID of the rule.
+- `checked-by`: only with `check: script`. A reference that proves the check exists, as the `reg` skill describes in "Prove that a check exists". `<checked-by> --rule-id <ID of the rule>` must exit with code 0.
 - `evidence`: one line for each problem, required with every rule tag except `HOLD` and not allowed with `HOLD`.
 - `issues`: optional. The IDs of the open issues that affect the rule, as in `[I-04, I-93]`, sorted by number. The `reg-issues` skill says when to add and remove one.
 

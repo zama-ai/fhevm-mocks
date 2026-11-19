@@ -22,10 +22,11 @@
 // indexed there must still have a file, and every ID retired there must stay
 // retired.
 //
-// With --verify-commands, the script runs "<command> --help" for each command
-// field of a live entry, without a shell, from the root of the repository,
-// and requires exit code 0 and the ID of the entry in the output. Only this
-// flag runs anything.
+// With --verify-commands, the script asks the check of each command field of
+// a live entry, without a shell, from the root of the repository:
+// "<command> --<noun>-id <ID>", as in --rule-id, must exit with code 0 for
+// the ID of the entry and with another code for an ID that no entry has.
+// Only this flag runs anything.
 //
 // The script checks everything before it writes anything. It never changes
 // the text of an entry, the front matter of README.md, or the text outside
@@ -37,6 +38,7 @@
 // line or broken settings of the kind.
 
 import { execFileSync, spawnSync } from "node:child_process";
+import { randomInt } from "node:crypto";
 import {
   readFileSync,
   writeFileSync,
@@ -101,7 +103,7 @@ const CONDITIONS = ["allowedWhen", "requiredWhen"];
 const TAG_FIELD = "tag";
 const NOT = "not";
 
-// --verify-commands runs "<value> --help" without a shell, so a command field
+// --verify-commands runs "<value> --<noun>-id <ID>" without a shell, so a command field
 // holds plain words: no quote, $, ;, &, |, <, >, #, backtick, or backslash.
 // The check itself must be a file of the repository, written with a slash:
 // the first word, or the word after one of these interpreters.
@@ -109,15 +111,11 @@ const INTERPRETERS = ["node", "sh", "bash", "python3"];
 // The root of the repository is the folder that holds .claude/, three levels
 // above this script, wherever the script runs from.
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
-const HELP_ARG = "--help";
 const COMMAND_TIMEOUT_MS = 30000;
 const COMMAND_MAX_OUTPUT = 1024 * 1024;
 const COMMAND_KILL_SIGNAL = "SIGKILL";
 const SHELL_CHARACTERS = /["'$;&|<>#`\\\n]/;
 const WORDS = /\s+/;
-// An ID stands alone in the output when no letter, digit, or hyphen touches it.
-const ID_BEFORE = "(?<![A-Za-z0-9-])";
-const ID_AFTER = "(?![A-Za-z0-9-])";
 const RESERVED_FIELDS = ["id", "tag", "group"];
 const INDEX_FIELDS = ["kind", "prefix", "groups"];
 const KIND_KEYS = [
@@ -1404,34 +1402,73 @@ function parseList(path, field, value) {
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * With --verify-commands: runs "<command> --help" for each command field of a
- * live entry, without a shell, from the root of the repository. The check
- * passes when the command exits with code 0 and its output names the ID of
- * the entry, which proves that the check exists. Only this flag ever
- * runs a command.
+ * With --verify-commands: asks the check of each command field of a live
+ * entry, without a shell, from the root of the repository, whether it
+ * enforces the entry. "<command> --<noun>-id <ID>" must exit with code 0 for
+ * the ID of the entry, and with another code for IDs of the same shape that
+ * no entry has, so a command that accepts anything proves nothing. Every
+ * answer must print nothing. Only this flag ever runs a command.
  */
 function checkCommands(entries) {
   const commandFields = KIND.fields.filter((field) => field.command === true);
   const cwd = realpathSync(REPOSITORY_ROOT);
+  const unknownIds = pickUnknownIds(entries);
 
   for (const entry of entries.filter((entry) => entry.tag !== RETIRED)) {
     for (const field of commandFields) {
       const command = entry.fields[field.key];
 
-      if (command !== "") checkCommand(entry, command, cwd);
+      if (command !== "") checkCommand(entry, command, cwd, unknownIds);
     }
   }
 }
 
 /**
- * Runs one "<command> --help" and records an error unless it exits with code
- * 0 and prints the ID of the entry.
+ * Returns IDs of the form of this folder that no entry has, picked at random
+ * for each run, so a check cannot learn which IDs to refuse: a free two-digit
+ * number, a free letter suffix on a taken number if the kind allows suffixes,
+ * and a number above every entry.
  */
-function checkCommand(entry, command, cwd) {
+function pickUnknownIds(entries) {
+  const taken = new Set(entries.map((entry) => entry.id));
+  const pad = (n) => String(n).padStart(2, "0");
+  const id = (number, suffix = "") =>
+    `${PREFIX}${LETTER}-${pad(number)}${suffix}`;
+  const pick = (candidates) =>
+    candidates[randomInt(candidates.length)];
+  const numbers = Array.from({ length: 99 }, (_, i) => i + 1);
+  const unknown = [];
+
+  const freeNumbers = numbers.filter((number) => !taken.has(id(number)));
+  if (freeNumbers.length > 0) unknown.push(id(pick(freeNumbers)));
+
+  if (KIND.suffixes) {
+    const takenNumbers = numbers.filter((number) => taken.has(id(number)));
+    const freeSuffixed = takenNumbers.flatMap((number) =>
+      [..."abcdefghijklmnopqrstuvwxyz"]
+        .map((letter) => id(number, letter))
+        .filter((candidate) => !taken.has(candidate)),
+    );
+    if (freeSuffixed.length > 0) unknown.push(pick(freeSuffixed));
+  }
+
+  const highest = Math.max(
+    0,
+    ...entries.map((entry) => entry.number).filter(Number.isFinite),
+  );
+  unknown.push(id(highest + 1 + randomInt(900)));
+
+  return unknown;
+}
+
+/**
+ * Asks one check about the entry, then about each unknown ID, and records an
+ * error unless the first answer is yes, code 0, every other answer is no,
+ * another code, and no answer prints anything.
+ */
+function checkCommand(entry, command, cwd, unknownIds) {
   const words = command.trim().split(WORDS);
   const [program, ...args] = words;
-  const shown = `${command} ${HELP_ARG}`;
-
   const checkWord = INTERPRETERS.includes(program) ? args[0] : program;
 
   if (checkWord === undefined || !isRepositoryFile(checkWord, cwd)) {
@@ -1441,7 +1478,39 @@ function checkCommand(entry, command, cwd) {
     return;
   }
 
-  const run = spawnSync(program, [...args, HELP_ARG], {
+  const idArg = `--${NOUN}-id`;
+  const own = askCheck(entry, program, [...args, idArg, entry.id], cwd);
+
+  if (own === undefined) return;
+  if (own !== 0) {
+    errors.push(
+      `${entry.path}: "${command} ${idArg} ${entry.id}" exited with code ${own}, not 0, so it does not prove that the check enforces this ${NOUN}`,
+    );
+    return;
+  }
+
+  for (const unknownId of unknownIds) {
+    const unknown = askCheck(entry, program, [...args, idArg, unknownId], cwd);
+
+    if (unknown === 0) {
+      errors.push(
+        `${entry.path}: "${command} ${idArg} ${unknownId}" exited with code 0 for an ID that no ${NOUN} has, so its answer for ${entry.id} proves nothing`,
+      );
+      return;
+    }
+  }
+}
+
+/**
+ * Runs one question to a check, in a process group of its own, and returns
+ * its exit code. Records an error and returns undefined when the check
+ * cannot start, times out, prints too much, prints anything at all, or is
+ * stopped by a signal: an answer prints nothing, so a check that prints is
+ * running more than the answer.
+ */
+function askCheck(entry, program, args, cwd) {
+  const shown = [program, ...args].join(" ");
+  const run = spawnSync(program, args, {
     cwd,
     encoding: "utf8",
     timeout: COMMAND_TIMEOUT_MS,
@@ -1451,8 +1520,6 @@ function checkCommand(entry, command, cwd) {
   });
 
   stopProcessGroup(run.pid);
-  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
-  const id = new RegExp(`${ID_BEFORE}${entry.id}${ID_AFTER}`);
 
   if (run.error?.code === "ETIMEDOUT") {
     errors.push(
@@ -1468,15 +1535,15 @@ function checkCommand(entry, command, cwd) {
     );
   } else if (run.signal !== null) {
     errors.push(`${entry.path}: "${shown}" was stopped by ${run.signal}`);
-  } else if (run.status !== 0) {
+  } else if (`${run.stdout}${run.stderr}` !== "") {
     errors.push(
-      `${entry.path}: "${shown}" exited with code ${run.status}, not 0`,
+      `${entry.path}: "${shown}" printed something, but an answer prints nothing: the check runs more than the answer`,
     );
-  } else if (!id.test(output)) {
-    errors.push(
-      `${entry.path}: "${shown}" does not print ${entry.id}, so it does not prove that a check exists for this ${NOUN}`,
-    );
+  } else {
+    return run.status;
   }
+
+  return undefined;
 }
 
 /**

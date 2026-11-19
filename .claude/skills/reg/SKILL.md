@@ -58,11 +58,17 @@ A kind can mark a field as a command field, as the field `checked-by` of a rule.
 - Write paths relative to the root of the repository, the folder that holds `.claude/`. A path cannot hold a space, and must match the file in letter case. A link may point to a file inside the repository, never outside it.
 - Write plain words. A command field holds no quote and no shell character such as `;`, `|`, `$`, or `#`. The script may still wrap the whole value in double quotes, because it quotes every value that does not start with a letter, a digit, or `(`. Those quotes belong to the front matter, not to the command.
 
-The proof is that `<value> --help` exits with code 0 and prints the ID of the entry, with no letter, digit, or hyphen touching it. The proof is only as strong as the check script makes it, so a check script must:
+The proof is a question to the check. The option is `--` followed by the noun of the kind and `-id`, as in `--rule-id` for a rule:
 
-- exit with a code other than 0 when it does not know the check that the value names, even with `--help`
-- print, for `--help`, only the IDs of the entries that the named check enforces
-- never print the words it receives, so that a value cannot put an ID in the output itself
+- `<value> --rule-id <ID of the entry>` must exit with code 0.
+- `<value> --rule-id <ID that no entry has>` must exit with another code. The script asks with several such IDs, picked at random for each run and shaped like real ones: a free number, as in `NR-94`, a free letter suffix on a taken number, as in `NR-07q`, and a number above every entry. A command that accepts anything, or anything shaped like an ID, therefore fails the proof.
+- No answer prints anything. A command that prints while it answers runs more than the answer.
+
+The proof is only as strong as the check script makes it, so a check script must:
+
+- answer only from its own list of the entries it enforces, and run nothing else: no check, no file read, no network
+- answer before it reads its other arguments and options, so that a required argument never decides the answer
+- exit with a code other than 0 when it does not know the check that the value names
 
 The script cannot see whether a check script keeps this contract. Check it by hand when you review a check script.
 
@@ -72,7 +78,7 @@ To verify every reference, add `--verify-commands`:
 node .claude/skills/reg/generate-index.mjs --check --verify-commands <registry folder>
 ```
 
-With this flag, the script runs `<value> --help` for each command field of a live entry. It runs it without a shell, from the root of the repository, in a process group of its own. Each command has 30 seconds and 1 MB of output. Then the script stops the whole group, so no process the check started keeps running. The script skips retired entries.
+With this flag, the script asks these questions for each command field of a live entry. It runs each one without a shell, from the root of the repository, in a process group of its own. Each question has 30 seconds and 1 MB of output. Then the script stops the whole group, so no process the check started keeps running. The script skips retired entries.
 
 Only this flag runs anything. A normal run and `--check` never do. Never run `--verify-commands` on a branch you have not reviewed. Anyone who can edit an entry file can put any program in a command field, and this flag runs it.
 
@@ -92,7 +98,7 @@ Only this flag runs anything. A normal run and `--check` never do. Never run `--
 - each field of type `choice`, as one of its values
 - each field with a condition: allowed only when its `allowedWhen` holds, and present whenever its `requiredWhen` holds
 - each command field: no quote and no shell character
-- with `--verify-commands`, each command field: it starts with a file of the repository, or an interpreter and that file, and `<value> --help` exits with code 0 and prints the ID of the entry, which proves the check exists
+- with `--verify-commands`, each command field: it starts with a file of the repository, or an interpreter and that file, `<value> --rule-id <ID>` exits with code 0 for the ID of the entry, and with another code for IDs that no entry has, and prints nothing, which proves the check exists
 - each value: not empty, and no space at its start or its end
 - each condition: no value it does not allow, no value twice, and no condition that always holds, never holds, or holds only for retired entries
 - the values of the term fields that two live entries share, ignoring case
