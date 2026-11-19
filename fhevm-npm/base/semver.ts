@@ -67,16 +67,16 @@ function comparePrerelease(left: readonly string[], right: readonly string[]): n
 }
 
 /**
- * The range a published tarball carries for a dependency at this central version (RULES 4.3.4): the version itself
- * as the floor, and an operator that stops at the end of its generation. A generation is `major.minor`, so below 1.0
- * that is a caret (`^0.13.4`: npm's caret already stays in 0.13.x) and from 1.0 on a tilde (`~1.0.2`: a caret would
- * accept 1.1.x, another generation). The floor is the version the payload was built and tested against, so
- * upgrading the payload can never leave a consumer on an older dependency (one missing a fix the payload relies
- * on). A prerelease pins itself exactly.
+ * The range a published tarball carries for a dependency at this central version (NR-38): the version itself as
+ * the floor, and a tilde, which stops at the end of its generation. A generation is `major.minor` at every
+ * version, and a tilde stays in it both below 1.0 (`~0.13.4` stops before 0.14.0) and from 1.0 on (`~1.0.2` stops
+ * before 1.1.0, where a caret would accept 1.1.x, another generation). The floor is the version the payload was
+ * built and tested against, so upgrading the payload can never leave a consumer on an older dependency (one
+ * missing a fix the payload relies on). A prerelease pins itself exactly.
  */
 export function dependencyRange(version: ParsedVersion): string {
   if (isPrerelease(version)) return formatVersion(version);
-  return `${version.major === 0 ? '^' : '~'}${formatVersion(version)}`;
+  return `~${formatVersion(version)}`;
 }
 
 /**

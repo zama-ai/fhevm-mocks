@@ -65,10 +65,10 @@ test('scaffold copies tracked files and renders the file: link to the target ran
       devDependencies: Record<string, string>;
       dependencies: Record<string, string>;
     };
-    assert.equal(written.devDependencies['@fhevm/hardhat-plugin'], '^0.13.0');
+    assert.equal(written.devDependencies['@fhevm/hardhat-plugin'], '~0.13.0');
     assert.equal(written.devDependencies['hardhat'], '^2.28.6');
     assert.equal(written.dependencies['@fhevm/solidity'], '^0.13.3');
-    assert.deepEqual(result.replacements, [{ name: '@fhevm/hardhat-plugin', from: 'file:../plugin', to: '^0.13.0' }]);
+    assert.deepEqual(result.replacements, [{ name: '@fhevm/hardhat-plugin', from: 'file:../plugin', to: '~0.13.0' }]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
