@@ -64,6 +64,7 @@ The proof is a question to the check. The option is `--` followed by the noun of
 - `<value> --rule-id <ID that no entry has>` must exit with another code. The script asks with several such IDs, picked at random for each run and shaped like real ones: a free number, a free letter suffix on a taken number, as in `NR-07q`, and a number above every entry. IDs leave no gap, so a free number is always above the last entry. A command that accepts anything shaped like an ID fails.
 - `<value> --rule-id <ID of an entry that another check enforces>` must exit with another code for at least one such entry. The script asks up to ten of them, in random order, and stops at the first no. A command that accepts every ID that exists fails. One no is enough, because a check may also enforce part of an entry that another check owns.
 - No answer prints anything. A command that prints while it answers runs more than the answer.
+- Every check that a live entry names must exit with another code for the ID of each retired entry of the folder. A retired entry is enforced by nothing, so a yes means the check still claims a rule that no longer exists. A retired entry keeps no command field either.
 
 The proof is only as strong as the check script makes it, so a check script must:
 
@@ -80,7 +81,7 @@ To verify every reference, add `--verify-commands`:
 node .claude/skills/reg/generate-index.mjs --check --verify-commands <registry folder>
 ```
 
-With this flag, the script asks these questions for each command field of a live entry. It runs each one without a shell, from the root of the repository, in a process group of its own. Each question has 30 seconds and 1 MB of output. Then the script stops the whole group, so no process the check started keeps running. The script skips retired entries.
+With this flag, the script asks these questions for each command field of a live entry. It runs each one without a shell, from the root of the repository, in a process group of its own. Each question has 30 seconds and 1 MB of output. Then the script stops the whole group, so no process the check started keeps running. It asks retired entries no question of their own, but asks every check about them, as above.
 
 Only this flag runs anything. A normal run and `--check` never do. Never run `--verify-commands` on a branch you have not reviewed. Anyone who can edit an entry file can put any program in a command field, and this flag runs it.
 

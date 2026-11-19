@@ -1423,8 +1423,9 @@ function parseList(path, field, value) {
  * the ID of the entry, with another code for IDs of the same shape that no
  * entry has, and with another code for at least one of ten live entries
  * that other checks enforce, so a command that accepts anything, or
- * anything that exists, proves nothing. Every answer must print nothing.
- * Only this flag ever runs a command.
+ * anything that exists, proves nothing. Every answer must print nothing. No
+ * check may say yes to the ID of a retired entry. Only this flag ever runs a
+ * command.
  */
 function checkCommands(entries) {
   const commandFields = KIND.fields.filter((field) => field.command === true);
@@ -1441,6 +1442,54 @@ function checkCommands(entries) {
       const otherIds = pickOtherIds(live, field.key, command);
 
       checkCommand(entry, command, cwd, unknownIds, otherIds);
+    }
+  }
+
+  checkRetiredCommands(entries, commandFields, cwd);
+}
+
+/**
+ * A retired entry is enforced by nothing. Records an error when a retired
+ * entry still has a command field, and when any check that a live entry
+ * names still says yes to the ID of a retired entry: that check claims a
+ * rule that no longer exists.
+ */
+function checkRetiredCommands(entries, commandFields, cwd) {
+  const retired = entries.filter((entry) => entry.tag === RETIRED);
+  const idArg = `--${NOUN}-id`;
+  const checks = new Map();
+
+  for (const entry of retired) {
+    for (const field of commandFields) {
+      if (entry.fields[field.key] !== "") {
+        errors.push(
+          `${entry.path}: ${entry.id} is retired but keeps its ${field.key}. A retired ${NOUN} is enforced by nothing: remove the field`,
+        );
+      }
+    }
+  }
+
+  for (const entry of entries.filter((entry) => entry.tag !== RETIRED)) {
+    for (const field of commandFields) {
+      const command = entry.fields[field.key];
+
+      if (command !== "" && !checks.has(command)) checks.set(command, entry);
+    }
+  }
+
+  for (const [command, entry] of checks) {
+    const [program, ...args] = command.trim().split(WORDS);
+    const checkWord = INTERPRETERS.includes(program) ? args[0] : program;
+
+    // checkCommand already reported a command that does not start with a file of the repository.
+    if (checkWord === undefined || !isRepositoryFile(checkWord, cwd)) continue;
+
+    for (const old of retired) {
+      if (askCheck(entry, program, [...args, idArg, old.id], cwd) === 0) {
+        errors.push(
+          `${entry.path}: "${command} ${idArg} ${old.id}" exited with code 0, but ${old.id} is retired. The check still claims a ${NOUN} that no longer exists: remove ${old.id} from what it enforces`,
+        );
+      }
     }
   }
 }
