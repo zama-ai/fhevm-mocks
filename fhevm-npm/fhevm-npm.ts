@@ -2,7 +2,7 @@
 import type { CheckCommand } from './base/command.ts';
 import { printReport } from './base/diagnostics.ts';
 import { hasDetailedOutput } from './base/verbosity.ts';
-import { type CommandName, parseCliOptions } from './cli-options.ts';
+import { type CommandName, parseCli } from './cli-options.ts';
 import { checkDependencies } from './commands/check-dependencies.ts';
 import { checkFoundry } from './commands/check-foundry.ts';
 import { checkJsonSchemas } from './commands/check-json-schemas.ts';
@@ -83,7 +83,13 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
 };
 
 async function main(): Promise<void> {
-  const options = parseCliOptions(process.argv.slice(2));
+  const parsed = parseCli(process.argv.slice(2));
+  // Answers from ENFORCED_RULES alone: no file is read and nothing is printed.
+  if (parsed.command === 'rule-id') {
+    process.exitCode = parsed.enforced ? 0 : 1;
+    return;
+  }
+  const options = parsed;
   // Before the workspace manifest is loaded: this one is driven by a package's own export manifest and
   // needs nothing from npm-manifest.json.
   if (options.command === 'generate-exports') {

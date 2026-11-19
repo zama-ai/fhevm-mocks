@@ -14,6 +14,8 @@ Old number: 4.3.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli version check`
+
 Evidence:
 
 - Gap, loose check: Set a mirror-only published payload's central and derived package version to 1.0.0-01. The version parser and JSON schema both accept the numeric prerelease identifier with a leading zero; isCanonicalVersion returned true in memory. Using a mirror-only payload avoids relying on npm pack's separate version validation, since published-files skips that payload. Fix: issue I-91.
@@ -44,6 +46,8 @@ because that would let derived state become authoritative — it is added by han
 Old number: 4.3.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli version check`
 
 Evidence:
 
@@ -81,6 +85,8 @@ npm --prefix hardhat/v3/plugin/pkg version patch
 Old number: 4.3.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli publish check`
 
 Evidence:
 
@@ -147,6 +153,8 @@ is the one guarantee a tarball install used to hold alone, and [NR-40](../entrie
 Old number: 5.2.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
@@ -216,6 +224,8 @@ Old number: 5.2.6.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check published-files`
+
 Evidence:
 
 - Gap, wrong check: Add a correctly whitelisted and packed src/café.ts. With Git's default core.quotePath, gitVisibleFiles returns a C-quoted escaped spelling, while npm returns the real UTF-8 path. The packed-set lookup reports the compliant file as stray. Newline/tab filenames similarly break the line-based reader. Fix: issue I-105.
@@ -252,6 +262,8 @@ Old number: 5.2.7.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 Evidence:
 
 - Gap, loose check: In the mirror-only payload hardhat/v2/fhevm-hardhat-template/pkg, replace LICENSE by a symlink to ../../../../LICENSE: existingFile() uses statSync, which follows the link, so the 'regular file' test passes, and published-files.ts skips mirror-only payloads; the mirror then receives a dangling link. On a case-insensitive disk a file named `license` also passes there, but the Linux CI catches that one. Narrow: an npm-distributed payload is safe because npm does not pack a symlink and 5.2.6 then reports it. Fix: issue I-106.
@@ -284,6 +296,8 @@ Issues: I-07, I-106.
 Old number: 5.3.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check ownership`
 
 The validator
 resolves each dev entry's `publishedRelPath`, checks the inverse (every published entry has exactly one dev owner),
@@ -355,6 +369,8 @@ prerequisite of the daily workspace loop.
 Old number: 5.3.10.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli publish check`
 
 Evidence:
 

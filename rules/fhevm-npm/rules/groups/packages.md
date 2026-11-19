@@ -14,6 +14,8 @@ Old number: 1.2.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check names`
+
 Issues: I-03.
 
 This applies to manifest kinds
@@ -31,6 +33,8 @@ development naming boundary.
 Old number: 2.1.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check workspaces`
 
 Evidence:
 
@@ -74,6 +78,8 @@ Old number: 2.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check ownership`
+
 Evidence:
 
 - Gap, loose check: set host-contracts-cleartext/v14/package.json "pack:tarball": "npm pack" (the rule's own counter-example): check scripts passes because only presence is checked. Fix: issue I-71.
@@ -103,6 +109,8 @@ the Forge scripts and `foundry.toml` belong to the corresponding `dev` owner.
 Old number: 2.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check workspaces`
 
 Evidence:
 
@@ -134,6 +142,8 @@ Old number: 2.1.4.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check workspaces`
+
 Issues: I-08.
 
 A project deliberately installed in place with its own
@@ -157,6 +167,8 @@ the workspace is a separate case covered by [NR-64](../entries/NR-64.md); its so
 Old number: 2.1.6.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check package-json-paths`
 
 Evidence:
 
@@ -186,6 +198,8 @@ Old number: 2.1.7.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 Every manifest package sets `type` to either
 `module` or `commonjs`; Node's implicit CommonJS default is not accepted.
 
@@ -208,6 +222,8 @@ Every manifest package sets `type` to either
 Old number: 2.1.8.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check package-json`
 
 Evidence:
 
@@ -246,6 +262,8 @@ Old number: 2.1.9.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 Evidence:
 
 - Gap, loose check: module-kind.ts ignores file extensions: package.json {"type":"module","main":"./index.cjs"} with manifest type esm, or {"type":"commonjs","exports":{".":"./index.mjs"}} with manifest type cjs, both pass (verified by calling consumerModuleKinds) although the entry point is the other format. Fix: issue I-76.
@@ -277,6 +295,8 @@ Old number: 2.1.10.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 The editable list in
 `fhevm-npm/package-json-order.ts` defines the order for known fields; unknown fields sort alphabetically after them.
 Nested ordering rules, such as alphabetical scripts, remain separate checks.
@@ -291,6 +311,8 @@ Old number: 2.1.12.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 A package declaring `@types/node` also declares
 `engines.node` as a minimum version such as `>=22`, and the `@types/node` major equals that minimum Node major.
 
@@ -303,6 +325,8 @@ A package declaring `@types/node` also declares
 Old number: 5.1.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check names`
 
 The field is what npm enforces;
 the suffix is what makes a leak visible at the import site, and machine-checkable without packing anything. Their

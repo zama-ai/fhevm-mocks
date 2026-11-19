@@ -179,6 +179,8 @@ Old number: 5.3.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli test-consumer`
+
 Evidence:
 
 - Gap, loose check: resolveDestination() (test-consumer.ts:956) takes `--output` as given and assertSafeOutput() (:1005-1008) refuses only the filesystem root: `fhevm-npm test-consumer ./hardhat/v3/plugin --run --output ./hardhat/v3/plugin/test/consumer` installs and runs the consumer below the workspace root, where Node can walk up to the root's node_modules, and nothing fails. The same holds for a `test:consumer` script that adds `--output`, and for a TMPDIR that points inside the checkout. Fix: issue I-108.
@@ -203,6 +205,8 @@ walk up to the root's `node_modules` and satisfy an undeclared dependency.
 Old number: 5.3.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli test-consumer`
 
 The temporary manifest replaces each candidate
 dependency with an absolute `file:` path to its `pkg/`; outside a workspace, npm packs such a directory and installs
@@ -256,6 +260,8 @@ Old number: 5.3.6.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli test-consumer`
+
 Issues: I-01.
 
 Each candidate in `node_modules` must not be a
@@ -280,6 +286,8 @@ warning that `--ci` turns into an error.
 Old number: 5.3.7.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli test-consumer`
 
 Evidence:
 

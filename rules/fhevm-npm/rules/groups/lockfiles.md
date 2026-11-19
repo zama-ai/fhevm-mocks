@@ -14,6 +14,8 @@ Old number: 6.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check lockfiles`
+
 Evidence:
 
 - Gap, loose check: The check reads the name package-lock.json only. Add npm-shrinkwrap.json next to hardhat/v3/package-lock.json: npm uses the shrinkwrap file and ignores package-lock.json, so the committed lockfile that every lockfile check reads (6.1.2, 6.1.3, 3.3.4) is no longer the one installed. Nothing fails. Fix: issue I-113.
@@ -47,6 +49,8 @@ Old number: 6.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check extraneous`
+
 npm writes `"extraneous": true` on a package it knows about but
 cannot reach from the declared graph — nothing in any `package.json` asks for it. It is what a RETARGETED dependency
 leaves behind: the edges move to the new target, the old node is demoted rather than deleted, and the lockfile goes on
@@ -75,6 +79,8 @@ Both lockfile shapes are read — `packages` (lockfileVersion 2 and 3) and the l
 Old number: 6.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check consumer-lockfiles`
 
 Evidence:
 

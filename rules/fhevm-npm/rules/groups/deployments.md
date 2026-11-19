@@ -14,6 +14,8 @@ Old number: 8.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Issues: I-10.
 
 `deployments/<chain>/<stack>/`, where `<chain>` is a host chain of
@@ -31,6 +33,8 @@ Issues: I-10.
 Old number: 8.1.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments`
 
 Evidence:
 
@@ -57,6 +61,8 @@ Old number: 8.1.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Evidence:
 
 - Gap, loose check: `first` is only required to be in the journal at its block (:337-340), not to be the journal's lowest block. An attempt whose event.json names a later journal transaction as `first` and `defining`, with the folder named by that later day, passes. Fix: issue I-118.
@@ -78,6 +84,8 @@ and is never a `previous`.
 Old number: 8.2.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments`
 
 Evidence:
 
@@ -103,6 +111,8 @@ Old number: 8.2.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Evidence:
 
 - Gap, loose check: The comparison runs only when the config's `admin` is a string (:282). Delete `admin` from hotfix.config.json, or write it as a number: the check passes. Both committed configs carry it. issue I-69 lists this as check behaviour no rule states. Fix: issue I-69.
@@ -127,6 +137,8 @@ Old number: 8.2.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Issues: I-10, I-67, I-69.
 
 `event.json`'s `defining`, `first` and `last` transactions are in the journal at the
@@ -147,6 +159,8 @@ Old number: 8.3.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Issues: I-10, I-66.
 
 An upgrade moves exactly one generation up; a hotfix stays in its generation with
@@ -164,6 +178,8 @@ events that both have an `event.json`, defining blocks strictly increase (for no
 Old number: 8.3.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments`
 
 Evidence:
 
@@ -192,6 +208,8 @@ Old number: 8.4.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments --base main`
+
 Issues: I-10.
 
 Against a base ref, nothing under an event or attempt folder that exists at the
@@ -209,6 +227,8 @@ judged once git tracks it. New event folders, new stacks and READMEs are free.
 Old number: 8.4.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments --base main`
 
 Issues: I-10.
 

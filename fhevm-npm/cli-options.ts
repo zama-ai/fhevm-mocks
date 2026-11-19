@@ -2,6 +2,7 @@ import { Command, Option } from 'commander';
 import { resolve } from 'node:path';
 
 import { defaultWorkspaceRoot } from './base/paths.ts';
+import { ENFORCED_RULES, type RuleId } from './enforced-rules.ts';
 import { type AuditLevel, auditLevels, isAuditLevel } from './base/publish-audit.ts';
 import { type Verbosity, increaseVerbosity } from './base/verbosity.ts';
 
@@ -165,6 +166,74 @@ type RawTestConsumerOptions = {
   readonly list: boolean;
   readonly ci: boolean;
 };
+
+/** What `<command> --rule-id <ID>` answers: whether the command enforces that rule. */
+export type RuleIdAnswer = { readonly command: 'rule-id'; readonly enforced: boolean };
+
+/** Thrown from inside commander's option event, to stop parsing once `--rule-id` is answered. */
+class RuleIdAnswered extends Error {
+  readonly answer: RuleIdAnswer;
+
+  constructor(answer: RuleIdAnswer) {
+    super('rule-id answered');
+    this.answer = answer;
+  }
+}
+
+/** Parses the command line, or answers `--rule-id` without parsing the rest. */
+export function parseCli(argv: readonly string[]): CliOptions | RuleIdAnswer {
+  try {
+    return parseCliOptions(argv);
+  } catch (error) {
+    if (error instanceof RuleIdAnswered) return error.answer;
+    throw error;
+  }
+}
+
+/**
+ * Gives every leaf command `--rule-id <ID>`, which answers from `table` and runs nothing. The answer
+ * comes from the option event, which commander fires while it reads options, so a required argument, a
+ * mandatory option or the manifest never decide it. Global options are still read first: a broken one,
+ * such as `-r` without a path, fails before the answer.
+ *
+ * Throws when a key of `table` names no leaf command, since that command would answer no to every
+ * rule without anyone noticing. Turns off the implicit `help` command, which would otherwise print help
+ * and exit 0 for any `--rule-id`; `--help` still works.
+ */
+export function addRuleIdOption(group: Command, table: Readonly<Record<string, readonly RuleId[]>>): void {
+  const leaves = new Set<string>();
+  addRuleIdOptionBelow(group, table, [], leaves);
+  const unknown = Object.keys(table).filter((key) => !leaves.has(key));
+  if (unknown.length > 0) {
+    throw new Error(`ENFORCED_RULES names ${unknown.map((key) => `'${key}'`).join(', ')}, which is no command`);
+  }
+}
+
+function addRuleIdOptionBelow(
+  group: Command,
+  table: Readonly<Record<string, readonly RuleId[]>>,
+  path: readonly string[],
+  leaves: Set<string>,
+): void {
+  group.helpCommand(false);
+  for (const command of group.commands) {
+    const commandPath = [...path, command.name()];
+    if (command.commands.length > 0) {
+      addRuleIdOptionBelow(command, table, commandPath, leaves);
+      continue;
+    }
+    const key = commandPath.join(' ');
+    leaves.add(key);
+    const ids = table[key] ?? [];
+    command.addOption(
+      new Option('--rule-id <id>', 'exit 0 if this command enforces the rule <id>, 1 if not; runs nothing'),
+    );
+    if (ids.length > 0) command.addHelpText('after', `\nEnforces the rules: ${ids.join(', ')}\n`);
+    command.on('option:rule-id', (id: string) => {
+      throw new RuleIdAnswered({ command: 'rule-id', enforced: ids.includes(id as RuleId) });
+    });
+  }
+}
 
 export function parseCliOptions(argv: readonly string[]): CliOptions {
   const program = new Command()
@@ -795,6 +864,7 @@ Why:
       regenerateConsumerPackageLocksFresh = options.fresh;
     });
 
+  addRuleIdOption(program, ENFORCED_RULES);
   program.parse([...argv], { from: 'user' });
   if (
     selected === undefined &&

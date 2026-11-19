@@ -14,6 +14,8 @@ Old number: 2.1.5.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check tsconfig-paths`
+
 Evidence:
 
 - Gap, loose check: ownedTsconfigs reads the `.` root's own folder without recursion and then only members and non-packages (tsconfig-paths.ts:114-116). A tsconfig directly in a cluster root, for example hardhat/v3/tsconfig.json with `"include": ["./deleted"]`, is skipped (kind workspace-root, member=false); so is a tsconfig in a root-owned subfolder such as scripts/tsconfig.json. fhevm-npm/tsconfig.json is outside the inventory and is not read either. Fix: issue I-73.
@@ -41,6 +43,8 @@ not literal claims, and conventional transient-output names (`node_modules`, `ou
 Old number: 2.1.13.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check tsc-mode`
 
 Evidence:
 
@@ -70,6 +74,8 @@ Old number: 4.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check foundry`
+
 Evidence:
 
 - Gap, loose check: The version is duplicated in .github/workflows/sdk-cleartext-publish-release.yml:69 (`version: v1.5.1`), and that workflow never runs `check foundry`: bumping the manifest and sdk-cleartext-tests.yml to v1.6.0 while leaving the release workflow at v1.5.1 passes, and releases build with the old forge. Fix: issue I-87.
@@ -97,6 +103,8 @@ some-package/.foundry-version
 Old number: 4.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check foundry`
 
 Evidence:
 
@@ -133,6 +141,8 @@ src = "pkg/src"
 Old number: 5.1.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
@@ -211,6 +221,8 @@ Old number: 5.1.4b.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, wrong check: Wrong: verified, `clean:generate:exports` = `rm -rf pkg/ts ...` deletes the export-manifest output ./pkg/ts/index.ts yet fails 5.1.4b, since cleanRemoves (:499-501) wants the literal file path, not a parent directory or glob. Loose as well: a generator output not listed in export.manifest.json (e.g. pkg/templates written by generate:templates) can be dropped from clean:generated and nothing fails. Fix: issue I-97.
@@ -255,6 +267,8 @@ Old number: 5.1.4c.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, wrong check: Compliant change that fails: remove `clean` from hardhat/v2/fhevm-hardhat-template/package.json, the dev owner of a mirror-only payload. The rule exempts it; scripts.ts:56 reports `package must define a non-empty 'clean' script` under the label package-scripts. Fix: issue I-98.
@@ -296,6 +310,8 @@ Old number: 5.1.5.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, loose check: The check reads the text of the two scripts and does not follow npm run references. "prettier:check": "npm run prettier:all" with "prettier:all": "prettier --check \"**/*.{sol,ts}\"" passes. So does "prettier --check ." once a Solidity Prettier plugin is declared and added to prettier.base.mjs: no check reads the base's content or forbids the plugin. Fix: issue I-99.
@@ -328,6 +344,8 @@ trees, so a Solhint configuration or directive there is not reported.
 Old number: 5.1.6.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
