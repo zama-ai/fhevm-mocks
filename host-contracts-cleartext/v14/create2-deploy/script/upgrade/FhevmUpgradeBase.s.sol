@@ -10,7 +10,7 @@ import {IProtocolConfig} from "../../../pkg/src/contracts/interfaces/IProtocolCo
 import {KmsNode, KmsNodeParams, PcrValues} from "../../../pkg/src/contracts/shared/Structs.sol";
 
 /**
- *  The v13 -> v14 CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
+ *  The `<vN-1>` -> `<vN>` CREATE2 upgrade, as the re-point engine runs it: the hooks of `FhevmRepointBase` overridden
  *  with this generation's table, its reinitializers and its KMS migration.
  *
  *  Every script of the upgrade — compute, creates, precheck, materialize, verify — is the engine's script with
@@ -22,7 +22,7 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Seven live proxies re-pointed by the atomic upgrade, in ACLOwner.Op order. v14 creates no proxy.
+     * Seven live proxies re-pointed by the atomic upgrade, in ACLOwner.Op order. `<vN>` creates no proxy.
      */
     function _upgradeProxyRoles() internal pure returns (string[] memory roles) {
         roles = new string[](7);
@@ -97,7 +97,7 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
         return vm.envUint("FHEVM_MIGRATION_CONTEXT_ID");
     }
 
-    /// @dev The sealed node set: the live signers, widened with the four v14 members the coordinator sealed.
+    /// @dev The sealed node set: the live signers, widened with the four `<vN>` members the coordinator sealed.
     function _migrationNodes() internal view returns (KmsNodeParams[] memory nodes) {
         uint256 count = vm.envUint("FHEVM_MIGRATION_NODE_COUNT");
         require(count != 0, "FhevmUpgradeBase: sealed migration has no KMS nodes");
@@ -160,7 +160,7 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
     }
 
     /**
-     * @dev Is the sealed migration still what the live v13 ProtocolConfig holds? `compute` checked this when it
+     * @dev Is the sealed migration still what the live `<vN-1>` ProtocolConfig holds? `compute` checked this when it
      *      sealed; days may pass before materialize, and a signer rotation in between would make the
      *      re-declared context describe a set the chain no longer runs. Returns why not, for a require or a report.
      */
@@ -191,11 +191,11 @@ abstract contract FhevmUpgradeBase is FhevmRepointBase {
     }
 
     /**
-     * @dev Do the sealed nodes describe `liveNodes`, index by index? The four fields v13 stores per node —
+     * @dev Do the sealed nodes describe `liveNodes`, index by index? The four fields `<vN-1>` stores per node —
      *      signer, tx sender, ip and storage url — must be exactly what the chain holds: `reinitializeV2`
      *      writes none of them, it only anchors and announces them, so a sealed value the chain does not
      *      hold would make the anchor and the NewKmsContext event describe a node set nobody runs. The
-     *      four v14 members are not stored anywhere and remain the operator's to review at the gate.
+     *      four `<vN>` members are not stored anywhere and remain the operator's to review at the gate.
      */
     function _migrationNodesMatch(KmsNode[] memory liveNodes) internal view returns (bool ok, string memory why) {
         KmsNodeParams[] memory nodes = _migrationNodes();

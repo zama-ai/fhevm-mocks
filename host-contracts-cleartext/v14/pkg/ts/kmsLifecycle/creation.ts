@@ -1,4 +1,5 @@
-// Phase 2 of a v14 rotation: committee members confirm a Pending context until its creation quorum is reached.
+// Phase 2 of a `<vN>` rotation: committee members confirm a Pending context until its creation quorum is
+// reached.
 import { abi as protocolConfigAbi } from '../artifacts/ProtocolConfig.js';
 import type { AbstractEthereumProvider, AbstractEthereumSigner } from '../types/public.js';
 

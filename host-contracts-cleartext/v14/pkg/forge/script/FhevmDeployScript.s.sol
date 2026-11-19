@@ -85,7 +85,7 @@ import {
  * Differences from the forge-fhevm original this is adapted from
  * ---------------------------------------------------------------------------
  *
- * 1. Nine proxies, not five: v13 adds ProtocolConfig and KMSGeneration, and the
+ * 1. Nine proxies, not five: v13 added ProtocolConfig and KMSGeneration, and the
  *    cleartext build adds CleartextArithmetic and CleartextDB.
  *
  * 2. ONE shared EmptyUUPSProxy implementation at nonce+2 serves every
@@ -106,7 +106,7 @@ import {
  * 5. A standing ACLOwner takes ownership of the stack, and every proxy are
  *    materialized in ONE atomic `ACLOwner.upgrade(ops)`. forge-fhevm has no
  *    equivalent because ACLOwner does not exist in the generation it targets —
- *    v12 has no upgrade/ directory at all — so it upgrades each proxy directly
+ *    v12 had no upgrade/ directory at all — so it upgrades each proxy directly
  *    from the deployer EOA. Matching pkg/ts/deploy.ts matters for two reasons:
  *    the stack is never left half-materialized (separate per-proxy upgrades can fail
  *    midway, leaving some proxies real and some still empty), and
@@ -312,7 +312,7 @@ contract FhevmDeployScript is Script {
         console.log("Every proxy materialized in one ACLOwner.upgrade");
     }
 
-    /// @dev v13: signers moved to ProtocolConfig, so only the EIP-712 domain is set here.
+    /// @dev v13 moved the signers to ProtocolConfig, so only the EIP-712 domain is set here.
     function _kmsVerifierInit() private pure returns (bytes memory) {
         return abi.encodeCall(
             KMSVerifier.initializeFromEmptyProxy,
@@ -343,7 +343,7 @@ contract FhevmDeployScript is Script {
         );
     }
 
-    /// @dev Seeds the initial KMS context; v14 also names the KMS build and accepts no enclave PCRs.
+    /// @dev Seeds the initial KMS context; `<vN>` also names the KMS build and accepts no enclave PCRs.
     function _protocolConfigInit() private pure returns (bytes memory) {
         return abi.encodeCall(
             ProtocolConfig.initializeFromEmptyProxy,

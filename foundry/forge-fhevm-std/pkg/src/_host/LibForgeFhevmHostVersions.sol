@@ -59,7 +59,7 @@ struct Version {
  *      another LINE: 0.13.x (`ACL v0.4.0`) is a different ABI, and so is the next one (`ACL v0.6.0`).
  *
  * @dev THE FLOOR IS HAND-WRITTEN, THE CEILING IS GENERATED. `LocalHostVersions` (regenerated from the
- *      vendored contracts by v14's `generate:contract-versions`) is what the line reports at the commit
+ *      vendored contracts by `<vN>`'s `generate:contract-versions`) is what the line reports at the commit
  *      this SDK vendors — the newest it knows, hence the ceiling. The floor is what the line reported at
  *      its FIRST release, read off the tags of `zama-ai/fhevm` at v0.14.0 (`host-contracts/contracts`),
  *      and it moves only when this SDK moves to another line. `LibFhevmVersion.t.sol` pins both ends.

@@ -1,4 +1,4 @@
-// Upgrade a LIVE v13 cleartext stack to v14, through the canonical CREATE2 factory.
+// Upgrade a LIVE `<vN-1>` cleartext stack to `<vN>`, through the canonical CREATE2 factory.
 //
 //
 // Run through `upgrade/upgrade-cli`. The sibling of ts/deploy-testnet.ts, and everything that is not a stage comes from common.ts: argument
@@ -26,7 +26,7 @@ import { join } from 'node:path';
 
 // The previous generation's contract versions, generated from ITS vendored Solidity (the source of truth: each
 // contract's MAJOR/MINOR/PATCH constants). Through the workspace link, never retyped here: a copy would not
-// follow a v13 hotfix.
+// follow a `<vN-1>` hotfix.
 import { CONTRACT_VERSIONS as PREVIOUS_VERSIONS } from '@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/versions.ts';
 import {
   atBlock,
@@ -498,7 +498,7 @@ function parseMigrationNode(entry: unknown, label: string): MigrationNode {
  * Every supplied address, checked against the live chain before anything is computed.
  *
  * This is the most important thing this coordinator does, and the reason is worth stating where the code
- * is: the seven v14 implementations bake these addresses into their CREATION CODE. A wrong entry does not
+ * is: the seven `<vN>` implementations bake these addresses into their CREATION CODE. A wrong entry does not
  * fail here-and-now — it produces implementations at addresses derived from the wrong inputs, whose
  * compiled-in references point at nothing. The stack materializes cleanly and fails in use.
  *
@@ -600,10 +600,10 @@ function validateExisting(ctx: Ctx): void {
     say(`    ok   ${pad('ACLOwner.owner (--admin)', ROLE_WIDTH)} matches --admin`);
   }
 
-  // KMS_VERIFIER_ADDRESS, PROTOCOL_CONFIG_ADDRESS, KMS_GENERATION_ADDRESS: no contract in the v13 set
+  // KMS_VERIFIER_ADDRESS, PROTOCOL_CONFIG_ADDRESS, KMS_GENERATION_ADDRESS: no contract in the `<vN-1>` set
   // exposes a getter returning them, so they cannot be corroborated by wiring the way the others are.
-  // What follows establishes "this is an initialized v13 contract of that kind" — NOT that it is this
-  // stack's — plus the one tie available: v13's KMSVerifier reads its signers off ProtocolConfig, so the
+  // What follows establishes "this is an initialized `<vN-1>` contract of that kind" — NOT that it is this
+  // stack's — plus the one tie available: `<vN-1>`'s KMSVerifier reads its signers off ProtocolConfig, so the
   // two must answer alike. The post-upgrade signer-set comparison covers the residual case.
   const kms = at('KMS_VERIFIER_ADDRESS');
   const kmsCode = capture('cast', ['code', kms, '--rpc-url', ctx.opt.rpcUrl]);
@@ -689,7 +689,7 @@ function safeNumber(value: bigint, label: string): number {
 
 /**
  * The upgrade's part of the pre-snapshot, at the engine's settled block: the KMS and coprocessor signer sets,
- * the migration they seed, and every v13 getter (the survey verify compares against). The engine adds the
+ * the migration they seed, and every `<vN-1>` getter (the survey verify compares against). The engine adds the
  * block, the admin, the handles and every proxy's implementation.
  */
 function snapshotExtras(ctx: Ctx, blockNumber: number): Readonly<Record<string, unknown>> {
@@ -727,7 +727,7 @@ function snapshotExtras(ctx: Ctx, blockNumber: number): Readonly<Record<string, 
 }
 
 /**
- * The four node fields v13 stores — tx sender, signer, ip, storage url — must be exactly what the live context
+ * The four node fields `<vN-1>` stores — tx sender, signer, ip, storage url — must be exactly what the live context
  * holds, in order. `reinitializeV2` writes none of them; it anchors and announces them, so a sealed value the
  * chain does not hold would describe a node set nobody runs. Compared as ABI encodings: the live
  * `getKmsNodesForContext` return data against `cast abi-encode` of the same four fields from the migration.
@@ -937,7 +937,7 @@ const UPGRADE_FLOW: Flow = {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/** The v13 -> v14 generation upgrade, as the re-point engine runs it. */
+/** The `<vN-1>` -> `<vN>` generation upgrade, as the re-point engine runs it. */
 const UPGRADE_ADAPTER: RepointAdapter = {
   flow: UPGRADE_FLOW,
   scriptDir: 'upgrade',
