@@ -6,6 +6,7 @@ title: Generators expose the full round trip
 short: A package that generates exposes the full round trip.
 old: 5.1.4b
 check: script
+checked-by: "./fhevm-npm-cli check scripts"
 evidence:
   - "Gap, wrong check: Wrong: verified, `clean:generate:exports` = `rm -rf pkg/ts ...` deletes the export-manifest output ./pkg/ts/index.ts yet fails 5.1.4b, since cleanRemoves (:499-501) wants the literal file path, not a parent directory or glob. Loose as well: a generator output not listed in export.manifest.json (e.g. pkg/templates written by generate:templates) can be dropped from clean:generated and nothing fails. Fix: issue I-97."
 issues:

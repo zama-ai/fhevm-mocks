@@ -14,6 +14,8 @@ Old number: 7.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check manifest-coverage`
+
 Issues: I-01.
 
 Discovery is
@@ -62,6 +64,8 @@ Old number: 7.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check manifest-coverage`
+
 Evidence:
 
 - Gap, loose check: write the key "./common" twice in npm-manifest.json#packages with different kinds: JSON.parse keeps the second, every check passes, and the file classifies one directory twice. Fix: issue I-115.
@@ -90,6 +94,8 @@ Old number: 7.1.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check manifest-coverage`
+
 Issues: I-07.
 
 The TypeScript validator canonicalizes the files found by [NR-70](../entries/NR-70.md),
@@ -105,6 +111,8 @@ compares that set with `npm-manifest.json#packages`. A missing or stale key is a
 Old number: 7.1.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check manifest-coverage`
 
 Evidence:
 
@@ -164,6 +172,8 @@ path a git command expects. A test runs the checks with the workspace one direct
 Old number: 7.2.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check json-schemas`
 
 Evidence:
 

@@ -14,6 +14,8 @@ Old number: 3.4.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check generations`
+
 Evidence:
 
 - Gap, loose check: an npm alias hides the target name: in ./hardhat/v3/e2e add "dependencies": {"hcc-prev": "npm:@fhevm/host-contracts-cleartext@0.13.6"}; no family package is named hcc-prev, so no edge is resolved (verified with validateGenerationDependencies), and check dependencies 3.1.1 also keys on the alias name. Fix: issue I-84.
@@ -68,6 +70,8 @@ declared it.
 Old number: 3.4.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check generations`
 
 A copy of `common-vendored/src` is declared on its destination package's
 `vendored` entry in `npm-manifest.json` ([NR-42b](../entries/NR-42b.md)), and nowhere else. The check reads the destinations back out of those
@@ -125,6 +129,8 @@ Old number: 3.4.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check generations`
+
 The generator writes a
 face into `host-contracts-cleartext/<gen>/` for every listed key, so the list must equal `<vN>` and `<vN-1>` by directory
 basename. A retired key makes the generator write into a directory that no longer exists; a live generation missing
@@ -149,6 +155,8 @@ from the list receives no face, and `fhevm-npm check cleartext-config` cannot mi
 Old number: 3.4.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check generations`
 
 Issues: I-01, I-08.
 
@@ -226,6 +234,8 @@ is not there. Every family has a `<vN-1>`, as [NR-87](../entries/NR-87.md) requi
 Old number: 3.4.6.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check generation-parity`
 
 Evidence:
 
@@ -313,6 +323,8 @@ A check never makes any of it. It reads the workspace and reports what breaks a 
 > A generation family always has two live generations, the current one and the previous one.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check json-schemas`
 
 Evidence:
 

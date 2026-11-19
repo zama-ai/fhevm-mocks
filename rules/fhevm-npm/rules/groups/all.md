@@ -14,6 +14,8 @@ Old number: 1.2.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check names`
+
 Issues: I-03.
 
 This applies to manifest kinds
@@ -31,6 +33,8 @@ development naming boundary.
 Old number: 2.1.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check workspaces`
 
 Evidence:
 
@@ -74,6 +78,8 @@ Old number: 2.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check ownership`
+
 Evidence:
 
 - Gap, loose check: set host-contracts-cleartext/v14/package.json "pack:tarball": "npm pack" (the rule's own counter-example): check scripts passes because only presence is checked. Fix: issue I-71.
@@ -103,6 +109,8 @@ the Forge scripts and `foundry.toml` belong to the corresponding `dev` owner.
 Old number: 2.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check workspaces`
 
 Evidence:
 
@@ -134,6 +142,8 @@ Old number: 2.1.4.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check workspaces`
+
 Issues: I-08.
 
 A project deliberately installed in place with its own
@@ -157,6 +167,8 @@ the workspace is a separate case covered by [NR-64](../entries/NR-64.md); its so
 Old number: 2.1.5.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check tsconfig-paths`
 
 Evidence:
 
@@ -186,6 +198,8 @@ Old number: 2.1.6.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json-paths`
+
 Evidence:
 
 - Gap, loose check: An exports target './package.json/x*' passes inspectPackageJsonPaths because dirname(prefix) is './package.json' and existsSync accepts this regular file. Reproduced without writing any files. Fix: issue I-74.
@@ -214,6 +228,8 @@ Old number: 2.1.7.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 Every manifest package sets `type` to either
 `module` or `commonjs`; Node's implicit CommonJS default is not accepted.
 
@@ -236,6 +252,8 @@ Every manifest package sets `type` to either
 Old number: 2.1.8.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check package-json`
 
 Evidence:
 
@@ -274,6 +292,8 @@ Old number: 2.1.9.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 Evidence:
 
 - Gap, loose check: module-kind.ts ignores file extensions: package.json {"type":"module","main":"./index.cjs"} with manifest type esm, or {"type":"commonjs","exports":{".":"./index.mjs"}} with manifest type cjs, both pass (verified by calling consumerModuleKinds) although the entry point is the other format. Fix: issue I-76.
@@ -305,6 +325,8 @@ Old number: 2.1.10.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 The editable list in
 `fhevm-npm/package-json-order.ts` defines the order for known fields; unknown fields sort alphabetically after them.
 Nested ordering rules, such as alphabetical scripts, remain separate checks.
@@ -319,6 +341,8 @@ Old number: 2.1.12.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check package-json`
+
 A package declaring `@types/node` also declares
 `engines.node` as a minimum version such as `>=22`, and the `@types/node` major equals that minimum Node major.
 
@@ -331,6 +355,8 @@ A package declaring `@types/node` also declares
 Old number: 2.1.13.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check tsc-mode`
 
 Evidence:
 
@@ -359,6 +385,8 @@ exits 0 — the silent failure TS18002 would catch, except `references` suppress
 Old number: 3.1.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
@@ -410,6 +438,8 @@ Old number: 3.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check dependencies`
+
 Evidence:
 
 - Gap, loose check: A non-member source inside the workspace: add "devDependencies": { "@fhevm/hardhat-plugin": "file:../../tarballs/fhevm-hardhat-plugin-0.4.2.tgz" } to hardhat/v2/package.json (kind workspace-root, member=false). No check reads a cluster root's dependency specs except the forbidden and pinned lists, yet npm resolves that root with its members, which is the failure the rule describes. Fix: issue I-79.
@@ -439,6 +469,8 @@ Old number: 3.2.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli test-consumer`
+
 Evidence:
 
 - Gap, loose check: The check reads only the link to the registered candidate. In hardhat/v3/plugin/test-consumer/esm/package.json add "@fhevm/host-contracts-cleartext": "<the version versions.json gives ./host-contracts-cleartext/v14/pkg>": a second workspace payload named by version. validateWorkspaceMemberSpecs skips non-members (dependencies.ts:179), and `check consumer-lockfiles` accepts a registry-resolved node whose version equals versions.json (consumer-lockfiles.ts:282-284). A standalone project that is not registered in consumerTests is not read at all. Fix: issue I-80.
@@ -467,6 +499,8 @@ for the same reason: in an isolated copy there is no member to find by name, so 
 Old number: 3.3.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
@@ -535,6 +569,8 @@ libs = ["dependencies", "node_modules"]
 Old number: 3.3.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
@@ -650,6 +686,8 @@ Old number: 3.4.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check generations`
+
 Evidence:
 
 - Gap, loose check: an npm alias hides the target name: in ./hardhat/v3/e2e add "dependencies": {"hcc-prev": "npm:@fhevm/host-contracts-cleartext@0.13.6"}; no family package is named hcc-prev, so no edge is resolved (verified with validateGenerationDependencies), and check dependencies 3.1.1 also keys on the alias name. Fix: issue I-84.
@@ -704,6 +742,8 @@ declared it.
 Old number: 3.4.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check generations`
 
 A copy of `common-vendored/src` is declared on its destination package's
 `vendored` entry in `npm-manifest.json` ([NR-42b](../entries/NR-42b.md)), and nowhere else. The check reads the destinations back out of those
@@ -761,6 +801,8 @@ Old number: 3.4.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check generations`
+
 The generator writes a
 face into `host-contracts-cleartext/<gen>/` for every listed key, so the list must equal `<vN>` and `<vN-1>` by directory
 basename. A retired key makes the generator write into a directory that no longer exists; a live generation missing
@@ -785,6 +827,8 @@ from the list receives no face, and `fhevm-npm check cleartext-config` cannot mi
 Old number: 3.4.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check generations`
 
 Issues: I-01, I-08.
 
@@ -862,6 +906,8 @@ is not there. Every family has a `<vN-1>`, as [NR-87](../entries/NR-87.md) requi
 Old number: 3.4.6.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check generation-parity`
 
 Evidence:
 
@@ -959,6 +1005,8 @@ Old number: 4.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check foundry`
+
 Evidence:
 
 - Gap, loose check: The version is duplicated in .github/workflows/sdk-cleartext-publish-release.yml:69 (`version: v1.5.1`), and that workflow never runs `check foundry`: bumping the manifest and sdk-cleartext-tests.yml to v1.6.0 while leaving the release workflow at v1.5.1 passes, and releases build with the old forge. Fix: issue I-87.
@@ -986,6 +1034,8 @@ some-package/.foundry-version
 Old number: 4.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check foundry`
 
 Evidence:
 
@@ -1022,6 +1072,8 @@ src = "pkg/src"
 Old number: 4.2.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
@@ -1151,6 +1203,8 @@ Old number: 4.2.4.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check dependencies`
+
 Issues: I-08.
 
 The dev owner is a private build and test harness;
@@ -1204,6 +1258,8 @@ Old number: 4.3.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli version check`
+
 Evidence:
 
 - Gap, loose check: Set a mirror-only published payload's central and derived package version to 1.0.0-01. The version parser and JSON schema both accept the numeric prerelease identifier with a leading zero; isCanonicalVersion returned true in memory. Using a mirror-only payload avoids relying on npm pack's separate version validation, since published-files skips that payload. Fix: issue I-91.
@@ -1234,6 +1290,8 @@ because that would let derived state become authoritative — it is added by han
 Old number: 4.3.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli version check`
 
 Evidence:
 
@@ -1271,6 +1329,8 @@ npm --prefix hardhat/v3/plugin/pkg version patch
 Old number: 4.3.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli publish check`
 
 Evidence:
 
@@ -1353,6 +1413,8 @@ Old number: 5.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check names`
+
 The field is what npm enforces;
 the suffix is what makes a leak visible at the import site, and machine-checkable without packing anything. Their
 fixed `"version": "0.0.0"` is specified by [NR-01](../entries/NR-01.md); `fhevm-npm check names` checks all three properties.
@@ -1385,6 +1447,8 @@ is the one guarantee a tarball install used to hold alone, and [NR-40](../entrie
 Old number: 5.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 A manifest entry declaring `vendored`
 requires `check:vendored-origin`; one declaring `mirror` conventionally exposes `check:mirror`, OPTIONAL until the
@@ -1436,6 +1500,8 @@ command also writes each generation's `pkg/src/cleartext/shared/LibFhevmCleartex
 Old number: 5.1.3a.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli sync vendored`
 
 Issues: I-21.
 
@@ -1602,6 +1668,8 @@ Old number: 5.1.4.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, loose check: Keep all required formatting leaves, but change fmt and fmt:check to echo done. Nonempty-script checks pass, while neither formatter runs. Fix: issue I-95.
@@ -1679,6 +1747,8 @@ Old number: 5.1.4b.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, wrong check: Wrong: verified, `clean:generate:exports` = `rm -rf pkg/ts ...` deletes the export-manifest output ./pkg/ts/index.ts yet fails 5.1.4b, since cleanRemoves (:499-501) wants the literal file path, not a parent directory or glob. Loose as well: a generator output not listed in export.manifest.json (e.g. pkg/templates written by generate:templates) can be dropped from clean:generated and nothing fails. Fix: issue I-97.
@@ -1723,6 +1793,8 @@ Old number: 5.1.4c.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, wrong check: Compliant change that fails: remove `clean` from hardhat/v2/fhevm-hardhat-template/package.json, the dev owner of a mirror-only payload. The rule exempts it; scripts.ts:56 reports `package must define a non-empty 'clean' script` under the label package-scripts. Fix: issue I-98.
@@ -1764,6 +1836,8 @@ Old number: 5.1.5.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 Evidence:
 
 - Gap, loose check: The check reads the text of the two scripts and does not follow npm run references. "prettier:check": "npm run prettier:all" with "prettier:all": "prettier --check \"**/*.{sol,ts}\"" passes. So does "prettier --check ." once a Solidity Prettier plugin is declared and added to prettier.base.mjs: no check reads the base's content or forbids the plugin. Fix: issue I-99.
@@ -1796,6 +1870,8 @@ trees, so a Solhint configuration or directive there is not reported.
 Old number: 5.1.6.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
@@ -1891,6 +1967,8 @@ Issues: I-01, I-09, I-11, I-62.
 Old number: 5.2.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
@@ -2060,6 +2138,8 @@ Old number: 5.2.6.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check published-files`
+
 Evidence:
 
 - Gap, wrong check: Add a correctly whitelisted and packed src/café.ts. With Git's default core.quotePath, gitVisibleFiles returns a C-quoted escaped spelling, while npm returns the real UTF-8 path. The packed-set lookup reports the compliant file as stray. Newline/tab filenames similarly break the line-based reader. Fix: issue I-105.
@@ -2095,6 +2175,8 @@ Mirror-only payloads are exempt: their directory is the mirror, and its unpublis
 Old number: 5.2.7.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check package-json`
 
 Evidence:
 
@@ -2194,6 +2276,8 @@ Old number: 5.3.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check ownership`
+
 The validator
 resolves each dev entry's `publishedRelPath`, checks the inverse (every published entry has exactly one dev owner),
 and applies [NR-47](../entries/NR-47.md) (`check`, `check:publint`) and [NR-54](../entries/NR-54.md) (`test:consumer`) to owners of npm-distributed payloads only.
@@ -2233,6 +2317,8 @@ Old number: 5.3.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli test-consumer`
+
 Evidence:
 
 - Gap, loose check: resolveDestination() (test-consumer.ts:956) takes `--output` as given and assertSafeOutput() (:1005-1008) refuses only the filesystem root: `fhevm-npm test-consumer ./hardhat/v3/plugin --run --output ./hardhat/v3/plugin/test/consumer` installs and runs the consumer below the workspace root, where Node can walk up to the root's node_modules, and nothing fails. The same holds for a `test:consumer` script that adds `--output`, and for a TMPDIR that points inside the checkout. Fix: issue I-108.
@@ -2257,6 +2343,8 @@ walk up to the root's `node_modules` and satisfy an undeclared dependency.
 Old number: 5.3.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli test-consumer`
 
 The temporary manifest replaces each candidate
 dependency with an absolute `file:` path to its `pkg/`; outside a workspace, npm packs such a directory and installs
@@ -2310,6 +2398,8 @@ Old number: 5.3.6.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli test-consumer`
+
 Issues: I-01.
 
 Each candidate in `node_modules` must not be a
@@ -2334,6 +2424,8 @@ warning that `--ci` turns into an error.
 Old number: 5.3.7.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli test-consumer`
 
 Evidence:
 
@@ -2426,6 +2518,8 @@ Old number: 5.3.10.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli publish check`
+
 Evidence:
 
 - Gap, wrong check: The same-named payloads in separate roots counterexample from NR-38 makes a correct ~2.0.1 tarball fail against the first member's ~1.0.1. Fix: issue I-112.
@@ -2476,6 +2570,8 @@ Old number: 6.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check lockfiles`
+
 Evidence:
 
 - Gap, loose check: The check reads the name package-lock.json only. Add npm-shrinkwrap.json next to hardhat/v3/package-lock.json: npm uses the shrinkwrap file and ignores package-lock.json, so the committed lockfile that every lockfile check reads (6.1.2, 6.1.3, 3.3.4) is no longer the one installed. Nothing fails. Fix: issue I-113.
@@ -2509,6 +2605,8 @@ Old number: 6.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check extraneous`
+
 npm writes `"extraneous": true` on a package it knows about but
 cannot reach from the declared graph — nothing in any `package.json` asks for it. It is what a RETARGETED dependency
 leaves behind: the edges move to the new target, the old node is demoted rather than deleted, and the lockfile goes on
@@ -2537,6 +2635,8 @@ Both lockfile shapes are read — `packages` (lockfileVersion 2 and 3) and the l
 Old number: 6.1.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check consumer-lockfiles`
 
 Evidence:
 
@@ -2620,6 +2720,8 @@ Old number: 7.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check manifest-coverage`
+
 Issues: I-01.
 
 Discovery is
@@ -2668,6 +2770,8 @@ Old number: 7.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check manifest-coverage`
+
 Evidence:
 
 - Gap, loose check: write the key "./common" twice in npm-manifest.json#packages with different kinds: JSON.parse keeps the second, every check passes, and the file classifies one directory twice. Fix: issue I-115.
@@ -2696,6 +2800,8 @@ Old number: 7.1.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check manifest-coverage`
+
 Issues: I-07.
 
 The TypeScript validator canonicalizes the files found by [NR-70](../entries/NR-70.md),
@@ -2711,6 +2817,8 @@ compares that set with `npm-manifest.json#packages`. A missing or stale key is a
 Old number: 7.1.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check manifest-coverage`
 
 Evidence:
 
@@ -2771,6 +2879,8 @@ Old number: 7.2.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check json-schemas`
+
 Evidence:
 
 - Gap, loose check: tarballs.relPath: `./tarballs/../../outside` passes both (see NR-73). Fix: issue I-117.
@@ -2812,6 +2922,8 @@ Old number: 8.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Issues: I-10.
 
 `deployments/<chain>/<stack>/`, where `<chain>` is a host chain of
@@ -2829,6 +2941,8 @@ Issues: I-10.
 Old number: 8.1.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments`
 
 Evidence:
 
@@ -2855,6 +2969,8 @@ Old number: 8.1.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Evidence:
 
 - Gap, loose check: `first` is only required to be in the journal at its block (:337-340), not to be the journal's lowest block. An attempt whose event.json names a later journal transaction as `first` and `defining`, with the folder named by that later day, passes. Fix: issue I-118.
@@ -2876,6 +2992,8 @@ and is never a `previous`.
 Old number: 8.2.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments`
 
 Evidence:
 
@@ -2901,6 +3019,8 @@ Old number: 8.2.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Evidence:
 
 - Gap, loose check: The comparison runs only when the config's `admin` is a string (:282). Delete `admin` from hotfix.config.json, or write it as a number: the check passes. Both committed configs carry it. issue I-69 lists this as check behaviour no rule states. Fix: issue I-69.
@@ -2925,6 +3045,8 @@ Old number: 8.2.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Issues: I-10, I-67, I-69.
 
 `event.json`'s `defining`, `first` and `last` transactions are in the journal at the
@@ -2945,6 +3067,8 @@ Old number: 8.3.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments`
+
 Issues: I-10, I-66.
 
 An upgrade moves exactly one generation up; a hotfix stays in its generation with
@@ -2962,6 +3086,8 @@ events that both have an `event.json`, defining blocks strictly increase (for no
 Old number: 8.3.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments`
 
 Evidence:
 
@@ -2990,6 +3116,8 @@ Old number: 8.4.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check deployments --base main`
+
 Issues: I-10.
 
 Against a base ref, nothing under an event or attempt folder that exists at the
@@ -3007,6 +3135,8 @@ judged once git tracks it. New event folders, new stacks and READMEs are free.
 Old number: 8.4.2.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check deployments --base main`
 
 Issues: I-10.
 
@@ -3051,6 +3181,8 @@ A check never makes any of it. It reads the workspace and reports what breaks a 
 > A generation family always has two live generations, the current one and the previous one.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check json-schemas`
 
 Evidence:
 

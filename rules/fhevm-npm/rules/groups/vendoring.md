@@ -14,6 +14,8 @@ Old number: 5.1.3.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check scripts`
+
 A manifest entry declaring `vendored`
 requires `check:vendored-origin`; one declaring `mirror` conventionally exposes `check:mirror`, OPTIONAL until the
 mirror spec is implemented — requiring an unpassable script would be enforcement theater. The owner is the dev
@@ -64,6 +66,8 @@ command also writes each generation's `pkg/src/cleartext/shared/LibFhevmCleartex
 Old number: 5.1.3a.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli sync vendored`
 
 Issues: I-21.
 

@@ -14,6 +14,8 @@ Old number: 3.1.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check dependencies`
+
 Evidence:
 
 - Gap, loose check: An npm alias: in hardhat/v3/plugin/package.json add "@fhevm/host-contracts-cleartext-prev1": "npm:@fhevm/host-contracts-cleartext@^0.13.0". The declared name is the alias, so `members.has(declaration.name)` is false (dependencies.ts:183) and npm fetches the registry copy of a member by version. The repository already uses this alias pattern for @fhevm/sdk-prev1. Fix: issue I-78.
@@ -64,6 +66,8 @@ Old number: 3.1.2.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check dependencies`
+
 Evidence:
 
 - Gap, loose check: A non-member source inside the workspace: add "devDependencies": { "@fhevm/hardhat-plugin": "file:../../tarballs/fhevm-hardhat-plugin-0.4.2.tgz" } to hardhat/v2/package.json (kind workspace-root, member=false). No check reads a cluster root's dependency specs except the forbidden and pinned lists, yet npm resolves that root with its members, which is the failure the rule describes. Fix: issue I-79.
@@ -93,6 +97,8 @@ Old number: 3.2.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli test-consumer`
+
 Evidence:
 
 - Gap, loose check: The check reads only the link to the registered candidate. In hardhat/v3/plugin/test-consumer/esm/package.json add "@fhevm/host-contracts-cleartext": "<the version versions.json gives ./host-contracts-cleartext/v14/pkg>": a second workspace payload named by version. validateWorkspaceMemberSpecs skips non-members (dependencies.ts:179), and `check consumer-lockfiles` accepts a registry-resolved node whose version equals versions.json (consumer-lockfiles.ts:282-284). A standalone project that is not registered in consumerTests is not read at all. Fix: issue I-80.
@@ -121,6 +127,8 @@ for the same reason: in an isolated copy there is no member to find by name, so 
 Old number: 3.3.1.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
@@ -189,6 +197,8 @@ libs = ["dependencies", "node_modules"]
 Old number: 3.3.3.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
@@ -338,6 +348,8 @@ Old number: 4.2.1.
 
 Check: script.
 
+Checked by: `./fhevm-npm-cli check dependencies`
+
 Evidence:
 
 - Gap, wrong check: the 4.2.1 placement test in `fhevm-npm/base/checks/dependencies.ts` counts a script that runs an exact root pin's executable as a use, and asks a shared helper for `dependencies`; 3.3.1 asks for `devDependencies`. Fix: ignore script-only use in the 4.2.1 placement test, so `devDependencies` wins.
@@ -465,6 +477,8 @@ have, and a standalone consumer, installed alone, may declare any version or ran
 Old number: 4.2.4.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Issues: I-08.
 

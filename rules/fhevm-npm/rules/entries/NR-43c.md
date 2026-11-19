@@ -6,6 +6,7 @@ title: A package can delete its build output
 short: A private source-owning package can delete its own build output.
 old: 5.1.4c
 check: script
+checked-by: "./fhevm-npm-cli check scripts"
 evidence:
   - "Gap, wrong check: Compliant change that fails: remove `clean` from hardhat/v2/fhevm-hardhat-template/package.json, the dev owner of a mirror-only payload. The rule exempts it; scripts.ts:56 reports `package must define a non-empty 'clean' script` under the label package-scripts. Fix: issue I-98."
 issues:
