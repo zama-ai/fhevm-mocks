@@ -94,7 +94,7 @@
       "patternProperties": {
         "^(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)*$": {
           "type": "object",
-          "required": ["current"],
+          "required": ["current", "previous"],
           "additionalProperties": false,
           "properties": {
             "current": {
@@ -103,7 +103,7 @@
             },
             "previous": {
               "$ref": "#/$defs/packageKey",
-              "description": "V(N-1): the dev package of the previous generation, e.g. ./host-contracts-cleartext/v12. Omitted for a family with a single generation."
+              "description": "V(N-1): the dev package of the previous generation, e.g. ./host-contracts-cleartext/v12. Always present: V(N)'s upgrade suite upgrades from it."
             }
           }
         }
