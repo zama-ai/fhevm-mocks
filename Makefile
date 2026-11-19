@@ -777,12 +777,16 @@ check-post: check-npm-cli-post-build ## Checks that require a generated and buil
 ########################################################################################################
 
 .PHONY: lint-shared lint-cleartext lint-hh-v2
-.PHONY: lint-common lint-common-vendored lint-cleartext-v-prev lint-cleartext-v-cur lint-forge-std
+.PHONY: lint-common lint-common-vendored lint-cleartext-v-cur lint-forge-std
 .PHONY: lint-hh-v2-plugin lint-hh-v2-template lint-hh-v2-e2e lint-hh-v3 lint-hh-v3-plugin lint-hh-v3-template lint-hh-v3-e2e lint-npm-cli
 
 lint-shared: lint-common lint-common-vendored
 
-lint-cleartext: lint-cleartext-v-prev lint-cleartext-v-cur
+# Only the current generation. The previous one is frozen (R-04, NR-27): `check generation-parity` holds it to its
+# release branch, so a lint finding there could not be fixed here, and the rules that change later, such as
+# fhevm-devex/no-generation-number, would report text the frozen copy must keep. test-cleartext-v-prev still
+# compiles and tests it.
+lint-cleartext: lint-cleartext-v-cur
 
 lint-hh-v2: lint-hh-v2-plugin lint-hh-v2-template lint-hh-v2-e2e
 
@@ -793,9 +797,6 @@ lint-common: ## Lint common
 
 lint-common-vendored: ## Lint common-vendored
 	$(call run,$(W_VENDORED),lint)
-
-lint-cleartext-v-prev: compile-cleartext-v-prev ## Lint the previous cleartext generation (needs its own generated sources)
-	$(call run,$(W_CLEARTEXT_V_PREV),lint)
 
 lint-cleartext-v-cur: compile-cleartext-v-cur ## Lint the current cleartext generation
 	$(call run,$(W_CLEARTEXT_V_CUR),lint)
