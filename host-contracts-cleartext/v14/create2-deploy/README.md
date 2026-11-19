@@ -1,15 +1,18 @@
 # create2-deploy
 
-**Runs on a local anvil; never yet on a real testnet.** These files started as a drawing to make
-[CREATE2_TESTNET_DEPLOY_PLAN.md](../plans/CREATE2_TESTNET_DEPLOY_PLAN.md) concrete enough to argue with,
-and are now further along than that: the full flow — `compute` through step F and `verify` — has been run
-end to end against a local anvil in both generations, finishing with *"OK — every terminal condition
-met."* See GUIDE.md; no keystore is needed for that.
+**Runs on Ethereum Sepolia and on a local anvil.** The full flow — `compute` through step F and `verify` —
+has been run end to end against a local anvil in both generations, finishing with *"OK — every terminal
+condition met."* See [GUIDE.md](./GUIDE.md); no keystore is needed for that.
 
-What is still true: **no real testnet run has happened.** The directory sits outside `pkg/`, nothing
-imports it, and it is not part of `npm run build`. Two things are wired in now — `foundry.toml` grants
-it `fs_permissions` so the manifest can be written, and `test/Create2Ordinals.t.sol` pins the index
-alignment its four role tables depend on.
+On Ethereum Sepolia, the v13 generation of this tool deployed the stack `cleartext-v13-sepolia-2026-10-05-1`
+on 2026-10-05, and this generation's `upgrade-cli` upgraded it to v14 on 2026-11-17, after a rehearsal on
+an anvil fork of Sepolia. Both records are in
+[deployments/ethereum_sepolia/](../../../deployments/ethereum_sepolia/cleartext-v13-sepolia-2026-10-05-1/);
+each `tool-commit.txt` names the commit that reproduces it and what was done by hand.
+
+What is still true: the directory sits outside `pkg/`, nothing imports it, and it is not part of
+`npm run build`. Two things are wired in now — `foundry.toml` grants it `fs_permissions` so the manifest
+can be written, and `test/Create2Ordinals.t.sol` pins the index alignment its four role tables depend on.
 
 To check it yourself:
 
@@ -197,7 +200,8 @@ What is **not** proven, and would have to be added to prove it:
 - **The rehearsal is a fork, not the chain.** anvil replays state faithfully, but block timestamps, gas
   accounting and the mempool are its own. A payload that passes on the fork can still fail live for
   reasons of gas or ordering, which is what `materialize`'s own `require`s and the post-hoc `verify` are for.
-  Verified on anvil forking anvil (`npm run test:upgrade`); not yet on an anvil forking a public testnet.
+  Verified on anvil forking anvil (`npm run test:upgrade`), and on 2026-11-17 on an anvil forking Ethereum
+  Sepolia, before the live upgrade.
 
 ## Checking a stage before running it
 
@@ -521,7 +525,7 @@ dir that contains the package is refused.
 
 ## Running it
 
-A real testnet, which has not been done yet:
+A real testnet, as the Sepolia stack was deployed:
 
 ```sh
 create2-deploy/deploy-cli \
@@ -532,7 +536,7 @@ create2-deploy/deploy-cli \
   --confirmations  3
 ```
 
-A local anvil rehearsal, which has — see GUIDE.md. `--account` and `--admin` are omitted there, which
+A local anvil rehearsal — see GUIDE.md. `--account` and `--admin` are omitted there, which
 is allowed only because the node answers `anvil_nodeInfo`:
 
 ```sh
