@@ -160,7 +160,7 @@ function isInside(path: string, root: string): boolean {
 }
 
 function violation(workspaceRoot: string, file: string, message: string): Violation {
-  return { rule: 'lint-policy', packageKey: pathKey(workspaceRoot, file), message };
+  return { rule: 'NR-89', packageKey: pathKey(workspaceRoot, file), message };
 }
 
 function pathKey(workspaceRoot: string, path: string): string {

@@ -17,7 +17,7 @@ export const checkCleartextConfig: CheckCommand = (context) => {
     violations: statuses
       .filter((output) => output.status !== 'identical')
       .map((output) => ({
-        rule: 'cleartext-config-face',
+        rule: 'NR-90',
         packageKey: faceKey(output.path),
         message:
           output.status === 'missing'

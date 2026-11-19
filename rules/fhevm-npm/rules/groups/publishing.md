@@ -411,3 +411,43 @@ npm publish "$tgz"
 # ❌ Publishes the working tree: the tarball ships "file:../../../../host-contracts-cleartext/<vN>/pkg".
 npm publish ./hardhat/v3/plugin/pkg
 ```
+
+<a id="nr-88"></a>
+
+## NR-88: The Hardhat 2 plugin's version constants follow their sources `[HOLD]`
+
+> The two package versions that the Hardhat 2 plugin writes in `src/internal/constants.ts` equal their sources of truth.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli sync hh-v2-constants --check`
+
+The Hardhat 2 plugin, `hardhat/v2/plugin/pkg`, hardcodes two package versions in `src/internal/constants.ts` and reads
+them at run time:
+
+- `FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE` equals the version that `versions.json` gives the host-contracts-cleartext
+  payload, at the key the plugin's own `file:` dependency points to. The rule follows the plugin when it moves to
+  another generation.
+- `FHEVM_SOLIDITY_PACKAGE` equals the floor of the `@fhevm/solidity` spec in `npm-manifest.json#dependencies.pinned`:
+  `^X.Y.Z` gives `X.Y.Z`, the release whose addresses the block was checked against.
+
+Each block carries its version twice, in the comment above it and in its `version` field. Both equal the source.
+
+`version apply` writes the derived versions of [NR-37](../entries/NR-37.md) and `sync pinned` writes the pins of
+[NR-21](../entries/NR-21.md), but neither touches this file. Without this rule it drifts silently after a version bump or a pin
+change, and the plugin then describes a package that the workspace no longer builds. The remedy is
+`fhevm-npm sync hh-v2-constants`, which rewrites only those four spots. `--check` compares instead of writing, and runs
+in `make check-pre`.
+
+The rule applies to Hardhat 2 only. When `hardhat/v2` is deleted, retire this rule together with the command: the
+header of `fhevm-npm/commands/sync-hh-v2-constants.ts` lists what goes.
+
+```ts
+// ✅ Both spots equal the source: versions.json gives the payload X.Y.Z.
+// @fhevm/host-contracts-cleartext@X.Y.Z
+FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE: {
+  version: 'X.Y.Z',
+
+// ❌ The version moved in versions.json, and the constant still names the old release.
+// @fhevm/host-contracts-cleartext@X.Y.W
+```
