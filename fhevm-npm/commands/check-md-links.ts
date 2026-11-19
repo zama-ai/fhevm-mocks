@@ -18,7 +18,7 @@ export type MlcIssue = {
 export type MdLinksTools = {
   /** The repository's .md files, relative to the root, without the ones git ignores. */
   readonly listMarkdownFiles: (workspaceRoot: string) => readonly string[];
-  /** The folders of the previous generations, as `host-contracts-cleartext/v13`; none without a manifest. */
+  /** The folders of the previous generations, as `host-contracts-cleartext/<vN-1>`; none without a manifest. */
   readonly previousGenerations: (workspaceRoot: string) => readonly string[];
   /** The folders of the vendored copies, as `hardhat/v2/plugin/pkg/src/internal/vendored`; none without a manifest. */
   readonly vendoredFolders: (workspaceRoot: string) => readonly string[];

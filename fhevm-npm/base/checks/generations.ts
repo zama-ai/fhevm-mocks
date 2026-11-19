@@ -44,7 +44,7 @@ export function generationOf(family: GenerationFamily, key: string): Generation 
   return undefined;
 }
 
-/** The directory basenames of a family's live generations: `v13`, and `v12` when there is a <vN-1>. */
+/** The directory basenames of a family's live generations: `<vN>`, and `<vN-1>` when there is one. */
 export function liveGenerationNames(family: GenerationFamily): readonly string[] {
   const basename = (key: string): string => key.slice(key.lastIndexOf('/') + 1);
   return family.previous === undefined
@@ -133,11 +133,11 @@ export function validateGenerationMirrorPatch(
  * One entry writes one face, so its family targets must all name the same path below their generation
  * directory; that is what lets a missing generation be reported as the exact destination to add.
  *
- * The exception is a face NAMED for a generation — `cleartext-config-v14.ts`, the complete TypeScript face
- * `generate cleartext-config` emits for v14, which lands in v14's pkg/ts renamed to `cleartext-config.ts`.
+ * The exception is a face NAMED for a generation — `cleartext-config-<vN>.ts`, the complete TypeScript face
+ * `generate cleartext-config` emits for `<vN>`, which lands in `<vN>`'s pkg/ts renamed to `cleartext-config.ts`.
  * Judged by its SOURCE name: such a file exists for one generation by construction, so demanding it of
  * every live generation would be wrong; what is demanded instead is the converse, that it lands in the
- * generation it is named for and nowhere else. v14's face copied into v13 would hand v13 constants its
+ * generation it is named for and nowhere else. `<vN>`'s face copied into `<vN-1>` would hand `<vN-1>` constants its
  * contracts have no field for.
  *
  * The vendored manifest keeps plain paths — this only reads them.

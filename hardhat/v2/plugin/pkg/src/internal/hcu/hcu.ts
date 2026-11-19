@@ -1,6 +1,6 @@
 // Ported from `@fhevm/mock-utils` (`fhevm/coprocessor/hcu.ts`). HCU is a cost model applied to the
 // FHEVMExecutor's operator events, so it survived the move to an on-chain cleartext stack unchanged:
-// the v13 `CleartextFHEVMExecutor` emits the same events. Only the imports were rehomed.
+// the `<vN>` `CleartextFHEVMExecutor` emits the same events. Only the imports were rehomed.
 import type { ethers as EthersT } from 'ethers';
 
 import { HardhatFhevmError } from '../../error';

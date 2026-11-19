@@ -16,7 +16,7 @@ export type FhevmAddress = `0x${string}`;
 /** A deployed contract, the shape the js-sdk chain definitions use. */
 export type FhevmChainContract = { readonly address: FhevmAddress };
 
-/** A host chain's contracts. `kmsGeneration` and `protocolConfig` exist on v13 hosts only. */
+/** A host chain's contracts. Protocol 0.13 introduced `kmsGeneration` and `protocolConfig`: older hosts lack them. */
 export type FhevmHostContracts = {
   readonly acl: FhevmChainContract;
   readonly fhevmExecutor: FhevmChainContract;

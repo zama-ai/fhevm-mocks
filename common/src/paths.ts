@@ -17,7 +17,7 @@ const ZAMA_CONFIG_FILE_NAME = 'ZamaConfig.sol';
  * @param startDir Absolute path to start from — the calling package's own root.
  * @throws if no ancestor declares `workspaces`.
  * @example
- * findWorkspaceRootAbsPath('/repo/sdk/host-contracts-cleartext/v13'); // '/repo/sdk'
+ * findWorkspaceRootAbsPath('/repo/sdk/host-contracts-cleartext/<vN>'); // '/repo/sdk'
  */
 export function findWorkspaceRootAbsPath(startDir: string): string {
   let current = startDir;
@@ -46,8 +46,8 @@ export function findWorkspaceRootAbsPath(startDir: string): string {
  * @param packageDir Absolute path of the generation's dev package — the directory holding its package.json.
  * @throws if the dev package declares no pinned vendored source, or the copy is not where it says.
  * @example
- * vendoredZamaConfigAbsPath('/repo/host-contracts-cleartext/v14');
- * // '/repo/host-contracts-cleartext/v14/internal/zama-config/ZamaConfig.sol'
+ * vendoredZamaConfigAbsPath('/repo/host-contracts-cleartext/<vN>');
+ * // '/repo/host-contracts-cleartext/<vN>/internal/zama-config/ZamaConfig.sol'
  */
 export function vendoredZamaConfigAbsPath(packageDir: string): string {
   const manifest = join(packageDir, 'package.json');
@@ -88,8 +88,8 @@ function _vendoredTo(packageJson: unknown): string | undefined {
  * otherwise. No git involved, so the label reads the same in a copied tree with no repository.
  *
  * @example
- * sourceLabel('/repo/host-contracts-cleartext/v14/internal/zama-config/ZamaConfig.sol');
- * // 'host-contracts-cleartext/v14/internal/zama-config/ZamaConfig.sol'
+ * sourceLabel('/repo/host-contracts-cleartext/<vN>/internal/zama-config/ZamaConfig.sol');
+ * // 'host-contracts-cleartext/<vN>/internal/zama-config/ZamaConfig.sol'
  */
 export function sourceLabel(sourcePath: string): string {
   const fromRoot = relative(findWorkspaceRootAbsPath(THIS_DIR), sourcePath);

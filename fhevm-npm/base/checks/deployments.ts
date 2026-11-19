@@ -4,10 +4,10 @@
 // it is frozen: editing it can only make it disagree with the chain. A later event gets a NEW folder.
 //
 //   deployments/<chain>/<stack>/
-//   ├── 00-deploy-v13.0-2026-10-05/        <seq>-<kind>-v<generation>.<patch>-<UTC day of the defining tx's block>
-//   ├── 01-hotfix-v13.1-2026-10-20/
-//   ├── 02-upgrade-v14.1-2026-11-02/
-//   └── aborted/2026-10-30-upgrade-v14.1-1/ an attempt that sent transactions but never became an event
+//   ├── `00-deploy-v13.0-2026-10-05/`        <seq>-<kind>-v<generation>.<patch>-<UTC day of the defining tx's block>
+//   ├── `01-hotfix-v13.1-2026-10-20/`
+//   ├── `02-upgrade-v14.1-2026-11-02/`
+//   └── `aborted/2026-10-30-upgrade-v14.1-1/` an attempt that sent transactions but never became an event
 //
 // Two checks, because only one of them needs git history:
 //   consistency  every record is complete and agrees with itself, with fhevm-chains.config.json, and with the

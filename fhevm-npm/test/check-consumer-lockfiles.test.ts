@@ -89,7 +89,7 @@ test('a published node whose version disagrees with versions.json is reported wi
 });
 
 test('a same-named payload resolved to the generation the depender no longer names is reported, even at its own right version', () => {
-  // Exactly the shape found in hardhat/v3/plugin/test-consumer/esm: 0.13.0 IS host/v13/pkg's version, so the
+  // Exactly the shape found in hardhat/v3/plugin/test-consumer/esm: 0.13.0 IS `host/v13/pkg`'s version, so the
   // version assertion alone is silent; the path assertion is what speaks.
   const violations = run(files(lock('v13', '0.14.0-0', '0.13.0'), 'v14'));
   assert.equal(violations.length, 1);

@@ -956,13 +956,13 @@ test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ##
 # first connection, so a second suite meeting a stack it did not deploy is not the scenario under test.
 #
 # THE PORT MAP, because it is a cross-package invariant and nothing else states it in one place:
-#   8545        hardhat v2/v3 e2e, and the v12/v13 consumer rehearsals — never concurrent, see `ci`
+#   8545        hardhat v2/v3 e2e, and the consumer rehearsals — never concurrent, see `ci`
 #   8546        forge-fhevm-std `test:anvil`
 #   8547        forge-fhevm-std `test:anvil-refusals` — resets its node between cases, so it cannot
 #               share one with 8546
 #   8548        forge-fhevm-std `test:anvil-mirror` — resets its node mid-test, same reason
-#   8557/8558   v13 create2 e2e (spawned by the suites themselves)
-#   8600-8651   v12/v13 vitest suites; uniqueness enforced by test/anvil-ports.test.ts in each generation
+#   8557/8558   <vN-1> and <vN> create2 e2e (spawned by the suites themselves)
+#   8600-8651   <vN-1> and <vN> vitest suites; uniqueness enforced by test/anvil-ports.test.ts in each generation
 # Anything added here must claim a port no one else holds.
 #
 # The two targets below are the bring-your-own-node ones with a node provided; they repeat the suite's
@@ -1105,7 +1105,7 @@ sync-common-vendored: ## Write every vendored destination from its source of tru
 # The one way a pin moves. Everything derived from it follows in the same run: the manifest's commit and
 # digest, the copies, each owning package.json. Read the diff it leaves, then the generation's checklist.
 #
-#   make bump-vendored PKG=./host-contracts-cleartext/v13 TAG=v0.13.6
+#   make bump-vendored PKG=./host-contracts-cleartext/<vN-1> TAG=v<N-1>.<patch>
 #   make bump-vendored PKG=… TAG=… COMMIT=<sha>          # a commit no tag names yet
 #   make bump-vendored PKG=… TAG=… CHECK=1               # say what would move, write nothing
 bump-vendored: ## Move every vendored pin under PKG to TAG (manifest, digests, copies, package.json)

@@ -30,7 +30,7 @@ export type { CoprocessorConfig } from '../coprocessorConfig';
 /**
  * OWN — the real host contracts. These exist in every FHEVM deployment, cleartext or not.
  *
- * The first five are the classic set; `ProtocolConfig` and `KMSGeneration` are new in v13, and
+ * The first five are the classic set; protocol 0.13 introduced `ProtocolConfig` and `KMSGeneration`, and
  * `PauserSet` backs ACL pausing. All revert with custom errors, so all must be nameable by
  * `revertedWithCustomErrorArgs` and resolvable by the revert decoder — ABIs come from
  * `@fhevm/host-contracts-cleartext`'s `./abi/*.json`.
@@ -93,7 +93,7 @@ export type FhevmContractWrapper = {
  * recorded here so migration step 5 knows precisely what to rebuild (on
  * `@fhevm/host-contracts-cleartext`'s `./abi/*.json`) and nothing more.
  *
- * Note the gateway/signer members: in v13 the KMS signer set and thresholds moved to
+ * Note the gateway/signer members: protocol 0.13 moved the KMS signer set and thresholds to
  * `ProtocolConfig`, so `getKmsSigners()` no longer lives on `KMSVerifier`. Step 5 has to re-source
  * them rather than port them across.
  */
