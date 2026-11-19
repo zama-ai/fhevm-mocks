@@ -73,5 +73,5 @@ Other files in an event folder (a README, an `addresses.json` of account labels)
 ./fhevm-npm-cli check deployments --base <base ref>   # and no existing record changed
 ```
 
-The first runs in `make check-pre`; the second runs in CI on every pull request. The rules are
-`fhevm-npm-docs/FHEVM_NPM_RULES.md` § 8.
+The first runs in `make check-pre`; the second runs in CI on every pull request. The rules are the
+Deployments group of [the npm rules](../rules/fhevm-npm/rules/groups/deployments.md).

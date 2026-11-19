@@ -1,6 +1,6 @@
 # fhevm-npm
 
-Autonomous Node-native TypeScript CLI for validating [`FHEVM_NPM_RULES.md`](../fhevm-npm-docs/FHEVM_NPM_RULES.md). It owns its dependencies,
+Autonomous Node-native TypeScript CLI for validating [the npm rules](../rules/fhevm-npm/rules/README.md). It owns its dependencies,
 TypeScript configuration and tests, and imports no code from the surrounding SDK.
 
 ```sh
