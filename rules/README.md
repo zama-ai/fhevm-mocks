@@ -28,3 +28,5 @@ node .claude/skills/reg/generate-index.mjs --check rules/fhevm-npm/rules
 node .claude/skills/reg/generate-index.mjs --check rules/fhevm-npm/definitions
 node .claude/skills/reg/generate-index.mjs --check rules/__issues__
 ```
+
+`make check-rules` runs the same check on every registry folder, and `make check-pre` runs it first.
