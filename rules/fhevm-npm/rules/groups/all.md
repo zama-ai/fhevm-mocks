@@ -3362,17 +3362,13 @@ $EDITOR host-contracts-cleartext/<vN>/pkg/src/cleartext/shared/LibFhevmCleartext
 
 <a id="nr-91"></a>
 
-## NR-91: Every copy of a deployed address follows fhevm-chains.config.json `[VIOLATED]`
+## NR-91: Every copy of a deployed address follows fhevm-chains.config.json `[HOLD]`
 
 > A deployed FHEVM address written anywhere else in the workspace equals the one that `fhevm-chains.config.json` gives.
 
 Check: script.
 
 Checked by: `./fhevm-npm-cli check forge-std-chains`
-
-Evidence:
-
-- `foundry/forge-fhevm-std/pkg/src/StdFhevmChains.sol:538,555,572,589`, the four `devnet` entries (`ethereum_sepolia`, `polygon_amoy`, `bnb_testnet`, `ethereum_hoodi`), still give the devnet addresses of the previous registry revision: `sync fhevm-chains` moved the config to the redeployed devnet, and 29 host and gateway fields of the table now differ from it. Fix: copy the devnet entries of `fhevm-chains.config.json` into the table.
 
 `fhevm-chains.config.json` at the workspace root is the one source of every deployed FHEVM address: the host
 contracts of each host chain, the gateway contracts, and the relayer URL of each network group. `fhevm-npm sync

@@ -45,6 +45,8 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check lockfiles': ['NR-64'],
   'check extraneous': ['NR-65'],
   'check forge-std-chains': ['NR-91'],
+  // NR-91 for the generated copy: `--check` compares common-vendored/src/fhevm-chains.ts with the config.
+  'generate chain-constants': ['NR-91'],
   'check consumer-lockfiles': ['NR-66'],
   'check manifest-coverage': ['NR-70', 'NR-71', 'NR-72', 'NR-73'],
   'check json-schemas': ['NR-74', 'NR-87'],
@@ -77,6 +79,7 @@ export const REQUIRED_OPTIONS: Readonly<Record<string, Readonly<Partial<Record<R
   'sync vendored': { 'NR-42a': { given: ['check'], absent: ['digest'] } },
   'sync pinned': { 'NR-21': { given: ['check'] } },
   'generate cleartext-config': { 'NR-90': { given: ['check'] } },
+  'generate chain-constants': { 'NR-91': { given: ['check'] } },
   'sync hh-v2-constants': { 'NR-88': { given: ['check'] } }, // hh-v2-constants
 };
 
