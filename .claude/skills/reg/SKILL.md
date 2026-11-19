@@ -37,7 +37,7 @@ If a rule breaks, the script writes nothing. Each error names the file and says 
 
 The script exits with code 0 when every file is up to date or written, with code 1 when a rule breaks or, with `--check`, a file is out of date, and with code 2 for a wrong command line or broken settings of the kind.
 
-To check without writing, add `--check`. Nothing runs it automatically. Run it yourself before you commit.
+To check without writing, add `--check`. `make check-rules` runs it on every registry folder, as part of `make check-pre` and `make check`, and CI runs it on every pull request with `--base`. Run it yourself before you commit.
 
 Before you merge, also add `--base <branch>`, with the branch that the change targets:
 

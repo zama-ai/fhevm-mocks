@@ -182,9 +182,9 @@ test: test-cleartext-v-prev test-cleartext-v-cur $(TEST_SUITES_TAIL) ## Run pack
 
 test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast $(TEST_SUITES_TAIL) ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
 
-check: check-npm-cli ## Run pre-build checks, build, then post-build checks
+check: check-rules check-npm-cli ## Run pre-build checks, build, then post-build checks
 
-check-pre: check-npm-cli-pre-build ## Run all checks that do not require build output
+check-pre: check-rules check-npm-cli-pre-build ## Run all checks that do not require build output
 
 # Vendored content settles FIRST — and in two steps: common-vendored's own `generate` renders
 # sdk/cleartext-config.json into common-vendored/src, THEN sync fans the sources out into pkg/src and
@@ -657,6 +657,41 @@ compile-hh-v2-e2e: compile-hh-v2-plugin ## Compile the Hardhat v2 e2e suite
 .PHONY: check-npm-cli check-npm-cli-pre-build check-npm-cli-post-build check-mirror
 
 check-npm-cli: check-npm-cli-post-build # Internal: run every fhevm-npm check in lifecycle order
+
+# The registry folders under rules/ are the folders that hold an entries/ folder, at any depth. The shell
+# finds them on every run instead of a list here, so a new rule book is checked the day it is created.
+REGISTRY_SCRIPT := .claude/skills/reg/generate-index.mjs
+# A git ref, set by CI to the pull request's base: every ID indexed there must still exist, and every ID
+# retired there must stay retired. Empty locally, where the index itself catches the usual mistakes.
+RULES_BASE ?=
+
+# Runs the registry script on every registry folder, with the flags in $(1). Checks every folder before
+# it fails, so one run shows the errors of every book; fails as well when it finds no folder at all.
+define check-registries
+	@folders=$$(find rules -type d -name entries -prune | sed 's#/entries$$##' | sort); \
+	test -n "$$folders" || { echo "🛑 no registry folder under rules/: nothing would be checked"; exit 1; }; \
+	status=0; \
+	while IFS= read -r folder; do \
+	  if node $(REGISTRY_SCRIPT) $(1) "$$folder"; then echo "✅ $$folder"; else echo "❌ $$folder"; status=1; fi; \
+	done <<< "$$folders"; \
+	exit $$status
+endef
+
+.PHONY: check-rules check-rules-links
+
+# Fails on a malformed entry, a reused ID, an unknown tag, or an index or group page that does not match
+# the entries; with RULES_BASE, also on an ID deleted or un-retired since that ref. It never reports a
+# rule's status: a GAP or VIOLATED rule passes.
+check-rules: ## Check every registry folder under rules/ (entries, IDs, tags, generated indexes)
+	$(call check-registries,--check $(if $(RULES_BASE),--base $(RULES_BASE)))
+
+# Asks the check each checked-by names whether it enforces the rule: about two minutes for the npm
+# rules, so it is not part of check-pre. It RUNS whatever a checked-by names, without a shell but also
+# without a sandbox, and a checked-by only has to start with a file of the repository. Before running
+# it, review every changed checked-by and the file it names. Never wire it into a pull_request workflow.
+check-rules-links: ## Prove every rule's checked-by by asking its check (slow; needs install-npm-cli)
+	@test -d $(DIR_FHEVM_NPM)/node_modules || { echo "🛑 fhevm-npm is not installed: run 'make install-npm-cli' first"; exit 1; }
+	$(call check-registries,--check --verify-commands)
 
 # Deliberately PHONY, so it re-runs every time something asks for it — four times in a `make ci`, and
 # that is the correct trade. Stamping it needs an exhaustive list of what these checks read, and that
