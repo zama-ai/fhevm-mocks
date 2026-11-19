@@ -49,63 +49,77 @@ const CONFIG = 'pragma solidity ^0.8.24;\nlibrary ZamaConfig { uint256 constant 
 
 function workspace(): { root: string; manifestFile: string; cacheRoot: string } {
   const root = mkdtempSync(join(process.cwd(), '.tmp-bump-vendored-'));
-  mkdirSync(join(root, 'gen', 'pkg', 'src', 'contracts'), { recursive: true });
-  mkdirSync(join(root, 'gen', 'internal', 'zama-config'), { recursive: true });
-  mkdirSync(join(root, 'lib', 'pkg', 'src', 'other'), { recursive: true });
-  writeFileSync(join(root, 'gen', 'package.json'), '{"name":"gen-dev","private":true}\n');
-  writeFileSync(join(root, 'gen', 'pkg', 'package.json'), '{"name":"gen"}\n');
-  writeFileSync(join(root, 'lib', 'pkg', 'package.json'), '{"name":"lib"}\n');
-  writeFileSync(join(root, 'gen', 'pkg', 'src', 'contracts', 'ACL.sol'), fmt(ACL_OLD));
-  writeFileSync(join(root, 'gen', 'internal', 'zama-config', 'ZamaConfig.sol'), fmt(CONFIG));
-  writeFileSync(join(root, 'lib', 'pkg', 'src', 'other', 'Other.sol'), 'pragma solidity ^0.8.24;\n');
-  writeFileSync(join(root, '.prettierrc'), '{ "printWidth": 120 }\n');
-  writeFileSync(join(root, 'package.json'), '{"name":"workspace","private":true}\n');
+  // Building the fixture runs `forge fmt`; if that fails, the test's own cleanup never starts.
+  try {
+    mkdirSync(join(root, 'gen', 'pkg', 'src', 'contracts'), { recursive: true });
+    mkdirSync(join(root, 'gen', 'internal', 'zama-config'), { recursive: true });
+    mkdirSync(join(root, 'lib', 'pkg', 'src', 'other'), { recursive: true });
+    writeFileSync(join(root, 'gen', 'package.json'), '{"name":"gen-dev","private":true}\n');
+    writeFileSync(join(root, 'gen', 'pkg', 'package.json'), '{"name":"gen"}\n');
+    writeFileSync(join(root, 'lib', 'pkg', 'package.json'), '{"name":"lib"}\n');
+    writeFileSync(join(root, 'gen', 'pkg', 'src', 'contracts', 'ACL.sol'), fmt(ACL_OLD));
+    writeFileSync(join(root, 'gen', 'internal', 'zama-config', 'ZamaConfig.sol'), fmt(CONFIG));
+    writeFileSync(join(root, 'lib', 'pkg', 'src', 'other', 'Other.sol'), 'pragma solidity ^0.8.24;\n');
+    writeFileSync(join(root, '.prettierrc'), '{ "printWidth": 120 }\n');
+    writeFileSync(join(root, 'package.json'), '{"name":"workspace","private":true}\n');
 
-  const pin = (from: string, digest: string) => ({ repository: REPOSITORY, tag: 'v0.13.2', commit: OLD, digest, from });
-  const manifest = {
-    packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
-    packages: {
-      '.': { kind: 'workspace-root', type: 'esm', browser: false, name: 'workspace', private: true, member: false },
-      './gen': {
-        kind: 'dev',
-        type: 'esm',
-        browser: false,
-        name: 'gen-dev',
-        private: true,
-        member: true,
-        publishedRelPath: './gen/pkg',
-        vendored: [
-          { relPath: './internal/zama-config', source: pin('library-solidity/config', 'sha256-old1'), reason: 'r' },
-        ],
+    const pin = (from: string, digest: string) => ({
+      repository: REPOSITORY,
+      tag: 'v0.13.2',
+      commit: OLD,
+      digest,
+      from,
+    });
+    const manifest = {
+      packageJson: { published: { required: ['name', 'version'], excluded: ['private'] } },
+      packages: {
+        '.': { kind: 'workspace-root', type: 'esm', browser: false, name: 'workspace', private: true, member: false },
+        './gen': {
+          kind: 'dev',
+          type: 'esm',
+          browser: false,
+          name: 'gen-dev',
+          private: true,
+          member: true,
+          publishedRelPath: './gen/pkg',
+          vendored: [
+            { relPath: './internal/zama-config', source: pin('library-solidity/config', 'sha256-old1'), reason: 'r' },
+          ],
+        },
+        './gen/pkg': {
+          kind: 'published',
+          type: 'esm',
+          browser: false,
+          name: 'gen',
+          member: false,
+          vendored: [
+            { relPath: './src/contracts', source: pin('host-contracts/contracts', 'sha256-old2'), reason: 'r' },
+          ],
+        },
+        './lib/pkg': {
+          kind: 'published',
+          type: 'esm',
+          browser: false,
+          name: 'lib',
+          member: false,
+          vendored: [
+            {
+              relPath: './src/other',
+              source: { repository: OTHER, tag: 'v1', commit: OLD, digest: 'sha256-other', from: 'x' },
+              reason: 'r',
+            },
+          ],
+        },
       },
-      './gen/pkg': {
-        kind: 'published',
-        type: 'esm',
-        browser: false,
-        name: 'gen',
-        member: false,
-        vendored: [{ relPath: './src/contracts', source: pin('host-contracts/contracts', 'sha256-old2'), reason: 'r' }],
-      },
-      './lib/pkg': {
-        kind: 'published',
-        type: 'esm',
-        browser: false,
-        name: 'lib',
-        member: false,
-        vendored: [
-          {
-            relPath: './src/other',
-            source: { repository: OTHER, tag: 'v1', commit: OLD, digest: 'sha256-other', from: 'x' },
-            reason: 'r',
-          },
-        ],
-      },
-    },
-  };
-  const manifestFile = join(root, 'npm-manifest.json');
-  writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-  const cacheRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-bump-cache-'));
-  return { root, manifestFile, cacheRoot };
+    };
+    const manifestFile = join(root, 'npm-manifest.json');
+    writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-bump-cache-'));
+    return { root, manifestFile, cacheRoot };
+  } catch (error) {
+    rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 const trees = {
