@@ -54,8 +54,8 @@ interface ICleartextArithmetic is IPlaintexts {
 
     /// @notice Computes an nary op over the operands' cleartexts and records it into `result`.
     ///         For `fheSum`, `value` is unused (pass bytes32(0)) and `values` are the summands. For
-    ///         `fheIsIn`, `value` is the needle and `values` are the set. Both arrived in v13, and their
-    ///         presence forced a v12->v13 `CleartextArithmetic` upgrade, since the v12 arithmetic had no
+    ///         `fheIsIn`, `value` is the needle and `values` are the set. Both arrived in `v13`, and their
+    ///         presence forced a `v12`->`v13` `CleartextArithmetic` upgrade, since the `v12` arithmetic had no
     ///         such selector.
     function recordNaryOp(Operators op, bytes32 result, bytes32 value, bytes32[] memory values, FheType fheType)
         external;

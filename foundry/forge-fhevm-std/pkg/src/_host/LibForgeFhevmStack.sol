@@ -514,7 +514,7 @@ library LibForgeFhevmStack {
     /**
      * @notice Registers the cleartext KMS nodes on a forked `ProtocolConfig`, and puts them in charge.
      *
-     * @dev THREE PHASES, NOT ONE. v13's `defineNewKmsContext` activated what it created; its v14
+     * @dev THREE PHASES, NOT ONE. `v13`'s `defineNewKmsContext` activated what it created; its `v14`
      *      replacement `defineNewKmsContextAndEpoch` only PROPOSES, and the verifier's `getKmsSigners`,
      *      `getThreshold` and `getCurrentKmsContextId` keep answering for the old committee until
      *        1. the proposal is made by the ACL owner,

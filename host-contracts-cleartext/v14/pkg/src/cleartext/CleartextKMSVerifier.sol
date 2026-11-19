@@ -162,7 +162,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /// @notice Same, signed over exactly the `extraData` the requester names, as a real relayer has the KMS
     ///         sign over the extraData the request carries.
-    /// @dev    Added in v14. The sdk decides which KMS committee must sign and verifies the proof against its own
+    /// @dev    Added in `v14`. The sdk decides which KMS committee must sign and verifies the proof against its own
     ///         extraData, ignoring the one returned here. So the digest must be built over the REQUESTED
     ///         extraData: v0 (empty or `0x00`: the current context), v1 (`0x01 | contextId`) or v2
     ///         (`0x02 | contextId | epochId`). Parsed by KMSVerifier's own `_extractKmsContextId`, which rejects
@@ -185,7 +185,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /// @notice Same as the legacy `userDecrypt`, verified against exactly the `extraData` the user signed their
     ///         permit over.
-    /// @dev    Added in v14. A permit is reusable until it expires, and its extraData names the KMS context (and, in
+    /// @dev    Added in `v14`. A permit is reusable until it expires, and its extraData names the KMS context (and, in
     ///         v2, epoch) current WHEN IT WAS SIGNED, which may no longer be the current one; the sdk resolves
     ///         the signers of that context, not of the current one. So the host must not guess it: the caller
     ///         passes the permit's `message.extraData`, verbatim. Parsed by KMSVerifier's own
@@ -217,7 +217,7 @@ contract CleartextKMSVerifier is KMSVerifier {
 
     /// @notice Same as the legacy `delegatedUserDecrypt`, verified against exactly the `extraData` the delegate
     ///         signed their permit over.
-    /// @dev    Added in v14; see `userDecryptV1`.
+    /// @dev    Added in `v14`; see `userDecryptV1`.
     /// @param permit    The permit's signed fields (the delegator included) and its signer, the delegate.
     /// @param signature The delegate's 65-byte EOA signature over the permit.
     function delegatedUserDecryptV1(

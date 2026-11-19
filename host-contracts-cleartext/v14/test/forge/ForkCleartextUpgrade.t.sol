@@ -140,11 +140,11 @@ abstract contract ForkCleartextUpgrade is Test {
         assertEq(ICleartextDB(dbProxy).get(handle), 7, "the DB holds the plaintext");
         assertEq(ICleartextFHEVMExecutor(EXECUTOR).plaintexts(handle), 7, "and the executor answers for it");
 
-        // -- 5. AN OPERATION v14 ADDED, which is what makes this test able to fail ---------------------
+        // -- 5. AN OPERATION `v14` ADDED, which is what makes this test able to fail ---------------------
         //
         // `trivialEncrypt` above cannot tell the two generations apart -- both implement it the same way,
         // so step 4 passes whether or not the upgrade that was supposed to run did. `fheMulDiv` is what
-        // v14 ADDED: the executor routes it to `HCULimit.checkHCUForFheMulDiv`, a function a v13 HCULimit
+        // `v14` ADDED: the executor routes it to `HCULimit.checkHCUForFheMulDiv`, a function a `v13` HCULimit
         // did not have. Reaching a correct answer here means every contract the call touches really is
         // this generation's, not just the executor.
         bytes32 factor = ICleartextFHEVMExecutor(EXECUTOR).trivialEncrypt(10, FheType.Uint32);
