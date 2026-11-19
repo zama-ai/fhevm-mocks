@@ -20,6 +20,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check tsconfig-paths': ['NR-06'],
   'check tsc-mode': ['NR-14'],
   'check dependencies': ['NR-15', 'NR-16', 'NR-18', 'NR-20', 'NR-31', 'NR-32', 'NR-33', 'NR-34', 'NR-35'],
+  'check cleartext-config': ['NR-90'],
   'check generations': ['NR-22', 'NR-23', 'NR-24', 'NR-25', 'NR-26'],
   'check generation-parity': ['NR-27'],
   'check foundry': ['NR-03', 'NR-29', 'NR-30'],
@@ -44,6 +45,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check consumer-lockfiles': ['NR-66'],
   'check manifest-coverage': ['NR-70', 'NR-71', 'NR-72', 'NR-73'],
   'check json-schemas': ['NR-74', 'NR-87'],
+  'check lint-policy': ['NR-89'],
   'check md-links': ['R-07'],
   // NR-53: README.md and LICENSE in `files`; `check package-json` checks the license and the LICENSE file.
   'check published-files': ['NR-52', 'NR-53'],
@@ -52,6 +54,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check vendored-origin': ['NR-42a'],
   'sync vendored': ['NR-42a'],
   'sync pinned': ['NR-21'],
+  'sync hh-v2-constants': ['NR-88'], // hh-v2-constants
   'bump vendored': ['NR-42a'],
   'version check': ['NR-36', 'NR-37'],
   'version apply': ['NR-36', 'NR-37'],
@@ -70,6 +73,7 @@ export const REQUIRED_OPTIONS: Readonly<Record<string, Readonly<Partial<Record<R
   // --digest prints the upstream digest instead of checking the copies.
   'sync vendored': { 'NR-42a': { given: ['check'], absent: ['digest'] } },
   'sync pinned': { 'NR-21': { given: ['check'] } },
+  'sync hh-v2-constants': { 'NR-88': { given: ['check'] } }, // hh-v2-constants
 };
 
 export type RequiredOptions = { readonly given: readonly string[]; readonly absent?: readonly string[] };

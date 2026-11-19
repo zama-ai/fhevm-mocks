@@ -379,3 +379,35 @@ The workspace rotates when the developer starts the next generation, not when a 
 > **Implemented.** The schema of `npm-manifest.json`, which `fhevm-npm check json-schemas` applies, allows only the keys `current` and `previous` for each family, so a third generation fails. The TypeScript validator also requires both to be different dev packages, each below the directory of the family. Nothing requires `previous` yet on `release/0.14.x`: that is the gap, which issue I-120 closes.
 
 [WORKSPACE.md](../../WORKSPACE.md) explains how generations live side by side in the workspace.
+
+<a id="nr-90"></a>
+
+## NR-90: Cleartext-config faces are generated, never edited `[HOLD]`
+
+> Every face of `cleartext-config.json` equals what `fhevm-npm generate cleartext-config` renders from it.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check cleartext-config`
+
+`cleartext-config.json` at the workspace root is the only source of a value that the languages of the cleartext stack
+must agree on: a chain ID, a localhost address, a KMS node parameter. Each value is decided there once. The generator
+renders it into three faces for every generation that `appliesTo.generations` lists ([NR-24](../entries/NR-24.md)):
+
+- `common-vendored/src/cleartext-config-<gen>.ts`, the complete TypeScript face. `sync vendored` copies it into the
+  payload as `pkg/ts/cleartext-config.ts` ([NR-23](../entries/NR-23.md)).
+- `host-contracts-cleartext/<gen>/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol`, the Solidity face.
+- `host-contracts-cleartext/<gen>/scripts/cleartext-config.sh`, the shell face that the launchers source.
+
+A face is never edited, not even a comment in it: the comments come from the `summary` and `note` of each value in
+the JSON. A hand edit makes one language disagree with the others, or is lost at the next `make generate`. To change a
+value or its text, edit the JSON and run `fhevm-npm generate cleartext-config` (a step of `make generate`). A missing
+face fails the check as well as a face that differs.
+
+```sh
+# ✅ The JSON changes, and every face follows.
+$EDITOR cleartext-config.json && ./fhevm-npm-cli generate cleartext-config && ./fhevm-npm-cli sync vendored
+
+# ❌ One face now disagrees with the JSON and with the other two.
+$EDITOR host-contracts-cleartext/<vN>/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol
+```

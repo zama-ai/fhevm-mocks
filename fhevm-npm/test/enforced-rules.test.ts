@@ -272,12 +272,14 @@ function readTsFiles(folder: string, relative: string): readonly string[] {
  */
 const PRINTED_BY: Readonly<Record<string, readonly string[]>> = {
   'base/checks/consumer-lockfiles.ts': ['check consumer-lockfiles'],
+  'commands/check-cleartext-config.ts': ['check cleartext-config'],
   'base/checks/dependencies.ts': ['check dependencies'],
   'base/checks/extraneous.ts': ['check extraneous'],
   'base/checks/foundry.ts': ['check foundry'],
   'base/checks/generation-parity.ts': ['check generation-parity'],
   'base/checks/generations.ts': ['check generations'],
   'base/checks/inventory.ts': ['check manifest-coverage'],
+  'base/checks/lint-policy.ts': ['check lint-policy'],
   'base/checks/lockfiles.ts': ['check lockfiles'],
   'base/checks/ownership.ts': ['check ownership'],
   'base/checks/package-json-paths.ts': ['check package-json-paths'],
@@ -321,10 +323,10 @@ test('every rule ID a command prints is listed under that command', () => {
 });
 
 test('a check that no rule names fails loudly, after printing what it found', () => {
-  // The workspace itself: check lint-policy passes on it, so only the missing rule can fail it.
-  const result = spawnSync(process.execPath, [CLI, 'check', 'lint-policy'], { encoding: 'utf8' });
+  // The workspace itself: generate chain-constants --check passes on it, so only the missing rule can fail it.
+  const result = spawnSync(process.execPath, [CLI, 'generate', 'chain-constants', '--check'], { encoding: 'utf8' });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /'check lint-policy' is a check, but no rule names it/);
+  assert.match(result.stderr, /'generate chain-constants --check' is a check, but no rule names it/);
 });
 
 test('a global rule can be enforced too: check md-links enforces R-07', () => {
@@ -333,9 +335,14 @@ test('a global rule can be enforced too: check md-links enforces R-07', () => {
 });
 
 test('a run is a check when it is under check, is version or publish check, or writes nothing with --check', () => {
-  assert.match(checkWithoutRule('check lint-policy', false) ?? '', /'check lint-policy' is a check/);
-  assert.match(checkWithoutRule('sync hh-v2-constants', true) ?? '', /'sync hh-v2-constants --check' is a check/);
-  assert.equal(checkWithoutRule('sync hh-v2-constants', false), undefined, 'a write is not a check');
+  assert.match(checkWithoutRule('check safechain', false) ?? '', /'check safechain' is a check/);
+  assert.equal(checkWithoutRule('check lint-policy', false), undefined, 'check lint-policy has NR-89');
+  assert.match(
+    checkWithoutRule('generate chain-constants', true) ?? '',
+    /'generate chain-constants --check' is a check/,
+  );
+  assert.equal(checkWithoutRule('generate chain-constants', false), undefined, 'a write is not a check');
+  assert.equal(checkWithoutRule('sync hh-v2-constants', true), undefined, 'sync hh-v2-constants --check has NR-88');
   assert.equal(checkWithoutRule('list-packages', false), undefined);
   assert.equal(checkWithoutRule('check names', false), undefined, 'check names has rules');
   assert.equal(checkWithoutRule('version check', false), undefined, 'version check has rules');

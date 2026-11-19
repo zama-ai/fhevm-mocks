@@ -3253,3 +3253,109 @@ The workspace rotates when the developer starts the next generation, not when a 
 > **Implemented.** The schema of `npm-manifest.json`, which `fhevm-npm check json-schemas` applies, allows only the keys `current` and `previous` for each family, so a third generation fails. The TypeScript validator also requires both to be different dev packages, each below the directory of the family. Nothing requires `previous` yet on `release/0.14.x`: that is the gap, which issue I-120 closes.
 
 [WORKSPACE.md](../../WORKSPACE.md) explains how generations live side by side in the workspace.
+
+<a id="nr-88"></a>
+
+## NR-88: The Hardhat 2 plugin's version constants follow their sources `[HOLD]`
+
+> The two package versions that the Hardhat 2 plugin writes in `src/internal/constants.ts` equal their sources of truth.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli sync hh-v2-constants --check`
+
+The Hardhat 2 plugin, `hardhat/v2/plugin/pkg`, hardcodes two package versions in `src/internal/constants.ts` and reads
+them at run time:
+
+- `FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE` equals the version that `versions.json` gives the host-contracts-cleartext
+  payload, at the key the plugin's own `file:` dependency points to. The rule follows the plugin when it moves to
+  another generation.
+- `FHEVM_SOLIDITY_PACKAGE` equals the floor of the `@fhevm/solidity` spec in `npm-manifest.json#dependencies.pinned`:
+  `^X.Y.Z` gives `X.Y.Z`, the release whose addresses the block was checked against.
+
+Each block carries its version twice, in the comment above it and in its `version` field. Both equal the source.
+
+`version apply` writes the derived versions of [NR-37](../entries/NR-37.md) and `sync pinned` writes the pins of
+[NR-21](../entries/NR-21.md), but neither touches this file. Without this rule it drifts silently after a version bump or a pin
+change, and the plugin then describes a package that the workspace no longer builds. The remedy is
+`fhevm-npm sync hh-v2-constants`, which rewrites only those four spots. `--check` compares instead of writing, and runs
+in `make check-pre`.
+
+The rule applies to Hardhat 2 only. When `hardhat/v2` is deleted, retire this rule together with the command: the
+header of `fhevm-npm/commands/sync-hh-v2-constants.ts` lists what goes.
+
+```ts
+// ✅ Both spots equal the source: versions.json gives the payload X.Y.Z.
+// @fhevm/host-contracts-cleartext@X.Y.Z
+FHEVM_HOST_CONTRACTS_CLEARTEXT_PACKAGE: {
+  version: 'X.Y.Z',
+
+// ❌ The version moved in versions.json, and the constant still names the old release.
+// @fhevm/host-contracts-cleartext@X.Y.W
+```
+
+<a id="nr-89"></a>
+
+## NR-89: Solhint has no place in the workspace `[HOLD]`
+
+> Outside a mirror-only tree, no file configures, declares, installs, or names Solhint.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check lint-policy`
+
+`forge lint` is the Solidity linter of the workspace, and `forge fmt` its formatter ([NR-44](../entries/NR-44.md)). A second
+linter reports against rules that no script runs, and a directive written for it is dead text that a reader still has
+to understand. So Solhint appears nowhere:
+
+- No configuration file or folder whose name starts with `.solhint` or `solhint.config.`, anywhere in the workspace.
+- No `package.json` that names it, in a dependency or in a script. [NR-20](../entries/NR-20.md) forbids the package itself; this
+  also catches a script that calls it, and an alias that hides its name.
+- No runnable `node_modules/.bin/solhint` in any installation root. No workspace package declares it, so an installed
+  binary always means that something brought it in.
+- No line that names it in the Solidity a Foundry dev package owns, such as a `// solhint-disable-next-line`
+  directive.
+
+Two trees are exempt. A mirror-only payload keeps the Solhint its upstream declares, because the published template
+carries it ([NR-44](../entries/NR-44.md)). Vendored Solidity stays byte-identical to upstream ([NR-42a](../entries/NR-42a.md)), so a
+directive in it stays too.
+
+```solidity
+// ✅ forge lint reads its own directive.
+// forge-lint: disable-next-line(mixed-case-function)
+
+// ❌ No script runs Solhint, so this line silences nothing.
+// solhint-disable-next-line func-name-mixedcase
+```
+
+<a id="nr-90"></a>
+
+## NR-90: Cleartext-config faces are generated, never edited `[HOLD]`
+
+> Every face of `cleartext-config.json` equals what `fhevm-npm generate cleartext-config` renders from it.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check cleartext-config`
+
+`cleartext-config.json` at the workspace root is the only source of a value that the languages of the cleartext stack
+must agree on: a chain ID, a localhost address, a KMS node parameter. Each value is decided there once. The generator
+renders it into three faces for every generation that `appliesTo.generations` lists ([NR-24](../entries/NR-24.md)):
+
+- `common-vendored/src/cleartext-config-<gen>.ts`, the complete TypeScript face. `sync vendored` copies it into the
+  payload as `pkg/ts/cleartext-config.ts` ([NR-23](../entries/NR-23.md)).
+- `host-contracts-cleartext/<gen>/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol`, the Solidity face.
+- `host-contracts-cleartext/<gen>/scripts/cleartext-config.sh`, the shell face that the launchers source.
+
+A face is never edited, not even a comment in it: the comments come from the `summary` and `note` of each value in
+the JSON. A hand edit makes one language disagree with the others, or is lost at the next `make generate`. To change a
+value or its text, edit the JSON and run `fhevm-npm generate cleartext-config` (a step of `make generate`). A missing
+face fails the check as well as a face that differs.
+
+```sh
+# ✅ The JSON changes, and every face follows.
+$EDITOR cleartext-config.json && ./fhevm-npm-cli generate cleartext-config && ./fhevm-npm-cli sync vendored
+
+# ❌ One face now disagrees with the JSON and with the other two.
+$EDITOR host-contracts-cleartext/<vN>/pkg/src/cleartext/shared/LibFhevmCleartextConfig.sol
+```

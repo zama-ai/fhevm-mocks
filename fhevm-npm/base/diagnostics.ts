@@ -9,7 +9,6 @@ export type ViolationTag = RuleId | UnruledCheck;
 
 /** The checks that no rule covers. A check moves to a RuleId once a rule covers it. */
 export type UnruledCheck =
-  | 'cleartext-config-face'
   | 'commit-scope'
   | 'dependencies-order'
   | 'deployments'
@@ -19,7 +18,6 @@ export type UnruledCheck =
   | 'json-schema-coverage'
   | 'json-schema-document'
   | 'json-schema-reference'
-  | 'lint-policy'
   | 'member-of'
   | 'mirror'
   | 'package-json'
