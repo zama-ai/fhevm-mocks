@@ -1,0 +1,5 @@
+{
+	"QUESTION": "The issue waits for a decision from the owner. The text says what each answer changes.",
+	"TODO": "The decision is made, or none is needed. The text says what work is left.",
+	"RETIRED": "The issue is closed: the work is done, or another issue replaces it. Keep the ID, and never give it to another issue."
+}

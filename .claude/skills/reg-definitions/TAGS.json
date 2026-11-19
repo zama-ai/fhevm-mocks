@@ -1,0 +1,5 @@
+{
+	"STABLE": "The definition does not depend on the protocol design. It holds as long as the term exists.",
+	"EVOLVING": "The definition describes how the protocol works today. If the protocol design changes, the definition can change with it.",
+	"RETIRED": "The term is no longer used, or another definition replaces it. Keep the ID, and never give it to another term."
+}

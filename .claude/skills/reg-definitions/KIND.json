@@ -1,0 +1,38 @@
+{
+	"letter": "D",
+	"noun": "definition",
+	"plural": "definitions",
+	"suffixes": false,
+	"tagLabel": "Definition tag",
+	"fields": [
+		{
+			"key": "name",
+			"label": "Name",
+			"type": "text",
+			"title": true,
+			"term": true
+		},
+		{
+			"key": "aliases",
+			"label": "Aliases",
+			"type": "list",
+			"term": true
+		},
+		{
+			"key": "short",
+			"label": "Short definition",
+			"type": "sentence",
+			"summary": true
+		},
+		{
+			"key": "issues",
+			"label": "Issues",
+			"type": "list",
+			"optional": true
+		}
+	],
+	"note": {
+		"tag": "EVOLVING",
+		"text": "Before you write a rule that depends on an `[EVOLVING]` definition, read the definition again. A change to the definition can make the rule stale."
+	}
+}

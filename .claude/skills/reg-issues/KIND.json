@@ -1,0 +1,12 @@
+{
+	"letter": "I",
+	"noun": "issue",
+	"plural": "issues",
+	"suffixes": false,
+	"tagLabel": "Issue tag",
+	"fields": [
+		{ "key": "title", "label": "Issue", "type": "text", "title": true, "term": true },
+		{ "key": "short", "label": "Short issue", "type": "sentence", "summary": true },
+		{ "key": "old", "label": "Old number", "type": "text", "optional": true }
+	]
+}
