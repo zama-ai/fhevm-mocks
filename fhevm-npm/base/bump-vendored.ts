@@ -8,7 +8,7 @@
 // Scoped by PACKAGE, with every pin under it moving together. A generation vendors two trees from one
 // upstream (its contracts and its config), and both must sit at one commit — two pins from one upstream
 // at two commits is the drift a hand edit produces. But two GENERATIONS vendor from that same upstream
-// at deliberately different tags, so "every pin from this repository" would drag v(N-1) onto v(N)'s tag.
+// at deliberately different tags, so "every pin from this repository" would drag <vN-1> onto <vN>'s tag.
 // The selector is a package key prefix: `./host-contracts-cleartext/v13` covers its nested `pkg` too.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';

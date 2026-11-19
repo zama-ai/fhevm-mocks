@@ -97,7 +97,7 @@ test('classifies inventory keys by generation', () => {
   assert.equal(generationOf({ ...family, previous: undefined }, PREVIOUS), 'other');
 });
 
-test('accepts the intended edges: consumers on V(N), V(N) on V(N-1), a generation on itself', () => {
+test('accepts the intended edges: consumers on <vN>, <vN> on <vN-1>, a generation on itself', () => {
   const packages = [
     root,
     devPackage('v12'),
@@ -119,7 +119,7 @@ test('accepts the intended edges: consumers on V(N), V(N) on V(N-1), a generatio
   assert.deepEqual(validateGenerationDependencies(manifest(), packages), []);
 });
 
-test('rejects a consumer pinned to V(N-1) by file path', () => {
+test('rejects a consumer pinned to <vN-1> by file path', () => {
   const packages = [
     root,
     devPackage('v12'),
@@ -136,7 +136,7 @@ test('rejects a consumer pinned to V(N-1) by file path', () => {
   assert.match(violations[0]?.message ?? '', /only the V\(N\) dev package '\.\/host-contracts-cleartext\/v13' itself/);
 });
 
-test('narrows the V(N)-on-V(N-1) exception to the dev package, the dev target, and devDependencies', () => {
+test('narrows the <vN>-on-<vN-1> exception to the dev package, the dev target, and devDependencies', () => {
   const base = [root, devPackage('v12'), payload('v12', '0.12.0', false), payload('v13', '0.13.0', true)];
   const currentDev = (packageJson: Record<string, unknown>): LoadedPackage =>
     loadedPackage(CURRENT, dev('v13'), {
@@ -146,7 +146,7 @@ test('narrows the V(N)-on-V(N-1) exception to the dev package, the dev target, a
       ...packageJson,
     });
 
-  // A runtime field would put V(N-1) on a shipping path.
+  // A runtime field would put <vN-1> on a shipping path.
   const runtime = validateGenerationDependencies(manifest(), [
     ...base,
     currentDev({ dependencies: { '@fhevm/host-contracts-cleartext-v12-dev': '0.0.0' } }),
@@ -155,7 +155,7 @@ test('narrows the V(N)-on-V(N-1) exception to the dev package, the dev target, a
   assert.equal(runtime[0]?.packageKey, `${CURRENT}/package.json`);
   assert.match(runtime[0]?.message ?? '', /from 'dependencies'; V\(N-1\) exists only to be tested against/);
 
-  // V(N-1)'s payload is not the dev package, even reached from V(N) itself.
+  // <vN-1>'s payload is not the dev package, even reached from <vN> itself.
   const onPayload = validateGenerationDependencies(manifest(), [
     ...base,
     currentDev({ devDependencies: { '@fhevm/host-contracts-cleartext': `file:../v12/pkg` } }),
@@ -166,7 +166,7 @@ test('narrows the V(N)-on-V(N-1) exception to the dev package, the dev target, a
     /dev package '\.\/host-contracts-cleartext\/v12' only, not on a package below it/,
   );
 
-  // A package BELOW V(N) is not V(N) itself.
+  // A package BELOW <vN> is not <vN> itself.
   const fromPayload = validateGenerationDependencies(manifest(), [
     root,
     devPackage('v12'),
@@ -187,7 +187,7 @@ test('narrows the V(N)-on-V(N-1) exception to the dev package, the dev target, a
   assert.match(fromPayload[0]?.message ?? '', /only the V\(N\) dev package .* itself may depend on V\(N-1\)/);
 });
 
-test('rejects a consumer depending on the V(N-1) dev package by name, and V(N-1) is not exempt toward a retired one', () => {
+test('rejects a consumer depending on the <vN-1> dev package by name, and <vN-1> is not exempt toward a retired one', () => {
   const packages = [
     root,
     devPackage('v11'),
@@ -236,12 +236,12 @@ test('resolves a shared published name by exact version, and reports a range it 
   assert.match(violations[0]?.message ?? '', /use a file: path to V\(N\)/);
 });
 
-test("requires V(N)'s payload to be the member and V(N-1)'s not to be", () => {
+test("requires <vN>'s payload to be the member and <vN-1>'s not to be", () => {
   // The fixture manifest is already the intended state: v13/pkg member, v12/pkg not.
   assert.deepEqual(validateGenerationMemberFlags(manifest()), []);
 
   // The flag a rotation forgets: the pair moves on, and the retired payload keeps claiming the shared
-  // published name while the new V(N)'s payload is left out of every installation root.
+  // published name while the new <vN>'s payload is left out of every installation root.
   const stale = manifest({ [FAMILY]: { current: `./${FAMILY}/v11`, previous: CURRENT } });
   const violations = validateGenerationMemberFlags(stale);
   assert.equal(violations.length, 2);
@@ -256,7 +256,7 @@ test("requires V(N)'s payload to be the member and V(N-1)'s not to be", () => {
   assert.match(violations[0]?.message ?? '', /the directory the shared published name resolves to/);
   assert.match(violations[1]?.message ?? '', /must set 'member': false, not true/);
 
-  // A single-generation family constrains only V(N).
+  // A single-generation family constrains only <vN>.
   assert.deepEqual(validateGenerationMemberFlags(manifest({ [FAMILY]: { current: CURRENT } })), []);
   assert.equal(validateGenerationMemberFlags(manifest({ [FAMILY]: { current: PREVIOUS } })).length, 1);
 
@@ -273,7 +273,7 @@ test('is a no-op without a generations block', () => {
   assert.deepEqual(validateGenerationDependencies(manifest(null), packages), []);
 });
 
-test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
+test('requires the upgrade suite on <vN> and forbids it on <vN-1>', () => {
   const withSuite = (gen: string, script?: string): LoadedPackage =>
     loadedPackage(`./${FAMILY}/${gen}`, dev(gen), {
       name: `@fhevm/host-contracts-cleartext-${gen}-dev`,
@@ -282,7 +282,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
       scripts: { test: 'npm run test:forge', ...(script === undefined ? {} : { 'test:upgrade': script }) },
     });
 
-  // The intended arrangement: V(N) owns the suite that needs a live V(N-1).
+  // The intended arrangement: <vN> owns the suite that needs a live <vN-1>.
   assert.deepEqual(
     validateGenerationUpgradeSuite(manifest(), [
       root,
@@ -292,7 +292,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
     [],
   );
 
-  // V(N) without it: the migration consumers will run is the one thing untested.
+  // <vN> without it: the migration consumers will run is the one thing untested.
   const missing = validateGenerationUpgradeSuite(manifest(), [root, withSuite('v12'), withSuite('v13')]);
   assert.deepEqual(
     missing.map((violation) => [violation.rule, violation.packageKey]),
@@ -300,7 +300,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
   );
   assert.match(missing[0]?.message ?? '', /must define a non-empty 'test:upgrade' script/);
 
-  // Left behind on V(N-1) after a rotation: nothing invokes it, so nothing fails.
+  // Left behind on <vN-1> after a rotation: nothing invokes it, so nothing fails.
   const leftover = validateGenerationUpgradeSuite(manifest(), [
     root,
     withSuite('v12', 'node internal/cli/runUpgradeE2e.ts'),
@@ -315,7 +315,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
   // An empty command is not a suite.
   assert.equal(validateGenerationUpgradeSuite(manifest(), [root, withSuite('v12'), withSuite('v13', '  ')]).length, 1);
 
-  // No V(N-1) to upgrade from, and no generations at all: nothing to require.
+  // No <vN-1> to upgrade from, and no generations at all: nothing to require.
   assert.deepEqual(
     validateGenerationUpgradeSuite(manifest({ [FAMILY]: { current: CURRENT } }), [root, withSuite('v13')]),
     [],
@@ -323,7 +323,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
   assert.deepEqual(validateGenerationUpgradeSuite(manifest(null), [root, withSuite('v13')]), []);
 });
 
-test('accepts vendored destinations under V(N) and V(N-1), rejects one under a retired generation', () => {
+test('accepts vendored destinations under <vN> and <vN-1>, rejects one under a retired generation', () => {
   const live = [
     { to: [`${FAMILY}/v13/pkg/ts/types`, `${FAMILY}/v12/pkg/ts/types`] },
     { to: [`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts`] },
@@ -358,7 +358,7 @@ test('requires every live generation to be among the directories that receive a 
   assert.match(halfRotated[1]?.message ?? '', /no vendored destination 'host-contracts-cleartext\/v12\/pkg\/ts'/);
   assert.match(halfRotated[1]?.message ?? '', /V\(N-1\) '\.\/host-contracts-cleartext\/v12' receives no copy/);
 
-  // The rotation that adds nothing: the new V(N) is missing from an entry that still lists V(N-1).
+  // The rotation that adds nothing: the new <vN> is missing from an entry that still lists <vN-1>.
   const notRotated = validateGenerationVendoredDestinations(
     manifest({ [FAMILY]: { current: `./${FAMILY}/v11`, previous: CURRENT } }),
     [{ to: [`${FAMILY}/v13/pkg/ts`] }],
@@ -376,7 +376,7 @@ test('requires every live generation to be among the directories that receive a 
   assert.equal(mixed.length, 1);
   assert.match(mixed[0]?.message ?? '', /one set of vendored files lands in 2 different faces/);
 
-  // A family the entry does not touch is unconstrained, and a single-generation family needs only V(N).
+  // A family the entry does not touch is unconstrained, and a single-generation family needs only <vN>.
   assert.deepEqual(
     validateGenerationVendoredDestinations(manifest(), [{ to: ['hardhat/v3/plugin/pkg/src/internal/vendored'] }]),
     [],
@@ -395,7 +395,7 @@ test('a face named for a generation (by source name) lands in that generation al
     { to, files: ['cleartext-config.ts'], renamed: { 'cleartext-config.ts': 'cleartext-config-v13.ts' } },
   ];
 
-  // On its own generation: nothing to report, and V(N-1) is NOT owed a copy of it.
+  // On its own generation: nothing to report, and <vN-1> is NOT owed a copy of it.
   assert.deepEqual(validateGenerationVendoredDestinations(manifest(), v13Face([`${FAMILY}/v13/pkg/ts`])), []);
 
   // Copied into the other live generation as well: v12 has no field for a v13-only value.

@@ -16,12 +16,12 @@ import { type DependencyMap, loadPackages } from '../base/npm.ts';
 const MIRROR_PATCH_LABEL = 'hardhat-template-v2 mirror patch (fhevm-npm/base/mirrors/hardhat-template-v2.ts)';
 
 /**
- * NR-22 to NR-26, the generation pair declared in npm-manifest.json#generations: V(N)'s published payload is
- * the workspace member and V(N-1)'s is not; every dependency on a package of the family targets V(N) and
- * only V(N) itself may also depend on V(N-1) — in committed package.json files and in what the template
+ * NR-22 to NR-26, the generation pair declared in npm-manifest.json#generations: <vN>'s published payload is
+ * the workspace member and <vN-1>'s is not; every dependency on a package of the family targets <vN> and
+ * only <vN> itself may also depend on <vN-1> — in committed package.json files and in what the template
  * mirror patch injects; every vendored destination under the family sits in a live generation;
  * cleartext-config.json fans out to exactly the live generations; and the upgrade suite that needs a live
- * V(N-1) is declared by V(N) alone.
+ * <vN-1> is declared by <vN> alone.
  * Read-only, like every check.
  */
 export const checkGenerations: CheckCommand = (context) => {

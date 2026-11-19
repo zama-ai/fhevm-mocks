@@ -15,7 +15,7 @@ const CURRENT = `./${FAMILY}/v14`;
 const PREVIOUS = `./${FAMILY}/v13`;
 const REPO_ROOT = '/repo';
 const WORKSPACE_ROOT = '/repo/sdk';
-/** Where V(N-1) sits from the repository root — what git speaks, workspace prefix included. */
+/** Where <vN-1> sits from the repository root — what git speaks, workspace prefix included. */
 const PREFIX = `sdk/${FAMILY}/v13`;
 
 const dev = (gen: string) => ({
@@ -90,7 +90,7 @@ test('a previous generation matching its release branch passes, and says how muc
   assert.deepEqual(inspection.violations, []);
   assert.deepEqual(inspection.checkedKeys, [PREVIOUS]);
   assert.deepEqual(inspection.successes, [`${PREVIOUS}: 2 tracked file(s) compared with release/0.13.x`]);
-  // It compared V(N-1) only: V(N)'s release branch is the branch you are on, so it proves nothing.
+  // It compared <vN-1> only: <vN>'s release branch is the branch you are on, so it proves nothing.
   assert.equal(
     inspection.successes.some((line) => line.includes('v14')),
     false,
@@ -108,7 +108,7 @@ test('a file that differs from the release branch is a violation', () => {
   assert.match(violation?.message ?? '', /not a fork/);
 });
 
-test('a file here that the release branch never had is a violation — V(N-1) may only lose files', () => {
+test('a file here that the release branch never had is a violation — <vN-1> may only lose files', () => {
   const git = fakeGit({ diff: [`A\t${PREFIX}/pkg/ts/invented.ts`] });
   const [violation, ...rest] = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git).violations;
 
@@ -118,7 +118,7 @@ test('a file here that the release branch never had is a violation — V(N-1) ma
 });
 
 test('the rule is one-directional: files the release branch has and this branch does not are fine', () => {
-  // Exactly what a rotation leaves behind — ROTATION.md deletes V(N-1)'s six `upgrade` folders.
+  // Exactly what a rotation leaves behind — ROTATION.md deletes <vN-1>'s six `upgrade` folders.
   const git = fakeGit({
     diff: [
       `D\t${PREFIX}/create2-deploy/upgrade/RUNBOOK.md`,
@@ -141,7 +141,7 @@ test('a rename reports as a deletion plus an addition, so only the new path is a
 });
 
 test("the generation's own package.json is exempt, but a nested one is not", () => {
-  // A rotation MUST edit it: NR-26 forbids `test:upgrade` on V(N-1) and NR-22 forbids the
+  // A rotation MUST edit it: NR-26 forbids `test:upgrade` on <vN-1> and NR-22 forbids the
   // dependency on the generation it upgraded from, and both are still present on the release branch.
   const git = fakeGit({
     diff: [`M\t${PREFIX}/package.json`, `M\t${PREFIX}/pkg/package.json`, `M\t${PREFIX}/test-consumer/esm/package.json`],

@@ -9,7 +9,7 @@
 // a fork suite rewritten on one branch and not the other, and a cheat whose signature was about to
 // change on one side only.
 //
-// SYMMETRIC, unlike `generation-parity`. There the rule is one-directional, because V(N-1) is a copy
+// SYMMETRIC, unlike `generation-parity`. There the rule is one-directional, because <vN-1> is a copy
 // that may lose files to a rotation. Here neither side owns the package: a file on one branch and not
 // the other is drift whichever way round it is, and both directions are reported.
 //

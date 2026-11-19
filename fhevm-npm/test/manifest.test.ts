@@ -292,7 +292,7 @@ function generationDev(gen: string) {
   } as const;
 }
 
-test('accepts a generations block naming V(N) and V(N-1) dev packages of one family', () => {
+test('accepts a generations block naming <vN> and <vN-1> dev packages of one family', () => {
   const manifest = parseNpmManifest({
     generations: { family: { current: './family/v13', previous: './family/v12' } },
     packageJson: { published: { required: ['name'], excluded: ['private'] } },
