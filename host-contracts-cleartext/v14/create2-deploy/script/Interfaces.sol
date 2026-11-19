@@ -100,7 +100,7 @@ interface IWiredProtocolConfig {
     function getUserDecryptionThreshold() external view returns (uint256);
     function getKmsGenThreshold() external view returns (uint256);
     function getMpcThreshold() external view returns (uint256);
-    /// @dev Added in v14: the epoch model `reinitializeV2` promotes the live context into, and its anchor.
+    /// @dev Added in `v14`: the epoch model `reinitializeV2` promotes the live context into, and its anchor.
     function getCurrentKmsContextAndEpoch() external view returns (uint256 contextId, uint256 epochId);
     function getKmsContextAnchor(uint256 contextId)
         external

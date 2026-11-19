@@ -35,7 +35,7 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  *     signs v1, which those releases build, `userDecrypt` tries v2 then v1 for the current context and
  *     epoch, and refuses a permit signed before a KMS rotation.
  *
- * Not a shared file: epochs and these overloads were new in v14, and v13 had none of them.
+ * Not a shared file: epochs and these overloads were new in `v14`, and `v13` had none of them.
  */
 contract CleartextKMSVerifierExtraDataTest is Test, ForgeFhevmDeploy {
     uint256 internal constant ALICE_PK = uint256(keccak256("alice"));

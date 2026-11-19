@@ -78,18 +78,18 @@ library LibFhevmCleartextConfig {
     /// Storage URL prefix: node i gets `<prefix><i + 1>`, one-based like the IP prefix.
     string internal constant CLEARTEXT_KMS_NODE_STORAGE_URL_PREFIX = "s3://kms-bucket-";
 
-    /// Added in v14. First half of `mpcIdentity`: node i is `<prefix><i + 1><infix><i + 1>`.
+    /// Added in `v14`. First half of `mpcIdentity`: node i is `<prefix><i + 1><infix><i + 1>`.
     string internal constant CLEARTEXT_KMS_NODE_MPC_IDENTITY_PREFIX = "kms-core-";
 
-    /// Added in v14. Second half of `mpcIdentity`, naming the cluster as cleartext.
+    /// Added in `v14`. Second half of `mpcIdentity`, naming the cluster as cleartext.
     string internal constant CLEARTEXT_KMS_NODE_MPC_IDENTITY_INFIX = "-cleartext-core-";
 
-    /// Added in v14. Prefix inside the storage bucket; node i gets `<prefix><i + 1>`.
+    /// Added in `v14`. Prefix inside the storage bucket; node i gets `<prefix><i + 1>`.
     string internal constant CLEARTEXT_KMS_NODE_PUBLIC_STORAGE_PREFIX = "cleartext-";
 
-    /// Added in v14. The KMS `softwareVersion` a context is created under. No build exists.
+    /// Added in `v14`. The KMS `softwareVersion` a context is created under. No build exists.
     string internal constant CLEARTEXT_KMS_SOFTWARE_VERSION = "0.0.0-cleartext";
 
-    /// Added in v14. `KmsNodeParams.caCert` as hex. Empty: there is no MPC peer to verify.
+    /// Added in `v14`. `KmsNodeParams.caCert` as hex. Empty: there is no MPC peer to verify.
     string internal constant CLEARTEXT_KMS_NODE_CA_CERT = "0x";
 }
