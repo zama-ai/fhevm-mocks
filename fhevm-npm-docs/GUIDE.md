@@ -125,7 +125,7 @@ nor the consumer-fixture lockfiles (`./fhevm-npm-cli test-consumer-regenerate-pa
 
 # Bumping a published version
 
-`sdk/versions.json` is the ONE authority for every published payload's version (RULES 4.3.2); package.json
+`sdk/versions.json` is the ONE authority for every published payload's version (NR-36); package.json
 versions and lockfile member lines are derived from it. Never edit a payload's version by hand or with
 `npm version` — edit the central file, preview, apply:
 
@@ -146,8 +146,8 @@ versions drifted from the central file fails ci.
 
 # Publishing a payload (rendering the file: links)
 
-A published payload links other payloads with `file:` (RULES 3.1.1) — correct here, meaningless on npmjs.com.
-`publish pack` renders each link to a caret on the target's version (`^0.13.4`, RULES 4.3.4) in a staged copy
+A published payload links other payloads with `file:` (NR-15) — correct here, meaningless on npmjs.com.
+`publish pack` renders each link to a tilde on the target's version (`~0.13.4`, NR-38) in a staged copy
 and packs that; `publish check` proves the tarball; `publish order` says which payload goes first. Nothing
 in fhevm-npm publishes — `npm publish <tarball>` is CI's, with its credentials and dist-tag:
 
