@@ -179,16 +179,16 @@ list alone which code can never run on chain.
 
 For names, follow forge-std first. Where forge-std says nothing, follow this table:
 
-| Kind | Pattern | Example |
-| --- | --- | --- |
-| library | `Lib<Name>.sol` | `LibKmsVerifier`, `LibFheType` |
-| library that uses cheatcodes | `LibForgeFhevm<Name>.sol` | `LibForgeFhevmEncrypt`, `LibForgeFhevmHostVersions` |
-| contract that uses cheatcodes | `ForgeFhevm<Name>.sol` | `ForgeFhevmDeploy` |
-| public API mixin | `StdFhevm<Name>.sol` | `StdFhevmEncrypt`, `StdFhevmDecrypt` |
-| cheats mixin | `…CheatsSafe`, with `…Cheats is …CheatsSafe` once a footgun appears | forge-std's `StdCheatsSafe` |
-| interface | `I<Name>.sol` | `IForgeVm`, `IPlaintexts` |
-| argument bundle | `<Function>ArgsV1` | `UserDecryptPayloadArgsV1` |
-| pinned to an ABI shape | `V1`, last | `userDecryptV1OnForkStack` |
+| Kind                          | Pattern                                                             | Example                                             |
+| ----------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- |
+| library                       | `Lib<Name>.sol`                                                     | `LibKmsVerifier`, `LibFheType`                      |
+| library that uses cheatcodes  | `LibForgeFhevm<Name>.sol`                                           | `LibForgeFhevmEncrypt`, `LibForgeFhevmHostVersions` |
+| contract that uses cheatcodes | `ForgeFhevm<Name>.sol`                                              | `ForgeFhevmDeploy`                                  |
+| public API mixin              | `StdFhevm<Name>.sol`                                                | `StdFhevmEncrypt`, `StdFhevmDecrypt`                |
+| cheats mixin                  | `…CheatsSafe`, with `…Cheats is …CheatsSafe` once a footgun appears | forge-std's `StdCheatsSafe`                         |
+| interface                     | `I<Name>.sol`                                                       | `IForgeVm`, `IPlaintexts`                           |
+| argument bundle               | `<Function>ArgsV1`                                                  | `UserDecryptPayloadArgsV1`                          |
+| pinned to an ABI shape        | `V1`, last                                                          | `userDecryptV1OnForkStack`                          |
 
 `Forge` in a name means cheatcodes, and nothing else. `LibHostUpgradeCode` patches bytecode and is pure, so its name has no `Forge`. `Host` in place of `Fhevm` means the host contracts rather than the SDK. That is why the version tables are `LibForgeFhevmHostVersions`: they use cheatcodes, and they are about the hosts.
 

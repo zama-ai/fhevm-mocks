@@ -4,11 +4,11 @@ tag: STALE
 group: Runtime
 title: One generation back is upgraded on the fork
 short: A stack one generation back is upgraded in memory on the fork instead of refused, in forge-fhevm-std only.
-old: "2.15.1"
+old: '2.15.1'
 check: missing
 evidence:
-  - "`host-contracts-cleartext/v14/pkg/forge/src/LibForgeFhevmHostVersions.sol:108-121` shows the floors and ceilings of the previous line, which the rule places in `LibFhevmVersion`. Fix: name `LibForgeFhevmHostVersions`."
-  - "`foundry/forge-fhevm-std/pkg/src/FhevmVm.sol:935` shows `_upgradeCleartextIfOneGenerationBehind`, which also upgrades a cleartext stack one generation back, through `host-contracts-cleartext/v14/pkg/forge/src/LibForgeFhevmUpgrade.sol:292`. Fix: add the cleartext case."
+  - '`host-contracts-cleartext/v14/pkg/forge/src/LibForgeFhevmHostVersions.sol:108-121` shows the floors and ceilings of the previous line, which the rule places in `LibFhevmVersion`. Fix: name `LibForgeFhevmHostVersions`.'
+  - '`foundry/forge-fhevm-std/pkg/src/FhevmVm.sol:935` shows `_upgradeCleartextIfOneGenerationBehind`, which also upgrades a cleartext stack one generation back, through `host-contracts-cleartext/v14/pkg/forge/src/LibForgeFhevmUpgrade.sol:292`. Fix: add the cleartext case.'
 issues:
   - I-21
 ---

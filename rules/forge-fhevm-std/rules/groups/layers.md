@@ -42,7 +42,7 @@ Evidence:
 Issues: I-13, I-29.
 
 No `IForgeVm`, no `FORGE_VM_ADDRESS`, no cheatcodes.
-Those files are compiled into the *deployed* contracts; a cheatcode there is a contract that cannot
+Those files are compiled into the _deployed_ contracts; a cheatcode there is a contract that cannot
 exist on chain. Anything needing the VM goes in `pkg/forge/src/` (payload) or `pkg/src/` (this
 package), and carries `Forge` in its name — see [FR-29](../entries/FR-29.md) to [FR-31](../entries/FR-31.md). Which of the two may import `forge-std` is rule [FR-20](../entries/FR-20.md).
 

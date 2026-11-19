@@ -1282,28 +1282,25 @@ function parseSingle(path, field, value) {
 }
 
 /**
- * Parses one front matter value, plain or double-quoted. Records an error and
- * returns undefined for single quotes, a YAML comment, a broken quote, or an
- * empty value.
+ * Parses one front matter value, plain, single-quoted, or double-quoted.
+ * Records an error and returns undefined for a YAML comment, a broken quote,
+ * or an empty value.
  */
 function parseScalar(path, field, value) {
-  if (value.startsWith("'")) {
-    errors.push(
-      `${path}: the field "${field}" uses single quotes. Use double quotes`,
-    );
-    return undefined;
-  }
+  const quoted = value.startsWith('"') || value.startsWith("'");
 
-  if (!value.startsWith('"') && / #/.test(value)) {
+  if (!quoted && / #/.test(value)) {
     errors.push(
-      `${path}: the field "${field}" holds " #", which YAML reads as the start of a comment. Put the value in double quotes, or remove the comment`,
+      `${path}: the field "${field}" holds " #", which YAML reads as the start of a comment. Put the value in quotes, or remove the comment`,
     );
     return undefined;
   }
 
   const parsed = value.startsWith('"')
     ? parseQuoted(path, field, value)
-    : value;
+    : value.startsWith("'")
+      ? parseSingleQuoted(path, field, value)
+      : value;
 
   if (parsed === undefined) return undefined;
 
@@ -1337,6 +1334,22 @@ function parseQuoted(path, field, value) {
 
   errors.push(
     `${path}: the field "${field}" is not a valid double-quoted value: ${value}. Escape a quote inside it as \\"`,
+  );
+  return undefined;
+}
+
+/**
+ * Parses a single-quoted value with the rules of YAML: no escape, and '' for
+ * a quote inside it. Records an error and returns undefined if the quotes do
+ * not close it.
+ */
+function parseSingleQuoted(path, field, value) {
+  const match = /^'((?:[^']|'')*)'$/.exec(value);
+
+  if (match !== null) return match[1].replaceAll("''", "'");
+
+  errors.push(
+    `${path}: the field "${field}" is not a valid single-quoted value: ${value}. Write a quote inside it as ''`,
   );
   return undefined;
 }
@@ -2121,13 +2134,13 @@ function readIndexLine(path, line, state) {
     errors.push(
       `${path}: the field "${key}" is empty. Write "" for the empty prefix`,
     );
-  } else if (!value.startsWith('"') && / #/.test(value)) {
+  } else if (!/^["']/.test(value) && / #/.test(value)) {
     errors.push(
       `${path}: the field "${key}" holds " #", which YAML reads as the start of a comment. Remove the comment`,
     );
   } else {
-    // A value may stand in double quotes, as "" for the empty prefix must.
-    state.settings[key] = /^".*"$/.test(value) ? value.slice(1, -1) : value;
+    // A value may stand in quotes, as "" or '' for the empty prefix must.
+    state.settings[key] = /^(["']).*\1$/.test(value) ? value.slice(1, -1) : value;
   }
 }
 
@@ -2155,9 +2168,9 @@ function readGroupLine(path, line, groups) {
     return undefined;
   }
 
-  if (!raw.startsWith('"') && !isPlainText(raw)) {
+  if (!/^["']/.test(raw) && !isPlainText(raw)) {
     errors.push(
-      `${path}: put the description of the group "${name}" in double quotes, because YAML would not read it as plain text`,
+      `${path}: put the description of the group "${name}" in quotes, because YAML would not read it as plain text`,
     );
     return undefined;
   }
@@ -2750,9 +2763,20 @@ function isPlainText(value) {
 }
 
 /**
- * Writes a front matter value plain if YAML reads it as text, and in double
- * quotes otherwise.
+ * Writes a front matter value plain if YAML reads it as text, and quoted
+ * otherwise, as Prettier quotes it with the workspace's singleQuote setting:
+ * in single quotes, unless the value holds a backslash, or more single quotes
+ * than double quotes, then in double quotes. Prettier formats these files on
+ * save, so the script writes what Prettier would, and neither undoes the
+ * other.
  */
 function scalar(value) {
-  return isPlainText(value) ? value : JSON.stringify(value);
+  if (isPlainText(value)) return value;
+
+  const singles = value.split("'").length - 1;
+  const doubles = value.split('"').length - 1;
+
+  return value.includes("\\") || singles > doubles
+    ? JSON.stringify(value)
+    : `'${value.replaceAll("'", "''")}'`;
 }

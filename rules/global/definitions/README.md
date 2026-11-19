@@ -1,6 +1,6 @@
 ---
 kind: definitions
-prefix: ""
+prefix: ''
 groups:
   Versions: The protocol generations, their hotfixes, and their version numbers.
   Rules: The rule books, the definitions, and the folders that hold them.

@@ -4,10 +4,10 @@ tag: VIOLATED
 group: Inventory
 title: Do not assume the repository root
 short: The workspace root is not assumed to be the repository root.
-old: "7.1.5"
+old: '7.1.5'
 check: missing
 evidence:
-  - "`fhevm-npm/base/checks/inventory.ts:128-130` shows a vendored `source` resolved from the git root, and no test runs the checks with the workspace below the git root. Fix: issue I-55."
+  - '`fhevm-npm/base/checks/inventory.ts:128-130` shows a vendored `source` resolved from the git root, and no test runs the checks with the workspace below the git root. Fix: issue I-55.'
 issues:
   - I-01
   - I-21
@@ -23,4 +23,3 @@ path a git command expects. A test runs the checks with the workspace one direct
 ✅ <repo>/fhevm-mocks/common-vendored/src    "./common-vendored/src" from the workspace root
 ❌ <repo>/common-vendored/src                 the same path from the repository root
 ```
-

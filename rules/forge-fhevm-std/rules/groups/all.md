@@ -76,7 +76,7 @@ Evidence:
 Issues: I-13, I-29.
 
 No `IForgeVm`, no `FORGE_VM_ADDRESS`, no cheatcodes.
-Those files are compiled into the *deployed* contracts; a cheatcode there is a contract that cannot
+Those files are compiled into the _deployed_ contracts; a cheatcode there is a contract that cannot
 exist on chain. Anything needing the VM goes in `pkg/forge/src/` (payload) or `pkg/src/` (this
 package), and carries `Forge` in its name — see [FR-29](../entries/FR-29.md) to [FR-31](../entries/FR-31.md). Which of the two may import `forge-std` is rule [FR-20](../entries/FR-20.md).
 
@@ -740,7 +740,7 @@ Issues: I-36, I-38, I-122.
 - **Templates** (`generate:templates`) keep placeholder markers — addresses derived as
   `keccak256("fhevm.placeholder.<NAME>")[0:20]` — compiled in as literals, and record the byte
   offsets where they land so the TS deploy can overwrite them at deploy time. Hence the ordering: the
-  placeholder file is written *before* `forge build`, or the previous run's markers stay baked in at
+  placeholder file is written _before_ `forge build`, or the previous run's markers stay baked in at
   the recorded offsets.
 - **`LocalHostBytecode.sol`** (`generate:local-host-bytecode`) deliberately does NOT patch for the
   local deploy. It derives the deployer from the mnemonic, precomputes the nonce sequence's addresses,
@@ -865,16 +865,16 @@ list alone which code can never run on chain.
 
 For names, follow forge-std first. Where forge-std says nothing, follow this table:
 
-| Kind | Pattern | Example |
-| --- | --- | --- |
-| library | `Lib<Name>.sol` | `LibKmsVerifier`, `LibFheType` |
-| library that uses cheatcodes | `LibForgeFhevm<Name>.sol` | `LibForgeFhevmEncrypt`, `LibForgeFhevmHostVersions` |
-| contract that uses cheatcodes | `ForgeFhevm<Name>.sol` | `ForgeFhevmDeploy` |
-| public API mixin | `StdFhevm<Name>.sol` | `StdFhevmEncrypt`, `StdFhevmDecrypt` |
-| cheats mixin | `…CheatsSafe`, with `…Cheats is …CheatsSafe` once a footgun appears | forge-std's `StdCheatsSafe` |
-| interface | `I<Name>.sol` | `IForgeVm`, `IPlaintexts` |
-| argument bundle | `<Function>ArgsV1` | `UserDecryptPayloadArgsV1` |
-| pinned to an ABI shape | `V1`, last | `userDecryptV1OnForkStack` |
+| Kind                          | Pattern                                                             | Example                                             |
+| ----------------------------- | ------------------------------------------------------------------- | --------------------------------------------------- |
+| library                       | `Lib<Name>.sol`                                                     | `LibKmsVerifier`, `LibFheType`                      |
+| library that uses cheatcodes  | `LibForgeFhevm<Name>.sol`                                           | `LibForgeFhevmEncrypt`, `LibForgeFhevmHostVersions` |
+| contract that uses cheatcodes | `ForgeFhevm<Name>.sol`                                              | `ForgeFhevmDeploy`                                  |
+| public API mixin              | `StdFhevm<Name>.sol`                                                | `StdFhevmEncrypt`, `StdFhevmDecrypt`                |
+| cheats mixin                  | `…CheatsSafe`, with `…Cheats is …CheatsSafe` once a footgun appears | forge-std's `StdCheatsSafe`                         |
+| interface                     | `I<Name>.sol`                                                       | `IForgeVm`, `IPlaintexts`                           |
+| argument bundle               | `<Function>ArgsV1`                                                  | `UserDecryptPayloadArgsV1`                          |
+| pinned to an ABI shape        | `V1`, last                                                          | `userDecryptV1OnForkStack`                          |
 
 `Forge` in a name means cheatcodes, and nothing else. `LibHostUpgradeCode` patches bytecode and is pure, so its name has no `Forge`. `Host` in place of `Fhevm` means the host contracts rather than the SDK. That is why the version tables are `LibForgeFhevmHostVersions`: they use cheatcodes, and they are about the hosts.
 
@@ -1092,5 +1092,5 @@ Check: missing.
 Issues: I-14.
 
 An external call in an argument consumes a pending
-`vm.prank` or `vm.expectRevert` before the intended call sees it. (A *cheatcode* call does not —
+`vm.prank` or `vm.expectRevert` before the intended call sees it. (A _cheatcode_ call does not —
 that one is safe.)

@@ -1,6 +1,6 @@
 ---
 kind: rules
-prefix: ""
+prefix: ''
 ---
 
 # Global rules

@@ -4,10 +4,10 @@ tag: CONFLICT
 group: Runtime
 title: Every forked stack becomes a cleartext stack
 short: On first contact, the SDK points every forked stack at the cleartext implementations, and reads values from them.
-old: "2.15.2"
+old: '2.15.2'
 check: missing
 evidence:
-  - "`CleartextForgeHCULimit.sol:63` declares its own storage, so the claim that the subclasses declare no state is false. Fix: correct the rule text."
+  - '`CleartextForgeHCULimit.sol:63` declares its own storage, so the claim that the subclasses declare no state is false. Fix: correct the rule text.'
 issues:
   - I-12
   - I-13
