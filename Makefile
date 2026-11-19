@@ -213,7 +213,10 @@ fmt: ## Rewrite formatting everywhere
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),fmt)
 	$(call run-hh-v3,$(W_HH_V3_E2E),fmt)
 	$(call run-prefix,$(DIR_FHEVM_NPM),prettier:write)
+	npx --no-install prettier --write "rules/**/*.md"
 
+# The rule books belong to no package, so no package's fmt:check reaches them: the last line checks them from
+# the root. Prettier formats them on save, and generate-index.mjs writes what Prettier would.
 fmt-check: ## Verify formatting everywhere
 	$(call run,$(W_COMMON),fmt:check)
 	$(call run,$(W_VENDORED),fmt:check)
@@ -227,6 +230,7 @@ fmt-check: ## Verify formatting everywhere
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),fmt:check)
 	$(call run-hh-v3,$(W_HH_V3_E2E),fmt:check)
 	$(call run-prefix,$(DIR_FHEVM_NPM),prettier:check)
+	npx --no-install prettier --check "rules/**/*.md"
 
 # One `npm install` per INSTALLATION ROOT. The sdk root workspace holds no hardhat at all; each
 # hardhat generation is a CLUSTER — its own npm workspace ($(DIR_HH_V2), later hardhat/v3) with its
