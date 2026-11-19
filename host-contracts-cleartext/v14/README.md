@@ -393,7 +393,7 @@ self-consistent and collectively wrong. This one parses the Solidity instead, so
 checked against its source.
 
 It reads this generation's own copy of upstream's `library-solidity/config/ZamaConfig.sol`, vendored into
-`internal/zama-config/` at the same commit `pkg/src/contracts` is pinned to (rule 5.1.3c): the localhost
+`internal/zama-config/` at the same commit `pkg/src/contracts` is pinned to (NR-42c): the localhost
 addresses are graded against the config the vendored contracts were released with, not against whatever
 `@fhevm/solidity` happens to be installed. `fhevm-npm sync vendored` writes the copy; it is never edited.
 

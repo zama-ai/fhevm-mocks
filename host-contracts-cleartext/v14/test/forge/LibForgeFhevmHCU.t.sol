@@ -44,7 +44,7 @@ contract LibForgeFhevmHCUTest is Test, ForgeFhevmDeploy {
         assertEq(limit.getMaxHCUDepthPerTx(), LocalHostBootstrap.MAX_HCU_DEPTH_PER_TX);
     }
 
-    /// The guard this library exists to lift, proven live before it is lifted (rules 7.1).
+    /// The guard this library exists to lift, proven live before it is lifted (FR-36).
     function test_aDeepChainTripsTheDepthCap() public {
         vm.expectRevert(HCULimit.HCUTransactionDepthLimitExceeded.selector);
         chain.run(TOO_DEEP);

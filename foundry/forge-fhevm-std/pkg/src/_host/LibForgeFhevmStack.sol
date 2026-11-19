@@ -70,7 +70,7 @@ import {LibForgeFhevmSigners} from "./LibForgeFhevmSigners.sol";
  *      derives the coprocessor and KMS signer sets from the mnemonic; the deploy installs them when it
  *      creates the stack, and `defineCleartextContexts` re-registers them on a FORKED production stack so
  *      the proofs this package builds are accepted there too. Split across two files they each rebuilt the
- *      KMS node list from the same four bootstrap arrays, which is the drift rule 2.6 was written after.
+ *      KMS node list from the same four bootstrap arrays, which is the drift FR-10 was written after.
  *
  * @dev WHY A LIBRARY AND A CONTRACT. `ForgeFhevmDeploy` is the same deploy for a caller that can INHERIT:
  *      a test writes `is ForgeFhevmDeploy` and calls `deployLocalFhevm()`, and that stays the shape a
@@ -430,7 +430,7 @@ library LibForgeFhevmStack {
     // the cleartext ones is what makes a forked stack usable: the proofs this package builds are signed by
     // the very keys `LocalHostBootstrap` derives, which is why this belongs beside the deploy that installs
     // them in the first place rather than in a library of its own. They were two files, and each built the
-    // KMS node list from the same four bootstrap arrays — the duplication rule 2.6 exists to prevent.
+    // KMS node list from the same four bootstrap arrays — the duplication FR-10 exists to prevent.
 
     // ---------------------------------------------------------------------------------------------
     // The cleartext side: what this project can sign as
@@ -603,7 +603,7 @@ library LibForgeFhevmStack {
     // WHY STORAGE AND NOT A GETTER. `confirmKmsContextCreation` mints the new epoch id from a counter of
     // its own (`epochId = ++$.epochCounter`) and announces it only in the `NewKmsEpoch` event.
     // `ProtocolConfig` exposes no getter for a PENDING epoch — `isValidEpochForContext` answers for
-    // Active ones only — and the recorded-log buffer has an owner (rule 2.3): draining it here would
+    // Active ones only — and the recorded-log buffer has an owner (FR-07): draining it here would
     // starve the FHE replay and break the next decryption. So the counter is read where it lives.
     //
     // WHAT MAKES THAT SAFE. The root is `ProtocolConfig`'s own ERC-7201 constant and the offset is the
