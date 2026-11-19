@@ -100,13 +100,13 @@ Once the steps above are done, this file describes work that is finished. A dele
 
 Run from the workspace root, after you commit the change that moved `npm-manifest.json#generations`.
 `check generation-parity` compares `HEAD` with the release branch, so it does not see uncommitted edits. The `v-prev`
-targets then run `<vN>`.
+target then runs `<vN>`. A frozen generation is not linted: no lint finding in it could be fixed.
 
 ```sh
 git fetch origin release/<N>.x   # without the branch, `check generation-parity` skips <vN> and says so
 npm install
 make check-pre                   # dependencies, pinned-dependencies, generations, generation-parity, scripts
-make lint-cleartext-v-prev test-cleartext-v-prev
+make test-cleartext-v-prev
 ```
 
 When all of them pass, and `check generation-parity` printed no skip note, `<vN>` is complete without `<vN-1>`.
