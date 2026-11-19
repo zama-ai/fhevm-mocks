@@ -162,7 +162,7 @@ export async function renderChainsConfig(
       'fhevm-network-groups.config.json. `source.commit` records the registry revision of the',
       'last sync; `fhevm-npm check fhevm-chains-origin` always checks against the CURRENT head of the',
       "registry's main and fails when the addresses here have fallen behind it — `fhevm-npm",
-      'sync-fhevm-chains --latest` catches up. Host chains are discovered from the registry',
+      'sync fhevm-chains --latest` catches up. Host chains are discovered from the registry',
       '([PREFIX_]ACL_HOST), so a new host chain appears on the next sync.',
       '',
       'relayerUrl is deliberately NOT from the registry (the relayer is infrastructure, not an',
