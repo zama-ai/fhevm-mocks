@@ -1,7 +1,7 @@
-// Verifies that V(N-1) has not drifted from the release branch that owns it.
+// Verifies that <vN-1> has not drifted from the release branch that owns it.
 //
 // A generation is authored on its own release branch, and it keeps living in the workspace after the
-// next one arrives — as V(N-1), the stack V(N)'s upgrade suite upgrades FROM. That copy is not a fork:
+// next one arrives — as <vN-1>, the stack <vN>'s upgrade suite upgrades FROM. That copy is not a fork:
 // it must stay the same bytes the branch it came from holds, or the upgrade is rehearsed against a
 // stack no one ships.
 //
@@ -23,7 +23,7 @@
 //
 //   FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity
 //
-// It exists for one situation, and it is a common one: V(N-1) is brought across while the work it
+// It exists for one situation, and it is a common one: <vN-1> is brought across while the work it
 // comes from is still on a topic branch, unmerged into the release branch that owns it. Until that
 // merge lands the derived ref is genuinely the wrong baseline, and the check has nothing useful to
 // say — the alternative is to disable it, which is worse, because then nothing is compared at all.
@@ -90,7 +90,7 @@ function runGit(args: readonly string[], cwd: string): string {
 
 /**
  * `v13` -> `release/0.13.x`, `v1.0` -> `release/1.0.x` (generation-names.ts). The generation name IS the release
- * line, which is what lets this check follow a rotation without an edit: whichever generation becomes V(N-1)
+ * line, which is what lets this check follow a rotation without an edit: whichever generation becomes <vN-1>
  * answers its own branch.
  */
 export { releaseBranchOf };
@@ -183,9 +183,9 @@ export function inspectGenerationParity(
     const pathspec = relative(repoRoot, resolve(workspaceRoot, key)).split(sep).join('/');
     const tracked = lines(git(['ls-tree', '-r', '--name-only', 'HEAD', '--', pathspec], repoRoot));
     // The generation's own package.json is the one file a rotation is REQUIRED to edit in place, so
-    // byte-identity cannot apply to it: NR-26 says V(N-1) must not declare `test:upgrade`, and
+    // byte-identity cannot apply to it: NR-26 says <vN-1> must not declare `test:upgrade`, and
     // NR-22 says it must not depend on the generation it upgraded from. Both lines are still present
-    // on the release branch, where that generation was V(N). Exempting it leaves nothing unguarded —
+    // on the release branch, where that generation was <vN>. Exempting it leaves nothing unguarded —
     // those two checks own its content, and every nested package.json below it stays in scope.
     const exempt = `${pathspec}/package.json`;
 
@@ -196,7 +196,7 @@ export function inspectGenerationParity(
       const status = line.slice(0, tab);
       const path = line.slice(tab + 1);
 
-      // Present on the release branch, absent here: the exempt direction. A rotation deletes V(N-1)'s
+      // Present on the release branch, absent here: the exempt direction. A rotation deletes <vN-1>'s
       // own upgrade lane, and that is what this looks like.
       if (status.startsWith('D')) continue;
       if (path === exempt) continue;

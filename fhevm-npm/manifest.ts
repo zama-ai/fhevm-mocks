@@ -99,8 +99,8 @@ const tarballsPolicySchema = z
   .strict();
 
 /**
- * One multi-generation package family: which dev package is V(N), the current generation every consumer
- * depends on, and which is V(N-1), kept only so V(N)'s upgrade path from it can be built and tested.
+ * One multi-generation package family: which dev package is <vN>, the current generation every consumer
+ * depends on, and which is <vN-1>, kept only so <vN>'s upgrade path from it can be built and tested.
  * Keyed by the family's directory below sdk/ (`host-contracts-cleartext`). Cross-entry rules — both
  * values exist, are `dev` packages, live under the family directory, and differ — are in the manifest
  * refinement, because they need `packages`.

@@ -59,7 +59,7 @@ function pinnedAdditions(npmManifest: NpmManifest, names: readonly string[]): Re
 /**
  * The `file:` spec for the cleartext payload, resolved from npm-manifest.json#generations rather than
  * written down: a spec spelled out here would be a generation pin inside the tool, which a rotation
- * cannot fix by editing the workspace — rule NR-22 would report the rendered mirror as pinned to V(N-1)
+ * cannot fix by editing the workspace — rule NR-22 would report the rendered mirror as pinned to <vN-1>
  * and the only remedy would be editing fhevm-npm itself.
  *
  * The family is found by the name the template depends on, so neither the family directory nor the
