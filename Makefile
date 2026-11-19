@@ -728,6 +728,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check consumer-lockfiles)
 	$(call run-fhevm-npm,check lint-policy)
 	$(call run-fhevm-npm,check cleartext-config)
+	$(call run-fhevm-npm,check forge-std-chains)
 	$(call run-fhevm-npm,check md-links --offline)
 	$(call run-fhevm-npm,check deployments)
 	$(call run-fhevm-npm,sync vendored --check)

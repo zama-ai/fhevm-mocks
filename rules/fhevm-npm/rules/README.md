@@ -128,7 +128,7 @@ To read the full text of every live rule on one page, open [groups/all.md](group
 | [NR-42a](entries/NR-42a.md) `[HOLD]`     | A pinned vendored copy records a digest                           | A pinned vendored copy records a content digest, and every build verifies it.                                         | 5.1.3a     | script  | I-21             |
 | [NR-42b](entries/NR-42b.md) `[VIOLATED]` | Declare vendored copies only in the manifest                      | `npm-manifest.json` is the only place a vendored copy is declared.                                                    | 5.1.3b     | script  | I-01, I-21, I-55 |
 | [NR-42c](entries/NR-42c.md) `[GAP]`      | One upstream commit per generation                                | A generation pins ONE upstream commit, and every copy taken from upstream rides it.                                   | 5.1.3c     | missing | I-09, I-21, I-61 |
-| [NR-91](entries/NR-91.md) `[VIOLATED]`   | Every copy of a deployed address follows fhevm-chains.config.json | A deployed FHEVM address written anywhere else in the workspace equals the one that `fhevm-chains.config.json` gives. |            | script  |                  |
+| [NR-91](entries/NR-91.md) `[HOLD]`       | Every copy of a deployed address follows fhevm-chains.config.json | A deployed FHEVM address written anywhere else in the workspace equals the one that `fhevm-chains.config.json` gives. |            | script  |                  |
 
 ## Tooling
 
