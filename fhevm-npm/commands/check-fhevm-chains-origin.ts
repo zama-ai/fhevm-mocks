@@ -12,7 +12,7 @@ import {
 
 // Read-only currency check: does the committed fhevm-chains.config.json still say what the registry's
 // CURRENT main head says? Deliberately head-based, not pin-based — a registry release that changed an
-// fhevm address must turn this red until `sync-fhevm-chains --latest` catches up. The comparison embeds
+// fhevm address must turn this red until `sync fhevm-chains --latest` catches up. The comparison embeds
 // the committed pin into the fresh render, so unrelated registry commits (staking, tokens) stay green.
 export async function checkFhevmChainsOrigin(options: {
   readonly workspaceRoot: string;
