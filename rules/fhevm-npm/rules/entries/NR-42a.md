@@ -6,7 +6,7 @@ title: A pinned vendored copy records a digest
 short: A pinned vendored copy records a content digest, and every build verifies it.
 old: 5.1.3a
 check: script
-checked-by: "./fhevm-npm-cli sync vendored --check"
+checked-by: './fhevm-npm-cli sync vendored --check'
 issues:
   - I-21
 ---

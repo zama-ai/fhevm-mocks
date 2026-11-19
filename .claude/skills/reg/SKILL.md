@@ -56,7 +56,7 @@ A kind can mark a field as a command field, as the field `checked-by` of a rule.
 - Write just enough to reach the check, as in `checked-by: node scripts/rule-checks.mjs check no-hardcoded-address`.
 - Start the value with the check itself: the path of a file of the repository, written with a slash, as in `./scripts/rule-checks.mjs`. Or start with one of the interpreters `node`, `sh`, `bash`, or `python3`, followed by that path. A program such as `echo` cannot start the value, so it cannot fake the proof.
 - Write paths relative to the root of the repository, the folder that holds `.claude/`. A path cannot hold a space, and must match the file in letter case. A link may point to a file inside the repository, never outside it.
-- Write plain words. A command field holds no quote and no shell character such as `;`, `|`, `$`, or `#`. The script may still wrap the whole value in double quotes, because it quotes every value that does not start with a letter, a digit, or `(`. Those quotes belong to the front matter, not to the command.
+- Write plain words. A command field holds no quote and no shell character such as `;`, `|`, `$`, or `#`. The script may still wrap the whole value in quotes, because it quotes every value that does not start with a letter, a digit, or `(`. Those quotes belong to the front matter, not to the command.
 
 The proof is a question to the check. The option is `--` followed by the noun of the kind and `-id`, as in `--rule-id` for a rule:
 
@@ -152,7 +152,8 @@ short: The widgets that one release ships.
 - Do not write a list in brackets, as in `[first, second]`. A Markdown link checker reads the brackets as a link reference and warns. The script still reads a list in brackets, and rewrites it as one line per item.
 - Write a field of type `sentence` as one sentence that ends with a period.
 - Set `group` to a group that `README.md` declares, or leave it out. See "Group entries when the index grows".
-- Write each value as plain text. If YAML would read a value as something other than text, the script adds double quotes. For example, it quotes `true`, `1.0`, a date, a value that contains a colon, and a value that starts with a character other than a letter, a digit, or `(`. To quote a value yourself, use double quotes, never single quotes.
+- Write each value as plain text. If YAML would read a value as something other than text, the script adds quotes. For example, it quotes `true`, `1.0`, a date, a value that contains a colon, and a value that starts with a character other than a letter, a digit, or `(`.
+- The script quotes a value as Prettier does with the workspace setting `singleQuote`: in single quotes, as `'1.2.1'`, unless the value holds a backslash, or more single quotes than double quotes, then in double quotes. Prettier formats these files when your editor saves them, so the script writes what Prettier would write, and neither undoes the other. In single quotes, write a quote inside the value as `''`.
 - You choose the text after the front matter. Give it a title of your choice, or no title, because the front matter already holds the title field. Never repeat the tag in the text.
 - Write headings with `#`, never by underlining a line with `===` or `---`. Write links and images in Markdown, never as HTML. Close every code block. Give each link label a name that no other entry of the registry folder uses, because `groups/all.md` holds every entry. The script copies the text to the group pages, and it cannot move the other forms safely.
 
@@ -231,7 +232,7 @@ A group is optional. It splits the index into one table per group, so that a rea
 
 - Name a group by its topic, in sentence case, as in `Versions` or `Releases`. Start the name with a letter or a digit, and leave out quotes, colons, `#`, brackets, and other characters that YAML reads specially.
 - The index uses the headings "Groups" and "No group", and `groups/all.md` holds every entry, so no group can take these names or the name "All". A group also cannot share its anchor with another heading of `README.md`.
-- Write the description as one sentence that ends with a period and says which entries belong to the group. If YAML would not read the description as plain text, for example because it contains a colon or `#`, put it in double quotes.
+- Write the description as one sentence that ends with a period and says which entries belong to the group. If YAML would not read the description as plain text, for example because it contains a colon or `#`, put it in quotes.
 - An entry belongs to one group or to none. A retired entry keeps its group.
 - To add a group, declare it in `README.md`, set `group` on each entry that belongs to it, then run the script.
 - To move an entry to another group, change its `group`, then run the script. Its ID and its file stay the same.

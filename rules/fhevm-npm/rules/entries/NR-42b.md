@@ -3,11 +3,11 @@ id: NR-42b
 tag: VIOLATED
 group: Vendoring
 title: Declare vendored copies only in the manifest
-short: "`npm-manifest.json` is the only place a vendored copy is declared."
+short: '`npm-manifest.json` is the only place a vendored copy is declared.'
 old: 5.1.3b
 check: script
 evidence:
-  - "`fhevm-npm/base/checks/inventory.ts:128-130` shows a vendored `source` resolved from the git root, while `fhevm-npm/base/sync-vendored.ts:64` resolves it from the workspace root. Fix: issue I-55."
+  - '`fhevm-npm/base/checks/inventory.ts:128-130` shows a vendored `source` resolved from the git root, while `fhevm-npm/base/sync-vendored.ts:64` resolves it from the workspace root. Fix: issue I-55.'
 issues:
   - I-01
   - I-21
@@ -52,4 +52,3 @@ still ask whether every live generation is among them.
 ```
 
 Every manifest path resolves against the workspace root ([NR-73a](NR-73a.md)).
-

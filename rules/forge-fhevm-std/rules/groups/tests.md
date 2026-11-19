@@ -111,5 +111,5 @@ Check: missing.
 Issues: I-14.
 
 An external call in an argument consumes a pending
-`vm.prank` or `vm.expectRevert` before the intended call sees it. (A *cheatcode* call does not —
+`vm.prank` or `vm.expectRevert` before the intended call sees it. (A _cheatcode_ call does not —
 that one is safe.)

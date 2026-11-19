@@ -1,6 +1,6 @@
 ---
 kind: issues
-prefix: ""
+prefix: ''
 groups:
   Decisions: Each issue waits for a decision from the owner, and says what each answer changes.
   Cleanup: Each issue is a change to the rules or the definitions in `rules/`, and needs no decision.

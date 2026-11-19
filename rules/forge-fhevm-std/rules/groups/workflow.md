@@ -59,7 +59,7 @@ Issues: I-36, I-38, I-122.
 - **Templates** (`generate:templates`) keep placeholder markers — addresses derived as
   `keccak256("fhevm.placeholder.<NAME>")[0:20]` — compiled in as literals, and record the byte
   offsets where they land so the TS deploy can overwrite them at deploy time. Hence the ordering: the
-  placeholder file is written *before* `forge build`, or the previous run's markers stay baked in at
+  placeholder file is written _before_ `forge build`, or the previous run's markers stay baked in at
   the recorded offsets.
 - **`LocalHostBytecode.sol`** (`generate:local-host-bytecode`) deliberately does NOT patch for the
   local deploy. It derives the deployer from the mnemonic, precomputes the nonce sequence's addresses,

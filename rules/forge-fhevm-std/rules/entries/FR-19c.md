@@ -4,12 +4,12 @@ tag: CONFLICT
 group: Runtime
 title: A handle the stack did not compute is answered by policy
 short: A handle that the stack did not compute gets a stated value or a value from a per-type policy, or is refused, and is never invented silently.
-old: "2.15.3"
+old: '2.15.3'
 check: missing
 evidence:
   - Conflicts with FR-25.
-  - "FR-25 states this rule again for a handle minted before the fork: the test states its value or picks a per-type policy. Fix: merge FR-25 into this rule."
-  - "`foundry/forge-fhevm-std/pkg/src/StdFhevmCheats.sol:312` shows `forkUnknown(euint32 value, uint32 clear)`, and the rule writes `forkUnknown(handle, value)`. Fix: write `forkUnknown(value, clear)`."
+  - 'FR-25 states this rule again for a handle minted before the fork: the test states its value or picks a per-type policy. Fix: merge FR-25 into this rule.'
+  - '`foundry/forge-fhevm-std/pkg/src/StdFhevmCheats.sol:312` shows `forkUnknown(euint32 value, uint32 clear)`, and the rule writes `forkUnknown(handle, value)`. Fix: write `forkUnknown(value, clear)`.'
 issues:
   - I-13
   - I-21
