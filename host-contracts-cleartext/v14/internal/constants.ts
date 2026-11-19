@@ -118,9 +118,9 @@ const HOST_NONCE_COUNT: bigint =
  * belongs to the trailing block. Grouping it with the host contracts because of what it *is* would
  * reintroduce exactly the hardcoded offset this split removes.
  *
- * The same layout is duplicated a third time in `pkg/forge/script/ComputeAddresses.s.sol`, which cannot
- * import TypeScript at all and still spells out `nonce + 9/10/11`. So: change the deploy order and it must
- * change in three places. What catches a missed one differs per group — the ZAMA_LOCAL_CONFIG assertion in
+ * `pkg/forge/script/ComputeAddresses.s.sol` uses the same layout, but `generate:compute-addresses` renders it
+ * from NONCE_OFFSET, so never edit it. Change the deploy order here and in `pkg/ts/addresses.ts`, then run
+ * `npm run generate`. What catches a missed one differs per group — the ZAMA_LOCAL_CONFIG assertion in
  * generateLocalHostBytecode.ts only covers offsets 1, 3 and 4, so it says nothing about the trailing
  * block; `test/ts/precompute-addresses.test.ts` is what pins all ten against the payload's own layout.
  */
