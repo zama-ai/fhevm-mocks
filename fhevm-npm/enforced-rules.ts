@@ -21,6 +21,8 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check tsc-mode': ['NR-14'],
   'check dependencies': ['NR-15', 'NR-16', 'NR-18', 'NR-20', 'NR-31', 'NR-32', 'NR-33', 'NR-34', 'NR-35'],
   'check cleartext-config': ['NR-90'],
+  // NR-90 again: `--check` compares the faces as `check cleartext-config` does; without it, the command writes them.
+  'generate cleartext-config': ['NR-90'],
   'check generations': ['NR-22', 'NR-23', 'NR-24', 'NR-25', 'NR-26'],
   'check generation-parity': ['NR-27'],
   'check foundry': ['NR-03', 'NR-29', 'NR-30'],
@@ -73,6 +75,7 @@ export const REQUIRED_OPTIONS: Readonly<Record<string, Readonly<Partial<Record<R
   // --digest prints the upstream digest instead of checking the copies.
   'sync vendored': { 'NR-42a': { given: ['check'], absent: ['digest'] } },
   'sync pinned': { 'NR-21': { given: ['check'] } },
+  'generate cleartext-config': { 'NR-90': { given: ['check'] } },
   'sync hh-v2-constants': { 'NR-88': { given: ['check'] } }, // hh-v2-constants
 };
 
