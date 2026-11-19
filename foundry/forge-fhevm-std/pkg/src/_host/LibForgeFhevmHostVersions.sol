@@ -99,9 +99,9 @@ library LibForgeFhevmHostVersions {
     // -- The previous line: fhevm 0.13 --------------------------------------
     //
     // BOTH ENDS ARE HAND-WRITTEN, unlike the current line's generated ceiling, and they can be: the
-    // 0.13 line is closed. Its generation lives on here as V(N-1) and NR-27 forbids editing it, so
-    // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v0.13.0 for the
-    // floors, and the last 0.13 release for the ceilings — only `FHEVMExecutor` moved across the line,
+    // <N-1> line is closed. Its generation lives on here as <vN-1> and NR-27 forbids editing it, so
+    // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v<N-1>.0 for the
+    // floors, and the last <N-1> release for the ceilings — only `FHEVMExecutor` moved across the line,
     // from v0.4.0 to v0.5.0 at 0.13.6. The ceilings are checked against the versions the previous
     // generation's package vendors by `test/upgrade/PreviousLineCeilings.t.sol`.
 
