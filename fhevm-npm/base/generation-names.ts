@@ -5,7 +5,7 @@
 //   v<major>.<minor>  from 1.0 on: `v1.0` is 1.0, `v1.1` is 1.1
 //
 // The release branch a generation owns is `release/<major>.<minor>.x`, and generations order by version, so
-// v13 < v14 < v1.0 < v1.1. 0.15 is a ZOMBIE: it will never be released (the generation after 0.14 ships as 1.0),
+// `v13 < v14 < v1.0 < v1.1`. 0.15 is a ZOMBIE: it will never be released (the generation after 0.14 ships as 1.0),
 // so no branch is ever derived for it, and nothing may target `release/0.15.x`. A `v15` name is still read, for as
 // long as a directory carries it, but it owns no branch.
 //

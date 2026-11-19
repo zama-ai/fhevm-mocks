@@ -237,7 +237,7 @@ test('resolves a shared published name by exact version, and reports a range it 
 });
 
 test("requires <vN>'s payload to be the member and <vN-1>'s not to be", () => {
-  // The fixture manifest is already the intended state: v13/pkg member, v12/pkg not.
+  // The fixture manifest is already the intended state: `v13/pkg` member, `v12/pkg` not.
   assert.deepEqual(validateGenerationMemberFlags(manifest()), []);
 
   // The flag a rotation forgets: the pair moves on, and the retired payload keeps claiming the shared
@@ -390,7 +390,7 @@ test('requires every live generation to be among the directories that receive a 
 });
 
 test('a face named for a generation (by source name) lands in that generation alone, and is not demanded of the others', () => {
-  // v13's complete face, copied under the stable name: the generation is in the SOURCE name only.
+  // `v13`'s complete face, copied under the stable name: the generation is in the SOURCE name only.
   const v13Face = (to: readonly string[]) => [
     { to, files: ['cleartext-config.ts'], renamed: { 'cleartext-config.ts': 'cleartext-config-v13.ts' } },
   ];
@@ -398,7 +398,7 @@ test('a face named for a generation (by source name) lands in that generation al
   // On its own generation: nothing to report, and <vN-1> is NOT owed a copy of it.
   assert.deepEqual(validateGenerationVendoredDestinations(manifest(), v13Face([`${FAMILY}/v13/pkg/ts`])), []);
 
-  // Copied into the other live generation as well: v12 has no field for a v13-only value.
+  // Copied into the other live generation as well: `v12` has no field for a `v13`-only value.
   const leaked = validateGenerationVendoredDestinations(
     manifest(),
     v13Face([`${FAMILY}/v13/pkg/ts`, `${FAMILY}/v12/pkg/ts`]),

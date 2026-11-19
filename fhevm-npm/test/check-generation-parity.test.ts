@@ -162,7 +162,7 @@ test('the remote-tracking copy is used when the local branch is absent', () => {
 });
 
 test('a release branch that resolves neither way is skipped out loud, not failed', () => {
-  // v12 has no release/0.12.x and never will — the practice began later. Failing would make this
+  // v12 never got a release/0.12.x — the practice began later. Failing would make this
   // file impossible to keep identical across branches, which is the one thing fhevm-npm must be.
   const git = fakeGit({ refs: [] });
   const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git);
@@ -244,7 +244,7 @@ test('only FHEVM_PARITY_REF_* is read, and an empty value is not an override', (
     // Lowercased, because that is how `npm-manifest.json#generations` names the directories.
     { v13: TOPIC, v9: 'release/0.9.x' },
   );
-  // A variable name cannot hold a dot: V1_0 spells v1.0.
+  // A variable name cannot hold a dot: `V1_0` spells `v1.0`.
   assert.deepEqual(parityRefOverrides({ FHEVM_PARITY_REF_V1_0: TOPIC }), { 'v1.0': TOPIC });
   assert.deepEqual(parityRefOverrides({}), {});
 });

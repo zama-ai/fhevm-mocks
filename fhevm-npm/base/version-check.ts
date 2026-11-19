@@ -222,7 +222,7 @@ export function centralPayloads(
 }
 
 /**
- * Lock entries are keyed by path relative to the root ('plugin/pkg', '../../host-contracts-cleartext/v13/pkg');
+ * Lock entries are keyed by path relative to the root ('plugin/pkg', '../../host-contracts-cleartext/<vN>/pkg');
  * link entries under node_modules carry no version and are skipped by the version filter.
  */
 export function memberEntries(

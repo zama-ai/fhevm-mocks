@@ -15,13 +15,13 @@
 // and the branch is derived from the generation's own number, so a rotation needs no edit.
 //
 // A generation whose release branch does not resolve is SKIPPED rather than failed, and the skip is
-// reported. Not every generation has one: the practice began partway through, so v12 has no
-// `release/0.12.x` and never will. Failing there would make this file impossible to keep identical
+// reported. Not every generation has one: the practice began partway through, so v12 never got a
+// `release/0.12.x`. Failing there would make this file impossible to keep identical
 // across branches — the one thing fhevm-npm must be — for a branch that is not coming back.
 //
 // THE ESCAPE HATCH: `FHEVM_PARITY_REF_<GENERATION>` names a different ref to compare against.
 //
-//   FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity
+//   `FHEVM_PARITY_REF_V13=devex/alexb/v13/forge-fhevm-std-v2 ./fhevm-npm-cli check generation-parity`
 //
 // It exists for one situation, and it is a common one: <vN-1> is brought across while the work it
 // comes from is still on a topic branch, unmerged into the release branch that owns it. Until that

@@ -17,7 +17,7 @@
 // names directories, not the branch that carries another generation's copy of this package, and a
 // branch cannot know what the next generation called its own. So:
 //
-//   FHEVM_FORGE_STD_PARITY_REF=devex/alexb/forge-fhevm-v14 ./fhevm-npm-cli check forge-fhevm-std-parity
+//   `FHEVM_FORGE_STD_PARITY_REF=devex/alexb/forge-fhevm-v14 ./fhevm-npm-cli check forge-fhevm-std-parity`
 //
 // Unset, the check SKIPS and says so: nothing was compared, and a silent pass would be worse than no
 // check. Set but unresolvable, it FAILS — a ref someone typed is a ref they expect to exist. That is

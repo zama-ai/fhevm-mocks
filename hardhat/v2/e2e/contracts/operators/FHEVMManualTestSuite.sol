@@ -10,7 +10,7 @@
 //     does not exist in this repository. This matches the sibling FHEVMTestSuite*.sol contracts.
 //
 //  2. `FHE.mulDiv` and `FHE.toExternalE*` are omitted: they are not exposed by
-//     @fhevm/solidity@0.13.3 and are expected in v14. `FHE.isIn` and `FHE.sum` ARE present in
+//     @fhevm/solidity@0.13.3 and are expected in `<vN>`. `FHE.isIn` and `FHE.sum` ARE present in
 //     0.13.3 and are kept — they were the operators missing from 0.11.1.
 //
 // Re-sync by re-porting from upstream and re-applying those two changes.

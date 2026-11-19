@@ -1,4 +1,4 @@
-// Constants every generation shares — the local (anvil) stack's deploy identity: v12 and v13 deploy
+// Constants every generation shares — the local (anvil) stack's deploy identity: <vN-1> and <vN> deploy
 // from the same account onto the same ZamaConfig addresses. Decided in sdk/cleartext-config.json, which
 // each generation's test/cleartext-config-mirror.test.ts checks these against.
 
