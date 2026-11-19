@@ -30,11 +30,14 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg"
+    "@fhevm/host-contracts-cleartext": "file:../../../../host-contracts-cleartext/v13/pkg",
+    "eslint": "^10.14.0",
+    "prettier": "^3.10.1",
+    "typescript-eslint": "^8.72.2"
   },
   "peerDependencies": {
     "@fhevm/sdk": "^0.13.8",
-    "hardhat": "^3.0.0",
+    "hardhat": "^3.22.0",
     "viem": "^2.55.19"
   }
 }
