@@ -1,18 +1,18 @@
-// The CREATE2 path, end to end, across a generation boundary: a fresh anvil, a v13 stack deployed by
-// v13's own `create2-deploy` coordinator, then v14's coordinator upgrading it in place.
+// The CREATE2 path, end to end, across a generation boundary: a fresh anvil, a `<vN-1>` stack deployed by
+// `<vN-1>`'s own `create2-deploy` coordinator, then `<vN>`'s coordinator upgrading it in place.
 //
 // Run: npm run test:upgrade
 //
 // ## Why this exists separately from test/ts/upgrade/library.test.ts
 //
-// That test drives the same migration through the TypeScript library — `deploy()` then `updateV14ToV14()`
+// That test drives the same migration through the TypeScript library — `deploy()` then `updateV13ToV14()`
 // — from inside one Node process. This drives it through the OPERATOR-FACING path: two CLI coordinators,
 // each spawning `forge script`, each broadcasting real transactions and sealing a manifest. The two share
 // no code, which is the point. The library path can be correct while the CREATE2 path is broken, and the
 // CREATE2 path is the one an operator actually runs against a testnet.
 //
 // It also exercises the thing neither unit tests nor the library e2e can: that the seven implementations
-// v14's `compute` predicts land beside the eleven live addresses it was handed, and that a `materialize`
+// `<vN>`'s `compute` predicts land beside the eleven live addresses it was handed, and that a `materialize`
 // built from a sealed manifest lands on a stack that was deployed by a different package, at a different
 // version, in a different process.
 //
@@ -24,7 +24,7 @@
 // ## Skips rather than fails when a prerequisite is missing
 //
 // Same policy as `internal/upgrade/runUpgradeE2e.ts`, for the same reason: `anvil`/`forge` may be absent, the
-// sibling v13 package may not be checked out, and neither is a defect in this package. Every skip names
+// sibling `<vN-1>` package may not be checked out, and neither is a defect in this package. Every skip names
 // what is missing and how to get it. The one thing a skip must never do is look like a pass — each is
 // reported by the test runner as a skip, with its reason.
 
@@ -44,10 +44,10 @@ import { assertStampedRecord, sealedManifest } from '../record.ts';
  * processes, and cleaning its build output. Declared here because this file is its only caller, and
  * both go when the pair rotates.
  *
- * TypeScript that merely wants v13's code must NOT come through here. v13 is a workspace member, so
+ * TypeScript that merely wants `<vN-1>`'s code must NOT come through here. `<vN-1>` is a workspace member, so
  * it is imported like any dependency — `@fhevm/host-contracts-cleartext-v13-dev/pkg/ts/index.ts`,
  * resolved through the link npm created, with types and go-to-definition intact. The upgrade e2e used
- * to build v13, pack it and extract it under an alias in `test/ts/node_modules` purely to get an
+ * to build `<vN-1>`, pack it and extract it under an alias in `test/ts/node_modules` purely to get an
  * importable copy; a workspace link does that already, and the whole apparatus is gone.
  *
  * A tarball is for testing the PUBLISH CONTRACT — `files` omissions, undeclared deps, stale output —
@@ -56,7 +56,7 @@ import { assertStampedRecord, sealedManifest } from '../record.ts';
  */
 const PREVIOUS_GENERATION_DIR_ABS_PATH = join(PACKAGE_ROOT_ABS_PATH, '..', 'v13');
 
-/** v14's upgrade entry point. */
+/** `<vN>`'s upgrade entry point. */
 const UPGRADE_CLI = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'upgrade', 'upgrade-cli');
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -79,10 +79,10 @@ const RPC_URL = `http://127.0.0.1:${PORT}`;
  *
  * The two coordinators read `--out-dir` differently, which is why the calls below differ:
  *
- *   v13   relative to the caller's directory too, but run from its `create2-deploy/`, so a BARE name lands
- *         there (its foundry.toml grants forge write access to exactly that folder).
- *   v14   any path, relative to the caller's directory. Passed ABSOLUTE here (outDirAbs), so it lands in
- *         `create2-deploy/` like v13's and is cleaned up the same way.
+ *   `<vN-1>`  relative to the caller's directory too, but run from its `create2-deploy/`, so a BARE name lands
+ *             there (its foundry.toml grants forge write access to exactly that folder).
+ *   `<vN>`    any path, relative to the caller's directory. Passed ABSOLUTE here (outDirAbs), so it lands in
+ *             `create2-deploy/` like `<vN-1>`'s and is cleaned up the same way.
  */
 const OUT_DIR_ARG = '.out-test-create2-e2e';
 const NEGATIVE_OUT_DIR_ARG = '.out-test-create2-e2e-negative';
@@ -301,7 +301,7 @@ function expectVersion(table: Readonly<Record<string, string>>, key: string): st
 // The test
 ////////////////////////////////////////////////////////////////////////////////
 
-/** The eleven live roles v14's upgrade is handed as arguments. */
+/** The eleven live roles `<vN>`'s upgrade is handed as arguments. */
 const LIVE_ROLES = [
   'ACL_ADDRESS',
   'FHEVM_EXECUTOR_ADDRESS',
@@ -386,8 +386,9 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
     await t.test('v13 deploys from scratch through its own CREATE2 coordinator', async () => {
       announce(2, STEPS, 'deploy v13 with ../v13 deploy-cli --stage all (3 forge builds, 22 creates, steps A-F)');
       rmSync(outDirAbs(v13Root), { recursive: true, force: true });
-      // v13 has an operator entry point (`deploy-cli`, run from its create2-deploy/ folder, where its relative
-      // --out-dir lands); v12, the generation v13 upgrades from, predated it and was run as `node <file>.ts`.
+      // `<vN-1>` has an operator entry point (`deploy-cli`, run from its create2-deploy/ folder, where its
+      // relative --out-dir lands); `<vN-2>`, the generation `<vN-1>` upgrades from, predated it and was run as
+      // `node <file>.ts`.
       const { ok, output } = await runCoordinator(
         join(v13Root, 'create2-deploy'),
         join(v13Root, 'create2-deploy', 'deploy-cli'),
@@ -707,8 +708,8 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
           RPC_URL,
           '--out-dir',
           outDirAbs(v14Root),
-          // The SAME deployment id as the deploy, deliberately: `_salt` mixes `cfg.version`, so "0.14"
-          // against the v13 deploy's "0.13" already yields a disjoint salt namespace for the same role
+          // The SAME deployment id as the deploy, deliberately: `_salt` mixes `cfg.version`, so `<N>`
+          // against the `<vN-1>` deploy's `<N-1>` already yields a disjoint salt namespace for the same role
           // names. Reusing the id is therefore correct and preferred.
           '--deployment-id',
           DEPLOYMENT_ID,
@@ -771,7 +772,7 @@ void test('create2-deploy: fresh anvil, v13 stack, then the v14 upgrade', { skip
       }
       // The negative half, which a list of positive expectations cannot give: InputVerifier is deliberately
       // absent from the op list, so a moved version there means something re-pointed a proxy nobody
-      // intended to touch. v14's table holds its v13 value, which is what "unchanged" means here.
+      // intended to touch. `<vN>`'s table holds its `<vN-1>` value, which is what "unchanged" means here.
       const before = contractVersions(v13Root);
       for (const [role, key] of [['INPUT_VERIFIER_ADDRESS', 'inputVerifier']] as const) {
         assert.equal(expectVersion(table, key), expectVersion(before, key), `${key} did not move between generations`);

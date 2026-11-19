@@ -41,8 +41,8 @@ import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
  * would not. The fuzzer varies the value and the type; the loop varies how many are in flight at once.
  *
  * THE FIXTURE IS THE PREVIOUS GENERATION'S OWN PAYLOAD, imported as the workspace package it is. Both
- * generations compute the same canonical addresses from the same deployer and nonces, so a v13 stack
- * lands exactly where this package's implementations expect one.
+ * generations compute the same canonical addresses from the same deployer and nonces, so a stack of
+ * the previous generation lands exactly where this package's implementations expect one.
  */
 contract CleartextGenerationUpgradeTest is Test, V13Deploy {
     ICleartextFHEVMExecutor internal executor;

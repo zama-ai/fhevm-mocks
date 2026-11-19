@@ -28,7 +28,7 @@ import { fhevmConfigRemappingPrefix } from '../internal/configRemapping.ts';
 import { PACKAGE_ROOT_ABS_PATH, ZAMA_LOCAL_CONFIG } from '../internal/constants.ts';
 
 /**
- * The JSON sits ABOVE every generation, at the `sdk/` root — it is shared by v12 and v13, so it cannot
+ * The JSON sits ABOVE every generation, at the `sdk/` root — it is shared by `<vN-1>` and `<vN>`, so it cannot
  * live inside either. A generation extracted on its own therefore cannot run this test, and that is the
  * correct outcome rather than a gap to paper over: without the source of truth there is nothing to check
  * the faces against, and a test that quietly passed in that case would be worse than one that fails.
@@ -58,7 +58,7 @@ const GENERATION = basename(PACKAGE_ROOT_ABS_PATH);
  * cannot be stale while the package builds; a second declaration of "which generation am I" could be.
  *
  * Reading the SIBLING generation's table would be the stronger check, but this test deliberately does not:
- * a generation must be checkable from its own checkout, and `../v12` may not be there.
+ * a generation must be checkable from its own checkout, and `../<vN-1>` may not be there.
  */
 function generationKey(): string {
   const m = /^fhevm-config-(\d+\.\d+\.\d+)\/$/.exec(fhevmConfigRemappingPrefix());
@@ -380,7 +380,7 @@ type NonceEntry = { nonce: number; address: string; role: string };
  *   secondary  what is positioned AFTER it, against `HOST_NONCE_COUNT`: the two cleartext-only contracts
  *              and `PauserSet`
  *
- * Splitting them is what makes the v12/v13 divergence legible rather than a coincidence of numbering: the
+ * Splitting them is what makes the `<vN-1>`/`<vN>` divergence legible rather than a coincidence of numbering: the
  * primary block is what grows between generations, and the secondary block carries the previous generation's
  * roles in the same order, merely starting later, plus any it declares in APPENDED_SECONDARY_ROLES. The checks
  * below assert both halves of that.
