@@ -10,6 +10,7 @@ import {
   validatePublishedRootPinFloors,
   validateScriptDependencyDeclarations,
   validateSiblingRanges,
+  validateSourceImportDeclarations,
   validateWorkspaceMemberSpecs,
 } from '../base/checks/dependencies.ts';
 import { collectScriptPackageUses, commandInvokesBinary } from '../base/script-dependencies.ts';
@@ -527,4 +528,55 @@ test('rule 4.2.3 requires sibling ranges to agree', () => {
     { name: '@scope/e2e-dev', private: true, devDependencies: { '@scope/plugin': 'file:../plugin/pkg' } },
   );
   assert.deepEqual(validateSiblingRanges([root, deeper, shallower]), []);
+});
+
+test('rule 3.3.1 requires every package a private package imports in its sources to be declared there', () => {
+  const declared = loadedPackage(
+    './declared',
+    { kind: 'dev', name: '@scope/declared-dev', private: true, member: true },
+    {
+      name: '@scope/declared-dev',
+      private: true,
+      devDependencies: { '@scope/library': 'file:../library/pkg', viem: '2.55.19' },
+      peerDependencies: { hardhat: '^3.0.0' },
+    },
+  );
+  const undeclared = loadedPackage(
+    './undeclared',
+    { kind: 'internal-consumer', name: '@scope/undeclared-dev', private: true, member: true },
+    { name: '@scope/undeclared-dev', private: true, devDependencies: { viem: '2.55.19' } },
+  );
+  const published = loadedPackage(
+    './library/pkg',
+    { kind: 'published', name: '@scope/library', member: true },
+    { name: '@scope/library' },
+  );
+
+  const imports = new Map<string, ReadonlySet<string>>([
+    // Declared in any field, the package itself, and Node built-ins are all accepted.
+    ['./declared', new Set(['@scope/library', 'viem', 'hardhat', '@scope/declared-dev', 'fs', 'path'])],
+    // A workspace package reached only through hoisting, and a registry package nobody declared here.
+    ['./undeclared', new Set(['viem', '@scope/library', 'chai'])],
+    // Published payloads are out of scope: they are checked against their own consumers.
+    ['./library/pkg', new Set(['undeclared-anywhere'])],
+  ]);
+
+  assert.deepEqual(
+    validateSourceImportDeclarations({
+      packages: [root, declared, undeclared, published],
+      sourceUsesByPackage: imports,
+    }),
+    [
+      {
+        rule: '3.3.1',
+        packageKey: './undeclared/package.json',
+        message: "its sources import '@scope/library', which package.json does not declare",
+      },
+      {
+        rule: '3.3.1',
+        packageKey: './undeclared/package.json',
+        message: "its sources import 'chai', which package.json does not declare",
+      },
+    ],
+  );
 });
