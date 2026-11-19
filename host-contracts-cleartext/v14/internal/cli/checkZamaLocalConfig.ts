@@ -2,13 +2,12 @@
 //
 // Gate: ZAMA_LOCAL_CONFIG must equal the addresses upstream's `library-solidity/config/ZamaConfig.sol`
 // returns from `_getLocalConfig()`, read from THIS generation's vendored copy in `internal/zama-config/`
-// — the same upstream commit its contracts are pinned at, declared in package.json#fhevm.vendoredFrom
-// and written by `fhevm-npm sync vendored`. The check itself lives in @fhevm/sdk-common-dev, which is
+// — the same upstream commit its contracts are pinned at (NR-42c). npm-manifest.json declares the pin,
+// `fhevm-npm bump vendored` moves it, and `fhevm-npm sync vendored` writes the copy. The check itself lives in @fhevm/sdk-common-dev, which is
 // where ZAMA_LOCAL_CONFIG is declared; since that constant is workspace-wide and every generation runs
 // this, one constant is asserted against every pinned commit at once.
 //
-// Wired into `npm run build` (and therefore `npm run test`, which builds). Cheap and read-only, so it
-// runs before anything that compiles or deploys.
+// Wired into `npm run check`. Cheap and read-only: it compiles and deploys nothing.
 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
