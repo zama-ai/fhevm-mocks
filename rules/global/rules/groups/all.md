@@ -72,7 +72,7 @@ Check: missing.
 
 Evidence:
 
-- Gap, no check: nothing runs the search under "Find the text that names a number", so a new comment that names a generation by its number, or writes `V(N)`, passes every check.
+- Gap, loose check: `fhevm-devex/no-generation-number` reads TypeScript comments only, and does not match `V(N)` or `v(N-1)`. A Solidity, Markdown, shell, or Makefile comment that names a generation by its number, or a comment that writes `V(N)`, passes every check. Fix: run the search under "Find the text that names a number" from a check.
 
 Issues: I-18.
 
@@ -104,8 +104,8 @@ Write the place of a generation with the notation below, never its number. A gen
 
 1. **Text frozen with its generation.** [R-04](../entries/R-04.md) keeps the copy of the previous generation byte-identical to its release branch, and that includes its text. Never rewrite a number in a frozen copy or in a generated copy. If the source is not frozen, rewrite the number at the source.
 2. **Dated records.** Commit messages, PR descriptions, and incident notes record what was true on their date. Nobody rewrites them later, so they can name a generation by its number.
-3. **A fact about one past release.** "Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored `0.13.6`" stays true. Keep the number, and keep the sentence in the past tense.
-4. **A value that code needs.** A script that opens a directory, fetches a tag, or pins a package needs the real number. Write the number once, in one place in the package, and make every other file read it from there. The comments around that value still use the notation.
+3. **A fact about one past release.** "Sepolia ran `FHEVMExecutor v0.4.0` after this SDK vendored `0.13.6`" stays true. Keep the number, and keep the sentence in the past tense. In a code comment, put the generation name in square brackets, as in "`v14` added no contract to the host set": the brackets say that the number is on purpose.
+4. **A value that code needs.** A script that opens a directory, fetches a tag, or pins a package needs the real number. Write the number once, in one place in the package, and make every other file read it from there. The comments around that value still use the notation. A comment that quotes the value puts it in backticks, as in `@fhevm/host-contracts-cleartext-v13-dev`.
 
 #### Find the text that names a number
 
@@ -114,6 +114,8 @@ To list the text that names a number, search the internal text:
 ```sh
 grep -rnE '\bv[0-9]{2}\b|v\(N|V\(N|0\.<N' <rule folders and internal sources>
 ```
+
+In TypeScript, the ESLint rule `fhevm-devex/no-generation-number`, from `eslint-plugin-fhevm-devex/`, reports every generation name in a comment, as `v13`, `v14.1`, or `v1.0`. `eslint.base.mjs` turns it on for every package. It skips a name in backticks (case 4), a name in square brackets (case 3), and a file whose first comment is a generator header (case 1).
 
 Fix each match, unless one of the four cases above covers it. A rule whose text names a number gets the rule tag `STALE`, even before the next rotation. Code or a comment that names a number makes this rule `VIOLATED`. The old notations `v(N-2)` and `V(N)` become `<vN-2>` and `<vN>`, and `0.<N>` becomes `<N>`.
 
