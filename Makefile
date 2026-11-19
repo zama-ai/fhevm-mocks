@@ -49,7 +49,7 @@ SHELL := /usr/bin/env bash -eu -o pipefail
 DIR_COMMON           := common
 DIR_COMMON_VENDORED  := common-vendored
 # The cleartext generation pair, V(N) and V(N-1), is decided ONCE in npm-manifest.json#generations
-# (FHEVM_NPM_RULES.md section 3.4) and read here rather than repeated. Plain `node -p` on the JSON: no
+# (the Generations group of rules/fhevm-npm/rules/) and read here rather than repeated. Plain `node -p` on the JSON: no
 # dependencies, so it works before `make install`. `check-generations` is what validates the pair.
 manifest-generation  = $(patsubst ./%,%,$(shell node -p "require('./npm-manifest.json').generations?.['host-contracts-cleartext']?.$(1) ?? ''"))
 DIR_CLEARTEXT_V_PREV := $(call manifest-generation,previous)

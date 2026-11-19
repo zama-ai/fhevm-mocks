@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/zama-ai/fhevm/blob/main/sdk/fhevm-npm/schemas/npm-manifest.schema.json",
   "title": "fhevm sdk npm manifest",
-  "description": "Inventory of every source package.json in the sdk/ discovery universe defined by fhevm-npm/npm-rules.md, plus repository-wide npm and toolchain policy.",
+  "description": "Inventory of every source package.json in the discovery universe that the Inventory group of rules/fhevm-npm/rules/ defines, plus repository-wide npm and toolchain policy.",
   "$comment": "This schema enforces manifest-local shape and kind invariants. A TypeScript validator must enforce filesystem, package.json and cross-entry invariants: complete discovery, key/path containment, member/workspaces equality, package names and privacy, required published package.json fields, private version 0.0.0, exports, dependency rules, dev/published ownership cardinality, and the conventional check:publint, npm-distribution-conditional test:consumer, conditional test:vendored and conditional test:mirror scripts.",
   "type": "object",
   "required": ["packageJson", "packages"],
@@ -365,7 +365,7 @@
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "description": "Which of the seven kinds in fhevm-npm/npm-rules.md \u00a7 Definitions this directory is.",
+          "description": "Which kind of package this directory is.",
           "$comment": "A closed set on purpose. Left open, each gate invents its own vocabulary and the manifest stops being a single answer.",
           "oneOf": [
             {
