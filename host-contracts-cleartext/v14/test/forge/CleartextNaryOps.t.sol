@@ -10,7 +10,7 @@ import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/ForgeFhevmDeploy.sol"
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 
 /**
- * The v13 nary operators, `fheSum` and `fheIsIn`, end to end: executor -> CleartextArithmetic ->
+ * The nary operators that v13 added, `fheSum` and `fheIsIn`, end to end: executor -> CleartextArithmetic ->
  * CleartextDB.
  *
  * The cases and their expected values mirror the canonical suite, so the cleartext stack computes what

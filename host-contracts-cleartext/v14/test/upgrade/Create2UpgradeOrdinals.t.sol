@@ -9,7 +9,7 @@ import {UpgradeInitData} from "../../create2-deploy/script/upgrade/UpgradeInitDa
 /**
  * @title Create2UpgradeOrdinalsTest
  * @notice Pins the index alignment of the independent 7-create / 7-op table used only by the
- *         v13 -> v14 upgrade, the way its sibling `Create2Ordinals.t.sol` pins the fresh deploy's lists.
+ *         `<vN-1>` -> `<vN>` upgrade, the way its sibling `Create2Ordinals.t.sol` pins the fresh deploy's lists.
  *
  * The upgrade table is INDEPENDENT of the deploy one: it visits a different set of roles, in a
  * different order, with a per-position initializer that depends on which version each live proxy is
@@ -51,7 +51,7 @@ contract Create2UpgradeOrdinalsTest is Test, FhevmUpgradeBase {
         assertEq(_upgradeImplArtifact(6), "pkg/src/cleartext/CleartextArithmetic.sol:CleartextArithmetic");
     }
 
-    /// One implementation create per op, and nothing else: v14 adds no proxy to the live stack.
+    /// One implementation create per op, and nothing else: v14 added no proxy to the live stack.
     function test_upgradeArtifactsResolveAndCreateCountIsSeven() public view {
         string[] memory roles = _upgradeProxyRoles();
         for (uint256 i; i < roles.length; i++) {

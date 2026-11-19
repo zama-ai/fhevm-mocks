@@ -29,7 +29,7 @@ interface IUUPSProxy {
  *
  * TWO CHAINS, ONE RECIPE, and the difference between them is the point. Devnet Sepolia runs this SDK's own
  * protocol line, so the cleartext swap is the ONLY thing under test there -- a failure has one possible
- * cause. Testnet Sepolia is a generation behind, so the same swap runs on top of the v13 -> v14 upgrade,
+ * cause. Testnet Sepolia is a generation behind, so the same swap runs on top of the `<vN-1>` -> `<vN>` upgrade,
  * which is what a real user forking a lagging chain would get. Devnet proves the mechanism; testnet proves
  * it composes.
  *
@@ -140,12 +140,12 @@ abstract contract ForkCleartextUpgrade is Test {
         assertEq(ICleartextDB(dbProxy).get(handle), 7, "the DB holds the plaintext");
         assertEq(ICleartextFHEVMExecutor(EXECUTOR).plaintexts(handle), 7, "and the executor answers for it");
 
-        // -- 5. AN OPERATION ONLY v14 HAS, which is what makes this test able to fail ------------------
+        // -- 5. AN OPERATION v14 ADDED, which is what makes this test able to fail ---------------------
         //
         // `trivialEncrypt` above cannot tell the two generations apart -- both implement it the same way,
         // so step 4 passes whether or not the upgrade that was supposed to run did. `fheMulDiv` is what
         // v14 ADDED: the executor routes it to `HCULimit.checkHCUForFheMulDiv`, a function a v13 HCULimit
-        // does not have. Reaching a correct answer here means every contract the call touches really is
+        // did not have. Reaching a correct answer here means every contract the call touches really is
         // this generation's, not just the executor.
         bytes32 factor = ICleartextFHEVMExecutor(EXECUTOR).trivialEncrypt(10, FheType.Uint32);
         bytes32 product = ICleartextFHEVMExecutor(EXECUTOR)
@@ -234,7 +234,7 @@ contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     }
 }
 
-/// IT COMPOSES: testnet is a generation behind, so the swap runs on top of the v13 -> v14 upgrade. This is
+/// IT COMPOSES: testnet is a generation behind, so the swap runs on top of the `<vN-1>` -> `<vN>` upgrade. This is
 /// what a user forking a chain that has not upgraded yet would actually get.
 contract TestnetCleartextUpgradeTest is ForkCleartextUpgrade {
     function _chain() internal override {
