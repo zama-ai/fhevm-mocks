@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { type ConsumerModuleKind, registeredConsumerKeys } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
@@ -760,6 +760,124 @@ export function validateEslintConfigs(
   }
 
   return violations;
+}
+
+/**
+ * 5.1.7, the layout layer. ESLint configuration has three layers: the policy (the workspace root's
+ * `eslint.base.mjs`), the layout (which directories get which rules), and the local exceptions (each
+ * package's `eslint.config.js`). A layout that several packages share may live once, in a module
+ * `<family>/eslint.<name>.mjs` in the common parent folder of those packages. This check finds every
+ * such module in the visible tree and holds it to that shape: its name, its place outside every package,
+ * its import of the base, at least two importers below it, and no rule settings of its own.
+ */
+export type EslintLayoutModulesInput = {
+  workspaceRoot: string;
+  packages: readonly LoadedPackage[];
+  /** Files git shows in the workspace, relative to `workspaceRoot`. */
+  visibleFiles: readonly string[];
+  /** Trees left out, as in the inventory: the tool's own tree and `inventory.exclude`. */
+  excludedRoots?: readonly string[] | undefined;
+  readTextFile?: ((file: string) => string | undefined) | undefined;
+  listFiles?: ((directory: string) => readonly string[]) | undefined;
+};
+
+export function validateEslintLayoutModules({
+  workspaceRoot,
+  packages,
+  visibleFiles,
+  excludedRoots = [],
+  readTextFile = existingTextFile,
+  listFiles = directoryFileNames,
+}: EslintLayoutModulesInput): readonly Violation[] {
+  const violations: Violation[] = [];
+  const root = resolve(workspaceRoot);
+  const base = join(root, 'eslint.base.mjs');
+  const packageDirectories = packages
+    .filter((pkg) => pkg.inventory.kind !== 'workspace-root')
+    .map((pkg) => resolve(pkg.directory));
+
+  const modules = visibleFiles
+    .map((file) => resolve(root, file))
+    .filter((file) => isEslintLayoutModuleCandidate(file, base))
+    .filter((file) => !excludedRoots.some((excluded) => isWithin(resolve(excluded), file)))
+    .sort();
+  if (modules.length === 0) return violations;
+
+  // Which package entry configs import which module.
+  const importers = new Map<string, string[]>(modules.map((module) => [module, []]));
+  for (const pkg of packages) {
+    if (!listFiles(pkg.directory).includes('eslint.config.js')) continue;
+    const config = join(resolve(pkg.directory), 'eslint.config.js');
+    const contents = readTextFile(config);
+    if (contents === undefined) continue;
+    for (const specifier of collectModuleSpecifiers(contents, config)) {
+      if (!specifier.startsWith('.')) continue;
+      importers.get(resolve(dirname(config), specifier))?.push(resolve(pkg.directory));
+    }
+  }
+
+  for (const module of modules) {
+    const label = relative(root, module).split(sep).join('/');
+    const directory = dirname(module);
+    const report = (message: string): void => {
+      violations.push({ rule: '5.1.7', packageKey: label, message });
+    };
+
+    if (directory === root) {
+      report(
+        'the workspace root holds only eslint.base.mjs; a shared ESLint layout module sits in the folder of the packages it serves',
+      );
+    }
+    // `.mjs`: the nearest package.json declares no `type`, so only `.mjs` loads as ESM without a warning.
+    if (!/^eslint\.[a-z0-9-]+\.mjs$/.test(basename(module))) {
+      report("a shared ESLint layout module is named 'eslint.<name>.mjs', with a lower-case name");
+    }
+
+    const owner = packageDirectories.find((packageDirectory) => isWithin(packageDirectory, module));
+    if (owner !== undefined) {
+      report(
+        `a shared ESLint layout module sits outside every package, but this one is inside '${relative(root, owner).split(sep).join('/')}'`,
+      );
+    }
+
+    const contents = readTextFile(module);
+    if (contents === undefined) continue;
+    const importsBase = [...collectModuleSpecifiers(contents, module)].some(
+      (specifier) => specifier.startsWith('.') && resolve(directory, specifier) === base,
+    );
+    if (!importsBase) report("a shared ESLint layout module imports the workspace root's 'eslint.base.mjs'");
+    if (/\brules\s*:/.test(withoutComments(contents))) {
+      report('a shared ESLint layout module gives paths only; rule settings belong to eslint.base.mjs');
+    }
+
+    const users = importers.get(module) ?? [];
+    const outside = users.filter((user) => !isWithin(directory, user));
+    for (const user of outside) {
+      report(
+        `imported by '${relative(root, user).split(sep).join('/')}/eslint.config.js', which is not below the module's folder`,
+      );
+    }
+    if (users.length < 2) {
+      report(
+        `a shared ESLint layout module serves at least two packages; it is imported by ${users.length}, so inline it`,
+      );
+    }
+  }
+
+  return violations;
+}
+
+function isEslintLayoutModuleCandidate(file: string, base: string): boolean {
+  if (file === base) return false;
+  const name = basename(file);
+  return /^eslint\..+\.(?:c|m)?[jt]s$/.test(name) && !isEslintConfigFileName(name);
+}
+
+function isWithin(directory: string, file: string): boolean {
+  const relativePath = relative(directory, file);
+  return (
+    relativePath !== '' && relativePath !== '..' && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath)
+  );
 }
 
 function validateRunnableConsumer(fixture: LoadedPackage, violations: Violation[]): void {
