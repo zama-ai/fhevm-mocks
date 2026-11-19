@@ -21,6 +21,7 @@ import { checkPinnedDependencies } from './commands/check-pinned-dependencies.ts
 import { checkCleartextConfig } from './commands/check-cleartext-config.ts';
 import { checkCommitScope } from './commands/check-commit-scope.ts';
 import { checkExtraneous } from './commands/check-extraneous.ts';
+import { checkForgeStdChains } from './commands/check-forge-std-chains.ts';
 import { checkGenerationParity } from './commands/check-generation-parity.ts';
 import { checkForgeFhevmStdParity } from './commands/check-forge-fhevm-std-parity.ts';
 import { checkSafechain } from './commands/check-safechain.ts';
@@ -82,6 +83,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   'generation-parity': checkGenerationParity,
   'forge-fhevm-std-parity': checkForgeFhevmStdParity,
   extraneous: checkExtraneous,
+  'forge-std-chains': checkForgeStdChains,
 };
 
 async function run(options: ParsedRun): Promise<void> {

@@ -13,6 +13,7 @@
     "check": "npm run typecheck && npm test",
     "check:dependencies": "node ./fhevm-npm.ts check dependencies",
     "check:extraneous": "node ./fhevm-npm.ts check extraneous",
+    "check:forge-std-chains": "node ./fhevm-npm.ts check forge-std-chains",
     "check:foundry": "node ./fhevm-npm.ts check foundry",
     "check:generation-parity": "node ./fhevm-npm.ts check generation-parity",
     "check:json-schemas": "node ./fhevm-npm.ts check json-schemas",

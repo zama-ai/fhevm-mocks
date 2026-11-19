@@ -44,6 +44,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   ],
   'check lockfiles': ['NR-64'],
   'check extraneous': ['NR-65'],
+  'check forge-std-chains': ['NR-91'],
   'check consumer-lockfiles': ['NR-66'],
   'check manifest-coverage': ['NR-70', 'NR-71', 'NR-72', 'NR-73'],
   'check json-schemas': ['NR-74', 'NR-87'],
