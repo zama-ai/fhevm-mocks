@@ -30,7 +30,7 @@
 # fixture paths — and a shared value would be silently overridden by every local one anyway.
 #
 # WHY THIS MATTERS MORE THAN USUAL: vendored sources under pkg/src/contracts are STORED
-# forge-formatted, and the rule 6 gate compares them against `forge fmt`(upstream). Changing any key
+# forge-formatted, and the NR-42a gate compares them against `forge fmt`(upstream). Changing any key
 # here therefore changes what that gate expects, and every package's vendored files must be
 # re-formatted in the same commit. Treat an edit here the way you would treat a forge version bump.
 #
