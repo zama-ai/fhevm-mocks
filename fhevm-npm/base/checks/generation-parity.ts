@@ -15,7 +15,7 @@
 // and the branch is derived from the generation's own number, so a rotation needs no edit.
 //
 // A generation whose release branch does not resolve is SKIPPED rather than failed, and the skip is
-// reported. Not every generation has one: the practice began partway through, so v12 never got a
+// reported. Not every generation has one: the practice began partway through, so `v12` never got a
 // `release/0.12.x`. Failing there would make this file impossible to keep identical
 // across branches — the one thing fhevm-npm must be — for a branch that is not coming back.
 //

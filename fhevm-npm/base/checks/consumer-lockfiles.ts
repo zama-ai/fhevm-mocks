@@ -2,7 +2,7 @@
 // version versions.json declares, resolved to the payload its depender actually names.
 //
 // The lockfile is what `npm ci` installs, so a stale one silently tests yesterday's package: after the
-// Hardhat v3 plugin moved from v13's host contracts to v14's, its consumer lock still recorded
+// Hardhat v3 plugin moved from `v13`'s host contracts to `v14`'s, its consumer lock still recorded
 // `@fhevm/hardhat-plugin-v3@0.13.0` depending on `host-contracts-cleartext/v13/pkg` — both versions
 // correct for the files they named, both files the wrong ones. Hence two assertions per published node:
 // the version matches versions.json for the payload the `resolved` path points at, and that path is the

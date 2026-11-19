@@ -25,7 +25,7 @@ import {
   CLEARTEXT_MAX_HCU_PER_TX,
 } from './cleartext-config.js';
 
-/** Node i's metadata, all one-based like the IP and storage-URL suffixes were in v13. */
+/** Node i's metadata, all one-based like the IP and storage-URL suffixes were in `v13`. */
 function kmsNodeMetadata(i: number): Omit<KmsNodeParams, 'txSenderAddress' | 'signerAddress'> {
   const n = String(i + 1);
   return {
