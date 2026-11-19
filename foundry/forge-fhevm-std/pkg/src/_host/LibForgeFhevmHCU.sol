@@ -154,7 +154,7 @@ library LibForgeFhevmHCU {
      * @dev Only the FORGE variant keeps a meter. The plain implementation has neither function and
      *      reverts with nothing of its own to say, so a caller must establish the variant first —
      *      `LibCleartextProbe.isForge`. This layer deliberately does not: rendering that refusal needs
-     *      forge-std, which `_host/**` may not import (rules.md 2.16), so the guard and its message live
+     *      forge-std, which `_host/**` may not import (FR-20), so the guard and its message live
      *      in `pkg/src/*.sol` where they can be spelled out.
      *
      * @dev A FORGE TEST IS ONE TRANSACTION, so "clears on a new transaction" fires once and the readings

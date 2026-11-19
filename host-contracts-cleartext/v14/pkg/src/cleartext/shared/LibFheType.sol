@@ -35,8 +35,8 @@ library LibFheType {
     /// @notice The name of an FHE type, like "euint32" or "eaddress".
     /// @dev A type this stack does not implement comes back as "FheType(unsupported)" — not as its enum
     ///      index. `FheType` has 84 members and this stack implements 8, so a numeric fallback would need
-    ///      an integer-to-string routine, and THIS FILE IS COMPILED INTO THE DEPLOYED CONTRACTS (rules.md
-    ///      2.1): it cannot reach for `vm.toString`, and hand-rolling one on chain to decorate an error
+    ///      an integer-to-string routine, and THIS FILE IS COMPILED INTO THE DEPLOYED CONTRACTS
+    ///      (FR-05): it cannot reach for `vm.toString`, and hand-rolling one on chain to decorate an error
     ///      message is not worth its bytecode. The caller knows the handle; the name of a type it cannot
     ///      use adds nothing the error does not already say.
     function toString(FheType t) internal pure returns (string memory) {

@@ -50,7 +50,7 @@ interface IUUPSProxy {
  *      needs the `ACLOwner` contract, which a chain may not even have.
  *
  * @dev ONCE PER FORK. Every reinitializer is one-shot, so a second call reverts `InvalidInitialization`.
- *      The caller preparing a fork already runs once per fork (rule 2.12); this library does not guard.
+ *      The caller preparing a fork already runs once per fork (FR-16); this library does not guard.
  */
 library LibForgeFhevmUpgrade {
     IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);

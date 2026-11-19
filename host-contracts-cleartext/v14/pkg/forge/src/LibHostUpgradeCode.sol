@@ -14,7 +14,7 @@ import {FhevmAddressRole, FhevmHostContracts, LocalHostUpgrade} from "./_interna
  *      deployed. `LocalHostUpgrade`'s generated tables say where each address sits; this turns them
  *      into bytecode.
  *
- * @dev WHY ONLY THESE FIVE. It is the exception rule 4.1 allows and nothing wider. Every other blob in
+ * @dev WHY ONLY THESE FIVE. It is the exception FR-26 allows and nothing wider. Every other blob in
  *      the payload is deployed beside the addresses it was compiled against, so it is never patched —
  *      and must not be, because those blobs come from a different compile whose constant table can be
  *      ordered differently (`internal/pooledAddressSites.ts`). Only the five here carry a table
@@ -23,9 +23,9 @@ import {FhevmAddressRole, FhevmHostContracts, LocalHostUpgrade} from "./_interna
  * @dev IT VERIFIES BEFORE IT WRITES. Every site is checked to hold the address the table claims before
  *      that address is replaced. A table that drifted from its bytecode would otherwise splice into the
  *      middle of an opcode and yield a contract that deploys, runs, and is wrong — the failure this
- *      library exists to make impossible. See rule 2.11: it fails by name, not by producing rubbish.
+ *      library exists to make impossible. See FR-15: it fails by name, not by producing rubbish.
  *
- * @dev NO CHEATCODES. Pure, so it obeys rule 2.1 and can be called from anywhere, including a script
+ * @dev NO CHEATCODES. Pure, so it obeys FR-26 and can be called from anywhere, including a script
  *      that broadcasts.
  */
 library LibHostUpgradeCode {
@@ -124,7 +124,7 @@ library LibHostUpgradeCode {
     //
     // Byte at a time, deliberately. This runs in a test VM or a deploy script, never in a transaction
     // anyone pays for, and twenty single-byte writes are unmistakably correct where a masked `mstore`
-    // is a place to get an off-by-one wrong. Rule 2.7: say what is not true — this is not fast.
+    // is a place to get an off-by-one wrong. FR-11: say what is not true — this is not fast.
     // ---------------------------------------------------------------------------------------------
 
     /// @dev One packed record: `uint8 role`, then a big-endian `uint32` offset.
