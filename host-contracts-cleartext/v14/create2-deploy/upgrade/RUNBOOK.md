@@ -1,4 +1,4 @@
-# Upgrade run-book: v13 → v14, CREATE2 path
+# Upgrade run-book: `v13` → `v14`, CREATE2 path
 
 > **Start here instead:** [UPGRADE.md](../UPGRADE.md) is the step-by-step guide, with the warnings. This
 > file is the condensed checklist.
@@ -39,10 +39,10 @@ Create `upgrade.config.json`, in `create2-deploy/`:
 Relative paths in it (`outDir`, `previousManifest`, `migration`) are relative to this file's folder,
 `create2-deploy/`.
 
-The upgrade sends one set of init parameters: the live KMS context re-declared with v14's per-node
+The upgrade sends one set of init parameters: the live KMS context re-declared with `v14`'s per-node
 metadata, passed to `ProtocolConfig.reinitializeV2`. Signers, thresholds and context id are read off the
 live `ProtocolConfig`; **each node's party id, MPC identity, CA certificate and storage prefix, plus the
-KMS software version and enclave PCR values, are not on the v13 chain** and must come from whoever runs
+KMS software version and enclave PCR values, are not on the `v13` chain** and must come from whoever runs
 the KMS nodes. Write them to `kms-migration.json`, next to `upgrade.config.json`:
 
 ```json
@@ -73,7 +73,7 @@ and add it to the config:
 `compute` refuses the file if its signers differ from the live chain, in order. The keys are the contract's
 parameter names kept verbatim; the context id and the four thresholds are not in the file because they stay
 on chain and are only hashed into the context anchor. **Skip the file only for an anvil rehearsal**: then
-the four v14 members, the software version (`0.0.0-cleartext`) and an empty PCR list are auto-filled from
+the four `v14` members, the software version (`0.0.0-cleartext`) and an empty PCR list are auto-filled from
 the package defaults, which match a stack deployed from the same mnemonic and nothing else.
 
 ```sh
@@ -200,7 +200,7 @@ git push
 | `materialize` reverted in simulation   | nothing was sent; the message names the `require`                                 |
 | `verify` says `no HostUpgraded event`  | the upgrade did not land or was reorged out; `--stage status`, then re-run step 5 |
 | `compute` refuses                      | contracts are already on chain; resume from step 2, never reseal                  |
-| you need to start over                 | new `outDir`, same `deploymentId` (it must match the v13 manifest)                |
+| you need to start over                 | new `outDir`, same `deploymentId` (it must match the `v13` manifest)              |
 
 ## All at once
 
