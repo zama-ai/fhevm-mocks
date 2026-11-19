@@ -112,6 +112,8 @@ const INTERPRETERS = ["node", "sh", "bash", "python3"];
 // above this script, wherever the script runs from.
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const COMMAND_TIMEOUT_MS = 30000;
+// How many entries of other checks a check is asked about, until one is a no.
+const OTHER_ID_QUESTIONS = 10;
 const COMMAND_MAX_OUTPUT = 1024 * 1024;
 const COMMAND_KILL_SIGNAL = "SIGKILL";
 const SHELL_CHARACTERS = /["'$;&|<>#`\\\n]/;
@@ -1405,22 +1407,66 @@ function parseList(path, field, value) {
  * With --verify-commands: asks the check of each command field of a live
  * entry, without a shell, from the root of the repository, whether it
  * enforces the entry. "<command> --<noun>-id <ID>" must exit with code 0 for
- * the ID of the entry, and with another code for IDs of the same shape that
- * no entry has, so a command that accepts anything proves nothing. Every
- * answer must print nothing. Only this flag ever runs a command.
+ * the ID of the entry, with another code for IDs of the same shape that no
+ * entry has, and with another code for at least one of ten live entries
+ * that other checks enforce, so a command that accepts anything, or
+ * anything that exists, proves nothing. Every answer must print nothing.
+ * Only this flag ever runs a command.
  */
 function checkCommands(entries) {
   const commandFields = KIND.fields.filter((field) => field.command === true);
   const cwd = realpathSync(REPOSITORY_ROOT);
   const unknownIds = pickUnknownIds(entries);
+  const live = entries.filter((entry) => entry.tag !== RETIRED);
 
-  for (const entry of entries.filter((entry) => entry.tag !== RETIRED)) {
+  for (const entry of live) {
     for (const field of commandFields) {
       const command = entry.fields[field.key];
 
-      if (command !== "") checkCommand(entry, command, cwd, unknownIds);
+      if (command === "") continue;
+
+      const otherIds = pickOtherIds(live, field.key, command);
+
+      checkCommand(entry, command, cwd, unknownIds, otherIds);
     }
   }
+}
+
+/**
+ * Returns the words of a command field up to its first option: the check
+ * itself, without the options it runs with.
+ */
+function commandKey(command) {
+  const words = command.trim().split(WORDS);
+  const firstOption = words.findIndex((word) => word.startsWith("-"));
+
+  return (firstOption === -1 ? words : words.slice(0, firstOption)).join(" ");
+}
+
+/**
+ * Returns up to ten IDs of live entries, in random order, whose command
+ * field names another check. The check is asked them one at a time until it
+ * says no. A check may enforce some of them too, in part, so it may say yes
+ * to a few; one that says yes to all ten says yes to anything that exists.
+ * The answer is the same on every run for a check that partly enforces
+ * fewer than ten entries of other checks.
+ */
+function pickOtherIds(live, key, command) {
+  const own = commandKey(command);
+  const pool = live
+    .filter((other) => {
+      const value = other.fields[key];
+
+      return value !== undefined && value !== "" && commandKey(value) !== own;
+    })
+    .map((other) => other.id);
+  const picked = [];
+
+  while (picked.length < OTHER_ID_QUESTIONS && pool.length > 0) {
+    picked.push(pool.splice(randomInt(pool.length), 1)[0]);
+  }
+
+  return picked;
 }
 
 /**
@@ -1466,7 +1512,7 @@ function pickUnknownIds(entries) {
  * error unless the first answer is yes, code 0, every other answer is no,
  * another code, and no answer prints anything.
  */
-function checkCommand(entry, command, cwd, unknownIds) {
+function checkCommand(entry, command, cwd, unknownIds, otherIds) {
   const words = command.trim().split(WORDS);
   const [program, ...args] = words;
   const checkWord = INTERPRETERS.includes(program) ? args[0] : program;
@@ -1492,6 +1538,7 @@ function checkCommand(entry, command, cwd, unknownIds) {
   for (const unknownId of unknownIds) {
     const unknown = askCheck(entry, program, [...args, idArg, unknownId], cwd);
 
+    if (unknown === undefined) return;
     if (unknown === 0) {
       errors.push(
         `${entry.path}: "${command} ${idArg} ${unknownId}" exited with code 0 for an ID that no ${NOUN} has, so its answer for ${entry.id} proves nothing`,
@@ -1499,6 +1546,18 @@ function checkCommand(entry, command, cwd, unknownIds) {
       return;
     }
   }
+
+  if (otherIds.length === 0) return;
+
+  for (const otherId of otherIds) {
+    const other = askCheck(entry, program, [...args, idArg, otherId], cwd);
+
+    if (other === undefined || other !== 0) return;
+  }
+
+  errors.push(
+    `${entry.path}: "${command} ${idArg} <ID>" exited with code 0 for ${otherIds.join(", ")}, which other checks enforce, so its answer for ${entry.id} proves nothing`,
+  );
 }
 
 /**
