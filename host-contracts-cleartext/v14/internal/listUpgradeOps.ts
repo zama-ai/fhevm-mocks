@@ -64,7 +64,7 @@ type Initializers = {
   readonly reinitializer: string | undefined;
   /**
    * Every `initialize*` entry point the contract offers. Which one a materialization should call is a
-   * decision, not a lookup — v13's v12 -> v13 update called `initializeFromMigration` on ProtocolConfig
+   * decision, not a lookup — `v13`'s `v12` -> `v13` update called `initializeFromMigration` on ProtocolConfig
    * (seeding the migrated KMS context) but `initializeFromEmptyProxy` on KMSGeneration. So list them, don't pick.
    */
   readonly materializers: readonly string[];

@@ -477,8 +477,8 @@ function bootstrapUpgradeConfig(parameters: {
 
 /**
  * Builds the arguments for `KMSVerifier.initializeFromEmptyProxy`
- * `(address verifyingContractSource, uint64 chainIDSource)`. v13 moved the KMS signer set to
- * `ProtocolConfig`, so — unlike in v12 — no signers/threshold are passed here.
+ * `(address verifyingContractSource, uint64 chainIDSource)`. `v13` moved the KMS signer set to
+ * `ProtocolConfig`, so — unlike in `v12` — no signers/threshold are passed here.
  */
 function kmsVerifierInitArgs(config: KMSVerifierInitConfig): readonly unknown[] {
   return [config.verifyingContractSource, config.chainIDSource];

@@ -12,9 +12,9 @@
 // different notations, each internally consistent — so drift between them is silent, and the failure
 // mode is a stack that deploys cleanly with the wrong implementation behind a proxy.
 //
-// That is not hypothetical. Deriving v12 from v13 broke this four separate ways: array sizes, a
+// That is not hypothetical. Deriving `v12` from `v13` broke this four separate ways: array sizes, a
 // hardcoded ACLOwner nonce, twelve hardcoded loop bounds, and a test that contradicted the directory it
-// read. Each was correct in v13 by coincidence and wrong the moment the stack changed shape.
+// read. Each was correct in `v13` by coincidence and wrong the moment the stack changed shape.
 //
 // ## Why a text scan, and not a nicer design
 //

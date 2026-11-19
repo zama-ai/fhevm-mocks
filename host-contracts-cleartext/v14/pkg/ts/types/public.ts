@@ -41,7 +41,7 @@ export type FhevmAddresses = {
 /**
  * The `<vN-1>` host address set — what `updateV13ToV14` upgrades *from*.
  *
- * v14 added no contract to the host set, so a `<vN-1>` stack has exactly the addresses a `<vN>` stack has.
+ * `v14` added no contract to the host set, so a `<vN-1>` stack has exactly the addresses a `<vN>` stack has.
  * Named separately anyway: it describes a different protocol generation that happens to coincide, and the
  * name is what lets `FhevmAddresses` change later without silently redefining what "a `<vN-1>` stack" means.
  */
@@ -93,7 +93,7 @@ export type HCULimitInitConfig = {
 };
 
 /**
- * A KMS node entry for `ProtocolConfig`, which v13 introduced. Mirrors the on-chain `KmsNode` struct; passed as an
+ * A KMS node entry for `ProtocolConfig`, which `v13` introduced. Mirrors the on-chain `KmsNode` struct; passed as an
  * object — viem matches the tuple by component name.
  */
 export type KmsNode = {
@@ -103,7 +103,10 @@ export type KmsNode = {
   readonly storageUrl: string;
 };
 
-/** The four KMS thresholds for `ProtocolConfig`, which v13 introduced. Mirrors the on-chain `KmsThresholds` struct. */
+/**
+ * The four KMS thresholds for `ProtocolConfig`, which `v13` introduced. Mirrors the on-chain `KmsThresholds`
+ * struct.
+ */
 export type KmsThresholds = {
   readonly publicDecryption: bigint;
   readonly userDecryption: bigint;
@@ -242,9 +245,9 @@ type VerifyCommon = {
  * The contracts that exist RIGHT NOW, which is not the same set as a finished stack.
  *
  * `snapshotStack` is only meaningful before an upgrade, and at that moment the proxies the upgrade is
- * about to create do not exist (v13 created two). Requiring a full `Deployed` made the function uncallable
- * for its only real use — a caller holding a v12 stack had no `protocolConfigAddress` — and the one way to satisfy it was
- * worse than uncallable: passing the PREDICTED addresses surveys two empty proxies, records every getter
+ * about to create do not exist (`v13` created two). Requiring a full `Deployed` made the function uncallable
+ * for its only real use — a caller holding a `v12` stack had no `protocolConfigAddress` — and the one way to
+ * satisfy it was worse than uncallable: passing the PREDICTED addresses surveys two empty proxies, records every getter
  * as `<reverted>`, and then reports the upgrade filling them in as a changed reading. A false failure on a
  * correct upgrade.
  *

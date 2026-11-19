@@ -20,6 +20,13 @@ const BACKTICK_SPAN = /`[^`\n]*`/g;
  */
 const GENERATED_HEADER = /\bAUTO-GENERATED\b|\bDO NOT EDIT\b|@generated\b/;
 
+/**
+ * A generation name in square brackets, `[v14]`, marks a number written on purpose: a past fact about one release
+ * (R-05, case 3), such as "[v14] added no contract". What that release added or lacked stays true in every later
+ * generation, where the notation would point at the wrong one. Backticks keep their own meaning, a quoted value.
+ */
+const MARKED_NUMBER = /\[v(?:1\d(?:\.\d+)?|[1-9]\.\d+)\]/g;
+
 /** @type {import('eslint').Rule.RuleModule} */
 const noGenerationNumber = {
   meta: {
@@ -32,8 +39,8 @@ const noGenerationNumber = {
       {
         type: 'object',
         properties: {
-          // Regular-expression sources. A match that lies inside a match of one of these is allowed, for the
-          // R-05 cases that a pattern can recognise, such as a past-tense fact: "v14 added".
+          // Regular-expression sources. A name that lies inside a match of one of these is allowed. eslint.base.mjs
+          // passes none: a deliberate number is marked in the comment itself, as "[v14]" or "`v14`".
           allow: { type: 'array', items: { type: 'string' } },
         },
         additionalProperties: false,
@@ -42,7 +49,7 @@ const noGenerationNumber = {
     messages: {
       generationNumber:
         "'{{name}}' names a generation by its number. Write the notation (`<vN>`, `<vN-1>`, `<N>`), put a value " +
-        'the code needs in backticks, or keep a past-tense fact about one release with a disable comment (R-05).',
+        'the code needs in backticks, or mark a past fact about one release as [{{name}}] (R-05).',
     },
   },
 
@@ -57,8 +64,10 @@ const noGenerationNumber = {
         for (const comment of comments) {
           // `comment.value` excludes the delimiters: `//` and `/*` are both two characters long.
           const valueStart = comment.range[0] + 2;
-          // Blank the quoted spans in place, so every index still points at the same character.
-          const text = comment.value.replace(BACKTICK_SPAN, (span) => ' '.repeat(span.length));
+          // Blank the quoted values and the marked numbers in place, so every index still points at the same
+          // character.
+          const blank = (span) => ' '.repeat(span.length);
+          const text = comment.value.replace(BACKTICK_SPAN, blank).replace(MARKED_NUMBER, blank);
           const allowed = allowedRanges(comment.value, allow);
 
           for (const match of text.matchAll(GENERATION_NUMBER)) {

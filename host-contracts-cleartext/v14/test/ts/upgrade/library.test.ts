@@ -274,7 +274,7 @@ const KMS_THRESHOLD_GETTERS = [
   'getMpcThreshold',
 ] as const;
 
-// Added in v14: `reinitializeV2` backfills the anchor of the existing context and emits the genesis
+// Added in `v14`: `reinitializeV2` backfills the anchor of the existing context and emits the genesis
 // `NewKmsContext` carrying the `<vN>` per-node metadata — the two on-chain traces of the migration.
 const PROTOCOL_CONFIG_V14_ABI = [
   {
@@ -652,7 +652,7 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
     });
 
     // --- 4. Exactly the seven changed proxies were re-pointed; nothing else moved. No proxy was created:
-    //        v14 added no contract, so the address set is the one deployed above. ---
+    //        `v14` added no contract, so the address set is the one deployed above. ---
     const implementationsAfter = await implementations();
     const repointed = Object.keys(implementationsBefore)
       .filter((name) => implementationsBefore[name] !== implementationsAfter[name])

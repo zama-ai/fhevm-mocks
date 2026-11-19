@@ -518,7 +518,7 @@ ${constants}
  * registering any other address is one the SDK holds no key for and cannot sign against.
  */
 /**
- * The five constants that v14 added, from `<vN>`'s face in @fhevm/sdk-vendored-dev — the generated module
+ * The five constants that `v14` added, from `<vN>`'s face in @fhevm/sdk-vendored-dev — the generated module
  * `sync vendored` copies into pkg/ts as cleartext-config.ts, so this reads the same truth pkg/ts compiles.
  * (internal/ cannot import pkg/ts itself: internal/tsconfig.json roots at `.`.)
  */
@@ -540,7 +540,9 @@ function _scopedCleartextConstants(): ScopedCleartextConstants {
   };
 }
 
-/** The `KmsNodeParams` members that v14 added, as LocalHostBootstrap functions; node i is one-based like the rest. */
+/**
+ * The `KmsNodeParams` members that `v14` added, as LocalHostBootstrap functions; node i is one-based like the rest.
+ */
 function _renderKmsNodeParamsMembers(stringFn: (name: string, values: readonly string[]) => string): string {
   const c = _scopedCleartextConstants();
   const perNode = (make: (n: string) => string): string[] =>

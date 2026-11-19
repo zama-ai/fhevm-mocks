@@ -27,14 +27,14 @@ import { DEFAULT_BOOTSTRAP_CONFIG, generateFromExistingDefaultKmsNodes } from '.
 /**
  * Update an already-deployed `<vN-1>` stack to `<vN>`.
  *
- * Creates no proxy — v14 added no contract to the host set — so the address set is unchanged. In one
+ * Creates no proxy — `v14` added no contract to the host set — so the address set is unchanged. In one
  * atomic `ACLOwner.upgrade(...)` it re-points + version-bumps the seven changed `<vN-1>` contracts:
  *   - `ProtocolConfig.reinitializeV2(kmsNodeParams, softwareVersion, pcrValues)`, which re-declares the
  *     current KMS context with the `<vN>` per-node metadata (party id, MPC identity, CA cert, storage prefix)
  *     and records the KMS software version + PCR values,
  *   - `KMSGeneration.reinitializeV2()`, `ACL.reinitializeV5()`, `FHEVMExecutor.reinitializeV6()`,
  *     `HCULimit`/`KMSVerifier` `reinitializeV4()` — all no-arg,
- *   - `CleartextArithmetic.reinitializeV3()`: v14 added `fheMulDiv`, whose cleartext `recordMulDiv` hook is
+ *   - `CleartextArithmetic.reinitializeV3()`: `v14` added `fheMulDiv`, whose cleartext `recordMulDiv` hook is
  *     a new selector the `<vN-1>` arithmetic lacks.
  * `InputVerifier` is untouched (its `<vN>` bytecode is identical and its version did not bump).
  *

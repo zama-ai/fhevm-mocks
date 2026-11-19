@@ -243,7 +243,7 @@ function bootstrapConfig(deployerAddress: string, kmsSignerAddress: string): Boo
           signerAddress: kmsSignerAddress,
           ipAddress: '127.0.0.1',
           storageUrl: 'https://kms.example',
-          // The four fields v14 added, visibly fixture values like the two above.
+          // The four fields `v14` added, visibly fixture values like the two above.
           partyId: 1,
           mpcIdentity: 'kms-core-1-fixture-core-1',
           caCert: '0x',
