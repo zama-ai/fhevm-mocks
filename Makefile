@@ -840,9 +840,9 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 
 # `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
 # and only V(N) has a V(N-1) to prove it against. Which generation that is comes from the manifest, so the
-# verb is asked of V(N) and never of V(N-1) — a rotation retires the older generation's upgrade suite by
-# moving the pair, with nothing to remember inside the package. Deleting the suite it can no longer run is
-# then unhurried cleanup rather than a step the rotation is blocked on.
+# verb is asked of V(N) and never of V(N-1). The rotation that moves the pair must delete the outgoing
+# V(N)'s upgrade suite in the same change: `check generations` refuses `test:upgrade` on V(N-1) (NR-26),
+# and the suite stops compiling once the generation it upgrades from is gone. Its ROTATION.md lists what goes.
 test-cleartext-v-prev: compile-cleartext-v-prev ## Previous cleartext generation, V(N-1): unit + forge + harness tests (self-provides ./out)
 	$(call run,$(W_CLEARTEXT_V_PREV),test)
 
