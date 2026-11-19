@@ -100,7 +100,7 @@ interface IWiredProtocolConfig {
     function getUserDecryptionThreshold() external view returns (uint256);
     function getKmsGenThreshold() external view returns (uint256);
     function getMpcThreshold() external view returns (uint256);
-    /// @dev v14 only: the epoch model `reinitializeV2` promotes the live context into, and its anchor.
+    /// @dev Added in v14: the epoch model `reinitializeV2` promotes the live context into, and its anchor.
     function getCurrentKmsContextAndEpoch() external view returns (uint256 contextId, uint256 epochId);
     function getKmsContextAnchor(uint256 contextId)
         external
@@ -125,7 +125,7 @@ interface IEIP712Domain {
         );
 }
 
-/// @dev The v13 KMSVerifier's signer surface — the live source the sealed migration must still match at
+/// @dev The `<vN-1>` KMSVerifier's signer surface — the live source the sealed migration must still match at
 ///      materialize time. Gone from the proxy after the upgrade, when ProtocolConfig owns these values.
 interface IWiredKMSVerifier {
     function getKmsSigners() external view returns (address[] memory);

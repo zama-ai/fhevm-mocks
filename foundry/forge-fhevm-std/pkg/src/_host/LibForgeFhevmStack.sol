@@ -163,7 +163,7 @@ library LibForgeFhevmStack {
         );
     }
 
-    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct v14's
+    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct `<vN>`'s
     ///      initializers take, not the `KmsNode` its getters return.
     function _fhevmProtocolConfig()
         private
@@ -514,8 +514,8 @@ library LibForgeFhevmStack {
     /**
      * @notice Registers the cleartext KMS nodes on a forked `ProtocolConfig`, and puts them in charge.
      *
-     * @dev THREE PHASES, NOT ONE. v13's `defineNewKmsContext` activated what it created; v14's
-     *      `defineNewKmsContextAndEpoch` only PROPOSES, and the verifier's `getKmsSigners`,
+     * @dev THREE PHASES, NOT ONE. v13's `defineNewKmsContext` activated what it created; its v14
+     *      replacement `defineNewKmsContextAndEpoch` only PROPOSES, and the verifier's `getKmsSigners`,
      *      `getThreshold` and `getCurrentKmsContextId` keep answering for the old committee until
      *        1. the proposal is made by the ACL owner,
      *        2. every incoming tx sender and `n - t` outgoing ones confirm its creation, which opens

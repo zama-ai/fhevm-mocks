@@ -338,8 +338,8 @@ export async function deployImplementations(parameters: {
 export function buildHostAddressReplacements(parameters: {
   readonly fhevmAddresses: FhevmAddresses;
   readonly pauserSetAddress: string;
-  // Optional: only the fresh `deploy` materializes the cleartext-infra contracts. The (deferred)
-  // v12→v13 update path omits them until the cleartext-v12 fixture lands.
+  // Optional: when omitted, the cleartext-infra references are left unpatched. `deploy` and the update both
+  // pass them.
   readonly cleartextAddresses?: CleartextAddresses;
 }): AddressReplacement[] {
   const replacements: AddressReplacement[] = [

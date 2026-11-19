@@ -66,7 +66,7 @@ contract FhevmVerifyUpgrade is FhevmRepointVerify, FhevmUpgradeBase {
     }
 
     /**
-     * @dev v14's intended change to the KMS state, and the one place the seal is bound to the chain.
+     * @dev `<vN>`'s intended change to the KMS state, and the one place the seal is bound to the chain.
      *
      *      `reinitializeV2` promotes the live context into the epoch model and anchors
      *      `keccak256(abi.encode(kmsNodeParams, thresholds, softwareVersion, pcrValues))`. The node

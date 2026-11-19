@@ -46,8 +46,8 @@ contract CleartextArithmetic is CleartextArithmeticBase, UUPSUpgradeableEmptyPro
     /// @custom:oz-upgrades-validate-as-initializer
     function initializeFromEmptyProxy() public virtual onlyFromEmptyProxy reinitializer(REINITIALIZER_VERSION) {}
 
-    /// @notice Re-initializer for the v13→v14 upgrade, which adds the `recordMulDiv` selector. Stateless
-    ///         (pure math), so it only marks the freshly deployed v14 implementation initialized.
+    /// @notice Re-initializer for the `<vN-1>` -> `<vN>` upgrade, which adds the `recordMulDiv` selector. Stateless
+    ///         (pure math), so it only marks the freshly deployed `<vN>` implementation initialized.
     function reinitializeV3() public virtual onlyACLOwner reinitializer(REINITIALIZER_VERSION) {}
 
     /// @notice Getter for the name and version of the contract.
