@@ -94,7 +94,7 @@ fhevm-npm: `hardhat/v2` and `hardhat/v3` are each their own npm workspace (own p
 `workspaces`, own lockfile, own node_modules). One root per hardhat major is what guarantees every
 member of a generation resolves the SAME hardhat instance — natively, with no symlinks: hardhat's
 environment is a per-module singleton, and a plugin and its consumer must share one copy. Cross-root
-dependencies are explicit `file:` links (plugin -> host-contracts v13/pkg, owners -> common); the
+dependencies are explicit `file:` links (plugin -> `host-contracts-cleartext/<vN>/pkg`, owners -> common); the
 future js-sdk joins the sdk ROOT and is consumed the same way. Cluster members are reached with
 `npm --prefix hardhat/v2 run -w <name> <script>` — the Makefile's run-hh-v2/run-hh-v3 macros.
 

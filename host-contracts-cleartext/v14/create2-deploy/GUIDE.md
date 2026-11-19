@@ -1,7 +1,7 @@
 # GUIDE
 
 > **Start here instead:** [DEPLOY.md](DEPLOY.md) to deploy a stack on a live testnet, and
-> [UPGRADE.md](UPGRADE.md) to upgrade a running v13 stack. This file is the detailed reference.
+> [UPGRADE.md](UPGRADE.md) to upgrade a running `v13` stack. This file is the detailed reference.
 
 Run every command below from `host-contracts-cleartext/v14/create2-deploy`. The two launchers,
 `deploy-cli` and `upgrade/upgrade-cli`, locate the package root from their own path, so they work from
@@ -273,7 +273,7 @@ rm -rf .out-anvil
 
 Restart anvil (step 3) to discard the chain too, then go to step 4.
 
-## v13 → v14 upgrade rehearsal
+## `v13` → `v14` upgrade rehearsal
 
 For the operator's checklist — commands only, in order — see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md).
 
@@ -284,13 +284,13 @@ cd host-contracts-cleartext/v14
 npm run test:upgrade
 ```
 
-It starts a dedicated anvil, deploys v13 with `../v13/create2-deploy/deploy-testnet.ts`, creates a
-`trivialEncrypt` handle, passes the eleven v13 manifest addresses as CLI inputs to
-`upgrade/upgrade-cli`, and verifies the v14 versions, that no proxy was created, the preserved handle,
-every zero-argument v13 getter reading, the sealed context anchor, ownership, pausers, and forbidden-event
+It starts a dedicated anvil, deploys `v13` with `../v13/create2-deploy/deploy-testnet.ts`, creates a
+`trivialEncrypt` handle, passes the eleven `v13` manifest addresses as CLI inputs to
+`upgrade/upgrade-cli`, and verifies the `v14` versions, that no proxy was created, the preserved handle,
+every zero-argument `v13` getter reading, the sealed context anchor, ownership, pausers, and forbidden-event
 absence.
 
-For a manual run, start anvil in one terminal and deploy v13 from a second:
+For a manual run, start anvil in one terminal and deploy `v13` from a second:
 
 ```sh
 anvil --silent
@@ -305,7 +305,7 @@ node create2-deploy/deploy-testnet.ts \
   --stage all
 ```
 
-Point the upgrade at the manifest v13 just sealed, rather than retyping its eleven addresses:
+Point the upgrade at the manifest `v13` just sealed, rather than retyping its eleven addresses:
 
 ```json
 {
@@ -349,7 +349,7 @@ those eleven addresses directly instead:
 Either way `validating the live stack` tags each address with where it came from — `[manifest]`,
 `[config]`, or the flag that set it.
 
-Then run from v14, reusing the v13 deployment id:
+Then run from `v14`, reusing the `v13` deployment id:
 
 ```sh
 cd ../v14/create2-deploy

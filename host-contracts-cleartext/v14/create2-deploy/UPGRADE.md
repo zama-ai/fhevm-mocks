@@ -1,15 +1,15 @@
-# Upgrade a running cleartext FHEVM stack from v13 to v14
+# Upgrade a running cleartext FHEVM stack from `v13` to `v14`
 
-This guide upgrades a **live v13** cleartext FHEVM stack to v14, in place, on a public **testnet**. The
+This guide upgrades a **live `v13`** cleartext FHEVM stack to `v14`, in place, on a public **testnet**. The
 example chain is **Arbitrum Sepolia** (chain id `421614`).
 
 What the upgrade does:
 
-- creates the 7 v14 implementations through the CREATE2 factory;
+- creates the 7 `v14` implementations through the CREATE2 factory;
 - re-points 7 proxies (`ProtocolConfig`, `KMSGeneration`, `ACL`, `FHEVMExecutor`, `HCULimit`, `KMSVerifier`,
   `CleartextArithmetic`) in **one atomic transaction** (`ACLOwner.upgrade`), sent by the current admin. That
   transaction also calls `ProtocolConfig.reinitializeV2`, which re-declares the live KMS context with the
-  per-node metadata that is new in v14.
+  per-node metadata that is new in `v14`.
 
 What it never touches: the addresses, the owner, the pausers, `InputVerifier`, `CleartextDB` and its data.
 
@@ -34,7 +34,7 @@ check, see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) and [README.md](README.md#up
 2. [Step by step](#2-step-by-step)
    - [Step 1: install the tool](#step-1-install-the-tool)
    - [Step 2: create your upgrade folder](#step-2-create-your-upgrade-folder)
-   - [Step 3: copy the v13 manifest](#step-3-copy-the-v13-manifest)
+   - [Step 3: copy the `v13` manifest](#step-3-copy-the-v13-manifest)
    - [Step 4: check who the admin is](#step-4-check-who-the-admin-is)
    - [Step 5: import the keys](#step-5-import-the-keys)
    - [Step 6: create a test handle](#step-6-create-a-test-handle)
@@ -59,10 +59,10 @@ check, see [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) and [README.md](README.md#up
 | --------------------------------------------- | ------------------------------------------------------- |
 | Foundry (`forge`, `cast`, `anvil`)            | build, send, and fork the chain for the rehearsal       |
 | Node.js ≥ 22.18, `git`, `make`, `jq`          | run the tool                                            |
-| the v13 deploy's `manifest.json`              | the eleven live addresses and the `deploymentId`        |
+| the `v13` deploy's `manifest.json`              | the eleven live addresses and the `deploymentId`        |
 | the **admin** key or multisig, with testnet ETH | the current owner of `ACLOwner`; it sends the upgrade, the biggest transaction of the run |
 | a **deployer** key with testnet ETH           | sends the 7 creates; it gets no power over the stack    |
-| your KMS nodes' v14 metadata                  | each node's party id, MPC identity, CA certificate and storage prefix, plus the KMS software version and PCR values. New in v14, not on the v13 chain |
+| your KMS nodes' `v14` metadata                  | each node's party id, MPC identity, CA certificate and storage prefix, plus the KMS software version and PCR values. New in `v14`, not on the `v13` chain |
 | an RPC that serves `eth_getLogs`              | verify reads the upgrade's events                       |
 | an **archive** RPC (step 10 only)             | the fork simulation reads the chain's state at a pinned block |
 
@@ -106,9 +106,9 @@ in a single copy: back it up yourself (see [Warnings](#3-warnings-and-security-n
 
 **Run every command from now on from this folder.**
 
-### Step 3: copy the v13 manifest
+### Step 3: copy the `v13` manifest
 
-Copy the `manifest.json` that was committed when v13 was deployed. If the stack is archived in this
+Copy the `manifest.json` that was committed when `v13` was deployed. If the stack is archived in this
 repository, it is `deployments/<chain>/<deploymentId>/00-deploy-v13.<p>-<date>/record/manifest.json`, in
 the tool folder.
 
@@ -159,7 +159,7 @@ Keep the printed `0x…` handle.
 
 ### Step 7: write the KMS migration file
 
-In v13, the live KMS context is held by `ProtocolConfig`. Read it:
+In `v13`, the live KMS context is held by `ProtocolConfig`. Read it:
 
 ```sh
 PC=$(jq -r .address.PROTOCOL_CONFIG_ADDRESS v13-manifest.json)
@@ -196,7 +196,7 @@ Create `kms-migration.json` in your upgrade folder, with one node per signer, **
 
 - `signerAddress`, `txSenderAddress`, `ipAddress` and `storageUrl` must be **exactly** what the chain
   holds, in order. `compute`, `precheck`, `materialize` and `verify` each refuse otherwise.
-- `partyId`, `mpcIdentity`, `caCert` (hex, `"0x"` when empty) and `storagePrefix` are new in v14 and come
+- `partyId`, `mpcIdentity`, `caCert` (hex, `"0x"` when empty) and `storagePrefix` are new in `v14` and come
   from whoever runs the KMS nodes. Party ids and tx senders must be unique.
 - `pcrValues` is a list of `{ "pcr0": "0x…", "pcr1": "0x…", "pcr2": "0x…" }`, empty for cleartext.
 - The context id and the four thresholds are **not** in the file: they are read off the chain.
@@ -259,7 +259,7 @@ software version and PCR values: make sure they are your KMS nodes'.
 ### Step 10: simulate the whole upgrade on a fork
 
 Optional, strongly recommended: it runs every step below against a local copy of the chain, with your real
-v13 stack in it. Nothing is sent to the real chain.
+`v13` stack in it. Nothing is sent to the real chain.
 
 In a second terminal, start an anvil fork, from an **archive** RPC, pinned a few blocks back (after your
 step 6 handle, so the fork has it):
@@ -441,7 +441,7 @@ upgrade-cli --stage all --real <deploymentId>
    pauser change. `materialize` refuses if a slot moved, and `verify` fails on any ownership or pauser
    event since the seal. A KMS signer rotation in that window also blocks `materialize`: start over.
 7. **Never reseal once the creates are on chain.** To start over, use a new `outDir` and keep the same
-   `deploymentId` (it must match the v13 manifest). The creates already sent are harmless: an unchanged
+   `deploymentId` (it must match the `v13` manifest). The creates already sent are harmless: an unchanged
    build lands on the same addresses, and `creates` reports them as already present.
 8. **Commit the seal (step 11) before step 12**, and push it if your repo has a remote. It is the only record
    of the pre-upgrade state, and `verify` compares against it. Without a remote, copy `out/manifest.json`
