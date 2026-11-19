@@ -48,7 +48,7 @@ SHELL := /usr/bin/env bash -eu -o pipefail
 
 DIR_COMMON           := common
 DIR_COMMON_VENDORED  := common-vendored
-# The cleartext generation pair, V(N) and V(N-1), is decided ONCE in npm-manifest.json#generations
+# The cleartext generation pair, <vN> and <vN-1>, is decided ONCE in npm-manifest.json#generations
 # (the Generations group of rules/fhevm-npm/rules/) and read here rather than repeated. Plain `node -p` on the JSON: no
 # dependencies, so it works before `make install`. `check-generations` is what validates the pair.
 manifest-generation  = $(patsubst ./%,%,$(shell node -p "require('./npm-manifest.json').generations?.['host-contracts-cleartext']?.$(1) ?? ''"))
@@ -66,8 +66,8 @@ DIR_HH_V3_PLUGIN     := hardhat/v3/plugin
 DIR_HH_V3_E2E        := hardhat/v3/e2e
 DIR_HH_V3_TEMPLATE   := hardhat/v3/fhevm-hardhat-template
 DIR_FHEVM_NPM        := fhevm-npm
-# The Forge companion to forge-std. A member of the sdk root; its pkg/src/_host is generated from V(N)'s
-# forge payload, so every verb on it depends on V(N) having been generated and compiled first.
+# The Forge companion to forge-std. A member of the sdk root; its pkg/src/_host is generated from <vN>'s
+# forge payload, so every verb on it depends on <vN> having been generated and compiled first.
 DIR_FORGE_STD        := foundry/forge-fhevm-std
 FHEVM_NPM_CLI        := ./fhevm-npm-cli
 
@@ -168,7 +168,7 @@ build: ## fmt-check, then forge compile, then lint, then compile — everything,
 
 lint: lint-shared lint-cleartext lint-forge-std lint-hh-v2 lint-hh-v3 lint-npm-cli ## Lint every package
 
-# The suites both test lanes run after V(N), which is the ONE entry they differ in. Hoisted into a
+# The suites both test lanes run after <vN>, which is the ONE entry they differ in. Hoisted into a
 # variable rather than wrapped with backslashes because `help` greps for a target and its `##` on the
 # same physical line (see its recipe above) — a continued prerequisite list would drop both from
 # `make help` without failing anything, which is the worst way for it to break.
@@ -183,7 +183,7 @@ TEST_SUITES_TAIL := \
 
 test: test-cleartext-v-prev test-cleartext-v-cur $(TEST_SUITES_TAIL) ## Run package tests only; this is not the full validation workflow (use: 'make ci' instead)
 
-test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast $(TEST_SUITES_TAIL) ## `test`, with V(N)'s create2 rehearsals swapped for the upgrade's fast lane
+test-fast: test-cleartext-v-prev test-cleartext-v-cur-fast $(TEST_SUITES_TAIL) ## `test`, with <vN>'s create2 rehearsals swapped for the upgrade's fast lane
 
 check: check-rules check-npm-cli ## Run pre-build checks, build, then post-build checks
 
@@ -390,7 +390,7 @@ regenerate-package-lock: ## Everything 'distclean' removes PLUS the install lock
 # running without a floor and blaming the tree for what the network did.
 #
 # NOT `FHEVM_PARITY_REF_V13`. While `release/0.13.x` does not yet carry the 0.13 forge work,
-# `check generation-parity` has nothing there to compare V(N-1) against and every target that runs the
+# `check generation-parity` has nothing there to compare <vN-1> against and every target that runs the
 # pre-build checks needs a ref given to it. That is a fact about one unmerged branch, not about this
 # workspace, so it is exported by whoever needs it and never written down here.
 ci-local: ## `ci` with the fork fixture floor read off the chain, so the network suites run for real
@@ -454,14 +454,14 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 #     included) and needs a spotless tree to judge the result. Its in-place half stays: `generate`
 #     runs over the tree as it is, and the lane fails if that changed anything. In sync, it rewrites
 #     identical bytes; out of sync, it leaves the regenerated files in your tree — the ones to commit;
-#   - the create2 coordinator e2es (v(N)'s `test:create2-deploy-e2e` and `test:create2-hotfix-e2e`, `test:upgrade`'s second half) —
+#   - the create2 coordinator e2es (<vN>'s `test:create2-deploy-e2e` and `test:create2-hotfix-e2e`, `test:upgrade`'s second half) —
 #     ~4 minutes each of `forge script` recompiles, replaced by `test:upgrade:fast` (see that target);
 #   - `test-consumer-ci` — installs every registered consumer from scratch;
-#   - V(N-1)'s tests (`test-cleartext-v-prev`, ~15 min, ~12 of them its create2 e2es). V(N-1) cannot
+#   - <vN-1>'s tests (`test-cleartext-v-prev`, ~15 min, ~12 of them its create2 e2es). <vN-1> cannot
 #     change on this branch — `generation-parity` in `check-pre` holds it to the release branch that
-#     owns it, whose own ci runs those tests. What V(N) needs from it is still exercised here: V(N-1) is
-#     built, generated and checked, and V(N)'s `test:upgrade:fast` deploys and upgrades it. Lost: a
-#     SHARED change (common, common-vendored, fhevm-npm, root pins) that breaks only V(N-1)'s own tests
+#     owns it, whose own ci runs those tests. What <vN> needs from it is still exercised here: <vN-1> is
+#     built, generated and checked, and <vN>'s `test:upgrade:fast` deploys and upgrades it. Lost: a
+#     SHARED change (common, common-vendored, fhevm-npm, root pins) that breaks only <vN-1>'s own tests
 #     — `ci` still runs them. So the lane runs `test-fast` minus that one target, spelled out below
 #     rather than by changing `test-fast`, whose meaning stays the same.
 # What stays catches everything the dropped gates have caught so far, in a fraction of `ci`'s time.
@@ -469,7 +469,7 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 # real node rather than an in-process one. It sits beside the tests rather than inside them for the same
 # reason it sits beside `test` in `ci` — the node-backed suites are their own tier, not part of `test`.
 # Run `ci` before you push.
-ci-fast: ## Every ci gate that reads the tree as it is: checks, build, generated drift, check-post, V(N) fast tests, anvil suite — no clean, no create2, no consumers, no V(N-1) tests
+ci-fast: ## Every ci gate that reads the tree as it is: checks, build, generated drift, check-post, <vN> fast tests, anvil suite — no clean, no create2, no consumers, no <vN-1> tests
 	$(MAKE) check-pre
 	$(MAKE) check-vendored-origin
 	$(MAKE) build
@@ -495,7 +495,7 @@ rebuild: ## Clean everything, then compile from scratch (no gates — use 'build
 
 # Reverse dependency order — dependents before their dependencies — so nothing is ever cleaned while
 # something downstream of it is still expected to be usable. The template goes first because it consumes
-# the plugin, which consumes V(N).
+# the plugin, which consumes <vN>.
 #
 # Note the template's own `clean` deliberately does NOT delegate to `pkg`'s: upstream's version ends by
 # running `npm run typechain`, and a clean that regenerates would need the plugin it just helped remove.
@@ -580,8 +580,8 @@ graph: ## Print the dependency graph for TARGET (default: compile)
 ########################################################################################################
 # Build graph
 #
-# V(N-1) -> V(N) -> plugin -> e2e. Each edge is a real consumption of the previous package's BUILD OUTPUT:
-# V(N) devDepends on V(N-1), plugin/pkg imports @fhevm/host-contracts-cleartext (= V(N)'s pkg), and e2e imports
+# <vN-1> -> <vN> -> plugin -> e2e. Each edge is a real consumption of the previous package's BUILD OUTPUT:
+# <vN> devDepends on <vN-1>, plugin/pkg imports @fhevm/host-contracts-cleartext (= <vN>'s pkg), and e2e imports
 # both @fhevm/hardhat-plugin (= plugin/pkg) and @fhevm/host-contracts-cleartext.
 ########################################################################################################
 
@@ -608,7 +608,7 @@ compile-package: ## Compile PACKAGE and its prerequisites
 # The forge builds alone (`forge build --skip test`, default profile, into each package's `out/`), in
 # dependency order. `generate` runs the same build between its pre and post steps; this is that build
 # without the rewrite, for lanes that read the tree as it is.
-compile-forge: ## Forge-build V(N-1), V(N) and forge-fhevm-std into their out/ (no TS, no generate)
+compile-forge: ## Forge-build <vN-1>, <vN> and forge-fhevm-std into their out/ (no TS, no generate)
 	@echo "==> forge build $(DIR_CLEARTEXT_V_PREV)"
 	$(call run,$(W_CLEARTEXT_V_PREV),compile:forge)
 	@echo "==> forge build $(DIR_CLEARTEXT_V_CUR)"
@@ -616,15 +616,15 @@ compile-forge: ## Forge-build V(N-1), V(N) and forge-fhevm-std into their out/ (
 	@echo "==> forge build $(DIR_FORGE_STD)"
 	$(call run,$(W_FORGE_STD),compile:forge)
 
-compile-cleartext-v-prev: check-npm-cli-pre-build ## Compile the previous cleartext generation, V(N-1)
+compile-cleartext-v-prev: check-npm-cli-pre-build ## Compile the previous cleartext generation
 	@echo "==> compile $(DIR_CLEARTEXT_V_PREV)"
 	$(call run,$(W_CLEARTEXT_V_PREV),compile)
 
-compile-cleartext-v-cur: compile-cleartext-v-prev ## Compile the current cleartext generation, V(N)
+compile-cleartext-v-cur: compile-cleartext-v-prev ## Compile the current cleartext generation
 	@echo "==> compile $(DIR_CLEARTEXT_V_CUR)"
 	$(call run,$(W_CLEARTEXT_V_CUR),compile)
 
-compile-forge-std: compile-cleartext-v-cur ## Compile forge-fhevm-std (its _host payload is generated from V(N))
+compile-forge-std: compile-cleartext-v-cur ## Compile forge-fhevm-std (its _host payload is generated from <vN>)
 	@echo "==> compile $(DIR_FORGE_STD)"
 	$(call run,$(W_FORGE_STD),compile)
 
@@ -794,16 +794,16 @@ lint-common: ## Lint common
 lint-common-vendored: ## Lint common-vendored
 	$(call run,$(W_VENDORED),lint)
 
-lint-cleartext-v-prev: compile-cleartext-v-prev ## Lint the previous cleartext generation, V(N-1) (needs its own generated sources)
+lint-cleartext-v-prev: compile-cleartext-v-prev ## Lint the previous cleartext generation (needs its own generated sources)
 	$(call run,$(W_CLEARTEXT_V_PREV),lint)
 
-lint-cleartext-v-cur: compile-cleartext-v-cur ## Lint the current cleartext generation, V(N)
+lint-cleartext-v-cur: compile-cleartext-v-cur ## Lint the current cleartext generation
 	$(call run,$(W_CLEARTEXT_V_CUR),lint)
 
 lint-forge-std: compile-forge-std ## Lint forge-fhevm-std: eslint + tsc over internal/, then forge lint
 	$(call run,$(W_FORGE_STD),lint)
 
-lint-hh-v2-plugin: compile-cleartext-v-cur ## Lint the Hardhat v2 plugin (its types resolve through V(N)'s pkg)
+lint-hh-v2-plugin: compile-cleartext-v-cur ## Lint the Hardhat v2 plugin (its types resolve through <vN>'s pkg)
 	$(call run-hh-v2,$(W_HH_V2_PLUGIN),lint)
 
 lint-hh-v2-template: compile-hh-v2-plugin ## Lint the mirrored Hardhat v2 template against the built plugin
@@ -812,7 +812,7 @@ lint-hh-v2-template: compile-hh-v2-plugin ## Lint the mirrored Hardhat v2 templa
 lint-hh-v2-e2e: compile-hh-v2-plugin ## Lint Hardhat v2 e2e (self-provides typechain; needs the built plugin)
 	$(call run-hh-v2,$(W_HH_V2_E2E),lint)
 
-lint-hh-v3-plugin: compile-cleartext-v-cur ## Lint the Hardhat v3 plugin (its types resolve through V(N)'s pkg)
+lint-hh-v3-plugin: compile-cleartext-v-cur ## Lint the Hardhat v3 plugin (its types resolve through <vN>'s pkg)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),lint)
 
 lint-hh-v3-template: compile-hh-v3-plugin ## Lint the Hardhat v3 template against the built plugin
@@ -838,24 +838,24 @@ lint-npm-cli: ## Typecheck and test the fhevm-npm CLI
 .PHONY: test-forge-std test-forge-std-fork test-forge-std-fork-url test-forge-std-anvil test-forge-std-anvil-refusals test-forge-std-anvil-mirror
 .PHONY: test-anvil test-anvil-ci test-anvil-hh-v2-e2e test-anvil-hh-v3-e2e
 
-# `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against V(N-1),
-# and only V(N) has a V(N-1) to prove it against. Which generation that is comes from the manifest, so the
-# verb is asked of V(N) and never of V(N-1). The rotation that moves the pair must delete the outgoing
-# V(N)'s upgrade suite in the same change: `check generations` refuses `test:upgrade` on V(N-1) (NR-26),
+# `test` is what a generation can prove ALONE; `test:upgrade` is what it can only prove against <vN-1>,
+# and only <vN> has a <vN-1> to prove it against. Which generation that is comes from the manifest, so the
+# verb is asked of <vN> and never of <vN-1>. The rotation that moves the pair must delete the outgoing
+# <vN>'s upgrade suite in the same change: `check generations` refuses `test:upgrade` on <vN-1> (NR-26),
 # and the suite stops compiling once the generation it upgrades from is gone. Its ROTATION.md lists what goes.
-test-cleartext-v-prev: compile-cleartext-v-prev ## Previous cleartext generation, V(N-1): unit + forge + harness tests (self-provides ./out)
+test-cleartext-v-prev: compile-cleartext-v-prev ## Previous cleartext generation: unit + forge + harness tests (self-provides ./out)
 	$(call run,$(W_CLEARTEXT_V_PREV),test)
 
-test-cleartext-v-cur: compile-cleartext-v-cur ## Current cleartext generation, V(N): the above, then the upgrade from V(N-1)
+test-cleartext-v-cur: compile-cleartext-v-cur ## Current cleartext generation: the above, then the upgrade from the previous generation
 	$(call run,$(W_CLEARTEXT_V_CUR),test)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
 
-# V(N-1) has no `-fast` target here: `ci-fast` does not run V(N-1)'s tests at all (see that target).
-test-cleartext-v-cur-fast: compile-cleartext-v-cur ## Current cleartext generation, V(N): unit + forge + harness, then the upgrade's fast lane
+# <vN-1> has no `-fast` target here: `ci-fast` does not run <vN-1>'s tests at all (see that target).
+test-cleartext-v-cur-fast: compile-cleartext-v-cur ## Current cleartext generation: unit + forge + harness, then the upgrade's fast lane
 	$(call run,$(W_CLEARTEXT_V_CUR),test:fast)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
 
-test-cleartext-upgrade: compile-cleartext-v-cur ## V(N) only: the upgrade from V(N-1), on its own
+test-cleartext-upgrade: compile-cleartext-v-cur ## <vN> only: the upgrade from <vN-1>, on its own
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade)
 
 # The same upgrade, minus the create2 coordinator: the full lane spends ~4 of its 5 minutes recompiling
@@ -863,7 +863,7 @@ test-cleartext-upgrade: compile-cleartext-v-cur ## V(N) only: the upgrade from V
 # init-data tables, the deploy order across every notation, the bytecode/reinitializer table, and the
 # library upgrade on a fresh anvil — is where every upgrade failure so far has actually surfaced, in
 # well under a minute. Local iteration runs this; CI and the final check before a bump run the full lane.
-test-cleartext-upgrade-fast: compile-cleartext-v-cur ## V(N) only: the upgrade's fast lane (no create2 coordinator, <1 min)
+test-cleartext-upgrade-fast: compile-cleartext-v-cur ## <vN> only: the upgrade's fast lane (no create2 coordinator, <1 min)
 	$(call run,$(W_CLEARTEXT_V_CUR),test:upgrade:fast)
 
 # The offline suite is the one `test` runs. The three below need the outside world. The two fork targets
