@@ -64,7 +64,7 @@ Each generation is written on its own release branch. After a rotation, the repo
 
 <a id="r-05"></a>
 
-## R-05: Name a generation by its place `[VIOLATED]`
+## R-05: Name a generation by its place `[GAP]`
 
 > Internal text names a generation by its place, never by its number.
 
@@ -72,7 +72,7 @@ Check: missing.
 
 Evidence:
 
-- `Makefile:959,964,965,1108`, `host-contracts-cleartext/v14/test/ts/upgrade/library.test.ts`, `host-contracts-cleartext/v14/pkg/ts/upgrade.ts`, `fhevm-npm/base/generation-names.ts`, and about 290 other comment lines name a generation by its number (`v12`, `v13`, `v14`), and some name a generation that is retired. Fix: write the notation, unless one of the four cases of this rule covers the line.
+- Gap, no check: nothing runs the search under "Find the text that names a number", so a new comment that names a generation by its number, or writes `V(N)`, passes every check.
 
 Issues: I-18.
 
