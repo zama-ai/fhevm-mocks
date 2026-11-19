@@ -34,6 +34,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
+    "@fhevm/host-contracts-cleartext": "file:../../../host-contracts-cleartext/v14/pkg",
     "@fhevm/sdk": "^0.14.4",
     "@types/node": "^22.20.5",
     "eslint": "^10.13.0",

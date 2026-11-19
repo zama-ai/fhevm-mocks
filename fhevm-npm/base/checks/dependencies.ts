@@ -1,3 +1,4 @@
+import { builtinModules } from 'node:module';
 import { relative, resolve } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
@@ -26,6 +27,7 @@ export function validateDependencies(
   if (root === undefined) throw new Error('The loaded inventory has no workspace root package');
   const binaryPackages = rootDependencyBinaryIndex(workspaceRoot, root);
   const usesByPackage = new Map<string, ReadonlySet<string>>();
+  const sourceUsesByPackage = new Map<string, ReadonlySet<string>>();
   const scriptUsesByPackage = new Map<string, ScriptPackageUses>();
 
   for (const pkg of packages) {
@@ -34,6 +36,7 @@ export function validateDependencies(
     const sourceUses = collectPackageImports(files);
     const scriptUses = collectScriptPackageUses(pkg.packageJson.scripts, binaryPackages);
     usesByPackage.set(pkg.key, new Set([...sourceUses, ...scriptUses.keys()]));
+    sourceUsesByPackage.set(pkg.key, sourceUses);
     scriptUsesByPackage.set(pkg.key, scriptUses);
   }
 
@@ -42,12 +45,47 @@ export function validateDependencies(
     ...validateDependencyOrder(packages),
     ...validateDevDependencyPlacement(packages),
     ...validateWorkspaceMemberSpecs(packages),
+    ...validateSourceImportDeclarations({ packages, sourceUsesByPackage }),
     ...validatePrivateRootPins(packages, usesByPackage),
     ...validatePublishedRootPinFloors(packages),
     ...validateScriptDependencyDeclarations(packages, scriptUsesByPackage),
     ...validateDependencyGroupPlacement(packages),
     ...validateSiblingRanges(packages),
   ];
+}
+
+const NODE_BUILTINS = new Set(builtinModules);
+
+/**
+ * 3.3.1 for source files: every package a private package's own sources import is declared in its own
+ * `package.json`. Without this, an import of a workspace package that is neither the package itself nor pinned at
+ * the root resolves through hoisting alone, and fails the day the package is installed on its own.
+ */
+export type SourceImportDeclarationsInput = {
+  packages: readonly LoadedPackage[];
+  /** Package names each private package's own sources import, keyed by package key. */
+  sourceUsesByPackage: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+export function validateSourceImportDeclarations({
+  packages,
+  sourceUsesByPackage,
+}: SourceImportDeclarationsInput): readonly Violation[] {
+  const violations: Violation[] = [];
+  for (const pkg of packages) {
+    if (!PRIVATE_PACKAGE_KINDS.has(pkg.inventory.kind)) continue;
+    const declared = declarationsByName(pkg.packageJson);
+    for (const packageName of [...(sourceUsesByPackage.get(pkg.key) ?? [])].sort()) {
+      if (packageName === pkg.packageJson.name || NODE_BUILTINS.has(packageName)) continue;
+      if ((declared.get(packageName) ?? []).length > 0) continue;
+      violations.push({
+        rule: '3.3.1',
+        packageKey: packageJsonPath(pkg.key),
+        message: `its sources import '${packageName}', which package.json does not declare`,
+      });
+    }
+  }
+  return violations;
 }
 
 export function validateScriptDependencyDeclarations(
