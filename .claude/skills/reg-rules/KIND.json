@@ -1,0 +1,80 @@
+{
+	"letter": "R",
+	"noun": "rule",
+	"plural": "rules",
+	"suffixes": true,
+	"tagLabel": "Rule tag",
+	"fields": [
+		{
+			"key": "title",
+			"label": "Rule",
+			"type": "text",
+			"title": true,
+			"term": true
+		},
+		{
+			"key": "short",
+			"label": "Short rule",
+			"type": "sentence",
+			"summary": true
+		},
+		{
+			"key": "old",
+			"label": "Old number",
+			"type": "text",
+			"optional": true
+		},
+		{
+			"key": "check",
+			"label": "Check",
+			"type": "choice",
+			"values": [
+				"script",
+				"missing",
+				"impossible",
+				"ignored"
+			]
+		},
+		{
+			"key": "checked-by",
+			"label": "Checked by",
+			"type": "text",
+			"optional": true,
+			"command": true,
+			"allowedWhen": {
+				"check": [
+					"script"
+				]
+			},
+			"index": false
+		},
+		{
+			"key": "evidence",
+			"label": "Evidence",
+			"type": "list",
+			"optional": true,
+			"requiredWhen": {
+				"tag": {
+					"not": [
+						"HOLD"
+					]
+				}
+			},
+			"allowedWhen": {
+				"tag": {
+					"not": [
+						"HOLD"
+					]
+				}
+			},
+			"index": false,
+			"lines": true
+		},
+		{
+			"key": "issues",
+			"label": "Issues",
+			"type": "list",
+			"optional": true
+		}
+	]
+}
