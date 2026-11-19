@@ -130,7 +130,7 @@ test('rejects a consumer pinned to V(N-1) by file path', () => {
   ];
   const violations = validateGenerationDependencies(manifest(), packages);
   assert.equal(violations.length, 1);
-  assert.equal(violations[0]?.rule, '3.4.1');
+  assert.equal(violations[0]?.rule, 'NR-22');
   assert.equal(violations[0]?.packageKey, './hardhat/v3/plugin/pkg/package.json');
   assert.match(violations[0]?.message ?? '', /targets \.\/host-contracts-cleartext\/v12\/pkg, V\(N-1\)/);
   assert.match(violations[0]?.message ?? '', /only the V\(N\) dev package '\.\/host-contracts-cleartext\/v13' itself/);
@@ -208,8 +208,8 @@ test('rejects a consumer depending on the V(N-1) dev package by name, and V(N-1)
   assert.deepEqual(
     violations.map((violation) => [violation.packageKey, violation.rule]),
     [
-      [`${PREVIOUS}/package.json`, '3.4.1'],
-      ['./common/package.json', '3.4.1'],
+      [`${PREVIOUS}/package.json`, 'NR-22'],
+      ['./common/package.json', 'NR-22'],
     ],
   );
   assert.match(violations[0]?.message ?? '', /neither V\(N\) nor V\(N-1\)/);
@@ -248,8 +248,8 @@ test("requires V(N)'s payload to be the member and V(N-1)'s not to be", () => {
   assert.deepEqual(
     violations.map((violation) => [violation.packageKey, violation.rule]),
     [
-      [`./${FAMILY}/v11/pkg/package.json`, '3.4.4'],
-      [`${CURRENT}/pkg/package.json`, '3.4.4'],
+      [`./${FAMILY}/v11/pkg/package.json`, 'NR-25'],
+      [`${CURRENT}/pkg/package.json`, 'NR-25'],
     ],
   );
   assert.match(violations[0]?.message ?? '', /must set 'member': true, not false/);
@@ -296,7 +296,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
   const missing = validateGenerationUpgradeSuite(manifest(), [root, withSuite('v12'), withSuite('v13')]);
   assert.deepEqual(
     missing.map((violation) => [violation.rule, violation.packageKey]),
-    [['3.4.5', `${CURRENT}/package.json`]],
+    [['NR-26', `${CURRENT}/package.json`]],
   );
   assert.match(missing[0]?.message ?? '', /must define a non-empty 'test:upgrade' script/);
 
@@ -308,7 +308,7 @@ test('requires the upgrade suite on V(N) and forbids it on V(N-1)', () => {
   ]);
   assert.deepEqual(
     leftover.map((violation) => [violation.rule, violation.packageKey]),
-    [['3.4.5', `${PREVIOUS}/package.json`]],
+    [['NR-26', `${PREVIOUS}/package.json`]],
   );
   assert.match(leftover[0]?.message ?? '', /must not define 'test:upgrade'/);
 
@@ -336,7 +336,7 @@ test('accepts vendored destinations under V(N) and V(N-1), rejects one under a r
   const stale = [...live, { to: [`${FAMILY}/v11/pkg/ts`] }];
   const violations = validateGenerationVendoredDestinations(manifest(), stale);
   assert.equal(violations.length, 1);
-  assert.equal(violations[0]?.rule, '3.4.2');
+  assert.equal(violations[0]?.rule, 'NR-23');
   assert.equal(violations[0]?.packageKey, './npm-manifest.json');
   assert.match(violations[0]?.message ?? '', /not under V\(N\) '\.\/host-contracts-cleartext\/v13' or V\(N-1\)/);
 
@@ -351,8 +351,8 @@ test('requires every live generation to be among the directories that receive a 
   assert.deepEqual(
     halfRotated.map((violation) => [violation.rule, violation.packageKey]),
     [
-      ['3.4.2', './npm-manifest.json'],
-      ['3.4.2', './npm-manifest.json'],
+      ['NR-23', './npm-manifest.json'],
+      ['NR-23', './npm-manifest.json'],
     ],
   );
   assert.match(halfRotated[1]?.message ?? '', /no vendored destination 'host-contracts-cleartext\/v12\/pkg\/ts'/);
@@ -413,7 +413,7 @@ test('a face named for a generation (by source name) lands in that generation al
   const misplaced = validateGenerationVendoredDestinations(manifest(), v13Face([`${FAMILY}/v12/pkg/ts`]));
   assert.deepEqual(
     misplaced.map((v) => v.rule),
-    ['3.4.2', '3.4.2'],
+    ['NR-23', 'NR-23'],
   );
   assert.match(
     misplaced[1]?.message ?? '',
@@ -472,7 +472,7 @@ test('resolves what the mirror patch injects as an edge from the template packag
   const onPrevious = { devDependencies: { '@fhevm/host-contracts-cleartext': `file:../../../../${FAMILY}/v12/pkg` } };
   const violations = validateGenerationMirrorPatch(manifest(), packages, template.key, onPrevious, label);
   assert.equal(violations.length, 1);
-  assert.equal(violations[0]?.rule, '3.4.1');
+  assert.equal(violations[0]?.rule, 'NR-22');
   assert.equal(violations[0]?.packageKey, `${template.key}/package.json`);
   assert.match(violations[0]?.message ?? '', /^mirror patch: package '@fhevm\/host-contracts-cleartext'/);
   assert.match(violations[0]?.message ?? '', /V\(N-1\)/);
@@ -489,14 +489,14 @@ test('requires cleartext-config.json#appliesTo.generations to be exactly the liv
   const stale = validateGenerationCleartextConfig(manifest(), FAMILY, ['v11', 'v12', 'v13']);
   assert.deepEqual(
     stale.map((violation) => [violation.rule, violation.packageKey]),
-    [['3.4.3', './cleartext-config.json']],
+    [['NR-24', './cleartext-config.json']],
   );
   assert.match(stale[0]?.message ?? '', /lists 'v11', which is not a live generation/);
 
   const omitted = validateGenerationCleartextConfig(manifest(), FAMILY, ['v13']);
   assert.deepEqual(
     omitted.map((violation) => [violation.rule, violation.packageKey]),
-    [['3.4.3', './cleartext-config.json']],
+    [['NR-24', './cleartext-config.json']],
   );
   assert.match(omitted[0]?.message ?? '', /omits live generation 'v12'/);
   // The generation that goes without a face is named in the message, since the key names the file to edit.

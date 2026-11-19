@@ -49,7 +49,7 @@ test('coverage is checked both ways: a payload without an entry, an entry withou
   const missing = validateVersionGraph(manifest(), versions({ './library/pkg': '1.2.3' }));
   assert.deepEqual(missing, [
     {
-      rule: 'version-coverage',
+      rule: 'NR-36',
       packageKey: `./${VERSIONS_FILE}`,
       message: `'./plugin/pkg' is a published payload with no entry here`,
     },
@@ -60,20 +60,23 @@ test('coverage is checked both ways: a payload without an entry, an entry withou
   );
   assert.deepEqual(
     extra.map((violation) => [violation.rule, violation.packageKey]),
-    [['version-coverage', `./${VERSIONS_FILE}`]],
+    [['NR-36', `./${VERSIONS_FILE}`]],
   );
+  // NR-36 also covers SemVer and order: the message says this one is the coverage violation.
+  assert.match(extra[0]?.message ?? '', /is not a published payload/);
 });
 
 test('values must be canonical SemVer; the order must follow the manifest', () => {
   const ranged = validateVersionGraph(manifest(), versions({ './library/pkg': '^1.2.3', './plugin/pkg': '0.4.0' }));
   assert.deepEqual(
     ranged.map((violation) => violation.rule),
-    ['version-semver'],
+    ['NR-36'],
   );
+  assert.match(ranged[0]?.message ?? '', /not canonical SemVer/);
   const reordered = validateVersionGraph(manifest(), versions({ './plugin/pkg': '0.4.0', './library/pkg': '1.2.3' }));
   assert.deepEqual(reordered, [
     {
-      rule: 'version-order',
+      rule: 'NR-36',
       packageKey: `./${VERSIONS_FILE}`,
       message: 'entries must follow npm-manifest.json order: ./library/pkg, ./plugin/pkg',
     },

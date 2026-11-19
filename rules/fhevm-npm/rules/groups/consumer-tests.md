@@ -112,11 +112,13 @@ resolution is traced by the plugin's own test, not by `test-consumer` ([NR-50](.
 
 Old number: 5.3.1.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
-- Gap, no check: Add a Makefile target or workflow step running `npm --prefix host-contracts-cleartext/v14 run test:consumer:dev`: no check fails. Fix: issue I-107.
+- Gap, loose check: Add a Makefile target or workflow step running `npm --prefix host-contracts-cleartext/v14 run test:consumer:dev`: no check fails. Fix: issue I-107.
 
 Issues: I-02, I-107.
 
@@ -318,6 +320,8 @@ require('../../plugin/pkg/src/index'); // ❌ Reaches source directly and proves
 Old number: 5.3.9.
 
 Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 

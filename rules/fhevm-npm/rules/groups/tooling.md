@@ -188,11 +188,13 @@ receive.
 
 Old number: 5.1.4a.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
-- Gap, no check: A `compile` that rewrites a tracked file (e.g. emitting into a committed pkg/ts/index.ts) leaves a dirty tree that no gate in build-ci or ci reports. Fix: issue I-96.
+- Gap, loose check: A `compile` that rewrites a tracked file (e.g. emitting into a committed pkg/ts/index.ts) leaves a dirty tree that no gate in build-ci or ci reports. Fix: issue I-96.
 
 Issues: I-07, I-21, I-96.
 
@@ -402,11 +404,13 @@ export default { singleQuote: true };
 
 Old number: 5.1.7.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check scripts`
 
 Evidence:
 
-- Gap, no check: on `release/0.14.x`, `fhevm-npm/base/checks/scripts.ts:840-843` checks only the ESLint filenames inside packages; nothing checks the layout layer. Fix: the `validateEslintLayoutModules` check (issue I-62), pushed on a branch, not yet merged.
+- Gap, loose check: on `release/0.14.x`, `fhevm-npm/base/checks/scripts.ts:840-843` checks only the ESLint filenames inside packages; nothing checks the layout layer. Fix: the `validateEslintLayoutModules` check (issue I-62), pushed on a branch, not yet merged.
 
 Issues: I-01, I-09, I-11, I-62.
 

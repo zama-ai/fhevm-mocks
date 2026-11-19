@@ -38,7 +38,7 @@ function validateOneRoot(
   for (const entry of actual) {
     if (GLOB_CHARACTER.test(entry)) {
       violations.push({
-        rule: '2.1.1',
+        rule: 'NR-02',
         packageKey: packageJsonPath(root.key),
         message: `workspace entry '${entry}' must be an explicit relative path, not a glob`,
       });
@@ -48,7 +48,7 @@ function validateOneRoot(
     const key = joinRoot(root.key, entry);
     const inventoried = packages.find((pkg) => pkg.key === key);
     violations.push({
-      rule: inventoried?.inventory.kind === 'standalone' ? '2.1.4' : '2.1.1',
+      rule: inventoried?.inventory.kind === 'standalone' ? 'NR-05' : 'NR-02',
       packageKey: packageJsonPath(inventoried?.key ?? root.key),
       message:
         inventoried?.inventory.kind === 'standalone'
@@ -60,7 +60,7 @@ function validateOneRoot(
   for (const [entry, pkg] of expected) {
     if (!actualSet.has(entry)) {
       violations.push({
-        rule: '2.1.1',
+        rule: 'NR-02',
         packageKey: packageJsonPath(pkg.key),
         message: `manifest member is missing from ${workspacesFile} as '${entry}'`,
       });
@@ -72,7 +72,7 @@ function validateOneRoot(
     for (const pkg of packages) {
       if (installationRootOf(pkg) !== '.' || !pkg.key.startsWith(`${root.key}/`)) continue;
       violations.push({
-        rule: '2.1.6',
+        rule: 'member-of',
         packageKey: packageJsonPath(pkg.key),
         message: `a member inside installation root '${root.key}' must declare memberOf: "${root.key}"`,
       });
@@ -100,7 +100,7 @@ function validatePublishedMemberNames(packages: readonly LoadedPackage[], violat
       .join(', ');
     for (const pkg of sameName) {
       violations.push({
-        rule: '2.1.3',
+        rule: 'NR-04',
         packageKey: packageJsonPath(pkg.key),
         message: `published name '${name}' has more than one workspace member, across every installation root: ${packageKeys}`,
       });
@@ -108,7 +108,7 @@ function validatePublishedMemberNames(packages: readonly LoadedPackage[], violat
   }
 }
 
-/** 2.1.1 for packages that are not installation roots: a `workspaces` glob would make one, silently. */
+/** NR-02 for packages that are not installation roots: a `workspaces` glob would make one, silently. */
 function workspaceGlobsOutsideRoots(packages: readonly LoadedPackage[]): readonly Violation[] {
   return packages
     .filter((pkg) => pkg.inventory.kind !== 'workspace-root')
@@ -116,7 +116,7 @@ function workspaceGlobsOutsideRoots(packages: readonly LoadedPackage[]): readonl
       (pkg.packageJson.workspaces ?? [])
         .filter((entry) => GLOB_CHARACTER.test(entry))
         .map((entry) => ({
-          rule: '2.1.1',
+          rule: 'NR-02',
           packageKey: packageJsonPath(pkg.key),
           message: `workspace entry '${entry}' must be an explicit relative path, not a glob`,
         })),
@@ -126,7 +126,7 @@ function workspaceGlobsOutsideRoots(packages: readonly LoadedPackage[]): readonl
 const PRIVATE_MEMBER_KINDS = new Set(['dev', 'shared-helper', 'internal-consumer']);
 
 /**
- * 4.2.2: the private members of one installation root share one `node_modules`, so they declare one major of
+ * NR-32: the private members of one installation root share one `node_modules`, so they declare one major of
  * each dependency. A dependency whose major differs per dependency group (hardhat 2 and 3) puts those groups
  * in separate roots. Published payloads are left out: their peer ranges state what users may have.
  */
@@ -156,7 +156,7 @@ function dependencyMajorsSharingARoot(packages: readonly LoadedPackage[]): reado
     const majors = [...byMajor.keys()].sort((left, right) => left - right).join(' and ');
     for (const pkg of [...byMajor.values()].flat().sort((left, right) => left.key.localeCompare(right.key))) {
       violations.push({
-        rule: '4.2.2',
+        rule: 'NR-32',
         packageKey: packageJsonPath(pkg.key),
         message: `installation root '${rootKey}' holds majors ${majors} of '${name}'; a dependency whose major differs per group needs separate roots`,
       });

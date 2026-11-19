@@ -48,7 +48,7 @@ import {
 } from '../generation-names.ts';
 import { generationFamilies } from './generations.ts';
 
-export const RULE = '3.4.6';
+export const RULE = 'NR-27';
 
 /** Runs git and returns stdout; throws when git exits non-zero, which is how a missing ref reports. */
 export type GitRunner = (args: readonly string[], cwd: string) => string;
@@ -183,8 +183,8 @@ export function inspectGenerationParity(
     const pathspec = relative(repoRoot, resolve(workspaceRoot, key)).split(sep).join('/');
     const tracked = lines(git(['ls-tree', '-r', '--name-only', 'HEAD', '--', pathspec], repoRoot));
     // The generation's own package.json is the one file a rotation is REQUIRED to edit in place, so
-    // byte-identity cannot apply to it: § 3.4.5 says V(N-1) must not declare `test:upgrade`, and
-    // § 3.4.1 says it must not depend on the generation it upgraded from. Both lines are still present
+    // byte-identity cannot apply to it: NR-26 says V(N-1) must not declare `test:upgrade`, and
+    // NR-22 says it must not depend on the generation it upgraded from. Both lines are still present
     // on the release branch, where that generation was V(N). Exempting it leaves nothing unguarded —
     // those two checks own its content, and every nested package.json below it stays in scope.
     const exempt = `${pathspec}/package.json`;

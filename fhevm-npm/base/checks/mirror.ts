@@ -58,10 +58,10 @@ function compareHardhatTemplate(
 
   const violations: Violation[] = [];
   for (const path of upstreamFiles.filter((path) => !localFiles.includes(path))) {
-    violations.push({ rule: '5.1.3', packageKey, message: `mirror is missing upstream file '${path}'` });
+    violations.push({ rule: 'mirror', packageKey, message: `mirror is missing upstream file '${path}'` });
   }
   for (const path of localFiles.filter((path) => !upstreamFiles.includes(path))) {
-    violations.push({ rule: '5.1.3', packageKey, message: `mirror has unexpected file '${path}'` });
+    violations.push({ rule: 'mirror', packageKey, message: `mirror has unexpected file '${path}'` });
   }
 
   for (const path of upstreamFiles.filter((path) => localFiles.includes(path))) {
@@ -73,7 +73,7 @@ function compareHardhatTemplate(
       const expected = `${JSON.stringify(patchHardhatTemplateV2Manifest(upstreamManifest, workspaceRoot, manifest), null, 2)}\n`;
       if (readFileSync(join(localDirectory, path), 'utf8') !== expected) {
         violations.push({
-          rule: '5.1.3',
+          rule: 'mirror',
           packageKey,
           message: `mirror file '${path}' differs from its expected workspace transformation`,
         });
@@ -83,7 +83,7 @@ function compareHardhatTemplate(
     const local = readFileSync(join(localDirectory, path));
     const upstream = readFileSync(join(upstreamDirectory, path));
     if (!local.equals(upstream)) {
-      violations.push({ rule: '5.1.3', packageKey, message: `mirror file '${path}' differs from upstream` });
+      violations.push({ rule: 'mirror', packageKey, message: `mirror file '${path}' differs from upstream` });
     }
   }
 

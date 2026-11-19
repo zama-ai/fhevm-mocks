@@ -102,7 +102,7 @@ test('a file that differs from the release branch is a violation', () => {
   const [violation, ...rest] = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git).violations;
 
   assert.deepEqual(rest, []);
-  assert.equal(violation?.rule, '3.4.6');
+  assert.equal(violation?.rule, 'NR-27');
   assert.equal(violation?.packageKey, `./${PREFIX}/pkg/ts/deploy.ts`);
   assert.match(violation?.message ?? '', /differs from release\/0\.13\.x/);
   assert.match(violation?.message ?? '', /not a fork/);
@@ -141,7 +141,7 @@ test('a rename reports as a deletion plus an addition, so only the new path is a
 });
 
 test("the generation's own package.json is exempt, but a nested one is not", () => {
-  // A rotation MUST edit it: § 3.4.5 forbids `test:upgrade` on V(N-1) and § 3.4.1 forbids the
+  // A rotation MUST edit it: NR-26 forbids `test:upgrade` on V(N-1) and NR-22 forbids the
   // dependency on the generation it upgraded from, and both are still present on the release branch.
   const git = fakeGit({
     diff: [`M\t${PREFIX}/package.json`, `M\t${PREFIX}/pkg/package.json`, `M\t${PREFIX}/test-consumer/esm/package.json`],
@@ -283,7 +283,7 @@ test('an override that does not resolve FAILS, unlike a release branch that was 
   assert.deepEqual(inspection.checkedKeys, []);
   const [violation, ...rest] = inspection.violations;
   assert.deepEqual(rest, []);
-  assert.equal(violation?.rule, '3.4.6');
+  assert.equal(violation?.rule, 'NR-27');
   assert.match(violation?.message ?? '', /FHEVM_PARITY_REF_V13 names 'typo\/branch'/);
   assert.match(violation?.message ?? '', /unset the variable/);
 });

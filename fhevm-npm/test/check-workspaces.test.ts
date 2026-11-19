@@ -21,9 +21,9 @@ test('reports globs, missing members, standalone members, and duplicate publishe
   ];
 
   const violations = validateWorkspaces(packages);
-  assert.equal(violations.filter((violation) => violation.rule === '2.1.1').length, 2);
-  assert.equal(violations.filter((violation) => violation.rule === '2.1.3').length, 2);
-  assert.equal(violations.filter((violation) => violation.rule === '2.1.4').length, 1);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-02').length, 2);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-04').length, 2);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-05').length, 1);
 });
 
 function workspaceRoot(workspaces: readonly string[]) {
@@ -69,12 +69,12 @@ test('validates each installation root independently, and published names across
       { name: '@scope/library', version: '2.0.0' },
     ),
   ];
-  // Each root's workspaces array is complete, but one published name has a member in two roots (2.1.3).
+  // Each root's workspaces array is complete, but one published name has a member in two roots (NR-04).
   assert.deepEqual(
     validateWorkspaces(packages)
       .map((violation) => `${violation.rule} ${violation.packageKey}`)
       .sort(),
-    ['2.1.3 ./hardhat/v2/plugin/pkg/package.json', '2.1.3 ./published/package.json'],
+    ['NR-04 ./hardhat/v2/plugin/pkg/package.json', 'NR-04 ./published/package.json'],
   );
 });
 
@@ -104,16 +104,16 @@ test("flags a cluster root's missing member, and a '.'-rooted member living insi
     clusterMember,
   ]);
   assert.ok(
-    violations.some((v) => v.rule === '2.1.1' && v.packageKey === './hardhat/v2/plugin/pkg/package.json'),
+    violations.some((v) => v.rule === 'NR-02' && v.packageKey === './hardhat/v2/plugin/pkg/package.json'),
     'the cluster member missing from the cluster workspaces array must be flagged',
   );
   assert.ok(
-    violations.some((v) => v.rule === '2.1.6' && v.packageKey === './hardhat/v2/e2e/package.json'),
+    violations.some((v) => v.rule === 'member-of' && v.packageKey === './hardhat/v2/e2e/package.json'),
     "a '.'-rooted member inside the cluster must be told to declare memberOf",
   );
 });
 
-test('2.1.1: a package that is not an installation root may not list a glob in workspaces either', () => {
+test('NR-02: a package that is not an installation root may not list a glob in workspaces either', () => {
   const standalone = loadedPackage(
     './consumer',
     { kind: 'standalone', name: 'consumer', member: false },
@@ -128,11 +128,11 @@ test('2.1.1: a package that is not an installation root may not list a glob in w
 
   assert.deepEqual(
     violations.map((violation) => `${violation.rule} ${violation.packageKey}`),
-    ['2.1.1 ./consumer/package.json'],
+    ['NR-02 ./consumer/package.json'],
   );
 });
 
-test('4.2.2: one installation root holds one major of each dependency its private members declare', () => {
+test('NR-32: one installation root holds one major of each dependency its private members declare', () => {
   const member = (key: string, group: string, hardhat: string) =>
     loadedPackage(
       key,
@@ -154,7 +154,7 @@ test('4.2.2: one installation root holds one major of each dependency its privat
   ];
   assert.deepEqual(
     validateWorkspaces(shared).map((violation) => `${violation.rule} ${violation.packageKey}`),
-    ['4.2.2 ./v2/package.json', '4.2.2 ./v3/package.json'],
+    ['NR-32 ./v2/package.json', 'NR-32 ./v3/package.json'],
   );
 
   // One major in the root, and a published payload's peer range does not count.

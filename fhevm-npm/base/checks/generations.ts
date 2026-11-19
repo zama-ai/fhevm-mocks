@@ -53,7 +53,7 @@ export function liveGenerationNames(family: GenerationFamily): readonly string[]
 }
 
 /**
- * Rule 3.4.1: a dependency on a package of a generation family targets V(N), with exactly one exception —
+ * Rule NR-22: a dependency on a package of a generation family targets V(N), with exactly one exception —
  * the V(N) dev package's own `devDependencies` entry on the V(N-1) DEV package, which is what V(N)'s
  * upgrade tests build against. That is the whole exception: not a package below V(N), not a runtime
  * field, not a link to V(N-1)'s payload. Every other edge into the family (from a consumer to V(N-1),
@@ -79,7 +79,7 @@ export function validateGenerationDependencies(
 }
 
 /**
- * Rule 3.4.1, for a dependency that is not in any committed package.json: the spec a mirror patch
+ * Rule NR-22, for a dependency that is not in any committed package.json: the spec a mirror patch
  * INJECTS into a rendered manifest. The patch's output is resolved as if it were declared by the
  * template package it targets, so a pin left on V(N-1) fails here rather than in the published mirror.
  */
@@ -94,7 +94,7 @@ export function validateGenerationMirrorPatch(
   if (template === undefined) {
     return [
       {
-        rule: '3.4.1',
+        rule: 'NR-22',
         packageKey: packageJsonPath(templateKey),
         message: `${patchLabel} targets '${templateKey}', which is not a manifest package`,
       },
@@ -122,7 +122,7 @@ export function validateGenerationMirrorPatch(
 }
 
 /**
- * Rule 3.4.2, both directions: every `sync-vendored` destination under a generation family's directory
+ * Rule NR-23, both directions: every `sync-vendored` destination under a generation family's directory
  * sits in a live generation, and every live generation is among the directories that receive each face.
  *
  * A path left under a retired generation is the entry a rotation forgets, and it makes `sync-vendored`
@@ -162,7 +162,7 @@ export function validateGenerationVendoredDestinations(
       for (const target of targets) {
         if (target.generation !== 'other') continue;
         violations.push({
-          rule: '3.4.2',
+          rule: 'NR-23',
           packageKey: './npm-manifest.json',
           message:
             `vendored destination '${target.to}' is under ${family.family} ` +
@@ -178,7 +178,7 @@ export function validateGenerationVendoredDestinations(
       const faces = [...new Set(targets.map((target) => target.face))].sort();
       if (faces.length > 1) {
         violations.push({
-          rule: '3.4.2',
+          rule: 'NR-23',
           packageKey: './npm-manifest.json',
           message:
             `one set of vendored files lands in ${String(faces.length)} different faces of ` +
@@ -195,7 +195,7 @@ export function validateGenerationVendoredDestinations(
       const scoped = scopedGenerations(family, sources);
       if (scoped.size > 1 || (scoped.size === 1 && sources.length > scoped.values().next().value!.length)) {
         violations.push({
-          rule: '3.4.2',
+          rule: 'NR-23',
           packageKey: './npm-manifest.json',
           message:
             `one vendored entry mixes faces named for a generation with others (${sources.join(', ')}); ` +
@@ -208,7 +208,7 @@ export function validateGenerationVendoredDestinations(
         for (const target of targets) {
           if (target.generationKey === scopedTo) continue;
           violations.push({
-            rule: '3.4.2',
+            rule: 'NR-23',
             packageKey: './npm-manifest.json',
             message:
               `'${scopedFiles.join(', ')}' is named for ${scopedTo.slice(2)} but lands in '${target.to}'; ` +
@@ -217,7 +217,7 @@ export function validateGenerationVendoredDestinations(
         }
         if (!targets.some((target) => target.generationKey === scopedTo)) {
           violations.push({
-            rule: '3.4.2',
+            rule: 'NR-23',
             packageKey: './npm-manifest.json',
             message:
               `no vendored destination '${scopedTo.slice(2)}/${face}' for '${scopedFiles.join(', ')}', ` +
@@ -230,7 +230,7 @@ export function validateGenerationVendoredDestinations(
       for (const generationKey of liveGenerationKeys(family)) {
         if (targets.some((target) => target.generationKey === generationKey)) continue;
         violations.push({
-          rule: '3.4.2',
+          rule: 'NR-23',
           packageKey: './npm-manifest.json',
           message:
             `no vendored destination '${generationKey.slice(2)}/${face}'; ` +
@@ -290,7 +290,7 @@ function roleOf(family: GenerationFamily, generationKey: string): string {
 }
 
 /**
- * Rule 3.4.3: `cleartext-config.json#appliesTo.generations` names exactly the live generations of the
+ * Rule NR-24: `cleartext-config.json#appliesTo.generations` names exactly the live generations of the
  * family its faces are written into — V(N) and V(N-1), by directory basename. A retired generation left
  * in the list makes the generator write into a directory that no longer exists; a live one missing from
  * it gets no face at all, and `check-cleartext-config` cannot notice a face it was never told to expect.
@@ -311,7 +311,7 @@ export function validateGenerationCleartextConfig(
   for (const gen of generations) {
     if (live.includes(gen)) continue;
     violations.push({
-      rule: '3.4.3',
+      rule: 'NR-24',
       packageKey: `./${CLEARTEXT_CONFIG_FILE}`,
       message: `appliesTo.generations lists '${gen}', which is not a live generation of ${family} (${live.join(', ')})`,
     });
@@ -319,7 +319,7 @@ export function validateGenerationCleartextConfig(
   for (const gen of live) {
     if (generations.includes(gen)) continue;
     violations.push({
-      rule: '3.4.3',
+      rule: 'NR-24',
       packageKey: `./${CLEARTEXT_CONFIG_FILE}`,
       message: `appliesTo.generations omits live generation '${gen}' of ${family}; ./${family}/${gen} would receive no generated face`,
     });
@@ -328,7 +328,7 @@ export function validateGenerationCleartextConfig(
 }
 
 /**
- * Rule 3.4.4: of a family's two live generations, V(N)'s published payload is a workspace member and
+ * Rule NR-25: of a family's two live generations, V(N)'s published payload is a workspace member and
  * V(N-1)'s is not. Both generations publish one npm name, so at most one of them may be listed in an
  * installation root, and it must be the one every consumer resolves. This is the flag a rotation forgets:
  * leave it behind and the retired payload keeps claiming the shared name, which `check workspaces` reports
@@ -359,7 +359,7 @@ function validatePayloadMembership(
   const payload = manifest.packages[payloadKey];
   if (payload === undefined) {
     violations.push({
-      rule: '3.4.4',
+      rule: 'NR-25',
       packageKey: packageJsonPath(generationKey),
       message: `declares payload '${payloadKey}', which is not a manifest package`,
     });
@@ -372,7 +372,7 @@ function validatePayloadMembership(
     ? `it is the directory the shared published name resolves to, so it must be listed in an installation root`
     : `it shares its published name with V(N)'s payload, and listing both would make that name ambiguous`;
   violations.push({
-    rule: '3.4.4',
+    rule: 'NR-25',
     packageKey: packageJsonPath(payloadKey),
     message:
       `the published payload of ${role} of ${family.family} must set 'member': ${String(expected)}, not ` +
@@ -381,7 +381,7 @@ function validatePayloadMembership(
 }
 
 /**
- * Rule 3.4.5: V(N) declares `test:upgrade` and V(N-1) does not.
+ * Rule NR-26: V(N) declares `test:upgrade` and V(N-1) does not.
  *
  * A generation can prove most of itself alone; the upgrade FROM the older generation it can only prove
  * against a real V(N-1) stack, so that suite lives behind its own verb and the Makefile asks it of V(N)
@@ -406,7 +406,7 @@ export function validateGenerationUpgradeSuite(
     const previous = packages.find((pkg) => pkg.key === family.previous);
     if (current !== undefined && !hasUpgradeSuite(current)) {
       violations.push({
-        rule: '3.4.5',
+        rule: 'NR-26',
         packageKey: packageJsonPath(current.key),
         message:
           `V(N) of ${family.family} must define a non-empty 'test:upgrade' script: it is the suite that ` +
@@ -415,7 +415,7 @@ export function validateGenerationUpgradeSuite(
     }
     if (previous !== undefined && hasUpgradeSuite(previous)) {
       violations.push({
-        rule: '3.4.5',
+        rule: 'NR-26',
         packageKey: packageJsonPath(previous.key),
         message:
           `V(N-1) of ${family.family} must not define 'test:upgrade': the generation it upgraded from is ` +
@@ -466,7 +466,7 @@ function checkEdge(
         `only V(N) '${family.current}' may be depended on from outside its own generation`;
   if (reason === undefined) return;
   violations.push({
-    rule: '3.4.1',
+    rule: 'NR-22',
     packageKey: packageJsonPath(source.key),
     message: `${prefix}package '${declaration.name}' in '${declaration.field}' ${reason}`,
   });
@@ -514,7 +514,7 @@ function resolveTarget(
   violations: Violation[],
 ): LoadedPackage | undefined {
   if (declaration.spec.startsWith('file:')) {
-    // Unresolvable links and tarballs are rule 3.1's business; here only a link INTO the family matters.
+    // Unresolvable links and tarballs are NR-15's and NR-16's business; here only a link INTO the family matters.
     if (declaration.spec.endsWith('.tgz')) return undefined;
     const linked = resolve(source.directory, declaration.spec.slice('file:'.length));
     return familyPackages.find((candidate) => resolve(candidate.directory) === linked);
@@ -532,7 +532,7 @@ function resolveTarget(
 
   // A range over a shared name cannot say which generation is meant; report rather than guess.
   violations.push({
-    rule: '3.4.1',
+    rule: 'NR-22',
     packageKey: packageJsonPath(source.key),
     message:
       `${prefix}package '${declaration.name}' in '${declaration.field}' is "${declaration.spec}", a name shared by ` +

@@ -4,7 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.js';
 
 import type { CheckCommand } from '../base/command.ts';
-import type { Violation } from '../base/diagnostics.ts';
+import type { Violation, ViolationTag } from '../base/diagnostics.ts';
 
 const SCHEMA_DIRECTORY = join('fhevm-npm', 'schemas');
 const REQUIRED_JSON_FILES = [
@@ -64,7 +64,7 @@ export const checkJsonSchemas: CheckCommand = (context) => {
 
     for (const error of validate.errors ?? []) {
       violations.push({
-        rule: 'json-schema-validation',
+        rule: 'NR-74',
         packageKey: targetKey,
         message: formatValidationError(error),
       });
@@ -139,7 +139,12 @@ function jsonTargets(workspaceRoot: string, packageKeys: readonly string[]): str
   return [...new Set(targets)].sort();
 }
 
-function readJsonObject(path: string, display: string, rule: string, violations: Violation[]): JsonObject | undefined {
+function readJsonObject(
+  path: string,
+  display: string,
+  rule: ViolationTag,
+  violations: Violation[],
+): JsonObject | undefined {
   if (!existsSync(path)) {
     violations.push({ rule, packageKey: display, message: 'file is missing' });
     return undefined;

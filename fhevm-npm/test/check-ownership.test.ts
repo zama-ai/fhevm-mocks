@@ -18,8 +18,8 @@ test('reports invalid targets, missing owners, and multiple owners', () => {
   const orphan = publishedPackage('./orphan/pkg');
 
   const violations = validateOwnership([misplaced, first, second, shared, orphan]);
-  assert.equal(violations.filter((violation) => violation.rule === '2.1.2').length, 3);
-  assert.equal(violations.filter((violation) => violation.rule === '5.3.2').length, 3);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-03').length, 3);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-55').length, 3);
   assert.ok(violations.some((violation) => violation.message.includes('2 dev owners')));
   assert.ok(violations.some((violation) => violation.packageKey === './orphan/pkg/package.json'));
 });

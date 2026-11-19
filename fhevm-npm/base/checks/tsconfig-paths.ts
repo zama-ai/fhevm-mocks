@@ -46,7 +46,7 @@ export function inspectTsconfigPaths(workspaceRoot: string, manifest: NpmManifes
 
   if (configs.length === 0) {
     violations.push({
-      rule: '2.1.5',
+      rule: 'NR-06',
       packageKey: '.',
       message: 'found no owned tsconfig to inspect; refusing to pass vacuously',
     });
@@ -57,7 +57,7 @@ export function inspectTsconfigPaths(workspaceRoot: string, manifest: NpmManifes
     const parsed = parseConfigFileTextToJson(config, readFileSync(config, 'utf8'));
     if (parsed.error !== undefined) {
       violations.push({
-        rule: '2.1.5',
+        rule: 'NR-06',
         packageKey: configKey,
         message: `could not parse: ${flattenDiagnosticMessageText(parsed.error.messageText, '\n')}`,
       });
@@ -71,7 +71,7 @@ export function inspectTsconfigPaths(workspaceRoot: string, manifest: NpmManifes
         continue;
       }
       violations.push({
-        rule: '2.1.5',
+        rule: 'NR-06',
         packageKey: configKey,
         message: `'${claim.field}' path '${claim.path}' does not exist`,
       });

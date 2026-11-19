@@ -79,7 +79,7 @@ test('a lock pinning every payload at its versions.json version, on the declared
 test('a published node whose version disagrees with versions.json is reported with the fix', () => {
   const violations = run(files(lock('v14', '0.13.0', '0.14.0-0')));
   assert.equal(violations.length, 1);
-  assert.equal(violations[0]?.rule, '6.1.3');
+  assert.equal(violations[0]?.rule, 'NR-66');
   assert.equal(violations[0]?.packageKey, './plugin/test-consumer/esm/package-lock.json');
   assert.match(
     violations[0]?.message ?? '',
@@ -133,7 +133,7 @@ test('a lock resolving a published name outside the workspace payloads, or missi
 test('a member consumer, a missing lock, and workspace links are left to other rules', () => {
   const fs = files(lock('v14', '0.14.0-0', '0.14.0-0'));
   fs.delete(join(WORKSPACE, 'plugin/test-consumer/esm/package-lock.json'));
-  assert.deepEqual(run(fs), [], 'a missing lock is rule 6.1.1, not this one');
+  assert.deepEqual(run(fs), [], 'a missing lock is rule NR-64, not this one');
 
   // A workspace-link node carries no version: the linked target does, and is graded through the link.
   const linked = (targetVersion: string): string =>

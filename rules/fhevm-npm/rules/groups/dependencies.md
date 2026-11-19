@@ -231,11 +231,13 @@ package, never siblings or children. An exception naming no declared dependency 
 
 Old number: 3.3.4.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check pinned-dependencies`
 
 Evidence:
 
-- Gap, no check: Add @fhevm/sdk-prev1 with its exact pinned npm alias spec to a nongeneration helper such as common/package.json, or retain it on the previous generation during an approved rotation. The pin check compares the text but has no role-alias ownership test; it does not require the declaring package to be <vN>. Fix: issue I-83.
+- Gap, loose check: Add @fhevm/sdk-prev1 with its exact pinned npm alias spec to a nongeneration helper such as common/package.json, or retain it on the previous generation during an approved rotation. The pin check compares the text but has no role-alias ownership test; it does not require the declaring package to be <vN>. Fix: issue I-83.
 
 Issues: I-01, I-09, I-83.
 
@@ -407,11 +409,13 @@ entries stay under [NR-35](../entries/NR-35.md); non-packages, and whatever a st
 
 Old number: 4.2.2.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
-- Gap, no check: Move the v3 members into the v2 installation root by updating memberOf and the workspace lists together. The declared inventory and workspace lists can agree, while the two majors share a root; no check binds distinct Hardhat groups to distinct roots. Fix: issue I-89.
+- Gap, loose check: Move the v3 members into the v2 installation root by updating memberOf and the workspace lists together. The declared inventory and workspace lists can agree, while the two majors share a root; no check binds distinct Hardhat groups to distinct roots. Fix: issue I-89.
 
 Issues: I-01, I-89.
 
@@ -435,11 +439,13 @@ Issues: I-01, I-89.
 
 Old number: 4.2.3.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
-- Gap, no check: `fhevm-npm/base/checks/dependencies.ts:18` and `:398-401` compare only `dev`, `shared-helper` and `internal-consumer` packages; no check holds a standalone consumer's version inside the published payload's peer range. Fix: issue I-54.
+- Gap, loose check: `fhevm-npm/base/checks/dependencies.ts:18` and `:398-401` compare only `dev`, `shared-helper` and `internal-consumer` packages; no check holds a standalone consumer's version inside the published payload's peer range. Fix: issue I-54.
 
 Issues: I-09, I-54.
 
@@ -502,11 +508,13 @@ shared helper instead of the dev owner.
 
 Old number: 4.3.1.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check dependencies`
 
 Evidence:
 
-- Gap, no check: Verified: removing `viem` from hardhat/v3/plugin/pkg/package.json peerDependencies, while pkg/src/internal/fhevmValue.ts imports it, passes `check dependencies`, `check pinned-dependencies`, `check package-json` and `check published-files`. Fix: issue I-90.
+- Gap, loose check: Verified: removing `viem` from hardhat/v3/plugin/pkg/package.json peerDependencies, while pkg/src/internal/fhevmValue.ts imports it, passes `check dependencies`, `check pinned-dependencies`, `check package-json` and `check published-files`. Fix: issue I-90.
 
 Issues: I-90.
 
