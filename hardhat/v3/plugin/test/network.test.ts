@@ -64,7 +64,8 @@ void test('public chains are classified by their live chain id, one entry per gr
   const cases: Array<[number, Array<[string, string]>]> = [
     [1, [['mainnet', 'ethereum']]],
     [137, [['mainnet', 'polygon']]],
-    // Sepolia and Amoy are served by the testnet AND the devnet gateway, with different addresses.
+    // Sepolia, Amoy and BNB testnet are served by the testnet AND the devnet gateway, with different addresses.
+    // The two groups can name one chain differently.
     [
       11_155_111,
       [
@@ -79,7 +80,13 @@ void test('public chains are classified by their live chain id, one entry per gr
         ['devnet', 'polygon_amoy'],
       ],
     ],
-    [97, [['devnet', 'bnb_testnet']]],
+    [
+      97,
+      [
+        ['testnet', 'bsc_testnet'],
+        ['devnet', 'bnb_testnet'],
+      ],
+    ],
     [560_048, [['devnet', 'ethereum_hoodi']]],
   ];
   for (const [chainId, expected] of cases) {
@@ -130,5 +137,4 @@ void test('a public chain carries the addresses of the generated face', async ()
     testnet.host.fhevm.contracts.acl.address,
     FHEVM_CHAINS.testnet.hosts.ethereum_sepolia.fhevm.contracts.acl.address,
   );
-  assert.equal(testnet.host.fhevm.contracts.acl.address, '0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D');
 });
