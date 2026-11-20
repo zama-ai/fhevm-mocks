@@ -111,7 +111,9 @@ const server = require('node:http').createServer((req, res) => {
     res.end(JSON.stringify(Array.isArray(JSON.parse(body)) ? answer : answer[0]));
   });
 });
-server.listen(0, '127.0.0.1', () => console.log(server.address().port));
+// process.stdout.write, not console.log: console.log colors a number when FORCE_COLOR is set in the environment,
+// and the colored digits would end up in the RPC URL.
+server.listen(0, '127.0.0.1', () => process.stdout.write(server.address().port + '\\n'));
 `;
 
 void test('a cast read that hits an RPC error is asked again; anything else is not', async (t) => {
