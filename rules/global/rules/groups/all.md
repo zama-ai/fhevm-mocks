@@ -161,3 +161,24 @@ The files of the previous generation are exempt. [R-04](../entries/R-04.md) free
 Vendored copies are exempt too. A vendored folder copies another repository's files, as `npm-manifest.json` declares, and `sync vendored` rewrites it from that source. A broken link there is fixed at the source, then synced, never in place.
 
 To follow the rule, update every link to a file in the same change that moves, renames, or deletes the file. `check md-links` needs `mlc`, the Markup Link Checker. Without it, the check prints a warning and checks nothing.
+
+<a id="r-08"></a>
+
+## R-08: Reproduce a serious issue before you fix it `[HOLD]`
+
+> Never fix a serious issue or a new unexpected failure before a test reproduces it and fails.
+
+Check: impossible.
+
+This rule is one of the golden rules of the repository. It applies each time someone detects a serious issue, and each time a new unexpected failure occurs.
+
+1. Do not fix the issue.
+2. Write a test that reproduces the issue.
+3. Run the test, and confirm that it fails because of the issue.
+4. Fix the issue only then. The same test now passes.
+
+A fix without a failing test first is not allowed. Without that test, nothing shows that the fix removes the issue, and nothing fails if the issue comes back.
+
+The rule does not apply automatically to a minor issue. If an issue is not clearly serious, ask the owner of the rules for approval before you fix it without a test.
+
+No script can check the rule, because no script can tell whether an issue is serious or whether the test failed before the fix.
