@@ -14,7 +14,7 @@ Check: missing.
 
 Evidence:
 
-- `foundry/forge-fhevm-std/pkg/src/StdFhevm.sol:41` and `foundry/forge-fhevm-std/pkg/src/StdFhevmChains.sol:72,362` cite `rules.md` in comments of public files, as `forge-fhevm-std/PUBLIC_API.md` names them. Fix: state the reason in one sentence instead, issue I-124.
+- `foundry/forge-fhevm-std/pkg/src/StdFhevm.sol:41` and `foundry/forge-fhevm-std/internal/StdFhevmChains.sol.template:76,366` (generated into `foundry/forge-fhevm-std/pkg/src/StdFhevmChains.sol`) cite `rules.md` in comments of public files, as `forge-fhevm-std/PUBLIC_API.md` names them. Fix: state the reason in one sentence instead, issue I-124.
 
 Issues: I-18, I-124.
 

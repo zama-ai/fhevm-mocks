@@ -316,7 +316,7 @@ Check: missing.
 Evidence:
 
 - `foundry/forge-fhevm-std/pkg/src/LibFhevmFail.sol:65` shows the FORK DRIFT message, which tells the user that the FHE events were not drained. Nothing drains since the replay was removed (`foundry/forge-fhevm-std/pkg/src/FhevmVm.sol:599-603`). Fix: correct the FORK DRIFT text.
-- `foundry/forge-fhevm-std/pkg/src/StdFhevmChains.sol:149,153,160,177,183,251,256` show that a wrong chain alias reverts with a plain `require` string, not through `LibFhevmFail`. Fix: render the chain-table failures through `LibFhevmFail`.
+- `foundry/forge-fhevm-std/internal/StdFhevmChains.sol.template:153,157,164,181,187,255,260` (generated into `pkg/src/StdFhevmChains.sol`) show that a wrong chain alias reverts with a plain `require` string, not through `LibFhevmFail`. Fix: render the chain-table failures through `LibFhevmFail`.
 - `foundry/forge-fhevm-std/pkg/src/LibFhevmFail.sol:342-349` shows the NO PLAINTEXT SOURCE message, which names a replay and can no longer fire, because `foundry/forge-fhevm-std/pkg/src/FhevmVm.sol:1265` always sets the plaintext source. Fix: delete `noPlaintextsSource`.
 
 Issues: I-34.
