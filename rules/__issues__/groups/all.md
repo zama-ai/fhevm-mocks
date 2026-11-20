@@ -369,10 +369,24 @@ Affects [FR-05](../../forge-fhevm-std/rules/entries/FR-05.md), [FR-29](../../for
 
 Old number: forge D3.
 
-Must the version gate refuse an unsupported cleartext fork, and check all seven host contracts?
+Two questions about the version gate, `_requireSupportedVersions` in `FhevmVm.sol`:
 
-- **Yes:** FR-19 `VIOLATED`.
-- **No:** FR-19 `STALE`, and the rule documents both exceptions. The code comments at `FhevmVm.sol:865-869` say yes, and those at `:152-153` say no.
+1. Must it refuse a cleartext fork whose versions it does not support? The comments disagree: `FhevmVm.sol:865-869`
+   says yes, and `FhevmVm.sol:152-153` says no.
+2. Must it check all seven host contracts? Today it checks five. `HCULimit` and `KMSGeneration` are left out, so a
+   chain with a newer `HCULimit`, as testnet Sepolia has, passes the gate.
+
+The answer sets the tag of FR-19:
+
+- **Yes:** FR-19 is `VIOLATED`, and the code must change.
+- **No:** FR-19 is `STALE`, and its text must name both exceptions.
+
+The decision waits on another one: what an older package does on a live chain that runs a newer release. It can
+refuse the chain and tell the user to upgrade, or run while the rest of the stack is supported.
+
+For example, the host contracts are `v14`, `@fhevm/forge` supports `v0.14.4`, and the live chain runs `v0.14.7`. Both
+releases are on the same line, but the chain's contracts can report newer versions than the ones the package vendors.
+Should the package refuse that chain, or run on it?
 
 Affects [FR-19](../../forge-fhevm-std/rules/entries/FR-19.md).
 
