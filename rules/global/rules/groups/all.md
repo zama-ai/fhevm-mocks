@@ -182,3 +182,25 @@ A fix without a failing test first is not allowed. Without that test, nothing sh
 The rule does not apply automatically to a minor issue. If an issue is not clearly serious, ask the owner of the rules for approval before you fix it without a test.
 
 No script can check the rule, because no script can tell whether an issue is serious or whether the test failed before the fix.
+
+<a id="r-09"></a>
+
+## R-09: A docs folder holds skills, and no tool reads it `[GAP]`
+
+> A published package may have a docs/ folder next to its pkg/, which holds a skills/ folder, is committed, and is read by no tool of the workspace.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check docs`
+
+Evidence:
+
+- Gap, loose check: `check docs` asks Prettier and ESLint only. A tsconfig or a foundry.toml whose sources cover docs/ passes it, and so does an fhevm-npm check that reads docs/ without failing on it.
+
+A package that publishes a `pkg/` can document itself in `<package>/docs/`, next to `pkg/`. The folder is optional: `host-contracts-cleartext` has none. A `docs/` folder anywhere else is refused.
+
+Every docs folder holds a `skills/` folder. Git tracks files, not folders, so an empty `skills/` needs a file to survive a clone.
+
+The folder is committed, and no tool of the workspace reads it: no formatter, linter, compiler, test runner, link checker, or `fhevm-npm` check. Its files are written for a user of the package, in the layout of the user's project, so the rules of this workspace do not apply to them. npm never publishes the folder, because it is outside `pkg/`.
+
+`fhevm-npm check docs` checks the location and the `skills/` folder, that git does not ignore the folder, and that Prettier and ESLint, run from the package, read none of its files.
