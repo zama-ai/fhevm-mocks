@@ -462,6 +462,41 @@ ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, test
 	$(MAKE) test-anvil-ci
 	@./scripts/timings-report.sh "$$FHEVM_TIMINGS_LOG"
 
+# THE PARALLEL FORM of the tests, beside the linear one and never instead of it: `ci` and `test` above
+# are unchanged, and stay the reference. scripts/ci-lanes.sh cuts the tests of `ci` into lanes that
+# share no node port and no directory they write, and scripts/run-lanes.sh runs them at the same time.
+# The runner refuses to start when a port of test-ports.config.json already answers, stops every lane
+# when one fails, and fails the run on a busy-port skip, on a changed tree, or on a node left behind.
+#
+# The lanes call the scripts below each package's `test`, where every other target here speaks through
+# the public verbs: scripts/ci-lanes.sh is the one stated exception, and says why.
+#
+#   LANES=a,b   run these lanes only (`./scripts/run-lanes.sh --list` prints them)
+#   JOBS=n      at most n lanes at a time
+RUN_LANES_ARGS = $(if $(LANES),--only $(LANES)) $(if $(JOBS),--jobs $(JOBS))
+
+.PHONY: test-parallel ci-parallel test-run-lanes
+
+test-run-lanes: ## The tests of scripts/run-lanes.sh itself, on throwaway lanes
+	./scripts/run-lanes.test.sh
+
+# `compile` first, as every linear test target has its compile prerequisite: a lane runs on the tree as
+# it is, and tests of a stale build would pass or fail for the wrong tree. The consumer lane is left
+# out, as `test` leaves the consumer tier out; the forge-fhevm-std anvil suites are in, because they
+# are steps of that package's lane.
+test-parallel: compile ## The tests of `test`, as lanes run at the same time (LANES=a,b, JOBS=n)
+	./scripts/run-lanes.sh $(if $(LANES),,--except consumers) $(RUN_LANES_ARGS)
+
+# `ci` with its three test phases replaced by the lanes. `build-ci` is the same gate, unchanged. The
+# runner is tested first: it is what says whether the lanes passed, and its own tests take seconds.
+ci-parallel: export FHEVM_TIMINGS_LOG ?= $(TIMINGS_DEFAULT_LOG)
+ci-parallel: ## `ci`, with the tests run as lanes at the same time (LANES=a,b, JOBS=n)
+	@echo "⏱️  timings: $$FHEVM_TIMINGS_LOG"
+	$(MAKE) test-run-lanes
+	$(MAKE) build-ci
+	./scripts/run-lanes.sh $(RUN_LANES_ARGS)
+	@./scripts/timings-report.sh "$$FHEVM_TIMINGS_LOG"
+
 # The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
 # rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
 #   - `clean` and the spotless-worktree guard — you have uncommitted work, that is the point;
