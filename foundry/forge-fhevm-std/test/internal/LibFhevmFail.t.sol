@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 import {LibFhevmFail} from "../../pkg/src/LibFhevmFail.sol";
+import {StdFhevmVersion} from "../../pkg/src/StdFhevmVersion.sol";
 import {NO_FORK} from "../../pkg/src/FhevmVm.sol";
 
 /// Every setup-error message, rendered once so a human can read them (`forge test --match-contract
@@ -19,7 +20,7 @@ contract LibFhevmFailTest is Test {
         _check(
             LibFhevmFail.versionMismatch("devnet", "sepolia", "ACL", "ACL v0.4.0", "ACL v0.4.0", "ACL v0.5.0"),
             "UNSUPPORTED PROTOCOL VERSION",
-            "upgrade forge-fhevm-std"
+            "npm install @fhevm/forge@latest"
         );
         _check(LibFhevmFail.registeredForkNotActive(1, 0), "REGISTERED FORK IS NOT ACTIVE", "fhevm.selectFork(id)");
         _check(LibFhevmFail.noRpcUrl("testnet", "sepolia"), "NO RPC URL", "SEPOLIA_RPC_URL=");
@@ -56,6 +57,24 @@ contract LibFhevmFailTest is Test {
 
     function failWith(string memory title, string[] memory what, string[] memory fix) external pure {
         LibFhevmFail.setupError(title, what, fix);
+    }
+
+    /// A stack this release cannot run on says so in its first line, names the installed release, and tells the
+    /// user to upgrade the package, with the commands to find and install a newer one.
+    function test_anUnsupportedVersionSaysThisReleaseCannotRunAndSuggestsAnUpgrade() public pure {
+        string memory m = LibFhevmFail.versionMismatch(
+            "testnet", "sepolia", "HCULimit", "HCULimit v0.4.0", "HCULimit v0.4.0", "HCULimit v0.5.0"
+        );
+        assertTrue(
+            _contains(
+                m, string.concat("@fhevm/forge ", StdFhevmVersion.VERSION, " cannot run on the testnet/sepolia stack")
+            ),
+            "says loudly that this release cannot run here"
+        );
+        assertTrue(_contains(m, "HCULimit reports  \"HCULimit v0.5.0\""), "names the contract and its version");
+        assertTrue(_contains(m, "|  FIX  upgrade @fhevm/forge"), "the first fix is the upgrade");
+        assertTrue(_contains(m, "npm view @fhevm/forge versions"), "how to see the releases");
+        assertTrue(_contains(m, "npm install @fhevm/forge@latest"), "how to install the newest");
     }
 
     /// Numbers and addresses render in decimal and lowercase hex, with `NO_FORK` spelled out.
