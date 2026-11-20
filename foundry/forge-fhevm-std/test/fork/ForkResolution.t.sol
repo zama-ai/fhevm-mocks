@@ -46,11 +46,11 @@ contract ForkResolutionTest is TestFhevm {
 
     function setUp() public override {
         if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
-        sepolia = getFhevmChain("testnet", "sepolia");
+        sepolia = ForkBlocks.withPrivateRpc(getFhevmChain("testnet", "sepolia"), "sepolia");
         blockA = ForkBlocks.recent(sepolia.rpcUrl);
         forked = true;
         if (!ForkBlocks.enabled("mainnet")) return;
-        mainnet = getFhevmChain("mainnet", "mainnet");
+        mainnet = ForkBlocks.withPrivateRpc(getFhevmChain("mainnet", "mainnet"), "mainnet");
         mainnetToo = true;
     }
 
@@ -159,7 +159,7 @@ contract ForkResolutionTest is TestFhevm {
     function _sepoliaGroupOn(FhevmGeneration wanted) private returns (FhevmChain memory chain, bool found) {
         string[2] memory groups = ["devnet", "testnet"];
         for (uint256 i = 0; i < groups.length; i++) {
-            FhevmChain memory candidate = getFhevmChain(groups[i], "sepolia");
+            FhevmChain memory candidate = ForkBlocks.withPrivateRpc(getFhevmChain(groups[i], "sepolia"), "sepolia");
             vm.createSelectFork(candidate.rpcUrl, blockA);
             if (
                 LibFhevmVersion.classify(

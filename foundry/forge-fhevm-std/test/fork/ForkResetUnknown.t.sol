@@ -40,7 +40,7 @@ contract ForkResetUnknownTest is TestFhevm {
 
     function setUp() public override {
         if (!ForkBlocks.enabled("sepolia")) return;
-        sepolia = getFhevmChain("testnet", "sepolia");
+        sepolia = ForkBlocks.withPrivateRpc(getFhevmChain("testnet", "sepolia"), "sepolia");
         blockA = ForkBlocks.recent(sepolia.rpcUrl);
         forked = true;
     }

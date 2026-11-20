@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Vm} from "forge-std/Vm.sol";
 
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
+import {StdFhevmChains} from "../../pkg/src/StdFhevmChains.sol";
 
 /**
  * @notice What a test needs before it may fork a REAL network: whether this run wants to reach one at
@@ -78,6 +79,31 @@ library ForkBlocks {
     function enabled(string memory chainAlias) internal view returns (bool) {
         if (VM.envOr(SKIP_VAR, false)) return false;
         return fhevm.hasRpcUrlFor(chainAlias);
+    }
+
+    /**
+     * @notice The chain, with the private endpoint of this run in place of the configured one.
+     *
+     * @dev `FHEVM_<ALIAS>_RPC_URL`, as in `FHEVM_SEPOLIA_RPC_URL`: the URL of an endpoint to use for
+     *      `chainAlias` in place of the one `foundry.toml` configures. One variable per chain, because
+     *      the URL of a provider is the URL of one chain. Unset or empty, which is the default, the chain
+     *      comes back as it is.
+     *
+     *      WHY IT IS HERE AND NOT IN THE CONFIGURATION. `foundry.toml` commits a public endpoint for
+     *      each chain these suites fork, and a declared alias wins over the environment. A public
+     *      endpoint serves only recent state and refuses the rest when it likes, so a run that must not
+     *      fail for that reason, as in CI, needs an endpoint of its own, with archive state. Its URL
+     *      holds a key: it cannot be committed, and comes from the environment. A suite that forks
+     *      wraps the chain it gets from `getFhevmChain` with this, and uses the result everywhere.
+     */
+    function withPrivateRpc(StdFhevmChains.FhevmChain memory chain, string memory chainAlias)
+        internal
+        view
+        returns (StdFhevmChains.FhevmChain memory)
+    {
+        string memory url = VM.envOr(string.concat("FHEVM_", VM.toUppercase(chainAlias), "_RPC_URL"), string(""));
+        if (bytes(url).length != 0) chain.rpcUrl = url;
+        return chain;
     }
 
     /// @notice One recent block, for a suite that forks a single time.
