@@ -32,9 +32,10 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative } from 'node:path';
 import test from 'node:test';
 import { PACKAGE_ROOT_ABS_PATH, WORKSPACE_ROOT_ABS_PATH } from '../../internal/constants.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
-/** Away from the other e2e anvils (8557 upgrade, 8558 create2-deploy). */
-const PORT = 8559;
+/** This suite's own port: away from the other e2e suites, so it can run beside them. */
+const PORT = testPort('create2-hotfix');
 const RPC_URL = `http://127.0.0.1:${String(PORT)}`;
 const CHAIN_FOLDER = 'anvil';
 const STACK = 'create2-hotfix-e2e';

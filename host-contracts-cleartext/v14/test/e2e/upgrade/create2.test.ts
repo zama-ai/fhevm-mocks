@@ -38,6 +38,7 @@ import test from 'node:test';
 import { Contract, HDNodeWallet, Interface, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../../internal/constants.ts';
 import { assertStampedRecord, sealedManifest } from '../record.ts';
+import { testPort } from '../../../internal/testPorts.ts';
 
 /**
  * The previous generation's DIRECTORY — for work that is not an import: running its scripts as child
@@ -70,7 +71,7 @@ const UPGRADE_CLI = join(PACKAGE_ROOT_ABS_PATH, 'create2-deploy', 'upgrade', 'up
  * onto it would both corrupt that stack and pass. The port is also checked for occupancy before anvil is
  * started, so a collision is a named skip rather than a confusing deploy failure.
  */
-const PORT = 8557;
+const PORT = testPort('create2-upgrade');
 const RPC_URL = `http://127.0.0.1:${PORT}`;
 
 /**

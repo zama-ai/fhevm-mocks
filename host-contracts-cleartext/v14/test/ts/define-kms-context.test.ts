@@ -6,6 +6,7 @@ import { expect, test } from 'vitest';
 import { startAnvil, stopAnvil, waitForAnvil, MNEMONIC, DEPLOYER_ADDRESS_INDEX } from '@fhevm/sdk-common-dev';
 import { privateKeyFromMnemonic } from '@fhevm/sdk-common-dev';
 import { createViemEthereumAdapters } from '@fhevm/sdk-vendored-dev/viemEthereumLib.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 // The default KMS signer pool is derived from the FHEVM test mnemonic at m/44'/60'/0'/3/<i>.
 const FHEVM_MNEMONIC = 'test test test test test test test future home engine virtual motion';
@@ -33,7 +34,7 @@ const PROTOCOL_CONFIG_ABI = [
 test('defineNewKmsContextAndEpoch proposes the next KMS signer window as a Pending context', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
 
-  const anvil = startAnvil({ port: 8630, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('define-kms-context'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 

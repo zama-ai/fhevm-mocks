@@ -47,6 +47,7 @@ import {
   createEthersEthereumProvider,
   createEthersEthereumUtils,
 } from '@fhevm/sdk-vendored-dev/ethersEthereumLib.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 /** The harness root, two levels up from `test/ts`. The coordinator must be spawned from there. */
 const PACKAGE_ROOT = join(import.meta.dirname, '..', '..');
@@ -142,8 +143,8 @@ test('precomputeCreate2Addresses predicts where a real create2 deploy actually l
   // A port no other test in this suite uses. `startAnvil` does NOT fail when the port is taken — anvil
   // exits, `waitForAnvil` then connects to whatever else is listening, and the run fails much later with
   // something unrelated (a deployer with no balance, if the squatter was funded from another mnemonic).
-  // `test/anvil-ports.test.ts` is what keeps this unique.
-  const anvil = startAnvil({ port: 8650 });
+  // The workspace's test-ports.config.json is what keeps this unique.
+  const anvil = startAnvil({ port: testPort('create2-precompute') });
   try {
     await waitForAnvil(anvil.rpcUrl);
     clearSealKeepingBuildCache();
