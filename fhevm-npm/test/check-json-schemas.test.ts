@@ -16,6 +16,7 @@ const ROOT_JSON_FILES = [
   'cleartext-config.json',
   'fhevm-chains.config.json',
   'fhevm-network-groups.config.json',
+  'test-ports.config.json',
 ] as const;
 // Derived from npm-manifest.json#generations, never spelled out: a rotation retires a generation
 // directory, and a literal generation name here turns that into an ENOENT in a test that is about schemas.
@@ -45,7 +46,7 @@ test('validates every real central schema and JSON configuration file', () => {
   try {
     const result = report(workspace);
     assert.deepEqual(result.violations, []);
-    assert.equal(result.checkedPackageKeys.length, 13);
+    assert.equal(result.checkedPackageKeys.length, 15);
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
