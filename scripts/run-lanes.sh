@@ -21,6 +21,7 @@
 #
 #   --only <lane>[,<lane>...]  run these lanes only. A lane they start `after` that is not in the list
 #                              is taken as already done: the caller ran it, or chose not to.
+#   --except <lane>[,<lane>...]  run every lane but these, under the same rule.
 #   --jobs <n>                 at most n lanes at a time (default: no limit).
 #   --list                     print the lanes and their steps, and exit.
 #   --log-dir <dir>            where each lane writes <lane>.log (default: a folder in $TMPDIR).
@@ -31,6 +32,9 @@
 #
 # Exit code: 0 when every lane passed and every check after the run did; 1 when a lane or a check
 # failed; 2 when the run was refused before any lane started; 130 or 143 when it was interrupted.
+#
+# TIMINGS. When FHEVM_TIMINGS_LOG names a file, each step adds a line to it in the format of
+# scripts/timed-shell.sh, with the kind `lane` and the name of its lane.
 #
 # THE LANE FILE is sourced, and calls two functions:
 #
@@ -59,12 +63,14 @@ lanes_file=""
 ports_file=""
 log_dir=""
 only=""
+except=""
 jobs=0
 list=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --only) [ $# -ge 2 ] || die "--only needs a list of lanes"; only="${only:+${only},}$2"; shift 2 ;;
+    --except) [ $# -ge 2 ] || die "--except needs a list of lanes"; except="${except:+${except},}$2"; shift 2 ;;
     --jobs) [ $# -ge 2 ] || die "--jobs needs a number"; jobs="$2"; shift 2 ;;
     --list) list=1; shift ;;
     --log-dir) [ $# -ge 2 ] || die "--log-dir needs a directory"; log_dir="$2"; shift 2 ;;
@@ -139,6 +145,11 @@ if [ -n "${only}" ]; then
     SELECTED[$index]=1
   done
 fi
+
+for name in ${except//,/ }; do
+  index="$(lane_index "${name}")" || die "--except names '${name}', which is not a lane of ${lanes_file}"
+  SELECTED[$index]=0
+done
 
 for ((i = 0; i < lane_count; i++)); do
   steps=0
@@ -250,20 +261,44 @@ done
 
 exec 3>&1
 
+# Milliseconds where perl is present, whole seconds otherwise, as in scripts/timed-shell.sh.
+now() {
+  perl -MTime::HiRes=time -e 'printf "%.3f", time' 2>/dev/null || date +%s
+}
+
+timings_log="${FHEVM_TIMINGS_LOG:-}"
+timings_depth="${FHEVM_TIMINGS_DEPTH:-0}"
+if [ -n "${timings_log}" ]; then
+  mkdir -p "$(dirname "${timings_log}")"
+  # What a step starts is one level below it, and its npm scripts are timed too.
+  export FHEVM_TIMINGS_DEPTH=$((timings_depth + 1))
+  export npm_config_script_shell="${root}/scripts/timed-shell.sh"
+fi
+
+# $1 lane, $2 command, $3 start, $4 exit code.
+log_timing() {
+  [ -n "${timings_log}" ] || return 0
+  printf '%s\t%s\t%s\t%s\tlane\t%s\t%s\n' \
+    "$3" "$(awk -v s="$3" -v e="$(now)" 'BEGIN { printf "%.3f", e - s }')" "$4" "${timings_depth}" "$1" \
+    "$(printf '%s' "$2" | tr '\t\n' '  ' | cut -c1-200)" >> "${timings_log}"
+}
+
 # Runs the steps of one lane in order, each from its directory, and leaves `<exit code> <seconds>` in
 # the lane's status file. Its output goes to the lane's log; fd 3 is the terminal of the runner.
 run_lane() {
   local index="$1" name="${LANE_NAMES[$1]}" log="${log_dir}/${LANE_NAMES[$1]}.log"
-  local code=0 lane_started step_started j
+  local code=0 lane_started step_started step_clock j
   lane_started="$(date +%s)"
   for ((j = 0; j < ${#STEP_LANE[@]}; j++)); do
     [ "${STEP_LANE[$j]}" -eq "${index}" ] || continue
     echo "▶ ${name}: ${STEP_CMD[$j]}" >&3
     echo "===== ${STEP_DIR[$j]}: ${STEP_CMD[$j]}" >> "${log}"
     step_started="$(date +%s)"
+    step_clock="$(now)"
     # Without fd 3: a process that outlives its step must not hold the terminal of the runner open, or
     # whoever reads the runner through a pipe waits for that process.
     (cd "${root}/${STEP_DIR[$j]}" && exec bash -c "${STEP_CMD[$j]}") >> "${log}" 2>&1 < /dev/null 3>&- || code=$?
+    log_timing "${name}" "${STEP_CMD[$j]}" "${step_clock}" "${code}"
     if [ "${code}" -ne 0 ]; then
       echo "❌ ${name}: ${STEP_CMD[$j]} (exit ${code}, $(($(date +%s) - step_started))s)" >&3
       break

@@ -26,6 +26,8 @@
 #
 #   start (epoch seconds)  duration (seconds)  exit code  depth  make|npm  target or package:script  command
 #
+# scripts/run-lanes.sh writes the same line for each step of a lane, with `lane` and the name of the lane.
+#
 set -u
 
 kind=npm

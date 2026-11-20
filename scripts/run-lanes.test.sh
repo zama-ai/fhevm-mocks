@@ -286,6 +286,34 @@ EOF
   check "an unknown lane is refused with exit 2, got ${status}" [ "${status}" -eq 2 ]
 }
 
+except_runs_every_lane_but_the_named_ones() {
+  new_repo << 'EOF'
+lane left-out
+step pkg 'echo ran > "$OUT/left-out"'
+lane wanted after left-out
+step pkg 'echo ran > "$OUT/wanted"'
+EOF
+  run --except left-out
+  check "exit 0, got ${status}" [ "${status}" -eq 0 ]
+  check "the other lane ran, though it starts after the one left out" [ -f "${out}/wanted" ]
+  check "the lane left out did not run" [ ! -e "${out}/left-out" ]
+  run --except missing
+  check "an unknown lane is refused with exit 2, got ${status}" [ "${status}" -eq 2 ]
+}
+
+timings_are_logged_for_each_step() {
+  new_repo << 'EOF'
+lane timed
+step pkg 'true'
+step pkg 'exit 3'
+EOF
+  FHEVM_TIMINGS_LOG="${out}/timings.tsv" run
+  check "exit 1, got ${status}" [ "${status}" -eq 1 ]
+  check "one line for each step" [ "$(wc -l < "${out}/timings.tsv" | tr -d ' ')" -eq 2 ]
+  check "a line holds the exit code, the kind, the lane and the command" \
+    grep -q "$(printf '3\t0\tlane\ttimed\texit 3')\$" "${out}/timings.tsv"
+}
+
 jobs_limits_the_lanes_running_at_once() {
   new_repo << 'EOF'
 lane a
@@ -358,6 +386,8 @@ it "Ctrl-C stops every lane and its node" ctrl_c_stops_every_lane
 it "SIGTERM stops every lane and its node" sigterm_stops_every_lane
 it "a second runner in the same checkout is refused" a_second_runner_in_the_same_checkout_is_refused
 it "--only runs the named lanes" only_runs_the_named_lanes
+it "--except runs every lane but the named ones" except_runs_every_lane_but_the_named_ones
+it "each step is added to the timing log" timings_are_logged_for_each_step
 it "--jobs limits the lanes running at once" jobs_limits_the_lanes_running_at_once
 it "a wrong lane file is refused" a_wrong_lane_file_is_refused
 it "--list prints the lanes and runs nothing" list_prints_the_lanes_and_runs_nothing
