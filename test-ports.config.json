@@ -1,0 +1,92 @@
+{
+  "$schema": "./fhevm-npm/schemas/test-ports.config.schema.json",
+  "_readme": [
+    "Every TCP port on which a test of this workspace starts a local node, in one place. A group is a package,",
+    "named by its workspace path; `shared` is the default anvil port, used one suite at a time by the hardhat",
+    "e2e suites and the consumer tests.",
+    "Each group has a `range`, first and last port included, that no other group touches: two packages can",
+    "never meet on a port, and a new port needs no look at the other groups. Groups are listed by increasing",
+    "range, and the ports of a group by increasing number. The current cleartext generation fills its range",
+    "from the first port, one by one: a new test takes the next number.",
+    "A test reads its port from here with `testPort(group, name)` of @fhevm/sdk-common-dev; it never spells a",
+    "number. Two kinds of source cannot read this file, so their numbers are recorded here and a test holds",
+    "the two together: the previous cleartext generation, which is frozen, and the npm scripts of",
+    "forge-fhevm-std. That is why the previous generation has gaps. One of its ports serves two suites that",
+    "run one after the other, and is one entry here.",
+    "Not listed: a port the OS assigns at run time, and the node a generator starts (`generate:genesis`).",
+    "At a rotation of the cleartext pair, the incoming generation gets a group with a new range, the outgoing",
+    "one keeps its range and its numbers and loses the names of the suites it deletes, and the group of the",
+    "retired generation goes.",
+    "`fhevm-npm check test-ports` enforces all of the above."
+  ],
+  "groups": {
+    "shared": {
+      "range": [8545, 8545],
+      "ports": {
+        "anvil-default": 8545
+      }
+    },
+    "foundry/forge-fhevm-std": {
+      "range": [8546, 8549],
+      "ports": {
+        "anvil": 8546,
+        "anvil-refusals": 8547,
+        "anvil-mirror": 8548
+      }
+    },
+    "host-contracts-cleartext/v13": {
+      "range": [8550, 8699],
+      "ports": {
+        "create2-deploy": 8558,
+        "create2-settlement-then-hotfix": 8559,
+        "acl-owner-upgrade-1": 8600,
+        "acl-owner-upgrade-2": 8601,
+        "acl-owner-upgrade-3": 8602,
+        "deploy-1": 8610,
+        "deploy-2": 8611,
+        "deploy-3": 8612,
+        "deploy-4": 8613,
+        "deploy-5": 8616,
+        "deploy-6": 8617,
+        "deploy-7": 8618,
+        "define-kms-context": 8630,
+        "destroy-kms-context": 8631,
+        "fhe-rand": 8634,
+        "ethers-adapter": 8640,
+        "create2-precompute": 8650
+      }
+    },
+    "host-contracts-cleartext/v14": {
+      "range": [8700, 8799],
+      "ports": {
+        "create2-upgrade": 8700,
+        "create2-deploy": 8701,
+        "create2-settlement": 8702,
+        "create2-hotfix": 8703,
+        "acl-owner-upgrade-1": 8704,
+        "acl-owner-upgrade-2": 8705,
+        "acl-owner-upgrade-3": 8706,
+        "deploy-1": 8707,
+        "deploy-2": 8708,
+        "deploy-3": 8709,
+        "deploy-4": 8710,
+        "deploy-5": 8711,
+        "deploy-6": 8712,
+        "deploy-7": 8713,
+        "upgrade-library-1": 8714,
+        "upgrade-library-2": 8715,
+        "define-kms-context": 8716,
+        "destroy-kms-context": 8717,
+        "kms-lifecycle": 8718,
+        "fhe-rand": 8719,
+        "ethers-adapter": 8720,
+        "create2-precompute": 8721,
+        "sdk-compatibility-1": 8722,
+        "sdk-compatibility-2": 8723,
+        "sdk-compatibility-3": 8724,
+        "sdk-compatibility-4": 8725,
+        "sdk-kms-rotation": 8726
+      }
+    }
+  }
+}

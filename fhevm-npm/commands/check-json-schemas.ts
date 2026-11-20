@@ -13,6 +13,7 @@ const REQUIRED_JSON_FILES = [
   'cleartext-config.json',
   'fhevm-chains.config.json',
   'fhevm-network-groups.config.json',
+  'test-ports.config.json',
 ] as const;
 
 type JsonObject = Readonly<Record<string, unknown>>;
