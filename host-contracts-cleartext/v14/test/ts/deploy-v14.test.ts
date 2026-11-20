@@ -24,6 +24,7 @@ import {
 import { privateKeyFromMnemonic, privateKeyToAddress } from '@fhevm/sdk-common-dev';
 import { expectedHcuLimit } from './utils/expectedBootstrap.ts';
 import { createViemEthereumAdapters, createViemEthereumHistory } from '@fhevm/sdk-vendored-dev/viemEthereumLib.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 // ERC-1967 implementation slot: keccak256("eip1967.proxy.implementation") - 1.
 const IMPL_SLOT = ERC_1967_IMPL_SLOT;
@@ -264,7 +265,7 @@ test('full deploy of a brand-new v14 stack: all proxies materialize and cleartex
     privateKey: privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: 8 }),
   });
 
-  const anvil = startAnvil({ port: 8610, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-1'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -398,7 +399,7 @@ test('deploy without precomputed derives addresses from the deployer live nonce'
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
   const deployerAddress = privateKeyToAddress({ privateKey: deployerKey });
 
-  const anvil = startAnvil({ port: 8611, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-2'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -458,7 +459,7 @@ test('deploy without precomputed derives addresses from the deployer live nonce'
 test('every deployed contract reports its expected getVersion()', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
 
-  const anvil = startAnvil({ port: 8612, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-3'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -550,7 +551,7 @@ function derivedSigners(changeIndex: number): readonly string[] {
 test('deploy with no config registers the signers the SDK derives', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
 
-  const anvil = startAnvil({ port: 8613, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-4'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -613,7 +614,7 @@ test('verify reports a freshly deployed stack as sound', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
   const adminKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: 6 });
 
-  const anvil = startAnvil({ port: 8616, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-5'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -668,7 +669,7 @@ test('verify catches a stack whose admin never accepted ownership', async () => 
   // stack, every version and every wired address is correct, and only `ACLOwner.owner()` gives it away.
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
 
-  const anvil = startAnvil({ port: 8617, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-6'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -704,7 +705,7 @@ test('verify catches a stack whose admin never accepted ownership', async () => 
 test('snapshotStack captures every readable value, and verify needs one for upgrade mode', async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
 
-  const anvil = startAnvil({ port: 8618, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('deploy-7'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 

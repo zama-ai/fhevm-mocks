@@ -15,6 +15,7 @@ import {
 import { privateKeyFromMnemonic, privateKeyToAddress } from '@fhevm/sdk-common-dev';
 import { expectedHcuLimit } from './utils/expectedBootstrap.ts';
 import { createViemEthereumAdapters } from '@fhevm/sdk-vendored-dev/viemEthereumLib.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 const IMPL_SLOT = ERC_1967_IMPL_SLOT;
 
@@ -176,7 +177,7 @@ function readImplSlot(publicClient: DeployedStack['publicClient'], address: Addr
 }
 
 test('deploy materializes a fresh v14 stack owned by ACLOwner', async () => {
-  const stack = await deployStack(8600);
+  const stack = await deployStack(testPort('acl-owner-upgrade-1'));
   try {
     // `deploy` completing means the single atomic ACLOwner.upgrade materialized all 7 proxies
     // (any failing initializeFromEmptyProxy would have reverted the whole transaction).
@@ -206,7 +207,7 @@ test('deploy materializes a fresh v14 stack owned by ACLOwner', async () => {
 }, 120_000);
 
 test('a non-owner cannot call ACLOwner.upgrade', async () => {
-  const stack = await deployStack(8601);
+  const stack = await deployStack(testPort('acl-owner-upgrade-2'));
   try {
     const stranger = walletFor(stack.rpcUrl, 6);
     await expect(
@@ -223,7 +224,7 @@ test('a non-owner cannot call ACLOwner.upgrade', async () => {
 }, 120_000);
 
 test('transferACLOwnership hands the ACL owner role onward', async () => {
-  const stack = await deployStack(8602);
+  const stack = await deployStack(testPort('acl-owner-upgrade-3'));
   try {
     const owner = walletFor(stack.rpcUrl, 5);
     const successor = privateKeyToAddress({

@@ -39,6 +39,7 @@ import {
   submitToNewProbe,
   userDecryptWith,
 } from './utils/sdkLines.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 describe.skipIf(SDK_LINES.length === 0)('one KMS context', () => {
   let env: Env | undefined;
@@ -48,7 +49,7 @@ describe.skipIf(SDK_LINES.length === 0)('one KMS context', () => {
   };
 
   beforeAll(async () => {
-    env = await startEnv(startAnvil({ port: 8660, mnemonic: MNEMONIC }));
+    env = await startEnv(startAnvil({ port: testPort('sdk-compatibility-1'), mnemonic: MNEMONIC }));
   }, 120_000);
 
   afterAll(async () => {
@@ -117,7 +118,7 @@ describe.skipIf(UPGRADES.length === 0)('a permit signed by an older sdk line, us
   };
 
   beforeAll(async () => {
-    env = await startEnv(startAnvil({ port: 8663, mnemonic: MNEMONIC }));
+    env = await startEnv(startAnvil({ port: testPort('sdk-compatibility-2'), mnemonic: MNEMONIC }));
   }, 120_000);
 
   afterAll(async () => {
@@ -155,7 +156,7 @@ describe.skipIf(SDK_LINES.length === 0)('across a KMS rotation, in a process tha
   const made = new Map<string, Made>();
 
   beforeAll(async () => {
-    const e = await startEnv(startAnvil({ port: 8661, mnemonic: MNEMONIC }));
+    const e = await startEnv(startAnvil({ port: testPort('sdk-compatibility-3'), mnemonic: MNEMONIC }));
     env = e;
     for (const sdkName of SDK_LINES) {
       const { client } = await connect(e, sdkName);
@@ -222,7 +223,7 @@ describe.skipIf(SDK_LINES.length === 0)('after the previous KMS context is destr
   const made = new Map<string, Made>();
 
   beforeAll(async () => {
-    const e = await startEnv(startAnvil({ port: 8664, mnemonic: MNEMONIC }));
+    const e = await startEnv(startAnvil({ port: testPort('sdk-compatibility-4'), mnemonic: MNEMONIC }));
     env = e;
     for (const sdkName of SDK_LINES) {
       const { client } = await connect(e, sdkName);

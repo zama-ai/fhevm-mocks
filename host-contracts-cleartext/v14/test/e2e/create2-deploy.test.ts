@@ -23,13 +23,14 @@ import test from 'node:test';
 import { Contract, JsonRpcProvider } from 'ethers';
 import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
 import { assertStampedRecord } from './record.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
 ////////////////////////////////////////////////////////////////////////////////
 
-/** Away from 8545 and from the upgrade test's 8557, so the two can never share a node. */
-const PORT = 8558;
+/** This suite's own port: away from the default anvil port and from every other suite, so none can share a node. */
+const PORT = testPort('create2-deploy');
 const RPC_URL = `http://127.0.0.1:${PORT}`;
 
 const DEPLOYMENT_ID = 'create2-deploy-e2e';
