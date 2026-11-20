@@ -290,6 +290,7 @@ const PRINTED_BY: Readonly<Record<string, readonly string[]>> = {
   'base/checks/pinned-dependencies.ts': ['check pinned-dependencies'],
   'base/checks/published-files.ts': ['check published-files'],
   'base/checks/scripts.ts': ['check scripts'],
+  'base/checks/test-ports.ts': ['check test-ports'],
   'base/checks/tsc-mode.ts': ['check tsc-mode'],
   'base/checks/tsconfig-paths.ts': ['check tsconfig-paths'],
   'base/checks/vendored.ts': ['check vendored-origin'],

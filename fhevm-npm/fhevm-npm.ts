@@ -27,6 +27,7 @@ import { checkGenerationParity } from './commands/check-generation-parity.ts';
 import { checkForgeFhevmStdParity } from './commands/check-forge-fhevm-std-parity.ts';
 import { checkSafechain } from './commands/check-safechain.ts';
 import { checkScripts } from './commands/check-scripts.ts';
+import { checkTestPorts } from './commands/check-test-ports.ts';
 import { checkTscMode } from './commands/check-tsc-mode.ts';
 import { checkTsconfigPaths } from './commands/check-tsconfig-paths.ts';
 import { checkFhevmChainsOrigin } from './commands/check-fhevm-chains-origin.ts';
@@ -78,6 +79,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   'published-files': checkPublishedFiles,
   'tsconfig-paths': checkTsconfigPaths,
   'tsc-mode': checkTscMode,
+  'test-ports': checkTestPorts,
   'commit-scope': checkCommitScope,
   'cleartext-config': checkCleartextConfig,
   generations: checkGenerations,
