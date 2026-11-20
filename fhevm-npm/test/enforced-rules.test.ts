@@ -274,6 +274,7 @@ const PRINTED_BY: Readonly<Record<string, readonly string[]>> = {
   'base/checks/consumer-lockfiles.ts': ['check consumer-lockfiles'],
   'commands/check-cleartext-config.ts': ['check cleartext-config'],
   'base/checks/dependencies.ts': ['check dependencies'],
+  'base/checks/docs.ts': ['check docs'],
   'base/checks/extraneous.ts': ['check extraneous'],
   'base/checks/forge-std-chains.ts': ['check forge-std-chains'],
   'base/checks/foundry.ts': ['check foundry'],

@@ -21,3 +21,6 @@ pkg/ts/_types-cjs
 
 # vitest cache (test/ts, test/ts/upgrade); also gitignored, listed here so prettier never depends on that.
 .vitest-cache
+
+# Written for the users of the package; no tool of the workspace reads it (R-09).
+docs/

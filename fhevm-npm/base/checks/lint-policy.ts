@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
 import type { Violation } from '../diagnostics.ts';
-import { packageDirectory } from '../paths.ts';
+import { DOCS_DIRECTORY, packageDirectory } from '../paths.ts';
 
 const BANNED_TOOL = 'solhint';
 const GENERATED_DIRECTORIES = new Set(['broadcast', 'cache', 'dependencies', 'node_modules', 'out', 'tarballs']);
@@ -139,6 +139,8 @@ function walkDirectory(
   }
 
   for (const entry of entries) {
+    // No tool of the workspace reads a docs folder (R-09).
+    if (entry.isDirectory() && entry.name === DOCS_DIRECTORY) continue;
     const path = join(directory, entry.name);
     const action = visit(path, entry);
     if (action === 'skip' || !entry.isDirectory() || entry.isSymbolicLink()) continue;

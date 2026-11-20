@@ -3,6 +3,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join, posix, relative, resolve } from 'node:path';
 
 import type { CommandReport, Violation } from '../base/diagnostics.ts';
+import { isInDocsFolder } from '../base/paths.ts';
 
 /** One issue of `mlc --format json`. */
 export type MlcIssue = {
@@ -54,12 +55,15 @@ export function checkMdLinks(options: {
   ];
   const frozenIn = (file: string) => frozen.find(({ folder }) => file.startsWith(`${folder}/`));
   const all = tools.listMarkdownFiles(options.workspaceRoot);
-  const listed = all.filter((file) => frozenIn(file) === undefined);
+  // No tool of the workspace reads a docs folder (R-09).
+  const inDocs = all.filter((file) => isInDocsFolder(file));
+  const listed = all.filter((file) => frozenIn(file) === undefined && !isInDocsFolder(file));
   // Leaving a frozen folder out is the rule, not a finding: it goes to `skipped`, never to `notes`.
   const skipped = frozen
     .map((entry) => [entry, all.filter((file) => frozenIn(file) === entry).length] as const)
     .filter(([, count]) => count > 0)
     .map(([{ folder, why }, count]) => `${folder}: ${count} markdown file(s) ${why}`);
+  if (inDocs.length > 0) skipped.push(`docs folders: ${inDocs.length} markdown file(s) that no tool reads (R-09)`);
   // mlc takes a comma-separated list, so a file whose name holds a comma cannot be passed to it.
   const files = listed.filter((file) => !file.includes(','));
   const notes: string[] = [];

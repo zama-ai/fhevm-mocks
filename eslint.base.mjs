@@ -84,7 +84,8 @@ export default function eslintBase({
   // ignores object has no `files` key and is never touched.
   return [
     {
-      ignores: [...ignores, 'node_modules/**', 'coverage/**', '**/*.js', '**/*.cjs', '**/*.mjs'],
+      // docs/ is written for the users of a package, and no tool of the workspace reads it (R-09).
+      ignores: [...ignores, 'node_modules/**', 'coverage/**', 'docs/**', '**/*.js', '**/*.cjs', '**/*.mjs'],
     },
 
     {

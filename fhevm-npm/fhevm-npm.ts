@@ -22,6 +22,7 @@ import { checkCleartextConfig } from './commands/check-cleartext-config.ts';
 import { checkCommitScope } from './commands/check-commit-scope.ts';
 import { checkExtraneous } from './commands/check-extraneous.ts';
 import { checkForgeStdChains } from './commands/check-forge-std-chains.ts';
+import { checkDocs } from './commands/check-docs.ts';
 import { checkGenerationParity } from './commands/check-generation-parity.ts';
 import { checkForgeFhevmStdParity } from './commands/check-forge-fhevm-std-parity.ts';
 import { checkSafechain } from './commands/check-safechain.ts';
@@ -84,6 +85,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   'forge-fhevm-std-parity': checkForgeFhevmStdParity,
   extraneous: checkExtraneous,
   'forge-std-chains': checkForgeStdChains,
+  docs: checkDocs,
 };
 
 async function run(options: ParsedRun): Promise<void> {

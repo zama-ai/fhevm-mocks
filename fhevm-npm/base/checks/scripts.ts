@@ -8,6 +8,7 @@ import { forgeArtifactDirectories, memoizedForgeConfigReader } from '../forge-co
 import { collectModuleSpecifiers, packageNameFromSpecifier } from '../imports.ts';
 import { consumerModuleKinds } from '../module-kind.ts';
 import { type LoadedPackage, dependencyDeclarations } from '../npm.ts';
+import { DOCS_DIRECTORY } from '../paths.ts';
 
 const sharedForgeConfigReader = memoizedForgeConfigReader();
 
@@ -1035,6 +1036,8 @@ function containsSolidityFiles(directory: string, excludedDirectories: readonly 
       const child = join(directory, entry.name);
       if (excludedDirectories.includes(child)) continue;
       if (entry.isFile() && entry.name.endsWith('.sol')) return true;
+      // No tool of the workspace reads a docs folder (R-09).
+      if (entry.isDirectory() && entry.name === DOCS_DIRECTORY) continue;
       if (entry.isDirectory() && entry.name !== 'node_modules' && containsSolidityFiles(child, excludedDirectories)) {
         return true;
       }

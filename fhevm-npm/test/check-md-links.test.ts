@@ -54,15 +54,15 @@ test('check md-links: mlc missing is a warning, never a failure', () => {
 
 test('check md-links: an mlc error is a violation, a warning is not', () => {
   const fake = tools(
-    ['README.md', 'docs/guide.md'],
-    [issue('error', `${ROOT}/docs/guide.md`, '../missing.md'), issue('warning', `${ROOT}/README.md`, '!NOTE')],
+    ['README.md', 'guides/guide.md'],
+    [issue('error', `${ROOT}/guides/guide.md`, '../missing.md'), issue('warning', `${ROOT}/README.md`, '!NOTE')],
   );
   const report = checkMdLinks({ workspaceRoot: ROOT, offline: true, tools: fake });
-  assert.deepEqual(fake.calls, [{ root: ROOT, given: ['README.md', 'docs/guide.md'], options: { offline: true } }]);
+  assert.deepEqual(fake.calls, [{ root: ROOT, given: ['README.md', 'guides/guide.md'], options: { offline: true } }]);
   assert.deepEqual(report.violations, [
-    { rule: 'R-07', packageKey: 'docs/guide.md', message: '3:5 ../missing.md: Target filename not found.' },
+    { rule: 'R-07', packageKey: 'guides/guide.md', message: '3:5 ../missing.md: Target filename not found.' },
   ]);
-  assert.deepEqual(report.checkedPackageKeys, ['README.md', 'docs/guide.md']);
+  assert.deepEqual(report.checkedPackageKeys, ['README.md', 'guides/guide.md']);
 });
 
 test('check md-links: a file name with a comma is reported as unchecked, not passed to mlc', () => {
@@ -77,13 +77,13 @@ test('check md-links: git-ignored files are not listed', () => {
   try {
     execFileSync('git', ['init', '-q'], { cwd: root });
     mkdirSync(join(root, 'node_modules/dep'), { recursive: true });
-    mkdirSync(join(root, 'docs'));
+    mkdirSync(join(root, 'guides'));
     writeFileSync(join(root, '.gitignore'), 'node_modules\nignored.md\n');
-    writeFileSync(join(root, 'README.md'), '[guide](docs/guide.md)\n');
-    writeFileSync(join(root, 'docs/guide.md'), '[broken](../missing.md)\n');
+    writeFileSync(join(root, 'README.md'), '[guide](guides/guide.md)\n');
+    writeFileSync(join(root, 'guides/guide.md'), '[broken](../missing.md)\n');
     writeFileSync(join(root, 'ignored.md'), '[broken](nowhere.md)\n');
     writeFileSync(join(root, 'node_modules/dep/README.md'), '[broken](nowhere.md)\n');
-    assert.deepEqual(realMdLinksTools.listMarkdownFiles(root), ['README.md', 'docs/guide.md']);
+    assert.deepEqual(realMdLinksTools.listMarkdownFiles(root), ['README.md', 'guides/guide.md']);
 
     // The end-to-end run needs the real binary; without it the check must skip, which the test above covers.
     const mlcPresent = spawnSync('mlc', ['--version']).error === undefined;
@@ -92,7 +92,7 @@ test('check md-links: git-ignored files are not listed', () => {
     assert.deepEqual(report.violations, [
       {
         rule: 'R-07',
-        packageKey: 'docs/guide.md',
+        packageKey: 'guides/guide.md',
         message: '1:1 ../missing.md: Target filename not found.',
       },
     ]);
@@ -145,6 +145,15 @@ test('check md-links: a vendored copy is not checked, since its links are fixed 
   ]);
   assert.equal(report.notes, undefined);
   assert.deepEqual(report.skipped, ['lib/pkg/src/vendored: 1 markdown file(s) of a vendored copy (R-07)']);
+});
+
+test('check md-links: a docs folder is not checked, since no tool of the workspace reads it', () => {
+  const fake = tools(['README.md', 'lib/plugin/docs/skills/setup/SKILL.md', 'lib/plugin/other.md'], []);
+  const report = checkMdLinks({ workspaceRoot: ROOT, offline: true, tools: fake });
+  assert.deepEqual(fake.calls, [
+    { root: ROOT, given: ['README.md', 'lib/plugin/other.md'], options: { offline: true } },
+  ]);
+  assert.deepEqual(report.skipped, ['docs folders: 1 markdown file(s) that no tool reads (R-09)']);
 });
 
 test('check md-links: the vendored folders come from npm-manifest.json, and none without one', () => {
