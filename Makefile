@@ -42,8 +42,17 @@
 # The flags live in SHELL, not in .SHELLFLAGS: .SHELLFLAGS is a GNU Make 4.0 feature and macOS ships
 # 3.81, which ignores it silently — so `set -o pipefail` was never actually in effect. Verified both ways
 # on 3.81: with .SHELLFLAGS a failing pipe let the recipe continue; with the flags on SHELL it aborts.
-SHELL := /usr/bin/env bash -eu -o pipefail
+#
+# The shell is a wrapper, scripts/timed-shell.sh, which runs each recipe line under those same flags
+# (`bash -eu -o pipefail`). It adds nothing unless FHEVM_TIMINGS_LOG names a file; then it appends the
+# duration of every recipe line, and of every npm script below it, to that file. `ci` sets the variable.
+# `=` and not `:=`, so `$@` is the target whose recipe line is running.
+SHELL = ./scripts/timed-shell.sh --make=$@
 .SHELLFLAGS := -c
+
+# Where `ci` logs its timings when the caller named no file: outside the worktree, which `ci` requires
+# spotless. Computed once here, so every recipe line of one run writes to the same file.
+TIMINGS_DEFAULT_LOG := $(patsubst %/,%,$(or $(TMPDIR),/tmp))/fhevm-make-timings/$(shell date +%Y%m%d-%H%M%S).tsv
 .DEFAULT_GOAL := help
 
 DIR_COMMON           := common
@@ -441,11 +450,17 @@ build-ci: ## Every ci gate EXCEPT the tests: clean, check-generated, checks, bui
 #
 # It is a subset of `test-anvil` — see that target for which suites are in and why. The hardhat e2e
 # suites against anvil are therefore still not part of `ci`, in either their own or the wrapped form.
+#
+# Every recipe line and npm script of the run is timed (see SHELL at the top). The log is named first,
+# because a failed run stops before the report: `./scripts/timings-report.sh <log>` prints it then.
+ci: export FHEVM_TIMINGS_LOG ?= $(TIMINGS_DEFAULT_LOG)
 ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, tests, consumer rehearsal, anvil suite
+	@echo "⏱️  timings: $$FHEVM_TIMINGS_LOG"
 	$(MAKE) build-ci
 	$(MAKE) test
 	$(MAKE) test-consumer-ci
 	$(MAKE) test-anvil-ci
+	@./scripts/timings-report.sh "$$FHEVM_TIMINGS_LOG"
 
 # The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
 # rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
