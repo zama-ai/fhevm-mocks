@@ -31,6 +31,7 @@ export const commandNames = [
   'forge-fhevm-std-parity',
   'extraneous',
   'forge-std-chains',
+  'docs',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
 
@@ -411,6 +412,12 @@ Prerequisite:
     .description('Check that no package-lock.json carries an extraneous node.')
     .action(() => {
       selected = 'extraneous';
+    });
+  check
+    .command('docs')
+    .description('Check that each docs folder sits next to a published pkg/, holds skills/, and that no tool reads it.')
+    .action(() => {
+      selected = 'docs';
     });
   check
     .command('forge-std-chains')

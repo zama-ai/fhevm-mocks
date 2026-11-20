@@ -2,3 +2,6 @@ pkg/_esm
 pkg/_types
 # Byte-identical copies written by `fhevm-npm sync-vendored`.
 pkg/src/internal/vendored
+
+# Written for the users of the package; no tool of the workspace reads it (R-09).
+docs/

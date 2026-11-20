@@ -2,3 +2,6 @@ dependencies
 lib
 *.sol
 *.md
+
+# Written for the users of the package; no tool of the workspace reads it (R-09).
+docs/
