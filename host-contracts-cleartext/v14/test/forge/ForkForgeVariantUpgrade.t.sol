@@ -16,6 +16,7 @@ import {ICleartextFHEVMExecutor} from "../../pkg/forge/src/_internal/interfaces/
 import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
+import {FhevmChainsConfig} from "../utils/FhevmChainsConfig.sol";
 
 interface IUUPSProxy {
     function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
@@ -45,14 +46,15 @@ interface IUUPSProxy {
  *          forge test --match-contract ForkForgeVariantUpgrade -vv
  */
 contract ForkForgeVariantUpgradeTest is Test {
-    address internal constant ACL = 0x1aC3073813148992aA928C9903681fA7Ec202b13;
-    address internal constant EXECUTOR = 0x356cc81A08aa782C96F00dC30b60d4f33f1a4e43;
-    address internal constant KMS_VERIFIER = 0xDe8893C04e118431aeC076A39F6aFa951669F720;
-    address internal constant INPUT_VERIFIER = 0x160AaB6199FAEAEA1B27E62999c597E530a3abA9;
-    address internal constant HCU_LIMIT = 0xaa13C49f14C1a2EdA302e008AB314755Cac6E19F;
-    address internal constant PROTOCOL_CONFIG = 0x257950EbB65A1D2b697f03D08E7D3Dc26CbDB304;
-    address internal constant KMS_GENERATION = 0x55bdE339a01DA46d2d3504b8d9A9F5412C85e5e7;
-    address internal constant PAUSER_SET = 0x0E3668AA0faFF49B54126Febd59C8654f2d5Ff87;
+    /// @dev Devnet Sepolia's host contracts, read from fhevm-chains.config.json by `setUp`.
+    address internal ACL;
+    address internal EXECUTOR;
+    address internal KMS_VERIFIER;
+    address internal INPUT_VERIFIER;
+    address internal HCU_LIMIT;
+    address internal PROTOCOL_CONFIG;
+    address internal KMS_GENERATION;
+    address internal PAUSER_SET;
 
     bool internal forked;
     address internal owner;
@@ -60,6 +62,15 @@ contract ForkForgeVariantUpgradeTest is Test {
     address internal dbProxy;
 
     function setUp() public {
+        ACL = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "acl");
+        EXECUTOR = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "fhevmExecutor");
+        KMS_VERIFIER = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "kmsVerifier");
+        INPUT_VERIFIER = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "inputVerifier");
+        HCU_LIMIT = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "hcuLimit");
+        PROTOCOL_CONFIG = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "protocolConfig");
+        KMS_GENERATION = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "kmsGeneration");
+        PAUSER_SET = FhevmChainsConfig.hostContract("devnet", "ethereum_sepolia", "pauserSet");
+
         string memory rpc = vm.envOr("SEPOLIA_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return;
         vm.createSelectFork(rpc);

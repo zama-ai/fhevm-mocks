@@ -12,6 +12,7 @@ import {
     LibForgeFhevmHostVersions
 } from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
 import {IACL} from "../../pkg/forge/src/_internal/interfaces/IACL.sol";
+import {FhevmChainsConfig} from "../utils/FhevmChainsConfig.sol";
 import {IFHEVMExecutor} from "../../pkg/forge/src/_internal/interfaces/IFHEVMExecutor.sol";
 import {LibForgeFhevmSigners} from "../../pkg/forge/src/LibForgeFhevmSigners.sol";
 import {IInputVerifier} from "../../pkg/forge/src/_internal/interfaces/IInputVerifier.sol";
@@ -32,23 +33,23 @@ import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstr
  *          MAINNET_RPC_URL=https://ethereum-rpc.publicnode.com forge test --match-contract ForkCleartext
  */
 contract ForkCleartextContextTest is Test {
-    address internal constant MAINNET_ACL = 0xcA2E8f1F656CD25C01F05d0b243Ab1ecd4a8ffb6;
-    address internal constant MAINNET_INPUT_VERIFIER = 0xCe0FC2e05CFff1B719EFF7169f7D80Af770c8EA2;
-    address internal constant MAINNET_KMS_VERIFIER = 0x77627828a55156b04Ac0DC0eb30467f1a552BB03;
-    address internal constant MAINNET_PROTOCOL_CONFIG = 0xD8236B57394f90726b26aB25D38CeAC776E1a7C4;
+    address internal MAINNET_ACL;
+    address internal MAINNET_INPUT_VERIFIER;
+    address internal MAINNET_KMS_VERIFIER;
+    address internal MAINNET_PROTOCOL_CONFIG;
 
-    address internal constant SEPOLIA_ACL = 0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D;
-    address internal constant SEPOLIA_INPUT_VERIFIER = 0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0;
-    address internal constant SEPOLIA_KMS_VERIFIER = 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A;
+    address internal SEPOLIA_ACL;
+    address internal SEPOLIA_INPUT_VERIFIER;
+    address internal SEPOLIA_KMS_VERIFIER;
 
     /// @dev NOT mainnet's: the deployments are independent, which is why the helper takes it as an
     ///      argument instead of reading the local `protocolConfigAdd` constant.
-    address internal constant SEPOLIA_PROTOCOL_CONFIG = 0x51f9AFBc89Ea792e1a21a12AB802ab58D4dbee83;
+    address internal SEPOLIA_PROTOCOL_CONFIG;
 
     /// @dev No contract exposes the KMSGeneration address, so unlike the executor and the pauser set it
-    ///      cannot be read off the stack and has to be named here.
-    address internal constant MAINNET_KMS_GENERATION = 0xf102cC9A9D2174630c394f5b7B7D63104E348daa;
-    address internal constant SEPOLIA_KMS_GENERATION = 0x77389113d7000EcBCfc2bDed57202f5f46109934;
+    ///      cannot be read off the stack and has to be read from the config.
+    address internal MAINNET_KMS_GENERATION;
+    address internal SEPOLIA_KMS_GENERATION;
 
     address internal kmsGeneration;
 
@@ -98,6 +99,17 @@ contract ForkCleartextContextTest is Test {
     }
 
     function setUp() public {
+        MAINNET_ACL = FhevmChainsConfig.hostContract("mainnet", "ethereum", "acl");
+        MAINNET_INPUT_VERIFIER = FhevmChainsConfig.hostContract("mainnet", "ethereum", "inputVerifier");
+        MAINNET_KMS_VERIFIER = FhevmChainsConfig.hostContract("mainnet", "ethereum", "kmsVerifier");
+        MAINNET_PROTOCOL_CONFIG = FhevmChainsConfig.hostContract("mainnet", "ethereum", "protocolConfig");
+        SEPOLIA_ACL = FhevmChainsConfig.hostContract("testnet", "ethereum_sepolia", "acl");
+        SEPOLIA_INPUT_VERIFIER = FhevmChainsConfig.hostContract("testnet", "ethereum_sepolia", "inputVerifier");
+        SEPOLIA_KMS_VERIFIER = FhevmChainsConfig.hostContract("testnet", "ethereum_sepolia", "kmsVerifier");
+        SEPOLIA_PROTOCOL_CONFIG = FhevmChainsConfig.hostContract("testnet", "ethereum_sepolia", "protocolConfig");
+        MAINNET_KMS_GENERATION = FhevmChainsConfig.hostContract("mainnet", "ethereum", "kmsGeneration");
+        SEPOLIA_KMS_GENERATION = FhevmChainsConfig.hostContract("testnet", "ethereum_sepolia", "kmsGeneration");
+
         string memory mainnetRpc = vm.envOr("MAINNET_RPC_URL", string(""));
         string memory sepoliaRpc = vm.envOr("SEPOLIA_RPC_URL", string(""));
 
