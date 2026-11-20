@@ -1,9 +1,9 @@
 // NR-91: forge-fhevm-std's chain table, StdFhevmChains.sol, carries the addresses fhevm-chains.config.json gives.
 //
 // The config is the one source of every deployed address (it is rendered from the protocol registry, and
-// `check fhevm-chains-origin` holds it to the registry). Solidity cannot read JSON, so the table is a
-// hand-written copy, and a copy drifts silently: nothing failed when a network group was redeployed and only one
-// side moved. This compares the two, entry by entry, in both directions.
+// `check fhevm-chains-origin` holds it to the registry). Solidity cannot read JSON, so the table is a copy, generated
+// by forge-fhevm-std's `generate:std-fhevm-chains`. This compares the two independently of that generator, entry by
+// entry and in both directions, so a table the generator did not write, or wrote from a stale config, still fails.
 //
 // Compared, per (network group, chain ID): the five host contracts and `kmsGeneration` (`address(0)` when the
 // host has none), the gateway's `decryption` and `inputVerification`, and the group's relayer URL. Not compared:
