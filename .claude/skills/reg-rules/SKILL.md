@@ -60,6 +60,35 @@ evidence:
 
 The index shows the title, the short rule, the old number, the check, and the issues. The group pages show the rest.
 
+## Write the text of a rule
+
+This section is for a live rule. A retired entry holds only its notice, as "Retire an entry" in the `reg` skill says. The `technical-writing` and `unslop` skills apply to the text of a rule as to every entry. This section adds only what is particular to rules.
+
+### Size the text to what the reader must know
+
+Use the smallest form that keeps the whole meaning: the obligation, its scope, the reason a reader cannot guess, and how it is checked. The three sizes are guidance, not templates.
+
+- **Short**: a few sentences, with no heading. The obligation, its scope, and its reason fit in them. A named command fits too. R-02 and FR-40 are short.
+- **Medium**: a paragraph or two, with a scope list or one example if the reader needs it, and still no heading. Use it when a scope, an exception, or a reason needs more than one sentence. R-01, R-04, and NR-01 are medium.
+- **Elaborate**: titled sections. Use it when the text has parts that a reader looks up on their own, such as a mechanism, a failure on purpose, or a procedure. NR-91 and R-05 are elaborate. One order that works: what the rule covers, how it is checked, when the check fails on purpose, and what to do. Leave out a section that does not apply.
+
+If two parts of a rule can stand alone, or need different tags or checks, split them into sub-rules, as "Set the rule tag and its evidence" says. Many sections are a reason to look at the structure, not a reason to split.
+
+### Write what only a rule needs
+
+- Keep the obligation in the text and the current defects in the evidence. The text gives the obligation, its scope, its reason, and how the check behaves, with its known limits. The evidence lists what is wrong today, in the form that the tag needs. Do not copy that list into the text.
+- Give every "never" its reason. One clause is often enough.
+- When a check fails on purpose, say so. Say what stays red, what fixes it, and what must never be added to make it pass, with the reason.
+- Describe each thing that the rule governs in one place. For example, list every field of a generated entry together, not some in a list and the rest in a later section.
+- Make the ❌ example show the mistake that this rule prevents, not a nearby one. A rule about regenerating copies after a config sync shows a sync without the regeneration, not a hand edit of a generated file, which R-02 already covers. Keep the comments of the example from repeating the text.
+- Introduce each code block with its purpose. Put a warning or a prerequisite before a command, and the expected result after it.
+
+### Review a rewrite for form
+
+A rewrite for form keeps the meaning. Before you accept one, compare it with the original: the scope, the obligations, the exceptions, the failure conditions, and the examples. Undo any difference, or treat it as a change to the rule, which `rules/global/README.md` says how to review.
+
+For an elaborate rule, iterate. Keep each version. Give each one to a fresh reviewer, who compares it with the previous version and with the original. Stop when the reviewer reports no clarity issue worth fixing. This review adds to the review in `rules/global/README.md`, and never replaces it: the owner of the rules still approves the change.
+
 ## Set the rule tag and its evidence
 
 `TAGS.json`, in this folder, lists the rule tags and their meanings. A rule tag is not a definition tag. A rule tag says whether a rule and the code agree.
