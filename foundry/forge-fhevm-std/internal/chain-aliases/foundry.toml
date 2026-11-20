@@ -1,0 +1,20 @@
+# A Foundry project of its own, for ChainAliases.s.sol only. It cannot run in forge-fhevm-std's project: forge-std's
+# getChain() resolves a chain's RPC URL from the project's [rpc_endpoints] first, then from <ALIAS>_RPC_URL, and only
+# then falls back to its built-in default, and forge-fhevm-std declares `sepolia` and `mainnet` endpoints. This
+# project declares none, and `npm run generate:chain-aliases` runs it with an empty environment, so getChain()
+# returns forge-std's own defaults on every machine.
+[profile.default]
+extends = "../../../../foundry.base.toml"
+src = "."
+script = "."
+test = "."
+solc_version = "0.8.24"
+libs = ["../../dependencies"]
+# The same forge-std as forge-fhevm-std (its [dependencies] and remappings.txt): bump all three together.
+remappings = ["forge-std/=../../dependencies/forge-std-1.11.0/src/"]
+fs_permissions = [
+    { access = "read", path = "../../../../fhevm-chains.config.json" },
+    # The file only. forge resolves a write permission on the existing path, so the npm script creates the file
+    # (`touch`) before forge writes it.
+    { access = "write", path = "../fhevm-chain-aliases.json" },
+]
