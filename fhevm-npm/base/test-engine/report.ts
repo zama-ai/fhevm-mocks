@@ -8,8 +8,8 @@ import type { TestOutcome } from './test-lifecycle.ts';
 
 export const REPORT_VERSION = 1;
 
-/** The four states of the specification. Every test of the inventory gets one. */
-export const REPORT_STATES = ['passed', 'failed', 'skipped', 'not-selected'] as const;
+/** The five states of the specification. Every test of the inventory gets one. */
+export const REPORT_STATES = ['passed', 'failed', 'skipped', 'unavailable', 'not-selected'] as const;
 export type ReportState = (typeof REPORT_STATES)[number];
 
 export type ReportEntry = {
@@ -19,6 +19,8 @@ export type ReportEntry = {
   /** For a test that ran: the number of its lane, and its place in the lane, both from 1. */
   readonly lane?: number | undefined;
   readonly position?: number | undefined;
+  /** For an unavailable test, and only then: the RPC URL variables that it needs and that were not set. */
+  readonly missingVariables?: readonly string[] | undefined;
 };
 
 /** The final report of a run, as written to its JSON file. */
@@ -65,6 +67,8 @@ type ReportEntryInput = Pick<BuildReportInput, 'dryRun' | 'outcomes'> & {
 function reportEntry(input: ReportEntryInput): ReportEntry {
   const { entry } = input;
 
+  if (entry.state === 'unavailable') return { state: entry.state, missingVariables: entry.missingVariables ?? [] };
+
   if (entry.state !== 'selected') return { state: entry.state };
 
   // In a dry run, passed means that the run selected the test and would run it.
@@ -95,7 +99,7 @@ export function writeReport(input: WriteReportInput): void {
 
 /** How many tests of a report are in each state. */
 export function countStates(report: Report): Readonly<Record<ReportState, number>> {
-  const counts: Record<ReportState, number> = { passed: 0, failed: 0, skipped: 0, 'not-selected': 0 };
+  const counts: Record<ReportState, number> = { passed: 0, failed: 0, skipped: 0, unavailable: 0, 'not-selected': 0 };
 
   for (const entry of Object.values(report.tests)) counts[entry.state] += 1;
 

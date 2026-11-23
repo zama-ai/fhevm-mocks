@@ -265,7 +265,11 @@ function validateInventory(options: LocationOptions): number {
 
 function listSelection(ids: readonly string[], options: LocationOptions & SelectionOptions): number {
   const inventory = loadInventoryAt(options);
-  const resolved = resolveSelection({ inventory, request: selectionRequest({ ids, options }) });
+  const resolved = resolveSelection({
+    inventory,
+    request: selectionRequest({ ids, options }),
+    environment: process.env,
+  });
 
   for (const line of selectionLines(resolved)) console.log(line);
 
@@ -281,7 +285,11 @@ async function runTestsOfSelection(ids: readonly string[], options: RunOptions):
 
   checkPorts(inventory);
 
-  const resolved = resolveSelection({ inventory, request: selectionRequest({ ids, options }) });
+  const resolved = resolveSelection({
+    inventory,
+    request: selectionRequest({ ids, options }),
+    environment: process.env,
+  });
   const timeLimitSeconds = options.timeout === 0 ? undefined : options.timeout;
   const input = {
     locations,
@@ -357,7 +365,11 @@ function printLanes(ids: readonly string[], options: LanesOptions): number {
 
   checkPorts(inventory);
 
-  const resolved = resolveSelection({ inventory, request: selectionRequest({ ids, options }) });
+  const resolved = resolveSelection({
+    inventory,
+    request: selectionRequest({ ids, options }),
+    environment: process.env,
+  });
   const entries = resolved.filter((entry) => entry.state === 'selected');
   const lanes = generateLanes({ entries, maximum: options.maxLanes });
 

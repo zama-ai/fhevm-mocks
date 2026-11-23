@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { CandidateFilters } from '../base/test-engine/open-questions.ts';
-import { type SelectionRequest, resolveSelection } from '../base/test-engine/selection.ts';
+import type { Chain, Test } from '../base/test-engine/inventory.ts';
+import type { Environment } from '../base/test-engine/live-chains.ts';
+import { type ResolvedTest, type SelectionRequest, resolveSelection } from '../base/test-engine/selection.ts';
 import { ANVIL_CHAIN, SEPOLIA_CHAIN, fixtureInventory, fixtureTest } from './test-engine-fixtures.ts';
 
 const INVENTORY = fixtureInventory({
@@ -14,9 +16,12 @@ const INVENTORY = fixtureInventory({
 
 type RequestParts = Partial<Pick<SelectionRequest, 'ids' | 'ci'>> & CandidateFilters;
 
-function states(parts: RequestParts): Record<string, string> {
+/** An environment that sets the RPC URL of Sepolia, so that the tests on that chain can run. */
+const WITH_SEPOLIA = { SEPOLIA_RPC_URL: 'https://sepolia.example.invalid' };
+
+function states(parts: RequestParts, environment: Environment = WITH_SEPOLIA): Record<string, string> {
   const { ids = [], ci = false, ...candidateFilters } = parts;
-  const resolved = resolveSelection({ inventory: INVENTORY, request: { ids, ci, candidateFilters } });
+  const resolved = resolveSelection({ inventory: INVENTORY, request: { ids, ci, candidateFilters }, environment });
 
   return Object.fromEntries(resolved.map((entry) => [entry.id, entry.state]));
 }
@@ -92,4 +97,59 @@ test('an ID that the inventory does not hold is rejected', () => {
 
 test('an invalid regular expression is rejected', () => {
   assert.throws(() => states({ match: '(' }), /'\(' is not a valid regular expression/);
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Live chains
+////////////////////////////////////////////////////////////////////////////////
+
+const FORK_OF_TWO: Chain[] = [
+  { chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: false },
+  { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' },
+  { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' },
+];
+
+function resolveLive(tests: Readonly<Record<string, Test>>, environment: Environment): readonly ResolvedTest[] {
+  const request = { ids: [], ci: false, candidateFilters: {} };
+
+  return resolveSelection({ inventory: fixtureInventory(tests), request, environment });
+}
+
+test('a test whose live chain has no RPC URL variable set is unavailable, and names the variable', () => {
+  assert.equal(states({}, {})['test-sepolia'], 'unavailable');
+  assert.equal(states({}, { SEPOLIA_RPC_URL: '  ' })['test-sepolia'], 'unavailable', 'an empty value is not set');
+  assert.equal(states({}, {})['test-anvil'], 'selected', 'a local chain needs no RPC URL variable');
+
+  const [sepolia] = resolveLive({ 'test-sepolia': fixtureTest({ chains: [SEPOLIA_CHAIN] }) }, {});
+
+  assert.deepEqual(sepolia?.missingVariables, ['SEPOLIA_RPC_URL']);
+});
+
+test('a test needs the variable of each of its live chains, a fork included, each named once', () => {
+  const tests = { 'test-two': fixtureTest({ chains: FORK_OF_TWO }) };
+  const [none] = resolveLive(tests, {});
+  const [one] = resolveLive(tests, WITH_SEPOLIA);
+  const [both] = resolveLive(tests, { ...WITH_SEPOLIA, MAINNET_RPC_URL: 'https://mainnet.example.invalid' });
+
+  assert.deepEqual(none?.missingVariables, ['SEPOLIA_RPC_URL', 'MAINNET_RPC_URL']);
+  assert.deepEqual([one?.state, one?.missingVariables], ['unavailable', ['MAINNET_RPC_URL']]);
+  assert.deepEqual([both?.state, both?.missingVariables], ['selected', undefined]);
+});
+
+test('not selected and skipped come before unavailable', () => {
+  assert.equal(states({ ci: true }, {})['test-sepolia'], 'not-selected');
+
+  const [skipped] = resolveLive({ 'test-off': fixtureTest({ skipped: true, chains: [SEPOLIA_CHAIN] }) }, {});
+
+  assert.equal(skipped?.state, 'skipped');
+});
+
+test('a live chain whose variable the engine does not know fails the run, for a test that would run', () => {
+  const unknown: Chain = { chainid: 5, fhevm: 'none', runtime: 'remote', wallet: false };
+
+  assert.throws(
+    () => resolveLive({ 'test-unknown': fixtureTest({ chains: [unknown] }) }, {}),
+    /test-unknown needs the live chain 5, and the engine knows no RPC URL variable for that chain/,
+  );
+  assert.equal(resolveLive({ 'test-off': fixtureTest({ skipped: true, chains: [unknown] }) }, {})[0]?.state, 'skipped');
 });

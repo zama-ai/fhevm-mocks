@@ -438,6 +438,8 @@ test('tests that share a funded account in two lanes are a warning, and fail a s
   });
   const argv = ['run', '--root', repository.root, '--max-lanes'];
 
+  withEnvironment({ context, variables: { SEPOLIA_RPC_URL: 'https://sepolia.example.invalid' } });
+
   const parallel = await captureEngine({ context, argv: [...argv, '4'] });
   const serial = await captureEngine({ context, argv: [...argv, '1', '--strict'] });
   const strict = await captureEngine({ context, argv: [...argv, '4', '--strict'] });
@@ -450,6 +452,57 @@ test('tests that share a funded account in two lanes are a warning, and fail a s
   assert.doesNotMatch(serial.stderr, /funded account/);
   assert.equal(strict.status, RUN_FAILURE_EXIT_STATUS);
   assert.match(strict.stderr, /The run is strict, and does not start:\n  2 tests need a funded account/);
+});
+
+test('a test whose live chain has no RPC URL set does not start, is unavailable, and fails a strict run', async (context) => {
+  const sepolia: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-local': fixtureTest({ command: 'touch ran-local' }),
+      'test-fork-a': fixtureTest({ command: 'touch ran-fork-a', chains: [sepolia] }),
+      'test-fork-b': fixtureTest({ command: 'touch ran-fork-b', chains: [sepolia] }),
+    },
+  });
+  const argv = ['run', '--root', repository.root, '--max-lanes', '2'];
+
+  withEnvironment({ context, variables: { SEPOLIA_RPC_URL: '' } });
+
+  const run = await captureEngine({ context, argv });
+  const report = readReport(repository);
+
+  assert.equal(run.status, 0, 'an unavailable test does not fail the run');
+  assert.match(run.stderr, /2 test\(s\) cannot run, because SEPOLIA_RPC_URL is not set: test-fork-a, test-fork-b\./);
+  assert.match(run.stdout.join('\n'), /Run: 1 passed, 0 failed, 0 skipped, 2 unavailable, 0 not selected\./);
+  assert.deepEqual(reportStates(report), {
+    'test-local': 'passed',
+    'test-fork-a': 'unavailable',
+    'test-fork-b': 'unavailable',
+  });
+  assert.deepEqual(report.tests['test-fork-a'], { state: 'unavailable', missingVariables: ['SEPOLIA_RPC_URL'] });
+  assert.equal(existsSync(join(repository.root, 'ran-fork-a')), false, 'the command of an unavailable test never runs');
+
+  const dry = await captureEngine({ context, argv: [...argv, '--dry-run'] });
+
+  assert.equal(reportStates(readReport(repository))['test-fork-a'], 'unavailable');
+  assert.doesNotMatch(dry.stdout.join('\n'), /would run .* test-fork-a/);
+
+  const strict = await captureEngine({ context, argv: [...argv, '--strict'] });
+
+  assert.equal(strict.status, RUN_FAILURE_EXIT_STATUS);
+  assert.match(
+    strict.stderr,
+    /The run is strict, and does not start:\n  2 test\(s\) cannot run, because SEPOLIA_RPC_URL/,
+  );
+
+  withEnvironment({ context, variables: { SEPOLIA_RPC_URL: 'https://sepolia.example.invalid' } });
+
+  const available = await captureEngine({ context, argv: [...argv, '--strict'] });
+
+  assert.equal(available.status, 0);
+  assert.equal(reportStates(readReport(repository))['test-fork-a'], 'passed');
+  assert.equal(existsSync(join(repository.root, 'ran-fork-a')), true);
 });
 
 ////////////////////////////////////////////////////////////////////////////////

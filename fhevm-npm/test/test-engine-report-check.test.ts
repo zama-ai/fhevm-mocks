@@ -4,7 +4,13 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { checkReport } from '../base/test-engine/report-check.ts';
-import { captureEngine, fixtureInventory, fixtureTest, writeFixtureRepository } from './test-engine-fixtures.ts';
+import {
+  SEPOLIA_CHAIN,
+  captureEngine,
+  fixtureInventory,
+  fixtureTest,
+  writeFixtureRepository,
+} from './test-engine-fixtures.ts';
 
 const INVENTORY = fixtureInventory({
   'test-ci': fixtureTest(),
@@ -54,11 +60,11 @@ test('an unknown state, a missing or invalid duration, and a duration on a test 
   };
 
   assert.deepEqual(checkReport({ report, ci: false }), [
-    'test-a: its state is not one of passed, failed, skipped, not-selected',
+    'test-a: its state is not one of passed, failed, skipped, unavailable, not-selected',
     'test-b: it ran, and has no valid duration',
     'test-c: it ran, and has no valid duration',
     'test-d: it did not run, and has a duration',
-    'test-e: its state is not one of passed, failed, skipped, not-selected',
+    'test-e: its state is not one of passed, failed, skipped, unavailable, not-selected',
   ]);
 });
 
@@ -142,4 +148,26 @@ test('check-report fails the run on a report that is not JSON, and on --ci witho
 
   assert.equal(withoutInventory.status, 2);
   assert.match(withoutInventory.stderr, /--ci and --schema need --inventory/);
+});
+
+test('unavailable is a state of a test that needs a live chain, with no duration, and of no other test', () => {
+  const inventory = fixtureInventory({
+    'test-live': fixtureTest({ chains: [SEPOLIA_CHAIN] }),
+    'test-local': fixtureTest(),
+    'test-off': fixtureTest({ skipped: true, chains: [SEPOLIA_CHAIN] }),
+  });
+  const sound = reportWith({ 'test-live': 'unavailable', 'test-local': 'passed', 'test-off': 'skipped' });
+  const wrong = reportWith({ 'test-live': 'passed', 'test-local': 'unavailable', 'test-off': 'unavailable' });
+  const timed = {
+    version: 1,
+    dryRun: false,
+    tests: { 'test-live': { state: 'unavailable', durationMilliseconds: 3 } },
+  };
+
+  assert.deepEqual(checkReport({ report: sound, inventory, ci: true }), []);
+  assert.deepEqual(checkReport({ report: wrong, inventory, ci: false }), [
+    'test-local: it is unavailable, and needs no live chain',
+    'test-off: it has "skipped": true, and is unavailable',
+  ]);
+  assert.deepEqual(checkReport({ report: timed, ci: false }), ['test-live: it did not run, and has a duration']);
 });

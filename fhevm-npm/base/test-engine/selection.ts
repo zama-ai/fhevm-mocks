@@ -1,5 +1,6 @@
 import { TestEngineError } from './errors.ts';
 import type { Inventory, InventoryEntry, Test } from './inventory.ts';
+import { type Environment, missingRpcVariables } from './live-chains.ts';
 import { type CandidateFilters, type EntryPredicate, filtersOfTheSelection } from './open-questions.ts';
 
 /** What a run is asked for. An empty request selects every test. A test must match every part. */
@@ -16,17 +17,23 @@ export type SelectionRequest = {
  * What the selection decides for one test, before anything runs.
  * - `selected`: the run runs it.
  * - `skipped`: the selection holds it, but it has `"skipped": true`, so the run does not run it.
+ * - `unavailable`: the selection holds it, but it needs a live chain whose RPC URL variable is not set,
+ *   so the run cannot run it.
  * - `not-selected`: the selection leaves it out.
  */
-export type SelectionState = 'selected' | 'skipped' | 'not-selected';
+export type SelectionState = 'selected' | 'skipped' | 'unavailable' | 'not-selected';
 
 export type ResolvedTest = InventoryEntry & {
   readonly state: SelectionState;
+  /** For an unavailable test: the RPC URL variables that it needs and that are not set. */
+  readonly missingVariables?: readonly string[] | undefined;
 };
 
 export type ResolveSelectionInput = {
   readonly inventory: Inventory;
   readonly request: SelectionRequest;
+  /** The environment the engine was launched with. It says which live chains a test can reach. */
+  readonly environment: Environment;
 };
 
 /** Gives every test of the inventory its selection state, in the order of the inventory. */
@@ -40,7 +47,7 @@ export function resolveSelection(input: ResolveSelectionInput): readonly Resolve
   return [...inventory.tests].map(([id, test]) => {
     const isInSelection = predicates.every((predicate) => predicate({ id, test }));
 
-    return { id, test, state: selectionState({ isInSelection, test }) };
+    return resolvedTest({ entry: { id, test }, isInSelection, environment: input.environment });
   });
 }
 
@@ -73,14 +80,28 @@ function settledPredicates(request: SelectionRequest): readonly EntryPredicate[]
   return predicates;
 }
 
-type SelectionStateInput = {
+type ResolvedTestInput = {
+  readonly entry: InventoryEntry;
   readonly isInSelection: boolean;
-  readonly test: Test;
+  readonly environment: Environment;
 };
 
-function selectionState(input: SelectionStateInput): SelectionState {
-  // Not selected comes first: for this run the test does not exist, so there is nothing to skip.
-  if (!input.isInSelection) return 'not-selected';
+function resolvedTest(input: ResolvedTestInput): ResolvedTest {
+  const { entry } = input;
 
-  return input.test.skipped === true ? 'skipped' : 'selected';
+  // Not selected comes first: for this run the test does not exist, so there is nothing to skip.
+  if (!input.isInSelection) return { ...entry, state: 'not-selected' };
+
+  // Skipped comes before unavailable: the run would not run the test, whatever its chains.
+  if (isSkipped(entry.test)) return { ...entry, state: 'skipped' };
+
+  const missingVariables = missingRpcVariables({ entry, environment: input.environment });
+
+  if (missingVariables.length > 0) return { ...entry, state: 'unavailable', missingVariables };
+
+  return { ...entry, state: 'selected' };
+}
+
+function isSkipped(test: Test): boolean {
+  return test.skipped === true;
 }

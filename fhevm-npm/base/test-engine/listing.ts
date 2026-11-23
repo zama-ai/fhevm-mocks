@@ -9,7 +9,9 @@ export function selectionLines(resolved: readonly ResolvedTest[]): readonly stri
   return resolved.map((entry) => {
     const chains = entry.test.chains.map(describeChain).join(', ');
 
-    return `${entry.state.padEnd(stateWidth)}  ${entry.id.padEnd(idWidth)}  ${chains === '' ? 'no chain' : chains}`;
+    const line = `${entry.state.padEnd(stateWidth)}  ${entry.id.padEnd(idWidth)}  ${chains === '' ? 'no chain' : chains}`;
+
+    return entry.state === 'unavailable' ? `${line}  not set: ${(entry.missingVariables ?? []).join(', ')}` : line;
   });
 }
 

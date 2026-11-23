@@ -151,9 +151,10 @@ function environmentWithoutNode(): never {
  */
 function lanesOfRun(input: RunSelectionInput): readonly Lane[] {
   const entries = input.resolved.filter((entry) => entry.state === 'selected');
+  const unavailable = input.resolved.filter((entry) => entry.state === 'unavailable');
   const lanes = generateLanes({ entries, maximum: input.maximumLanes });
 
-  reportRunWarnings({ lanes, strict: input.strict });
+  reportRunWarnings({ lanes, unavailable, strict: input.strict });
 
   return lanes;
 }
@@ -294,7 +295,8 @@ function finishRun(input: FinishRunInput): Report {
 
   console.log(
     `${report.dryRun ? 'Dry run' : 'Run'}: ${counts.passed} passed, ${counts.failed} failed, ` +
-      `${counts.skipped} skipped, ${counts['not-selected']} not selected. Report: ${locations.reportFile}`,
+      `${counts.skipped} skipped, ${counts.unavailable} unavailable, ${counts['not-selected']} not selected. ` +
+      `Report: ${locations.reportFile}`,
   );
 
   return report;

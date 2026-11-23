@@ -1,5 +1,6 @@
 import { TestEngineError } from './errors.ts';
 import type { Lane } from './lanes.ts';
+import type { ResolvedTest } from './selection.ts';
 
 /**
  * What the engine finds doubtful in a run, before any test starts. It is not known to be wrong, so a
@@ -8,6 +9,8 @@ import type { Lane } from './lanes.ts';
 export type RunWarningsInput = {
   /** The lanes of the run. */
   readonly lanes: readonly Lane[];
+  /** The tests that the selection holds and that cannot run, for lack of the RPC URL of a live chain. */
+  readonly unavailable: readonly ResolvedTest[];
   /** True: a warning fails the run. */
   readonly strict: boolean;
 };
@@ -17,7 +20,11 @@ export type RunWarningsInput = {
  * start. Otherwise prints each one, and the run goes on.
  */
 export function reportRunWarnings(input: RunWarningsInput): void {
-  const warnings = [...emptySelectionWarnings(input.lanes), ...sharedWalletWarnings(input.lanes)];
+  const warnings = [
+    ...emptySelectionWarnings(input.lanes),
+    ...unavailableWarnings(input.unavailable),
+    ...sharedWalletWarnings(input.lanes),
+  ];
 
   if (warnings.length === 0) return;
 
@@ -31,6 +38,26 @@ export function reportRunWarnings(input: RunWarningsInput): void {
 /** A run that would run no test is doubtful: a filter with a typing mistake selects nothing, and would pass. */
 function emptySelectionWarnings(lanes: readonly Lane[]): readonly string[] {
   return lanes.length === 0 ? ['The run runs no test: its selection selects none, or only skipped ones.'] : [];
+}
+
+/**
+ * A test that cannot run is not a test that passed. One warning for each set of variables that is not
+ * set, with the tests that it stops.
+ */
+function unavailableWarnings(unavailable: readonly ResolvedTest[]): readonly string[] {
+  const idsOfVariables = new Map<string, string[]>();
+
+  for (const entry of unavailable) {
+    const variables = (entry.missingVariables ?? []).join(', ');
+
+    idsOfVariables.set(variables, [...(idsOfVariables.get(variables) ?? []), entry.id]);
+  }
+
+  return [...idsOfVariables].map(([variables, ids]) => {
+    const verb = variables.includes(',') ? 'are' : 'is';
+
+    return `${ids.length} test(s) cannot run, because ${variables} ${verb} not set: ${ids.join(', ')}.`;
+  });
 }
 
 /**

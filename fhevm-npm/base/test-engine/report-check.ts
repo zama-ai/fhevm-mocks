@@ -1,4 +1,5 @@
 import type { Inventory, Test } from './inventory.ts';
+import { needsLiveChain } from './live-chains.ts';
 import { type JsonObject, isPlainObject } from './json.ts';
 import { REPORT_STATES, REPORT_VERSION, type ReportState } from './report.ts';
 
@@ -16,10 +17,10 @@ export type CheckReportInput = {
 
 /**
  * Checks a final report without running anything, and returns the problems found.
- * - On its own: the report has the expected shape, every test has one of the four states, and a test
+ * - On its own: the report has the expected shape, every test has one of the five states, and a test
  *   has a duration when it ran, and only then.
- * - With the inventory: the report holds every test of it and no other, and each state agrees with the
- *   test's `skipped` value.
+ * - With the inventory: the report holds every test of it and no other, each state agrees with the
+ *   test's `skipped` value, and only a test that needs a live chain is unavailable.
  * - For a CI run: every test with `"ci": true` that is not skipped is passed or failed, and no test
  *   with `"ci": false` ran.
  */
@@ -95,7 +96,7 @@ function inventoryProblems(input: InventoryProblemsInput): readonly string[] {
 
     if (!(id in tests)) problems.push(`${id}: the report gives it no state`);
 
-    // A state that is not one of the four is already a problem of the report on its own.
+    // A state that is not one of the five is already a problem of the report on its own.
     if (state !== undefined) problems.push(...stateProblems({ id, test, state, ci }));
   }
 
@@ -117,6 +118,10 @@ function stateProblems(input: StateProblemsInput): readonly string[] {
   if (isSkipped && ran) return [`${id}: it has "skipped": true, and is ${state}`];
 
   if (!isSkipped && state === 'skipped') return [`${id}: it is skipped, and has no "skipped": true`];
+
+  if (isSkipped && state === 'unavailable') return [`${id}: it has "skipped": true, and is unavailable`];
+
+  if (state === 'unavailable' && !needsLiveChain(test)) return [`${id}: it is unavailable, and needs no live chain`];
 
   if (!ci) return [];
 
