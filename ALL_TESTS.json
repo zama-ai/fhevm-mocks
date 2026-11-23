@@ -1,0 +1,768 @@
+{
+  "$schema": "./ALL_TESTS.schema.json",
+  "test-cleartext-v-prev": {
+    "command": "npm run --silent test -w @fhevm/host-contracts-cleartext-v13-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "very-slow",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      },
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": "8550-8699",
+        "fresh": true
+      }
+    ]
+  },
+  "test-cleartext-v-cur": {
+    "command": "npm run --silent test -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "very-slow",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      },
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": "8701-8713,8716-8726",
+        "fresh": true
+      }
+    ]
+  },
+  "test-cleartext-upgrade": {
+    "command": "npm run --silent test:upgrade -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": "8700,8714,8715",
+        "fresh": true
+      }
+    ]
+  },
+  "test-forge-std": {
+    "command": "FHEVM_SKIP_RPC_TESTS=true npm run --silent test -w @fhevm/forge-std-dev",
+    "package": "forge-fhevm-std",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      }
+    ]
+  },
+  "test-hh-v2-plugin": {
+    "command": "npm --prefix hardhat/v2 run --silent test -w @fhevm/hardhat-plugin-v2-dev",
+    "package": "hardhat-v2-plugin",
+    "duration": "fast",
+    "ci": true,
+    "chains": []
+  },
+  "test-hh-v2-template": {
+    "command": "npm --prefix hardhat/v2 run --silent test -w @fhevm/hardhat-template-v2-dev",
+    "package": "hardhat-v2-template",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-hh-v2-e2e": {
+    "command": "npm --prefix hardhat/v2 run --silent test -w @fhevm/hardhat-plugin-v2-e2e-dev",
+    "package": "hardhat-v2-e2e",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-hh-v3-plugin": {
+    "command": "npm --prefix hardhat/v3 run --silent test -w @fhevm/hardhat-plugin-v3-dev",
+    "package": "hardhat-v3-plugin",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      },
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat-node",
+        "startedBy": "test",
+        "port": 0,
+        "fresh": true
+      }
+    ]
+  },
+  "test-hh-v3-template": {
+    "command": "npm --prefix hardhat/v3 run --silent test -w @fhevm/hardhat-template-v3-dev",
+    "package": "hardhat-v3-template",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-hh-v3-e2e": {
+    "command": "npm --prefix hardhat/v3 run --silent test -w @fhevm/hardhat-plugin-v3-e2e-dev",
+    "package": "hardhat-v3-e2e",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-npm-cli": {
+    "command": "npm --prefix fhevm-npm test",
+    "package": "fhevm-npm",
+    "ci": true,
+    "chains": []
+  },
+  "test-consumer-cleartext-v-prev-cjs": {
+    "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v13/test-consumer/cjs --run --ci",
+    "package": "host-contracts-cleartext",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-consumer-cleartext-v-prev-esm": {
+    "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v13/test-consumer/esm --run --ci",
+    "package": "host-contracts-cleartext",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-consumer-cleartext-v-cur-cjs": {
+    "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v14/test-consumer/cjs --run --ci",
+    "package": "host-contracts-cleartext",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-consumer-cleartext-v-cur-esm": {
+    "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v14/test-consumer/esm --run --ci",
+    "package": "host-contracts-cleartext",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "test",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-consumer-forge-std-esm": {
+    "command": "./fhevm-npm-cli test-consumer ./foundry/forge-fhevm-std/test-consumer/esm --run --ci",
+    "package": "forge-fhevm-std",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      }
+    ]
+  },
+  "test-consumer-hh-v2-template": {
+    "command": "./fhevm-npm-cli test-consumer ./hardhat/v2/fhevm-hardhat-template/pkg --run --ci",
+    "package": "hardhat-v2-plugin",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-consumer-hh-v3-plugin-esm": {
+    "command": "./fhevm-npm-cli test-consumer ./hardhat/v3/plugin/test-consumer/esm --run --ci",
+    "package": "hardhat-v3-plugin",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-consumer-hh-v3-template": {
+    "command": "./fhevm-npm-cli test-consumer ./hardhat/v3/fhevm-hardhat-template/pkg --run --ci",
+    "package": "hardhat-v3-plugin",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat"
+      }
+    ]
+  },
+  "test-forge-std-anvil": {
+    "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=http://127.0.0.1:8546 ../../scripts/forge-test.sh --match-path 'test/anvil/*'",
+    "package": "forge-fhevm-std",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "runner",
+        "port": 8546,
+        "fresh": true
+      }
+    ]
+  },
+  "test-forge-std-anvil-refusals": {
+    "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=http://127.0.0.1:8547 node internal/cli/testAnvilRefusals.ts",
+    "package": "forge-fhevm-std",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "runner",
+        "port": 8547,
+        "fresh": true
+      }
+    ]
+  },
+  "test-forge-std-anvil-mirror": {
+    "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=http://127.0.0.1:8548 ../../scripts/forge-test.sh --match-path 'test/anvilMirror/*'",
+    "package": "forge-fhevm-std",
+    "duration": "fast",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "runner",
+        "port": 8548,
+        "fresh": true
+      }
+    ]
+  },
+  "test-anvil-hh-v2-e2e": {
+    "command": "npm --prefix hardhat/v2 run --silent test:anvil -w @fhevm/hardhat-plugin-v2-e2e-dev",
+    "package": "hardhat-v2-e2e",
+    "duration": "slow",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "runner",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-anvil-hh-v3-e2e": {
+    "command": "npm --prefix hardhat/v3 run --silent test:anvil -w @fhevm/hardhat-plugin-v3-e2e-dev",
+    "package": "hardhat-v3-e2e",
+    "duration": "slow",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "anvil",
+        "startedBy": "runner",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-forge-std-fork-testnet": {
+    "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --no-match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainInOneGroupResolvesByChainId|test_switchingStacksRepointsTheProtocol'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-resolve-mainnet": {
+    "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_aChainInOneGroupResolvesByChainId'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "none",
+        "runtime": "remote",
+        "wallet": false
+      },
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-switch-testnet-mainnet": {
+    "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_switchingStacksRepointsTheProtocol'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
+      },
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-cleartext-arbitrum": {
+    "command": "cd foundry/forge-fhevm-std && ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 42161,
+        "fhevm": "local",
+        "runtime": "forge-fork"
+      },
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      }
+    ]
+  },
+  "test-forge-std-fork-cleartext-mainnet": {
+    "command": "cd foundry/forge-fhevm-std && ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-url": {
+    "command": "npm run --silent test:fork-url -w @fhevm/forge-std-dev",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-debug-testnet": {
+    "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --no-match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainInOneGroupResolvesByChainId|test_switchingStacksRepointsTheProtocol'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-debug-resolve-mainnet": {
+    "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_aChainInOneGroupResolvesByChainId'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "none",
+        "runtime": "remote",
+        "wallet": false
+      },
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-debug-switch-testnet-mainnet": {
+    "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_switchingStacksRepointsTheProtocol'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
+      },
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-fork-debug-cleartext-arbitrum": {
+    "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 42161,
+        "fhevm": "local",
+        "runtime": "forge-fork"
+      },
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      }
+    ]
+  },
+  "test-forge-std-fork-debug-cleartext-mainnet": {
+    "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-hh-v2-e2e-sepolia-testnet": {
+    "command": "npm --prefix hardhat/v2 run --silent test:sepolia:testnet -w @fhevm/hardhat-plugin-v2-e2e-dev",
+    "package": "hardhat-v2-e2e",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "remote",
+        "wallet": true
+      }
+    ]
+  },
+  "test-hh-v2-e2e-sepolia-devnet": {
+    "command": "npm --prefix hardhat/v2 run --silent test:sepolia:devnet -w @fhevm/hardhat-plugin-v2-e2e-dev",
+    "package": "hardhat-v2-e2e",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "devnet",
+        "runtime": "remote",
+        "wallet": true
+      }
+    ]
+  },
+  "test-node-hh-v2-e2e": {
+    "command": "cd hardhat/v2/e2e && ./test/test-hardhat-node.sh",
+    "package": "hardhat-v2-e2e",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat-node",
+        "startedBy": "test",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-node-hh-v3-e2e": {
+    "command": "cd hardhat/v3/e2e && ./test/test-hardhat-node.sh",
+    "package": "hardhat-v3-e2e",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "hardhat-node",
+        "startedBy": "test",
+        "port": 8545,
+        "fresh": true
+      }
+    ]
+  },
+  "test-hh-v2-template-sepolia": {
+    "command": "npm --prefix hardhat/v2/fhevm-hardhat-template/pkg run test:sepolia",
+    "package": "hardhat-v2-template",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "remote",
+        "wallet": true
+      }
+    ]
+  },
+  "test-hh-v3-template-sepolia": {
+    "command": "npm --prefix hardhat/v3/fhevm-hardhat-template/pkg run test:sepolia",
+    "package": "hardhat-v3-template",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "remote",
+        "wallet": true
+      }
+    ]
+  },
+  "test-tfhe-vectors": {
+    "command": "cargo run --manifest-path operators-data/tfhe-vectors-check/Cargo.toml -- operators-data/data",
+    "package": "operators-data",
+    "ci": false,
+    "skipped": true,
+    "chains": []
+  },
+  "test-tfhe-vectors-tfhe16": {
+    "command": "cargo run --manifest-path operators-data/tfhe-vectors-check/tfhe16/Cargo.toml -- operators-data/data/shl.amount-mod-width",
+    "package": "operators-data",
+    "ci": false,
+    "skipped": true,
+    "chains": []
+  },
+  "test-cleartext-v-prev-fork-devnet": {
+    "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "devnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-cleartext-v-prev-fork-testnet": {
+    "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --match-contract '^(TestnetCleartextUpgradeTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork",
+        "block": null
+      }
+    ]
+  },
+  "test-cleartext-v-prev-fork-mainnet": {
+    "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-cleartext-v-prev-fork-transient-storage": {
+    "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "none",
+        "runtime": "forge"
+      },
+      {
+        "chainid": 11155111,
+        "fhevm": "none",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-cleartext-v-cur-fork-devnet": {
+    "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|DevnetCleartextUpgradeTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "devnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-cleartext-v-cur-fork-testnet": {
+    "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --match-contract '^(TestnetCleartextUpgradeTest|TestnetSinglePassCleartextUpgradeTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork",
+        "block": null
+      }
+    ]
+  },
+  "test-cleartext-v-cur-fork-mainnet": {
+    "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-cleartext-v-cur-fork-transient-storage": {
+    "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
+    "package": "host-contracts-cleartext",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "none",
+        "runtime": "forge"
+      },
+      {
+        "chainid": 11155111,
+        "fhevm": "none",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-forge-std-internal-fork-testnet": {
+    "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --match-path test/internal/FhevmVm.t.sol --match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\\('",
+    "package": "forge-fhevm-std",
+    "ci": true,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
+      }
+    ]
+  },
+  "test-hh-v2-e2e-sepolia-testnet-others": {
+    "command": "cd hardhat/v2/e2e && HARDHAT_NETWORK=sepolia npx hardhat test --grep 'Sepolia:FHECounterPublicDecrypt:(Check|EncryptOnly|Increment|GetCount|PublicDecrypt|Verify):|Sepolia:FHECounterUserDecrypt:(Check|EncryptOnly|Increment|GetCount|UserDecrypt|IncrementAndUserDecrypt):|FHETest:(check|encrypt|addEuint32|addEuint32:publicDecrypt|getEuint32|userDecrypt|addEuint32:userDecrypt|deploy):|Seplia:Deploy|Sepolia:DeployFHECounterUserDecrypt'",
+    "package": "hardhat-v2-e2e",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "remote",
+        "wallet": true
+      }
+    ]
+  },
+  "test-forge-std-internal-debug": {
+    "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --match-path test/internal/DebugZamaConfig.t.sol --match-test '^test_debug_constructsFromAnywhereAndResolvesByChain\\('",
+    "package": "forge-fhevm-std",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 31337,
+        "fhevm": "local",
+        "runtime": "forge"
+      }
+    ]
+  },
+  "test-tfhe-vectors-tfhe16-shr": {
+    "command": "cargo run --manifest-path operators-data/tfhe-vectors-check/tfhe16/Cargo.toml -- operators-data/data/shr.amount-mod-width",
+    "package": "operators-data",
+    "ci": false,
+    "skipped": true,
+    "chains": []
+  }
+}

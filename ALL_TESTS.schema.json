@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ALL_TESTS.schema.json",
+  "title": "Test inventory",
+  "description": "Every test of the repository, keyed by its ID, with the command that runs it from the repository root and the chains it uses.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "The path to this schema, for editors."
+    }
+  },
+  "propertyNames": {
+    "pattern": "^(\\$schema|test-[a-z0-9]+(-[a-z0-9]+)*)$"
+  },
+  "additionalProperties": {
+    "$ref": "#/$defs/test"
+  },
+  "$defs": {
+    "duration": {
+      "description": "How long the test takes on a developer machine, once the workspace is built.",
+      "oneOf": [
+        {
+          "const": "fast",
+          "description": "Under one minute."
+        },
+        {
+          "const": "slow",
+          "description": "One to ten minutes."
+        },
+        {
+          "const": "very-slow",
+          "description": "More than ten minutes."
+        }
+      ]
+    },
+    "test": {
+      "type": "object",
+      "description": "One test: a command that runs a suite, and the chains that suite uses.",
+      "required": ["command", "package", "ci", "chains"],
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The shell command that runs the test, from the repository root."
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The package the test belongs to: the one it tests. A consumer test belongs to the package whose payload it installs. A separate check validates the name."
+        },
+        "duration": {
+          "$ref": "#/$defs/duration"
+        },
+        "ci": {
+          "type": "boolean",
+          "description": "Whether CI runs the test. true: the CI job selects it. false: it never runs on CI."
+        },
+        "skipped": {
+          "const": true,
+          "description": "Present when the test is left out of runs for now. Omitted otherwise."
+        },
+        "chains": {
+          "type": "array",
+          "description": "The chains the test uses. Empty when it uses none.",
+          "items": {
+            "$ref": "#/$defs/chain"
+          }
+        }
+      }
+    },
+    "chain": {
+      "type": "object",
+      "description": "A chain a test uses: which network, which fhevm deployment, where it runs, and what it needs.",
+      "required": ["chainid", "fhevm", "runtime"],
+      "additionalProperties": false,
+      "properties": {
+        "chainid": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The chain id, as 31337 for a local chain, 11155111 for Sepolia, or 1 for Ethereum mainnet."
+        },
+        "fhevm": {
+          "enum": ["local", "testnet", "devnet", "mainnet", "none"],
+          "description": "The fhevm deployment the test uses on this chain. local is the cleartext mock that the test deploys itself. none: the test uses the chain but no fhevm deployment on it, only on a remote, forge or forge-fork chain."
+        },
+        "runtime": {
+          "enum": ["forge", "forge-fork", "hardhat", "anvil", "hardhat-node", "remote"],
+          "description": "Where the chain runs. forge: forge's built-in chain, inside the test process. forge-fork: inside forge, copied from a live chain through its RPC. hardhat: Hardhat's built-in network, inside the test process. anvil and hardhat-node: a separate node process. remote: the live chain itself."
+        },
+        "block": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "The fixed block the fork starts from, when the test depends on the chain's state at that block. A fixed block needs an archive node, since ordinary endpoints keep only recent state. null: the test needs a fixed block, and its number is still to find. Absent: the test forks a recent block it picks itself. Only on a forge-fork chain."
+        },
+        "startedBy": {
+          "enum": ["runner", "test"],
+          "description": "Who starts the node. runner: start it before the command. test: the test starts and stops its own, so start nothing. A chain with startedBy needs a port: see port."
+        },
+        "port": {
+          "description": "The ports of the chain's node, or of its nodes when the test starts several for this chain. Required on a chain with startedBy, and only allowed there. A fixed port is from 1 to 32767: below the ports that the system assigns by itself. 0 is not a fixed port: it means that the system assigns the port when the node binds. Such a node never meets a fixed port, as long as the system assigns its ports above 32767. When startedBy is test, these are the ports on which the test starts its own nodes. When startedBy is runner, the runner starts the node on the port. The engine takes the port from here, and from nowhere else.",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 32767,
+              "description": "One port, as 8545, or 0."
+            },
+            {
+              "type": "string",
+              "pattern": "^(?:[1-9][0-9]{0,3}|[12][0-9]{4}|3[01][0-9]{3}|32[0-6][0-9]{2}|327[0-5][0-9]|3276[0-7])-(?:[1-9][0-9]{0,3}|[12][0-9]{4}|3[01][0-9]{3}|32[0-6][0-9]{2}|327[0-5][0-9]|3276[0-7])$",
+              "description": "A range of fixed ports, first and last port included, as \"8550-8699\". A range never holds 0."
+            },
+            {
+              "type": "string",
+              "pattern": "^(?:0|(?:[1-9][0-9]{0,3}|[12][0-9]{4}|3[01][0-9]{3}|32[0-6][0-9]{2}|327[0-5][0-9]|3276[0-7])(?:-(?:[1-9][0-9]{0,3}|[12][0-9]{4}|3[01][0-9]{3}|32[0-6][0-9]{2}|327[0-5][0-9]|3276[0-7]))?)(?:,(?:0|(?:[1-9][0-9]{0,3}|[12][0-9]{4}|3[01][0-9]{3}|32[0-6][0-9]{2}|327[0-5][0-9]|3276[0-7])(?:-(?:[1-9][0-9]{0,3}|[12][0-9]{4}|3[01][0-9]{3}|32[0-6][0-9]{2}|327[0-5][0-9]|3276[0-7]))?))+$",
+              "description": "A list, read from left to right, as \"8545,8547,9000\". An entry is a fixed port, a range of fixed ports as in \"8701-8713,8716-8726\", or 0, which can come more than once, as in \"0,0,0\" or \"8545,0\". A range stands for its ports in increasing order. A fixed port comes once at most in the whole list."
+            }
+          ]
+        },
+        "wallet": {
+          "type": "boolean",
+          "description": "True when the test needs a funded account on this chain, because it sends transactions to it. Only on a remote chain: the other runtimes come with their own funded test accounts."
+        },
+        "fresh": {
+          "enum": [true, false, "possibly"],
+          "description": "Whether the test needs the chain to be new when it starts. true: it must be new when the test starts. false: it can run on a node that already holds state. possibly: not known yet, to investigate. Only on an anvil or hardhat-node chain: an in-process chain is always new, and a remote chain never is."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "runtime": {
+                "enum": ["anvil", "hardhat-node"]
+              }
+            }
+          },
+          "then": {
+            "required": ["startedBy", "fresh", "port"]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": ["startedBy"]
+                },
+                {
+                  "required": ["fresh"]
+                },
+                {
+                  "required": ["port"]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "runtime": {
+                "const": "remote"
+              }
+            }
+          },
+          "then": {
+            "required": ["wallet"]
+          },
+          "else": {
+            "not": {
+              "required": ["wallet"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "chainid": {
+                "const": 31337
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime": {
+                "not": {
+                  "const": "remote"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fhevm": {
+                "const": "none"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime": {
+                "enum": ["remote", "forge", "forge-fork"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "fhevm": {
+                "const": "local"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime": {
+                "not": {
+                  "const": "remote"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "runtime": {
+                "const": "forge-fork"
+              }
+            }
+          },
+          "then": {},
+          "else": {
+            "not": {
+              "required": ["block"]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
