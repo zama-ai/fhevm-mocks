@@ -41,6 +41,25 @@ export type RunSettings = {
   readonly shard: Shard;
 };
 
+/** How long one lane took: its tests run one after the other, so it is the sum of their durations. */
+export type LaneTiming = {
+  /** The number of the lane, from 1. */
+  readonly lane: number;
+  /** How many tests the lane ran. */
+  readonly tests: number;
+  readonly durationMilliseconds: number;
+};
+
+/** How long a run took, in milliseconds. */
+export type RunTiming = {
+  /** From the start of the first test to the end of the last one: the lanes go side by side. */
+  readonly testsMilliseconds: number;
+  /** The build, when the engine ran one, and the tests. */
+  readonly totalMilliseconds: number;
+  /** One entry per lane that ran a test, in the order of the lanes. */
+  readonly lanes: readonly LaneTiming[];
+};
+
 /** The final report of a run, as written to its JSON file. */
 export type Report = {
   readonly version: typeof REPORT_VERSION;
@@ -49,6 +68,8 @@ export type Report = {
   readonly run: RunSettings;
   /** The build of the run, when the engine was given a build command and ran it. */
   readonly build?: { readonly command: string; readonly durationMilliseconds: number } | undefined;
+  /** How long the run took. Present for a run that ran its tests, and absent for a dry run. */
+  readonly timing?: RunTiming | undefined;
   /** Every test of the inventory by ID, in the order of the inventory. */
   readonly tests: Readonly<Record<string, ReportEntry>>;
 };
@@ -67,6 +88,8 @@ export type BuildReportInput = {
   readonly shard: Shard;
   /** The shard of each test that the selection selects and that can run, by test ID. */
   readonly shardOf: ReadonlyMap<string, number>;
+  /** From the start of the first test to the end of the last one. Undefined in a dry run: no test ran. */
+  readonly testsMilliseconds?: number | undefined;
 };
 
 export function buildReport(input: BuildReportInput): Report {
@@ -84,7 +107,43 @@ export function buildReport(input: BuildReportInput): Report {
       shard: input.shard,
     },
     ...(input.build === undefined ? {} : { build: roundedBuild(input.build) }),
+    ...(input.testsMilliseconds === undefined
+      ? {}
+      : { timing: timingOf({ ...input, testsMilliseconds: input.testsMilliseconds }) }),
     tests: Object.fromEntries(tests),
+  };
+}
+
+type TimingInput = Pick<BuildReportInput, 'outcomes' | 'build'> & {
+  readonly testsMilliseconds: number;
+};
+
+function timingOf(input: TimingInput): RunTiming {
+  const byLane = new Map<number, { tests: number; durationMilliseconds: number }>();
+
+  for (const outcome of input.outcomes.values()) {
+    const lane = byLane.get(outcome.lane) ?? { tests: 0, durationMilliseconds: 0 };
+
+    byLane.set(outcome.lane, {
+      tests: lane.tests + 1,
+      durationMilliseconds: lane.durationMilliseconds + outcome.durationMilliseconds,
+    });
+  }
+
+  // The total is the sum of the two rounded times, so that the report adds up as it reads.
+  const testsMilliseconds = Math.round(input.testsMilliseconds);
+  const buildMilliseconds = input.build === undefined ? 0 : roundedBuild(input.build).durationMilliseconds;
+
+  return {
+    testsMilliseconds,
+    totalMilliseconds: testsMilliseconds + buildMilliseconds,
+    lanes: [...byLane]
+      .sort(([a], [b]) => a - b)
+      .map(([lane, timing]) => ({
+        lane,
+        tests: timing.tests,
+        durationMilliseconds: Math.round(timing.durationMilliseconds),
+      })),
   };
 }
 

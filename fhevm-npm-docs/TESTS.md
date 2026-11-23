@@ -372,14 +372,27 @@ whose node the engine starts, start the node yourself on the port of the invento
 
 ## Read the output of a run
 
-A run prints one line when a test starts, one line when a test ends, and one summary line:
+A run prints one line when a test starts and one line when a test ends:
 
 ```text
 ▶ started  lane 4  test-forge-std
 ✅ passed  lane 4  test-forge-std  22.3s
 ❌ failed  lane 2  test-cleartext-v-cur  292.2s  log: test-logs/test-cleartext-v-cur.log
+```
+
+It ends with the time of each lane, the time of the run, and one summary line:
+
+```text
+lane 1   1 test(s)  13m08s
+lane 2   1 test(s)  4m52s
+lane 3  19 test(s)  9m51s
+Build 43s, tests 13m08s, total 13m51s.
 Run: 20 passed, 1 failed, 0 skipped, 0 unavailable, 34 not selected. Report: test-report.json
 ```
+
+The time of a lane is the sum of its tests, which run one after the other. The lanes run side by
+side, so the tests take as long as the longest lane, and not as long as all the lanes together. The
+total adds the build, when the engine ran one. The report holds the same times, in `timing`.
 
 Every 30 seconds, the run also prints one line for each test that is still running, with the time
 since the test started:

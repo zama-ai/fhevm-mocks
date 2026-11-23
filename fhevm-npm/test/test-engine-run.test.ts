@@ -581,6 +581,47 @@ test('a test gets the RPC URL of a live chain only when it declares that chain',
   assert.equal(process.env['SEPOLIA_RPC_URL'], 'https://sepolia.example.invalid');
 });
 
+test('a run ends with the time of each lane, of the build, of the tests and of the whole run', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-long': fixtureTest({ command: 'sleep 1.2', duration: 'very-slow' }),
+      'test-a': fixtureTest({ command: 'sleep 0.3', duration: 'fast' }),
+      'test-b': fixtureTest({ command: 'sleep 0.3', duration: 'fast' }),
+    },
+  });
+  const argv = ['run', '--root', repository.root, '--max-lanes', '2', '--build', 'sleep 0.6'];
+
+  const run = await captureEngine({ context, argv });
+  const lines = run.stdout.join('\n');
+  const { timing, build } = readReport(repository);
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(lines, /^lane 1 {2}1 test\(s\) {2}1s$/m);
+  assert.match(lines, /^lane 2 {2}2 test\(s\) {2}1s$/m);
+  assert.match(lines, /^Build 1s, tests 1s, total 2s\.$/m);
+  assert.ok(lines.indexOf('Build 1s') < lines.indexOf('Run: 3 passed'), 'the times come before the summary');
+
+  // The lanes go side by side: the tests take as long as the longest lane, not as long as their sum.
+  assert.deepEqual(
+    timing?.lanes.map((lane) => [lane.lane, lane.tests]),
+    [
+      [1, 1],
+      [2, 2],
+    ],
+  );
+  assert.ok(timing !== undefined && timing.testsMilliseconds >= 1200 && timing.testsMilliseconds < 1700);
+  assert.equal(timing?.totalMilliseconds, (timing?.testsMilliseconds ?? 0) + (build?.durationMilliseconds ?? 0));
+
+  const withoutBuild = await captureEngine({ context, argv: argv.slice(0, -2) });
+  const dry = await captureEngine({ context, argv: [...argv, '--dry-run'] });
+
+  assert.match(withoutBuild.stdout.join('\n'), /^Tests 1s, total 1s\.$/m);
+  assert.doesNotMatch(dry.stdout.join('\n'), /total/);
+  assert.equal(readReport(repository).timing, undefined);
+});
+
 ////////////////////////////////////////////////////////////////////////////////
 // Shards
 ////////////////////////////////////////////////////////////////////////////////

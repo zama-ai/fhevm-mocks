@@ -15,7 +15,7 @@ import {
   timeLimitOfATest,
 } from './open-questions.ts';
 import { formatDuration } from './output.ts';
-import { watchProgress } from './progress.ts';
+import { formatElapsed, watchProgress } from './progress.ts';
 import { type BuildReportInput, type Report, buildReport, countStates, writeReport } from './report.ts';
 import type { ResolvedTest } from './selection.ts';
 import { type TestOutcome, runTests } from './test-lifecycle.ts';
@@ -78,6 +78,7 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
 
     resourcesThatIsolationNeeds();
 
+    const testsStartedAt = performance.now();
     const outcomes = await runTests({
       root: locations.root,
       lanes,
@@ -98,7 +99,13 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
 
     return finishRun({
       locations,
-      report: buildReport({ ...reportInput({ input, plan }), dryRun: false, outcomes, build }),
+      report: buildReport({
+        ...reportInput({ input, plan }),
+        dryRun: false,
+        outcomes,
+        build,
+        testsMilliseconds: performance.now() - testsStartedAt,
+      }),
     });
   } finally {
     progress.stop();
@@ -293,6 +300,30 @@ function printOutcome(outcome: TestOutcome): void {
 // After the run
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * How long a run took: one line per lane, then the build, the tests and the total. The tests of a lane
+ * run one after the other, and the lanes side by side, so the tests take as long as the longest lane.
+ * Nothing for a dry run, which ran no test.
+ */
+function timingLines(report: Report): readonly string[] {
+  const { timing, build } = report;
+
+  if (timing === undefined) return [];
+
+  const width = Math.max(0, ...timing.lanes.map((lane) => String(lane.tests).length));
+  const lanes = timing.lanes.map((lane) => {
+    return `lane ${lane.lane}  ${String(lane.tests).padStart(width)} test(s)  ${formatElapsed(lane.durationMilliseconds)}`;
+  });
+  const parts = [
+    ...(build === undefined ? [] : [`build ${formatElapsed(build.durationMilliseconds)}`]),
+    `tests ${formatElapsed(timing.testsMilliseconds)}`,
+    `total ${formatElapsed(timing.totalMilliseconds)}`,
+  ];
+  const [first = '', ...rest] = parts;
+
+  return [...lanes, `${first.charAt(0).toUpperCase()}${first.slice(1)}${rest.map((part) => `, ${part}`).join('')}.`];
+}
+
 type FinishRunInput = {
   readonly locations: Locations;
   readonly report: Report;
@@ -303,6 +334,8 @@ function finishRun(input: FinishRunInput): Report {
   const counts = countStates(report);
 
   writeReport({ report, file: locations.reportFile });
+
+  for (const line of timingLines(report)) console.log(line);
 
   console.log(
     `${report.dryRun ? 'Dry run' : 'Run'}: ${counts.passed} passed, ${counts.failed} failed, ` +
