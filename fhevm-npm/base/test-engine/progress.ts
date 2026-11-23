@@ -51,9 +51,12 @@ export function watchProgress(input: WatchProgressInput): Progress {
   };
 }
 
-/** A time since a start, for a person to read: `45s`, `2m05s`, `1h02m05s`. */
+/**
+ * A time since a start, for a person to read: `45s`, `2m05s`, `1h02m05s`. It is rounded to the nearest
+ * second, so that a line printed every 30 seconds does not say `29s`, then `1m00s`.
+ */
 export function formatElapsed(milliseconds: number): string {
-  const total = Math.floor(milliseconds / 1000);
+  const total = Math.round(milliseconds / 1000);
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;

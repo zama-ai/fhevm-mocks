@@ -10,9 +10,14 @@ import { CHAIN_RUNTIMES, type ChainRuntime, type Inventory, loadInventory } from
 import {
   DEFAULT_LIVE_CHAIN_LANES,
   LIVE_CHAIN_LANES_VARIABLE,
+  type Shard,
+  WHOLE_SELECTION,
   checkPorts,
   generateLanes,
   laneLines,
+  parseShard,
+  shardLines,
+  shardsOfSelection,
 } from '../base/test-engine/lanes.ts';
 import { selectionLines } from '../base/test-engine/listing.ts';
 import {
@@ -27,7 +32,7 @@ import {
 } from '../base/test-engine/locations.ts';
 import { readJsonObject } from '../base/test-engine/json.ts';
 import { DEFAULT_NODE_LOG_LINES, NODE_LOG_LINES_VARIABLE } from '../base/test-engine/node-log.ts';
-import { checkReport } from '../base/test-engine/report-check.ts';
+import { checkReport, checkShardReports } from '../base/test-engine/report-check.ts';
 import { countStates } from '../base/test-engine/report.ts';
 import { dryRunSelection, removeEarlierReport, runSelection } from '../base/test-engine/run.ts';
 import { type SelectionRequest, resolveSelection } from '../base/test-engine/selection.ts';
@@ -59,6 +64,7 @@ type RunOptions = LocationOptions &
     readonly build?: string | undefined;
     readonly maxLanes: number;
     readonly liveChainLanes?: number | undefined;
+    readonly shard?: Shard | undefined;
     readonly strict: boolean;
     readonly nodeLogLines?: number | undefined;
   };
@@ -133,8 +139,15 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
     )
     .requiredOption(...MAX_LANES_OPTION)
     .option(...LIVE_CHAIN_LANES_OPTION)
+    .option(...SHARD_OPTION)
     .option('--json', 'print the lanes as JSON', false)
     .action(reportingStatus(printLanes));
+
+  addSelectionOptions(addLocationOptions(program.command('shards <n> [ids...]')))
+    .description('Print the shards of the selected tests, for n machines: which tests each machine runs. Runs nothing.')
+    .option(...LIVE_CHAIN_LANES_OPTION)
+    .option('--json', 'print the shards as JSON', false)
+    .action(reportingStatus(printShards));
 
   addSelectionOptions(addLocationOptions(program.command('run [ids...]')))
     .description('Run the selected tests in parallel, and write the final report.')
@@ -148,6 +161,7 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
     )
     .requiredOption(...MAX_LANES_OPTION)
     .option(...LIVE_CHAIN_LANES_OPTION)
+    .option(...SHARD_OPTION)
     .option(
       '--node-log-lines <n>',
       `how many of the last lines of a node's output to keep, in a file apart from the test's log ` +
@@ -176,8 +190,11 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
     .action(reportingStatus(runTestsOfSelection));
 
   program
-    .command('check-report <report>')
-    .description('Check that a final report gives every test one state, and every test that ran a duration.')
+    .command('check-report <reports...>')
+    .description(
+      'Check that a final report gives every test one state, and every test that ran a duration. ' +
+        'Given the reports of all the shards of a selection, also check that together they ran every selected test once.',
+    )
     .option('--inventory <file>', "also check the report against this inventory: its tests, and their 'skipped' values")
     .option('--schema <file>', "with --inventory: its schema (default: the file its '$schema' key names)")
     .option('--ci', 'with --inventory: also check that the run was a CI run, of the tests with "ci": true only', false)
@@ -233,6 +250,16 @@ function parseMaximumLanes(value: string): number {
 
   return Number(value);
 }
+
+/**
+ * The shard that a run is. A selection that several machines run is split into as many shards, and each
+ * machine is given the same selection with its own shard.
+ */
+const SHARD_OPTION = [
+  '--shard <k/n>',
+  'run shard k of the n shards of the selection, as in 2/3: the share of one machine (default: 1/1, the whole selection)',
+  parseShard,
+] as const;
 
 /**
  * How many lanes can hold tests that use a live chain. The provider of an RPC limits the requests of
@@ -362,6 +389,7 @@ async function runTestsOfSelection(ids: readonly string[], options: RunOptions):
     buildCommand: options.build,
     maximumLanes: options.maxLanes,
     liveChainLanes: liveChainLanes(options),
+    shard: options.shard ?? WHOLE_SELECTION,
     strict: options.strict,
     progressIntervalSeconds: options.progress === 0 ? undefined : options.progress,
     nodeLogLines: nodeLogLines(options),
@@ -372,15 +400,26 @@ async function runTestsOfSelection(ids: readonly string[], options: RunOptions):
   return countStates(report).failed > 0 ? FAILURE_EXIT_STATUS : SUCCESS_EXIT_STATUS;
 }
 
-function checkFinalReport(reportFile: string, options: CheckReportOptions): number {
+function checkFinalReport(reportFiles: readonly string[], options: CheckReportOptions): number {
   const inventory = inventoryOfReportCheck(options);
-  const problems = checkReport({ report: readJsonObject(resolve(reportFile)), inventory, ci: options.ci });
+  const reports = reportFiles.map((file) => ({ file, report: readJsonObject(resolve(file)) }));
+  const several = reports.length > 1;
+  const problems = [
+    ...reports.flatMap(({ file, report }) => {
+      const found = checkReport({ report, inventory, ci: options.ci });
+
+      // With one report, the problems read as before. With several, each one names its file.
+      return several ? found.map((problem) => `${file}: ${problem}`) : found;
+    }),
+    // Several reports are those of the shards of one selection.
+    ...(several ? checkShardReports(reports) : []),
+  ];
 
   for (const problem of problems) console.error(`❌ ${problem}`);
 
   if (problems.length > 0) return FAILURE_EXIT_STATUS;
 
-  console.log(`✅ ${reportFile}: no problem found.`);
+  console.log(`✅ ${reportFiles.join(', ')}: no problem found.`);
 
   return SUCCESS_EXIT_STATUS;
 }
@@ -427,6 +466,7 @@ type LanesOptions = LocationOptions &
     readonly json: boolean;
     readonly maxLanes: number;
     readonly liveChainLanes?: number | undefined;
+    readonly shard?: Shard | undefined;
   };
 
 function printLanes(ids: readonly string[], options: LanesOptions): number {
@@ -440,7 +480,12 @@ function printLanes(ids: readonly string[], options: LanesOptions): number {
     environment: process.env,
   });
   const entries = resolved.filter((entry) => entry.state === 'selected');
-  const lanes = generateLanes({ entries, maximum: options.maxLanes, liveChainLanes: liveChainLanes(options) });
+  const lanes = generateLanes({
+    entries,
+    maximum: options.maxLanes,
+    liveChainLanes: liveChainLanes(options),
+    shard: options.shard,
+  });
 
   if (options.json) {
     const plan = lanes.map((lane) => {
@@ -450,6 +495,40 @@ function printLanes(ids: readonly string[], options: LanesOptions): number {
     console.log(JSON.stringify(plan, undefined, 2));
   } else {
     for (const line of laneLines(lanes)) console.log(line);
+  }
+
+  return SUCCESS_EXIT_STATUS;
+}
+
+type ShardsOptions = LocationOptions &
+  SelectionOptions & {
+    readonly json: boolean;
+    readonly liveChainLanes?: number | undefined;
+  };
+
+function printShards(count: string, ids: readonly string[], options: ShardsOptions): number {
+  if (!/^[1-9]\d*$/.test(count)) {
+    throw new TestEngineError(`The number of shards is a whole number, 1 or more: '${count}' is not.`);
+  }
+
+  const inventory = loadInventoryAt(options);
+
+  checkPorts(inventory);
+
+  const resolved = resolveSelection({
+    inventory,
+    request: selectionRequest({ ids, options }),
+    environment: process.env,
+  });
+  const entries = resolved.filter((entry) => entry.state === 'selected');
+  const shards = shardsOfSelection({ entries, liveChainLanes: liveChainLanes(options), count: Number(count) });
+
+  if (options.json) {
+    const plan = shards.map((tests, index) => ({ shard: index + 1, ids: tests.map((entry) => entry.id) }));
+
+    console.log(JSON.stringify(plan, undefined, 2));
+  } else {
+    for (const line of shardLines(shards)) console.log(line);
   }
 
   return SUCCESS_EXIT_STATUS;

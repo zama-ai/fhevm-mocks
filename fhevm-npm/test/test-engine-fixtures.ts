@@ -41,6 +41,7 @@ export const FIXTURE_SCHEMA = {
     properties: {
       command: { type: 'string', minLength: 1 },
       package: { type: 'string', minLength: 1 },
+      duration: { enum: ['fast', 'slow', 'very-slow'] },
       ci: { type: 'boolean' },
       skipped: { const: true },
       chains: {

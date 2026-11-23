@@ -5,7 +5,7 @@ import { type BuildOutcome, runBuild } from './build.ts';
 
 import { TestEngineError } from './errors.ts';
 import type { Inventory } from './inventory.ts';
-import { type Lane, generateLanes } from './lanes.ts';
+import { type RunPlan, type Shard, planRun } from './lanes.ts';
 import { type Locations, outputFilesIn } from './locations.ts';
 import { environmentWithNode } from './nodes.ts';
 import {
@@ -16,7 +16,7 @@ import {
 } from './open-questions.ts';
 import { formatDuration } from './output.ts';
 import { watchProgress } from './progress.ts';
-import { type Report, buildReport, countStates, writeReport } from './report.ts';
+import { type BuildReportInput, type Report, buildReport, countStates, writeReport } from './report.ts';
 import type { ResolvedTest } from './selection.ts';
 import { type TestOutcome, runTests } from './test-lifecycle.ts';
 import { reportRunWarnings } from './warnings.ts';
@@ -41,6 +41,8 @@ export type RunSelectionInput = {
   readonly maximumLanes: number;
   /** How many lanes can hold tests that use a live chain. */
   readonly liveChainLanes: number;
+  /** The shard that the run is: its share of the selection. */
+  readonly shard: Shard;
   /** The most lines of a node's output that the engine keeps. */
   readonly nodeLogLines: number;
   /** True: what the engine finds doubtful in the run fails it before any test starts. */
@@ -51,8 +53,9 @@ export type RunSelectionInput = {
 
 /** Builds the workspace when the run was given a build command, runs the selected tests, then writes the final report. */
 export async function runSelection(input: RunSelectionInput): Promise<Report> {
-  const { locations, inventory, resolved } = input;
-  const lanes = lanesOfRun(input);
+  const { locations } = input;
+  const plan = planOfRun(input);
+  const { lanes } = plan;
   const entries = lanes.flatMap((lane) => lane.entries);
 
   requireRoot(locations);
@@ -69,7 +72,9 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
   try {
     const build = await buildOfRun({ ...input, interruption: interruption.signal });
 
-    console.log(`▶ Running ${entries.length} test(s) in ${lanes.length} lane(s), from ${locations.root}.`);
+    console.log(
+      `▶ Running ${entries.length} test(s) in ${lanes.length} lane(s)${describeShard(input.shard)}, from ${locations.root}.`,
+    );
 
     resourcesThatIsolationNeeds();
 
@@ -91,7 +96,10 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
 
     measuredDurationsAndTheDurationField();
 
-    return finishRun({ locations, report: buildReport({ inventory, resolved, dryRun: false, outcomes, build }) });
+    return finishRun({
+      locations,
+      report: buildReport({ ...reportInput({ input, plan }), dryRun: false, outcomes, build }),
+    });
   } finally {
     progress.stop();
     interruption.stopWatching();
@@ -117,23 +125,56 @@ async function buildOfRun(input: BuildOfRunInput): Promise<BuildOutcome | undefi
 }
 
 /**
- * The lanes of a run, known before anything starts. Reports what the engine finds doubtful in them, and
- * fails there when the run is strict.
+ * The shards of the selection and the lanes of the run, known before anything starts. Reports what the
+ * engine finds doubtful in the selection, and fails there when the run is strict.
  */
-function lanesOfRun(input: RunSelectionInput): readonly Lane[] {
+function planOfRun(input: RunSelectionInput): RunPlan {
   const entries = input.resolved.filter((entry) => entry.state === 'selected');
   const unavailable = input.resolved.filter((entry) => entry.state === 'unavailable');
-  const lanes = generateLanes({ entries, maximum: input.maximumLanes, liveChainLanes: input.liveChainLanes });
+  const plan = planRun({
+    entries,
+    maximum: input.maximumLanes,
+    liveChainLanes: input.liveChainLanes,
+    shard: input.shard,
+  });
 
-  reportRunWarnings({ lanes, unavailable, strict: input.strict });
+  // The whole selection is judged, not the shard: a shard that got no test is valid.
+  reportRunWarnings({ selectedCount: entries.length, unavailable, strict: input.strict });
 
-  return lanes;
+  return plan;
+}
+
+type ReportInputInput = {
+  readonly input: RunSelectionInput;
+  readonly plan: RunPlan;
+};
+
+/** What a report holds of a run, whether the run was a dry run or not. */
+function reportInput(
+  given: ReportInputInput,
+): Pick<BuildReportInput, 'inventory' | 'resolved' | 'maximumLanes' | 'liveChainLanes' | 'shard' | 'shardOf'> {
+  const { input, plan } = given;
+
+  return {
+    inventory: input.inventory,
+    resolved: input.resolved,
+    maximumLanes: input.maximumLanes,
+    liveChainLanes: input.liveChainLanes,
+    shard: input.shard,
+    shardOf: plan.shardOf,
+  };
+}
+
+/** The shard of a run, for a person to read. Nothing for a run that is the whole selection. */
+function describeShard(shard: Shard): string {
+  return shard.count === 1 ? '' : `, shard ${shard.number} of ${shard.count}`;
 }
 
 /** Prints what a run would run, lane by lane, runs no test, and writes the final report. */
 export function dryRunSelection(input: RunSelectionInput): Report {
-  const { locations, inventory, resolved } = input;
-  const lanes = lanesOfRun(input);
+  const { locations } = input;
+  const plan = planOfRun(input);
+  const { lanes } = plan;
 
   requireRoot(locations);
 
@@ -147,7 +188,7 @@ export function dryRunSelection(input: RunSelectionInput): Report {
 
   return finishRun({
     locations,
-    report: buildReport({ inventory, resolved, dryRun: true, outcomes: new Map(), build: undefined }),
+    report: buildReport({ ...reportInput({ input, plan }), dryRun: true, outcomes: new Map(), build: undefined }),
   });
 }
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { Chain, InventoryEntry, NodeChain, Test } from '../base/test-engine/inventory.ts';
-import { type Lane, checkPorts, generateLanes, laneLines } from '../base/test-engine/lanes.ts';
+import { type Lane, type Shard, checkPorts, generateLanes, laneLines, parseShard } from '../base/test-engine/lanes.ts';
 import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import { fixedPortsOfSpec, portsOfSpec } from '../base/test-engine/port-spec.ts';
 import {
@@ -34,6 +34,7 @@ type LanesInput = {
   readonly entries: readonly InventoryEntry[];
   readonly maximum: number;
   readonly liveChainLanes?: number;
+  readonly shard?: Shard;
 };
 
 /** The IDs of each lane, in the order of the lanes. */
@@ -173,6 +174,109 @@ test('tests that send transactions on the same chain share a lane, whatever the 
 
   // Each test has its own share of the live chains, so only the funded account of Sepolia links two of them.
   assert.deepEqual(lanes, [['wallet-a', 'wallet-b'], ['fork-a'], ['wallet-mainnet'], ['reads']]);
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Shards
+////////////////////////////////////////////////////////////////////////////////
+
+/** The IDs of each shard of a selection, in the order of the shards. */
+function shardsOf(input: LanesInput & { readonly count: number }): readonly (readonly string[])[] {
+  return Array.from({ length: input.count }, (_, index) => {
+    const lanes = generateLanes({ ...input, shard: { number: index + 1, count: input.count } });
+
+    return lanes.flatMap(idsOf).sort();
+  });
+}
+
+test('a selection is split by weight: each test goes to the shard with the lowest weight so far', () => {
+  const entries = [
+    timed('very-slow-a', 'very-slow'),
+    timed('fast-1', 'fast'),
+    timed('very-slow-b', 'very-slow'),
+    timed('slow', 'slow'),
+    timed('fast-2', 'fast'),
+    timed('fast-3', 'fast'),
+  ];
+
+  // The heaviest tests go first, one to each shard. The fast ones then fill the lightest shard.
+  assert.deepEqual(shardsOf({ entries, maximum: 4, count: 3 }), [
+    ['very-slow-a'],
+    ['very-slow-b'],
+    ['fast-1', 'fast-2', 'fast-3', 'slow'],
+  ]);
+});
+
+test('every test of a selection is in exactly one shard, and one shard of one is the whole selection', () => {
+  const entries = [entry('a', 1), entry('b', 1), entry('c'), live('d', SEPOLIA_FORK), entry('e', 2), entry('f')];
+  const all = entries.map((item) => item.id).sort();
+
+  for (const count of [1, 2, 3, 4, 9]) {
+    const shards = shardsOf({ entries, maximum: 2, count });
+
+    assert.deepEqual(shards.flat().sort(), all, `${count} shards: each test once`);
+  }
+
+  assert.deepEqual(shardsOf({ entries, maximum: 2, count: 1 }), [all]);
+  assert.deepEqual(lanesOf({ entries, maximum: 2 }), lanesOf({ entries, maximum: 2, shard: { number: 1, count: 1 } }));
+});
+
+test('tests that share a port can go to two shards: each machine has its own ports', () => {
+  const entries = [
+    timed('a', 'slow', 8545),
+    timed('b', 'slow', 8545),
+    timed('c', 'slow', 8545),
+    timed('d', 'slow', 8545),
+  ];
+
+  assert.deepEqual(shardsOf({ entries, maximum: 4, count: 2 }), [
+    ['a', 'c'],
+    ['b', 'd'],
+  ]);
+  // In one shard, the tests on the port still share a lane.
+  assert.deepEqual(lanesOf({ entries, maximum: 4, shard: { number: 1, count: 2 } }), [['a', 'c']]);
+});
+
+test('tests that use a live chain stay in one shard, since every machine uses the same key', () => {
+  const forks = ['a', 'b', 'c', 'd'].map((name) => live(`fork-${name}`, SEPOLIA_FORK));
+  const entries = [...forks, entry('local-1'), entry('local-2')];
+
+  assert.deepEqual(shardsOf({ entries, maximum: 4, count: 3 }), [
+    ['fork-a', 'fork-b', 'fork-c', 'fork-d'],
+    ['local-1'],
+    ['local-2'],
+  ]);
+  // With two lanes for live chains, each share stays whole, and the two shares can go to two shards.
+  assert.deepEqual(shardsOf({ entries: forks, maximum: 4, count: 2, liveChainLanes: 2 }), [
+    ['fork-a', 'fork-c'],
+    ['fork-b', 'fork-d'],
+  ]);
+});
+
+test('tests that send transactions on the same chain stay in one shard, whatever the lanes for live chains', () => {
+  const entries = [live('wallet-a', SEPOLIA_WALLET), live('wallet-b', SEPOLIA_WALLET), live('fork', SEPOLIA_FORK)];
+  const shards = shardsOf({ entries, maximum: 4, count: 3, liveChainLanes: 3 });
+
+  assert.deepEqual(shards, [['wallet-a', 'wallet-b'], ['fork'], []]);
+});
+
+test('an empty shard has no lane, and a shard that is not one of the shards is rejected', () => {
+  const entries = [entry('only')];
+
+  assert.deepEqual(generateLanes({ entries, maximum: 4, shard: { number: 2, count: 3 } }), []);
+
+  for (const shard of [
+    { number: 0, count: 3 },
+    { number: 4, count: 3 },
+    { number: 1, count: 0 },
+    { number: 1.5, count: 3 },
+  ]) {
+    assert.throws(() => generateLanes({ entries, maximum: 4, shard }), /whole number/);
+  }
+
+  assert.deepEqual(parseShard('2/3'), { number: 2, count: 3 });
+  assert.throws(() => parseShard('2'), /A shard is written k\/n, as in 2\/3/);
+  assert.throws(() => parseShard('4/3'), /from 1 to 3/);
 });
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -409,6 +513,44 @@ test('the lanes for live chains come from the option, then from the variable, th
 
   assert.equal(wrong.status, RUN_FAILURE_EXIT_STATUS);
   assert.match(wrong.stderr, /FHEVM_TEST_LIVE_CHAIN_LANES is 'many', and must be a whole number, 1 or more\./);
+});
+
+test('the shards command prints which tests each machine runs, as text and as JSON', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: './ALL_TESTS.schema.json',
+      'test-long': fixtureTest({ duration: 'very-slow' }),
+      'test-a': fixtureTest({ duration: 'fast' }),
+      'test-b': fixtureTest({ duration: 'fast' }),
+      'test-off': fixtureTest({ skipped: true }),
+    },
+  });
+  const argv = ['shards', '3', '--root', repository.root];
+
+  const text = await captureEngine({ context, argv });
+  const json = await captureEngine({ context, argv: [...argv, '--json'] });
+  const named = await captureEngine({ context, argv: ['shards', '2', 'test-a', 'test-b', '--root', repository.root] });
+
+  // A skipped test is in no shard. The two fast tests weigh less than the long one, and take the free shards.
+  assert.deepEqual(text.stdout, [
+    'shard 1 of 3  1 test(s)  test-long',
+    'shard 2 of 3  1 test(s)  test-a',
+    'shard 3 of 3  1 test(s)  test-b',
+  ]);
+  assert.deepEqual(JSON.parse(json.stdout.join('\n')), [
+    { shard: 1, ids: ['test-long'] },
+    { shard: 2, ids: ['test-a'] },
+    { shard: 3, ids: ['test-b'] },
+  ]);
+  assert.deepEqual(named.stdout, ['shard 1 of 2  1 test(s)  test-a', 'shard 2 of 2  1 test(s)  test-b']);
+
+  const more = await captureEngine({ context, argv: ['shards', '2', 'test-a', '--root', repository.root] });
+  const wrong = await captureEngine({ context, argv: ['shards', 'two', '--root', repository.root] });
+
+  assert.deepEqual(more.stdout, ['shard 1 of 2  1 test(s)  test-a', 'shard 2 of 2  no test']);
+  assert.equal(wrong.status, RUN_FAILURE_EXIT_STATUS);
+  assert.match(wrong.stderr, /The number of shards is a whole number, 1 or more: 'two' is not\./);
 });
 
 test('the maximum of lanes is required, and must be a whole number from 1', async (context) => {

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import type { Chain } from '../base/test-engine/inventory.ts';
+import type { Report } from '../base/test-engine/report.ts';
 import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import {
   type FixtureRepository,
@@ -537,6 +538,90 @@ test('a run says when each test starts, and at each interval which tests still r
 
   assert.match(quiet.stdout.join('\n'), /▶ started {2}lane \d {2}test-silent/);
   assert.doesNotMatch(quiet.stdout.join('\n'), /⏳ running/);
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Shards
+////////////////////////////////////////////////////////////////////////////////
+
+test('the shards of a selection run each test once, and their reports check together', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-long': fixtureTest({ command: 'touch ran-long', duration: 'very-slow' }),
+      'test-a': fixtureTest({ command: 'touch ran-a', duration: 'fast' }),
+      'test-b': fixtureTest({ command: 'touch ran-b', duration: 'fast' }),
+      'test-off': fixtureTest({ skipped: true }),
+      'test-local': fixtureTest({ ci: false }),
+    },
+  });
+  const reportOf = (shard: number): string => join(repository.root, `report-${shard}.json`);
+  const argv = ['run', '--root', repository.root, '--ci', '--max-lanes', '2'];
+  const runs = [];
+
+  for (const shard of [1, 2]) {
+    runs.push(await captureEngine({ context, argv: [...argv, '--shard', `${shard}/2`, '--report', reportOf(shard)] }));
+  }
+
+  const [first, second] = [1, 2].map((shard) => JSON.parse(readFileSync(reportOf(shard), 'utf8')) as Report);
+
+  assert.deepEqual(
+    runs.map((run) => run.status),
+    [0, 0],
+  );
+  assert.match(runs[1]?.stdout.join('\n') ?? '', /▶ Running 2 test\(s\) in 2 lane\(s\), shard 2 of 2, from /);
+  // The long test is a shard of its own, and the other shard says where it is.
+  assert.equal(first?.tests['test-long']?.state, 'passed');
+  assert.deepEqual(second?.tests['test-long'], { state: 'not-selected', shard: 1 });
+  assert.deepEqual(first?.tests['test-a'], { state: 'not-selected', shard: 2 });
+  assert.equal(second?.tests['test-a']?.state, 'passed');
+  // A skipped test and a test outside the selection have the same state in every shard.
+  assert.deepEqual([first?.tests['test-off'], second?.tests['test-off']], [{ state: 'skipped' }, { state: 'skipped' }]);
+  assert.deepEqual(second?.tests['test-local'], { state: 'not-selected' });
+  assert.deepEqual(first?.run.shard, { number: 1, count: 2 });
+  assert.deepEqual(first?.run.selected, ['test-long', 'test-a', 'test-b']);
+  assert.equal(first?.run.inventoryFingerprint, second?.run.inventoryFingerprint);
+
+  const inventory = ['--inventory', repository.inventoryFile, '--ci'];
+  const together = await captureEngine({ context, argv: ['check-report', reportOf(1), reportOf(2), ...inventory] });
+  const twice = await captureEngine({ context, argv: ['check-report', reportOf(1), reportOf(1)] });
+
+  assert.equal(together.status, 0, together.stderr);
+  assert.equal(twice.status, 1);
+  assert.match(twice.stderr, /shard 1 of 2 has 2 reports/);
+  assert.match(twice.stderr, /shard 2 of 2 has no report/);
+
+  // Another maximum of lanes is another run: its report does not belong with the first one.
+  await captureEngine({
+    context,
+    argv: ['run', '--root', repository.root, '--ci', '--max-lanes', '3', '--shard', '2/2', '--report', reportOf(2)],
+  });
+
+  const mixed = await captureEngine({ context, argv: ['check-report', reportOf(1), reportOf(2)] });
+
+  assert.equal(mixed.status, 1);
+  assert.match(mixed.stderr, /it was not built from the same inventory, selection and numbers as /);
+});
+
+test('a shard that gets no test is a valid run, also when the run is strict', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: { $schema: SCHEMA, 'test-only': fixtureTest({ command: 'touch ran-only' }) },
+  });
+  const argv = ['run', '--root', repository.root, '--max-lanes', '2', '--strict', '--shard', '2/2'];
+
+  const empty = await captureEngine({ context, argv });
+
+  assert.equal(empty.status, 0, empty.stderr);
+  assert.doesNotMatch(empty.stderr, /runs no test/);
+  assert.deepEqual(readReport(repository).tests['test-only'], { state: 'not-selected', shard: 1 });
+  assert.equal(existsSync(join(repository.root, 'ran-only')), false);
+
+  const wrong = await captureEngine({ context, argv: [...argv.slice(0, -1), '3/2'] });
+
+  assert.equal(wrong.status, RUN_FAILURE_EXIT_STATUS);
+  assert.match(wrong.stderr, /The number of the shard is a whole number from 1 to 2: '3' is not\./);
 });
 
 ////////////////////////////////////////////////////////////////////////////////

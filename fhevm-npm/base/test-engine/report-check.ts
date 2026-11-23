@@ -67,6 +67,14 @@ function entryProblems(input: EntryProblemsInput): readonly string[] {
 
   if (!ran && duration !== undefined) return [`${id}: it did not run, and has a duration`];
 
+  const shard = isPlainObject(entry) ? entry['shard'] : undefined;
+
+  if (shard !== undefined && state !== 'not-selected') return [`${id}: it is ${state}, and names another shard`];
+
+  if (shard !== undefined && !(typeof shard === 'number' && Number.isInteger(shard) && shard >= 1)) {
+    return [`${id}: the shard it names is not a whole number, 1 or more`];
+  }
+
   return [];
 }
 
@@ -96,8 +104,12 @@ function inventoryProblems(input: InventoryProblemsInput): readonly string[] {
 
     if (!(id in tests)) problems.push(`${id}: the report gives it no state`);
 
+    // A test that another shard runs is not selected in this report, whatever its `ci` value.
+    const entry = tests[id];
+    const ofAnotherShard = isPlainObject(entry) && entry['shard'] !== undefined;
+
     // A state that is not one of the five is already a problem of the report on its own.
-    if (state !== undefined) problems.push(...stateProblems({ id, test, state, ci }));
+    if (state !== undefined) problems.push(...stateProblems({ id, test, state, ci, ofAnotherShard }));
   }
 
   return problems;
@@ -108,6 +120,8 @@ type StateProblemsInput = {
   readonly test: Test;
   readonly state: ReportState;
   readonly ci: boolean;
+  /** True when the report says that another shard runs the test. */
+  readonly ofAnotherShard: boolean;
 };
 
 function stateProblems(input: StateProblemsInput): readonly string[] {
@@ -127,7 +141,130 @@ function stateProblems(input: StateProblemsInput): readonly string[] {
 
   if (!test.ci && state !== 'not-selected') return [`${id}: it has "ci": false, and is ${state} in a CI run`];
 
-  if (test.ci && state === 'not-selected') return [`${id}: it has "ci": true, and is not selected in a CI run`];
+  if (test.ci && state === 'not-selected' && !input.ofAnotherShard) {
+    return [`${id}: it has "ci": true, and is not selected in a CI run`];
+  }
 
   return [];
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// The reports of the shards of one selection
+////////////////////////////////////////////////////////////////////////////////
+
+export type ShardReport = {
+  /** The file of the report, for the messages. */
+  readonly file: string;
+  /** The report, as read from its file. Nothing about its shape is assumed. */
+  readonly report: JsonObject;
+};
+
+/** What a report says its shards and its lanes were built from, read without trusting its shape. */
+type ReadSettings = {
+  readonly file: string;
+  readonly tests: JsonObject;
+  /** Everything but the number of the shard, as one text: equal for the shards of one selection. */
+  readonly common: string;
+  readonly selected: readonly string[];
+  readonly shardNumber: number;
+  readonly shardCount: number;
+};
+
+/**
+ * Checks the reports of the shards of one selection together, and returns the problems found. The
+ * reports must come from the same inventory, selection and numbers, hold one report for each shard, and
+ * together have run every test that the selection selects exactly once.
+ */
+export function checkShardReports(reports: readonly ShardReport[]): readonly string[] {
+  const read = reports.map(readSettings);
+  const unreadable = read.filter((settings): settings is string => typeof settings === 'string');
+
+  if (unreadable.length > 0) return unreadable;
+
+  const settings = read.filter((one): one is ReadSettings => typeof one !== 'string');
+  const [first] = settings;
+
+  if (first === undefined) return [];
+
+  const others = settings.filter((one) => one.common !== first.common);
+
+  if (others.length > 0) {
+    return others.map((one) => {
+      return `${one.file}: it was not built from the same inventory, selection and numbers as ${first.file}`;
+    });
+  }
+
+  const shardProblems = missingAndRepeatedShards(settings);
+
+  // Without one report for each shard, every test of a missing shard would be reported too.
+  return shardProblems.length > 0 ? shardProblems : testsNotRunOnce(settings);
+}
+
+function readSettings(input: ShardReport): ReadSettings | string {
+  const { file, report } = input;
+  const run = report['run'];
+  const shard = isPlainObject(run) ? run['shard'] : undefined;
+  const tests = report['tests'];
+  const selected = isPlainObject(run) ? run['selected'] : undefined;
+
+  if (!isPlainObject(run) || !isPlainObject(shard) || !isPlainObject(tests) || !Array.isArray(selected)) {
+    return `${file}: the report does not say what its shards and its lanes were built from`;
+  }
+
+  const { number, count } = shard;
+
+  if (typeof number !== 'number' || typeof count !== 'number') return `${file}: the report names no shard`;
+
+  return {
+    file,
+    tests,
+    common: JSON.stringify({ ...run, shard: { count }, dryRun: report['dryRun'] }),
+    selected: selected.filter((id): id is string => typeof id === 'string'),
+    shardNumber: number,
+    shardCount: count,
+  };
+}
+
+/** Every shard from 1 to the number of shards has one report. */
+function missingAndRepeatedShards(settings: readonly ReadSettings[]): readonly string[] {
+  const count = settings[0]?.shardCount ?? 0;
+  const numbers = Array.from({ length: count }, (_, index) => index + 1);
+
+  return numbers.flatMap((number) => {
+    const files = settings.filter((one) => one.shardNumber === number).map((one) => one.file);
+
+    if (files.length === 1) return [];
+
+    return files.length === 0
+      ? [`shard ${number} of ${count} has no report`]
+      : [`shard ${number} of ${count} has ${files.length} reports: ${files.join(', ')}`];
+  });
+}
+
+/** Every test that the selection selects ran in exactly one shard, and the other shards say which one. */
+function testsNotRunOnce(settings: readonly ReadSettings[]): readonly string[] {
+  const selected = settings[0]?.selected ?? [];
+  const dryRun = settings.some((one) => one.common.includes('"dryRun":true'));
+
+  return selected.flatMap((id) => {
+    // In a dry run, passed means that the shard would run the test.
+    const ranIn = settings.filter((one) => {
+      const state = stateOf(one.tests[id]);
+
+      return state === 'passed' || state === 'failed';
+    });
+    const [ranOnce] = ranIn;
+
+    if (ranIn.length !== 1 || ranOnce === undefined) {
+      return [`${id}: ${dryRun ? 'it is' : 'it ran'} in ${ranIn.length} shards, and must be in exactly one`];
+    }
+
+    const disagreeing = settings.filter((one) => {
+      const entry = one.tests[id];
+
+      return one !== ranOnce && !(isPlainObject(entry) && entry['shard'] === ranOnce.shardNumber);
+    });
+
+    return disagreeing.map((one) => `${one.file}: it does not say that shard ${ranOnce.shardNumber} runs ${id}`);
+  });
 }

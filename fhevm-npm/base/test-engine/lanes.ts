@@ -160,15 +160,20 @@ type Group = {
   readonly entries: InventoryEntry[];
 };
 
+type GroupsInput = {
+  readonly entries: readonly InventoryEntry[];
+  /** What each test shares, by test ID. A test that the map does not hold shares nothing. */
+  readonly resourcesOf: ReadonlyMap<string, readonly Resource[]>;
+};
+
 /**
  * Forms the groups of the given tests, from these tests alone. A test joins the group of every test it
  * shares a resource with: when A and B share one port, and B and C another, the three are in one
  * group. A test that uses no shared resource is a group of its own.
  */
-function groupsOf(input: ResourcesInput): readonly Group[] {
-  const { entries } = input;
+function groupsOf(input: GroupsInput): readonly Group[] {
+  const { entries, resourcesOf } = input;
   const position = new Map(entries.map((entry, index) => [entry.id, index]));
-  const resourcesOf = resourcesByTest(input);
   const groups = new Set<Group>();
   const groupOfResource = new Map<Resource, Group>();
 
@@ -209,11 +214,90 @@ function firstOf(group: Group): InventoryEntry {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Filling
+////////////////////////////////////////////////////////////////////////////////
+
+/** What one lane, or one shard, holds while it is filled. */
+type Bucket = {
+  readonly resources: Set<Resource>;
+  readonly entries: InventoryEntry[];
+};
+
+type FillInput = {
+  /** The groups, from the heaviest to the lightest. */
+  readonly groups: readonly Group[];
+  /** How many buckets there are. */
+  readonly count: number;
+};
+
+/**
+ * Fills buckets with groups, for the lanes of a run and for the shards of a selection alike. Each group
+ * goes, whole, into the bucket that holds the lowest weight so far, and at equal weight into the first
+ * one. A bucket can stay empty.
+ */
+function fill(input: FillInput): readonly Bucket[] {
+  const buckets: Bucket[] = Array.from({ length: input.count }, () => ({ resources: new Set(), entries: [] }));
+
+  for (const group of input.groups) {
+    const lowest = Math.min(...buckets.map((bucket) => weightOf(bucket.entries)));
+    const bucket = buckets.find((candidate) => weightOf(candidate.entries) === lowest);
+
+    if (bucket === undefined) throw new Error('No bucket can take the group.');
+
+    bucket.entries.push(...group.entries);
+    group.resources.forEach((resource) => bucket.resources.add(resource));
+  }
+
+  return buckets;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Shards
+////////////////////////////////////////////////////////////////////////////////
+
+/** The share of a selection that one machine runs: shard `number` of `count`, both from 1. */
+export type Shard = {
+  readonly number: number;
+  readonly count: number;
+};
+
+/** A run that is given no shard runs the whole selection. */
+export const WHOLE_SELECTION: Shard = { number: 1, count: 1 };
+
+/**
+ * True for a resource that every machine shares: a share of the live chains, since the key of an RPC
+ * provider is the same on all of them, and a funded account. A fixed port is of one machine only.
+ */
+function isSharedByMachines(resource: Resource): boolean {
+  return typeof resource === 'string';
+}
+
+type ShardsInput = GroupsInput & {
+  /** How many shards the selection is split into. */
+  readonly count: number;
+};
+
+/**
+ * Gives each test its shard, from 1. Tests that share a resource of every machine stay in one shard:
+ * two shards would use it at the same time. Tests that share a port only can go to two shards, since
+ * each machine has its own ports. The shards are filled as the lanes are, by weight.
+ */
+function shardByTest(input: ShardsInput): ReadonlyMap<string, number> {
+  const acrossMachines = new Map(
+    [...input.resourcesOf].map(([id, resources]) => [id, resources.filter(isSharedByMachines)]),
+  );
+  const groups = groupsOf({ entries: input.entries, resourcesOf: acrossMachines });
+  const shards = fill({ groups, count: input.count });
+
+  return new Map(shards.flatMap((shard, index) => shard.entries.map((entry) => [entry.id, index + 1] as const)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Lanes
 ////////////////////////////////////////////////////////////////////////////////
 
 export type GenerateLanesInput = {
-  /** The tests that the run runs, in the order of the inventory. */
+  /** The tests that the selection selects and that can run, in the order of the inventory. */
   readonly entries: readonly InventoryEntry[];
   /** The most lanes the run may have. A whole number, 1 or more. */
   readonly maximum: number;
@@ -222,54 +306,119 @@ export type GenerateLanesInput = {
    * that no two such tests run at the same time.
    */
   readonly liveChainLanes?: number | undefined;
+  /** The shard that the run is. Undefined: the whole selection. */
+  readonly shard?: Shard | undefined;
+};
+
+/** What a run does with the tests of a selection. */
+export type RunPlan = {
+  /** The lanes of the run: those of its shard. */
+  readonly lanes: readonly Lane[];
+  /** The shard of each test of the selection, from 1, by test ID. */
+  readonly shardOf: ReadonlyMap<string, number>;
 };
 
 /**
- * Builds the lanes of a run. The result depends on the tests, their order and the maximum alone, so
- * every machine that is given the same ones builds the same lanes, with the same numbers.
+ * Splits a selection into shards, and builds the lanes of one shard. The result depends on the tests,
+ * their order and the numbers given alone, so every machine that is given the same ones finds the same
+ * shards and the same lanes, with the same numbers.
  *
  * The groups are taken from the heaviest to the lightest. Each one goes, whole, into the lane that holds
  * the lowest weight so far, and at equal weight into the lane with the lowest number. A lane that got no
  * group does not exist. With a maximum of 1, every test is in one lane, in the order of the inventory.
  */
-export function generateLanes(input: GenerateLanesInput): readonly Lane[] {
+export function planRun(input: GenerateLanesInput): RunPlan {
   const { entries, maximum } = input;
   const liveChainLanes = input.liveChainLanes ?? DEFAULT_LIVE_CHAIN_LANES;
+  const shard = input.shard ?? WHOLE_SELECTION;
 
-  if (!Number.isInteger(maximum) || maximum < 1) {
-    throw new TestEngineError(`The maximum number of lanes is a whole number, 1 or more: '${String(maximum)}' is not.`);
+  requireWholeNumber({ value: maximum, name: 'The maximum number of lanes' });
+  requireWholeNumber({ value: liveChainLanes, name: 'The number of lanes for live chains' });
+  requireShard(shard);
+
+  // The shares of the live chains are those of the whole selection, so that the shards agree on them.
+  const resourcesOf = resourcesByTest({ entries, liveChainLanes });
+  const shardOf = shardByTest({ entries, resourcesOf, count: shard.count });
+  const ofShard = entries.filter((entry) => shardOf.get(entry.id) === shard.number);
+  const position = new Map(entries.map((entry, index) => [entry.id, index]));
+  const lanes = fill({ groups: groupsOf({ entries: ofShard, resourcesOf }), count: maximum });
+
+  return {
+    shardOf,
+    lanes: lanes
+      .filter((lane) => lane.entries.length > 0)
+      .map((lane, index) => ({
+        number: index + 1,
+        ports: [...lane.resources].filter((resource) => typeof resource === 'number').sort((a, b) => a - b),
+        liveChains: [...lane.resources].some(isLiveChainsShare),
+        entries: [...lane.entries].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0)),
+      })),
+  };
+}
+
+export type ShardsOfSelectionInput = Pick<GenerateLanesInput, 'entries' | 'liveChainLanes'> & {
+  /** How many shards the selection is split into. A whole number, 1 or more. */
+  readonly count: number;
+};
+
+/** The tests of each shard of a selection, in the order of the inventory. The first list is shard 1. */
+export function shardsOfSelection(input: ShardsOfSelectionInput): readonly (readonly InventoryEntry[])[] {
+  // The split does not depend on the lanes, so any maximum gives it.
+  const { shardOf } = planRun({ ...input, maximum: 1, shard: { number: 1, count: input.count } });
+
+  return Array.from({ length: input.count }, (_, index) => {
+    return input.entries.filter((entry) => shardOf.get(entry.id) === index + 1);
+  });
+}
+
+/** One line per shard: its number, how many tests it holds, and their IDs in the order of the inventory. */
+export function shardLines(shards: readonly (readonly InventoryEntry[])[]): readonly string[] {
+  return shards.map((entries, index) => {
+    const tests =
+      entries.length === 0 ? 'no test' : `${entries.length} test(s)  ${entries.map((e) => e.id).join(', ')}`;
+
+    return `shard ${index + 1} of ${shards.length}  ${tests}`;
+  });
+}
+
+/** The lanes of a run: see `planRun`. */
+export function generateLanes(input: GenerateLanesInput): readonly Lane[] {
+  return planRun(input).lanes;
+}
+
+type WholeNumberInput = {
+  readonly value: number;
+  /** What the number is, as the start of a sentence. */
+  readonly name: string;
+};
+
+function requireWholeNumber(input: WholeNumberInput): void {
+  if (!Number.isInteger(input.value) || input.value < 1) {
+    throw new TestEngineError(`${input.name} is a whole number, 1 or more: '${String(input.value)}' is not.`);
   }
+}
 
-  if (!Number.isInteger(liveChainLanes) || liveChainLanes < 1) {
+function requireShard(shard: Shard): void {
+  requireWholeNumber({ value: shard.count, name: 'The number of shards' });
+
+  if (!Number.isInteger(shard.number) || shard.number < 1 || shard.number > shard.count) {
     throw new TestEngineError(
-      `The number of lanes for live chains is a whole number, 1 or more: '${String(liveChainLanes)}' is not.`,
+      `The number of the shard is a whole number from 1 to ${shard.count}: '${String(shard.number)}' is not.`,
     );
   }
+}
 
-  const position = new Map(entries.map((entry, index) => [entry.id, index]));
-  const lanes = Array.from({ length: maximum }, () => {
-    return { resources: new Set<Resource>(), entries: [] as InventoryEntry[] };
-  });
+/** Reads a shard as a command line writes it: `2/3` is shard 2 of 3. */
+export function parseShard(text: string): Shard {
+  const match = /^(\d+)\/(\d+)$/.exec(text);
 
-  for (const group of groupsOf({ entries, liveChainLanes })) {
-    // Among the lanes with the lowest weight, the first one of the list has the lowest number.
-    const lowest = Math.min(...lanes.map((lane) => weightOf(lane.entries)));
-    const lane = lanes.find((candidate) => weightOf(candidate.entries) === lowest);
+  if (match === null) throw new TestEngineError(`A shard is written k/n, as in 2/3: '${text}' is not.`);
 
-    if (lane === undefined) throw new Error('No lane can take the group.');
+  const shard = { number: Number(match[1]), count: Number(match[2]) };
 
-    lane.entries.push(...group.entries);
-    group.resources.forEach((resource) => lane.resources.add(resource));
-  }
+  requireShard(shard);
 
-  return lanes
-    .filter((lane) => lane.entries.length > 0)
-    .map((lane, index) => ({
-      number: index + 1,
-      ports: [...lane.resources].filter((resource) => typeof resource === 'number').sort((a, b) => a - b),
-      liveChains: [...lane.resources].some(isLiveChainsShare),
-      entries: [...lane.entries].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0)),
-    }));
+  return shard;
 }
 
 /** One line per lane: its number, what its tests share, and its tests in the order they run. */

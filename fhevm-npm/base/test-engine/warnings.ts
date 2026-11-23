@@ -1,5 +1,4 @@
 import { TestEngineError } from './errors.ts';
-import type { Lane } from './lanes.ts';
 import type { ResolvedTest } from './selection.ts';
 
 /**
@@ -7,8 +6,8 @@ import type { ResolvedTest } from './selection.ts';
  * run only says it. A strict run treats it as wrong, and does not start.
  */
 export type RunWarningsInput = {
-  /** The lanes of the run. */
-  readonly lanes: readonly Lane[];
+  /** How many tests the selection selects and can run, over all its shards. */
+  readonly selectedCount: number;
   /** The tests that the selection holds and that cannot run, for lack of the RPC URL of a live chain. */
   readonly unavailable: readonly ResolvedTest[];
   /** True: a warning fails the run. */
@@ -20,7 +19,7 @@ export type RunWarningsInput = {
  * start. Otherwise prints each one, and the run goes on.
  */
 export function reportRunWarnings(input: RunWarningsInput): void {
-  const warnings = [...emptySelectionWarnings(input.lanes), ...unavailableWarnings(input.unavailable)];
+  const warnings = [...emptySelectionWarnings(input.selectedCount), ...unavailableWarnings(input.unavailable)];
 
   if (warnings.length === 0) return;
 
@@ -32,8 +31,8 @@ export function reportRunWarnings(input: RunWarningsInput): void {
 }
 
 /** A run that would run no test is doubtful: a filter with a typing mistake selects nothing, and would pass. */
-function emptySelectionWarnings(lanes: readonly Lane[]): readonly string[] {
-  return lanes.length === 0 ? ['The run runs no test: its selection selects none, or only skipped ones.'] : [];
+function emptySelectionWarnings(selectedCount: number): readonly string[] {
+  return selectedCount === 0 ? ['The run runs no test: its selection selects none, or only skipped ones.'] : [];
 }
 
 /**

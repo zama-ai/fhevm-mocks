@@ -35,9 +35,11 @@ test('formatDuration shows seconds with one decimal', () => {
   assert.equal(formatDuration(50), '0.1s');
 });
 
-test('formatElapsed shows seconds, then minutes, then hours, and never a fraction', () => {
+test('formatElapsed shows seconds, then minutes, then hours, rounded to the nearest second', () => {
   assert.equal(formatElapsed(0), '0s');
-  assert.equal(formatElapsed(45_900), '45s');
+  assert.equal(formatElapsed(45_400), '45s');
+  assert.equal(formatElapsed(999), '1s');
+  assert.equal(formatElapsed(59_600), '1m00s');
   assert.equal(formatElapsed(125_000), '2m05s');
   assert.equal(formatElapsed(3_725_000), '1h02m05s');
 });

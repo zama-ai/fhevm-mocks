@@ -19,6 +19,8 @@ Run every command of this guide from the workspace root.
 ./fhevm-npm-cli test-engine run --max-lanes 1 test-forge-std  # one test, by its ID
 ./fhevm-npm-cli test-engine run --ci --max-lanes 4 --dry-run  # run nothing: print what would run
 ./fhevm-npm-cli test-engine run --ci --max-lanes 4 --build "make compile"   # build first, then run
+./fhevm-npm-cli test-engine shards 3 --ci                     # which tests each of 3 machines would run
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 2/3 # the share of machine 2 of 3
 ./fhevm-npm-cli test-engine check-report test-report.json     # check the report of a run
 ./fhevm-npm-cli test-engine ps                                # the nodes of the engine that still run
 ./fhevm-npm-cli test-engine kill --all                        # stop them
@@ -171,6 +173,123 @@ lane 1  live chains  test-forge-std-fork-testnet -> test-forge-std-fork-resolve-
 Add `--json` to get the lanes as JSON.
 
 A run cannot be shorter than its longest test, whatever the maximum.
+
+## Split a run over several machines
+
+To run a selection on several machines, give each machine the same command with its own shard:
+`--shard <k>/<n>`.
+
+### What k and n mean
+
+A shard is the share of the selection that one machine runs.
+
+| Part | Meaning                                                           | Values        |
+| ---- | ----------------------------------------------------------------- | ------------- |
+| `n`  | How many machines share the selection: the number of shards.      | 1 or more     |
+| `k`  | Which of those shares this machine runs: the number of its shard. | From 1 to `n` |
+
+So `--shard 2/3` reads "this machine runs shard 2 of 3". The engine cuts the selection into 3 shards,
+and runs the second one. Without `--shard`, a run is `1/1`: one machine runs the whole selection.
+
+For example, take four tests: one `slow` test and three `fast` ones. With two machines, the `slow`
+test is a shard of its own, since it weighs more than the three others together:
+
+```sh
+./fhevm-npm-cli test-engine lanes --max-lanes 2 --shard 1/2 test-cleartext-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
+```
+
+```text
+lane 1  port 8700,8714,8715  test-cleartext-upgrade
+```
+
+```sh
+./fhevm-npm-cli test-engine lanes --max-lanes 2 --shard 2/2 test-cleartext-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
+```
+
+```text
+lane 1  no shared resource  test-hh-v3-plugin -> test-hh-v3-e2e
+lane 2  no shared resource  test-hh-v3-template
+```
+
+Machine 1 runs one test, and machine 2 runs the three others in two lanes. Each of the four tests
+is in one shard, and in one only.
+
+To see every shard at once, give the number of machines to `shards`, with the same selection:
+
+```sh
+./fhevm-npm-cli test-engine shards 2 test-cleartext-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
+```
+
+```text
+shard 1 of 2  1 test(s)  test-cleartext-upgrade
+shard 2 of 2  3 test(s)  test-hh-v3-plugin, test-hh-v3-template, test-hh-v3-e2e
+```
+
+`shards` runs nothing. It takes the selection of a run, and `--live-chain-lanes`. Add `--json` to
+get the shards as JSON.
+
+With three machines:
+
+```sh
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 1/3 --build "make build-ci"   # machine 1
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 2/3 --build "make build-ci"   # machine 2
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 3/3 --build "make build-ci"   # machine 3
+```
+
+Each machine builds once, runs its shard, and writes its own report.
+
+Follow three rules, or the machines do not cover the selection:
+
+1. Give every machine the same `n`.
+2. Give each `k` from 1 to `n` to exactly one machine. A `k` that no machine runs leaves its tests
+   unrun, and a `k` that two machines run runs its tests twice.
+3. Give every machine the same selection and the same other options. The engine splits the selection
+   from the inventory and from these options alone, so every machine then finds the same split.
+
+`check-report` catches a mistake in any of the three: see the end of this section.
+
+### How shards and lanes combine
+
+`--shard` and `--max-lanes` are independent, and neither has to be larger than the other:
+
+| Option        | Counts                          | Applies to          |
+| ------------- | ------------------------------- | ------------------- |
+| `--shard k/n` | Machines                        | The whole selection |
+| `--max-lanes` | Tests that run at the same time | One machine         |
+
+The engine first cuts the selection into `n` shards. Each machine then runs its shard in at most
+`--max-lanes` lanes. With `--shard 2/3 --max-lanes 4`, machine 2 runs up to four tests at once, and
+the three machines together up to twelve.
+
+Choose `--max-lanes` for the machine, by its number of processors. Choose `n` for the selection: a
+run lasts as long as its longest test, so more shards than long tests gain nothing.
+
+### What goes to which shard
+
+The engine balances the shards by the `duration` of their tests, as it does for the lanes:
+
+- Tests that share only a fixed port can go to two shards: each machine has its own ports.
+- Tests that use a live chain stay in one shard, since every machine uses the same RPC key. With
+  `--live-chain-lanes <n>`, they can go to `n` shards at most.
+- Tests that send transactions on the same live chain always stay in one shard.
+
+To see the lanes of one shard without running it, give the same options to `lanes`:
+
+```sh
+./fhevm-npm-cli test-engine lanes --ci --max-lanes 4 --shard 3/3
+```
+
+In the report of a shard, a test that another shard runs is `not-selected`, with the number of that
+shard. A shard that gets no test is valid: it runs nothing and passes.
+
+When every machine has ended, collect the reports and check them together:
+
+```sh
+./fhevm-npm-cli test-engine check-report report-1.json report-2.json report-3.json --inventory ALL_TESTS.json --ci
+```
+
+The command fails when a shard has no report or has two, when the reports were not built from the
+same inventory, selection and options, or when a selected test did not run in exactly one shard.
 
 ## Run the tests that need a live chain
 
@@ -338,5 +457,5 @@ selected, or when a test with `"ci": false` was.
 
 ## Limits
 
-- The engine has run on macOS only.
-- A run uses one machine. The engine cannot yet split a selection over several machines.
+- The engine was written and run on macOS.
+- The engine has run on Linux in a container only, on ARM. It has not run on a CI machine yet.
