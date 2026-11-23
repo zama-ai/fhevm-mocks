@@ -22,6 +22,7 @@ import {
   whatMakesADryRunFail,
 } from './open-questions.ts';
 import { formatDuration } from './output.ts';
+import { watchProgress } from './progress.ts';
 import { type Report, buildReport, countStates, writeReport } from './report.ts';
 import type { ResolvedTest } from './selection.ts';
 import { type RunTestsInput, type TestOutcome, runTests } from './test-lifecycle.ts';
@@ -49,6 +50,8 @@ export type RunSelectionInput = {
   readonly nodeLogLines: number;
   /** True: what the engine finds doubtful in the run fails it before any test starts. */
   readonly strict: boolean;
+  /** How often, in seconds, the run prints the tests that are still running. Undefined: never. */
+  readonly progressIntervalSeconds: number | undefined;
 };
 
 /** Builds the workspace when the run was given a build command, runs the selected tests, then writes the final report. */
@@ -62,6 +65,11 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
 
   const interruption = watchForInterruption();
   const closedOutput = tolerateClosedOutput();
+  const progress = watchProgress({
+    intervalMilliseconds:
+      input.progressIntervalSeconds === undefined ? undefined : input.progressIntervalSeconds * 1000,
+    write: (line) => console.log(line),
+  });
 
   try {
     const build = await buildOfRun({ ...input, interruption: interruption.signal });
@@ -81,13 +89,18 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
       nodeLogLines: input.nodeLogLines,
       verbose: input.verbose,
       interruption: interruption.signal,
-      onOutcome: printOutcome,
+      onStart: progress.started,
+      onOutcome: (outcome) => {
+        progress.ended(outcome.id);
+        printOutcome(outcome);
+      },
     });
 
     measuredDurationsAndTheDurationField();
 
     return finishRun({ locations, report: buildReport({ inventory, resolved, dryRun: false, outcomes, build }) });
   } finally {
+    progress.stop();
     interruption.stopWatching();
     closedOutput.stopTolerating();
   }

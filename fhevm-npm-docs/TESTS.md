@@ -228,13 +228,25 @@ whose node the engine starts, start the node yourself on the port of the invento
 
 ## Read the output of a run
 
-A run prints one line when a test ends, and one summary line:
+A run prints one line when a test starts, one line when a test ends, and one summary line:
 
 ```text
+▶ started  lane 4  test-forge-std
 ✅ passed  lane 4  test-forge-std  22.3s
 ❌ failed  lane 2  test-cleartext-v-cur  292.2s  log: test-logs/test-cleartext-v-cur.log
 Run: 20 passed, 1 failed, 0 skipped, 0 unavailable, 34 not selected. Report: test-report.json
 ```
+
+Every 30 seconds, the run also prints one line for each test that is still running, with the time
+since the test started:
+
+```text
+⏳ running  lane 1  test-forge-std-internal-fork-testnet  1m30s
+```
+
+A forge test prints nothing while one of its functions runs, and a fork test can take minutes. These
+lines show that such a test is still running. To change the interval, add `--progress <seconds>`.
+`--progress 0` removes the lines.
 
 To print the output of every test while it runs, with the ID of the test in front of each line, add
 `--verbose`.

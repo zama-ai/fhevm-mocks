@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { formatDuration, linePrefixer } from '../base/test-engine/output.ts';
+import { formatElapsed } from '../base/test-engine/progress.ts';
 
 function prefixed(chunks: readonly Buffer[]): readonly string[] {
   const lines: string[] = [];
@@ -32,4 +33,11 @@ test('a character split over chunks comes out whole', () => {
 test('formatDuration shows seconds with one decimal', () => {
   assert.equal(formatDuration(2049), '2.0s');
   assert.equal(formatDuration(50), '0.1s');
+});
+
+test('formatElapsed shows seconds, then minutes, then hours, and never a fraction', () => {
+  assert.equal(formatElapsed(0), '0s');
+  assert.equal(formatElapsed(45_900), '45s');
+  assert.equal(formatElapsed(125_000), '2m05s');
+  assert.equal(formatElapsed(3_725_000), '1h02m05s');
 });

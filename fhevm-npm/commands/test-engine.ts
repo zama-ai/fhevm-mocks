@@ -35,6 +35,9 @@ const SUCCESS_EXIT_STATUS = 0;
 /** How long one test may take when the run names no limit: one hour. */
 const DEFAULT_TIME_LIMIT_SECONDS = 3600;
 
+/** How often a run prints the tests that are still running, when the run names no interval. */
+const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
+
 /** The exit status of a run with at least one failed test, and of a report check that found a problem. */
 const FAILURE_EXIT_STATUS = 1;
 
@@ -51,6 +54,8 @@ type RunOptions = LocationOptions &
     readonly verbose: boolean;
     /** In seconds. 0 means no limit. */
     readonly timeout: number;
+    /** In seconds. 0 means that the run never prints the tests that are still running. */
+    readonly progress: number;
     readonly build?: string | undefined;
     readonly maxLanes: number;
     readonly strict: boolean;
@@ -159,6 +164,12 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
       parseTimeLimit,
       DEFAULT_TIME_LIMIT_SECONDS,
     )
+    .option(
+      '--progress <seconds>',
+      'how often to print the tests that are still running, with the time since each started; 0 for never',
+      parseProgressInterval,
+      DEFAULT_PROGRESS_INTERVAL_SECONDS,
+    )
     .action(reportingStatus(runTestsOfSelection));
 
   program
@@ -249,6 +260,12 @@ function parseTimeLimit(value: string): number {
   return Number(value);
 }
 
+function parseProgressInterval(value: string): number {
+  if (!/^\d+(\.\d+)?$/.test(value)) throw new InvalidArgumentError('An interval is a number of seconds, or 0.');
+
+  return Number(value);
+}
+
 function parseChainId(value: string): number {
   if (!/^[1-9]\d*$/.test(value)) throw new InvalidArgumentError('A chain id is a positive integer.');
 
@@ -306,6 +323,7 @@ async function runTestsOfSelection(ids: readonly string[], options: RunOptions):
     buildCommand: options.build,
     maximumLanes: options.maxLanes,
     strict: options.strict,
+    progressIntervalSeconds: options.progress === 0 ? undefined : options.progress,
     nodeLogLines: nodeLogLines(options),
   };
 

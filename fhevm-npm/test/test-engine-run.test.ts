@@ -505,6 +505,35 @@ test('a test whose live chain has no RPC URL set does not start, is unavailable,
   assert.equal(existsSync(join(repository.root, 'ran-fork-a')), true);
 });
 
+test('a run says when each test starts, and at each interval which tests still run and since when', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-quick': fixtureTest({ command: 'true' }),
+      'test-silent': fixtureTest({ command: 'sleep 2.6' }),
+    },
+  });
+  const argv = ['run', '--root', repository.root, '--max-lanes', '2'];
+
+  const run = await captureEngine({ context, argv: [...argv, '--progress', '1'] });
+  const lines = run.stdout.join('\n');
+
+  assert.equal(run.status, 0);
+  assert.match(lines, /^▶ started {2}lane \d {2}test-quick$/m);
+  assert.match(lines, /^▶ started {2}lane \d {2}test-silent$/m);
+  // The silent test prints nothing itself, and the run still shows that it runs.
+  assert.match(lines, /^⏳ running {2}lane \d {2}test-silent {2}1s$/m);
+  assert.match(lines, /^⏳ running {2}lane \d {2}test-silent {2}2s$/m);
+  assert.doesNotMatch(lines, /running {2}lane \d {2}test-quick/, 'a test that ended is in no later line');
+  assert.ok(lines.indexOf('started  lane') < lines.indexOf('passed  lane'), 'a test starts before it ends');
+
+  const quiet = await captureEngine({ context, argv: [...argv, '--progress', '0'] });
+
+  assert.match(quiet.stdout.join('\n'), /▶ started {2}lane \d {2}test-silent/);
+  assert.doesNotMatch(quiet.stdout.join('\n'), /⏳ running/);
+});
+
 ////////////////////////////////////////////////////////////////////////////////
 // The build
 ////////////////////////////////////////////////////////////////////////////////

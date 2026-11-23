@@ -5,6 +5,7 @@ import { type RunningNode, needsRunnerNode, runnerNodeChain, startNode } from '.
 import type { NodeAddress } from './open-questions.ts';
 import { formatDuration } from './output.ts';
 import { describeExit, isSuccess, startInGroup } from './process.ts';
+import type { StartedTest } from './progress.ts';
 import { type TestLog, openTestLog } from './test-log.ts';
 import { errorMessage } from './utils.ts';
 
@@ -41,6 +42,8 @@ export type RunTestsInput = {
   readonly interruption: AbortSignal;
   /** How long one test may take, from its start to its end. Undefined: as long as it takes. */
   readonly timeLimitMilliseconds: number | undefined;
+  /** Called when a test starts, before anything of it runs. */
+  readonly onStart: (test: StartedTest) => void;
   readonly onOutcome: (outcome: TestOutcome) => void;
 };
 
@@ -63,6 +66,8 @@ async function runLane(input: RunLaneInput): Promise<readonly TestOutcome[]> {
   const outcomes: TestOutcome[] = [];
 
   for (const [index, entry] of input.lane.entries.entries()) {
+    input.onStart({ id: entry.id, lane: input.lane.number });
+
     const outcome = await runTest({ ...input, entry, lane: input.lane.number, position: index + 1 });
 
     input.onOutcome(outcome);
@@ -72,7 +77,7 @@ async function runLane(input: RunLaneInput): Promise<readonly TestOutcome[]> {
   return outcomes;
 }
 
-type RunTestInput = Omit<RunTestsInput, 'lanes' | 'onOutcome'> & {
+type RunTestInput = Omit<RunTestsInput, 'lanes' | 'onStart' | 'onOutcome'> & {
   readonly entry: InventoryEntry;
   readonly lane: number;
   readonly position: number;
