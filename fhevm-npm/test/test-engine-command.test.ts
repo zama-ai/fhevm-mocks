@@ -3,7 +3,7 @@ import { relative } from 'node:path';
 import test from 'node:test';
 
 import { selectionLines } from '../base/test-engine/listing.ts';
-import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/open-questions.ts';
+import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import {
   ANVIL_CHAIN,
   SEPOLIA_CHAIN,
@@ -38,7 +38,6 @@ test('validate fails the run on an invalid inventory, and says what is wrong', a
 
   assert.equal(result.status, RUN_FAILURE_EXIT_STATUS);
   assert.match(result.stderr, /\/test-bad: missing required property 'ci'/);
-  assert.match(result.stderr, /To be implemented: how the exit status reflects a failure of the run itself/);
 });
 
 test('list prints one line per test of the inventory, with its state', async (context) => {
@@ -54,13 +53,13 @@ test('list prints one line per test of the inventory, with its state', async (co
   ]);
 });
 
-test('a candidate filter logs that the filters are to be implemented', async (context) => {
+test('a command that only reads the inventory prints nothing but its answer', async (context) => {
   const repository = writeFixtureRepository({ context, inventory: INVENTORY });
 
   const filtered = await captureEngine({ context, argv: ['list', '--root', repository.root, '--match', 'anvil'] });
   const unfiltered = await captureEngine({ context, argv: ['list', '--root', repository.root, '--ci'] });
 
-  assert.match(filtered.stderr, /To be implemented: the filters of the selection/);
+  assert.equal(filtered.stderr, '');
   assert.equal(unfiltered.stderr, '');
 });
 

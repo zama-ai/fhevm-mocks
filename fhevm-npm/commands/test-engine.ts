@@ -5,6 +5,7 @@ import { Command, CommanderError, InvalidArgumentError, Option } from 'commander
 import { listEngineNodes, stopEngineNodes } from '../base/test-engine/engine-processes.ts';
 import { ENV_FILE_OPTION_DEFAULT, applyEnvFile, envFileLines } from '../base/test-engine/env-file.ts';
 import { TestEngineError } from '../base/test-engine/errors.ts';
+import { FAILURE_EXIT_STATUS, RUN_FAILURE_EXIT_STATUS, SUCCESS_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import { CHAIN_RUNTIMES, type ChainRuntime, type Inventory, loadInventory } from '../base/test-engine/inventory.ts';
 import { checkPorts, generateLanes, laneLines } from '../base/test-engine/lanes.ts';
 import { selectionLines } from '../base/test-engine/listing.ts';
@@ -20,7 +21,6 @@ import {
 } from '../base/test-engine/locations.ts';
 import { readJsonObject } from '../base/test-engine/json.ts';
 import { DEFAULT_NODE_LOG_LINES, NODE_LOG_LINES_VARIABLE } from '../base/test-engine/node-log.ts';
-import { exitStatusOfAFailedRun } from '../base/test-engine/open-questions.ts';
 import { checkReport } from '../base/test-engine/report-check.ts';
 import { countStates } from '../base/test-engine/report.ts';
 import { dryRunSelection, removeEarlierReport, runSelection } from '../base/test-engine/run.ts';
@@ -29,17 +29,11 @@ import { type SelectionRequest, resolveSelection } from '../base/test-engine/sel
 /** The name of the command inside `fhevm-npm`. */
 export const TEST_ENGINE_COMMAND = 'test-engine';
 
-/** The exit status of a command that did its work and found no failed test. */
-const SUCCESS_EXIT_STATUS = 0;
-
 /** How long one test may take when the run names no limit: one hour. */
 const DEFAULT_TIME_LIMIT_SECONDS = 3600;
 
 /** How often a run prints the tests that are still running, when the run names no interval. */
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
-
-/** The exit status of a run with at least one failed test, and of a report check that found a problem. */
-const FAILURE_EXIT_STATUS = 1;
 
 type SelectionOptions = {
   readonly match?: string | undefined;
@@ -98,7 +92,7 @@ export async function testEngineCommand(argv: readonly string[]): Promise<number
     // Commander already printed its own errors, such as an unknown option.
     if (error instanceof TestEngineError) console.error(`❌ ${error.message}`);
 
-    return exitStatusOfAFailedRun();
+    return RUN_FAILURE_EXIT_STATUS;
   }
 
   return exitStatus;
@@ -435,7 +429,7 @@ function selectionRequest(input: SelectionRequestInput): SelectionRequest {
   return {
     ids: input.ids,
     ci: input.options.ci,
-    candidateFilters: {
+    filters: {
       match: input.options.match,
       chainId: input.options.chain,
       runtime: input.options.runtime,

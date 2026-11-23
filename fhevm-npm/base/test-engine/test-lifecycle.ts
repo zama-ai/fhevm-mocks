@@ -1,8 +1,7 @@
 import type { InventoryEntry } from './inventory.ts';
 import type { Lane } from './lanes.ts';
 import { type NodeLog, openNodeLog } from './node-log.ts';
-import { type RunningNode, needsRunnerNode, runnerNodeChain, startNode } from './nodes.ts';
-import type { NodeAddress } from './open-questions.ts';
+import { type NodeAddress, type RunningNode, needsRunnerNode, runnerNodeChain, startNode } from './nodes.ts';
 import { formatDuration } from './output.ts';
 import { describeExit, isSuccess, startInGroup } from './process.ts';
 import type { StartedTest } from './progress.ts';
@@ -183,7 +182,7 @@ type StopNodeInput = {
 };
 
 /**
- * Stops the node of a test when the test ends, however it ends: see `stoppingTheNodesTheEngineStarted`.
+ * Stops the node of a test, with its whole process group, when the test ends, however it ends.
  * Returns true when the node had died before that, and says so in the log, with how the node ended.
  */
 async function stopNodeOfTest(input: StopNodeInput): Promise<boolean> {

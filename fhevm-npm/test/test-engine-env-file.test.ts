@@ -6,7 +6,7 @@ import test, { type TestContext } from 'node:test';
 
 import { applyEnvFile, envFileLines } from '../base/test-engine/env-file.ts';
 import type { Chain } from '../base/test-engine/inventory.ts';
-import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/open-questions.ts';
+import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import {
   captureEngine,
   fixtureTest,

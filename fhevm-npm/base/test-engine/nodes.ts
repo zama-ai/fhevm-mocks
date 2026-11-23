@@ -69,7 +69,7 @@ export function needsRunnerNode(test: Test): boolean {
   return nodeChainsStartedBy(test, 'runner').length > 0;
 }
 
-/** True when the test starts a node of its own. The engine starts none for it: see `nodeOfATestThatStartsItsOwn`. */
+/** True when the test starts a node of its own, on the ports that the inventory states. The engine starts none for it. */
 export function startsItsOwnNode(test: Test): boolean {
   return nodeChainsStartedBy(test, 'test').length > 0;
 }
@@ -265,4 +265,23 @@ function requireChainId(input: RequireChainIdInput): void {
       `The node answers with chain id ${String(input.answered)}, and the test needs chain id ${input.expected}.`,
     );
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// What a test command gets
+////////////////////////////////////////////////////////////////////////////////
+
+/** Where the node that the engine started for a test is. */
+export type NodeAddress = {
+  readonly url: string;
+  readonly port: number;
+};
+
+/**
+ * The environment of a test command whose node the engine started. The command finds its node through
+ * two variables, the same for an anvil node and for a Hardhat node. It never carries the GUID of the
+ * engine: only a node does.
+ */
+export function environmentWithNode(node: NodeAddress): NodeJS.ProcessEnv {
+  return { ...environmentWithoutGuid(), ANVIL_RPC_URL: node.url, ANVIL_PORT: String(node.port) };
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { CandidateFilters } from '../base/test-engine/open-questions.ts';
+import type { SelectionFilters } from '../base/test-engine/filters.ts';
 import type { Chain, Test } from '../base/test-engine/inventory.ts';
 import type { Environment } from '../base/test-engine/live-chains.ts';
 import { type ResolvedTest, type SelectionRequest, resolveSelection } from '../base/test-engine/selection.ts';
@@ -14,14 +14,14 @@ const INVENTORY = fixtureInventory({
   'test-skipped': fixtureTest({ skipped: true, chains: [ANVIL_CHAIN] }),
 });
 
-type RequestParts = Partial<Pick<SelectionRequest, 'ids' | 'ci'>> & CandidateFilters;
+type RequestParts = Partial<Pick<SelectionRequest, 'ids' | 'ci'>> & SelectionFilters;
 
 /** An environment that sets the RPC URL of Sepolia, so that the tests on that chain can run. */
 const WITH_SEPOLIA = { SEPOLIA_RPC_URL: 'https://sepolia.example.invalid' };
 
 function states(parts: RequestParts, environment: Environment = WITH_SEPOLIA): Record<string, string> {
-  const { ids = [], ci = false, ...candidateFilters } = parts;
-  const resolved = resolveSelection({ inventory: INVENTORY, request: { ids, ci, candidateFilters }, environment });
+  const { ids = [], ci = false, ...filters } = parts;
+  const resolved = resolveSelection({ inventory: INVENTORY, request: { ids, ci, filters }, environment });
 
   return Object.fromEntries(resolved.map((entry) => [entry.id, entry.state]));
 }
@@ -110,7 +110,7 @@ const FORK_OF_TWO: Chain[] = [
 ];
 
 function resolveLive(tests: Readonly<Record<string, Test>>, environment: Environment): readonly ResolvedTest[] {
-  const request = { ids: [], ci: false, candidateFilters: {} };
+  const request = { ids: [], ci: false, filters: {} };
 
   return resolveSelection({ inventory: fixtureInventory(tests), request, environment });
 }

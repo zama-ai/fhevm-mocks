@@ -6,26 +6,19 @@ import { type BuildOutcome, runBuild } from './build.ts';
 import { TestEngineError } from './errors.ts';
 import type { Inventory } from './inventory.ts';
 import { type Lane, generateLanes } from './lanes.ts';
-import type { Locations } from './locations.ts';
-import type { InventoryEntry } from './inventory.ts';
-import { needsRunnerNode, startsItsOwnNode } from './nodes.ts';
+import { type Locations, outputFilesIn } from './locations.ts';
+import { environmentWithNode } from './nodes.ts';
 import {
-  independenceFromOrderAndParallelism,
-  howACommandFindsItsNode,
   interruptedRun,
   measuredDurationsAndTheDurationField,
-  nodeOfATestThatStartsItsOwn,
-  outputOfEachTest,
   resourcesThatIsolationNeeds,
-  stoppingTheNodesTheEngineStarted,
   timeLimitOfATest,
-  whatMakesADryRunFail,
 } from './open-questions.ts';
 import { formatDuration } from './output.ts';
 import { watchProgress } from './progress.ts';
 import { type Report, buildReport, countStates, writeReport } from './report.ts';
 import type { ResolvedTest } from './selection.ts';
-import { type RunTestsInput, type TestOutcome, runTests } from './test-lifecycle.ts';
+import { type TestOutcome, runTests } from './test-lifecycle.ts';
 import { reportRunWarnings } from './warnings.ts';
 import { errorMessage } from './utils.ts';
 
@@ -76,16 +69,14 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
 
     console.log(`▶ Running ${entries.length} test(s) in ${lanes.length} lane(s), from ${locations.root}.`);
 
-    const openAnswers = answersToOpenQuestions({
-      entries,
-      logsDirectory: locations.logsDirectory,
-      timeLimitSeconds: input.timeLimitSeconds,
-    });
+    resourcesThatIsolationNeeds();
 
     const outcomes = await runTests({
       root: locations.root,
       lanes,
-      ...openAnswers,
+      ...outputFilesIn(locations.logsDirectory),
+      environmentWithNode,
+      timeLimitMilliseconds: timeLimitOfATest(input.timeLimitSeconds),
       nodeLogLines: input.nodeLogLines,
       verbose: input.verbose,
       interruption: interruption.signal,
@@ -123,41 +114,6 @@ async function buildOfRun(input: BuildOfRunInput): Promise<BuildOutcome | undefi
   });
 }
 
-type OpenAnswersInput = {
-  readonly entries: readonly InventoryEntry[];
-  readonly logsDirectory: string;
-  readonly timeLimitSeconds: number | undefined;
-};
-
-/**
- * Reaches every open question that this run meets, once, so that each one shows in the output of the
- * run. Returns what the run needs from the ones that give something.
- */
-function answersToOpenQuestions(
-  input: OpenAnswersInput,
-): Pick<RunTestsInput, 'logFileOf' | 'nodeLogFileOf' | 'environmentWithNode' | 'timeLimitMilliseconds'> {
-  const { entries } = input;
-  const startsNodes = entries.some((entry) => needsRunnerNode(entry.test));
-
-  resourcesThatIsolationNeeds();
-  independenceFromOrderAndParallelism();
-
-  if (startsNodes) stoppingTheNodesTheEngineStarted();
-
-  if (entries.some((entry) => startsItsOwnNode(entry.test))) nodeOfATestThatStartsItsOwn();
-
-  return {
-    timeLimitMilliseconds: timeLimitOfATest(input.timeLimitSeconds),
-    ...outputOfEachTest(input.logsDirectory),
-    environmentWithNode: startsNodes ? howACommandFindsItsNode() : environmentWithoutNode,
-  };
-}
-
-/** No test of the run has a node of the engine, so no command asks where one is. */
-function environmentWithoutNode(): never {
-  throw new Error('No test of this run has a node of the engine.');
-}
-
 /**
  * The lanes of a run, known before anything starts. Reports what the engine finds doubtful in them, and
  * fails there when the run is strict.
@@ -178,7 +134,6 @@ export function dryRunSelection(input: RunSelectionInput): Report {
   const lanes = lanesOfRun(input);
 
   requireRoot(locations);
-  whatMakesADryRunFail();
 
   // A dry run builds nothing: it only says what the run would build.
   if (input.buildCommand !== undefined) console.log(`would build  $ ${input.buildCommand}`);

@@ -31,6 +31,20 @@ export type Locations = {
   readonly logsDirectory: string;
 };
 
+/** Where the output of a test goes, and where the output of its node goes. */
+export type OutputFiles = {
+  readonly logFileOf: (id: string) => string;
+  readonly nodeLogFileOf: (id: string) => string;
+};
+
+/** Each test has one log file, named by its ID, and the node that the engine started for it has another. */
+export function outputFilesIn(logsDirectory: string): OutputFiles {
+  return {
+    logFileOf: (id) => resolve(logsDirectory, `${id}.log`),
+    nodeLogFileOf: (id) => resolve(logsDirectory, `${id}.node.log`),
+  };
+}
+
 export const INVENTORY_OPTION_DEFAULT = `<root>/${DEFAULT_INVENTORY_NAME}`;
 export const REPORT_OPTION_DEFAULT = `<root>/${DEFAULT_REPORT_NAME}`;
 export const LOGS_OPTION_DEFAULT = `<root>/${DEFAULT_LOGS_NAME}/`;

@@ -9,7 +9,7 @@ import { GUID_PREFIX, engineGuidAmong, isEngineGuid, newGuid } from '../base/tes
 import type { NodeChain } from '../base/test-engine/inventory.ts';
 import { openNodeLog } from '../base/test-engine/node-log.ts';
 import { type RunningNode, startNode } from '../base/test-engine/nodes.ts';
-import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/open-questions.ts';
+import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import { openTestLog } from '../base/test-engine/test-log.ts';
 import {
   ANVIL_CHAIN,
@@ -300,7 +300,6 @@ test('a test that starts its own node, and a test with no node chain, get no nod
   assert.deepEqual(run.states, { 'test-own-node': 'passed', 'test-no-chain': 'passed' });
   assert.match(readLog({ repository, id: 'test-own-node' }), /node: none/);
   assert.deepEqual(fakeNodeRecords(repository), []);
-  assert.match(run.stderr, /To be implemented: how the engine gives a node to a test with "startedBy": "test"/);
 });
 
 test('a command never carries a GUID, even when the engine inherited one', async (context) => {

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import type { Chain } from '../base/test-engine/inventory.ts';
-import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/open-questions.ts';
+import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import {
   type FixtureRepository,
   captureEngine,

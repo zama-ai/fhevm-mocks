@@ -1,7 +1,7 @@
 import { TestEngineError } from './errors.ts';
 import type { Inventory, InventoryEntry, Test } from './inventory.ts';
 import { type Environment, missingRpcVariables } from './live-chains.ts';
-import { type CandidateFilters, type EntryPredicate, filtersOfTheSelection } from './open-questions.ts';
+import { type EntryPredicate, type SelectionFilters, filterPredicates } from './filters.ts';
 
 /** What a run is asked for. An empty request selects every test. A test must match every part. */
 export type SelectionRequest = {
@@ -9,8 +9,8 @@ export type SelectionRequest = {
   readonly ids: readonly string[];
   /** True: only tests with `"ci": true`. The engine never detects CI: the CI job asks for it. */
   readonly ci: boolean;
-  /** The filters that the specification has not defined yet. */
-  readonly candidateFilters: CandidateFilters;
+  /** The filters of the selection. */
+  readonly filters: SelectionFilters;
 };
 
 /**
@@ -42,7 +42,7 @@ export function resolveSelection(input: ResolveSelectionInput): readonly Resolve
 
   rejectUnknownIds({ inventory, ids: request.ids });
 
-  const predicates = [...settledPredicates(request), ...filtersOfTheSelection(request.candidateFilters)];
+  const predicates = [...requestPredicates(request), ...filterPredicates(request.filters)];
 
   return [...inventory.tests].map(([id, test]) => {
     const isInSelection = predicates.every((predicate) => predicate({ id, test }));
@@ -66,8 +66,8 @@ function rejectUnknownIds(input: UnknownIdsInput): void {
   }
 }
 
-/** The parts of a request that the specification defines: exact IDs, and the CI selection. */
-function settledPredicates(request: SelectionRequest): readonly EntryPredicate[] {
+/** The parts of a request that are no filter: exact IDs, and the CI selection. */
+function requestPredicates(request: SelectionRequest): readonly EntryPredicate[] {
   const predicates: EntryPredicate[] = [];
 
   if (request.ids.length > 0) {

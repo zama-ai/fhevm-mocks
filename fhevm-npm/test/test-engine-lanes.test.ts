@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { Chain, InventoryEntry, NodeChain, Test } from '../base/test-engine/inventory.ts';
 import { type Lane, checkPorts, generateLanes, laneLines } from '../base/test-engine/lanes.ts';
-import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/open-questions.ts';
+import { RUN_FAILURE_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import { fixedPortsOfSpec, portsOfSpec } from '../base/test-engine/port-spec.ts';
 import {
   ANVIL_CHAIN,
