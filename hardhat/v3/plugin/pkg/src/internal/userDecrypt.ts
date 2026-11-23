@@ -9,7 +9,7 @@ import type { FhevmClient } from '../types.js';
 import type { FhevmUser, FhevmUserDecryptOptions } from '../types-p.js';
 import { PLUGIN_ID } from './constants.js';
 import { assertHandleIsInitialized } from './fhevmHandle.js';
-import { timestampNow } from './time.js';
+import { PERMIT_START_MARGIN_SECONDS, timestampNow } from './time.js';
 
 const DEFAULT_DURATION_DAYS = 365;
 const SECONDS_PER_DAY = 24 * 60 * 60;
@@ -42,7 +42,7 @@ export async function userDecryptOne(
   }
 
   const transportKeyPair = await client.generateTransportKeyPair();
-  const startTimestamp = Number(options?.validity?.startTimestamp ?? timestampNow());
+  const startTimestamp = Number(options?.validity?.startTimestamp ?? timestampNow() - PERMIT_START_MARGIN_SECONDS);
   const durationDays = Number(options?.validity?.durationDays ?? DEFAULT_DURATION_DAYS);
 
   const signedPermit = await client.signLegacyDecryptionPermit({

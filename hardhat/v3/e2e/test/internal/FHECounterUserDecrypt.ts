@@ -77,7 +77,8 @@ describe('FHECounterUserDecrypt', function () {
 
     const signedPermitAlice = await fhevm.client.signLegacyDecryptionPermit({
       contractAddresses: [fheCounterContractAddress],
-      startTimestamp,
+      // 3 seconds in the past: the node checks the start against its latest block, not the wall clock.
+      startTimestamp: startTimestamp - 3,
       // The legacy API measured validity in days; `@fhevm/sdk` takes seconds.
       durationSeconds: durationDays * 24 * 60 * 60,
       signerAddress: accounts.alice.address,
@@ -99,5 +100,33 @@ describe('FHECounterUserDecrypt', function () {
     expect(clearCountAfterInc2).to.eq(2n);
     expect(decrypted1?.value).to.eq(1n);
     expect(decrypted2?.value).to.eq(2n);
+  });
+
+  // A node answers a read-only call with the timestamp of its latest block. A permit that starts at
+  // the wall-clock second is then in the future of the node as soon as that second has passed.
+  it('userDecrypt works when the wall clock is ahead of the latest block', async function () {
+    const encryptedOne = await fhevm.helpers.encryptUint32({
+      value: 1,
+      contractAddress: fheCounterContractAddress,
+      userAddress: signers.alice.address,
+    });
+
+    const tx = await fheCounterContract
+      .connect(signers.alice)
+      .increment(encryptedOne.externalEuint32, encryptedOne.inputProof);
+    await tx.wait();
+
+    const encryptedCount = (await fheCounterContract.getCount()) as Hex;
+
+    // Let the wall clock move to a later second than the block of the increment.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const clearCount = await fhevm.helpers.decryptUint32({
+      euint32: encryptedCount,
+      contractAddress: fheCounterContractAddress,
+      userAddress: accounts.alice.address,
+    });
+
+    expect(clearCount).to.eq(1n);
   });
 });

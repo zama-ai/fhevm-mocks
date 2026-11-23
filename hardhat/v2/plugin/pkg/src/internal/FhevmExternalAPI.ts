@@ -27,6 +27,7 @@ import type {
 } from './migration/placeholders';
 import type { FhevmClient } from './sdkTypes';
 import { logBox } from './utils/log';
+import { PERMIT_START_MARGIN_SECONDS, timestampNow } from './utils/time';
 
 /** Matches the legacy default from `@fhevm/mock-utils`. */
 const DEFAULT_DURATION_DAYS = 365;
@@ -446,7 +447,7 @@ export class FhevmExternalAPI implements HardhatFhevmRuntimeEnvironment {
 
     const transportKeyPair = await client.generateTransportKeyPair();
 
-    const startTimestamp = Number(options?.validity?.startTimestamp ?? Math.floor(Date.now() / 1000));
+    const startTimestamp = Number(options?.validity?.startTimestamp ?? timestampNow() - PERMIT_START_MARGIN_SECONDS);
     const durationDays = Number(options?.validity?.durationDays ?? DEFAULT_DURATION_DAYS);
 
     const signedPermit = await client.signLegacyDecryptionPermit({
