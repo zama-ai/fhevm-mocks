@@ -304,6 +304,12 @@ environment variable:
 
 To run these tests, give the engine the variables. See [Set the environment variables](#set-the-environment-variables).
 
+A test gets the RPC URL of a chain only when its `chains` in the inventory hold that chain, with the
+runtime `forge-fork` or `remote`. A test that declares no live chain gets none of the three
+variables, even when they are set. So a suite that holds fork tests among its local ones skips
+them, on your machine as on CI, and only the tests in the lane of the live chains call your RPC
+provider. When you add a test that needs a live chain, declare the chain, or the test finds no URL.
+
 If a variable is not set, or is empty, the engine does not start the tests that need it. Such a test
 is `unavailable`: the run warns, names the variable, and goes on. Its exit status does not change.
 

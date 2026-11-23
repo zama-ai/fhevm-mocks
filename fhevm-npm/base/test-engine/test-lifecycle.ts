@@ -1,7 +1,7 @@
 import type { InventoryEntry } from './inventory.ts';
 import type { Lane } from './lanes.ts';
 import { type NodeLog, openNodeLog } from './node-log.ts';
-import { type NodeAddress, type RunningNode, needsRunnerNode, runnerNodeChain, startNode } from './nodes.ts';
+import { type EnvironmentOfTestInput, type RunningNode, needsRunnerNode, runnerNodeChain, startNode } from './nodes.ts';
 import { formatDuration } from './output.ts';
 import { describeExit, isSuccess, startInGroup } from './process.ts';
 import type { StartedTest } from './progress.ts';
@@ -33,8 +33,8 @@ export type RunTestsInput = {
   readonly nodeLogFileOf: (id: string) => string;
   /** The most lines of a node's output that the engine keeps. */
   readonly nodeLogLines: number;
-  /** The environment of a command whose test has a node of the engine. */
-  readonly environmentWithNode: (node: NodeAddress) => NodeJS.ProcessEnv;
+  /** The environment of the command of a test, with the node that the engine started for it, if any. */
+  readonly environmentOfTest: (input: EnvironmentOfTestInput) => NodeJS.ProcessEnv;
   /** True: each line of a test's output is also printed, with the test ID in front. */
   readonly verbose: boolean;
   /** Aborted when the run is interrupted: every running command is stopped. */
@@ -223,7 +223,7 @@ async function runCommand(input: RunCommandInput): Promise<RunState> {
   const command = startInGroup({
     command: entry.test.command,
     cwd: input.root,
-    env: node === undefined ? undefined : input.environmentWithNode(node),
+    env: input.environmentOfTest({ entry, node }),
     onStream: log.attach,
     interruption: input.interruption,
   });

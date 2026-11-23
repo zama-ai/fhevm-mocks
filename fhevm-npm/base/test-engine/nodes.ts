@@ -3,7 +3,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { portListener } from './engine-processes.ts';
 import { TestEngineError } from './errors.ts';
 import { GUID_VARIABLE, environmentWithoutGuid, newGuid } from './guid.ts';
-import type { Chain, NodeChain, Test } from './inventory.ts';
+import type { Chain, InventoryEntry, NodeChain, Test } from './inventory.ts';
+import { withoutUndeclaredRpcVariables } from './live-chains.ts';
 import type { NodeLog } from './node-log.ts';
 import { isFixedPort, portsOfSpec } from './port-spec.ts';
 import { freePort } from './ports.ts';
@@ -281,11 +282,24 @@ export type NodeAddress = {
   readonly port: number;
 };
 
+export type EnvironmentOfTestInput = {
+  readonly entry: InventoryEntry;
+  /** The node that the engine started for the test. Undefined: the test has none. */
+  readonly node: NodeAddress | undefined;
+};
+
 /**
- * The environment of a test command whose node the engine started. The command finds its node through
- * two variables, the same for an anvil node and for a Hardhat node. It never carries the GUID of the
- * engine: only a node does.
+ * The environment of a test command: the environment of the engine, with three changes.
+ * - It never carries the GUID of the engine: only a node does.
+ * - It holds the RPC URL of a live chain only when the test declares that chain.
+ * - It gives the node that the engine started for the test, through two variables, the same for an
+ *   anvil node and for a Hardhat node.
  */
-export function environmentWithNode(node: NodeAddress): NodeJS.ProcessEnv {
-  return { ...environmentWithoutGuid(), [NODE_URL_VARIABLE]: node.url, [NODE_PORT_VARIABLE]: String(node.port) };
+export function environmentOfTest(input: EnvironmentOfTestInput): NodeJS.ProcessEnv {
+  const { entry, node } = input;
+  const environment = withoutUndeclaredRpcVariables({ entry, environment: environmentWithoutGuid() });
+
+  if (node === undefined) return environment;
+
+  return { ...environment, [NODE_URL_VARIABLE]: node.url, [NODE_PORT_VARIABLE]: String(node.port) };
 }

@@ -279,7 +279,7 @@ Whoever launches the tests sets these, except the two that the test engine sets.
 
 Five notes on the table:
 
-- The test engine in `fhevm-npm` reads the three RPC URL variables only to know whether a test can run: a test whose variable is not set does not start.
+- The test engine in `fhevm-npm` reads the three RPC URL variables to know whether a test can run: a test whose variable is not set does not start. It gives each one only to the tests that declare its chain in `ALL_TESTS.json`.
 - A fork test that needs a fixed block needs an RPC URL with archive state. A test whose RPC variable is not set skips itself, or uses a public endpoint: the result then says nothing about the chain.
 - A test that sends transactions on a live chain spends real funds of the account that `MNEMONIC` or `SEPOLIA_PRIVATE_KEY` names.
 - Hardhat takes a Hardhat variable from its own store on the machine, or from the environment.

@@ -55,3 +55,25 @@ export type MissingRpcVariablesInput = {
 export function missingRpcVariables(input: MissingRpcVariablesInput): readonly string[] {
   return rpcVariablesOfTest(input.entry).filter((variable) => (input.environment[variable] ?? '').trim() === '');
 }
+
+export type RpcVariablesOfTestInput = {
+  readonly entry: InventoryEntry;
+  readonly environment: NodeJS.ProcessEnv;
+};
+
+/**
+ * The environment without the RPC URL variables of the live chains that the test does not declare. A
+ * test reaches only the chains that the inventory says it uses: a test that reads the URL of another
+ * chain when it finds it, as a suite that holds fork tests does, finds none. So what a test does never
+ * depends on a URL that the machine happens to hold, and only the tests that declare a live chain can
+ * call its provider.
+ */
+export function withoutUndeclaredRpcVariables(input: RpcVariablesOfTestInput): NodeJS.ProcessEnv {
+  const declared = new Set(rpcVariablesOfTest(input.entry));
+  const undeclared = [...RPC_VARIABLE_OF_CHAIN_ID.values()].filter((variable) => !declared.has(variable));
+  const environment = { ...input.environment };
+
+  for (const variable of undeclared) delete environment[variable];
+
+  return environment;
+}

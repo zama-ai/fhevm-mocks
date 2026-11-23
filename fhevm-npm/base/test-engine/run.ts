@@ -7,7 +7,7 @@ import { TestEngineError } from './errors.ts';
 import type { Inventory } from './inventory.ts';
 import { type RunPlan, type Shard, planRun } from './lanes.ts';
 import { type Locations, outputFilesIn } from './locations.ts';
-import { environmentWithNode } from './nodes.ts';
+import { environmentOfTest } from './nodes.ts';
 import {
   interruptedRun,
   measuredDurationsAndTheDurationField,
@@ -82,7 +82,7 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
       root: locations.root,
       lanes,
       ...outputFilesIn(locations.logsDirectory),
-      environmentWithNode,
+      environmentOfTest,
       timeLimitMilliseconds: timeLimitOfATest(input.timeLimitSeconds),
       nodeLogLines: input.nodeLogLines,
       verbose: input.verbose,

@@ -540,6 +540,47 @@ test('a run says when each test starts, and at each interval which tests still r
   assert.doesNotMatch(quiet.stdout.join('\n'), /⏳ running/);
 });
 
+test('a test gets the RPC URL of a live chain only when it declares that chain', async (context) => {
+  const sepolia: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
+  const mainnet: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' };
+  const seen = (file: string): string => {
+    return `printf '%s|%s|%s|%s' "$SEPOLIA_RPC_URL" "$MAINNET_RPC_URL" "$ARBITRUM_RPC_URL" "$OTHER_CHAIN_RPC_URL" > ${file}`;
+  };
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-local': fixtureTest({ command: seen('seen-local') }),
+      'test-sepolia': fixtureTest({ command: seen('seen-sepolia'), chains: [sepolia] }),
+      'test-both': fixtureTest({ command: seen('seen-both'), chains: [sepolia, mainnet] }),
+    },
+  });
+
+  withEnvironment({
+    context,
+    variables: {
+      SEPOLIA_RPC_URL: 'https://sepolia.example.invalid',
+      MAINNET_RPC_URL: 'https://mainnet.example.invalid',
+      ARBITRUM_RPC_URL: 'https://arbitrum.example.invalid',
+      OTHER_CHAIN_RPC_URL: 'https://other.example.invalid',
+    },
+  });
+
+  const run = await captureEngine({ context, argv: ['run', '--root', repository.root, '--max-lanes', '2'] });
+  const read = (file: string): string => readFileSync(join(repository.root, file), 'utf8');
+
+  assert.equal(run.status, 0, run.stderr);
+  // A variable that the engine does not know as the URL of a live chain passes to every test.
+  assert.equal(read('seen-local'), '|||https://other.example.invalid');
+  assert.equal(read('seen-sepolia'), 'https://sepolia.example.invalid|||https://other.example.invalid');
+  assert.equal(
+    read('seen-both'),
+    'https://sepolia.example.invalid|https://mainnet.example.invalid||https://other.example.invalid',
+  );
+  // The engine itself keeps the variables: a later test still gets its own.
+  assert.equal(process.env['SEPOLIA_RPC_URL'], 'https://sepolia.example.invalid');
+});
+
 ////////////////////////////////////////////////////////////////////////////////
 // Shards
 ////////////////////////////////////////////////////////////////////////////////
