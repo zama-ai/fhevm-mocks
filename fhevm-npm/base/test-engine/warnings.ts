@@ -20,11 +20,7 @@ export type RunWarningsInput = {
  * start. Otherwise prints each one, and the run goes on.
  */
 export function reportRunWarnings(input: RunWarningsInput): void {
-  const warnings = [
-    ...emptySelectionWarnings(input.lanes),
-    ...unavailableWarnings(input.unavailable),
-    ...sharedWalletWarnings(input.lanes),
-  ];
+  const warnings = [...emptySelectionWarnings(input.lanes), ...unavailableWarnings(input.unavailable)];
 
   if (warnings.length === 0) return;
 
@@ -57,37 +53,5 @@ function unavailableWarnings(unavailable: readonly ResolvedTest[]): readonly str
     const verb = variables.includes(',') ? 'are' : 'is';
 
     return `${ids.length} test(s) cannot run, because ${variables} ${verb} not set: ${ids.join(', ')}.`;
-  });
-}
-
-/**
- * Tests that need a funded account on the same live chain share that account. The engine does not
- * record it as a conflict yet, so such tests can be in two lanes, and use the account at the same time.
- */
-function sharedWalletWarnings(lanes: readonly Lane[]): readonly string[] {
-  const lanesOfChain = new Map<number, Map<number, string[]>>();
-
-  for (const lane of lanes) {
-    for (const { id, test } of lane.entries) {
-      for (const chain of test.chains) {
-        if (chain.runtime !== 'remote' || !chain.wallet) continue;
-
-        const byLane = lanesOfChain.get(chain.chainid) ?? new Map<number, string[]>();
-
-        byLane.set(lane.number, [...(byLane.get(lane.number) ?? []), id]);
-        lanesOfChain.set(chain.chainid, byLane);
-      }
-    }
-  }
-
-  return [...lanesOfChain].flatMap(([chainId, byLane]) => {
-    if (byLane.size < 2) return [];
-
-    const ids = [...byLane.values()].flat();
-
-    return [
-      `${ids.length} tests need a funded account on chain ${chainId} and are in ${byLane.size} lanes, so they can ` +
-        `use it at the same time: ${ids.join(', ')}. A maximum of 1 lane keeps them apart.`,
-    ];
   });
 }

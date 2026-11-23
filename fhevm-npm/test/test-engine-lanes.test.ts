@@ -10,6 +10,7 @@ import {
   captureEngine,
   fixtureInventory,
   fixtureTest,
+  withEnvironment,
   writeFixtureRepository,
 } from './test-engine-fixtures.ts';
 
@@ -32,6 +33,7 @@ function timed(id: string, duration: Duration, ...ports: readonly number[]): Inv
 type LanesInput = {
   readonly entries: readonly InventoryEntry[];
   readonly maximum: number;
+  readonly liveChainLanes?: number;
 };
 
 /** The IDs of each lane, in the order of the lanes. */
@@ -91,6 +93,86 @@ test('a range and a list state every port they name', () => {
     ['test-list', 'test-shared'],
     ['test-apart'],
   ]);
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Live chains
+////////////////////////////////////////////////////////////////////////////////
+
+const SEPOLIA_FORK: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
+const MAINNET_FORK: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' };
+const SEPOLIA_WALLET: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: true };
+
+function live(id: string, ...chains: readonly Chain[]): InventoryEntry {
+  return { id, test: fixtureTest({ chains }) };
+}
+
+test('the tests that use a live chain share one lane, whatever the chain, and no other test joins them', () => {
+  const entries = [
+    entry('local-a'),
+    live('fork-sepolia', SEPOLIA_FORK),
+    entry('local-b'),
+    live('fork-mainnet', MAINNET_FORK),
+    live('wallet-sepolia', SEPOLIA_WALLET),
+    entry('local-c'),
+  ];
+  const lanes = generateLanes({ entries, maximum: 4 });
+
+  // The three tests on a live chain are one group, the heaviest one, so they are lane 1.
+  assert.deepEqual(lanes.map(idsOf), [
+    ['fork-sepolia', 'fork-mainnet', 'wallet-sepolia'],
+    ['local-a'],
+    ['local-b'],
+    ['local-c'],
+  ]);
+  assert.deepEqual(
+    lanes.map((lane) => lane.liveChains),
+    [true, false, false, false],
+  );
+  assert.equal(laneLines(lanes)[0], 'lane 1  live chains  fork-sepolia -> fork-mainnet -> wallet-sepolia');
+});
+
+test('a test that uses a live chain and states a fixed port links the two groups', () => {
+  const both: InventoryEntry = {
+    id: 'both',
+    test: fixtureTest({ chains: [SEPOLIA_FORK, { ...ANVIL_CHAIN, port: 8545 }] }),
+  };
+  const lanes = generateLanes({ entries: [entry('on-the-port', 8545), both, live('fork', MAINNET_FORK)], maximum: 4 });
+
+  assert.deepEqual(lanes.map(idsOf), [['on-the-port', 'both', 'fork']]);
+  assert.equal(laneLines(lanes)[0], 'lane 1  port 8545, live chains  on-the-port -> both -> fork');
+});
+
+test('a run can let the tests on live chains use several lanes, dealt in the order of the inventory', () => {
+  const forks = ['a', 'b', 'c', 'd', 'e'].map((name) => live(`fork-${name}`, SEPOLIA_FORK));
+
+  // Two lanes: the first, third and fifth test share one, the second and the fourth the other.
+  assert.deepEqual(lanesOf({ entries: forks, maximum: 4, liveChainLanes: 2 }), [
+    ['fork-a', 'fork-c', 'fork-e'],
+    ['fork-b', 'fork-d'],
+  ]);
+  // As many as there are tests: none conflicts with another, up to the maximum of lanes.
+  assert.equal(generateLanes({ entries: forks, maximum: 8, liveChainLanes: 5 }).length, 5);
+  assert.deepEqual(lanesOf({ entries: forks, maximum: 8, liveChainLanes: 1 }), [forks.map((fork) => fork.id)]);
+  assert.throws(
+    () => generateLanes({ entries: forks, maximum: 4, liveChainLanes: 0 }),
+    /lanes for live chains is a whole number/,
+  );
+});
+
+test('tests that send transactions on the same chain share a lane, whatever the lanes for live chains', () => {
+  const mainnetWallet: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'remote', wallet: true };
+  const entries = [
+    live('wallet-a', SEPOLIA_WALLET),
+    live('fork-a', SEPOLIA_FORK),
+    live('wallet-b', SEPOLIA_WALLET),
+    live('wallet-mainnet', mainnetWallet),
+    live('reads', { ...SEPOLIA_WALLET, wallet: false }),
+  ];
+  const lanes = lanesOf({ entries, maximum: 8, liveChainLanes: 5 });
+
+  // Each test has its own share of the live chains, so only the funded account of Sepolia links two of them.
+  assert.deepEqual(lanes, [['wallet-a', 'wallet-b'], ['fork-a'], ['wallet-mainnet'], ['reads']]);
 });
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -206,7 +288,7 @@ test('laneLines shows the number of a lane, its ports, and the order of its test
 
   assert.deepEqual(laneLines(lanes), [
     'lane 1  port 8550-8699  test-a -> test-c',
-    'lane 2  no fixed port  test-b',
+    'lane 2  no shared resource  test-b',
     'lane 3  port 8545,8700  test-d',
   ]);
 });
@@ -288,12 +370,45 @@ test('the lanes command prints the lanes of the selection, as text and as JSON',
 
   // A test that the run would not run, skipped or not selected, is in no lane.
   assert.equal(text.status, 0);
-  assert.deepEqual(text.stdout, ['lane 1  port 8545  test-a -> test-b', 'lane 2  no fixed port  test-free']);
+  assert.deepEqual(text.stdout, ['lane 1  port 8545  test-a -> test-b', 'lane 2  no shared resource  test-free']);
   assert.deepEqual(JSON.parse(json.stdout.join('\n')), [
-    { lane: 1, ports: [8545], ids: ['test-a', 'test-b'] },
-    { lane: 2, ports: [], ids: ['test-free'] },
+    { lane: 1, ports: [8545], liveChains: false, ids: ['test-a', 'test-b'] },
+    { lane: 2, ports: [], liveChains: false, ids: ['test-free'] },
   ]);
   assert.deepEqual(serial.stdout, ['lane 1  port 8545  test-free -> test-a -> test-b']);
+});
+
+test('the lanes for live chains come from the option, then from the variable, then are one', async (context) => {
+  const fork: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: './ALL_TESTS.schema.json',
+      'test-fork-a': fixtureTest({ chains: [fork] }),
+      'test-fork-b': fixtureTest({ chains: [fork] }),
+    },
+  });
+  const argv = ['lanes', '--root', repository.root, '--max-lanes', '4'];
+  const one = ['lane 1  live chains  test-fork-a -> test-fork-b'];
+  const two = ['lane 1  live chains  test-fork-a', 'lane 2  live chains  test-fork-b'];
+
+  withEnvironment({
+    context,
+    variables: { SEPOLIA_RPC_URL: 'https://sepolia.example.invalid', FHEVM_TEST_LIVE_CHAIN_LANES: '' },
+  });
+  assert.deepEqual((await captureEngine({ context, argv })).stdout, one);
+  assert.deepEqual((await captureEngine({ context, argv: [...argv, '--live-chain-lanes', '2'] })).stdout, two);
+
+  withEnvironment({ context, variables: { FHEVM_TEST_LIVE_CHAIN_LANES: '2' } });
+  assert.deepEqual((await captureEngine({ context, argv })).stdout, two);
+  assert.deepEqual((await captureEngine({ context, argv: [...argv, '--live-chain-lanes', '1'] })).stdout, one);
+
+  withEnvironment({ context, variables: { FHEVM_TEST_LIVE_CHAIN_LANES: 'many' } });
+
+  const wrong = await captureEngine({ context, argv });
+
+  assert.equal(wrong.status, RUN_FAILURE_EXIT_STATUS);
+  assert.match(wrong.stderr, /FHEVM_TEST_LIVE_CHAIN_LANES is 'many', and must be a whole number, 1 or more\./);
 });
 
 test('the maximum of lanes is required, and must be a whole number from 1', async (context) => {

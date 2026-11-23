@@ -7,7 +7,13 @@ import { ENV_FILE_OPTION_DEFAULT, applyEnvFile, envFileLines } from '../base/tes
 import { TestEngineError } from '../base/test-engine/errors.ts';
 import { FAILURE_EXIT_STATUS, RUN_FAILURE_EXIT_STATUS, SUCCESS_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import { CHAIN_RUNTIMES, type ChainRuntime, type Inventory, loadInventory } from '../base/test-engine/inventory.ts';
-import { checkPorts, generateLanes, laneLines } from '../base/test-engine/lanes.ts';
+import {
+  DEFAULT_LIVE_CHAIN_LANES,
+  LIVE_CHAIN_LANES_VARIABLE,
+  checkPorts,
+  generateLanes,
+  laneLines,
+} from '../base/test-engine/lanes.ts';
 import { selectionLines } from '../base/test-engine/listing.ts';
 import {
   INVENTORY_OPTION_DEFAULT,
@@ -52,6 +58,7 @@ type RunOptions = LocationOptions &
     readonly progress: number;
     readonly build?: string | undefined;
     readonly maxLanes: number;
+    readonly liveChainLanes?: number | undefined;
     readonly strict: boolean;
     readonly nodeLogLines?: number | undefined;
   };
@@ -125,6 +132,7 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
       'Print the lanes of the selected tests. Tests that state the same port share a lane, and run one after the other.',
     )
     .requiredOption(...MAX_LANES_OPTION)
+    .option(...LIVE_CHAIN_LANES_OPTION)
     .option('--json', 'print the lanes as JSON', false)
     .action(reportingStatus(printLanes));
 
@@ -139,6 +147,7 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
       `the directory that gets one log per test (default: the variable ${LOGS_VARIABLE}, then ${LOGS_OPTION_DEFAULT})`,
     )
     .requiredOption(...MAX_LANES_OPTION)
+    .option(...LIVE_CHAIN_LANES_OPTION)
     .option(
       '--node-log-lines <n>',
       `how many of the last lines of a node's output to keep, in a file apart from the test's log ` +
@@ -223,6 +232,42 @@ function parseMaximumLanes(value: string): number {
   if (!/^[1-9]\d*$/.test(value)) throw new InvalidArgumentError('A maximum of lanes is a whole number, 1 or more.');
 
   return Number(value);
+}
+
+/**
+ * How many lanes can hold tests that use a live chain. The provider of an RPC limits the requests of
+ * one key, so by default one lane holds them all. A run with a plan that allows more names a number.
+ */
+const LIVE_CHAIN_LANES_OPTION = [
+  '--live-chain-lanes <n>',
+  `how many lanes can hold tests that use a live chain: 1 keeps every such test apart from the others ` +
+    `(default: the variable ${LIVE_CHAIN_LANES_VARIABLE}, then ${DEFAULT_LIVE_CHAIN_LANES})`,
+  parseLiveChainLanes,
+] as const;
+
+function parseLiveChainLanes(value: string): number {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new InvalidArgumentError('A number of lanes for live chains is a whole number, 1 or more.');
+  }
+
+  return Number(value);
+}
+
+/** The lanes for live chains: the option, then the variable, then the default. */
+function liveChainLanes(options: { readonly liveChainLanes?: number | undefined }): number {
+  const fromVariable = process.env[LIVE_CHAIN_LANES_VARIABLE];
+
+  if (options.liveChainLanes !== undefined) return options.liveChainLanes;
+
+  if (fromVariable === undefined || fromVariable === '') return DEFAULT_LIVE_CHAIN_LANES;
+
+  if (!/^[1-9]\d*$/.test(fromVariable)) {
+    throw new TestEngineError(
+      `${LIVE_CHAIN_LANES_VARIABLE} is '${fromVariable}', and must be a whole number, 1 or more.`,
+    );
+  }
+
+  return Number(fromVariable);
 }
 
 function parseLineCount(value: string): number {
@@ -316,6 +361,7 @@ async function runTestsOfSelection(ids: readonly string[], options: RunOptions):
     timeLimitSeconds,
     buildCommand: options.build,
     maximumLanes: options.maxLanes,
+    liveChainLanes: liveChainLanes(options),
     strict: options.strict,
     progressIntervalSeconds: options.progress === 0 ? undefined : options.progress,
     nodeLogLines: nodeLogLines(options),
@@ -376,7 +422,12 @@ async function killNodes(guids: readonly string[], options: { readonly all: bool
   return SUCCESS_EXIT_STATUS;
 }
 
-type LanesOptions = LocationOptions & SelectionOptions & { readonly json: boolean; readonly maxLanes: number };
+type LanesOptions = LocationOptions &
+  SelectionOptions & {
+    readonly json: boolean;
+    readonly maxLanes: number;
+    readonly liveChainLanes?: number | undefined;
+  };
 
 function printLanes(ids: readonly string[], options: LanesOptions): number {
   const inventory = loadInventoryAt(options);
@@ -389,10 +440,12 @@ function printLanes(ids: readonly string[], options: LanesOptions): number {
     environment: process.env,
   });
   const entries = resolved.filter((entry) => entry.state === 'selected');
-  const lanes = generateLanes({ entries, maximum: options.maxLanes });
+  const lanes = generateLanes({ entries, maximum: options.maxLanes, liveChainLanes: liveChainLanes(options) });
 
   if (options.json) {
-    const plan = lanes.map((lane) => ({ lane: lane.number, ports: lane.ports, ids: lane.entries.map((e) => e.id) }));
+    const plan = lanes.map((lane) => {
+      return { lane: lane.number, ports: lane.ports, liveChains: lane.liveChains, ids: lane.entries.map((e) => e.id) };
+    });
 
     console.log(JSON.stringify(plan, undefined, 2));
   } else {

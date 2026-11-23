@@ -31,12 +31,13 @@ export function measuredDurationsAndTheDurationField(): void {
 
 /**
  * Open question 6, "To be defined": how the inventory records the resources that isolation needs,
- * other than ports. No field records one yet. Until the question is answered, the engine keeps apart
- * the tests that state a common fixed port, which share a lane, and no other tests.
+ * other than ports and live chains. No field records one yet. Until the question is answered, the engine
+ * keeps apart the tests that state a common fixed port, and the tests that use a live chain, and no
+ * other tests.
  */
 export function resourcesThatIsolationNeeds(): void {
   logToBeImplemented(
-    'how the inventory records the resources that isolation needs, other than ports. The engine keeps apart the tests that share a port only, for now.',
+    'how the inventory records the resources that isolation needs, other than ports and live chains. The engine keeps apart the tests that share a port or that use a live chain only, for now.',
   );
 }
 

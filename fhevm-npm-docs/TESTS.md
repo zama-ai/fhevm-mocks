@@ -139,7 +139,11 @@ The engine builds the lanes from the inventory alone, so the same inventory, sel
 give the same lanes on every machine:
 
 1. Two tests that state a common fixed port conflict, and share a lane.
-2. The engine balances the lanes by the `duration` of their tests. A `slow` test weighs as much as
+2. The tests that use a live chain, or a fork of one, all conflict, and share one lane. An RPC
+   provider limits the requests that one key may send, so such tests never run at the same time.
+3. The tests that send transactions on the same live chain share one lane, always: they sign with
+   one account, and two transactions at the same time would take the same number.
+4. The engine balances the lanes by the `duration` of their tests. A `slow` test weighs as much as
    20 `fast` tests, and a `very-slow` test as much as 60. A test with no `duration` weighs 20.
 
 To print the lanes of a run without running it, give the same selection and maximum to `lanes`:
@@ -151,6 +155,17 @@ To print the lanes of a run without running it, give the same selection and maxi
 ```text
 lane 1  port 8547  test-hh-v3-plugin -> test-hh-v3-e2e -> test-consumer-hh-v3-template -> test-forge-std-anvil-refusals
 lane 2  port 8546,8548  test-hh-v3-template -> test-consumer-hh-v3-plugin-esm -> test-forge-std-anvil -> test-forge-std-anvil-mirror
+```
+
+If the plan of your RPC provider allows several tests at the same time, give the number with
+`--live-chain-lanes <n>`, or set `FHEVM_TEST_LIVE_CHAIN_LANES` in `.env`. The engine then deals the
+tests that use a live chain over `n` lanes. Without it, the number is 1.
+
+A lane shows what its tests share: its fixed ports, and `live chains` for the lane of the tests that
+use a live chain:
+
+```text
+lane 1  live chains  test-forge-std-fork-testnet -> test-forge-std-fork-resolve-mainnet -> ...
 ```
 
 Add `--json` to get the lanes as JSON.

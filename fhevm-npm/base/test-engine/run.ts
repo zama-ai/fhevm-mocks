@@ -39,6 +39,8 @@ export type RunSelectionInput = {
   readonly buildCommand: string | undefined;
   /** The most lanes the run may have. */
   readonly maximumLanes: number;
+  /** How many lanes can hold tests that use a live chain. */
+  readonly liveChainLanes: number;
   /** The most lines of a node's output that the engine keeps. */
   readonly nodeLogLines: number;
   /** True: what the engine finds doubtful in the run fails it before any test starts. */
@@ -121,7 +123,7 @@ async function buildOfRun(input: BuildOfRunInput): Promise<BuildOutcome | undefi
 function lanesOfRun(input: RunSelectionInput): readonly Lane[] {
   const entries = input.resolved.filter((entry) => entry.state === 'selected');
   const unavailable = input.resolved.filter((entry) => entry.state === 'unavailable');
-  const lanes = generateLanes({ entries, maximum: input.maximumLanes });
+  const lanes = generateLanes({ entries, maximum: input.maximumLanes, liveChainLanes: input.liveChainLanes });
 
   reportRunWarnings({ lanes, unavailable, strict: input.strict });
 

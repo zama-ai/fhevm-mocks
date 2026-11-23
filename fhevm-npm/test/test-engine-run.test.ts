@@ -425,33 +425,38 @@ test('a selection that selects no test is a warning, and fails a strict run', as
   assert.match(strict.stderr, /The run is strict, and does not start:\n  The run runs no test/);
 });
 
-test('tests that share a funded account in two lanes are a warning, and fail a strict run', async (context) => {
+test('tests that use a live chain run one after the other, also in a run of several lanes', async (context) => {
   const wallet: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: true };
   const repository = writeFixtureRepository({
     context,
     inventory: {
       $schema: SCHEMA,
       'test-wallet-a': fixtureTest({ command: 'touch ran-a', chains: [wallet] }),
+      'test-local': fixtureTest({ command: 'touch ran-local' }),
       'test-wallet-b': fixtureTest({ command: 'touch ran-b', chains: [wallet] }),
       'test-reads': fixtureTest({ chains: [{ ...wallet, wallet: false }] }),
     },
   });
-  const argv = ['run', '--root', repository.root, '--max-lanes'];
 
   withEnvironment({ context, variables: { SEPOLIA_RPC_URL: 'https://sepolia.example.invalid' } });
 
-  const parallel = await captureEngine({ context, argv: [...argv, '4'] });
-  const serial = await captureEngine({ context, argv: [...argv, '1', '--strict'] });
-  const strict = await captureEngine({ context, argv: [...argv, '4', '--strict'] });
+  // A strict run starts: no two of these tests can use the chain, or its funded account, at the same time.
+  const run = await captureEngine({
+    context,
+    argv: ['run', '--root', repository.root, '--max-lanes', '4', '--strict'],
+  });
+  const { tests } = readReport(repository);
 
-  assert.equal(parallel.status, 0);
-  assert.match(parallel.stderr, /2 tests need a funded account on chain 11155111 and are in 2 lanes/);
-  assert.match(parallel.stderr, /test-wallet-a, test-wallet-b/);
-  // In one lane they cannot use the account at the same time, so a strict run accepts them.
-  assert.equal(serial.status, 0);
-  assert.doesNotMatch(serial.stderr, /funded account/);
-  assert.equal(strict.status, RUN_FAILURE_EXIT_STATUS);
-  assert.match(strict.stderr, /The run is strict, and does not start:\n  2 tests need a funded account/);
+  assert.equal(run.status, 0);
+  assert.deepEqual(
+    ['test-wallet-a', 'test-wallet-b', 'test-reads'].map((id) => [tests[id]?.lane, tests[id]?.position]),
+    [
+      [1, 1],
+      [1, 2],
+      [1, 3],
+    ],
+  );
+  assert.equal(tests['test-local']?.lane, 2);
 });
 
 test('a test whose live chain has no RPC URL set does not start, is unavailable, and fails a strict run', async (context) => {
