@@ -739,6 +739,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check scripts)
 	$(call run-fhevm-npm,check tsc-mode)
 	$(call run-fhevm-npm,check test-ports)
+	$(call run-fhevm-npm,check env-vars)
 	$(call run-fhevm-npm,check lockfiles)
 	$(call run-fhevm-npm,check extraneous)
 	$(call run-fhevm-npm,check consumer-lockfiles)

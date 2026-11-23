@@ -271,6 +271,10 @@ function requireChainId(input: RequireChainIdInput): void {
 // What a test command gets
 ////////////////////////////////////////////////////////////////////////////////
 
+/** The variables that give a test command the URL and the port of its node. */
+const NODE_URL_VARIABLE = 'ANVIL_RPC_URL';
+const NODE_PORT_VARIABLE = 'ANVIL_PORT';
+
 /** Where the node that the engine started for a test is. */
 export type NodeAddress = {
   readonly url: string;
@@ -283,5 +287,5 @@ export type NodeAddress = {
  * engine: only a node does.
  */
 export function environmentWithNode(node: NodeAddress): NodeJS.ProcessEnv {
-  return { ...environmentWithoutGuid(), ANVIL_RPC_URL: node.url, ANVIL_PORT: String(node.port) };
+  return { ...environmentWithoutGuid(), [NODE_URL_VARIABLE]: node.url, [NODE_PORT_VARIABLE]: String(node.port) };
 }

@@ -33,6 +33,6 @@ To read the full text of every live rule on one page, open [groups/all.md](group
 | [R-07](entries/R-07.md) `[HOLD]`     | Every relative Markdown link resolves            | Every relative link in a Markdown file that git does not ignore points at a file or folder that exists.                                            |            | script     |                  |
 | [R-08](entries/R-08.md) `[HOLD]`     | Reproduce a serious issue before you fix it      | Never fix a serious issue or a new unexpected failure before a test reproduces it and fails.                                                       |            | impossible |                  |
 | [R-09](entries/R-09.md) `[GAP]`      | A docs folder holds skills, and no tool reads it | A published package may have a docs/ folder next to its pkg/, which holds a skills/ folder, is committed, and is read by no tool of the workspace. |            | script     |                  |
-| [R-10](entries/R-10.md) `[GAP]`      | List every environment variable                  | The repository reads or sets no environment variable that this rule does not list.                                                                 |            | missing    |                  |
+| [R-10](entries/R-10.md) `[GAP]`      | List every environment variable                  | The repository reads or sets no environment variable that npm-manifest.json does not list.                                                         |            | script     |                  |
 
 <!-- END GENERATED INDEX -->

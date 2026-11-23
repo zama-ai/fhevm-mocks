@@ -29,6 +29,7 @@
     "check:safechain": "node ./fhevm-npm.ts check safechain",
     "check:scripts": "node ./fhevm-npm.ts check scripts",
     "check:test-ports": "node ./fhevm-npm.ts check test-ports",
+    "check:env-vars": "node ./fhevm-npm.ts check env-vars",
     "check:tsc-mode": "node ./fhevm-npm.ts check tsc-mode",
     "check:commit-scope": "node ./fhevm-npm.ts check commit-scope",
     "check:tsconfig-paths": "node ./fhevm-npm.ts check tsconfig-paths",

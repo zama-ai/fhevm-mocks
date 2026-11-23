@@ -23,6 +23,7 @@ node ./fhevm-npm.ts check published-files
 node ./fhevm-npm.ts check tsconfig-paths
 node ./fhevm-npm.ts check tsc-mode
 node ./fhevm-npm.ts check test-ports
+node ./fhevm-npm.ts check env-vars
 node ./fhevm-npm.ts check commit-scope
 node ./fhevm-npm.ts check cleartext-config
 node ./fhevm-npm.ts check generations

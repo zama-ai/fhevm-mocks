@@ -337,6 +337,9 @@ const packageEntrySchema = z
     }
   });
 
+/** The names of environment variables. `check env-vars` holds them to the sources: order, form and use. */
+const envVarNamesSchema = z.array(z.string().min(1));
+
 const npmManifestSchema = z
   .object({
     $schema: z.literal('./fhevm-npm/schemas/npm-manifest.schema.json').optional(),
@@ -345,6 +348,8 @@ const npmManifestSchema = z
     foundry: foundryPolicySchema.optional(),
     tarballs: tarballsPolicySchema.optional(),
     generations: generationsSchema.optional(),
+    envVarNames: envVarNamesSchema.optional(),
+    toolEnvVarNames: envVarNamesSchema.optional(),
     packageJson: packageJsonPolicySchema,
     packages: z.record(
       z.string().regex(PACKAGE_KEY, 'must be a canonical sdk-relative package key'),

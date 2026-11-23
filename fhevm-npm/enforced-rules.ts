@@ -20,6 +20,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   'check tsconfig-paths': ['NR-06'],
   'check tsc-mode': ['NR-14'],
   'check test-ports': ['NR-92'],
+  'check env-vars': ['R-10'],
   'check dependencies': ['NR-15', 'NR-16', 'NR-18', 'NR-20', 'NR-31', 'NR-32', 'NR-33', 'NR-34', 'NR-35'],
   'check cleartext-config': ['NR-90'],
   // NR-90 again: `--check` compares the faces as `check cleartext-config` does; without it, the command writes them.

@@ -209,28 +209,38 @@ The folder is committed, and no tool of the workspace reads it: no formatter, li
 
 ## R-10: List every environment variable `[GAP]`
 
-> The repository reads or sets no environment variable that this rule does not list.
+> The repository reads or sets no environment variable that npm-manifest.json does not list.
 
-Check: missing.
+Check: script.
+
+Checked by: `./fhevm-npm-cli check env-vars`
 
 Evidence:
 
-- Gap, no check: nothing compares the environment variables that the code reads or sets with the lists of this rule.
+- Gap, loose check: outside fhevm-npm, `check env-vars` finds a variable only where its name is written. A read whose name the code builds while it runs, such as `vm.envOr(string.concat(alias, "_RPC_URL"), ...)`, passes with a name that no list holds.
 
-An environment variable is an input that no signature shows. A reader of the code cannot find it, and two parts of the repository can give two names to the same thing. So every variable is listed here, and nowhere else.
+An environment variable is an input that no signature shows. A reader of the code cannot find it, and two parts of the repository can give two names to the same thing. So every variable is listed in one place: `npm-manifest.json`, at the root of the repository.
 
 #### The rule
 
-1. Before you make the code read or set an environment variable that is not listed here, add it to this rule, in the same change.
-2. When the last reader of a variable goes away, remove the variable from this rule, in the same change.
+1. Before you make the code read or set an environment variable that is not listed, add it to `npm-manifest.json`, in the same change.
+2. When the last use of a variable goes away, remove the variable from `npm-manifest.json`, in the same change.
 3. Before you add a variable, look for a listed one that already holds the same thing, and use it.
 
-The rule has two parts. The first part holds the variables that change how tests run: read it before you run tests, on a laptop or in CI. The second part holds every other variable, in short lists: read it when you touch the code that uses one.
+`npm-manifest.json` has two lists, one for each kind of variable:
 
-Each variable is of one of two kinds:
+- `envVarNames` holds the **variables of this repository**: the repository chose the name, and its code gives the name a meaning.
+- `toolEnvVarNames` holds the **variables of a tool**: a tool that the repository uses defines the name, and the repository sets it or reads it.
 
-- A **variable of this repository**: the repository chose the name, and its code gives the name a meaning.
-- A **variable of a tool**: a tool that the repository uses defines the name, and the repository sets it or reads it.
+A name is in one list only. Each list is sorted. A part of a name written `<PLACEHOLDER>` stands for any text: it lists a name that code builds while it runs, as in `<ALIAS>_RPC_URL` or `FHEVM_PARITY_REF_<GENERATION>`.
+
+`fhevm-npm check env-vars` enforces the rule, and `make check-pre` runs it:
+
+- A variable that a file reads, sets or names must be in one of the two lists.
+- A listed name with no placeholder must be used by a file.
+- In `fhevm-npm`, outside its tests, a read of `process.env` writes the name of its variable. A name that is computed there is refused, so the check finds every read of `fhevm-npm`.
+
+This rule keeps one table: the variables that change how tests run. Read it before you run tests, on a laptop or in CI.
 
 #### The names of new variables
 
@@ -240,7 +250,7 @@ Each variable is of one of two kinds:
 
 Some listed variables do not follow these names. They keep their names: a rename breaks the people and the workflows that set them. The previous generation is frozen, as R-04 says, so a variable that it reads cannot be renamed there.
 
-#### Part 1: variables that change how tests run
+#### The variables that change how tests run
 
 Whoever launches the tests sets these, except the two that the test engine sets. The third column names the packages whose code reads or sets the variable, by their folder.
 
@@ -264,7 +274,6 @@ Whoever launches the tests sets these, except the two that the test engine sets.
 | `FHEVM_TEST_REPORT`         | Where the test engine writes its report                                                              | `fhevm-npm`                                                                                                                                                                     |
 | `FHEVM_TEST_LOGS`           | Where the test engine writes its logs                                                                | `fhevm-npm`                                                                                                                                                                     |
 | `FHEVM_TEST_NODE_LOG_LINES` | How many lines of a node log the test engine keeps                                                   | `fhevm-npm`                                                                                                                                                                     |
-| `FHEVM_TEST_PORTS`          | Reserved for the test engine. No code reads it yet.                                                  | `fhevm-npm`                                                                                                                                                                     |
 | `FHEVM_GUID`                | The identity of a run of the test engine, which sets it on each node it starts. Nobody else sets it. | `fhevm-npm`                                                                                                                                                                     |
 
 Five notes on the table:
@@ -274,51 +283,6 @@ Five notes on the table:
 - A test that sends transactions on a live chain spends real funds of the account that `MNEMONIC` or `SEPOLIA_PRIVATE_KEY` names.
 - Hardhat takes a Hardhat variable from its own store on the machine, or from the environment.
 - To set these variables for the test engine, write them in a `.env` file at the workspace root, which git ignores. `.env.example` lists them, and is committed with no value. A variable that the shell exports wins over the file.
-
-#### Part 2: the other variables
-
-These do not change which tests run or what they test. Each list gives the names, and where the code that uses them is.
-
-##### Internal to a test or to its fixtures
-
-- forge-fhevm-std: `FIXTURE_SEARCH_WINDOW` in `fixture-floor.sh`, `PRIVATE_KEY` in `deploy-sepolia.sh`, and `FORGE_FHEVM_STD_UNSET_FOR_TESTS` in `foundry.toml`, which nothing sets, as a test requires.
-- Both cleartext generations: `CREATE2_E2E_QUIET`, which hides the output of the create2 end-to-end tests.
-- fhevm-npm: `FHEVM_NPM_TEST_CACHE` in its unit tests, and `FAKE_NODE_CHAIN_ID`, `FAKE_NODE_FAILS`, `FAKE_NODE_LIFETIME_MILLISECONDS`, `FAKE_NODE_PRINTS_LINES` and `FAKE_NODE_START_DELAY_MILLISECONDS` in the fake node of the unit tests of the test engine.
-
-##### Build and checks
-
-- The Makefile: `FHEVM_TIMINGS_LOG`, `FHEVM_NPM_ARGS`, `RULES_BASE`, `PAYLOAD`.
-- `timed-shell.sh`: `FHEVM_TIMINGS_LOG`, and `FHEVM_TIMINGS_DEPTH`, which it also sets.
-- `fhevm-npm check generation-parity`: `FHEVM_PARITY_REF_<GENERATION>`, as in `FHEVM_PARITY_REF_V13`.
-- `fhevm-npm check forge-fhevm-std-parity`: `FHEVM_FORGE_STD_PARITY_REF`.
-
-##### Published code
-
-A user of a published package sets these.
-
-- The forge library: `<ALIAS>_RPC_URL` for a chain alias that `foundry.toml` does not configure, and `FHEVM_FORCE_FORK_STACK`.
-- The Hardhat v2 plugin: `FHEVM_HARDHAT_NETWORK`, `RELAYER_URL`, `ACL_CONTRACT_ADDRESS`, `FHEVM_EXECUTOR_CONTRACT_ADDRESS`, `KMS_VERIFIER_CONTRACT_ADDRESS`, `INPUT_VERIFIER_CONTRACT_ADDRESS`, `HCU_LIMIT_CONTRACT_ADDRESS`.
-- The Hardhat v2 template: `ETHERSCAN_API_KEY`, as a Hardhat variable.
-- The forge scripts that both cleartext generations publish: `DEPLOYER_PRIVATE_KEY`, `PAUSER_ADDRESS_0`.
-
-##### Deployment and upgrade tools
-
-The deployment tools of both cleartext generations set these for the forge scripts they run. An operator does not set them by hand.
-
-- The create2 scripts of both generations: `FHEVM_ADMIN`, `FHEVM_CONFIRMATIONS`, `FHEVM_DEPLOYER`, `FHEVM_DEPLOYMENT_ID`, `FHEVM_MIN_BLOCK`, `FHEVM_OUT_DIR`, `FHEVM_PASS`, `FHEVM_PAUSER_0`, `FHEVM_PREPARE_ONLY`, `FHEVM_VERSION`.
-- The same scripts, one per existing contract: `FHEVM_EXISTING_<NAME>`, where `<NAME>` is `ACL_ADDRESS`, `ACL_OWNER`, `CLEARTEXT_ARITHMETIC_ADDRESS`, `CLEARTEXT_DB_ADDRESS`, `FHEVM_EXECUTOR_ADDRESS`, `HCU_LIMIT_ADDRESS`, `INPUT_VERIFIER_ADDRESS`, `KMS_GENERATION_ADDRESS`, `KMS_VERIFIER_ADDRESS`, `PAUSER_SET_ADDRESS` or `PROTOCOL_CONFIG_ADDRESS`.
-- The upgrade scripts of the current generation: `FHEVM_MIGRATION_CONTEXT_ID`, `FHEVM_MIGRATION_KMS_GEN_THRESHOLD`, `FHEVM_MIGRATION_MPC_THRESHOLD`, `FHEVM_MIGRATION_NODE_COUNT`, `FHEVM_MIGRATION_PCR_COUNT`, `FHEVM_MIGRATION_PUBLIC_DECRYPTION_THRESHOLD`, `FHEVM_MIGRATION_SOFTWARE_VERSION`, `FHEVM_MIGRATION_USER_DECRYPTION_THRESHOLD`, and `FHEVM_MIGRATION_NODE_<INDEX>_<FIELD>`, one for each field of each KMS node.
-
-##### GitHub workflows
-
-A workflow step sets these for its own commands, and they do not leave the step: `ALLOWED_REF`, `AUDIT`, `BASE_SHA`, `BUILD_TARGET`, `EXPECTED`, `LATEST`, `NAME`, `REF`, `REGISTRY_CHECK`, `TARBALL`, `VERSION`.
-
-##### Variables of a tool
-
-- Foundry: `FOUNDRY_CONFIG`, which fhevm-npm sets, `FOUNDRY_NO_STORAGE_CACHING`, which `testAnvilRefusals.ts` sets, and `ETH_RPC_URL`, which the anvil scripts of both cleartext generations set.
-- Hardhat and its plugins: `HARDHAT_DISABLE_TELEMETRY`, `TS_NODE_TRANSPILE_ONLY`, `REPORT_GAS`, `SOLIDITY_COVERAGE`.
-- Node.js and npm: `NODE_OPTIONS`, `NPM_TOKEN`, `NPM_CONFIG_FETCH_RETRIES`, `NPM_CONFIG_FETCH_RETRY_MINTIMEOUT`, `NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT`, `NPM_CONFIG_FETCH_TIMEOUT`.
-- The operating system: `PATH`, `HOME`, `TMPDIR`.
 
 #### What counts as an environment variable
 
@@ -330,4 +294,4 @@ A workflow step sets these for its own commands, and they do not leave the step:
 
 These do not count: a variable that a shell script assigns before it reads it, a make variable that only the command line gives, and a constant of a programming language.
 
-Vendored code, the dependencies of forge, and the generated copies of a file are not read for these lists: their source is listed, or they belong to another repository.
+The check does not read vendored code, the dependencies of forge, the deployment records, or prose: they belong to another repository, or they hold no code.
