@@ -204,3 +204,129 @@ Every docs folder holds a `skills/` folder. Git tracks files, not folders, so an
 The folder is committed, and no tool of the workspace reads it: no formatter, linter, compiler, test runner, link checker, or `fhevm-npm` check. Its files are written for a user of the package, in the layout of the user's project, so the rules of this workspace do not apply to them. npm never publishes the folder, because it is outside `pkg/`.
 
 `fhevm-npm check docs` checks the location and the `skills/` folder, that git does not ignore the folder, and that Prettier and ESLint, run from the package, read none of its files.
+
+<a id="r-10"></a>
+
+## R-10: List every environment variable `[GAP]`
+
+> The repository reads or sets no environment variable that this rule does not list.
+
+Check: missing.
+
+Evidence:
+
+- Gap, no check: nothing compares the environment variables that the code reads or sets with the lists of this rule.
+
+An environment variable is an input that no signature shows. A reader of the code cannot find it, and two parts of the repository can give two names to the same thing. So every variable is listed here, and nowhere else.
+
+#### The rule
+
+1. Before you make the code read or set an environment variable that is not listed here, add it to this rule, in the same change.
+2. When the last reader of a variable goes away, remove the variable from this rule, in the same change.
+3. Before you add a variable, look for a listed one that already holds the same thing, and use it.
+
+The rule has two parts. The first part holds the variables that change how tests run: read it before you run tests, on a laptop or in CI. The second part holds every other variable, in short lists: read it when you touch the code that uses one.
+
+Each variable is of one of two kinds:
+
+- A **variable of this repository**: the repository chose the name, and its code gives the name a meaning.
+- A **variable of a tool**: a tool that the repository uses defines the name, and the repository sets it or reads it.
+
+#### The names of new variables
+
+- The RPC URL of a chain is `<ALIAS>_RPC_URL`, where `<ALIAS>` is the alias of the chain in upper case, as in `SEPOLIA_RPC_URL`. It has no prefix, because the published forge library defines this name and prints it to its users. Every test reads the URL of a chain from this name, and from no other.
+- Every other new variable of this repository starts with `FHEVM_`. One that only tests read starts with `FHEVM_TEST_`.
+- A value that a test needs comes from the environment, so that a test runner and CI can see whether it is set.
+
+Some listed variables do not follow these names. They keep their names: a rename breaks the people and the workflows that set them. The previous generation is frozen, as R-04 says, so a variable that it reads cannot be renamed there.
+
+#### Part 1: variables that change how tests run
+
+Whoever launches the tests sets these, except the two that the test engine sets. The third column names the packages whose code reads or sets the variable, by their folder.
+
+| Variable                    | What it holds                                                                                        | Packages                                                                                                                                                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SEPOLIA_RPC_URL`           | The RPC URL of Sepolia                                                                               | `host-contracts-cleartext/v13`, `host-contracts-cleartext/v14`, `foundry/forge-fhevm-std`, `hardhat/v2/e2e`, `hardhat/v3/e2e`, `hardhat/v3/fhevm-hardhat-template`, `fhevm-npm` |
+| `MAINNET_RPC_URL`           | The RPC URL of Ethereum mainnet                                                                      | `host-contracts-cleartext/v13`, `host-contracts-cleartext/v14`, `foundry/forge-fhevm-std`, `fhevm-npm`                                                                          |
+| `ARBITRUM_RPC_URL`          | The RPC URL of Arbitrum                                                                              | `foundry/forge-fhevm-std`, `fhevm-npm`                                                                                                                                          |
+| `ANVIL_RPC_URL`             | The URL of a local test node. The test engine sets it.                                               | `foundry/forge-fhevm-std`, `fhevm-npm`                                                                                                                                          |
+| `ANVIL_PORT`                | The port of a local test node. The test engine sets it.                                              | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_SKIP_RPC_TESTS`      | `true` skips every test that calls a live chain.                                                     | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `FHEVM_FORK_FIXTURE_FLOOR`  | The block below which no fork test forks                                                             | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `SEPOLIA_FORK_BLOCK`        | The block that `npm run test:fork-url` forks from                                                    | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `FOUNDRY_PROFILE`           | The Foundry profile: `fhevm-debug` selects the debug tests. A variable of Foundry.                   | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `HARDHAT_NETWORK`           | The network of a Hardhat v2 test run. A variable of Hardhat.                                         | `hardhat/v2/e2e`                                                                                                                                                                |
+| `MNEMONIC`                  | The mnemonic of the test accounts. A Hardhat variable.                                               | `hardhat/v2/e2e`, `hardhat/v2/fhevm-hardhat-template`, `hardhat/v3/e2e`                                                                                                         |
+| `SEPOLIA_PRIVATE_KEY`       | The key of the Sepolia account. A Hardhat variable.                                                  | `hardhat/v3/fhevm-hardhat-template`                                                                                                                                             |
+| `INFURA_API_KEY`            | The Infura key that gives the Sepolia URL when `SEPOLIA_RPC_URL` is not set. A Hardhat variable.     | `hardhat/v2/e2e`, `hardhat/v2/fhevm-hardhat-template`                                                                                                                           |
+| `ZAMA_FHEVM_API_KEY`        | The key sent to the relayer. A Hardhat variable.                                                     | `hardhat/v2/plugin`                                                                                                                                                             |
+| `FHECOUNTER_ADDRESS`        | The address of the deployed contract that the Sepolia test calls                                     | `hardhat/v3/fhevm-hardhat-template`                                                                                                                                             |
+| `FHEVM_TEST_REPORT`         | Where the test engine writes its report                                                              | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_LOGS`           | Where the test engine writes its logs                                                                | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_NODE_LOG_LINES` | How many lines of a node log the test engine keeps                                                   | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_PORTS`          | Reserved for the test engine. No code reads it yet.                                                  | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_GUID`                | The identity of a run of the test engine, which sets it on each node it starts. Nobody else sets it. | `fhevm-npm`                                                                                                                                                                     |
+
+Four notes on the table:
+
+- The test engine in `fhevm-npm` reads the three RPC URL variables only to know whether a test can run: a test whose variable is not set does not start.
+- A fork test that needs a fixed block needs an RPC URL with archive state. A test whose RPC variable is not set skips itself, or uses a public endpoint: the result then says nothing about the chain.
+- A test that sends transactions on a live chain spends real funds of the account that `MNEMONIC` or `SEPOLIA_PRIVATE_KEY` names.
+- Hardhat takes a Hardhat variable from its own store on the machine, or from the environment.
+
+#### Part 2: the other variables
+
+These do not change which tests run or what they test. Each list gives the names, and where the code that uses them is.
+
+##### Internal to a test or to its fixtures
+
+- forge-fhevm-std: `FIXTURE_SEARCH_WINDOW` in `fixture-floor.sh`, `PRIVATE_KEY` in `deploy-sepolia.sh`, and `FORGE_FHEVM_STD_UNSET_FOR_TESTS` in `foundry.toml`, which nothing sets, as a test requires.
+- Both cleartext generations: `CREATE2_E2E_QUIET`, which hides the output of the create2 end-to-end tests.
+- fhevm-npm: `FHEVM_NPM_TEST_CACHE` in its unit tests, and `FAKE_NODE_CHAIN_ID`, `FAKE_NODE_FAILS`, `FAKE_NODE_LIFETIME_MILLISECONDS`, `FAKE_NODE_PRINTS_LINES` and `FAKE_NODE_START_DELAY_MILLISECONDS` in the fake node of the unit tests of the test engine.
+
+##### Build and checks
+
+- The Makefile: `FHEVM_TIMINGS_LOG`, `FHEVM_NPM_ARGS`, `RULES_BASE`, `PAYLOAD`.
+- `timed-shell.sh`: `FHEVM_TIMINGS_LOG`, and `FHEVM_TIMINGS_DEPTH`, which it also sets.
+- `fhevm-npm check generation-parity`: `FHEVM_PARITY_REF_<GENERATION>`, as in `FHEVM_PARITY_REF_V13`.
+- `fhevm-npm check forge-fhevm-std-parity`: `FHEVM_FORGE_STD_PARITY_REF`.
+
+##### Published code
+
+A user of a published package sets these.
+
+- The forge library: `<ALIAS>_RPC_URL` for a chain alias that `foundry.toml` does not configure, and `FHEVM_FORCE_FORK_STACK`.
+- The Hardhat v2 plugin: `FHEVM_HARDHAT_NETWORK`, `RELAYER_URL`, `ACL_CONTRACT_ADDRESS`, `FHEVM_EXECUTOR_CONTRACT_ADDRESS`, `KMS_VERIFIER_CONTRACT_ADDRESS`, `INPUT_VERIFIER_CONTRACT_ADDRESS`, `HCU_LIMIT_CONTRACT_ADDRESS`.
+- The Hardhat v2 template: `ETHERSCAN_API_KEY`, as a Hardhat variable.
+- The forge scripts that both cleartext generations publish: `DEPLOYER_PRIVATE_KEY`, `PAUSER_ADDRESS_0`.
+
+##### Deployment and upgrade tools
+
+The deployment tools of both cleartext generations set these for the forge scripts they run. An operator does not set them by hand.
+
+- The create2 scripts of both generations: `FHEVM_ADMIN`, `FHEVM_CONFIRMATIONS`, `FHEVM_DEPLOYER`, `FHEVM_DEPLOYMENT_ID`, `FHEVM_MIN_BLOCK`, `FHEVM_OUT_DIR`, `FHEVM_PASS`, `FHEVM_PAUSER_0`, `FHEVM_PREPARE_ONLY`, `FHEVM_VERSION`.
+- The same scripts, one per existing contract: `FHEVM_EXISTING_<NAME>`, where `<NAME>` is `ACL_ADDRESS`, `ACL_OWNER`, `CLEARTEXT_ARITHMETIC_ADDRESS`, `CLEARTEXT_DB_ADDRESS`, `FHEVM_EXECUTOR_ADDRESS`, `HCU_LIMIT_ADDRESS`, `INPUT_VERIFIER_ADDRESS`, `KMS_GENERATION_ADDRESS`, `KMS_VERIFIER_ADDRESS`, `PAUSER_SET_ADDRESS` or `PROTOCOL_CONFIG_ADDRESS`.
+- The upgrade scripts of the current generation: `FHEVM_MIGRATION_CONTEXT_ID`, `FHEVM_MIGRATION_KMS_GEN_THRESHOLD`, `FHEVM_MIGRATION_MPC_THRESHOLD`, `FHEVM_MIGRATION_NODE_COUNT`, `FHEVM_MIGRATION_PCR_COUNT`, `FHEVM_MIGRATION_PUBLIC_DECRYPTION_THRESHOLD`, `FHEVM_MIGRATION_SOFTWARE_VERSION`, `FHEVM_MIGRATION_USER_DECRYPTION_THRESHOLD`, and `FHEVM_MIGRATION_NODE_<INDEX>_<FIELD>`, one for each field of each KMS node.
+
+##### GitHub workflows
+
+A workflow step sets these for its own commands, and they do not leave the step: `ALLOWED_REF`, `AUDIT`, `BASE_SHA`, `BUILD_TARGET`, `EXPECTED`, `LATEST`, `NAME`, `REF`, `REGISTRY_CHECK`, `TARBALL`, `VERSION`.
+
+##### Variables of a tool
+
+- Foundry: `FOUNDRY_CONFIG`, which fhevm-npm sets, `FOUNDRY_NO_STORAGE_CACHING`, which `testAnvilRefusals.ts` sets, and `ETH_RPC_URL`, which the anvil scripts of both cleartext generations set.
+- Hardhat and its plugins: `HARDHAT_DISABLE_TELEMETRY`, `TS_NODE_TRANSPILE_ONLY`, `REPORT_GAS`, `SOLIDITY_COVERAGE`.
+- Node.js and npm: `NODE_OPTIONS`, `NPM_TOKEN`, `NPM_CONFIG_FETCH_RETRIES`, `NPM_CONFIG_FETCH_RETRY_MINTIMEOUT`, `NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT`, `NPM_CONFIG_FETCH_TIMEOUT`.
+- The operating system: `PATH`, `HOME`, `TMPDIR`.
+
+#### What counts as an environment variable
+
+- A name that code reads from the environment of its process: `vm.env…` in Solidity, `process.env` in TypeScript, `${NAME}` in a shell script that does not assign it first, `${NAME}` in a `foundry.toml`.
+- A name that code sets in the environment of a process it starts.
+- A Hardhat variable, read with `vars.get` or `configVariable`.
+- A make variable that the Makefile declares with `?=`, because make takes its value from the environment.
+- A key under `env:` in a GitHub workflow.
+
+These do not count: a variable that a shell script assigns before it reads it, a make variable that only the command line gives, and a constant of a programming language.
+
+Vendored code, the dependencies of forge, and the generated copies of a file are not read for these lists: their source is listed, or they belong to another repository.
