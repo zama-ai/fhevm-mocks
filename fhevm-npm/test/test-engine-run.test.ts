@@ -543,8 +543,10 @@ test('a run says when each test starts, and at each interval which tests still r
 test('a test gets the RPC URL of a live chain only when it declares that chain', async (context) => {
   const sepolia: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
   const mainnet: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' };
+  // The command lists the variables it finds without naming one: an inventory whose command names the
+  // RPC URL variable of a chain that the test does not declare is rejected.
   const seen = (file: string): string => {
-    return `printf '%s|%s|%s|%s' "$SEPOLIA_RPC_URL" "$MAINNET_RPC_URL" "$ARBITRUM_RPC_URL" "$OTHER_CHAIN_RPC_URL" > ${file}`;
+    return `env | grep -E '^(SEPOLIA|MAINNET|ARBITRUM|OTHER_CHAIN)_RPC' | sort | tr '\\n' ' ' > ${file}`;
   };
   const repository = writeFixtureRepository({
     context,
@@ -571,12 +573,13 @@ test('a test gets the RPC URL of a live chain only when it declares that chain',
 
   assert.equal(run.status, 0, run.stderr);
   // A variable that the engine does not know as the URL of a live chain passes to every test.
-  assert.equal(read('seen-local'), '|||https://other.example.invalid');
-  assert.equal(read('seen-sepolia'), 'https://sepolia.example.invalid|||https://other.example.invalid');
-  assert.equal(
-    read('seen-both'),
-    'https://sepolia.example.invalid|https://mainnet.example.invalid||https://other.example.invalid',
-  );
+  const other = 'OTHER_CHAIN_RPC_URL=https://other.example.invalid';
+  const ofSepolia = 'SEPOLIA_RPC_URL=https://sepolia.example.invalid';
+  const ofMainnet = 'MAINNET_RPC_URL=https://mainnet.example.invalid';
+
+  assert.equal(read('seen-local'), `${other} `);
+  assert.equal(read('seen-sepolia'), `${other} ${ofSepolia} `);
+  assert.equal(read('seen-both'), `${ofMainnet} ${other} ${ofSepolia} `);
   // The engine itself keeps the variables: a later test still gets its own.
   assert.equal(process.env['SEPOLIA_RPC_URL'], 'https://sepolia.example.invalid');
 });

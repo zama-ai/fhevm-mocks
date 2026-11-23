@@ -1,5 +1,5 @@
 import { TestEngineError } from './errors.ts';
-import type { Chain, InventoryEntry, Test } from './inventory.ts';
+import type { Chain, Inventory, InventoryEntry, Test } from './inventory.ts';
 
 /**
  * The environment variable that holds the RPC URL of each live chain, by chain id. A test reads the URL
@@ -76,4 +76,46 @@ export function withoutUndeclaredRpcVariables(input: RpcVariablesOfTestInput): N
   for (const variable of undeclared) delete environment[variable];
 
   return environment;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/** True when the text names the variable as a whole word, and not as a part of a longer name. */
+function namesVariable(input: { readonly text: string; readonly variable: string }): boolean {
+  return new RegExp(`(?<![A-Za-z0-9_])${input.variable}(?![A-Za-z0-9_])`).test(input.text);
+}
+
+/** One line for each RPC URL variable that the command of the test names without a declared chain. */
+function undeclaredRpcVariableLines(entry: InventoryEntry): readonly string[] {
+  const declared = new Set(entry.test.chains.filter(isLiveChain).map((chain) => chain.chainid));
+  const lines: string[] = [];
+
+  for (const [chainId, variable] of RPC_VARIABLE_OF_CHAIN_ID) {
+    if (declared.has(chainId)) continue;
+    if (!namesVariable({ text: entry.test.command, variable })) continue;
+
+    lines.push(
+      `${entry.id}: the command names ${variable}, and the test declares no chain ${chainId} with the runtime "remote" or "forge-fork".`,
+    );
+  }
+
+  return lines;
+}
+
+/**
+ * Fails when the command of a test names the RPC URL variable of a live chain that the test does not
+ * declare. The engine gives a test only the URLs of its declared chains, and holds back a test only for
+ * them: such a command would start, and find its variable empty.
+ */
+export function checkRpcVariablesOfCommands(inventory: Inventory): void {
+  const lines = [...inventory.tests].flatMap(([id, test]) => undeclaredRpcVariableLines({ id, test }));
+
+  if (lines.length === 0) return;
+
+  throw new TestEngineError(
+    [
+      `${inventory.file} has ${lines.length} command(s) that need a live chain the test does not declare:`,
+      ...lines,
+    ].join('\n  '),
+  );
 }

@@ -113,3 +113,35 @@ test('a schema named by a URL is rejected, with the way out', (context) => {
     /names its schema by a URL.*Pass --schema/,
   );
 });
+
+test('a command that names the RPC URL variable of a live chain the test does not declare is rejected', (context) => {
+  const mainnetFork = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' };
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: './ALL_TESTS.schema.json',
+      // Needs Arbitrum, and declares mainnet only.
+      'test-a': fixtureTest({ command: 'ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} run', chains: [mainnetFork] as never }),
+      // Declares the chain, but as a local node: not a live chain.
+      'test-b': fixtureTest({ command: 'run $SEPOLIA_RPC_URL', chains: [{ ...ANVIL_CHAIN, chainid: 11155111 }] }),
+      // Declares the chain it names.
+      'test-c': fixtureTest({ command: 'run $MAINNET_RPC_URL', chains: [mainnetFork] as never }),
+      // Names a longer variable, which is another one.
+      'test-d': fixtureTest({ command: 'run $MY_SEPOLIA_RPC_URL_2' }),
+    },
+  });
+
+  assert.throws(
+    () => loadInventory({ inventoryFile: repository.inventoryFile, schemaFile: undefined }),
+    (error: Error) => {
+      assert.match(error.message, /2 command\(s\) that need a live chain the test does not declare/);
+      assert.match(error.message, /test-a: the command names ARBITRUM_RPC_URL, and the test declares no chain 42161 /);
+      assert.match(
+        error.message,
+        /test-b: the command names SEPOLIA_RPC_URL, and the test declares no chain 11155111 /,
+      );
+      assert.doesNotMatch(error.message, /test-c|test-d/);
+      return true;
+    },
+  );
+});

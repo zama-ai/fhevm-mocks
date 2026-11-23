@@ -4,6 +4,7 @@ import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.
 
 import { TestEngineError } from './errors.ts';
 import { type JsonObject, readJsonObject } from './json.ts';
+import { checkRpcVariablesOfCommands } from './live-chains.ts';
 import type { PortSpec } from './port-spec.ts';
 import { errorMessage } from './utils.ts';
 
@@ -89,7 +90,10 @@ export type LoadInventoryInput = {
   readonly schemaFile: string | undefined;
 };
 
-/** Loads an inventory and validates it against its schema. Fails with one error that lists every violation. */
+/**
+ * Loads an inventory, and validates it against its schema and against the live chains that its commands
+ * name. Fails with one error that lists every violation.
+ */
 export function loadInventory(input: LoadInventoryInput): Inventory {
   const document = readJsonObject(input.inventoryFile);
   const schemaFile = input.schemaFile ?? referencedSchemaFile({ document, inventoryFile: input.inventoryFile });
@@ -103,7 +107,11 @@ export function loadInventory(input: LoadInventoryInput): Inventory {
     if (id !== SCHEMA_KEY) tests.set(id, value as Test);
   }
 
-  return { file: input.inventoryFile, schemaFile, tests };
+  const inventory = { file: input.inventoryFile, schemaFile, tests };
+
+  checkRpcVariablesOfCommands(inventory);
+
+  return inventory;
 }
 
 type SchemaReferenceInput = {

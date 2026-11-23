@@ -48,7 +48,10 @@ Each test of the inventory has these fields:
 | `duration` | How long the test takes: `fast` under one minute, `slow` up to ten, `very-slow` beyond.     |
 | `chains`   | The chains that the test uses. Each one says where the chain runs, and who starts its node. |
 
-To check an inventory after an edit, run `validate`.
+To check an inventory after an edit, run `validate`. It checks the inventory against its schema. It
+also refuses a command that names `SEPOLIA_RPC_URL`, `MAINNET_RPC_URL`, or `ARBITRUM_RPC_URL` when
+the test does not declare that chain with the runtime `forge-fork` or `remote`. Every other command
+of the engine makes the same checks before it does anything.
 
 ## Select the tests of a run
 
@@ -308,7 +311,8 @@ A test gets the RPC URL of a chain only when its `chains` in the inventory hold 
 runtime `forge-fork` or `remote`. A test that declares no live chain gets none of the three
 variables, even when they are set. So a suite that holds fork tests among its local ones skips
 them, on your machine as on CI, and only the tests in the lane of the live chains call your RPC
-provider. When you add a test that needs a live chain, declare the chain, or the test finds no URL.
+provider. When you add a test that needs a live chain, declare the chain, or the test finds no URL. A test
+that needs two live chains declares both.
 
 If a variable is not set, or is empty, the engine does not start the tests that need it. Such a test
 is `unavailable`: the run warns, names the variable, and goes on. Its exit status does not change.

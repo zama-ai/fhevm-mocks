@@ -425,6 +425,11 @@
         "chainid": 1,
         "fhevm": "mainnet",
         "runtime": "forge-fork"
+      },
+      {
+        "chainid": 42161,
+        "fhevm": "local",
+        "runtime": "forge-fork"
       }
     ]
   },
@@ -518,6 +523,11 @@
       {
         "chainid": 1,
         "fhevm": "mainnet",
+        "runtime": "forge-fork"
+      },
+      {
+        "chainid": 42161,
+        "fhevm": "local",
         "runtime": "forge-fork"
       }
     ]
