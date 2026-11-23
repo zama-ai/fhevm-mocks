@@ -151,12 +151,6 @@
       }
     ]
   },
-  "test-npm-cli": {
-    "command": "npm --prefix fhevm-npm test",
-    "package": "fhevm-npm",
-    "ci": true,
-    "chains": []
-  },
   "test-consumer-cleartext-v-prev-cjs": {
     "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v13/test-consumer/cjs --run --ci",
     "package": "host-contracts-cleartext",

@@ -125,6 +125,10 @@ The engine runs the command once, from the root, before any test. If the build f
 the engine writes no report, and it exits with status 2. The output of the build goes to `build.log`,
 in the folder of the logs.
 
+The unit tests of `fhevm-npm` are not in the inventory. They test the tool that runs the tests, the
+engine included, so they run with the build: `make build` runs them, and `make compile` does not. To
+run them alone, use `npm --prefix fhevm-npm test`.
+
 ## Run tests side by side
 
 A run needs `--max-lanes <n>`. A lane is a list of tests that run one after the other, and the lanes
