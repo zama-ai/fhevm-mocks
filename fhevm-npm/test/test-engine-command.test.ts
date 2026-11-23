@@ -53,6 +53,18 @@ test('list prints one line per test of the inventory, with its state', async (co
   ]);
 });
 
+test('an option with no command before it says that the command is missing, and names the commands', async (context) => {
+  const result = await captureEngine({ context, argv: ['--ci', '--match', 'anvil', '--max-lanes', '3'] });
+  const help = await captureEngine({ context, argv: ['--help'] }).catch(() => undefined);
+
+  assert.equal(result.status, RUN_FAILURE_EXIT_STATUS);
+  assert.match(result.stderr, /'--ci' is an option, and no command is named before it\./);
+  assert.match(result.stderr, /as in 'test-engine run --ci \.\.\.'/);
+  assert.match(result.stderr, /The commands are: validate, list, lanes, shards, run, check-report, ps, kill\./);
+  // Asking for help is not a mistake.
+  assert.notEqual(help?.status, RUN_FAILURE_EXIT_STATUS);
+});
+
 test('a command that only reads the inventory prints nothing but its answer', async (context) => {
   const repository = writeFixtureRepository({ context, inventory: INVENTORY });
 

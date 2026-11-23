@@ -94,7 +94,10 @@ export async function testEngineCommand(argv: readonly string[]): Promise<number
   };
 
   try {
-    await testEngineProgram(reportingStatus).parseAsync([...argv], { from: 'user' });
+    const program = testEngineProgram(reportingStatus);
+
+    requireCommandFirst({ argv, program });
+    await program.parseAsync([...argv], { from: 'user' });
   } catch (error) {
     // Commander asked to stop without a failure, as after --help.
     if (error instanceof CommanderError && error.exitCode === 0) return SUCCESS_EXIT_STATUS;
@@ -114,6 +117,29 @@ export async function testEngineCommand(argv: readonly string[]): Promise<number
 ////////////////////////////////////////////////////////////////////////////////
 // Command line
 ////////////////////////////////////////////////////////////////////////////////
+
+type CommandFirstInput = {
+  readonly argv: readonly string[];
+  readonly program: Command;
+};
+
+/**
+ * Fails when the command line starts with an option, as in `test-engine --ci --max-lanes 4`. Every
+ * option belongs to a command, so commander would only say that the option is unknown. This says what
+ * is missing: the command. Asking for help needs no command.
+ */
+function requireCommandFirst(input: CommandFirstInput): void {
+  const [first] = input.argv;
+
+  if (first === undefined || !first.startsWith('-') || first === '-h' || first === '--help') return;
+
+  const commands = input.program.commands.map((command) => command.name()).filter((name) => name !== 'help');
+
+  throw new TestEngineError(
+    `'${first}' is an option, and no command is named before it. Name the command first, as in ` +
+      `'test-engine run ${first} ...'. The commands are: ${commands.join(', ')}.`,
+  );
+}
 
 type ActionWrapper = <Arguments extends readonly unknown[]>(
   handler: Handler<Arguments>,
