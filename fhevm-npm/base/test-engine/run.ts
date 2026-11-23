@@ -1,0 +1,301 @@
+import { accessSync, constants, mkdirSync, rmSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { type BuildOutcome, runBuild } from './build.ts';
+
+import { TestEngineError } from './errors.ts';
+import type { Inventory } from './inventory.ts';
+import { type Lane, generateLanes } from './lanes.ts';
+import type { Locations } from './locations.ts';
+import type { InventoryEntry } from './inventory.ts';
+import { needsRunnerNode, startsItsOwnNode } from './nodes.ts';
+import {
+  independenceFromOrderAndParallelism,
+  howACommandFindsItsNode,
+  interruptedRun,
+  measuredDurationsAndTheDurationField,
+  nodeOfATestThatStartsItsOwn,
+  outputOfEachTest,
+  resourcesThatIsolationNeeds,
+  stoppingTheNodesTheEngineStarted,
+  timeLimitOfATest,
+  whatMakesADryRunFail,
+} from './open-questions.ts';
+import { formatDuration } from './output.ts';
+import { type Report, buildReport, countStates, writeReport } from './report.ts';
+import type { ResolvedTest } from './selection.ts';
+import { type RunTestsInput, type TestOutcome, runTests } from './test-lifecycle.ts';
+import { reportRunWarnings } from './warnings.ts';
+import { errorMessage } from './utils.ts';
+
+/** The log of the build, in the logs directory. No test has this name: the ID of a test starts with `test-`. */
+const BUILD_LOG_NAME = 'build.log';
+
+/** The signals that interrupt a run: Ctrl-C, a request to end, and a closed terminal. */
+const INTERRUPTION_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+
+export type RunSelectionInput = {
+  readonly locations: Locations;
+  readonly inventory: Inventory;
+  readonly resolved: readonly ResolvedTest[];
+  readonly verbose: boolean;
+  /** How long one test may take, in seconds. Undefined: as long as it takes. */
+  readonly timeLimitSeconds: number | undefined;
+  /** The command that builds the workspace before the tests. Undefined: the workspace is built already. */
+  readonly buildCommand: string | undefined;
+  /** The most lanes the run may have. */
+  readonly maximumLanes: number;
+  /** The most lines of a node's output that the engine keeps. */
+  readonly nodeLogLines: number;
+  /** True: what the engine finds doubtful in the run fails it before any test starts. */
+  readonly strict: boolean;
+};
+
+/** Builds the workspace when the run was given a build command, runs the selected tests, then writes the final report. */
+export async function runSelection(input: RunSelectionInput): Promise<Report> {
+  const { locations, inventory, resolved } = input;
+  const lanes = lanesOfRun(input);
+  const entries = lanes.flatMap((lane) => lane.entries);
+
+  requireRoot(locations);
+  prepareLogsDirectory(locations.logsDirectory);
+
+  const interruption = watchForInterruption();
+  const closedOutput = tolerateClosedOutput();
+
+  try {
+    const build = await buildOfRun({ ...input, interruption: interruption.signal });
+
+    console.log(`▶ Running ${entries.length} test(s) in ${lanes.length} lane(s), from ${locations.root}.`);
+
+    const openAnswers = answersToOpenQuestions({
+      entries,
+      logsDirectory: locations.logsDirectory,
+      timeLimitSeconds: input.timeLimitSeconds,
+    });
+
+    const outcomes = await runTests({
+      root: locations.root,
+      lanes,
+      ...openAnswers,
+      nodeLogLines: input.nodeLogLines,
+      verbose: input.verbose,
+      interruption: interruption.signal,
+      onOutcome: printOutcome,
+    });
+
+    measuredDurationsAndTheDurationField();
+
+    return finishRun({ locations, report: buildReport({ inventory, resolved, dryRun: false, outcomes, build }) });
+  } finally {
+    interruption.stopWatching();
+    closedOutput.stopTolerating();
+  }
+}
+
+type BuildOfRunInput = RunSelectionInput & {
+  readonly interruption: AbortSignal;
+};
+
+/** Builds the workspace once, before any test, when the run was given a build command. */
+async function buildOfRun(input: BuildOfRunInput): Promise<BuildOutcome | undefined> {
+  if (input.buildCommand === undefined) return undefined;
+
+  return runBuild({
+    command: input.buildCommand,
+    root: input.locations.root,
+    logFile: join(input.locations.logsDirectory, BUILD_LOG_NAME),
+    verbose: input.verbose,
+    interruption: input.interruption,
+  });
+}
+
+type OpenAnswersInput = {
+  readonly entries: readonly InventoryEntry[];
+  readonly logsDirectory: string;
+  readonly timeLimitSeconds: number | undefined;
+};
+
+/**
+ * Reaches every open question that this run meets, once, so that each one shows in the output of the
+ * run. Returns what the run needs from the ones that give something.
+ */
+function answersToOpenQuestions(
+  input: OpenAnswersInput,
+): Pick<RunTestsInput, 'logFileOf' | 'nodeLogFileOf' | 'environmentWithNode' | 'timeLimitMilliseconds'> {
+  const { entries } = input;
+  const startsNodes = entries.some((entry) => needsRunnerNode(entry.test));
+
+  resourcesThatIsolationNeeds();
+  independenceFromOrderAndParallelism();
+
+  if (startsNodes) stoppingTheNodesTheEngineStarted();
+
+  if (entries.some((entry) => startsItsOwnNode(entry.test))) nodeOfATestThatStartsItsOwn();
+
+  return {
+    timeLimitMilliseconds: timeLimitOfATest(input.timeLimitSeconds),
+    ...outputOfEachTest(input.logsDirectory),
+    environmentWithNode: startsNodes ? howACommandFindsItsNode() : environmentWithoutNode,
+  };
+}
+
+/** No test of the run has a node of the engine, so no command asks where one is. */
+function environmentWithoutNode(): never {
+  throw new Error('No test of this run has a node of the engine.');
+}
+
+/**
+ * The lanes of a run, known before anything starts. Reports what the engine finds doubtful in them, and
+ * fails there when the run is strict.
+ */
+function lanesOfRun(input: RunSelectionInput): readonly Lane[] {
+  const entries = input.resolved.filter((entry) => entry.state === 'selected');
+  const lanes = generateLanes({ entries, maximum: input.maximumLanes });
+
+  reportRunWarnings({ lanes, strict: input.strict });
+
+  return lanes;
+}
+
+/** Prints what a run would run, lane by lane, runs no test, and writes the final report. */
+export function dryRunSelection(input: RunSelectionInput): Report {
+  const { locations, inventory, resolved } = input;
+  const lanes = lanesOfRun(input);
+
+  requireRoot(locations);
+  whatMakesADryRunFail();
+
+  // A dry run builds nothing: it only says what the run would build.
+  if (input.buildCommand !== undefined) console.log(`would build  $ ${input.buildCommand}`);
+
+  for (const lane of lanes) {
+    for (const entry of lane.entries)
+      console.log(`would run  lane ${lane.number}  ${entry.id}  $ ${entry.test.command}`);
+  }
+
+  return finishRun({
+    locations,
+    report: buildReport({ inventory, resolved, dryRun: true, outcomes: new Map(), build: undefined }),
+  });
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Before the run
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Removes the report of an earlier run. A run does this first, before anything that can fail: a run
+ * that ends without a report of its own must not leave the report of another run in its place.
+ */
+export function removeEarlierReport(locations: Locations): void {
+  try {
+    rmSync(locations.reportFile, { force: true });
+  } catch (error) {
+    throw new TestEngineError(`The earlier report ${locations.reportFile} cannot be removed: ${errorMessage(error)}`);
+  }
+}
+
+/** Checks what every test needs, so that a problem of the run fails the run and not each test. */
+function requireRoot(locations: Locations): void {
+  if (statSync(locations.root, { throwIfNoEntry: false })?.isDirectory() !== true) {
+    throw new TestEngineError(`The root ${locations.root} is not a directory.`);
+  }
+}
+
+function prepareLogsDirectory(directory: string): void {
+  try {
+    mkdirSync(directory, { recursive: true });
+    accessSync(directory, constants.W_OK | constants.X_OK);
+  } catch (error) {
+    throw new TestEngineError(`The logs directory ${directory} is not writable: ${errorMessage(error)}`);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// During the run
+////////////////////////////////////////////////////////////////////////////////
+
+type Interruption = {
+  readonly signal: AbortSignal;
+  readonly stopWatching: () => void;
+};
+
+/**
+ * Turns the first interruption signal that the engine receives into an abort of the run. Later signals
+ * change nothing: stopping the commands takes a bounded time, and the engine then writes its report.
+ */
+function watchForInterruption(): Interruption {
+  const controller = new AbortController();
+  const onSignal = (): void => {
+    if (controller.signal.aborted) return;
+
+    interruptedRun();
+    controller.abort();
+  };
+
+  for (const signal of INTERRUPTION_SIGNALS) process.on(signal, onSignal);
+
+  return {
+    signal: controller.signal,
+    stopWatching: () => {
+      for (const signal of INTERRUPTION_SIGNALS) process.off(signal, onSignal);
+    },
+  };
+}
+
+type ClosedOutputTolerance = {
+  readonly stopTolerating: () => void;
+};
+
+/**
+ * Keeps the run alive when nobody reads the engine's output any more, as in `run | head`. The tests
+ * still end, and the report is still written.
+ */
+function tolerateClosedOutput(): ClosedOutputTolerance {
+  const streams = [process.stdout, process.stderr];
+  const ignoreClosedPipe = (error: NodeJS.ErrnoException): void => {
+    if (error.code !== 'EPIPE') throw error;
+  };
+
+  for (const stream of streams) stream.on('error', ignoreClosedPipe);
+
+  return {
+    stopTolerating: () => {
+      for (const stream of streams) stream.off('error', ignoreClosedPipe);
+    },
+  };
+}
+
+function printOutcome(outcome: TestOutcome): void {
+  const duration = formatDuration(outcome.durationMilliseconds);
+
+  if (outcome.state === 'passed') {
+    console.log(`✅ passed  lane ${outcome.lane}  ${outcome.id}  ${duration}`);
+  } else {
+    console.log(`❌ failed  lane ${outcome.lane}  ${outcome.id}  ${duration}  log: ${outcome.logFile}`);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// After the run
+////////////////////////////////////////////////////////////////////////////////
+
+type FinishRunInput = {
+  readonly locations: Locations;
+  readonly report: Report;
+};
+
+function finishRun(input: FinishRunInput): Report {
+  const { locations, report } = input;
+  const counts = countStates(report);
+
+  writeReport({ report, file: locations.reportFile });
+
+  console.log(
+    `${report.dryRun ? 'Dry run' : 'Run'}: ${counts.passed} passed, ${counts.failed} failed, ` +
+      `${counts.skipped} skipped, ${counts['not-selected']} not selected. Report: ${locations.reportFile}`,
+  );
+
+  return report;
+}

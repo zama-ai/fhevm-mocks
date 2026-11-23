@@ -53,6 +53,7 @@ import { publishRender } from './commands/publish-render.ts';
 import { syncVendoredCommand } from './commands/sync-vendored.ts';
 import { syncPinnedCommand } from './commands/sync-pinned.ts';
 import { bumpVendoredCommand } from './commands/bump-vendored.ts';
+import { TEST_ENGINE_COMMAND, testEngineCommand } from './commands/test-engine.ts';
 import { testConsumerRegeneratePackageLock } from './commands/test-consumer-regenerate-package-lock.ts';
 import { testConsumer } from './commands/test-consumer.ts';
 import { updateDependenciesCommand } from './commands/update-dependencies.ts';
@@ -328,7 +329,14 @@ async function run(options: ParsedRun): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const parsed = parseCli(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  // The test engine parses its own command line: it shares no option with the commands below, not even
+  // --root, and it reads neither npm-manifest.json nor the rule books.
+  if (argv[0] === TEST_ENGINE_COMMAND) {
+    process.exitCode = await testEngineCommand(argv.slice(1));
+    return;
+  }
+  const parsed = parseCli(argv);
   // Answers from ENFORCED_RULES alone: no file is read and nothing is printed.
   if (parsed.command === 'rule-id') {
     process.exitCode = parsed.enforced ? 0 : 1;
