@@ -13,6 +13,8 @@ export type LocationOptions = {
   readonly root: string;
   readonly inventory?: string | undefined;
   readonly schema?: string | undefined;
+  /** A file of environment variables to read before anything else. */
+  readonly envFile?: string | undefined;
   readonly report?: string | undefined;
   readonly logs?: string | undefined;
 };

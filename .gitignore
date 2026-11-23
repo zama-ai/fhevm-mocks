@@ -44,6 +44,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# The final report of `fhevm-npm test-engine run`, at its default place. Its logs, in test-logs/, are
+# *.log files, which the pattern above already ignores.
+test-report.json
+
 # Secrets. The negations must stay after `.env*`, or the committed templates disappear.
 .env
 .env.*

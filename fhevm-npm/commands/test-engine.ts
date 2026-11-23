@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { Command, CommanderError, InvalidArgumentError, Option } from 'commander';
 
 import { listEngineNodes, stopEngineNodes } from '../base/test-engine/engine-processes.ts';
+import { ENV_FILE_OPTION_DEFAULT, applyEnvFile, envFileLines } from '../base/test-engine/env-file.ts';
 import { TestEngineError } from '../base/test-engine/errors.ts';
 import { CHAIN_RUNTIMES, type ChainRuntime, type Inventory, loadInventory } from '../base/test-engine/inventory.ts';
 import { checkPorts, generateLanes, laneLines } from '../base/test-engine/lanes.ts';
@@ -12,6 +13,7 @@ import {
   LOGS_OPTION_DEFAULT,
   LOGS_VARIABLE,
   type LocationOptions,
+  type Locations,
   REPORT_OPTION_DEFAULT,
   REPORT_VARIABLE,
   resolveLocations,
@@ -185,7 +187,11 @@ function addLocationOptions(command: Command): Command {
   return command
     .option('--root <dir>', 'the directory each test command runs from', process.cwd())
     .option('--inventory <file>', `the inventory (default: ${INVENTORY_OPTION_DEFAULT})`)
-    .option('--schema <file>', "the schema of the inventory (default: the file its '$schema' key names)");
+    .option('--schema <file>', "the schema of the inventory (default: the file its '$schema' key names)")
+    .option(
+      '--env-file <file>',
+      `a file of environment variables, as NAME=value lines, for what the environment does not set (default: ${ENV_FILE_OPTION_DEFAULT})`,
+    );
 }
 
 function addSelectionOptions(command: Command): Command {
@@ -277,7 +283,7 @@ function listSelection(ids: readonly string[], options: LocationOptions & Select
 }
 
 async function runTestsOfSelection(ids: readonly string[], options: RunOptions): Promise<number> {
-  const locations = resolveLocations(options);
+  const locations = locationsWithEnvFile(options);
 
   removeEarlierReport(locations);
 
@@ -385,7 +391,21 @@ function printLanes(ids: readonly string[], options: LanesOptions): number {
 }
 
 function loadInventoryAt(options: LocationOptions): Inventory {
-  return loadInventory(resolveLocations(options));
+  return loadInventory(locationsWithEnvFile(options));
+}
+
+/**
+ * Reads the env file of the run, then resolves its locations. The file comes first: it can set the
+ * variables that say where the report and the logs go, and those that say which live chains a test
+ * can reach. What the engine says about the file goes to the standard error, so that the standard
+ * output of a command stays what the command prints.
+ */
+function locationsWithEnvFile(options: LocationOptions): Locations {
+  const applied = applyEnvFile({ root: resolve(options.root), file: options.envFile, environment: process.env });
+
+  if (applied !== undefined) for (const line of envFileLines(applied)) console.warn(`📄 ${line}`);
+
+  return resolveLocations(options);
 }
 
 type SelectionRequestInput = {
