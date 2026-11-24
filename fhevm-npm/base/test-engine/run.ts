@@ -16,7 +16,7 @@ import {
   timeLimitOfATest,
 } from './open-questions.ts';
 import { formatDuration } from './output.ts';
-import { formatElapsed, watchProgress } from './progress.ts';
+import { type Progress, formatElapsed, watchProgress } from './progress.ts';
 import { type BuildReportInput, type Report, buildReport, countStates, writeReport } from './report.ts';
 import type { ResolvedTest } from './selection.ts';
 import { type TestOutcome, runTests } from './test-lifecycle.ts';
@@ -71,7 +71,7 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
   });
 
   try {
-    const build = await buildOfRun({ ...input, interruption: interruption.signal });
+    const build = await buildOfRun({ ...input, interruption: interruption.signal, progress });
 
     console.log(
       `▶ Running ${entries.length} test(s) in ${lanes.length} lane(s)${describeShard(input.shard)}, from ${locations.root}.`,
@@ -119,6 +119,7 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
 
 type BuildOfRunInput = RunSelectionInput & {
   readonly interruption: AbortSignal;
+  readonly progress: Progress;
 };
 
 /** Builds the workspace once, before any test, when the run was given a build command. */
@@ -131,6 +132,8 @@ async function buildOfRun(input: BuildOfRunInput): Promise<BuildOutcome | undefi
     logFile: join(input.locations.logsDirectory, BUILD_LOG_NAME),
     verbose: input.verbose,
     interruption: input.interruption,
+    onStart: input.progress.buildStarted,
+    onEnd: input.progress.buildEnded,
   });
 }
 

@@ -133,6 +133,16 @@ The engine runs the command once, from the root, before any test. If the build f
 the engine writes no report, and it exits with status 2. The output of the build goes to `build.log`,
 in the folder of the logs.
 
+A build can take minutes and prints nothing on the terminal. So the engine prints the path of
+`build.log` when the build starts, then one line every 30 seconds while it runs, as for a test:
+
+```text
+⏳ building  2m00s  log: /path/to/test-logs/build.log
+```
+
+To read the output while the build runs, use `tail -f test-logs/build.log`. `--progress 0` turns
+these lines off.
+
 The unit tests of `fhevm-npm` are not in the inventory. They test the tool that runs the tests, the
 engine included, so they run with the build: `make build` runs them, and `make compile` does not. To
 run them alone, use `npm --prefix fhevm-npm test`.

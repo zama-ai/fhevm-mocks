@@ -540,6 +540,30 @@ test('a run says when each test starts, and at each interval which tests still r
   assert.doesNotMatch(quiet.stdout.join('\n'), /⏳ running/);
 });
 
+test('a build that prints nothing still shows that it runs, with the file of its log', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: { $schema: SCHEMA, 'test-quick': fixtureTest({ command: 'sleep 1.2' }) },
+  });
+  const argv = ['run', '--root', repository.root, '--max-lanes', '1', '--build', 'sleep 2.6'];
+
+  const run = await captureEngine({ context, argv: [...argv, '--progress', '1'] });
+  const lines = run.stdout.join('\n');
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(lines, /^ {2}The output of the build goes to \S+build\.log$/m);
+  assert.match(lines, /^⏳ building {2}1s {2}log: \S+build\.log$/m);
+  assert.match(lines, /^⏳ building {2}2s {2}log: \S+build\.log$/m);
+  assert.ok(lines.lastIndexOf('⏳ building') < lines.indexOf('✅ built'), 'a build that ended is in no later line');
+  // The same timer then shows the tests.
+  assert.match(lines, /^⏳ running {2}lane 1 {2}test-quick {2}\d+s$/m);
+
+  const quiet = await captureEngine({ context, argv: [...argv, '--progress', '0'] });
+
+  assert.match(quiet.stdout.join('\n'), /The output of the build goes to/);
+  assert.doesNotMatch(quiet.stdout.join('\n'), /⏳ building/);
+});
+
 test('a test gets the RPC URL of a live chain only when it declares that chain', async (context) => {
   const sepolia: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
   const mainnet: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' };

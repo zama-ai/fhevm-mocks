@@ -11,8 +11,12 @@ export type WaitingTest = StartedTest & {
   readonly heldBy: readonly string[];
 };
 
-/** Says that the tests of a run are alive, whatever the tests print themselves. */
+/** Says that the build and the tests of a run are alive, whatever they print themselves. */
 export type Progress = {
+  /** The build starts: from now on, each interval prints one line for it, with the file of its log. */
+  readonly buildStarted: (logFile: string) => void;
+  /** The build ended: it is in no later line. */
+  readonly buildEnded: () => void;
   /** A test waits for a resource before it starts: prints one line. */
   readonly waiting: (test: WaitingTest) => void;
   /** A test starts: prints one line. */
@@ -33,12 +37,18 @@ export type WatchProgressInput = {
  * Prints one line when a test starts and, at each interval, one line for each test that is still
  * running, with the time since it started. A test that prints nothing for minutes, as a forge test does
  * while one of its functions runs, then still shows that it runs, and for how long. A test that waits
- * for a resource has its own lines, until it starts.
+ * for a resource has its own lines, until it starts. The build of a run has one line at each interval
+ * too, since a build prints nothing on the terminal for minutes.
  */
 export function watchProgress(input: WatchProgressInput): Progress {
   const running = new Map<string, { readonly lane: number; readonly startedAt: number }>();
   const waiting = new Map<string, { readonly lane: number; readonly startedAt: number }>();
+  let build: { readonly logFile: string; readonly startedAt: number } | undefined;
   const printRunning = (): void => {
+    if (build !== undefined) {
+      input.write(`⏳ building  ${formatElapsed(performance.now() - build.startedAt)}  log: ${build.logFile}`);
+    }
+
     const lines = [
       ...[...running].map(([id, test]) => ({ id, ...test, label: '⏳ running' })),
       ...[...waiting].map(([id, test]) => ({ id, ...test, label: '⏸ waiting' })),
@@ -55,6 +65,12 @@ export function watchProgress(input: WatchProgressInput): Progress {
   timer?.unref();
 
   return {
+    buildStarted: (logFile) => {
+      build = { logFile, startedAt: performance.now() };
+    },
+    buildEnded: () => {
+      build = undefined;
+    },
     waiting: ({ id, lane, heldBy }) => {
       waiting.set(id, { lane, startedAt: performance.now() });
       input.write(

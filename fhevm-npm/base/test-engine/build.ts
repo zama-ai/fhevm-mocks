@@ -22,6 +22,10 @@ export type RunBuildInput = {
   readonly verbose: boolean;
   /** Aborted when the run is interrupted: the build is stopped. */
   readonly interruption: AbortSignal;
+  /** Called when the build starts, with the file of its log. */
+  readonly onStart: (logFile: string) => void;
+  /** Called when the build ended, whatever its result. */
+  readonly onEnd: () => void;
 };
 
 /**
@@ -35,10 +39,15 @@ export async function runBuild(input: RunBuildInput): Promise<BuildOutcome> {
   const startedAt = performance.now();
 
   console.log(`▶ Building, from ${input.root}: $ ${command}`);
+  console.log(`  The output of the build goes to ${logFile}`);
   log.line(`$ ${command}`);
+  input.onStart(logFile);
 
   const build = startInGroup({ command, cwd: input.root, onStream: log.attach, interruption: input.interruption });
   const exit = await build.ended;
+
+  input.onEnd();
+
   const durationMilliseconds = performance.now() - startedAt;
   const ending = describeExit({ exit, subject: 'The build' });
 
