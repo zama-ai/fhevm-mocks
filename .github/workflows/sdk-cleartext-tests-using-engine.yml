@@ -37,6 +37,18 @@ jobs:
       contents: 'read' # Required to checkout repository code
     steps:
       # -----------------------------------------------------------------------
+      # 0. RunsOn
+      #    Required by `extras=s3-cache`, and it must be the first step. The
+      #    runner points ACTIONS_RESULTS_URL at the local RunsOn cache proxy,
+      #    and only this action gives that proxy the real GitHub results URL.
+      #    Without it, every actions/upload-artifact call below fails with
+      #    `Unexpected token 'O', "Original A"... is not valid JSON`.
+      #    The same pin as the workflows of zama-ai/kms.
+      # -----------------------------------------------------------------------
+      - name: Set up RunsOn
+        uses: runs-on/action@cd2b598b0515d39d78c38a02d529db87d2196d1e # v2.0.3
+
+      # -----------------------------------------------------------------------
       # 1. Checkout
       #    Pinned to a full commit SHA (not a mutable tag) to prevent supply
       #    chain attacks. persist-credentials: false removes the Git token from
