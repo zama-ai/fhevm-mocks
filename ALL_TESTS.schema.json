@@ -75,6 +75,11 @@
         "write": {
           "$ref": "#/$defs/resources",
           "description": "The resources that the test alters while it runs: it puts each one in a state that no other test can use, and puts it back as it was before it ends. A test that writes a resource has it alone: no other test reads it or writes it meanwhile. A name is in write or in read, not in both."
+        },
+        "list": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A shell command, run from the repository root, that prints the test cases that the command of the test selects, one per line, and runs none of them. `test-engine duplicates` reports each case that two tests print. Keep its filters the same as those of the command."
         }
       }
     },

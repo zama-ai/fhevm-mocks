@@ -318,7 +318,11 @@ function timingLines(report: Report): readonly string[] {
 
   const width = Math.max(0, ...timing.lanes.map((lane) => String(lane.tests).length));
   const lanes = timing.lanes.map((lane) => {
-    return `lane ${lane.lane}  ${String(lane.tests).padStart(width)} test(s)  ${formatElapsed(lane.durationMilliseconds)}`;
+    const waited = formatElapsed(lane.waitedMilliseconds);
+    // A wait that rounds to no second says nothing.
+    const wait = waited === '0s' ? '' : `, and waited ${waited}`;
+
+    return `lane ${lane.lane}  ${String(lane.tests).padStart(width)} test(s)  ${formatElapsed(lane.durationMilliseconds)}${wait}`;
   });
   const parts = [
     ...(build === undefined ? [] : [`build ${formatElapsed(build.durationMilliseconds)}`]),

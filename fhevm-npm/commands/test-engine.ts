@@ -6,6 +6,7 @@ import { listEngineNodes, stopEngineNodes } from '../base/test-engine/engine-pro
 import { ENV_FILE_OPTION_DEFAULT, applyEnvFile, envFileLines } from '../base/test-engine/env-file.ts';
 import { TestEngineError } from '../base/test-engine/errors.ts';
 import { FAILURE_EXIT_STATUS, RUN_FAILURE_EXIT_STATUS, SUCCESS_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
+import { duplicateCases, listCases, listedLine } from '../base/test-engine/duplicates.ts';
 import { CHAIN_RUNTIMES, type ChainRuntime, type Inventory, loadInventory } from '../base/test-engine/inventory.ts';
 import {
   DEFAULT_LIVE_CHAIN_LANES,
@@ -215,6 +216,12 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
     )
     .action(reportingStatus(runTestsOfSelection));
 
+  addSelectionOptions(addLocationOptions(program.command('duplicates [ids...]')))
+    .description(
+      'Run the list command of each selected test, and report each test case that two tests select. Runs no test.',
+    )
+    .action(reportingStatus(checkDuplicates));
+
   program
     .command('check-report <reports...>')
     .description(
@@ -387,6 +394,42 @@ function listSelection(ids: readonly string[], options: LocationOptions & Select
   });
 
   for (const line of selectionLines(resolved)) console.log(line);
+
+  return SUCCESS_EXIT_STATUS;
+}
+
+/**
+ * The tests that the check reads: those of the selection that can run, available or not. A test that is
+ * unavailable here runs where its variables are set, so its cases count.
+ */
+function checkDuplicates(ids: readonly string[], options: LocationOptions & SelectionOptions): number {
+  const inventory = loadInventoryAt(options);
+  const resolved = resolveSelection({
+    inventory,
+    request: selectionRequest({ ids, options }),
+    environment: process.env,
+  });
+  const entries = resolved.filter((entry) => entry.state === 'selected' || entry.state === 'unavailable');
+  const unlisted = entries.filter((entry) => entry.test.list === undefined).map((entry) => entry.id);
+
+  console.log(`▶ Listing the cases of ${entries.length - unlisted.length} test(s), from ${resolve(options.root)}.`);
+
+  const listed = listCases({ entries, root: resolve(options.root), onListed: (one) => console.log(listedLine(one)) });
+  const duplicates = duplicateCases(listed);
+  const caseCount = new Set(listed.flatMap((one) => one.cases)).size;
+
+  for (const { testCase, ids: owners } of duplicates)
+    console.error(`❌ ${testCase}  is selected by ${owners.join(', ')}`);
+
+  if (unlisted.length > 0) console.log(`${unlisted.length} test(s) have no list command, and are not checked.`);
+
+  if (duplicates.length > 0) {
+    console.error(`❌ ${duplicates.length} of ${caseCount} case(s) are selected by more than one test.`);
+
+    return FAILURE_EXIT_STATUS;
+  }
+
+  console.log(`✅ ${caseCount} case(s), listed by ${listed.length} test(s): none is selected by two tests.`);
 
   return SUCCESS_EXIT_STATUS;
 }

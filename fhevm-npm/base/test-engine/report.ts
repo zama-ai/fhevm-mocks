@@ -41,13 +41,19 @@ export type RunSettings = {
   readonly shard: Shard;
 };
 
-/** How long one lane took: its tests run one after the other, so it is the sum of their durations. */
+/**
+ * How long one lane took. Its tests run one after the other, so its duration is the sum of their
+ * durations. Before a test starts, the lane can wait for a resource that a test of another lane holds:
+ * the lane took its duration and its wait together.
+ */
 export type LaneTiming = {
   /** The number of the lane, from 1. */
   readonly lane: number;
   /** How many tests the lane ran. */
   readonly tests: number;
   readonly durationMilliseconds: number;
+  /** How long its tests waited for their resources, in all. */
+  readonly waitedMilliseconds: number;
 };
 
 /** How long a run took, in milliseconds. */
@@ -119,14 +125,15 @@ type TimingInput = Pick<BuildReportInput, 'outcomes' | 'build'> & {
 };
 
 function timingOf(input: TimingInput): RunTiming {
-  const byLane = new Map<number, { tests: number; durationMilliseconds: number }>();
+  const byLane = new Map<number, { tests: number; durationMilliseconds: number; waitedMilliseconds: number }>();
 
   for (const outcome of input.outcomes.values()) {
-    const lane = byLane.get(outcome.lane) ?? { tests: 0, durationMilliseconds: 0 };
+    const lane = byLane.get(outcome.lane) ?? { tests: 0, durationMilliseconds: 0, waitedMilliseconds: 0 };
 
     byLane.set(outcome.lane, {
       tests: lane.tests + 1,
       durationMilliseconds: lane.durationMilliseconds + outcome.durationMilliseconds,
+      waitedMilliseconds: lane.waitedMilliseconds + outcome.waitedMilliseconds,
     });
   }
 
@@ -143,6 +150,7 @@ function timingOf(input: TimingInput): RunTiming {
         lane,
         tests: timing.tests,
         durationMilliseconds: Math.round(timing.durationMilliseconds),
+        waitedMilliseconds: Math.round(timing.waitedMilliseconds),
       })),
   };
 }

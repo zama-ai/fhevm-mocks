@@ -18,6 +18,8 @@ export type TestOutcome = {
   readonly state: RunState;
   /** From the moment the engine took the test to the moment everything of it was stopped. */
   readonly durationMilliseconds: number;
+  /** How long the test waited for its resources before it started. It is not in its duration. */
+  readonly waitedMilliseconds: number;
   readonly logFile: string;
   /** The number of the lane the test ran in, and its place in that lane, both from 1. */
   readonly lane: number;
@@ -72,6 +74,7 @@ async function runLane(input: RunLaneInput): Promise<readonly TestOutcome[]> {
 
   for (const [index, entry] of input.lane.entries.entries()) {
     const started = { id: entry.id, lane: input.lane.number };
+    const waitStartedAt = performance.now();
     const release = await input.locks.acquire({
       ...started,
       resources: resourcesOfTest(entry.test),
@@ -79,9 +82,12 @@ async function runLane(input: RunLaneInput): Promise<readonly TestOutcome[]> {
       onWait: (heldBy) => input.onWait({ ...started, heldBy }),
     });
 
+    const waitedMilliseconds = performance.now() - waitStartedAt;
+
     input.onStart(started);
 
-    const outcome = await runTest({ ...input, entry, lane: input.lane.number, position: index + 1 });
+    const ran = await runTest({ ...input, entry, lane: input.lane.number, position: index + 1 });
+    const outcome = { ...ran, waitedMilliseconds };
 
     // Everything of the test is stopped: what it wrote is back as it was.
     release();
@@ -104,7 +110,7 @@ type RunTestInput = Omit<RunTestsInput, 'lanes' | 'locks' | 'onWait' | 'onStart'
  * for the test is stopped when the test ends, however it ends. A node that died before that fails the
  * test, and so does a test that reaches its time limit.
  */
-async function runTest(input: RunTestInput): Promise<TestOutcome> {
+async function runTest(input: RunTestInput): Promise<Omit<TestOutcome, 'waitedMilliseconds'>> {
   const { id } = input.entry;
   const startedAt = performance.now();
   const log = openTestLog({ file: input.logFileOf(id), id, verbose: input.verbose });

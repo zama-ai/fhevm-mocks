@@ -649,6 +649,40 @@ test('a run ends with the time of each lane, of the build, of the tests and of t
   assert.equal(readReport(repository).timing, undefined);
 });
 
+test('the time of a lane says how long it waited for a resource, so that the slowest lane adds up to the tests', async (context) => {
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-writer': fixtureTest({ command: 'sleep 2.2', duration: 'very-slow', write: ['folder'] }),
+      'test-reader': fixtureTest({ command: 'sleep 0.3', duration: 'fast', read: ['folder'] }),
+    },
+  });
+
+  const run = await captureEngine({ context, argv: ['run', '--root', repository.root, '--max-lanes', '2'] });
+  const lines = run.stdout.join('\n');
+  const report = readReport(repository);
+  const laneOf = (id: string): number | undefined => report.tests[id]?.lane;
+  const lanes = report.timing?.lanes ?? [];
+  const writer = lanes.find((lane) => lane.lane === laneOf('test-writer'));
+  const reader = lanes.find((lane) => lane.lane === laneOf('test-reader'));
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.notEqual(laneOf('test-writer'), laneOf('test-reader'), 'a reader and a writer are in two lanes');
+  assert.match(lines, new RegExp(`^lane ${String(laneOf('test-reader'))} {2}1 test\\(s\\) {2}0s, and waited 2s$`, 'm'));
+  assert.match(lines, new RegExp(`^lane ${String(laneOf('test-writer'))} {2}1 test\\(s\\) {2}2s$`, 'm'));
+  assert.equal(writer?.waitedMilliseconds, 0);
+  assert.ok(
+    reader !== undefined && reader.waitedMilliseconds >= 2000,
+    `the reader waited ${String(reader?.waitedMilliseconds)}ms`,
+  );
+
+  // The reader's lane took its wait and its test: together, about as long as the tests of the run.
+  const tests = report.timing?.testsMilliseconds ?? 0;
+
+  assert.ok(Math.abs(reader.waitedMilliseconds + reader.durationMilliseconds - tests) < 300);
+});
+
 ////////////////////////////////////////////////////////////////////////////////
 // Shards
 ////////////////////////////////////////////////////////////////////////////////

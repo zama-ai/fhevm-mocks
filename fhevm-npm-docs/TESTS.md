@@ -23,6 +23,7 @@ Run every command of this guide from the workspace root.
 ./fhevm-npm-cli test-engine shards 3 --ci                     # which tests each of 3 machines would run
 ./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 2/3 # the share of machine 2 of 3
 ./fhevm-npm-cli test-engine check-report test-report.json     # check the report of a run
+./fhevm-npm-cli test-engine duplicates --ci                   # find a test case that two tests run
 ./fhevm-npm-cli test-engine ps                                # the nodes of the engine that still run
 ./fhevm-npm-cli test-engine kill --all                        # stop them
 ```
@@ -50,6 +51,7 @@ Each test of the inventory has these fields:
 | `chains`   | The chains that the test uses. Each one says where the chain runs, and who starts its node.                                                   |
 | `read`     | The resources that the test needs in their normal state. See [Keep a test away from a shared folder](#keep-a-test-away-from-a-shared-folder). |
 | `write`    | The resources that the test alters while it runs, and puts back before it ends.                                                               |
+| `list`     | A command that prints the cases the test selects. See [Run each test case once](#run-each-test-case-once).                                    |
 
 To check an inventory after an edit, run `validate`. It checks the inventory against its schema. It
 also refuses a command that names `SEPOLIA_RPC_URL`, `MAINNET_RPC_URL`, or `ARBITRUM_RPC_URL` when
@@ -262,10 +264,68 @@ waits does not pass in front of it.
 reads and that no test writes. The second one is most often a typing mistake.
 
 A resource is of one machine: each shard has its own copy of the workspace, so two shards do not
-wait for each other. The time of a lane, at the end of a run, counts its tests and not its waits.
+wait for each other. At the end of a run, the time of a lane says how long it waited, apart from its
+tests.
 
 A test that alters a resource and does not put it back is outside these fields. It harms every later
 test, whatever the lanes, and must be fixed.
+
+## Run each test case once
+
+A package can run in several tests of the inventory. The forge tests of `forge-fhevm-std` are one: the
+offline suite is one test, and each group of fork tests is a test of its own, with its own chains. If
+two of these tests select the same forge function, the function runs twice, and a fork test may then
+call a live chain from a test that declares none.
+
+Each such test uses two protections together:
+
+1. **A filter.** The command of the larger test leaves out what the others run, as in
+   `--no-match-path 'test/{fork,anvil,anvilMirror}/*'`. Each function is then selected by one test.
+2. **A skip.** A fork test still skips itself when its RPC variable is not set, and
+   `FHEVM_SKIP_RPC_TESTS=true` still skips the network tests of the offline suite. A function that a
+   filter misses then skips, and does not call a live chain.
+
+The filters can only be checked by listing what each test selects. The optional field `list` gives a
+command that prints the cases of the test, one per line, and runs none of them. For a forge test, it is
+`scripts/forge-list.sh` with the arguments of the command:
+
+```json
+"test-forge-std-anvil": {
+  "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=... ../../scripts/forge-test.sh --match-path 'test/anvil/*'",
+  "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --match-path 'test/anvil/*'"
+}
+```
+
+`forge-list.sh` calls `forge test --list`. It needs no network and no node, and compiles what is not
+compiled yet. Each line names the folder, the file, the contract and the function, and the profile when
+`FOUNDRY_PROFILE` sets one, so a function of two packages or of two profiles gives two lines.
+
+To check the CI tests, run this on a built workspace:
+
+```sh
+./fhevm-npm-cli test-engine duplicates --ci
+```
+
+The engine runs the list command of each selected test, one after the other, and runs no test. It
+reads the tests that are unavailable too, since they run where their variables are set. On a built
+workspace, the check takes about 20 seconds. It ends in one of three ways:
+
+| Result                                         | Exit status |
+| ---------------------------------------------- | ----------- |
+| Each case is selected by one test              | 0           |
+| A case is selected by two tests: it names both | 1           |
+| A list command failed: no result               | 2           |
+
+```text
+❌ foundry/forge-fhevm-std/test/anvil/AnvilFork.t.sol:AnvilForkTest.test_forkAnvilAndTheStackIsThere  is selected by test-forge-std, test-forge-std-anvil
+```
+
+The check has two limits:
+
+- It compares the `list` command and not the command. Give both the same filters, and change both in
+  the same edit.
+- It sees what a test selects, and not what runs: a selected case that skips itself counts. That is
+  the intent, since a skip is the second protection and not the first.
 
 ## Split a run over several machines
 
@@ -453,7 +513,7 @@ and writes its report:
 ```
 
 ```text
-would run  lane 1  test-forge-std  $ FHEVM_SKIP_RPC_TESTS=true npm run --silent test -w @fhevm/forge-std-dev
+would run  lane 1  test-forge-std  $ FHEVM_SKIP_RPC_TESTS=true npm run --silent test:forge -w @fhevm/forge-std-dev -- --no-match-path 'test/{fork,anvil,anvilMirror}/*' --no-match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\('
 ```
 
 ## Run one test by hand
@@ -477,16 +537,23 @@ A run prints one line when a test starts and one line when a test ends:
 It ends with the time of each lane, the time of the run, and one summary line:
 
 ```text
-lane 1   1 test(s)  13m08s
-lane 2   1 test(s)  4m52s
-lane 3  19 test(s)  9m51s
-Build 43s, tests 13m08s, total 13m51s.
-Run: 20 passed, 1 failed, 0 skipped, 0 unavailable, 34 not selected. Report: test-report.json
+lane 1  16 test(s)  4m25s
+lane 2   7 test(s)  11m32s
+lane 3   7 test(s)  13m10s, and waited 7m21s
+lane 4   9 test(s)  10m48s
+Build 5m37s, tests 20m31s, total 26m08s.
+Run: 39 passed, 0 failed, 0 skipped, 4 unavailable, 13 not selected. Report: test-report.json
 ```
 
-The time of a lane is the sum of its tests, which run one after the other. The lanes run side by
-side, so the tests take as long as the longest lane, and not as long as all the lanes together. The
-total adds the build, when the engine ran one. The report holds the same times, in `timing`.
+The time of a lane is the sum of its tests, which run one after the other. A lane can also wait, before
+one of its tests, for a resource that a test of another lane holds, as
+[Keep a test away from a shared folder](#keep-a-test-away-from-a-shared-folder) explains. The line
+then adds how long the lane waited. A lane that never waited shows no wait.
+
+The lanes run side by side, so the tests take as long as the longest lane, with its wait, and not as
+long as all the lanes together. In the example, lane 3 took 13m10s and waited 7m21s: 20m31s, the time
+of the tests. The total adds the build, when the engine ran one. The report holds the same times, in
+`timing`, with `waitedMilliseconds` for each lane.
 
 Every 30 seconds, the run also prints one line for each test that is still running, with the time
 since the test started:
@@ -566,7 +633,9 @@ selected, or when a test with `"ci": false` was.
 2. For each chain with `startedBy`, state its `port`. Two tests that state a common fixed port never
    run at the same time, so give a test its own ports when it must run beside the others.
 3. Run `validate`, then `list` and `lanes`, to see the state of the test and its lane.
-4. Run the test alone, by its ID, with `--max-lanes 1`.
+4. If the test runs part of the cases of a package that another test also runs, give it a `list`
+   command, and run `duplicates`.
+5. Run the test alone, by its ID, with `--max-lanes 1`.
 
 ## Limits
 

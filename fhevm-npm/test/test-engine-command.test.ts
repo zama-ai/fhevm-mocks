@@ -60,7 +60,10 @@ test('an option with no command before it says that the command is missing, and 
   assert.equal(result.status, RUN_FAILURE_EXIT_STATUS);
   assert.match(result.stderr, /'--ci' is an option, and no command is named before it\./);
   assert.match(result.stderr, /as in 'test-engine run --ci \.\.\.'/);
-  assert.match(result.stderr, /The commands are: validate, list, lanes, shards, run, check-report, ps, kill\./);
+  assert.match(
+    result.stderr,
+    /The commands are: validate, list, lanes, shards, run, duplicates, check-report, ps, kill\./,
+  );
   // Asking for help is not a mistake.
   assert.notEqual(help?.status, RUN_FAILURE_EXIT_STATUS);
 });

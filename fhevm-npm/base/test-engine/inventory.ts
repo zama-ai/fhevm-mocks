@@ -70,6 +70,8 @@ export type Test = {
   readonly read?: readonly string[] | undefined;
   /** The resources that the test alters while it runs, and puts back before it ends, by name. */
   readonly write?: readonly string[] | undefined;
+  /** A command that prints the cases that the test selects, one per line, and runs none of them. */
+  readonly list?: string | undefined;
 };
 
 /** One test with its ID: what the engine passes around. */

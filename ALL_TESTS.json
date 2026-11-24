@@ -1,7 +1,8 @@
 {
   "$schema": "./ALL_TESTS.schema.json",
   "test-cleartext-v-prev": {
-    "command": "npm run --silent test:forge -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:harness:run -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v13-dev",
+    "command": "npm run --silent test:forge -w @fhevm/host-contracts-cleartext-v13-dev -- --no-match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|TestnetCleartextUpgradeTest|ForkUserDecryptTest|ForkCleartextContextTest|ForgeTransientStorageSemanticsTest)$' && npm run --silent test:harness:run -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v13-dev",
+    "list": "cd host-contracts-cleartext/v13 && ../../scripts/forge-list.sh --no-match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|TestnetCleartextUpgradeTest|ForkUserDecryptTest|ForkCleartextContextTest|ForgeTransientStorageSemanticsTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "very-slow",
     "ci": true,
@@ -31,7 +32,8 @@
     "write": ["host-contracts-cleartext/v13"]
   },
   "test-cleartext-v-cur": {
-    "command": "npm run --silent test:forge -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:harness:run -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v14-dev",
+    "command": "npm run --silent test:forge -w @fhevm/host-contracts-cleartext-v14-dev -- --no-match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|DevnetCleartextUpgradeTest|TestnetCleartextUpgradeTest|TestnetSinglePassCleartextUpgradeTest|ForkUserDecryptTest|ForkCleartextContextTest|ForgeTransientStorageSemanticsTest)$' && npm run --silent test:harness:run -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v14-dev",
+    "list": "cd host-contracts-cleartext/v14 && ../../scripts/forge-list.sh --no-match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|DevnetCleartextUpgradeTest|TestnetCleartextUpgradeTest|TestnetSinglePassCleartextUpgradeTest|ForkUserDecryptTest|ForkCleartextContextTest|ForgeTransientStorageSemanticsTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "very-slow",
     "ci": true,
@@ -78,7 +80,8 @@
     "read": ["host-contracts-cleartext/v14", "host-contracts-cleartext/v13"]
   },
   "test-forge-std": {
-    "command": "FHEVM_SKIP_RPC_TESTS=true npm run --silent test -w @fhevm/forge-std-dev",
+    "command": "FHEVM_SKIP_RPC_TESTS=true npm run --silent test:forge -w @fhevm/forge-std-dev -- --no-match-path 'test/{fork,anvil,anvilMirror}/*' --no-match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\\('",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --no-match-path 'test/{fork,anvil,anvilMirror}/*' --no-match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\\('",
     "package": "forge-fhevm-std",
     "duration": "fast",
     "ci": true,
@@ -296,6 +299,7 @@
   },
   "test-forge-std-anvil": {
     "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=http://127.0.0.1:8546 ../../scripts/forge-test.sh --match-path 'test/anvil/*'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --match-path 'test/anvil/*'",
     "package": "forge-fhevm-std",
     "duration": "fast",
     "ci": true,
@@ -328,6 +332,7 @@
   },
   "test-forge-std-anvil-mirror": {
     "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=http://127.0.0.1:8548 ../../scripts/forge-test.sh --match-path 'test/anvilMirror/*'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --match-path 'test/anvilMirror/*'",
     "package": "forge-fhevm-std",
     "duration": "fast",
     "ci": true,
@@ -376,6 +381,7 @@
   },
   "test-forge-std-fork-testnet": {
     "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --no-match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainInOneGroupResolvesByChainId|test_switchingStacksRepointsTheProtocol'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --no-match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainInOneGroupResolvesByChainId|test_switchingStacksRepointsTheProtocol'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -389,6 +395,7 @@
   },
   "test-forge-std-fork-resolve-mainnet": {
     "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_aChainInOneGroupResolvesByChainId'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_aChainInOneGroupResolvesByChainId'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -408,6 +415,7 @@
   },
   "test-forge-std-fork-switch-testnet-mainnet": {
     "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_switchingStacksRepointsTheProtocol'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_switchingStacksRepointsTheProtocol'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -426,6 +434,7 @@
   },
   "test-forge-std-fork-cleartext-arbitrum": {
     "command": "cd foundry/forge-fhevm-std && ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -444,6 +453,7 @@
   },
   "test-forge-std-fork-cleartext-mainnet": {
     "command": "cd foundry/forge-fhevm-std && ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -475,6 +485,7 @@
   },
   "test-forge-std-fork-debug-testnet": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --no-match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainInOneGroupResolvesByChainId|test_switchingStacksRepointsTheProtocol'",
+    "list": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --no-match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainInOneGroupResolvesByChainId|test_switchingStacksRepointsTheProtocol'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -488,6 +499,7 @@
   },
   "test-forge-std-fork-debug-resolve-mainnet": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_aChainInOneGroupResolvesByChainId'",
+    "list": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_aChainInOneGroupResolvesByChainId'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -507,6 +519,7 @@
   },
   "test-forge-std-fork-debug-switch-testnet-mainnet": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_switchingStacksRepointsTheProtocol'",
+    "list": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-test 'test_switchingStacksRepointsTheProtocol'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -525,6 +538,7 @@
   },
   "test-forge-std-fork-debug-cleartext-arbitrum": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "list": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --no-match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -543,6 +557,7 @@
   },
   "test-forge-std-fork-debug-cleartext-mainnet": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:?} ../../scripts/forge-test.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
+    "list": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-list.sh --threads 2 --match-path 'test/fork/*' --match-contract CleartextOnForeignChainTest --match-test 'test_aChainWithALiveStackRefusesTheMock|test_namingMainnetAsACleartextChainIsRefused|test_onMainnetBothBuildsResolveTheRealAddresses'",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -660,6 +675,7 @@
   },
   "test-cleartext-v-prev-fork-devnet": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest)$'",
+    "list": "cd host-contracts-cleartext/v13 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -674,6 +690,7 @@
   },
   "test-cleartext-v-prev-fork-testnet": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest)$'",
+    "list": "cd host-contracts-cleartext/v13 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -689,6 +706,7 @@
   },
   "test-cleartext-v-prev-fork-mainnet": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
+    "list": "cd host-contracts-cleartext/v13 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -703,6 +721,7 @@
   },
   "test-cleartext-v-prev-fork-transient-storage": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
+    "list": "cd host-contracts-cleartext/v13 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -722,6 +741,7 @@
   },
   "test-cleartext-v-cur-fork-devnet": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|DevnetCleartextUpgradeTest)$'",
+    "list": "cd host-contracts-cleartext/v14 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|DevnetCleartextUpgradeTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -736,6 +756,7 @@
   },
   "test-cleartext-v-cur-fork-testnet": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest|TestnetSinglePassCleartextUpgradeTest)$'",
+    "list": "cd host-contracts-cleartext/v14 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest|TestnetSinglePassCleartextUpgradeTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -751,6 +772,7 @@
   },
   "test-cleartext-v-cur-fork-mainnet": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
+    "list": "cd host-contracts-cleartext/v14 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -765,6 +787,7 @@
   },
   "test-cleartext-v-cur-fork-transient-storage": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
+    "list": "cd host-contracts-cleartext/v14 && ../../scripts/forge-list.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
@@ -784,6 +807,7 @@
   },
   "test-forge-std-internal-fork-testnet": {
     "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path test/internal/FhevmVm.t.sol --match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\\('",
+    "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --threads 2 --match-path test/internal/FhevmVm.t.sol --match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\\('",
     "package": "forge-fhevm-std",
     "duration": "slow",
     "ci": true,
@@ -811,6 +835,7 @@
   },
   "test-forge-std-internal-debug": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --match-path test/internal/DebugZamaConfig.t.sol --match-test '^test_debug_constructsFromAnywhereAndResolvesByChain\\('",
+    "list": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-list.sh --match-path test/internal/DebugZamaConfig.t.sol --match-test '^test_debug_constructsFromAnywhereAndResolvesByChain\\('",
     "package": "forge-fhevm-std",
     "ci": false,
     "chains": [
