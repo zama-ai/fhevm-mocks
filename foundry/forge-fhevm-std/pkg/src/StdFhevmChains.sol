@@ -608,7 +608,7 @@ abstract contract StdFhevmChains {
         setDefaultFhevmGroup("polygon", FHEVM_MAINNET_GROUP);
         setDefaultFhevmGroup("sepolia", FHEVM_TESTNET_GROUP);
         setDefaultFhevmGroup("polygon_amoy", FHEVM_TESTNET_GROUP);
-        setDefaultFhevmGroup("bnb_smart_chain_testnet", FHEVM_DEVNET_GROUP);
+        setDefaultFhevmGroup("bnb_smart_chain_testnet", FHEVM_TESTNET_GROUP);
         setDefaultFhevmGroup("hoodi", FHEVM_DEVNET_GROUP);
     }
 
