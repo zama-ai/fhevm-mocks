@@ -133,7 +133,7 @@ run-prettier-rules = npx --no-install prettier $(1) "rules/**/*.md"
 # Aggregates
 ########################################################################################################
 
-.PHONY: help graph build compile rebuild ci ci-fast ci-local build-ci build-ci-test-engine ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-build-output clean-generated install install-fast install-ci install-npm-cli sync-pinned update-dependencies check-safechain publish-rehearse
+.PHONY: help graph build compile rebuild ci ci-legacy ci-test-engine ci-fast ci-local build-ci build-ci-test-engine ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-build-output clean-generated install install-fast install-ci install-npm-cli sync-pinned update-dependencies check-safechain publish-rehearse
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -466,14 +466,34 @@ build-ci-test-engine: ## `build-ci` for `fhevm-npm test-engine run --build`: the
 #
 # Every recipe line and npm script of the run is timed (see SHELL at the top). The log is named first,
 # because a failed run stops before the report: `./scripts/timings-report.sh <log>` prints it then.
-ci: export FHEVM_TIMINGS_LOG ?= $(TIMINGS_DEFAULT_LOG)
+#
+# `ci` is `ci-legacy` today. `ci-test-engine` below is the candidate that replaces it: the recipe lives
+# under its own name, so that the two can be run and compared before `ci` moves to the test engine.
 ci: ## Run EVERY gate from a clean tree: formatting, checks, compile, lint, tests, consumer rehearsal, anvil suite
+	$(MAKE) ci-legacy
+
+ci-legacy: export FHEVM_TIMINGS_LOG ?= $(TIMINGS_DEFAULT_LOG)
+ci-legacy: ## What `ci` runs today: `build-ci`, then every test target one after the other
 	@echo "⏱️  timings: $$FHEVM_TIMINGS_LOG"
 	$(MAKE) build-ci
 	$(MAKE) test
 	$(MAKE) test-consumer-ci
 	$(MAKE) test-anvil-ci
 	@./scripts/timings-report.sh "$$FHEVM_TIMINGS_LOG"
+
+# The gates of `ci-legacy`, with the tests run by `fhevm-npm test-engine`: the engine runs
+# `build-ci-test-engine` first, then the tests that ALL_TESTS.json marks for CI, in lanes side by side.
+# It differs from `ci-legacy` in three ways:
+#   - it runs the fork tests of ALL_TESTS.json too, which `ci-legacy` leaves to their own targets;
+#   - it reads `.env`, so a fork test whose RPC variable is set there calls a live chain;
+#   - it writes the output of each test to `test-logs/`, and its report to `test-report.json`.
+#
+# FHEVM_TEST_MAX_LANES is the highest number of lanes of the run. Lower it on a machine that cannot
+# run four tests at the same time, as in `make ci-test-engine FHEVM_TEST_MAX_LANES=2`.
+FHEVM_TEST_MAX_LANES ?= 4
+
+ci-test-engine: ## `ci-legacy` with the tests run by the test engine, in FHEVM_TEST_MAX_LANES lanes (default 4)
+	$(call run-fhevm-npm,test-engine run --ci --max-lanes $(FHEVM_TEST_MAX_LANES) --build "make build-ci-test-engine")
 
 # The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
 # rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
