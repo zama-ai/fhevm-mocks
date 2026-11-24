@@ -8,7 +8,7 @@ import constants from './constants';
  * `@fhevm/sdk` is the source of truth for every public network: `sepolia` and `mainnet` are imported
  * from it rather than restated here, so the plugin cannot drift from the SDK's view of the protocol.
  * (It had: the addresses this file replaces named a gateway `decryption` and `inputVerification` pair
- * that the SDK no longer uses, and had no slot at all for v13's `ProtocolConfig`.)
+ * that the SDK no longer uses, and had no slot at all for `ProtocolConfig`, which protocol 0.13 introduced.)
  *
  * The local cleartext chain is the one exception, and only because the SDK ships no definition for it.
  * Its addresses come from `@fhevm/host-contracts-cleartext`'s `LocalHostAddresses.sol` via

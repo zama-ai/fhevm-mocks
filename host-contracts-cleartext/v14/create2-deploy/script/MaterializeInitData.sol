@@ -78,7 +78,7 @@ library MaterializeInitData {
         revert("MaterializeInitData: index out of range");
     }
 
-    /// @dev v13 moved the KMS signer set out of KMSVerifier into ProtocolConfig, so only the EIP-712
+    /// @dev `v13` moved the KMS signer set out of KMSVerifier into ProtocolConfig, so only the EIP-712
     ///      domain is set here and the signers are seeded as a KMS context on ProtocolConfig instead.
     function _kmsVerifier() private pure returns (bytes memory) {
         return abi.encodeCall(
@@ -112,7 +112,7 @@ library MaterializeInitData {
         );
     }
 
-    /// @dev Seeds the initial KMS context; v14 also names the KMS build and accepts no enclave PCRs.
+    /// @dev Seeds the initial KMS context; `<vN>` also names the KMS build and accepts no enclave PCRs.
     function _protocolConfig() private pure returns (bytes memory) {
         return abi.encodeCall(
             ProtocolConfig.initializeFromEmptyProxy,

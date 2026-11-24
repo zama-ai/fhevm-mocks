@@ -70,7 +70,7 @@ import {LibForgeFhevmSigners} from "./LibForgeFhevmSigners.sol";
  *      derives the coprocessor and KMS signer sets from the mnemonic; the deploy installs them when it
  *      creates the stack, and `defineCleartextContexts` re-registers them on a FORKED production stack so
  *      the proofs this package builds are accepted there too. Split across two files they each rebuilt the
- *      KMS node list from the same four bootstrap arrays, which is the drift rule 2.6 was written after.
+ *      KMS node list from the same four bootstrap arrays, which is the drift FR-10 was written after.
  *
  * @dev WHY A LIBRARY AND A CONTRACT. `ForgeFhevmDeploy` is the same deploy for a caller that can INHERIT:
  *      a test writes `is ForgeFhevmDeploy` and calls `deployLocalFhevm()`, and that stays the shape a
@@ -163,7 +163,7 @@ library LibForgeFhevmStack {
         );
     }
 
-    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct v14's
+    /// @dev The initial KMS context seeded into ProtocolConfig: `KmsNodeParams`, the wider struct `<vN>`'s
     ///      initializers take, not the `KmsNode` its getters return.
     function _fhevmProtocolConfig()
         private
@@ -430,7 +430,7 @@ library LibForgeFhevmStack {
     // the cleartext ones is what makes a forked stack usable: the proofs this package builds are signed by
     // the very keys `LocalHostBootstrap` derives, which is why this belongs beside the deploy that installs
     // them in the first place rather than in a library of its own. They were two files, and each built the
-    // KMS node list from the same four bootstrap arrays — the duplication rule 2.6 exists to prevent.
+    // KMS node list from the same four bootstrap arrays — the duplication FR-10 exists to prevent.
 
     // ---------------------------------------------------------------------------------------------
     // The cleartext side: what this project can sign as
@@ -514,8 +514,8 @@ library LibForgeFhevmStack {
     /**
      * @notice Registers the cleartext KMS nodes on a forked `ProtocolConfig`, and puts them in charge.
      *
-     * @dev THREE PHASES, NOT ONE. v13's `defineNewKmsContext` activated what it created; v14's
-     *      `defineNewKmsContextAndEpoch` only PROPOSES, and the verifier's `getKmsSigners`,
+     * @dev THREE PHASES, NOT ONE. `v13`'s `defineNewKmsContext` activated what it created; its `v14`
+     *      replacement `defineNewKmsContextAndEpoch` only PROPOSES, and the verifier's `getKmsSigners`,
      *      `getThreshold` and `getCurrentKmsContextId` keep answering for the old committee until
      *        1. the proposal is made by the ACL owner,
      *        2. every incoming tx sender and `n - t` outgoing ones confirm its creation, which opens
@@ -603,8 +603,9 @@ library LibForgeFhevmStack {
     // WHY STORAGE AND NOT A GETTER. `confirmKmsContextCreation` mints the new epoch id from a counter of
     // its own (`epochId = ++$.epochCounter`) and announces it only in the `NewKmsEpoch` event.
     // `ProtocolConfig` exposes no getter for a PENDING epoch — `isValidEpochForContext` answers for
-    // Active ones only — and the recorded-log buffer has an owner (rule 2.3): draining it here would
-    // starve the FHE replay and break the next decryption. So the counter is read where it lives.
+    // Active ones only — and the recorded-log buffer is not the SDK's (FR-07): the SDK neither arms
+    // recording nor reads the buffer, so `vm.recordLogs()` stays the test's own. Catching the event would
+    // break that. So the counter is read where it lives.
     //
     // WHAT MAKES THAT SAFE. The root is `ProtocolConfig`'s own ERC-7201 constant and the offset is the
     // field's position in `ProtocolConfigStorage`, both copied from the vendored source beside this file.

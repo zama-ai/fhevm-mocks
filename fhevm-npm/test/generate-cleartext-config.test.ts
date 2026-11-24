@@ -186,7 +186,7 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     ...CONSTANTS,
     V14_ONLY: { value: 'kms-core-', ts: 'string', solidity: 'string', generations: ['v14'] },
     V14_ONLY_ALIAS: { alias: 'V14_ONLY', ts: 'string', solidity: 'string', generations: ['v14'] },
-    // An alias may be narrower than its target: URL is everywhere, this alias only in v14.
+    // An alias may be narrower than its target: URL is everywhere, this alias only in `v14`.
     NARROW_ALIAS: { alias: 'URL', ts: 'string', solidity: 'string', generations: ['v14'] },
     BOTH_EXPLICIT: { value: '7', ts: 'number', solidity: 'uint8', generations: ['v13', 'v14'] },
   };
@@ -210,7 +210,7 @@ test('a constant scoped by `generations` reaches only those generations, and eve
     const names = (content: string): string[] =>
       [...content.matchAll(/(?:export const|internal constant|^)\s*([A-Z][A-Z0-9_]*)\s*=/gm)].map((m) => m[1] ?? '');
 
-    // v13's faces agree with each other: the unscoped set plus what names v13, nothing v14-only. (The shell
+    // `v13`'s faces agree with each other: the unscoped set plus what names `v13`, nothing `v14`-only. (The shell
     // face also carries the deploy recipe, so it is checked for membership rather than for the exact list.)
     const v13Expected = [...Object.keys(CONSTANTS), 'BOTH_EXPLICIT'];
     assert.deepEqual(names(byPath.get(join(...tsFacePath('v13'))) ?? ''), v13Expected);
@@ -228,7 +228,7 @@ test('a constant scoped by `generations` reaches only those generations, and eve
       assert.doesNotMatch(byPath.get(face) ?? '', /V14_ONLY|NARROW_ALIAS/, face);
     }
 
-    // v14's three faces carry everything, in declaration order, with the aliases resolved by bare name.
+    // `v14`'s three faces carry everything, in declaration order, with the aliases resolved by bare name.
     const v14Expected = [...Object.keys(CONSTANTS), 'V14_ONLY', 'V14_ONLY_ALIAS', 'NARROW_ALIAS', 'BOTH_EXPLICIT'];
     const v14Ts = byPath.get(join(...tsFacePath('v14'))) ?? '';
     assert.deepEqual(names(v14Ts), v14Expected);

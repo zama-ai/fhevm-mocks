@@ -1,6 +1,6 @@
 // HARDHAT 2 ONLY. When hardhat/v2 is deleted, delete this file, test/sync-hh-v2-constants.test.ts, and the
-// lines tagged `hh-v2-constants` in cli-options.ts, fhevm-npm.ts, README.md and the Makefile. Nothing else
-// depends on it.
+// lines tagged `hh-v2-constants` in cli-options.ts, fhevm-npm.ts, enforced-rules.ts, README.md and the Makefile,
+// and retire NR-88, the rule this command enforces. Nothing else depends on it.
 //
 // `sync hh-v2-constants` keeps the two package versions the Hardhat 2 plugin hardcodes in
 // src/internal/constants.ts in line with the workspace's sources of truth. Neither a version bump nor a

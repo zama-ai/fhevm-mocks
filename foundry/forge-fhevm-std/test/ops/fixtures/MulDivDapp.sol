@@ -9,7 +9,7 @@ import {Impl} from "@fhevm/solidity/lib/Impl.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHEext} from "../utils/FHEext.sol";
 
-// The v14 executor entry point. @fhevm/solidity 0.13.3, the newest on npm and the one these fixtures
+// The executor entry point protocol 0.14 added. @fhevm/solidity 0.13.3, the newest on npm and the one these fixtures
 // compile against, has no FHE.mulDiv and its IFHEVMExecutor has no fheMulDiv.
 interface IFHEVMExecutorMulDiv {
     function fheMulDiv(bytes32 factor1, bytes32 factor2, bytes32 divisor, bytes1 scalarByte)

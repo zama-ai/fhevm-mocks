@@ -59,13 +59,13 @@ struct Version {
  *      another LINE: 0.13.x (`ACL v0.4.0`) is a different ABI, and so is the next one (`ACL v0.6.0`).
  *
  * @dev THE FLOOR IS HAND-WRITTEN, THE CEILING IS GENERATED. `LocalHostVersions` (regenerated from the
- *      vendored contracts by v14's `generate:contract-versions`) is what the line reports at the commit
+ *      vendored contracts by `<vN>`'s `generate:contract-versions`) is what the line reports at the commit
  *      this SDK vendors — the newest it knows, hence the ceiling. The floor is what the line reported at
  *      its FIRST release, read off the tags of `zama-ai/fhevm` at v0.14.0 (`host-contracts/contracts`),
  *      and it moves only when this SDK moves to another line. `LibFhevmVersion.t.sol` pins both ends.
  *
  * @dev PARSING IS forge-std's, NOT OURS. `vm.split`, `vm.replace` and `vm.parseUint` do the work; there
- *      is no character arithmetic in this file. Rule 2.16 asks for exactly that — this package is a
+ *      is no character arithmetic in this file. FR-20 asks for exactly that — this package is a
  *      forge-std extension and must use forge-std where forge-std has the answer — and a hand-rolled
  *      decimal scanner is a place to get an edge case wrong for no benefit. `vm.parseUint` REVERTS on
  *      input it cannot read, so every call is wrapped: a reading that does not parse has to come back as
@@ -99,9 +99,9 @@ library LibForgeFhevmHostVersions {
     // -- The previous line: fhevm 0.13 --------------------------------------
     //
     // BOTH ENDS ARE HAND-WRITTEN, unlike the current line's generated ceiling, and they can be: the
-    // 0.13 line is closed. Its generation lives on here as V(N-1) and rule 3.4.6 forbids editing it, so
-    // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v0.13.0 for the
-    // floors, and the last 0.13 release for the ceilings — only `FHEVMExecutor` moved across the line,
+    // <N-1> line is closed. Its generation lives on here as <vN-1> and NR-27 forbids editing it, so
+    // nothing about it can move again. The numbers are the tags of `zama-ai/fhevm`: v<N-1>.0 for the
+    // floors, and the last <N-1> release for the ceilings — only `FHEVMExecutor` moved across the line,
     // from v0.4.0 to v0.5.0 at 0.13.6. The ceilings are checked against the versions the previous
     // generation's package vendors by `test/upgrade/PreviousLineCeilings.t.sol`.
 

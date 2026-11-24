@@ -31,7 +31,7 @@ test('a file that npm would not pack and no "!" pattern names is a stray', () =>
     ),
     [
       {
-        rule: '5.2.6',
+        rule: 'NR-52',
         packageKey: './project/pkg/package.json',
         message: `'NOTES.md' is neither published (not selected by "files") nor excluded by a "!" pattern in "files"; delete it or declare it`,
       },
@@ -69,7 +69,7 @@ test('a published package without "files" ships every stray file, so the whiteli
     validatePublishedFiles(pkg, probes(['package.json', 'anything.md'], ['package.json', 'anything.md'])),
     [
       {
-        rule: '5.2.6',
+        rule: 'NR-52',
         packageKey: './project/pkg/package.json',
         message: 'published package.json must declare "files": without the whitelist, every stray file ships',
       },
@@ -86,7 +86,7 @@ test('several strays are reported one per file, sorted', () => {
   assert.deepEqual(messages, ['a.md', 'b.md']);
 });
 
-test('rule 5.2.7: LICENSE and README.md must exist and be listed in "files"', () => {
+test('rule NR-53: LICENSE and README.md must exist and be listed in "files"', () => {
   const complete = published(['src', 'LICENSE', 'README.md']);
   const onDisk = ['package.json', 'LICENSE', 'README.md', 'src/index.js'];
   assert.deepEqual(validateRequiredPayloadFiles(complete, probes(onDisk, onDisk)), []);
@@ -105,7 +105,7 @@ test('rule 5.2.7: LICENSE and README.md must exist and be listed in "files"', ()
   const missing = validateRequiredPayloadFiles(complete, probes(['package.json', 'LICENSE', 'src/index.js'], []));
   assert.deepEqual(missing, [
     {
-      rule: '5.2.7',
+      rule: 'NR-53',
       packageKey: './project/pkg/package.json',
       message: `'README.md' is missing from the payload directory`,
     },
@@ -116,7 +116,7 @@ test('rule 5.2.7: LICENSE and README.md must exist and be listed in "files"', ()
   assert.equal(validateRequiredPayloadFiles(lowercase, probes(['package.json', 'license', 'readme.md'], [])).length, 4);
 });
 
-test('rule 5.2.7 does not repeat 5.2.6 when "files" is absent altogether', () => {
+test('rule NR-53 does not repeat NR-52 when "files" is absent altogether', () => {
   const pkg = published(undefined);
   assert.deepEqual(validateRequiredPayloadFiles(pkg, probes(['package.json', 'LICENSE', 'README.md'], [])), []);
 });
@@ -151,10 +151,10 @@ test('only npm-distributed payloads are inspected: a mirror-only payload is its 
       [...new Set(inspection.violations.map((violation) => violation.packageKey))],
       ['./plugin/pkg/package.json'],
     );
-    // Both rules run on the same payload: the stray (5.2.6) and the two required files it lacks (5.2.7).
+    // Both rules run on the same payload: the stray (NR-52) and the two required files it lacks (NR-53).
     assert.deepEqual(
       inspection.violations.map((violation) => violation.rule),
-      ['5.2.6', '5.2.7', '5.2.7', '5.2.7', '5.2.7'],
+      ['NR-52', 'NR-53', 'NR-53', 'NR-53', 'NR-53'],
     );
   } finally {
     rmSync(workspaceRoot, { recursive: true, force: true });

@@ -25,20 +25,20 @@ import { DEFAULT_BOOTSTRAP_CONFIG, generateFromExistingDefaultKmsNodes } from '.
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Update an already-deployed v13 stack to v14.
+ * Update an already-deployed `<vN-1>` stack to `<vN>`.
  *
- * Creates no proxy — v14 adds no contract to the host set — so the address set is unchanged. In one
- * atomic `ACLOwner.upgrade(...)` it re-points + version-bumps the seven changed v13 contracts:
+ * Creates no proxy — `v14` added no contract to the host set — so the address set is unchanged. In one
+ * atomic `ACLOwner.upgrade(...)` it re-points + version-bumps the seven changed `<vN-1>` contracts:
  *   - `ProtocolConfig.reinitializeV2(kmsNodeParams, softwareVersion, pcrValues)`, which re-declares the
- *     current KMS context with the v14 per-node metadata (party id, MPC identity, CA cert, storage prefix)
+ *     current KMS context with the `<vN>` per-node metadata (party id, MPC identity, CA cert, storage prefix)
  *     and records the KMS software version + PCR values,
  *   - `KMSGeneration.reinitializeV2()`, `ACL.reinitializeV5()`, `FHEVMExecutor.reinitializeV6()`,
  *     `HCULimit`/`KMSVerifier` `reinitializeV4()` — all no-arg,
- *   - `CleartextArithmetic.reinitializeV3()`: v14 adds `fheMulDiv`, whose cleartext `recordMulDiv` hook is
- *     a new selector the v13 arithmetic lacks.
- * `InputVerifier` is untouched (its v14 bytecode is identical and its version did not bump).
+ *   - `CleartextArithmetic.reinitializeV3()`: `v14` added `fheMulDiv`, whose cleartext `recordMulDiv` hook is
+ *     a new selector the `<vN-1>` arithmetic lacks.
+ * `InputVerifier` is untouched (its `<vN>` bytecode is identical and its version did not bump).
  *
- * All v14 implementations are patched with the ACTUAL addresses of the live stack.
+ * All `<vN>` implementations are patched with the ACTUAL addresses of the live stack.
  *
  * @dev Requires the live stack's ACL owner to already be the `ACLOwner` at `aclOwnerAddress`, and
  *      `admin` to be that `ACLOwner`'s owner. If the stack is EOA-owned, install one first
@@ -51,7 +51,7 @@ export async function updateV13ToV14(parameters: {
   readonly admin: AbstractEthereumSigner;
   readonly aclOwnerAddress: string;
   readonly existing: FhevmAddressesV13 & { readonly pauserSetAddress: string };
-  // Live cleartext-infra proxies of the running v13 stack. The new v14 `CleartextFHEVMExecutor` impl
+  // Live cleartext-infra proxies of the running `<vN-1>` stack. The new `<vN>` `CleartextFHEVMExecutor` impl
   // bakes `cleartextArithmeticAdd`, so it must be patched with the real proxy address (not the
   // placeholder) or the post-upgrade cleartext round-trip would call a dead address.
   readonly cleartext: CleartextAddresses;
@@ -59,8 +59,8 @@ export async function updateV13ToV14(parameters: {
 }): Promise<void> {
   const { pauserSetAddress, ...existingV13 } = parameters.existing;
 
-  // If no migration is supplied, assume the live v13 stack was deployed with the default values: read
-  // the current KMS signer set off the live v13 `ProtocolConfig`, then rebuild the full v14 node details
+  // If no migration is supplied, assume the live `<vN-1>` stack was deployed with the default values: read
+  // the current KMS signer set off the live `<vN-1>` `ProtocolConfig`, then rebuild the full `<vN>` node details
   // (tx-sender/ip/storage + the new per-node metadata) from the package defaults.
   const migration =
     parameters.migration ??
@@ -69,7 +69,7 @@ export async function updateV13ToV14(parameters: {
       protocolConfigAddress: existingV13.protocolConfigAddress,
     }));
 
-  // 1. Phase 1: deploy the v14 implementations (permissionless).
+  // 1. Phase 1: deploy the `<vN>` implementations (permissionless).
   const { implementations } = await buildUpdateV13ToV14Plan({
     ethUtils: parameters.ethUtils,
     deployer: parameters.deployer,
@@ -93,9 +93,9 @@ export async function updateV13ToV14(parameters: {
 }
 
 /**
- * Build the migration config for a v13 stack that was deployed with the package defaults. Preserves the
- * signer set the live v13 `ProtocolConfig` exposes, so the re-declared context matches the running stack;
- * the per-node metadata (tx-sender/ip/storage, and the v14 party id/MPC identity/CA cert/storage prefix)
+ * Build the migration config for a `<vN-1>` stack that was deployed with the package defaults. Preserves the
+ * signer set the live `<vN-1>` `ProtocolConfig` exposes, so the re-declared context matches the running stack;
+ * the per-node metadata (tx-sender/ip/storage, and the `<vN>` party id/MPC identity/CA cert/storage prefix)
  * is rebuilt from the defaults via `generateFromExistingDefaultKmsNodes`. Software version + PCR values
  * are the cleartext defaults.
  * @internal — used by `updateV13ToV14` when no explicit `migration` is supplied.
@@ -118,9 +118,9 @@ async function resolveDefaultMigration(parameters: {
 }
 
 /**
- * Phase 1 for a v13→v14 update: deploys the v14 implementations for the seven changed contracts (patched with
- * the actual live addresses) and encodes their `upgradeToAndCall` calldata. Sends no owner-gated
- * transaction. `InputVerifier` is intentionally absent (its v14 bytecode is unchanged).
+ * Phase 1 for a `<vN-1>` -> `<vN>` update: deploys the `<vN>` implementations for the seven changed contracts
+ * (patched with the actual live addresses) and encodes their `upgradeToAndCall` calldata. Sends no owner-gated
+ * transaction. `InputVerifier` is intentionally absent (its `<vN>` bytecode is unchanged).
  * @internal — used by `updateV13ToV14`; not part of the public API.
  */
 async function buildUpdateV13ToV14Plan(parameters: {

@@ -10,6 +10,7 @@ import {
     FhevmHostContracts
 } from "../../pkg/forge/src/_internal/LocalHostBytecode.sol";
 import {IACL} from "../../pkg/forge/src/_internal/interfaces/IACL.sol";
+import {FhevmChainsConfig} from "../utils/FhevmChainsConfig.sol";
 import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICleartextArithmetic.sol";
 import {ICleartextDB} from "../../pkg/forge/src/_internal/interfaces/ICleartextDB.sol";
 import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
@@ -70,9 +71,9 @@ interface IPlaintextsView {
  *          MAINNET_RPC_URL=https://ethereum-rpc.publicnode.com forge test --match-contract ForkUserDecrypt
  */
 contract ForkUserDecryptTest is Test {
-    address internal constant MAINNET_ACL = 0xcA2E8f1F656CD25C01F05d0b243Ab1ecd4a8ffb6;
-    address internal constant MAINNET_KMS_VERIFIER = 0x77627828a55156b04Ac0DC0eb30467f1a552BB03;
-    address internal constant MAINNET_EXECUTOR = 0xD82385dADa1ae3E969447f20A3164F6213100e75;
+    address internal MAINNET_ACL;
+    address internal MAINNET_KMS_VERIFIER;
+    address internal MAINNET_EXECUTOR;
     address internal constant FHE_TEST = 0xba4d707745689eD409d4Afac8722224f5FD78C63;
 
     uint256 internal constant ALICE_PK = uint256(keccak256("fork alice"));
@@ -84,6 +85,10 @@ contract ForkUserDecryptTest is Test {
     bool internal forked;
 
     function setUp() public {
+        MAINNET_ACL = FhevmChainsConfig.hostContract("mainnet", "ethereum", "acl");
+        MAINNET_KMS_VERIFIER = FhevmChainsConfig.hostContract("mainnet", "ethereum", "kmsVerifier");
+        MAINNET_EXECUTOR = FhevmChainsConfig.hostContract("mainnet", "ethereum", "fhevmExecutor");
+
         string memory rpc = vm.envOr("MAINNET_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return;
 
@@ -118,16 +123,20 @@ contract ForkUserDecryptTest is Test {
     }
 
     /// @dev EVERY role, although this suite installs only two contracts: the patcher refuses a role it
-    ///      has no address for, whichever contract happens to reference it. From the chain table.
+    ///      has no address for, whichever contract happens to reference it. From fhevm-chains.config.json.
     function _roles() private view returns (address[10] memory addresses) {
         addresses[uint8(FhevmAddressRole.ACL)] = MAINNET_ACL;
         addresses[uint8(FhevmAddressRole.FHEVMExecutor)] = MAINNET_EXECUTOR;
         addresses[uint8(FhevmAddressRole.KMSVerifier)] = MAINNET_KMS_VERIFIER;
-        addresses[uint8(FhevmAddressRole.InputVerifier)] = 0xCe0FC2e05CFff1B719EFF7169f7D80Af770c8EA2;
-        addresses[uint8(FhevmAddressRole.HCULimit)] = 0x3b4da65e45Fda2CAa0285A735ab4361a44F171E2;
-        addresses[uint8(FhevmAddressRole.ProtocolConfig)] = 0xD8236B57394f90726b26aB25D38CeAC776E1a7C4;
-        addresses[uint8(FhevmAddressRole.KMSGeneration)] = 0xf102cC9A9D2174630c394f5b7B7D63104E348daa;
-        addresses[uint8(FhevmAddressRole.PauserSet)] = 0xbBfE1680b4a63ED05f7F80CE330BED7C992A586C;
+        addresses[uint8(FhevmAddressRole.InputVerifier)] =
+            FhevmChainsConfig.hostContract("mainnet", "ethereum", "inputVerifier");
+        addresses[uint8(FhevmAddressRole.HCULimit)] = FhevmChainsConfig.hostContract("mainnet", "ethereum", "hcuLimit");
+        addresses[uint8(FhevmAddressRole.ProtocolConfig)] =
+            FhevmChainsConfig.hostContract("mainnet", "ethereum", "protocolConfig");
+        addresses[uint8(FhevmAddressRole.KMSGeneration)] =
+            FhevmChainsConfig.hostContract("mainnet", "ethereum", "kmsGeneration");
+        addresses[uint8(FhevmAddressRole.PauserSet)] =
+            FhevmChainsConfig.hostContract("mainnet", "ethereum", "pauserSet");
         addresses[uint8(FhevmAddressRole.CleartextDB)] = dbProxy;
         addresses[uint8(FhevmAddressRole.CleartextArithmetic)] = arithmetic;
     }

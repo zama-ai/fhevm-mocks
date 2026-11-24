@@ -8,10 +8,24 @@ import {
   prettierTargetsSolidity,
   validateConfigContainment,
   validateEslintConfigs,
+  validateEslintLayoutModules,
   validatePrettierConfigs,
   validateScripts,
 } from '../base/checks/scripts.ts';
 import { loadedPackage } from './helpers.ts';
+
+test('a published package with no dev owner breaks the one-owner rule, not the vendored check names', () => {
+  const published = publishedPackage({ vendored: [vendoredCapability()] });
+  const violations = validateScripts(
+    [published],
+    () => false,
+    () => true,
+  );
+  assert.deepEqual(
+    violations.filter((violation) => /dev owners instead of one/.test(violation.message)).map((v) => v.rule),
+    ['NR-55'],
+  );
+});
 
 test('accepts conventional scripts on each resolved test owner', () => {
   const owner = devOwner({
@@ -74,13 +88,26 @@ test('reports missing scripts, unresolved owners, and scripts on the wrong kind'
     () => false,
     () => true,
   );
-  assert.equal(violations.filter((violation) => violation.rule === '2.1.2').length, 2);
-  assert.equal(violations.filter((violation) => violation.rule === '5.1.3').length, 1);
-  assert.equal(violations.filter((violation) => violation.rule === '5.1.4').length, 2);
-  assert.equal(violations.filter((violation) => violation.rule === '5.2.1').length, 2);
-  assert.equal(violations.filter((violation) => violation.rule === '5.3.1').length, 1);
-  assert.equal(violations.filter((violation) => violation.rule === '5.3.2').length, 1);
-  assert.equal(violations.filter((violation) => violation.rule === 'package-scripts').length, 5);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-03').length, 2);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-42').length, 1);
+  // Which script each missing-script violation names, so a duplicate cannot stand in for a missing one.
+  const missingScripts = (rule: string) =>
+    violations
+      .filter((violation) => violation.rule === rule)
+      .map((violation) => `${violation.packageKey} ${/'([^']+)' script/.exec(violation.message)?.[1]}`)
+      .sort();
+  assert.deepEqual(missingScripts('NR-43'), [
+    './library/package.json fmt',
+    './library/package.json fmt:check',
+    './library/package.json lint',
+    './library/package.json prettier:check',
+    './library/package.json prettier:write',
+  ]);
+  assert.deepEqual(missingScripts('NR-43a'), ['./library/package.json compile']);
+  assert.deepEqual(missingScripts('NR-43c'), ['./library/package.json clean']);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-47').length, 2);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-54').length, 1);
+  assert.equal(violations.filter((violation) => violation.rule === 'NR-55').length, 1);
 });
 
 test('forbids scripts in npm-distributed published packages but preserves mirror-only consumer scripts', () => {
@@ -88,10 +115,10 @@ test('forbids scripts in npm-distributed published packages but preserves mirror
   const mirrorPackage = publishedPackage({ distribution: ['mirror'] }, { build: 'tsc' });
 
   assert.deepEqual(
-    validateScripts([npmPackage, mirrorPackage]).filter((violation) => violation.rule === '2.1.2'),
+    validateScripts([npmPackage, mirrorPackage]).filter((violation) => violation.rule === 'NR-03'),
     [
       {
-        rule: '2.1.2',
+        rule: 'NR-03',
         packageKey: './library/pkg/package.json',
         message: "npm-distributed published package must not contain 'scripts'; scripts belong on its dev owner",
       },
@@ -164,7 +191,7 @@ test('forbids lint and Prettier configs on a dev owner containing only package.j
     ),
     [
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './mirror/package.json',
         message: "source-empty dev owner must not contain Prettier configuration file 'prettier.config.js'",
       },
@@ -178,7 +205,7 @@ test('forbids lint and Prettier configs on a dev owner containing only package.j
     ),
     [
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './mirror/package.json',
         message: "source-empty dev owner must not contain ESLint configuration file 'eslint.config.js'",
       },
@@ -212,12 +239,12 @@ test('requires a consumerTests registration for every module format a payload ex
 
   assert.deepEqual(violations, [
     {
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: './library/pkg/package.json',
       message: 'published package exposes CJS but registers no CJS consumer in npm-manifest.json#consumerTests',
     },
     {
-      rule: '5.3.1',
+      rule: 'NR-54',
       packageKey: './library/pkg/package.json',
       message: 'published package exposes ESM but registers no ESM consumer in npm-manifest.json#consumerTests',
     },
@@ -303,15 +330,15 @@ test('validates every consumer of a registration array, holding a registered con
   );
 
   assert.deepEqual(
-    violations.filter((violation) => violation.rule === '5.3.1'),
+    violations.filter((violation) => violation.rule === 'NR-54'),
     [
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './template/pkg/package.json',
         message: 'consumer fixture must set private=true',
       },
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './library/pkg/package.json',
         message: "registered ESM consumer './missing' is not a package in npm-manifest.json",
       },
@@ -361,28 +388,28 @@ test('validates each format-specific consumer fixture', () => {
     violations.filter((violation) => violation.packageKey === './library/test-consumer/cjs/package.json'),
     [
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './library/test-consumer/cjs/package.json',
         message:
           "consumer must be a non-member 'standalone' fixture, or a member 'internal-consumer' or mirror-only 'published' template; found kind 'standalone' with member=true",
       },
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './library/test-consumer/cjs/package.json',
         message: 'consumer fixture must set private=true',
       },
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './library/test-consumer/cjs/package.json',
         message: "consumer of './library/pkg' does not execute as CJS",
       },
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './library/test-consumer/cjs/package.json',
         message: "consumer fixture must define a non-empty 'test' script",
       },
       {
-        rule: '5.3.1',
+        rule: 'NR-54',
         packageKey: './library/test-consumer/cjs/package.json',
         message: "consumer must directly link '@scope/library' to './library/pkg' with a directory 'file:' dependency",
       },
@@ -432,7 +459,7 @@ test("requires serial execution when a consumer fixture uses 'node --test'", () 
     ),
     [
       {
-        rule: '5.3.9',
+        rule: 'NR-62',
         packageKey: './library/test-consumer/esm/package.json',
         message: "test-consumer parallelism is forbidden; 'node --test' must set '--test-concurrency=1'",
       },
@@ -460,21 +487,21 @@ test('requires Forge scripts on the owner of a published payload containing Soli
   const violations = validateScripts([owner, published, fixture], (pkg) => pkg.key === published.key);
 
   assert.deepEqual(
-    violations.filter((violation) => violation.rule === 'package-scripts'),
+    violations.filter((violation) => /'(forge:|compile|clean|lint|prettier:|generate)/.test(violation.message)),
     [
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './library/package.json',
         message: "package must define a non-empty 'forge:fmt' script for package './library/pkg' containing Solidity",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './library/package.json',
         message:
           "package must define a non-empty 'forge:fmt:check' script for package './library/pkg' containing Solidity",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './library/package.json',
         message: "package must define a non-empty 'forge:lint' script for package './library/pkg' containing Solidity",
       },
@@ -493,42 +520,42 @@ test('requires Forge scripts directly on a non-published package containing Soli
     validateScripts([internalConsumer], () => true),
     [
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'fmt' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'fmt:check' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'lint' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'prettier:check' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'prettier:write' script for private workspace hygiene",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'forge:fmt' script for package './e2e' containing Solidity",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'forge:fmt:check' script for package './e2e' containing Solidity",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './e2e/package.json',
         message: "package must define a non-empty 'forge:lint' script for package './e2e' containing Solidity",
       },
@@ -571,25 +598,25 @@ test('requires Forge scripts on the adjacent -dev owner of a workspace-native pk
   const violations = validateScripts([owner, template], (pkg) => pkg.key === template.key);
 
   assert.deepEqual(
-    violations.filter((violation) => violation.rule === '5.1.4'),
+    violations.filter((violation) => violation.rule === 'NR-43'),
     [],
   );
   assert.deepEqual(
-    violations.filter((violation) => violation.rule === 'package-scripts'),
+    violations.filter((violation) => /'(forge:|compile|clean|lint|prettier:|generate)/.test(violation.message)),
     [
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './template/package.json',
         message: "package must define a non-empty 'forge:fmt' script for package './template/pkg' containing Solidity",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './template/package.json',
         message:
           "package must define a non-empty 'forge:fmt:check' script for package './template/pkg' containing Solidity",
       },
       {
-        rule: 'package-scripts',
+        rule: 'forge-scripts',
         packageKey: './template/package.json',
         message: "package must define a non-empty 'forge:lint' script for package './template/pkg' containing Solidity",
       },
@@ -621,22 +648,22 @@ test('requires hygiene scripts on shared helpers', () => {
     validateScripts([helper], () => false),
     [
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './common/package.json',
         message: "package must define a non-empty 'fmt' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './common/package.json',
         message: "package must define a non-empty 'fmt:check' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './common/package.json',
         message: "package must define a non-empty 'prettier:check' script for private workspace hygiene",
       },
       {
-        rule: '5.1.4',
+        rule: 'NR-43',
         packageKey: './common/package.json',
         message: "package must define a non-empty 'prettier:write' script for private workspace hygiene",
       },
@@ -667,12 +694,12 @@ test("requires 'generate' and 'clean:generated' on any package that defines a 'g
     validateScripts([generator], () => false),
     [
       {
-        rule: 'package-scripts',
+        rule: 'NR-43b',
         packageKey: './generator/package.json',
         message: "package must define a non-empty 'generate' script for the 'generate:*' scripts it defines",
       },
       {
-        rule: 'package-scripts',
+        rule: 'NR-43b',
         packageKey: './generator/package.json',
         message: "package must define a non-empty 'clean:generated' script for the 'generate:*' scripts it defines",
       },
@@ -742,12 +769,12 @@ test('requires every generator and deliverable check to be reachable from its ve
     validateScripts([generator], () => false),
     [
       {
-        rule: '5.1.4b',
+        rule: 'NR-43b',
         packageKey: './generator/package.json',
         message: "'generate:stray' is not reachable from 'generate'; the regeneration gate would never run it",
       },
       {
-        rule: '5.2.1',
+        rule: 'NR-47',
         packageKey: './generator/package.json',
         message: "'check:stray' is not reachable from 'check'",
       },
@@ -795,7 +822,7 @@ test("requires 'clean:generated' to delete every export-manifest output", () => 
       validateScripts([generator], () => false),
       [
         {
-          rule: '5.1.4b',
+          rule: 'NR-43b',
           packageKey: './generator/package.json',
           message: "'clean:generated' does not delete export-manifest output './test-consumer/cjs/src/export.ts'",
         },
@@ -828,7 +855,7 @@ test("requires 'clean' to delete '*.tsbuildinfo' when the package runs tsc", () 
     validateScripts([helper], () => false),
     [
       {
-        rule: 'package-scripts',
+        rule: 'NR-43c',
         packageKey: './common/package.json',
         message:
           "'clean' must delete '*.tsbuildinfo'; the package runs tsc, and a surviving build-info file " +
@@ -936,7 +963,7 @@ test("requires a 'clean' script on a private source-owning package that has none
     validateScripts([helper], () => false),
     [
       {
-        rule: 'package-scripts',
+        rule: 'NR-43c',
         packageKey: './common/package.json',
         message: "package must define a non-empty 'clean' script for removing its own build output",
       },
@@ -990,12 +1017,12 @@ test('rejects Solidity targets in Prettier scripts', () => {
     validateScripts([internalConsumer], () => false),
     [
       {
-        rule: '5.1.5',
+        rule: 'NR-44',
         packageKey: './e2e/package.json',
         message: "'prettier:check' must not target Solidity; use 'forge:fmt:check'",
       },
       {
-        rule: '5.1.5',
+        rule: 'NR-44',
         packageKey: './e2e/package.json',
         message: "'prettier:write' must not target Solidity; use 'forge:fmt'",
       },
@@ -1063,17 +1090,17 @@ test("requires the exact 'prettier.config.js' filename and a reference to the wo
     ),
     [
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './missing/package.json',
         message: "package with Prettier scripts must contain 'prettier.config.js' referencing '../prettier.base.mjs'",
       },
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './library/package.json',
         message: "Prettier configuration file '.prettierrc.mjs' is forbidden; use only 'prettier.config.js'",
       },
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './library/package.json',
         message: "'prettier.config.js' must contain: export { default } from '../prettier.base.mjs';",
       },
@@ -1112,13 +1139,13 @@ test('forbids portable package configs from importing workspace files', () => {
     validateConfigContainment([owner, template, published], (file) => escapingContents.get(file), listFiles),
     [
       {
-        rule: 'package-config-containment',
+        rule: 'NR-45',
         packageKey: './template/pkg/package.json',
         message:
           "'prettier.config.js' imports '../../../prettier.base.mjs', which resolves outside the portable package",
       },
       {
-        rule: 'package-config-containment',
+        rule: 'NR-45',
         packageKey: './library/pkg/package.json',
         message: "'eslint.config.js' imports '../../eslint.base.mjs', which resolves outside the portable package",
       },
@@ -1154,7 +1181,7 @@ test("reserves 'prettier.base.mjs' for the workspace root, beside its own 'prett
     ),
     [
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './package.json',
         message:
           "Prettier configuration file '.prettierrc.yml' is forbidden; use only 'prettier.base.mjs' or 'prettier.config.js'",
@@ -1172,12 +1199,12 @@ test("reserves 'prettier.base.mjs' for the workspace root, beside its own 'prett
     ),
     [
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './package.json',
         message: "workspace root must contain 'prettier.base.mjs'",
       },
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './package.json',
         message: "workspace root must contain 'prettier.config.js' referencing './prettier.base.mjs'",
       },
@@ -1205,7 +1232,7 @@ test("reserves 'prettier.base.mjs' for the workspace root, beside its own 'prett
     ),
     [
       {
-        rule: '5.1.6',
+        rule: 'NR-45',
         packageKey: './package.json',
         message: "'prettier.config.js' must contain: export { default } from './prettier.base.mjs';",
       },
@@ -1262,27 +1289,27 @@ test("requires root 'eslint.base.mjs' and package-level 'eslint.config.js'", () 
     ),
     [
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './package.json',
         message: "ESLint configuration file 'eslint.config.js' is forbidden; use only 'eslint.base.mjs'",
       },
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './e2e/package.json',
         message: "package with a 'lint' script must contain the exact file 'eslint.config.js'",
       },
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './library/package.json',
         message: "ESLint configuration file '.eslintrc.json' is forbidden; use only 'eslint.config.js'",
       },
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './library/package.json',
         message: "ESLint configuration file 'eslint.config.mjs' is forbidden; use only 'eslint.config.js'",
       },
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './library/pkg/package.json',
         message: "ESLint configuration file 'eslint.config.mjs' is forbidden; use only 'eslint.config.js'",
       },
@@ -1293,12 +1320,96 @@ test("requires root 'eslint.base.mjs' and package-level 'eslint.config.js'", () 
     validateEslintConfigs([root], () => []),
     [
       {
-        rule: '5.1.7',
+        rule: 'NR-46',
         packageKey: './package.json',
         message: "workspace root must contain 'eslint.base.mjs'",
       },
     ],
   );
+});
+
+test('holds a shared ESLint layout module to the NR-46 layout layer', () => {
+  const root = loadedPackage(
+    '.',
+    { kind: 'workspace-root', name: 'workspace', private: true, member: false },
+    { name: 'workspace', private: true },
+  );
+  const generation = (key: string) =>
+    loadedPackage(
+      key,
+      { kind: 'shared-helper', name: `@scope/${key.replaceAll('/', '-')}-dev`, private: true, member: true },
+      { scripts: { lint: 'eslint .' } },
+    );
+  const v1 = generation('./family/v1');
+  const v2 = generation('./family/v2');
+  const lone = generation('./lone/v1');
+  const outsider = generation('./other');
+  const importLayout = (specifier: string) =>
+    `import layout from '${specifier}';\nexport default [...layout(import.meta.dirname)];\n`;
+  const layoutModule = "import base from '../eslint.base.mjs';\nexport default (dir) => base({ packageDir: dir });\n";
+  const texts = new Map<string, string>([
+    ['/workspace/family/v1/eslint.config.js', importLayout('../eslint.family.mjs')],
+    ['/workspace/family/v2/eslint.config.js', importLayout('../eslint.family.mjs')],
+    ['/workspace/family/eslint.family.mjs', layoutModule],
+  ]);
+  const files = (directory: string) =>
+    directory.startsWith('/workspace/') && directory !== '/workspace/' ? ['eslint.config.js'] : [];
+
+  // The accepted shape: named after its folder, outside every package, imports the base, two importers.
+  assert.deepEqual(
+    validateEslintLayoutModules({
+      workspaceRoot: '/workspace',
+      packages: [root, v1, v2],
+      visibleFiles: ['family/eslint.family.mjs'],
+      readTextFile: (file) => texts.get(file),
+      listFiles: files,
+    }),
+    [],
+  );
+
+  // Every way to break it.
+  const broken = new Map<string, string>([
+    ['/workspace/family/v1/eslint.config.js', importLayout('../eslint.layout.mjs')],
+    ['/workspace/family/v2/eslint.config.js', ''],
+    ['/workspace/other/eslint.config.js', importLayout('../family/eslint.layout.mjs')],
+    ['/workspace/family/eslint.layout.mjs', "export default () => [{ rules: { 'no-console': 'off' } }];\n"],
+    ['/workspace/lone/eslint.lone.mjs', layoutModule],
+    ['/workspace/lone/v1/eslint.config.js', importLayout('../eslint.lone.mjs')],
+    ['/workspace/family/v2/eslint.shared.mjs', "import base from '../../eslint.base.mjs';\nexport default base;\n"],
+    ['/workspace/eslint.extra.mjs', "import base from './eslint.base.mjs';\nexport default base;\n"],
+    ['/workspace/excluded/eslint.excluded.mjs', ''],
+    ['/workspace/family/eslint.Family.cjs', layoutModule],
+  ]);
+  const reported = validateEslintLayoutModules({
+    workspaceRoot: '/workspace',
+    packages: [root, v1, v2, lone, outsider],
+    visibleFiles: [
+      'eslint.base.mjs',
+      'eslint.extra.mjs',
+      'family/eslint.layout.mjs',
+      'family/eslint.Family.cjs',
+      'family/v2/eslint.shared.mjs',
+      'family/v1/eslint.config.js',
+      'lone/eslint.lone.mjs',
+      'excluded/eslint.excluded.mjs',
+    ],
+    excludedRoots: ['/workspace/excluded'],
+    readTextFile: (file) => broken.get(file),
+    listFiles: files,
+  }).map((violation) => `${violation.packageKey}: ${violation.message}`);
+
+  assert.deepEqual(reported, [
+    'eslint.extra.mjs: the workspace root holds only eslint.base.mjs; a shared ESLint layout module sits in the folder of the packages it serves',
+    'eslint.extra.mjs: a shared ESLint layout module serves at least two packages; it is imported by 0, so inline it',
+    "family/eslint.Family.cjs: a shared ESLint layout module is named 'eslint.<name>.mjs', with a lower-case name",
+    'family/eslint.Family.cjs: a shared ESLint layout module serves at least two packages; it is imported by 0, so inline it',
+    "family/eslint.layout.mjs: a shared ESLint layout module imports the workspace root's 'eslint.base.mjs'",
+    'family/eslint.layout.mjs: a shared ESLint layout module gives paths only; rule settings belong to eslint.base.mjs',
+    "family/eslint.layout.mjs: imported by 'other/eslint.config.js', which is not below the module's folder",
+    "family/v2/eslint.shared.mjs: a shared ESLint layout module sits outside every package, but this one is inside 'family/v2'",
+    'family/v2/eslint.shared.mjs: a shared ESLint layout module serves at least two packages; it is imported by 0, so inline it',
+    'lone/eslint.lone.mjs: a shared ESLint layout module serves at least two packages; it is imported by 1, so inline it',
+  ]);
 });
 
 function devOwner(scripts: Readonly<Record<string, string>>) {

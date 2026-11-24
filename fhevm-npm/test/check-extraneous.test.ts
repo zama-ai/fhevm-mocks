@@ -53,7 +53,7 @@ test('an extraneous node fails, named by the lockfile that carries it', () => {
   );
 
   assert.equal(violations.length, 1);
-  assert.equal(violations[0]?.rule, '6.1.2');
+  assert.equal(violations[0]?.rule, 'NR-65');
   // The clickable file, not the package directory.
   assert.equal(violations[0]?.packageKey, './hardhat/v3/package-lock.json');
   assert.match(violations[0]?.message ?? '', /'\.\.\/\.\.\/host-contracts-cleartext\/v13\/pkg' is marked/);

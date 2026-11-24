@@ -33,17 +33,17 @@ test('checks exact and wildcard package.json entrypoint paths recursively', () =
     const inspection = inspectPackageJsonPaths([pkg]);
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.6',
+        rule: 'NR-07',
         packageKey: './library/package.json',
         message: "'module' target './missing.mjs' does not exist",
       },
       {
-        rule: '2.1.6',
+        rule: 'NR-07',
         packageKey: './library/package.json',
         message: `'exports["."]["types"]' target './missing.d.ts' does not exist`,
       },
       {
-        rule: '2.1.6',
+        rule: 'NR-07',
         packageKey: './library/package.json',
         message: `'imports["#local"][0]' target './missing-local.js' does not exist`,
       },

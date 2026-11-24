@@ -7,7 +7,7 @@
 // install channel.
 //
 // The generation is read from npm-manifest.json#generations, never hardcoded: that file is the one
-// place naming the current generation, and the Makefile reads it the same way. A v13 -> v14 bump then
+// place naming the current generation, and the Makefile reads it the same way. A `<vN>` -> `<vN+1>` bump then
 // reaches this package by re-running the generator, not by editing it.
 //
 // pkg/src/_host is owned ENTIRELY by this generator and wiped on every run, so the tree can be

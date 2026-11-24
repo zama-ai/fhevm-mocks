@@ -8,8 +8,8 @@
 // Scoped by PACKAGE, with every pin under it moving together. A generation vendors two trees from one
 // upstream (its contracts and its config), and both must sit at one commit — two pins from one upstream
 // at two commits is the drift a hand edit produces. But two GENERATIONS vendor from that same upstream
-// at deliberately different tags, so "every pin from this repository" would drag v(N-1) onto v(N)'s tag.
-// The selector is a package key prefix: `./host-contracts-cleartext/v13` covers its nested `pkg` too.
+// at deliberately different tags, so "every pin from this repository" would drag <vN-1> onto <vN>'s tag.
+// The selector is a package key prefix: `./host-contracts-cleartext/<vN-1>` covers its nested `pkg` too.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ export type RemoteRefs = (repository: string, tag: string) => string;
 export type BumpVendoredOptions = {
   readonly workspaceRoot: string;
   readonly manifestFile: string;
-  /** Package key or key prefix: `./host-contracts-cleartext/v13` selects it and `./host-contracts-cleartext/v13/pkg`. */
+  /** Package key or key prefix: `./host-contracts-cleartext/<vN-1>` selects it and its nested `pkg`. */
   readonly selector: string;
   /** Required only when the selection pins more than one repository; otherwise derived. */
   readonly repository?: string;

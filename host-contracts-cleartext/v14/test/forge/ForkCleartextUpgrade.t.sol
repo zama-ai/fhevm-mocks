@@ -17,6 +17,8 @@ import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICl
 import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
+import {FhevmGeneration, LibForgeFhevmHostVersions} from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
+import {FhevmChainsConfig} from "../utils/FhevmChainsConfig.sol";
 
 interface IUUPSProxy {
     function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
@@ -29,9 +31,9 @@ interface IUUPSProxy {
  *
  * TWO CHAINS, ONE RECIPE, and the difference between them is the point. Devnet Sepolia runs this SDK's own
  * protocol line, so the cleartext swap is the ONLY thing under test there -- a failure has one possible
- * cause. Testnet Sepolia is a generation behind, so the same swap runs on top of the v13 -> v14 upgrade,
+ * cause. Testnet Sepolia is a generation behind, so the same swap runs on top of the `<vN-1>` -> `<vN>` upgrade,
  * which is what a real user forking a lagging chain would get. Devnet proves the mechanism; testnet proves
- * it composes.
+ * it composes. Once testnet has upgraded too, there is nothing left to compose, and its cases skip.
  *
  * NOTHING IS COMPILED AGAINST THESE ADDRESSES. Every implementation comes out of `LocalHostUpgrade` and is
  * rewritten for the fork by `LibHostUpgradeCode` -- the executor's arithmetic, the arithmetic's DB, and
@@ -58,6 +60,27 @@ abstract contract ForkCleartextUpgrade is Test {
 
     /// @dev The stack this case forks, and whether it needs bringing forward a generation first.
     function _chain() internal virtual;
+
+    /// @dev The generation the forked stack runs, read from each contract's `getVersion()` as `FhevmVm` reads it.
+    function _generation() internal view returns (FhevmGeneration) {
+        return LibForgeFhevmHostVersions.classify(
+            LibForgeFhevmHostVersions.read(
+                ACL, EXECUTOR, KMS_VERIFIER, INPUT_VERIFIER, HCU_LIMIT, PROTOCOL_CONFIG, KMS_GENERATION
+            )
+        );
+    }
+
+    /// @dev The host contracts of `host` in the network group `group`, from fhevm-chains.config.json.
+    function _readHost(string memory group, string memory host) internal {
+        ACL = FhevmChainsConfig.hostContract(group, host, "acl");
+        EXECUTOR = FhevmChainsConfig.hostContract(group, host, "fhevmExecutor");
+        KMS_VERIFIER = FhevmChainsConfig.hostContract(group, host, "kmsVerifier");
+        INPUT_VERIFIER = FhevmChainsConfig.hostContract(group, host, "inputVerifier");
+        HCU_LIMIT = FhevmChainsConfig.hostContract(group, host, "hcuLimit");
+        PROTOCOL_CONFIG = FhevmChainsConfig.hostContract(group, host, "protocolConfig");
+        KMS_GENERATION = FhevmChainsConfig.hostContract(group, host, "kmsGeneration");
+        PAUSER_SET = FhevmChainsConfig.hostContract(group, host, "pauserSet");
+    }
     function _isAGenerationBehind() internal pure virtual returns (bool);
 
     /// @dev ROUTE. A: the generation upgrade lands on the production implementations and the executor is
@@ -84,6 +107,13 @@ abstract contract ForkCleartextUpgrade is Test {
 
     function test_aForkedProductionStackBecomesCleartext() public {
         vm.skip(!forked);
+        // A case written for a lagging chain tests the upgrade from the previous generation. Once the chain has
+        // upgraded, that upgrade has nothing to apply to, so the case skips. A chain on the current line can
+        // still read `Unknown`, when one contract runs a newer release than the one this SDK vendors.
+        vm.skip(
+            _isAGenerationBehind() && _generation() != FhevmGeneration.Previous,
+            "the chain is no longer a generation behind, so no generation upgrade is left to compose"
+        );
 
         // -- 0. it really is a production stack ------------------------------------------------------
         assertFalse(LibCleartextProbe.isCleartext(EXECUTOR), "the chain runs the real executor");
@@ -140,12 +170,12 @@ abstract contract ForkCleartextUpgrade is Test {
         assertEq(ICleartextDB(dbProxy).get(handle), 7, "the DB holds the plaintext");
         assertEq(ICleartextFHEVMExecutor(EXECUTOR).plaintexts(handle), 7, "and the executor answers for it");
 
-        // -- 5. AN OPERATION ONLY v14 HAS, which is what makes this test able to fail ------------------
+        // -- 5. AN OPERATION `v14` ADDED, which is what makes this test able to fail ---------------------
         //
         // `trivialEncrypt` above cannot tell the two generations apart -- both implement it the same way,
         // so step 4 passes whether or not the upgrade that was supposed to run did. `fheMulDiv` is what
-        // v14 ADDED: the executor routes it to `HCULimit.checkHCUForFheMulDiv`, a function a v13 HCULimit
-        // does not have. Reaching a correct answer here means every contract the call touches really is
+        // `v14` ADDED: the executor routes it to `HCULimit.checkHCUForFheMulDiv`, a function a `v13` HCULimit
+        // did not have. Reaching a correct answer here means every contract the call touches really is
         // this generation's, not just the executor.
         bytes32 factor = ICleartextFHEVMExecutor(EXECUTOR).trivialEncrypt(10, FheType.Uint32);
         bytes32 product = ICleartextFHEVMExecutor(EXECUTOR)
@@ -219,14 +249,7 @@ abstract contract ForkCleartextUpgrade is Test {
 /// THE MECHANISM ALONE: devnet is on this SDK's line, so only the cleartext swap runs.
 contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     function _chain() internal override {
-        ACL = 0x1aC3073813148992aA928C9903681fA7Ec202b13;
-        EXECUTOR = 0x356cc81A08aa782C96F00dC30b60d4f33f1a4e43;
-        KMS_VERIFIER = 0xDe8893C04e118431aeC076A39F6aFa951669F720;
-        INPUT_VERIFIER = 0x160AaB6199FAEAEA1B27E62999c597E530a3abA9;
-        HCU_LIMIT = 0xaa13C49f14C1a2EdA302e008AB314755Cac6E19F;
-        PROTOCOL_CONFIG = 0x257950EbB65A1D2b697f03D08E7D3Dc26CbDB304;
-        KMS_GENERATION = 0x55bdE339a01DA46d2d3504b8d9A9F5412C85e5e7;
-        PAUSER_SET = 0x0E3668AA0faFF49B54126Febd59C8654f2d5Ff87;
+        _readHost("devnet", "ethereum_sepolia");
     }
 
     function _isAGenerationBehind() internal pure override returns (bool) {
@@ -234,18 +257,11 @@ contract DevnetCleartextUpgradeTest is ForkCleartextUpgrade {
     }
 }
 
-/// IT COMPOSES: testnet is a generation behind, so the swap runs on top of the v13 -> v14 upgrade. This is
-/// what a user forking a chain that has not upgraded yet would actually get.
+/// IT COMPOSES: testnet is a generation behind, so the swap runs on top of the `<vN-1>` -> `<vN>` upgrade. This is
+/// what a user forking a chain that has not upgraded yet would actually get. It skips once testnet has upgraded.
 contract TestnetCleartextUpgradeTest is ForkCleartextUpgrade {
     function _chain() internal override {
-        ACL = 0xf0Ffdc93b7E186bC2f8CB3dAA75D86d1930A433D;
-        EXECUTOR = 0x92C920834Ec8941d2C77D188936E1f7A6f49c127;
-        KMS_VERIFIER = 0xbE0E383937d564D7FF0BC3b46c51f0bF8d5C311A;
-        INPUT_VERIFIER = 0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0;
-        HCU_LIMIT = 0xa10998783c8CF88D886Bc30307e631D6686F0A22;
-        PROTOCOL_CONFIG = 0x51f9AFBc89Ea792e1a21a12AB802ab58D4dbee83;
-        KMS_GENERATION = 0x77389113d7000EcBCfc2bDed57202f5f46109934;
-        PAUSER_SET = 0xc62392B4100a1bD45AbDBf91E70f1E4349402b46;
+        _readHost("testnet", "ethereum_sepolia");
     }
 
     function _isAGenerationBehind() internal pure override returns (bool) {

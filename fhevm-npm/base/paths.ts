@@ -24,6 +24,14 @@ export function workspaceRelativePath(workspaceRoot: string, absolutePath: strin
   return relative(workspaceRoot, absolutePath).split(sep).join('/');
 }
 
+/** The optional documentation folder of a package, next to its published `pkg/`. No tool of the workspace reads it. */
+export const DOCS_DIRECTORY = 'docs';
+
+/** True when a workspace-relative path, written with `/`, lies inside a docs folder. */
+export function isInDocsFolder(workspaceRelativePath: string): boolean {
+  return `/${workspaceRelativePath}/`.includes(`/${DOCS_DIRECTORY}/`);
+}
+
 export function listOwnedSourceFiles(
   workspaceRoot: string,
   ownerKey: string,
@@ -48,6 +56,7 @@ export function listOwnedSourceFiles(
     .split('\n')
     .filter(Boolean)
     .filter((file) => SOURCE_EXTENSION.test(file))
+    .filter((file) => !isInDocsFolder(file))
     .filter((file) => !excludedRoots.some((root) => file === root || file.startsWith(`${root}/`)))
     .map((file) => resolve(workspaceRoot, file))
     .filter(existsSync)

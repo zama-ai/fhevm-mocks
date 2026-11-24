@@ -4,7 +4,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 
 import type { NpmManifest, NpmManifestEntry } from '../../manifest.ts';
-import type { Violation } from '../diagnostics.ts';
+import type { Violation, ViolationTag } from '../diagnostics.ts';
 import { vendoredDigest } from '../vendored-digest.ts';
 import { type LoadedPackage, loadPackages } from '../npm.ts';
 
@@ -362,7 +362,7 @@ function selectVendoredPackages(packages: readonly LoadedPackage[], selector: st
 function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntry, output: MutableOutput): void {
   const destination = safeResolve(published.directory, entry.relPath, 'vendored destination');
   if (!isDirectory(destination)) {
-    violation(output, published.key, `${entry.relPath}: vendored destination directory does not exist`);
+    violation(output, published.key, `${entry.relPath}: vendored destination directory does not exist`, 'NR-42a');
     return;
   }
 
@@ -370,7 +370,7 @@ function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntr
   try {
     actual = vendoredDigest(destination);
   } catch (error) {
-    violation(output, published.key, `${entry.relPath}: ${errorMessage(error)}`);
+    violation(output, published.key, `${entry.relPath}: ${errorMessage(error)}`, 'NR-42a');
     return;
   }
 
@@ -380,6 +380,7 @@ function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntr
       published.key,
       `${entry.relPath}: no digest recorded in npm-manifest.json, so the copies are unverified — ` +
         `run 'fhevm-npm sync vendored --digest' and record the value it prints`,
+      'NR-42a',
     );
     return;
   }
@@ -389,6 +390,7 @@ function validatePinnedEntry(published: LoadedPackage, entry: PinnedVendoredEntr
       published.key,
       `${entry.relPath}: content is ${actual}, but npm-manifest.json records ${entry.source.digest}. ` +
         `The copies were edited, or the pin moved — run 'fhevm-npm sync vendored' to rewrite them from ${entry.source.tag}.`,
+      'NR-42a',
     );
     return;
   }
@@ -481,7 +483,7 @@ function compareLocalFile(
  *
  * Entries are grouped by the file set they carry, reproducing the shape the consumers want: one
  * destination names every directory receiving the SAME files under the SAME rewrites, which is what
- * lets rule 3.4.2 ask whether every live generation is among them.
+ * lets rule NR-23 ask whether every live generation is among them.
  */
 export function localVendoredManifest(manifest: NpmManifest): CommonVendoredManifest {
   const grouped = new Map<
@@ -566,8 +568,13 @@ function isDirectory(directory: string): boolean {
 
 type MutableOutput = { readonly successes: string[]; readonly violations: Violation[]; readonly spend: SpendTotals };
 
-function violation(output: MutableOutput, packageKey: string, message: string): void {
-  output.violations.push({ rule: '5.1.3', packageKey, message });
+function violation(
+  output: MutableOutput,
+  packageKey: string,
+  message: string,
+  rule: ViolationTag = 'vendored-origin',
+): void {
+  output.violations.push({ rule, packageKey, message });
 }
 
 function errorMessage(error: unknown): string {

@@ -63,7 +63,7 @@ export function validateInventorySets(
   for (const key of [...discovered].sort()) {
     if (!declared.has(key)) {
       violations.push({
-        rule: '7.1.3',
+        rule: 'NR-72',
         packageKey: packageJsonPath(key),
         message: `source package.json is missing from npm-manifest.json`,
       });
@@ -72,7 +72,7 @@ export function validateInventorySets(
   for (const key of [...declared].sort()) {
     if (!discovered.has(key)) {
       violations.push({
-        rule: '7.1.3',
+        rule: 'NR-72',
         packageKey: './npm-manifest.json',
         message: `entry '${key}' has no discoverable source package.json`,
       });
@@ -159,7 +159,7 @@ function checkExistingPath(
   const rel = relative(realRoot, realCandidate);
   if (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)) return;
   violations.push({
-    rule: '7.1.4',
+    rule: 'NR-73',
     packageKey,
     message: `${field} resolves outside '${realRoot}' to '${realCandidate}'`,
   });

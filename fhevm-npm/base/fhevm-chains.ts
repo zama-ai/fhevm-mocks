@@ -63,7 +63,7 @@ export const HOST_CONTRACTS = [
   ['FHEVM_EXECUTOR', 'fhevmExecutor', 'required'],
   ['HCU_LIMIT', 'hcuLimit', 'required'],
   ['INPUT_VERIFIER', 'inputVerifier', 'required'],
-  // v13 hosts only — polygon/amoy do not carry it (yet), so absent means omitted, not failed.
+  // Protocol 0.13 introduced it — polygon/amoy do not carry it (yet), so absent means omitted, not failed.
   ['KMS_GENERATION_HOST', 'kmsGeneration', 'optional'],
   ['KMS_VERIFIER', 'kmsVerifier', 'required'],
   ['PAUSER_SET_HOST', 'pauserSet', 'required'],

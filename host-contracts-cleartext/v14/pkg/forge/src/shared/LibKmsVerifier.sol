@@ -1138,10 +1138,10 @@ library LibKmsVerifier {
     // --- Unified (RFC-016) user decryption: permit v2 ---
 
     /**
-     * @notice The unified (v2, RFC-016) user-decryption payload: every check the v14 gateway and kms-worker make, in
-     *         their order, then read, mask, encode.
+     * @notice The unified (v2, RFC-016) user-decryption payload: every check the `<vN>` gateway and kms-worker make,
+     *         in their order, then read, mask, encode.
      *
-     * @dev On v14 the gateway (`Decryption.userDecryptionRequest(HandleEntry[], ...)`) only checks the request's
+     * @dev On `<vN>` the gateway (`Decryption.userDecryptionRequest(HandleEntry[], ...)`) only checks the request's
      *      shape and limits; authorisation moved to the kms-worker (`check_user_decryption_request_v2`). This
      *      mirrors both, so a client that signs a v2 permit is held to exactly what the connector enforces.
      *

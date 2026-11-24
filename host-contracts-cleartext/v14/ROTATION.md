@@ -1,95 +1,112 @@
-# When v15 arrives: what to delete in v14
+# When `<vN+1>` arrives: what `<vN>` deletes
 
-v14 has tests and tools that upgrade a **v13** stack to v14. They need v13 to be there. Once v15 ships,
-v13 is retired and those tests cannot run, so delete them.
+This file names generations as they stand before the rotation: `<vN>` is the generation that this directory holds,
+`<vN-1>` is the generation before it, and `<vN+1>` is the next one. In a command, replace each of them with the real
+name.
 
-No rush: the Makefile only asks V(N) for `test:upgrade`, so they stop running by themselves. Nothing
-breaks while they sit there — except the `@fhevm/sdk*` lines of step 2, which must go in the same change that moves
-the sdk pins forward.
+`<vN>` has tests and tools that upgrade a `<vN-1>` stack to `<vN>`. They need `<vN-1>` in the workspace. The workspace
+rotates when work on `<vN+1>` starts (NR-87): `<vN>` becomes the previous generation, and `<vN-1>` leaves the
+workspace. From then on those tests and tools cannot run, so delete them.
+
+Make the deletions in the same change that moves `npm-manifest.json#generations`. If they wait, that change fails:
+
+- `npm install` cannot resolve `file:../<vN-1>` once that directory is gone.
+- `check generations` refuses a previous generation that declares `test:upgrade` (NR-26) or that depends on a retired
+  generation (NR-22).
+- `check pinned-dependencies` refuses the `@fhevm/sdk` specs of step 2 as soon as the manifest moves those pins
+  (NR-21).
+- The forge tests of `test/upgrade/` and `create2-deploy/upgrade/ts/testnet.ts` import `<vN-1>`, so `npm run test` and
+  `npm run lint` fail to compile them.
+
+This file covers only the directory of `<vN>`. The rest of a rotation changes workspace files, which the Generations
+rules NR-22 to NR-27 govern. [rules/fhevm-npm/WORKSPACE.md](../../rules/fhevm-npm/WORKSPACE.md) introduces them.
+
+## Delete files and edit `package.json`, nothing else
+
+After the rotation, `<vN>` is frozen (R-04). `check generation-parity` compares the committed `<vN>` with
+`release/<N>.x` and accepts only two differences: a file that is on the branch and deleted here, and the content of
+the `package.json` of `<vN>` (NR-27). Any other committed edit fails the check, even a fix to a comment. Make that kind
+of change on `release/<N>.x`, before the rotation.
+
+So the steps below only delete files and edit `package.json`.
 
 ## 1. Delete six folders
 
-They are all named `upgrade`.
-
 ```sh
-cd sdk/host-contracts-cleartext/v14
+cd host-contracts-cleartext/<vN>
 rm -rf create2-deploy/upgrade          # the upgrade CLI, its config, its runbook
-rm -rf create2-deploy/script/upgrade   # the 8 Solidity scripts that CLI runs
-rm -rf internal/upgrade                # starts the upgrade test
-rm -rf test/upgrade                    # forge tests: the upgrade tables, and a v13 stack brought forward
-rm -rf test/e2e/upgrade                # upgrades a real v13 stack through the CLI
-rm -rf test/ts/upgrade                 # upgrades it through the TypeScript API
+rm -rf create2-deploy/script/upgrade   # the forge scripts that the CLI runs
+rm -rf internal/upgrade                # the runner of `test:upgrade`
+rm -rf test/upgrade                    # forge tests: the upgrade tables, and a <vN-1> stack upgraded in place
+rm -rf test/e2e/upgrade                # upgrades a <vN-1> stack through the CLI
+rm -rf test/ts/upgrade                 # upgrades a <vN-1> stack through the TypeScript API
 ```
+
+Delete these six paths only. `pkg/src/upgrade/` has the same name, but it is part of the payload and stays.
 
 ## 2. Delete five lines in `package.json`
 
+Two scripts:
+
 ```jsonc
-"test:upgrade": "node internal/upgrade/cli/runUpgradeE2e.ts && node --test test/e2e/upgrade/create2.test.ts",
-"test:upgrade:fast": "../../scripts/forge-test.sh --match-path 'test/upgrade/*' && … list:upgrade-ops -- ../v13 && …"
-"@fhevm/host-contracts-cleartext-v13-dev": "file:../v13",
-"@fhevm/sdk": "^0.14.x",
-"@fhevm/sdk-prev1": "npm:@fhevm/sdk@^0.13.x",
+"test:upgrade": "…",
+"test:upgrade:fast": "…"
 ```
 
-Both `test:upgrade*` scripts go: `test:upgrade:fast` is the same suite's fast lane, and it runs `test/upgrade/*`,
-`test/ts/upgrade` and `list:upgrade-ops -- ../v13`, all of which are gone after step 1. Delete every script whose
-name starts with `test:upgrade`, not only the one called that.
+Delete every script whose name starts with `test:upgrade`. They run the folders of step 1. They are the last entries
+of `scripts`, so also remove the comma at the end of the line above them.
 
-`test:upgrade:fast` is the last entry in `scripts`, so drop the comma on the line above `test:upgrade`.
+Three `devDependencies`:
 
-Every `@fhevm/sdk*` devDependency goes too. Those names are roles, not versions: `@fhevm/sdk` is the current sdk line,
-`@fhevm/sdk-prev<k>` the line k steps back, and when v15 arrives `npm-manifest.json` moves every role one line forward
-(and adds `@fhevm/sdk-prev2`). Only V(N) may declare them, so this one is not optional: if v14 keeps them, `check
-pinned-dependencies` fails. `test/ts/sdk-compatibility.test.ts` stays; it finds no sdk line and skips. v14's sdk
-compatibility keeps being tested on its own release branch.
-
-Nothing else in `package.json` changes.
-
-## 3. Delete two lines in the forge config
-
-The forge side of the same edge: `test/upgrade/CleartextGenerationUpgrade.t.sol` and `PreviousLineCeilings.t.sol`
-compile against v13's forge payload through these, and they are gone after step 1.
-
-```sh
-# remappings.txt
-@fhevm/host-contracts-cleartext-v13-dev/=../v13/
-# foundry.toml (with the comment above it)
-allow_paths = ["../v13"]
+```jsonc
+"@fhevm/host-contracts-cleartext-<vN-1>-dev": "file:../<vN-1>",
+"@fhevm/sdk": "…",
+"@fhevm/sdk-prev1": "…",
 ```
 
-## 4. Keep these
+`@fhevm/sdk` and each `@fhevm/sdk-prev<k>` name a role, not a version: the current sdk line, and the line k steps
+back. At a rotation the manifest moves every role one line forward, and only the current generation may declare them
+(NR-21). Keep `@fhevm/sdk-common-dev` and `@fhevm/sdk-vendored-dev`. They are workspace packages, not sdk lines.
 
-They mention v13, but they are not going anywhere:
+Without sdk lines, `test/ts/sdk-compatibility.test.ts` and `test/ts/sdk-kms-rotation.test.ts` skip. The sdk
+compatibility of `<vN>` stays tested on `release/<N>.x`.
 
-- `pkg/` — `updateV13ToV14` and its types. v14 still upgrades v13 deployments; only the test is going.
-- `internal/listUpgradeOps.ts` and `list:upgrade-ops` — you pass it a folder, so it fits any generation.
-- `create2-deploy/deploy-cli`, `create2-deploy/ts/`, `script/*.sol` outside `script/upgrade/`,
-  and `test/Create2Ordinals.t.sol`.
+Change nothing else in `package.json`.
 
-Other files mention v13 too. They describe what v14 upgrades _from_, which stays true.
+## 3. Keep everything else
 
-`internal/zama-config/` stays too. It is v14's copy of upstream's `library-solidity/config`, pinned at the same
-commit as `pkg/src/contracts` (rule 5.1.3c), and `check:zama-config` reads it. It goes with the generation: it
-leaves only when v14 itself is retired, and it is never edited by hand — `fhevm-npm sync vendored` owns it.
+These files name `<vN-1>` or the deleted folders. They stay as they are:
 
-## 5. Check it worked
+- **`remappings.txt` and `foundry.toml`.** The remapping line and `allow_paths` point at `../<vN-1>`. Forge accepts
+  both when the directory is missing, and an edit to either file fails `check generation-parity`.
+- **The docs.** `README.md`, `create2-deploy/README.md`, `create2-deploy/GUIDE.md`, and `create2-deploy/UPGRADE.md`
+  still describe the deleted folders. Their broken links fail nothing, because `check md-links` skips the previous
+  generation. Their content is still frozen: `check generation-parity` compares them like any other file.
+- **`pkg/`.** The upgrade function of `pkg/ts/upgrade.ts` and its types stay. `<vN>` still upgrades deployed `<vN-1>`
+  stacks. Only the tests of that upgrade go.
+- **`internal/listUpgradeOps.ts` and the `list:upgrade-ops` script.** The command takes the other generation as an
+  argument and names none.
+- **The rest of `create2-deploy/`.** `deploy-cli`, `hotfix-cli`, `ts/`, and every script of `script/` outside
+  `script/upgrade/` stay, with `test/Create2Ordinals.t.sol`.
+- **`internal/zama-config/`.** It is the copy of the upstream `library-solidity/config` at the commit of
+  `pkg/src/contracts` (NR-42c), and `check:zama-config` reads it. It leaves with `<vN>` itself.
+
+## 4. Delete this file, if you want
+
+Once the steps above are done, this file describes work that is finished. A deletion is a change that
+`check generation-parity` accepts.
+
+## 5. Check the result
+
+Run from the workspace root, after you commit the change that moved `npm-manifest.json#generations`.
+`check generation-parity` compares `HEAD` with the release branch, so it does not see uncommitted edits. The `v-prev`
+target then runs `<vN>`. A frozen generation is not linted: no lint finding in it could be fixed.
 
 ```sh
-cd ../..
+git fetch origin release/<N>.x   # without the branch, `check generation-parity` skips <vN> and says so
 npm install
-./fhevm-npm-cli check dependencies
-./fhevm-npm-cli check generations
-./fhevm-npm-cli check scripts
-cd host-contracts-cleartext/v14
-forge build && forge test && npm run lint && npm run test
+make check-pre                   # dependencies, pinned-dependencies, generations, generation-parity, scripts
+make test-cleartext-v-prev
 ```
 
-Green means v14 is complete without v13.
-
-## 6. Tidy the docs (optional)
-
-Nothing reads documentation, so skip this if you like. These three still describe the deleted folders:
-
-- `README.md`
-- `create2-deploy/README.md`
-- `create2-deploy/GUIDE.md`
+When all of them pass, and `check generation-parity` printed no skip note, `<vN>` is complete without `<vN-1>`.

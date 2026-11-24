@@ -15,8 +15,9 @@ import {IProtocolConfig} from "../../pkg/forge/src/_internal/interfaces/IProtoco
  * WHY IT READS STORAGE AT ALL. Swapping the KMS signers on a fork ends by activating the epoch the
  * creation quorum just opened, and that call has to name the epoch by id. The contract mints the id
  * from a counter of its own and announces it only in an event; there is no getter for a pending epoch,
- * and the recorded-log buffer belongs to the replay (rule 2.3), so draining it here would break the
- * next decryption. The counter is therefore read where it lives.
+ * and the recorded-log buffer is not the SDK's (FR-07): catching the event would mean arming recording
+ * and draining the buffer, and `vm.recordLogs()` must stay the test's own. The counter is therefore
+ * read where it lives.
  *
  * WHAT THIS FILE IS FOR. A storage offset is a fact about someone else's source, copied into ours. If
  * upstream inserts a field into `ProtocolConfigStorage`, the constant silently starts naming a

@@ -42,7 +42,7 @@ test('reports missing faces, then a clean report once generated, then the one dr
     assert.equal(missing.checkedPackageKeys.length, 3);
     assert.deepEqual(
       missing.violations.map((violation) => violation.rule),
-      ['cleartext-config-face', 'cleartext-config-face', 'cleartext-config-face'],
+      ['NR-90', 'NR-90', 'NR-90'],
     );
     assert.match(missing.violations[0]?.message ?? '', /missing/);
 

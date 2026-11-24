@@ -18,7 +18,7 @@ const ROOT_JSON_FILES = [
   'fhevm-network-groups.config.json',
 ] as const;
 // Derived from npm-manifest.json#generations, never spelled out: a rotation retires a generation
-// directory, and a literal 'v12' here turns that into an ENOENT in a test that is about schemas.
+// directory, and a literal generation name here turns that into an ENOENT in a test that is about schemas.
 const EXPORT_MANIFESTS = generationFamilies(MANIFEST).flatMap((family) =>
   liveGenerationNames(family).map((name) => join(family.family, name, 'export.manifest.json')),
 );
@@ -64,7 +64,7 @@ test('reports the JSON file and precise instance path for a schema violation', (
     assert.ok(
       report(workspace).violations.some(
         (violation) =>
-          violation.rule === 'json-schema-validation' &&
+          violation.rule === 'NR-74' &&
           violation.packageKey === './fhevm-network-groups.config.json' &&
           violation.message.includes('/groups/devnet/relayerUrl'),
       ),
@@ -112,7 +112,7 @@ test('validates every discovered export manifest', () => {
     assert.ok(
       report(workspace).violations.some(
         (violation) =>
-          violation.rule === 'json-schema-validation' &&
+          violation.rule === 'NR-74' &&
           violation.packageKey === `./${relPath}` &&
           violation.message.includes('/packageSpecifier'),
       ),

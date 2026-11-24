@@ -73,11 +73,11 @@ test('npm names the tarball from the package name, scope marker dropped, and the
   );
 });
 
-test('statically: a surviving file: spec or a version off the central one is a 5.3.10 violation', () => {
+test('statically: a surviving file: spec or a version off the central one is an NR-63 violation', () => {
   assert.deepEqual(validateNoFileSpecs(plugin, shipped('^0.13.0')), []);
   assert.deepEqual(
     validateNoFileSpecs(plugin, shipped('file:../../library/pkg')).map((v) => [v.rule, v.message]),
-    [['5.3.10', `tarball ships '@scope/library' as "file:../../library/pkg" in dependencies; render it`]],
+    [['NR-63', `tarball ships '@scope/library' as "file:../../library/pkg" in dependencies; render it`]],
   );
   assert.deepEqual(validateTarballVersion(plugin, shipped('^0.13.0'), '0.13.0'), []);
   assert.match(
@@ -95,17 +95,18 @@ test('a dependency on another payload must carry exactly the range its central v
   const shipped = (spec: string) =>
     ({ name: '@scope/plugin', dependencies: { '@scope/library': spec, hardhat: '^3.0.0' } }) as never;
 
-  // 0.13.4 renders to ^0.13.4: the version the plugin was built against, up to the next generation.
-  assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.4'), [library, plugin], central), []);
-  // ^0.13.0 is what the old generation-floor rule rendered: it would let 0.13.0-0.13.3 in.
-  for (const wrong of ['^0.13.0', '0.13.4', '^0.12.0', '^0.14.0', 'not-a-version']) {
+  // 0.13.4 renders to ~0.13.4: the version the plugin was built against, up to the next generation.
+  assert.deepEqual(validateRenderedRanges(plugin, shipped('~0.13.4'), [library, plugin], central), []);
+  // ^0.13.0 is what the old generation-floor rule rendered: it would let 0.13.0-0.13.3 in. ^0.13.4 is the old
+  // caret, which from 1.0 on accepts the next generation, so the one operator is the tilde.
+  for (const wrong of ['^0.13.0', '^0.13.4', '0.13.4', '~0.12.0', '~0.14.0', 'not-a-version']) {
     const violations = validateRenderedRanges(plugin, shipped(wrong), [library, plugin], central);
     assert.equal(violations.length, 1, wrong);
-    assert.equal(violations[0]?.rule, '5.3.10');
-    assert.match(violations[0]?.message ?? '', /its central version renders to "\^0\.13\.4"/);
+    assert.equal(violations[0]?.rule, 'NR-63');
+    assert.match(violations[0]?.message ?? '', /its central version renders to "~0\.13\.4"/);
   }
   // An external dependency is not ours to judge, and a name that is no payload is left alone.
-  assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.4'), [library, plugin], central), []);
+  assert.deepEqual(validateRenderedRanges(plugin, shipped('~0.13.4'), [library, plugin], central), []);
   assert.deepEqual(validateRenderedRanges(plugin, shipped('^0.13.0'), [plugin], central), []);
 });
 
@@ -127,7 +128,7 @@ test('every entry point the shipped package.json declares is collected, from eve
   );
 });
 
-test('an entry point the tarball does not contain is a 5.3.10 violation; a subpath pattern needs one match', () => {
+test('an entry point the tarball does not contain is a NR-63 violation; a subpath pattern needs one match', () => {
   const shipped = {
     name: '@scope/plugin',
     version: '0.13.0',
@@ -143,7 +144,7 @@ test('an entry point the tarball does not contain is a 5.3.10 violation; a subpa
       v.rule,
       v.message,
     ]),
-    [['5.3.10', `package.json points at '_types/index.d.ts', which the tarball does not contain`]],
+    [['NR-63', `package.json points at '_types/index.d.ts', which the tarball does not contain`]],
   );
   // The pattern matches nothing: the whole abi/ tree was excluded.
   assert.deepEqual(
@@ -265,10 +266,10 @@ test('end to end on a real tarball: the packed manifest is read with tar and jud
       mkdirSync(join(root, 'tarballs'), { recursive: true });
       execFileSync('tar', ['-czf', join(root, 'tarballs', 'scope-plugin-0.13.0.tgz'), '-C', staging, 'package']);
     };
-    tarball('^0.13.4');
+    tarball('~0.13.4');
     assert.deepEqual(
       tarballPackageJson(join(root, 'tarballs', 'scope-plugin-0.13.0.tgz')).dependencies,
-      shipped('^0.13.4').dependencies,
+      shipped('~0.13.4').dependencies,
     );
     assert.deepEqual((await inspectPublishedTarball(root, manifest, './plugin/pkg')).violations, []);
     const withRegistry = await inspectPublishedTarball(root, manifest, 'plugin/pkg', {
@@ -315,7 +316,7 @@ test('end to end on a real tarball: the packed manifest is read with tar and jud
     assert.match(unrendered.violations[0]?.message ?? '', /render it/);
 
     // The entry point is declared but was not packed: caught on the artifact, where publint never looks.
-    tarball('^0.13.4', false);
+    tarball('~0.13.4', false);
     const hollow = await inspectPublishedTarball(root, manifest, './plugin/pkg');
     assert.deepEqual(
       hollow.violations.map((v) => v.message),

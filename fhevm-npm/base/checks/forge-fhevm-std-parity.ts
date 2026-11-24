@@ -9,7 +9,7 @@
 // a fork suite rewritten on one branch and not the other, and a cheat whose signature was about to
 // change on one side only.
 //
-// SYMMETRIC, unlike `generation-parity`. There the rule is one-directional, because V(N-1) is a copy
+// SYMMETRIC, unlike `generation-parity`. There the rule is one-directional, because <vN-1> is a copy
 // that may lose files to a rotation. Here neither side owns the package: a file on one branch and not
 // the other is drift whichever way round it is, and both directions are reported.
 //
@@ -17,7 +17,7 @@
 // names directories, not the branch that carries another generation's copy of this package, and a
 // branch cannot know what the next generation called its own. So:
 //
-//   FHEVM_FORGE_STD_PARITY_REF=devex/alexb/forge-fhevm-v14 ./fhevm-npm-cli check forge-fhevm-std-parity
+//   `FHEVM_FORGE_STD_PARITY_REF=devex/alexb/forge-fhevm-v14 ./fhevm-npm-cli check forge-fhevm-std-parity`
 //
 // Unset, the check SKIPS and says so: nothing was compared, and a silent pass would be worse than no
 // check. Set but unresolvable, it FAILS — a ref someone typed is a ref they expect to exist. That is
@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process';
 
 import type { Violation } from '../diagnostics.ts';
 
-export const RULE = '3.4.7';
+export const RULE = 'forge-fhevm-std-parity';
 
 /** Runs git and returns stdout; throws when git exits non-zero, which is how a missing ref reports. */
 export type GitRunner = (args: readonly string[], cwd: string) => string;

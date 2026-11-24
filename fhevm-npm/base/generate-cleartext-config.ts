@@ -22,7 +22,7 @@
 // The generations come from the JSON's own `appliesTo.generations`, so adding one extends the fan-out.
 //
 // Scoping. A constant without `generations` reaches every generation — the historical meaning, and still
-// the common case. One with `generations: ["v14"]` reaches v14's three faces and no other generation's.
+// the common case. One with `generations: ["<vN>"]` reaches `<vN>`'s three faces and no other generation's.
 // Every face is complete for its generation, so the same shared constant appears in each generation's
 // TypeScript face: generated duplication from one JSON, not a fork. Declaration order is preserved.
 

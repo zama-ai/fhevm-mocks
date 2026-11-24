@@ -30,7 +30,7 @@ function at(handles: readonly Hex[], i: number): Hex {
  * handle-keyed map — a number for euint8/16/32, a bigint above that.
  *
  * Upstream's `mulDiv` and `toExternalE*` tests are deliberately absent: those operators are not in
- * 0.13.3 and are expected in v14, so the contract does not declare them either.
+ * 0.13.3 and are expected in `<vN>`, so the contract does not declare them either.
  */
 
 const UINT64_MASK = (1n << 64n) - 1n;

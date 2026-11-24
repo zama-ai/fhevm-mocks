@@ -10,7 +10,7 @@
 //   - never: `peerDependencies` anywhere, the npm-manifest.json pins (`sync pinned` owns them), exact versions,
 //     `file:`, `npm:` and any other spec, and a package no lockfile covers.
 // Every declaration of a name under the same spec gets the same target (one registry answer), so the specs that
-// rule 4.2.1 requires to match the root's still match after the update.
+// rule NR-31 requires to match the root's still match after the update.
 
 import { existsSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';

@@ -107,7 +107,7 @@
     },
     {
       "comment": [
-        "Propose / retire KMS contexts via the standing `ACLOwner`; in v14 a proposal is only phase 1 of a rotation."
+        "Propose / retire KMS contexts via the standing `ACLOwner`; in `<vN>` a proposal is only phase 1 of a rotation."
       ],
       "module": "./kmsContext.js",
       "exports": [
@@ -122,7 +122,9 @@
       ]
     },
     {
-      "comment": ["v14's KMS rotation: `rotateKmsContext` runs all three phases; the rest drive or inspect one phase."],
+      "comment": [
+        "`<vN>`'s KMS rotation: `rotateKmsContext` runs all three phases; the rest drive or inspect one phase."
+      ],
       "module": "./kmsLifecycle/index.js",
       "exports": [
         {
@@ -262,7 +264,7 @@
         },
         {
           "comment": [
-            "v14's rotation: what a signer attests to, the digests it signs, the tx-sender/signer pair that submits."
+            "`<vN>`'s rotation: what a signer attests to, the digests it signs, the tx-sender/signer pair that submits."
           ],
           "name": "KeyDigest"
         },

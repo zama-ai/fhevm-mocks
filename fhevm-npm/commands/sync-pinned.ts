@@ -30,13 +30,13 @@ export function syncPinnedCommand(options: {
 
   if (options.check) {
     const violations: Violation[] = [
-      ...raises.map((raise) => ({
-        rule: '3.3.4',
+      ...raises.map((raise): Violation => ({
+        rule: 'NR-21',
         packageKey: MANIFEST_KEY,
         message: `pin '${raise.name}' is "${raise.from}", but a lockfile resolves ${versionOfPin(raise.to)}: the pin is behind what is installed and must move to "${raise.to}". Run 'fhevm-npm sync pinned'`,
       })),
-      ...edits.map((edit) => ({
-        rule: '3.3.4',
+      ...edits.map((edit): Violation => ({
+        rule: 'NR-21',
         packageKey: edit.packageKey,
         message: `'${edit.name}' in '${edit.field}' is "${edit.from}"; npm-manifest.json#dependencies.pinned requires "${edit.to}". Run 'fhevm-npm sync pinned'`,
       })),

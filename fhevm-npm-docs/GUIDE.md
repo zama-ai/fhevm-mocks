@@ -94,7 +94,7 @@ fhevm-npm: `hardhat/v2` and `hardhat/v3` are each their own npm workspace (own p
 `workspaces`, own lockfile, own node_modules). One root per hardhat major is what guarantees every
 member of a generation resolves the SAME hardhat instance — natively, with no symlinks: hardhat's
 environment is a per-module singleton, and a plugin and its consumer must share one copy. Cross-root
-dependencies are explicit `file:` links (plugin -> host-contracts v13/pkg, owners -> common); the
+dependencies are explicit `file:` links (plugin -> `host-contracts-cleartext/<vN>/pkg`, owners -> common); the
 future js-sdk joins the sdk ROOT and is consumed the same way. Cluster members are reached with
 `npm --prefix hardhat/v2 run -w <name> <script>` — the Makefile's run-hh-v2/run-hh-v3 macros.
 
@@ -125,7 +125,7 @@ nor the consumer-fixture lockfiles (`./fhevm-npm-cli test-consumer-regenerate-pa
 
 # Bumping a published version
 
-`sdk/versions.json` is the ONE authority for every published payload's version (RULES 4.3.2); package.json
+`sdk/versions.json` is the ONE authority for every published payload's version (NR-36); package.json
 versions and lockfile member lines are derived from it. Never edit a payload's version by hand or with
 `npm version` — edit the central file, preview, apply:
 
@@ -146,8 +146,8 @@ versions drifted from the central file fails ci.
 
 # Publishing a payload (rendering the file: links)
 
-A published payload links other payloads with `file:` (RULES 3.1.1) — correct here, meaningless on npmjs.com.
-`publish pack` renders each link to a caret on the target's version (`^0.13.4`, RULES 4.3.4) in a staged copy
+A published payload links other payloads with `file:` (NR-15) — correct here, meaningless on npmjs.com.
+`publish pack` renders each link to a tilde on the target's version (`~0.13.4`, NR-38) in a staged copy
 and packs that; `publish check` proves the tarball; `publish order` says which payload goes first. Nothing
 in fhevm-npm publishes — `npm publish <tarball>` is CI's, with its credentials and dist-tag:
 
@@ -166,43 +166,30 @@ dependent is checked (`--retries`/`--retry-delay` absorb registry propagation). 
 
 # Changing a vendored origin (pin bump)
 
-Vendored folders are frozen copies of upstream content; `npm-manifest.json` declares each one's
-origin (`repository`, `tag`, `commit`, `from`). To move a pin to a new upstream release:
+Vendored folders are frozen copies of upstream content; `npm-manifest.json` declares each one's origin
+(`repository`, `tag`, `commit`, `digest`). `bump vendored` is the only writer of a pin (NR-42a): never edit
+the tag, the commit or the digest by hand.
 
-## 1. Make the target commit available locally
-
-The pin resolves through local `git show` — nothing is fetched during checks — so after a new
-upstream release:
+## 1. Move the pin
 
 ```sh
-git fetch --tags
+make bump-vendored PKG=./host-contracts-cleartext/<vN> TAG=<tag> CHECK=1   # report what would move, write nothing
+make bump-vendored PKG=./host-contracts-cleartext/<vN> TAG=<tag>
 ```
 
-## 2. Edit the pin in npm-manifest.json
+It resolves the tag to its commit with `git ls-remote`, downloads the upstream trees, rewrites the copies,
+writes the tag, commit and digest into `npm-manifest.json`, and regenerates `fhevm.vendoredFrom`. It needs
+the network. Every pin under `PKG` moves to the same commit (NR-42c).
 
-Update the vendored entry's `commit` (authoritative) and `tag` (documentation — keep both on the
-same release):
+## 2. Regenerate everything
 
-```jsonc
-"source": {
-  "repository": "https://github.com/zama-ai/fhevm",
-  "tag": "v0.12.6",                                       // ← bump
-  "commit": "<full sha of that tag>",                     // ← bump
-  "from": "host-contracts/contracts"
-}
-```
-
-## 3. Regenerate everything
-
-The sync step rewrites the vendored folder from the new pin — it is the ONLY legal writer of
-`pkg/src/contracts`, never edit it by hand — and everything derived from those sources regenerates
-behind it:
+Everything derived from the vendored sources regenerates behind them:
 
 ```sh
 make generate
 ```
 
-## 4. Audit
+## 3. Audit
 
 Copies current AND matching the new declared origin:
 
@@ -210,7 +197,7 @@ Copies current AND matching the new declared origin:
 make check-vendored
 ```
 
-## 5. Review and commit as ONE change
+## 4. Review and commit as ONE change
 
 The manifest pin, the re-vendored sources and the regeneration ripple belong in a single commit;
 splitting them leaves the regeneration gate red in between.
@@ -220,10 +207,11 @@ git diff          # review: the upstream contract diff plus the regenerated file
 git add -A && git commit
 ```
 
-## 6. Validate
+## 5. Validate
 
 New upstream contracts can shift ABIs, versions and test expectations — expect real follow-up work,
-not just churn:
+not just churn. For host-contracts-cleartext, follow the checklist in
+[host-contracts-cleartext/<vN>/README.md](../host-contracts-cleartext/v14/README.md), then:
 
 ```sh
 make build

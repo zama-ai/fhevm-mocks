@@ -1,4 +1,4 @@
-// Golden rule 5: cleartext v(N) serves every sdk line from v(N-2) to v(N). The same scenarios run against each line
+// Cleartext <vN> serves every sdk line from <vN-2> to <vN>. The same scenarios run against each line
 // this package declares (utils/sdkLines.ts).
 //
 // A known gap is DATA, not a branch: `GAPS` predicts it from what the sdk builds and what the host serves, both read

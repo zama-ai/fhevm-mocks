@@ -2,8 +2,8 @@
 extends = "../../foundry.base.toml"
 libs = ["dependencies", "node_modules", "../../node_modules"]
 # Lets test/upgrade/CleartextGenerationUpgrade.t.sol compile against the previous generation's forge
-# payload, through the `@fhevm/host-contracts-cleartext-v13-dev/` remapping. Upgrade code: ROTATION.md
-# deletes this line and the remapping together.
+# payload, through the `@fhevm/host-contracts-cleartext-v13-dev/` remapping. ROTATION.md keeps this line and the
+# remapping: forge accepts a path to a missing directory, and check generation-parity refuses any edit here.
 allow_paths = ["../v13"]
 solc_version = '0.8.24'
 optimizer = true
@@ -24,6 +24,8 @@ skip = [
 fs_permissions = [
     { access = "read-write", path = "./internal/.deploy-config" },   # nonce path
     { access = "read-write", path = "./create2-deploy" },      # this path
+    # The deployed addresses, which the fork tests read through test/utils/FhevmChainsConfig.sol.
+    { access = "read", path = "../../fhevm-chains.config.json" },
 ]
 
 # The forge payload. `[profile.default]` leaves it out so it never lands in `out/`; this profile is how

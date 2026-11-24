@@ -1,9 +1,9 @@
 // What the sdk-compatibility tests share: the sdk lines this package declares, how to load each one, the chain
 // definitions a client is given, the known gaps, and a cleartext stack with an SdkProbe to decrypt from.
 //
-// Golden rule 5: cleartext v(N) serves every sdk line from v(N-2) to v(N). The lines are the bare `@fhevm/sdk` (the
+// Cleartext <vN> serves every sdk line from <vN-2> to <vN>. The lines are the bare `@fhevm/sdk` (the
 // current line) and every `@fhevm/sdk-prev<k>` npm alias (k lines back). package.json is the ONLY place that names
-// them, so this file and the tests are identical across generations; V(N-1) drops those declarations at generation
+// them, so this file and the tests are identical across generations; <vN-1> drops those declarations at generation
 // rotation (ROTATION.md) and the tests skip there.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -225,7 +225,7 @@ const UNKNOWN_KMS_SIGNER = /is not in the list of kms signers/;
 
 const GAPS: readonly Gap[] = [
   {
-    // MIGRATION-v14 Annex A.3: the sdk's cleartext path calls publicDecrypt(handles) without the extraData it then
+    // `MIGRATION-v14` Annex A.3: the sdk's cleartext path calls publicDecrypt(handles) without the extraData it then
     // verifies against, and the host answers with version 1 (what the sdk releases that call it build).
     id: 'public decryption, extraData v2 (Annex A.3)',
     when: (c) =>
@@ -235,7 +235,7 @@ const GAPS: readonly Gap[] = [
     error: UNKNOWN_KMS_SIGNER,
   },
   {
-    // MIGRATION-v14 Annex A.3: a permit stays valid across a KMS rotation and names the context it was signed in,
+    // `MIGRATION-v14` Annex A.3: a permit stays valid across a KMS rotation and names the context it was signed in,
     // but the sdk's cleartext path calls userDecrypt without that extraData, and the host only tries the current
     // context's: the user's signature does not verify. userDecrypt(..., extraData) serves it once the sdk passes it.
     id: 'user decryption with a permit from an earlier KMS context (Annex A.3)',

@@ -15,7 +15,7 @@ const CURRENT = `./${FAMILY}/v14`;
 const PREVIOUS = `./${FAMILY}/v13`;
 const REPO_ROOT = '/repo';
 const WORKSPACE_ROOT = '/repo/sdk';
-/** Where V(N-1) sits from the repository root — what git speaks, workspace prefix included. */
+/** Where <vN-1> sits from the repository root — what git speaks, workspace prefix included. */
 const PREFIX = `sdk/${FAMILY}/v13`;
 
 const dev = (gen: string) => ({
@@ -90,7 +90,7 @@ test('a previous generation matching its release branch passes, and says how muc
   assert.deepEqual(inspection.violations, []);
   assert.deepEqual(inspection.checkedKeys, [PREVIOUS]);
   assert.deepEqual(inspection.successes, [`${PREVIOUS}: 2 tracked file(s) compared with release/0.13.x`]);
-  // It compared V(N-1) only: V(N)'s release branch is the branch you are on, so it proves nothing.
+  // It compared <vN-1> only: <vN>'s release branch is the branch you are on, so it proves nothing.
   assert.equal(
     inspection.successes.some((line) => line.includes('v14')),
     false,
@@ -102,13 +102,13 @@ test('a file that differs from the release branch is a violation', () => {
   const [violation, ...rest] = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git).violations;
 
   assert.deepEqual(rest, []);
-  assert.equal(violation?.rule, '3.4.6');
+  assert.equal(violation?.rule, 'NR-27');
   assert.equal(violation?.packageKey, `./${PREFIX}/pkg/ts/deploy.ts`);
   assert.match(violation?.message ?? '', /differs from release\/0\.13\.x/);
   assert.match(violation?.message ?? '', /not a fork/);
 });
 
-test('a file here that the release branch never had is a violation — V(N-1) may only lose files', () => {
+test('a file here that the release branch never had is a violation — <vN-1> may only lose files', () => {
   const git = fakeGit({ diff: [`A\t${PREFIX}/pkg/ts/invented.ts`] });
   const [violation, ...rest] = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git).violations;
 
@@ -118,7 +118,7 @@ test('a file here that the release branch never had is a violation — V(N-1) ma
 });
 
 test('the rule is one-directional: files the release branch has and this branch does not are fine', () => {
-  // Exactly what a rotation leaves behind — ROTATION.md deletes V(N-1)'s six `upgrade` folders.
+  // Exactly what a rotation leaves behind — ROTATION.md deletes <vN-1>'s six `upgrade` folders.
   const git = fakeGit({
     diff: [
       `D\t${PREFIX}/create2-deploy/upgrade/RUNBOOK.md`,
@@ -141,7 +141,7 @@ test('a rename reports as a deletion plus an addition, so only the new path is a
 });
 
 test("the generation's own package.json is exempt, but a nested one is not", () => {
-  // A rotation MUST edit it: § 3.4.5 forbids `test:upgrade` on V(N-1) and § 3.4.1 forbids the
+  // A rotation MUST edit it: NR-26 forbids `test:upgrade` on <vN-1> and NR-22 forbids the
   // dependency on the generation it upgraded from, and both are still present on the release branch.
   const git = fakeGit({
     diff: [`M\t${PREFIX}/package.json`, `M\t${PREFIX}/pkg/package.json`, `M\t${PREFIX}/test-consumer/esm/package.json`],
@@ -162,7 +162,7 @@ test('the remote-tracking copy is used when the local branch is absent', () => {
 });
 
 test('a release branch that resolves neither way is skipped out loud, not failed', () => {
-  // v12 has no release/0.12.x and never will — the practice began later. Failing would make this
+  // `v12` never got a release/0.12.x — the practice began later. Failing would make this
   // file impossible to keep identical across branches, which is the one thing fhevm-npm must be.
   const git = fakeGit({ refs: [] });
   const inspection = inspectGenerationParity(WORKSPACE_ROOT, manifest(), git);
@@ -244,7 +244,7 @@ test('only FHEVM_PARITY_REF_* is read, and an empty value is not an override', (
     // Lowercased, because that is how `npm-manifest.json#generations` names the directories.
     { v13: TOPIC, v9: 'release/0.9.x' },
   );
-  // A variable name cannot hold a dot: V1_0 spells v1.0.
+  // A variable name cannot hold a dot: `V1_0` spells `v1.0`.
   assert.deepEqual(parityRefOverrides({ FHEVM_PARITY_REF_V1_0: TOPIC }), { 'v1.0': TOPIC });
   assert.deepEqual(parityRefOverrides({}), {});
 });
@@ -283,7 +283,7 @@ test('an override that does not resolve FAILS, unlike a release branch that was 
   assert.deepEqual(inspection.checkedKeys, []);
   const [violation, ...rest] = inspection.violations;
   assert.deepEqual(rest, []);
-  assert.equal(violation?.rule, '3.4.6');
+  assert.equal(violation?.rule, 'NR-27');
   assert.match(violation?.message ?? '', /FHEVM_PARITY_REF_V13 names 'typo\/branch'/);
   assert.match(violation?.message ?? '', /unset the variable/);
 });

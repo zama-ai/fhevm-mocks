@@ -1,0 +1,8 @@
+{
+	"HOLD": "The text is accurate, and the code follows it. Nothing needs a fix.",
+	"STALE": "The rule is still wanted, but its text names files, symbols, commands, or versions that changed. The fix goes to the rule text.",
+	"RETIRED": "The rule is withdrawn: what it governs no longer exists, or another rule replaces it. Delete the rule text and keep the ID.",
+	"VIOLATED": "The text is accurate and still wanted, but the code does not follow it. The fix goes to the code.",
+	"CONFLICT": "The rule contradicts or repeats another rule. The fix is a decision, then one rule changes or merges.",
+	"GAP": "The rule is wanted and the repository follows it today, but no check, or only a weaker check, enforces it. The fix goes to the check."
+}

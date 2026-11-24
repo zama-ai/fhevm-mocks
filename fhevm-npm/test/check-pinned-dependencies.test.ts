@@ -19,7 +19,7 @@ function manifestWithPin(pinned?: Record<string, string>) {
 const root = (manifest: ReturnType<typeof manifestWithPin>) =>
   loadedPackage('.', manifest.packages['.']!, { name: 'workspace', private: true });
 
-test('rule 3.3.4 accepts a pinned dependency repeated verbatim in every field that declares it', () => {
+test('rule NR-21 accepts a pinned dependency repeated verbatim in every field that declares it', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.3' });
   const packages = [
     root(manifest),
@@ -41,7 +41,7 @@ test('rule 3.3.4 accepts a pinned dependency repeated verbatim in every field th
   );
 });
 
-test('rule 3.3.4 rejects a spec that differs from the pin, including one that only differs by range operator', () => {
+test('rule NR-21 rejects a spec that differs from the pin, including one that only differs by range operator', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.3' });
   const packages = [
     root(manifest),
@@ -63,12 +63,12 @@ test('rule 3.3.4 rejects a spec that differs from the pin, including one that on
     violations.map((violation) => violation.packageKey),
     ['./plugin/package.json', './plugin/pkg/package.json'],
   );
-  assert.equal(violations[0]?.rule, '3.3.4');
+  assert.equal(violations[0]?.rule, 'NR-21');
   assert.match(violations[0]?.message ?? '', /'devDependencies' is "0\.13\.3"; .*requires "\^0\.13\.3"/);
   assert.match(violations[1]?.message ?? '', /'peerDependencies' is "\^0\.13\.2"; .*requires "\^0\.13\.3"/);
 });
 
-test('rule 3.3.4 reports every offending field of one package separately', () => {
+test('rule NR-21 reports every offending field of one package separately', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.3' });
   const packages = [
     root(manifest),
@@ -84,11 +84,11 @@ test('rule 3.3.4 reports every offending field of one package separately', () =>
   assert.equal(violations.length, 2);
   assert.deepEqual(
     violations.map((violation) => violation.rule),
-    ['3.3.4', '3.3.4'],
+    ['NR-21', 'NR-21'],
   );
 });
 
-test('rule 3.3.4 ignores a package that does not declare the pinned dependency at all', () => {
+test('rule NR-21 ignores a package that does not declare the pinned dependency at all', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.3' });
   const packages = [
     root(manifest),
@@ -106,7 +106,7 @@ test('rule 3.3.4 ignores a package that does not declare the pinned dependency a
   );
 });
 
-test('rule 3.3.4 rejects a pin that no inventoried package declares', () => {
+test('rule NR-21 rejects a pin that no inventoried package declares', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.3' });
   const packages = [
     root(manifest),
@@ -119,7 +119,7 @@ test('rule 3.3.4 rejects a pin that no inventoried package declares', () => {
   assert.match(violations[0]?.message ?? '', /is unused/);
 });
 
-test('rule 3.3.4 rejects a lockfile still mirroring a pre-alignment spec', () => {
+test('rule NR-21 rejects a lockfile still mirroring a pre-alignment spec', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.4' });
   const packages = [
     root(manifest),
@@ -140,7 +140,7 @@ test('rule 3.3.4 rejects a lockfile still mirroring a pre-alignment spec', () =>
   assert.match(violations[0]?.message ?? '', /stale lockfile: '@fhevm\/sdk' in 'devDependencies' of '\.'/);
 });
 
-test('rule 3.3.4 ignores resolved node_modules entries inside a lockfile', () => {
+test('rule NR-21 ignores resolved node_modules entries inside a lockfile', () => {
   const manifest = manifestWithPin({ '@fhevm/sdk': '^0.13.4' });
   const packages = [
     root(manifest),
@@ -165,7 +165,7 @@ const pluginDeclaring = (manifest: ReturnType<typeof manifestWithPin>, pins: Rec
     devDependencies: pins,
   });
 
-test('rule 3.3.4 accepts every copy a lockfile resolves at exactly the pinned version', () => {
+test('rule NR-21 accepts every copy a lockfile resolves at exactly the pinned version', () => {
   const manifest = manifestWithPin({ '@scope/pkg': '^1.2.3' });
   const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.3' })];
   const readLockfile = () => ({
@@ -177,7 +177,7 @@ test('rule 3.3.4 accepts every copy a lockfile resolves at exactly the pinned ve
   assert.deepEqual(validatePinnedDependencies(manifest, packages, readLockfile), []);
 });
 
-test('rule 3.3.4 rejects a lockfile that resolves a newer version than the pin, and says to move the pin', () => {
+test('rule NR-21 rejects a lockfile that resolves a newer version than the pin, and says to move the pin', () => {
   // Every package.json says ^1.2.2, so the declared half passes; the root was locked after 1.2.3 shipped.
   const manifest = manifestWithPin({ '@scope/pkg': '^1.2.2' });
   const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.2' })];
@@ -190,13 +190,13 @@ test('rule 3.3.4 rejects a lockfile that resolves a newer version than the pin, 
 
   const violations = validatePinnedDependencies(manifest, packages, readLockfile);
   assert.equal(violations.length, 1);
-  assert.equal(violations[0]?.rule, '3.3.4');
+  assert.equal(violations[0]?.rule, 'NR-21');
   assert.equal(violations[0]?.packageKey, './package-lock.json');
   assert.match(violations[0]?.message ?? '', /'@scope\/pkg' resolves to 1\.2\.3 .*newer than its pin "\^1\.2\.2"/);
   assert.match(violations[0]?.message ?? '', /Move it to "\^1\.2\.3" in npm-manifest\.json#dependencies\.pinned/);
 });
 
-test('rule 3.3.4 rejects a lockfile left behind a moved pin, naming the re-lock', () => {
+test('rule NR-21 rejects a lockfile left behind a moved pin, naming the re-lock', () => {
   const manifest = manifestWithPin({ '@scope/pkg': '^1.2.3' });
   const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.3' })];
   const readLockfile = (file: string) =>
@@ -219,7 +219,7 @@ test('rule 3.3.4 rejects a lockfile left behind a moved pin, naming the re-lock'
   assert.match(violations[1]?.message ?? '', /test-consumer-regenerate-package-lock \.\/plugin'/);
 });
 
-test('rule 3.3.4 checks nested copies inside one lockfile too', () => {
+test('rule NR-21 checks nested copies inside one lockfile too', () => {
   const manifest = manifestWithPin({ '@scope/pkg': '^1.2.3' });
   const packages = [root(manifest), pluginDeclaring(manifest, { '@scope/pkg': '^1.2.3' })];
   // Only the root has a lockfile; one copy in it is nested under another dependency.
@@ -237,7 +237,7 @@ test('rule 3.3.4 checks nested copies inside one lockfile too', () => {
   assert.match(violations[0]?.message ?? '', /at 'node_modules\/some-dep\/node_modules\/@scope\/pkg'/);
 });
 
-test('rule 3.3.4 checks an npm alias against its own pin, apart from the bare name it aliases', () => {
+test('rule NR-21 checks an npm alias against its own pin, apart from the bare name it aliases', () => {
   // @scope/pkg-prev1 installs @scope/pkg@0.13.x under the alias: a line of its own, pinned on its own.
   const pins = { '@scope/pkg': '^1.2.3', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' };
   const manifest = manifestWithPin(pins);
@@ -256,7 +256,7 @@ test('rule 3.3.4 checks an npm alias against its own pin, apart from the bare na
   assert.match(violations[0]?.message ?? '', /Move it to "npm:@scope\/pkg@\^1\.1\.8"/);
 });
 
-test('rule 3.3.4 is inert when the manifest pins nothing', () => {
+test('rule NR-21 is inert when the manifest pins nothing', () => {
   const manifest = manifestWithPin();
   const packages = [
     root(manifest),
@@ -273,7 +273,7 @@ test('rule 3.3.4 is inert when the manifest pins nothing', () => {
   );
 });
 
-test('rule 3.3.4 treats an npm alias as its own pin, keyed by the alias name, next to the bare name', () => {
+test('rule NR-21 treats an npm alias as its own pin, keyed by the alias name, next to the bare name', () => {
   const manifest = manifestWithPin({ '@scope/pkg': '^1.2.2', '@scope/pkg-prev1': 'npm:@scope/pkg@^1.1.7' });
   const packages = [
     root(manifest),

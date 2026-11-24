@@ -6,7 +6,7 @@
 // using the same port presented as `Out of gas: gas required exceeds allowance: 0`, because the squatting
 // node was funded from a different mnemonic and so the deployer had no balance.
 //
-// Two files can also collide across GENERATIONS if both suites run at once, which is why v12 and v13 pick
+// Two files can also collide across GENERATIONS if both suites run at once, which is why `<vN-1>` and `<vN>` pick
 // different ports for the same test rather than sharing one.
 //
 // Checked by reading the sources rather than by importing them: these tests take minutes and start real

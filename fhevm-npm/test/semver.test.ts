@@ -38,12 +38,13 @@ test('ordering follows SemVer §11: core numerically, a release above its prerel
 });
 
 test('the rendered range is the version itself, stopping at the end of its generation; a prerelease pins itself', () => {
-  assert.equal(dependencyRange(v('0.13.0')), '^0.13.0');
+  // A generation is major.minor at every version, so the range is always a tilde. Below 1.0 a caret would
+  // accept the same versions, but from 1.0 on it would accept 1.3.x, another generation: one operator for both.
+  assert.equal(dependencyRange(v('0.13.0')), '~0.13.0');
   // The floor is the version the payload was built against, not the generation's first release: a payload
   // built against 0.13.4 must never resolve to 0.13.0-0.13.3, which may lack a fix it relies on.
-  assert.equal(dependencyRange(v('0.13.4')), '^0.13.4');
+  assert.equal(dependencyRange(v('0.13.4')), '~0.13.4');
   assert.equal(dependencyRange(v('0.14.0-alpha.0')), '0.14.0-alpha.0');
-  // From 1.0 on a generation is still major.minor, so the range is a tilde: a caret would accept 1.3.x.
   assert.equal(dependencyRange(v('1.2.3')), '~1.2.3');
   assert.equal(dependencyRange(v('1.0.0')), '~1.0.0');
   assert.equal(dependencyRange(v('1.0.0-0')), '1.0.0-0');

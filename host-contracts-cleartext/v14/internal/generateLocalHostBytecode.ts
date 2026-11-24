@@ -133,7 +133,7 @@ export const CODE_KIND: Readonly<Record<ContractName, CodeKind>> = {
  * path import what it needs, with no build mode to get wrong and nothing to remember before
  * committing.
  *
- *   ForgeFhevmDeploy.sol          in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
+ *   ForgeFhevmDeploy.sol     in-process forge test  -> CLEARTEXT_FORGE_*_CREATION_CODE
  *   DeployLocalStack.s.sol   broadcast to a node    -> CLEARTEXT_*_CREATION_CODE
  *
  * Four contracts have Forge variants. The executor and arithmetic ones call cheatcodes; the ACL one carries
@@ -186,7 +186,7 @@ export const AUTHENTIC_CONTRACTS = [
  * The PRODUCTION host implementations a FORK UPGRADE deploys, with the offsets of every address baked
  * into them.
  *
- * WHICH CONTRACTS, AND WHY NOT THE OTHERS. Every implementation the v(N-1) -> v(N) upgrade re-points on
+ * WHICH CONTRACTS, AND WHY NOT THE OTHERS. Every implementation the <vN-1> -> <vN> upgrade re-points on
  * a REAL stack, plus `InputVerifier`, which it does not: that one's bytecode is identical across the
  * two generations, so it is never re-pointed, and it is here because it is a host implementation like
  * the rest and a later generation may well move it. `CleartextArithmetic` and `CleartextDB` are
@@ -227,7 +227,7 @@ export const UPGRADE_IMPLEMENTATIONS = [
   // APPENDED, never inserted: the enum's order is the ABI of every table below it. These two joined
   // once the upgrade op list was written down — `ProtocolConfig` bakes in the ACL and `KMSGeneration`
   // bakes in both the ACL and `ProtocolConfig`, so neither can be deployed beside a remote stack
-  // unpatched, and the v(N-1) -> v(N) upgrade re-points both.
+  // unpatched, and the <vN-1> -> <vN> upgrade re-points both.
   { enumMember: 'ProtocolConfig', contractName: 'ProtocolConfig', sourcePath: 'src/contracts/ProtocolConfig.sol' },
   { enumMember: 'KMSGeneration', contractName: 'KMSGeneration', sourcePath: 'src/contracts/KMSGeneration.sol' },
   // The cleartext implementations, so a forked REAL stack can
@@ -518,7 +518,7 @@ ${constants}
  * registering any other address is one the SDK holds no key for and cannot sign against.
  */
 /**
- * The five v14-only constants, from v14's face in @fhevm/sdk-vendored-dev — the generated module
+ * The five constants that `v14` added, from `<vN>`'s face in @fhevm/sdk-vendored-dev — the generated module
  * `sync vendored` copies into pkg/ts as cleartext-config.ts, so this reads the same truth pkg/ts compiles.
  * (internal/ cannot import pkg/ts itself: internal/tsconfig.json roots at `.`.)
  */
@@ -540,7 +540,9 @@ function _scopedCleartextConstants(): ScopedCleartextConstants {
   };
 }
 
-/** The `KmsNodeParams` members v14 added, as LocalHostBootstrap functions; node i is one-based like the rest. */
+/**
+ * The `KmsNodeParams` members that `v14` added, as LocalHostBootstrap functions; node i is one-based like the rest.
+ */
 function _renderKmsNodeParamsMembers(stringFn: (name: string, values: readonly string[]) => string): string {
   const c = _scopedCleartextConstants();
   const perNode = (make: (n: string) => string): string[] =>

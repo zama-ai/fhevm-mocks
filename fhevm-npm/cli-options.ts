@@ -2,6 +2,7 @@ import { Command, Option } from 'commander';
 import { resolve } from 'node:path';
 
 import { defaultWorkspaceRoot } from './base/paths.ts';
+import { ENFORCED_RULES, REQUIRED_OPTIONS, type RuleId } from './enforced-rules.ts';
 import { type AuditLevel, auditLevels, isAuditLevel } from './base/publish-audit.ts';
 import { type Verbosity, increaseVerbosity } from './base/verbosity.ts';
 
@@ -29,6 +30,8 @@ export const commandNames = [
   'generation-parity',
   'forge-fhevm-std-parity',
   'extraneous',
+  'forge-std-chains',
+  'docs',
 ] as const;
 export type CommandName = (typeof commandNames)[number];
 
@@ -37,6 +40,7 @@ export type CliOptions = {
     | CommandName
     | 'check-fhevm-chains-origin'
     | 'check-deployments'
+    | 'check-md-links'
     | 'check-safechain'
     | 'check-mirror'
     | 'check-vendored-origin'
@@ -117,6 +121,7 @@ export type CliOptions = {
   | { readonly command: 'version-list'; readonly checkNpmjs: boolean; readonly json: boolean }
   | { readonly command: 'check-fhevm-chains-origin' }
   | { readonly command: 'check-deployments'; readonly base?: string }
+  | { readonly command: 'check-md-links'; readonly offline: boolean }
   | { readonly command: 'check-safechain'; readonly minAgeHours: number }
   | { readonly command: 'update-dependencies'; readonly minAgeHours: number; readonly dryRun: boolean }
   | { readonly command: 'sync-fhevm-chains'; readonly commit?: string; readonly latest: boolean }
@@ -166,7 +171,100 @@ type RawTestConsumerOptions = {
   readonly ci: boolean;
 };
 
-export function parseCliOptions(argv: readonly string[]): CliOptions {
+/** What `<command> --rule-id <ID>` answers: whether the command enforces that rule. */
+export type RuleIdAnswer = { readonly command: 'rule-id'; readonly enforced: boolean };
+
+/** Thrown from inside commander's option event, to stop parsing once `--rule-id` is answered. */
+class RuleIdAnswered extends Error {
+  readonly answer: RuleIdAnswer;
+
+  constructor(answer: RuleIdAnswer) {
+    super('rule-id answered');
+    this.answer = answer;
+  }
+}
+
+/** The parsed options of a run, with the path of the command that runs, as `check names`. */
+export type ParsedRun = CliOptions & { readonly commandPath: string };
+
+/** Parses the command line, or answers `--rule-id` without parsing the rest. */
+export function parseCli(argv: readonly string[]): ParsedRun | RuleIdAnswer {
+  const ran: { commandPath?: string } = {};
+  try {
+    const options = parseCliOptions(argv, ran);
+    return { ...options, commandPath: ran.commandPath ?? '' };
+  } catch (error) {
+    if (error instanceof RuleIdAnswered) return error.answer;
+    throw error;
+  }
+}
+
+/**
+ * Gives every leaf command `--rule-id <ID>`, which answers from `table` and runs nothing. Commander first
+ * reads the whole line as it would without the option, so an unknown option or an extra argument still
+ * fails; only a missing required argument or mandatory option is excused, because the question does not
+ * need them. The answer is then thrown from the command's preAction hook, before its action runs. A rule
+ * listed in REQUIRED_OPTIONS is answered yes only when those options are given.
+ *
+ * Throws when a key of `table` names no leaf command, since that command would answer no to every
+ * rule without anyone noticing. Turns off the implicit `help` command, which would otherwise print help
+ * and exit 0 for any `--rule-id`; `--help` still works.
+ */
+export function addRuleIdOption(
+  group: Command,
+  table: Readonly<Record<string, readonly RuleId[]>>,
+  onRun: (commandPath: string) => void = () => {},
+): void {
+  const leaves = new Set<string>();
+  addRuleIdOptionBelow(group, table, [], leaves, onRun);
+  const unknown = Object.keys(table).filter((key) => !leaves.has(key));
+  if (unknown.length > 0) {
+    throw new Error(`ENFORCED_RULES names ${unknown.map((key) => `'${key}'`).join(', ')}, which is no command`);
+  }
+}
+
+function addRuleIdOptionBelow(
+  group: Command,
+  table: Readonly<Record<string, readonly RuleId[]>>,
+  path: readonly string[],
+  leaves: Set<string>,
+  onRun: (commandPath: string) => void,
+): void {
+  group.helpCommand(false);
+  for (const command of group.commands) {
+    const commandPath = [...path, command.name()];
+    if (command.commands.length > 0) {
+      addRuleIdOptionBelow(command, table, commandPath, leaves, onRun);
+      continue;
+    }
+    const key = commandPath.join(' ');
+    leaves.add(key);
+    const ids = table[key] ?? [];
+    command.addOption(
+      new Option('--rule-id <id>', 'exit 0 if this command enforces the rule <id>, 1 if not; runs nothing'),
+    );
+    if (ids.length > 0) command.addHelpText('after', `\nEnforces the rules: ${ids.join(', ')}\n`);
+    command.on('option:rule-id', () => {
+      for (const argument of command.registeredArguments) argument.required = false;
+      for (const option of command.options) option.mandatory = false;
+    });
+    command.hook('preAction', () => {
+      const id = command.opts<{ readonly ruleId?: string }>().ruleId;
+      if (id === undefined) {
+        onRun(key);
+        return;
+      }
+      const given = command.opts<Record<string, unknown>>();
+      const needed = REQUIRED_OPTIONS[key]?.[id as RuleId];
+      const isSet = (option: string): boolean => ![undefined, false, ''].includes(given[option] as never);
+      const enforced =
+        ids.includes(id as RuleId) && (needed?.given ?? []).every(isSet) && !(needed?.absent ?? []).some(isSet);
+      throw new RuleIdAnswered({ command: 'rule-id', enforced });
+    });
+  }
+}
+
+export function parseCliOptions(argv: readonly string[], ran: { commandPath?: string } = {}): CliOptions {
   const program = new Command()
     .name('fhevm-npm')
     .description('Validate the npm workspace policy from npm-manifest.json.')
@@ -229,6 +327,7 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
   let syncFhevmChains: { readonly commit?: string; readonly latest: boolean } | undefined;
   let checkFhevmChainsOrigin = false;
   let checkDeployments: { readonly base?: string } | undefined;
+  let checkMdLinks: { readonly offline: boolean } | undefined;
   let checkSafechain: { readonly minAgeHours: number } | undefined;
   let updateDependencies: { readonly minAgeHours: number; readonly dryRun: boolean } | undefined;
   let syncHhV2Constants: { readonly check: boolean } | undefined; // hh-v2-constants
@@ -315,6 +414,18 @@ Prerequisite:
       selected = 'extraneous';
     });
   check
+    .command('docs')
+    .description('Check that each docs folder sits next to a published pkg/, holds skills/, and that no tool reads it.')
+    .action(() => {
+      selected = 'docs';
+    });
+  check
+    .command('forge-std-chains')
+    .description("Check that forge-fhevm-std's StdFhevmChains.sol carries the addresses of fhevm-chains.config.json.")
+    .action(() => {
+      selected = 'forge-std-chains';
+    });
+  check
     .command('generation-parity')
     .description('Check that the previous generation is byte-identical to its own release branch.')
     .action(() => {
@@ -351,7 +462,7 @@ Checked scripts:
   prettier:check Required on every dev package, shared helper and internal consumer; must exclude Solidity.
   prettier:write Required on every dev package, shared helper and internal consumer; must exclude Solidity.
   prettier.config.js The only package-level Prettier config filename; references the root prettier.base.mjs.
-                     Required at the workspace root too, beside the base it re-exports (5.1.6's sole exception:
+                     Required at the workspace root too, beside the base it re-exports (NR-45's sole exception:
                      Prettier does not discover 'prettier.base.mjs', so sdk-level files need it).
   check:publint  Required on every dev owner of an npm-distributed package.
   test:consumer  Required on every dev owner of an npm-distributed package; mirror-only consumer projects are exempt.
@@ -548,6 +659,15 @@ Why:
     .option('--base <ref>', 'fail if a record folder that exists at the merge base with this ref changed in any way')
     .action((options: { readonly base?: string }) => {
       checkDeployments = { base: options.base };
+    });
+  check
+    .command('md-links')
+    .description(
+      'Check the links of every .md file git does not ignore, with mlc. Skipped with a warning when mlc is not on PATH.',
+    )
+    .option('--offline', 'do not check web links', false)
+    .action((options: { readonly offline: boolean }) => {
+      checkMdLinks = { offline: options.offline };
     });
   // Network- and clock-dependent, so it is run by hand before a push and never from `make check`.
   check
@@ -795,6 +915,9 @@ Why:
       regenerateConsumerPackageLocksFresh = options.fresh;
     });
 
+  addRuleIdOption(program, ENFORCED_RULES, (commandPath) => {
+    ran.commandPath = commandPath;
+  });
   program.parse([...argv], { from: 'user' });
   if (
     selected === undefined &&
@@ -826,6 +949,7 @@ Why:
     syncHhV2Constants === undefined && // hh-v2-constants
     !checkFhevmChainsOrigin &&
     checkDeployments === undefined &&
+    checkMdLinks === undefined &&
     checkSafechain === undefined &&
     updateDependencies === undefined
   ) {
@@ -893,6 +1017,16 @@ Why:
       verbosity: options.verbose,
       sortPackageJson: false,
       ...checkDeployments,
+    };
+  }
+  if (checkMdLinks !== undefined) {
+    return {
+      command: 'check-md-links',
+      workspaceRoot,
+      manifestFile: resolve(workspaceRoot, 'npm-manifest.json'),
+      verbosity: options.verbose,
+      sortPackageJson: false,
+      ...checkMdLinks,
     };
   }
   if (checkSafechain !== undefined) {

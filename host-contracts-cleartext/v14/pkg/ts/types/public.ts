@@ -39,11 +39,11 @@ export type FhevmAddresses = {
 };
 
 /**
- * The **previous** generation's host address set — what `updateV13ToV14` upgrades *from*.
+ * The `<vN-1>` host address set — what `updateV13ToV14` upgrades *from*.
  *
- * v14 adds no contract to the host set, so a v13 stack has exactly the addresses a v14 stack has. Named
- * separately anyway: it describes a different protocol generation that happens to coincide, and the name
- * is what lets `FhevmAddresses` change later without silently redefining what "a v13 stack" means.
+ * `v14` added no contract to the host set, so a `<vN-1>` stack has exactly the addresses a `<vN>` stack has.
+ * Named separately anyway: it describes a different protocol generation that happens to coincide, and the
+ * name is what lets `FhevmAddresses` change later without silently redefining what "a `<vN-1>` stack" means.
  */
 export type FhevmAddressesV13 = FhevmAddresses;
 
@@ -76,9 +76,9 @@ export type KMSVerifierInitConfig = {
 export type ProtocolConfigInitConfig = {
   readonly initialKmsNodes: readonly KmsNodeParams[];
   readonly initialThresholds: KmsThresholds;
-  /** The KMS build the context is created under (v14); stored as-is, nothing on-chain parses it. */
+  /** The KMS build the context is created under (`<vN>`); stored as-is, nothing on-chain parses it. */
   readonly softwareVersion: string;
-  /** Accepted enclave measurement sets (v14); empty for a stack with no enclave. */
+  /** Accepted enclave measurement sets (`<vN>`); empty for a stack with no enclave. */
   readonly pcrValues: readonly PcrValues[];
 };
 
@@ -93,7 +93,7 @@ export type HCULimitInitConfig = {
 };
 
 /**
- * A KMS node entry for `ProtocolConfig` (v13). Mirrors the on-chain `KmsNode` struct; passed as an
+ * A KMS node entry for `ProtocolConfig`, which `v13` introduced. Mirrors the on-chain `KmsNode` struct; passed as an
  * object — viem matches the tuple by component name.
  */
 export type KmsNode = {
@@ -103,7 +103,10 @@ export type KmsNode = {
   readonly storageUrl: string;
 };
 
-/** The four KMS thresholds for `ProtocolConfig` (v13). Mirrors the on-chain `KmsThresholds` struct. */
+/**
+ * The four KMS thresholds for `ProtocolConfig`, which `v13` introduced. Mirrors the on-chain `KmsThresholds`
+ * struct.
+ */
 export type KmsThresholds = {
   readonly publicDecryption: bigint;
   readonly userDecryption: bigint;
@@ -111,7 +114,7 @@ export type KmsThresholds = {
   readonly mpc: bigint;
 };
 
-/** v14's node entry: `KmsNode` plus the MPC metadata `ProtocolConfig` hashes and emits but does not store. */
+/** `<vN>`'s node entry: `KmsNode` plus the MPC metadata `ProtocolConfig` hashes and emits but does not store. */
 export type KmsNodeParams = KmsNode & {
   readonly partyId: number;
   readonly mpcIdentity: string;
@@ -119,7 +122,7 @@ export type KmsNodeParams = KmsNode & {
   readonly storagePrefix: string;
 };
 
-/** One accepted enclave measurement set (v14), mirroring the on-chain `PcrValues` struct; hex bytes. */
+/** One accepted enclave measurement set (`<vN>`), mirroring the on-chain `PcrValues` struct; hex bytes. */
 export type PcrValues = {
   readonly pcr0: string;
   readonly pcr1: string;
@@ -135,7 +138,7 @@ export type BootstrapConfig = {
   readonly protocolConfig: ProtocolConfigInitConfig;
 };
 
-// v14's KMS rotation types live with the lifecycle code; re-exported here so consumers see one type module.
+// `<vN>`'s KMS rotation types live with the lifecycle code; re-exported here so consumers see one type module.
 export type {
   EpochActivationAttestation,
   EpochActivationDigests,
@@ -152,9 +155,9 @@ export type Deployed = {
 };
 
 /**
- * What `ProtocolConfig.reinitializeV2` records during a v13→v14 update: the current KMS context
- * re-declared with the v14 per-node metadata (party id, MPC identity, CA cert, storage prefix), plus the
- * KMS software version and the enclave PCR values. The signer set must match the live v13 context.
+ * What `ProtocolConfig.reinitializeV2` records during a `<vN-1>` -> `<vN>` update: the current KMS context
+ * re-declared with the `<vN>` per-node metadata (party id, MPC identity, CA cert, storage prefix), plus the
+ * KMS software version and the enclave PCR values. The signer set must match the live `<vN-1>` context.
  */
 export type UpdateV13ToV14MigrationConfig = {
   readonly kmsNodeParams: readonly KmsNodeParams[];
@@ -242,9 +245,9 @@ type VerifyCommon = {
  * The contracts that exist RIGHT NOW, which is not the same set as a finished stack.
  *
  * `snapshotStack` is only meaningful before an upgrade, and at that moment the proxies the upgrade is
- * about to create do not exist (v13 created two). Requiring a full `Deployed` made the function uncallable
- * for its only real use — a caller holding a v12 stack had no `protocolConfigAddress` — and the one way to satisfy it was
- * worse than uncallable: passing the PREDICTED addresses surveys two empty proxies, records every getter
+ * about to create do not exist (`v13` created two). Requiring a full `Deployed` made the function uncallable
+ * for its only real use — a caller holding a `v12` stack had no `protocolConfigAddress` — and the one way to
+ * satisfy it was worse than uncallable: passing the PREDICTED addresses surveys two empty proxies, records every getter
  * as `<reverted>`, and then reports the upgrade filling them in as a changed reading. A false failure on a
  * correct upgrade.
  *

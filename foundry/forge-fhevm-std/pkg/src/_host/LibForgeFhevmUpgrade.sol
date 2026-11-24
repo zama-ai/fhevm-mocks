@@ -34,7 +34,7 @@ interface IUUPSProxy {
  *      same reinitializers `pkg/ts/upgrade.ts` sends on a real chain, so the storage layout question is
  *      one upstream has already answered and `test:upgrade` already rehearses.
  *
- * @dev WHY THE OP LIST IS NOT THE TYPESCRIPT ONE. `updateV(N-1)ToV(N)` also re-points
+ * @dev WHY THE OP LIST IS NOT THE TYPESCRIPT ONE. The upgrade function of `pkg/ts/upgrade.ts` also re-points
  *      `CleartextArithmetic`, because it upgrades a CLEARTEXT stack, and a real deployment has no such
  *      contract — nor a `CleartextDB`. `InputVerifier` is absent from both for the opposite reason: its
  *      bytecode does not change across the two generations, so re-pointing it would burn a reinitializer
@@ -50,7 +50,7 @@ interface IUUPSProxy {
  *      needs the `ACLOwner` contract, which a chain may not even have.
  *
  * @dev ONCE PER FORK. Every reinitializer is one-shot, so a second call reverts `InvalidInitialization`.
- *      The caller preparing a fork already runs once per fork (rule 2.12); this library does not guard.
+ *      The caller preparing a fork already runs once per fork (FR-16); this library does not guard.
  */
 library LibForgeFhevmUpgrade {
     IForgeVm private constant fvm = IForgeVm(FORGE_VM_ADDRESS);

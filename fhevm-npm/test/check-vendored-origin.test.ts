@@ -282,6 +282,7 @@ test('a dev selector grades the dev package itself when it pins a tree of its ow
     // The dev entry records no digest yet, which is the violation that proves it was graded at all.
     assert.equal(results[0]!.violations.length, 1);
     assert.match(results[0]!.violations[0]!.message, /no digest recorded/);
+    assert.equal(results[0]!.violations[0]!.rule, 'NR-42a');
     assert.deepEqual(results[1]!.violations, []);
 
     // The published key alone stays a single package, as before.

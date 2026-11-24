@@ -188,7 +188,7 @@ export function syncPinnedVendored(options: SyncPinnedOptions): SyncVendoredResu
       continue;
     }
     if (!existsSync(target.directory)) {
-      violations.push({ rule: RULE, packageKey: `./${targetLabel(target)}`, message: `destination missing` });
+      violations.push({ rule: 'NR-42a', packageKey: `./${targetLabel(target)}`, message: `destination missing` });
       continue;
     }
     const startedAt = performance.now();
@@ -273,7 +273,7 @@ function checkPinnedDigest(options: SyncPinnedOptions, target: PinnedVendoredTar
     actual = vendoredDigest(target.directory);
   } catch (error) {
     violations.push({
-      rule: RULE,
+      rule: 'NR-42a',
       packageKey: `./${targetLabel(target)}`,
       message: `${error instanceof Error ? error.message : String(error)}`,
     });
@@ -282,7 +282,7 @@ function checkPinnedDigest(options: SyncPinnedOptions, target: PinnedVendoredTar
 
   if (target.source.digest === undefined) {
     violations.push({
-      rule: RULE,
+      rule: 'NR-42a',
       packageKey: `./${targetLabel(target)}`,
       message: `no digest recorded, so the copies are unverified — ${digestInstruction(target, actual)}`,
     });
@@ -290,7 +290,7 @@ function checkPinnedDigest(options: SyncPinnedOptions, target: PinnedVendoredTar
   }
   if (target.source.digest !== actual) {
     violations.push({
-      rule: RULE,
+      rule: 'NR-42a',
       packageKey: `./${targetLabel(target)}`,
       message:
         `${target.relPath}: content is ${actual}, but npm-manifest.json records ${target.source.digest}. ` +
@@ -370,7 +370,7 @@ function reportDigest(options: SyncPinnedOptions, target: PinnedVendoredTarget, 
     return;
   }
   violations.push({
-    rule: RULE,
+    rule: 'NR-42a',
     packageKey: `./${targetLabel(target)}`,
     message:
       `${target.relPath}: ${target.source.digest === undefined ? 'no digest recorded' : `recorded digest is ${target.source.digest}`}, ` +

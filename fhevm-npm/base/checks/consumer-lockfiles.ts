@@ -1,8 +1,8 @@
-// Rule 6.1.3: an isolated consumer fixture's package-lock.json pins every published payload it reaches at the
+// Rule NR-66: an isolated consumer fixture's package-lock.json pins every published payload it reaches at the
 // version versions.json declares, resolved to the payload its depender actually names.
 //
 // The lockfile is what `npm ci` installs, so a stale one silently tests yesterday's package: after the
-// Hardhat v3 plugin moved from V(N-1)'s host contracts to V(N)'s, its consumer lock still recorded
+// Hardhat v3 plugin moved from `v13`'s host contracts to `v14`'s, its consumer lock still recorded
 // `@fhevm/hardhat-plugin-v3@0.13.0` depending on `host-contracts-cleartext/v13/pkg` — both versions
 // correct for the files they named, both files the wrong ones. Hence two assertions per published node:
 // the version matches versions.json for the payload the `resolved` path points at, and that path is the
@@ -15,7 +15,7 @@ import type { Violation } from '../diagnostics.ts';
 import type { LoadedPackage } from '../npm.ts';
 import type { VersionsFile } from '../versions.ts';
 
-export const RULE = '6.1.3';
+export const RULE = 'NR-66';
 
 /** Reads a file, or undefined when it does not exist. Injectable so tests need no disk. */
 export type FileReader = (file: string) => string | undefined;
@@ -53,7 +53,7 @@ export function validateConsumerLockfiles(
     if (consumer === undefined) continue;
     const lockfile = join(consumer.directory, 'package-lock.json');
     const text = readFile(lockfile);
-    if (text === undefined) continue; // 6.1.1 already reports the missing lock
+    if (text === undefined) continue; // NR-64 already reports the missing lock
 
     const lockKey = `${consumerKey}/package-lock.json`;
     const fix = `regenerate it: fhevm-npm test-consumer-regenerate-package-lock ${consumerKey}`;
@@ -225,7 +225,7 @@ export function readConsumerLockPins(
 
 /**
  * The registered consumers that carry a lock of their own: a member consumer is covered by its installation
- * root's lock (6.1.1), so only an isolated fixture is graded here. Sorted, so a report reads the same each run.
+ * root's lock (NR-64), so only an isolated fixture is graded here. Sorted, so a report reads the same each run.
  */
 export function isolatedConsumerKeys(packages: readonly LoadedPackage[]): readonly string[] {
   const byKey = new Map(packages.map((pkg) => [pkg.key, pkg]));

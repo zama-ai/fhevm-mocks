@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/zama-ai/fhevm/blob/main/sdk/fhevm-npm/schemas/npm-manifest.schema.json",
   "title": "fhevm sdk npm manifest",
-  "description": "Inventory of every source package.json in the sdk/ discovery universe defined by fhevm-npm/npm-rules.md, plus repository-wide npm and toolchain policy.",
+  "description": "Inventory of every source package.json in the discovery universe that the Inventory group of rules/fhevm-npm/rules/ defines, plus repository-wide npm and toolchain policy.",
   "$comment": "This schema enforces manifest-local shape and kind invariants. A TypeScript validator must enforce filesystem, package.json and cross-entry invariants: complete discovery, key/path containment, member/workspaces equality, package names and privacy, required published package.json fields, private version 0.0.0, exports, dependency rules, dev/published ownership cardinality, and the conventional check:publint, npm-distribution-conditional test:consumer, conditional test:vendored and conditional test:mirror scripts.",
   "type": "object",
   "required": ["packageJson", "packages"],
@@ -87,23 +87,23 @@
     },
     "generations": {
       "type": "object",
-      "description": "Which generation of a multi-generation package family is current, V(N), and which is its predecessor, V(N-1). Keyed by the family's directory below sdk/ (e.g. host-contracts-cleartext). Exactly two generations are live at any time: V(N) is the one every consumer depends on, V(N-1) exists only so V(N)'s upgrade path from it can be built and tested.",
+      "description": "Names <vN> and <vN-1> of a multi-generation package family. Keyed by the family's directory (e.g. host-contracts-cleartext). Exactly two generations are live at any time: <vN> is the one every consumer depends on, and <vN-1> exists only so the upgrade path of <vN> from it can be built and tested.",
       "$comment": "Shape only. The TypeScript validator additionally requires both values to be inventory entries of kind dev living under the family directory, and distinct.",
       "minProperties": 1,
       "additionalProperties": false,
       "patternProperties": {
         "^(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9._-]+)*$": {
           "type": "object",
-          "required": ["current"],
+          "required": ["current", "previous"],
           "additionalProperties": false,
           "properties": {
             "current": {
               "$ref": "#/$defs/packageKey",
-              "description": "V(N): the dev package of the current generation, e.g. ./host-contracts-cleartext/v13."
+              "description": "The dev package of <vN>, as ./host-contracts-cleartext/<vN>."
             },
             "previous": {
               "$ref": "#/$defs/packageKey",
-              "description": "V(N-1): the dev package of the previous generation, e.g. ./host-contracts-cleartext/v12. Omitted for a family with a single generation."
+              "description": "The dev package of <vN-1>, as ./host-contracts-cleartext/<vN-1>. Always present: the upgrade suite of <vN> upgrades from it."
             }
           }
         }
@@ -365,7 +365,7 @@
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "description": "Which of the seven kinds in fhevm-npm/npm-rules.md \u00a7 Definitions this directory is.",
+          "description": "Which kind of package this directory is.",
           "$comment": "A closed set on purpose. Left open, each gate invents its own vocabulary and the manifest stops being a single answer.",
           "oneOf": [
             {

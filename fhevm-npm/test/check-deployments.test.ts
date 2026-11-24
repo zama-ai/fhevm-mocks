@@ -97,7 +97,7 @@ function eventFiles(base: string, spec: EventSpec, eventJson = true): { files: F
   return { files, manifest };
 }
 
-/** deploy (legacy-style: no packageVersion, no event.json) -> hotfix v13.1 -> upgrade v14.1. */
+/** deploy (legacy-style: no packageVersion, no event.json) -> hotfix `v13.1` -> upgrade `v14.1`. */
 function history(): Files {
   const deploy = eventFiles(
     `${S}/${DEPLOY}`,
@@ -318,7 +318,7 @@ test('versions: the folder name and the manifest agree', () => {
   );
 });
 
-/** history(), then one more upgrade from v14.1 to the event `name` declares. */
+/** history(), then one more upgrade from `v14.1` to the event `name` declares. */
 function historyThen(name: string, version: string, packageVersion: string): Files {
   const deploy = eventFiles(
     `${S}/${DEPLOY}`,

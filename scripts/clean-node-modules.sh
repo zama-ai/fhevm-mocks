@@ -2,7 +2,7 @@
 #
 # ⚠️  WARNING: keep this a dependency-free bash script — do NOT port it to fhevm-npm. With
 # --include-fhevm-npm it deletes fhevm-npm's own node_modules — the recovery tool for a broken tree
-# (FHEVM_NPM_RULES 6.2.x) — so it must run when node tooling cannot. `make distclean` calls it
+# (NR-67, NR-68) — so it must run when node tooling cannot. `make distclean` calls it
 # (--dry-run, then --force).
 #
 # Deletes every node_modules under the sdk workspace, so the next `npm install` rebuilds the tree
@@ -17,7 +17,7 @@
 #   --include-package-lock   delete package-lock.json too, so npm re-resolves from the manifests
 #                            instead of replaying recorded versions. Lockfiles are tracked in git.
 #   --include-fhevm-npm      also delete fhevm-npm's node_modules (and, with the flag above, its
-#                            lockfile) — the FHEVM_NPM_RULES 6.2.x broken-tree recovery.
+#                            lockfile) — the broken-tree recovery of NR-67 and NR-68.
 #   -h, --help               print this header and exit.
 #
 # Example:
@@ -36,7 +36,7 @@ ROOT="$(dirname -- "$SCRIPT_DIR")"
 
 # Subtrees not touched, relative to $ROOT. js-sdk sits under sdk/ but belongs to the OUTER fhevm
 # workspace, so an install here would not bring its trees back. fhevm-npm is the orchestrator and
-# stays runnable; --include-fhevm-npm lifts that one (broken-tree recovery, rules 6.2.x).
+# stays runnable; --include-fhevm-npm lifts that one (broken-tree recovery, NR-68).
 EXCLUDED_DIRS=("js-sdk" "fhevm-npm")
 
 # ------------------------------------------------------------------------------

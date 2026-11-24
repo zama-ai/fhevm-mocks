@@ -11,7 +11,7 @@ import type { Violation } from '../diagnostics.ts';
 import { packageJsonPath } from './package-names.ts';
 import { loadPackages } from '../npm.ts';
 
-const RULE = '2.1.13';
+const RULE = 'NR-14';
 
 type TscInvocation = {
   readonly script: string;
@@ -67,7 +67,7 @@ function validateInvocation(packageKey: string, directory: string, invocation: T
   if (invocation.mode === 'build' || invocation.configPath === undefined) return undefined;
 
   const config = resolveTsconfigFile(directory, invocation.configPath);
-  // A missing config makes tsc itself fail loudly, and 2.1.5 owns path existence; nothing silent here.
+  // A missing config makes tsc itself fail loudly, and NR-06 owns path existence; nothing silent here.
   if (config === undefined) return undefined;
 
   const parsed = parseConfigFileTextToJson(config, readFileSync(config, 'utf8'));

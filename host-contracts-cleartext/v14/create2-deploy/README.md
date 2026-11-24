@@ -1,15 +1,18 @@
 # create2-deploy
 
-**Runs on a local anvil; never yet on a real testnet.** These files started as a drawing to make
-[CREATE2_TESTNET_DEPLOY_PLAN.md](../plans/CREATE2_TESTNET_DEPLOY_PLAN.md) concrete enough to argue with,
-and are now further along than that: the full flow — `compute` through step F and `verify` — has been run
-end to end against a local anvil in both generations, finishing with *"OK — every terminal condition
-met."* See GUIDE.md; no keystore is needed for that.
+**Runs on Ethereum Sepolia and on a local anvil.** The full flow — `compute` through step F and `verify` —
+has been run end to end against a local anvil in both generations, finishing with *"OK — every terminal
+condition met."* See [GUIDE.md](./GUIDE.md); no keystore is needed for that.
 
-What is still true: **no real testnet run has happened.** The directory sits outside `pkg/`, nothing
-imports it, and it is not part of `npm run build`. Two things are wired in now — `foundry.toml` grants
-it `fs_permissions` so the manifest can be written, and `test/Create2Ordinals.t.sol` pins the index
-alignment its four role tables depend on.
+On Ethereum Sepolia, the `v13` generation of this tool deployed the stack `cleartext-v13-sepolia-2026-10-05-1`
+on 2026-10-05, and this generation's `upgrade-cli` upgraded it to `v14` on 2026-11-17, after a rehearsal on
+an anvil fork of Sepolia. Both records are in
+[deployments/ethereum_sepolia/](../../../deployments/ethereum_sepolia/cleartext-v13-sepolia-2026-10-05-1/);
+each `tool-commit.txt` names the commit that reproduces it and what was done by hand.
+
+What is still true: the directory sits outside `pkg/`, nothing imports it, and it is not part of
+`npm run build`. Two things are wired in now — `foundry.toml` grants it `fs_permissions` so the manifest
+can be written, and `test/Create2Ordinals.t.sol` pins the index alignment its four role tables depend on.
 
 To check it yourself:
 
@@ -36,7 +39,7 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 | [deploy-cli](deploy-cli) | — | the operator's entry point for a fresh deploy: checks Node, runs `ts/deploy-testnet.ts` |
 | [ts/deploy-testnet.ts](ts/deploy-testnet.ts) | §1, §3, §11 | fresh-stack coordinator: preflight gates, 3 builds, one forge invocation per stage |
 | [upgrade/upgrade-cli](upgrade/upgrade-cli) | — | the operator's entry point for an upgrade: checks Node, runs `upgrade/ts/testnet.ts` |
-| [upgrade/ts/testnet.ts](upgrade/ts/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live v13 stack without moving ownership or pausers |
+| [upgrade/ts/testnet.ts](upgrade/ts/testnet.ts) | upgrade plan §1–§10 | upgrades a supplied live `v13` stack without moving ownership or pausers |
 | [upgrade/RUNBOOK.md](upgrade/RUNBOOK.md) | — | the upgrade as terminal commands, in order, with what "good" looks like at each step |
 | [ts/common.ts](ts/common.ts) | — | everything the two coordinators share: options, config file, preflight, journal, broadcast |
 | [ts/utils.ts](ts/utils.ts) | — | dependency-free helpers: process running, JSONL, path containment |
@@ -59,7 +62,7 @@ Read it, decide whether the shape is right, then throw it away and write the rea
 | [script/repoint/](script/repoint/) `FhevmRepoint{ComputeAddresses,Creates,Checks,PreMaterializeCheck,Materialize,Verify}.s.sol` | — | the engine's abstract scripts: two-pass compute and seal, resumable creates, the shared non-reverting checks, the gate, the one atomic `ACLOwner.upgrade`, the terminal conditions |
 | [script/hotfix/](script/hotfix/) `FhevmHotfixBase.s.sol` and its five scripts | — | the hotfix's hooks (every proxy a candidate, re-pointed when this build's implementation differs, no init data) and the engine's scripts with them; run by `hotfix-cli` (`ts/hotfix.ts`) |
 | [script/upgrade/FhevmUpgradeBase.s.sol](script/upgrade/FhevmUpgradeBase.s.sol) | upgrade plan §5–§6 | the upgrade's hooks: its 7-op role/artifact table, reinitializers and KMS migration |
-| [script/upgrade/FhevmComputeUpgradeAddresses.s.sol](script/upgrade/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | the engine's compute with the upgrade's hooks; v14 creates no proxy |
+| [script/upgrade/FhevmComputeUpgradeAddresses.s.sol](script/upgrade/FhevmComputeUpgradeAddresses.s.sol) | upgrade plan §4 | the engine's compute with the upgrade's hooks; `v14` creates no proxy |
 | [script/upgrade/FhevmUpgradeCreates.s.sol](script/upgrade/FhevmUpgradeCreates.s.sol) | upgrade plan §5 | the seven resumable factory CREATE2 calls |
 | [script/upgrade/FhevmPreMaterializeCheck.s.sol](script/upgrade/FhevmPreMaterializeCheck.s.sol) | — | the gate before the point of no return, plus the sealed migration's freshness and printout. Read-only |
 | [script/upgrade/FhevmMaterializeUpgrade.s.sol](script/upgrade/FhevmMaterializeUpgrade.s.sol) | upgrade plan §6 | one admin-authorized atomic `ACLOwner.upgrade`, re-asserting the gate's load-bearing subset as `require`s |
@@ -109,7 +112,7 @@ decision is the chain's, never a memory of "where the previous stage ended", so 
 `--stage` is exactly as safe as `all`. The scripts still require `FHEVM_MIN_BLOCK` (set to the settled
 block that was checked) as a second line of defence; `--min-block N` adds a manual floor.
 
-### Upgrading a v13 stack
+### Upgrading a `v13` stack
 
 `upgrade/upgrade-cli` has a separate flow because it preserves the live ACL, executor,
 verifiers, HCU limit, cleartext contracts, `PauserSet`, and `ACLOwner`:
@@ -118,9 +121,9 @@ verifiers, HCU limit, cleartext contracts, `PauserSet`, and `ACLOwner`:
 compute → creates → precheck → rehearse → materialize → verify
 ```
 
-`compute` validates the eleven supplied addresses, snapshots every zero-argument getter from the v13 ABIs and
+`compute` validates the eleven supplied addresses, snapshots every zero-argument getter from the `v13` ABIs and
 every live proxy's implementation slot, records cleartext handles, and seals the normalized KMS migration.
-`creates` deploys only the seven v14 implementations — v14 adds no proxy, so no address is new. `precheck`
+`creates` deploys only the seven `v14` implementations — `v14` adds no proxy, so no address is new. `precheck`
 is the read-only gate before the point of no return; `materialize` runs it first, always, then makes the
 one atomic seven-op call as the existing admin. `rehearse` sits between the
 two in `all`: it forks the live chain onto a local anvil, applies the exact prepared calldata as the
@@ -131,7 +134,7 @@ snapshot and handles, and reads the upgrade's own events back. See
 
 Use `--account` for the permissionless CREATE2 transactions and `--admin-account` for
 `ACLOwner.upgrade`. If the admin is a contract or multisig, `--stage materialize` writes and prints the
-exact target/value/calldata payload instead. See [GUIDE.md](GUIDE.md#v13--v14-upgrade-rehearsal) for the
+exact target/value/calldata payload instead. See [GUIDE.md](GUIDE.md#`v13`--v14-upgrade-rehearsal) for the
 local cross-generation rehearsal and the `existing` config block.
 
 ### How an upgrade is audited
@@ -143,7 +146,7 @@ being checked:
 | when | what | question it answers | independent of |
 | --- | --- | --- | --- |
 | `compute` | eleven supplied addresses cross-read off the live stack, each from a **different** contract where one exists | are these the stack's own addresses? | the operator's typing |
-| `compute` | snapshot: every v13 zero-arg getter, every live implementation slot, `--handle` values, KMS signers, admin | what was true **before**? | everything that happens later — the seal is the only witness once the upgrade has run |
+| `compute` | snapshot: every `v13` zero-arg getter, every live implementation slot, `--handle` values, KMS signers, admin | what was true **before**? | everything that happens later — the seal is the only witness once the upgrade has run |
 | `creates` | each CREATE2 gated on `getCode`, address re-derived from the build | did each create land where the seal said? | the journal |
 | `precheck` | the seven creates re-derive from a **fresh recompile**; runtime code at each equals the artifact's deployed bytecode (only the UUPS `__self` immutable may differ, and must equal the address) | is the code on chain this source's output? | the build that produced the seal |
 | `precheck` | `getVersion()` and the baked wiring getters called **directly on each implementation** | is `IMPL_ACL` actually an ACL, compiled against this stack? | the hand-aligned role/artifact/initializer tables — it asks the code |
@@ -153,7 +156,7 @@ being checked:
 | `rehearse` | the exact `materialize-calldata.txt`, applied on an anvil **fork** of the live chain at its head with the admin impersonated, then the full `verify` below run against the fork | does this payload, on this state, leave a stack that passes? | the live chain — a wrong answer costs nothing, and the verify is the same code that runs afterwards |
 | `materialize` | the load-bearing subset of the above as `require`s, evaluated in forge's simulation | — | whether the gate was run |
 | `verify` | Solidity: everything `precheck` checked, plus the seven slots, versions, wiring, `ProtocolConfig` still holds the pre-upgrade KMS set, context id and thresholds, reports the promoted context and epoch, and anchors the `keccak256` of the sealed migration; ownership unchanged, nothing pending | did the intended changes happen? | the deploying machine — re-runnable by anyone with source, node and manifest |
-| `verify` | survey: all v13 getters unchanged except an explicit allow-list, which must **all** have changed; `--handle` values unchanged | did anything else change? | a hand-written list of what to check |
+| `verify` | survey: all `v13` getters unchanged except an explicit allow-list, which must **all** have changed; `--handle` values unchanged | did anything else change? | a hand-written list of what to check |
 | `verify` | events: exactly one `Upgraded` per re-pointed proxy, to the sealed implementation, all in **one** transaction; none on the untouched two; seven matching `HostUpgraded`; no ownership or pauser event since the seal | was the path between the endpoints straight? | slot values, which cannot see an implementation that ran for a block and was then replaced |
 
 Every step of every stage is announced when it starts and reported when it ends, with its duration and
@@ -197,7 +200,8 @@ What is **not** proven, and would have to be added to prove it:
 - **The rehearsal is a fork, not the chain.** anvil replays state faithfully, but block timestamps, gas
   accounting and the mempool are its own. A payload that passes on the fork can still fail live for
   reasons of gas or ordering, which is what `materialize`'s own `require`s and the post-hoc `verify` are for.
-  Verified on anvil forking anvil (`npm run test:upgrade`); not yet on an anvil forking a public testnet.
+  Verified on anvil forking anvil (`npm run test:upgrade`), and on 2026-11-17 on an anvil forking Ethereum
+  Sepolia, before the live upgrade.
 
 ## Checking a stage before running it
 
@@ -521,7 +525,7 @@ dir that contains the package is refused.
 
 ## Running it
 
-A real testnet, which has not been done yet:
+A real testnet, as the Sepolia stack was deployed:
 
 ```sh
 create2-deploy/deploy-cli \
@@ -532,7 +536,7 @@ create2-deploy/deploy-cli \
   --confirmations  3
 ```
 
-A local anvil rehearsal, which has — see GUIDE.md. `--account` and `--admin` are omitted there, which
+A local anvil rehearsal — see GUIDE.md. `--account` and `--admin` are omitted there, which
 is allowed only because the node answers `anvil_nodeInfo`:
 
 ```sh

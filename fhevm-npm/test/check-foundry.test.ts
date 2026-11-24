@@ -33,12 +33,12 @@ test('reports a version mismatch and package-local pins', () => {
     const inspection = inspectFoundry(workspace, manifest('1.5.1-stable'), () => 'forge Version: 1.4.0-stable\n');
     assert.deepEqual(inspection.violations, [
       {
-        rule: '4.1.2',
+        rule: 'NR-29',
         packageKey: './member/.foundry-version',
         message: 'remove this file; the central pin is npm-manifest.json#foundry.version',
       },
       {
-        rule: '4.1.2',
+        rule: 'NR-29',
         packageKey: './npm-manifest.json',
         message:
           "installed forge is '1.4.0-stable'; npm-manifest.json requires '1.5.1-stable' (run 'foundryup --install 1.5.1-stable')",
@@ -78,7 +78,7 @@ test('checks effective Forge fmt settings against foundry.base.toml', () => {
     );
     assert.deepEqual(drift.violations, [
       {
-        rule: '4.1.3',
+        rule: 'NR-30',
         packageKey: './member/foundry.toml',
         message: "effective '[fmt].line_length' is 100; foundry.base.toml requires 120",
       },
@@ -97,7 +97,7 @@ test("requires a package declaring 'forge:fmt' to own foundry.toml", () => {
     const inspection = inspectFoundry(workspace, manifest('1.5.1-stable'), () => 'forge Version: 1.5.1-stable\n');
     assert.deepEqual(inspection.violations, [
       {
-        rule: '4.1.3',
+        rule: 'NR-30',
         packageKey: './member/package.json',
         message: "package declares 'forge:fmt' but has no 'foundry.toml' in the same directory",
       },
@@ -120,7 +120,7 @@ test("forbids 'forge:fmt' in a published package", () => {
     );
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.2',
+        rule: 'NR-03',
         packageKey: './member/package.json',
         message: "published package must not declare 'forge:fmt'; the script and foundry.toml belong on its dev owner",
       },
@@ -143,7 +143,7 @@ test("forbids 'forge:lint' in a published package", () => {
     );
     assert.deepEqual(inspection.violations, [
       {
-        rule: '2.1.2',
+        rule: 'NR-03',
         packageKey: './member/package.json',
         message: "published package must not declare 'forge:lint'; the script and foundry.toml belong on its dev owner",
       },
@@ -169,7 +169,7 @@ test('requires foundry.toml to explicitly extend the workspace base', () => {
     );
     assert.deepEqual(inspection.violations, [
       {
-        rule: '4.1.3',
+        rule: 'NR-30',
         packageKey: './member/foundry.toml',
         message: "must set '[profile.default].extends' to the workspace 'foundry.base.toml'",
       },

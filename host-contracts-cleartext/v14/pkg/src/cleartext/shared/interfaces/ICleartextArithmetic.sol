@@ -34,7 +34,7 @@ interface ICleartextArithmetic is IPlaintexts {
         external;
 
     /// @notice Computes `(factor1 * factor2) / divisor` with a 256-bit intermediate and records it into
-    ///         `result`. v14 operator: `divisor` is always plaintext; `factor2` is plaintext iff bit 1 of
+    ///         `result`. `<vN>` operator: `divisor` is always plaintext; `factor2` is plaintext iff bit 1 of
     ///         `scalarByte` is set (`0x03`). A zero divisor never arrives here: the executor reverts first.
     function recordMulDiv(
         bytes32 result,
@@ -54,8 +54,8 @@ interface ICleartextArithmetic is IPlaintexts {
 
     /// @notice Computes an nary op over the operands' cleartexts and records it into `result`.
     ///         For `fheSum`, `value` is unused (pass bytes32(0)) and `values` are the summands. For
-    ///         `fheIsIn`, `value` is the needle and `values` are the set. v13 operators — their presence
-    ///         is what forces a v12->v13 `CleartextArithmetic` upgrade, since the v12 arithmetic has no
+    ///         `fheIsIn`, `value` is the needle and `values` are the set. Both arrived in `v13`, and their
+    ///         presence forced a `v12`->`v13` `CleartextArithmetic` upgrade, since the `v12` arithmetic had no
     ///         such selector.
     function recordNaryOp(Operators op, bytes32 result, bytes32 value, bytes32[] memory values, FheType fheType)
         external;

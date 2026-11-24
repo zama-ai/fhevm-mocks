@@ -630,7 +630,7 @@ export class FhevmEnvironment {
       kmsVerifierAddress: addresses.CoprocessorConfig.KMSVerifierAddress,
     };
 
-    // A public network gets the host repository and nothing more: the rest of the v13 stack sits at
+    // A public network gets the host repository and nothing more: the rest of the `<vN>` stack sits at
     // addresses the plugin cannot derive there, and the cleartext contracts do not exist at all.
     // Leaving them unregistered beats pointing a Sepolia lookup at localhost addresses.
     if (!this.cleartextProvider.isCleartext) {

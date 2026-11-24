@@ -1,5 +1,5 @@
 // The publication side of RELEASE_PLAN.md, read-only half. A published payload carries `file:` links to
-// other payloads (rule 3.1.1); npmjs.com cannot resolve a path, so `publish render` shows the manifest a
+// other payloads (rule NR-15); npmjs.com cannot resolve a path, so `publish render` shows the manifest a
 // consumer will see — each link replaced by the dependency range of the target's central version — and
 // `publish order` derives, from those same links, the order payloads must reach the registry in. Nothing
 // here writes; `publish pack` calls renderPackageJson so the tarball cannot differ from what render showed.
@@ -145,7 +145,7 @@ function linkedPayload(
   return packages.find((candidate) => resolve(candidate.directory) === target);
 }
 
-// RULES 4.3.4: `^<version>` of the target's central version; a link to anything unpublishable cannot render.
+// NR-38: `^<version>` of the target's central version; a link to anything unpublishable cannot render.
 function renderedSpec(
   pkg: LoadedPackage,
   declaration: DependencyDeclaration,

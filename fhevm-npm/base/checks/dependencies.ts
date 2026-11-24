@@ -1,3 +1,4 @@
+import { builtinModules } from 'node:module';
 import { relative, resolve } from 'node:path';
 
 import type { NpmManifest } from '../../manifest.ts';
@@ -26,6 +27,7 @@ export function validateDependencies(
   if (root === undefined) throw new Error('The loaded inventory has no workspace root package');
   const binaryPackages = rootDependencyBinaryIndex(workspaceRoot, root);
   const usesByPackage = new Map<string, ReadonlySet<string>>();
+  const sourceUsesByPackage = new Map<string, ReadonlySet<string>>();
   const scriptUsesByPackage = new Map<string, ScriptPackageUses>();
 
   for (const pkg of packages) {
@@ -34,6 +36,7 @@ export function validateDependencies(
     const sourceUses = collectPackageImports(files);
     const scriptUses = collectScriptPackageUses(pkg.packageJson.scripts, binaryPackages);
     usesByPackage.set(pkg.key, new Set([...sourceUses, ...scriptUses.keys()]));
+    sourceUsesByPackage.set(pkg.key, sourceUses);
     scriptUsesByPackage.set(pkg.key, scriptUses);
   }
 
@@ -42,12 +45,47 @@ export function validateDependencies(
     ...validateDependencyOrder(packages),
     ...validateDevDependencyPlacement(packages),
     ...validateWorkspaceMemberSpecs(packages),
+    ...validateSourceImportDeclarations({ packages, sourceUsesByPackage }),
     ...validatePrivateRootPins(packages, usesByPackage),
     ...validatePublishedRootPinFloors(packages),
     ...validateScriptDependencyDeclarations(packages, scriptUsesByPackage),
     ...validateDependencyGroupPlacement(packages),
     ...validateSiblingRanges(packages),
   ];
+}
+
+const NODE_BUILTINS = new Set(builtinModules);
+
+/**
+ * NR-18 for source files: every package a private package's own sources import is declared in its own
+ * `package.json`. Without this, an import of a workspace package that is neither the package itself nor pinned at
+ * the root resolves through hoisting alone, and fails the day the package is installed on its own.
+ */
+export type SourceImportDeclarationsInput = {
+  packages: readonly LoadedPackage[];
+  /** Package names each private package's own sources import, keyed by package key. */
+  sourceUsesByPackage: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+export function validateSourceImportDeclarations({
+  packages,
+  sourceUsesByPackage,
+}: SourceImportDeclarationsInput): readonly Violation[] {
+  const violations: Violation[] = [];
+  for (const pkg of packages) {
+    if (!PRIVATE_PACKAGE_KINDS.has(pkg.inventory.kind)) continue;
+    const declared = declarationsByName(pkg.packageJson);
+    for (const packageName of [...(sourceUsesByPackage.get(pkg.key) ?? [])].sort()) {
+      if (packageName === pkg.packageJson.name || NODE_BUILTINS.has(packageName)) continue;
+      if ((declared.get(packageName) ?? []).length > 0) continue;
+      violations.push({
+        rule: 'NR-18',
+        packageKey: packageJsonPath(pkg.key),
+        message: `its sources import '${packageName}', which package.json does not declare`,
+      });
+    }
+  }
+  return violations;
 }
 
 export function validateScriptDependencyDeclarations(
@@ -72,7 +110,7 @@ export function validateScriptDependencyDeclarations(
       const declarations = declared.get(packageName) ?? [];
       if (declarations.length === 0) {
         violations.push({
-          rule: '3.3.1',
+          rule: 'NR-18',
           packageKey: packageJsonPath(pkg.key),
           message: `npm scripts invoke ${binaries} from root dependency '${packageName}' but do not declare it; add "${packageName}": "${rootDeclaration.spec}" to 'devDependencies'`,
         });
@@ -81,7 +119,7 @@ export function validateScriptDependencyDeclarations(
       for (const declaration of declarations) {
         if (declaration.field === 'devDependencies') continue;
         violations.push({
-          rule: '3.3.1',
+          rule: 'NR-18',
           packageKey: packageJsonPath(pkg.key),
           message: `npm scripts invoke ${binaries} from package '${packageName}'; move it from '${declaration.field}' to 'devDependencies'`,
         });
@@ -105,7 +143,7 @@ export function validateForbiddenDependencies(
     for (const declaration of declarations) {
       if (!forbidden.has(declaration.name) || exceptions.has(declaration.name)) continue;
       violations.push({
-        rule: '3.3.3',
+        rule: 'NR-20',
         packageKey: packageJsonPath(pkg.key),
         message: `package '${declaration.name}' in '${declaration.field}' is forbidden by npm-manifest.json#dependencies.forbidden`,
       });
@@ -113,7 +151,7 @@ export function validateForbiddenDependencies(
     for (const exception of exceptions) {
       if (declarations.some((declaration) => declaration.name === exception)) continue;
       violations.push({
-        rule: '3.3.3',
+        rule: 'NR-20',
         packageKey: packageJsonPath(pkg.key),
         message: `dependency exception '${exception}' is unused; remove it from this package's manifest entry`,
       });
@@ -131,7 +169,7 @@ export function validateDevDependencyPlacement(packages: readonly LoadedPackage[
       if (field === 'devDependencies') continue;
       for (const name of Object.keys(pkg.packageJson[field] ?? {})) {
         violations.push({
-          rule: '4.2.4',
+          rule: 'NR-34',
           packageKey: packageJsonPath(pkg.key),
           message: `kind 'dev' must declare '${name}' in 'devDependencies', not '${field}'`,
         });
@@ -182,7 +220,7 @@ export function validateWorkspaceMemberSpecs(packages: readonly LoadedPackage[])
         validateFileSpec(source, declaration, packages, violations);
       } else if (members.has(declaration.name)) {
         violations.push({
-          rule: '3.1.1',
+          rule: 'NR-15',
           packageKey: packageJsonPath(source.key),
           message:
             `package '${declaration.name}' in '${declaration.field}' is "${declaration.spec}" but names a workspace ` +
@@ -203,7 +241,7 @@ function validateFileSpec(
 ): void {
   if (declaration.spec.endsWith('.tgz')) {
     violations.push({
-      rule: '3.1.2',
+      rule: 'NR-16',
       packageKey: packageJsonPath(source.key),
       message: `package '${declaration.name}' in '${declaration.field}' uses forbidden tarball spec "${declaration.spec}"`,
     });
@@ -215,7 +253,7 @@ function validateFileSpec(
   );
   if (linkedTarget === undefined || linkedTarget.packageJson.name !== declaration.name) {
     violations.push({
-      rule: '3.1.1',
+      rule: 'NR-15',
       packageKey: packageJsonPath(source.key),
       message: `file link '${declaration.name}' in '${declaration.field}' does not resolve to the manifest package having that name`,
     });
@@ -225,7 +263,7 @@ function validateFileSpec(
   const targetIsPublishable = linkedTarget.inventory.kind === 'published' && isNpmDistributed(linkedTarget);
   if (source.inventory.kind === 'published' && isNpmDistributed(source) && !targetIsPublishable) {
     violations.push({
-      rule: '3.1.1',
+      rule: 'NR-15',
       packageKey: packageJsonPath(source.key),
       message:
         `npm-distributed package must not link private '${declaration.name}' in '${declaration.field}'; ` +
@@ -262,7 +300,7 @@ export function validatePrivateRootPins(
       const declarations = declared.get(name) ?? [];
       if (checksUsage && isExactVersion(pin) && imported.has(name) && declarations.length === 0) {
         violations.push({
-          rule: '4.2.1',
+          rule: 'NR-31',
           packageKey: packageJsonPath(pkg.key),
           message: `imports root-pinned package '${name}' but does not declare it; add "${name}": "${pin}" to '${requiredField}' as required for kind '${pkg.inventory.kind}'`,
         });
@@ -271,7 +309,7 @@ export function validatePrivateRootPins(
       for (const declaration of declarations) {
         if (declaration.spec !== pin) {
           violations.push({
-            rule: '4.2.1',
+            rule: 'NR-31',
             packageKey: packageJsonPath(pkg.key),
             message: `package '${name}' in '${declaration.field}' is "${declaration.spec}"; the root dependency spec is "${pin}"`,
           });
@@ -280,14 +318,14 @@ export function validatePrivateRootPins(
         if (!checksUsage || !isExactVersion(pin)) continue;
         if (!imported.has(name)) {
           violations.push({
-            rule: '4.2.1',
+            rule: 'NR-31',
             packageKey: packageJsonPath(pkg.key),
             message: `package '${name}' in '${declaration.field}' is root-pinned but no owned source file imports it`,
           });
         } else {
           if (declaration.field !== requiredField) {
             violations.push({
-              rule: '4.2.1',
+              rule: 'NR-31',
               packageKey: packageJsonPath(pkg.key),
               message: `package '${name}' must move from '${declaration.field}' to '${requiredField}' for kind '${pkg.inventory.kind}'`,
             });
@@ -321,7 +359,7 @@ export function validatePublishedRootPinFloors(packages: readonly LoadedPackage[
         if (floor === rootPin) continue;
 
         violations.push({
-          rule: '4.3.1',
+          rule: 'NR-35',
           packageKey: packageJsonPath(pkg.key),
           message:
             floor === undefined
@@ -383,7 +421,7 @@ export function validateDependencyGroupPlacement(packages: readonly LoadedPackag
         .sort()
         .join(', ');
       violations.push({
-        rule: '4.2.2',
+        rule: 'NR-32',
         packageKey: packageJsonPath('.'),
         message: `'${name}' has master declaration ${rootSummary}, but member packages across dependency groups use different ranges (${packageSummary}); remove it from sdk/package.json, or align the member ranges if the difference is unintended`,
       });
@@ -426,7 +464,7 @@ export function validateSiblingRanges(packages: readonly LoadedPackage[]): reado
         .join(', ');
       for (const packageKey of byPackage.keys()) {
         violations.push({
-          rule: '4.2.3',
+          rule: 'NR-33',
           packageKey,
           message: `'${name}' differs between siblings in dependency group ${dependencyGroup}: ${summary}`,
         });
@@ -436,7 +474,7 @@ export function validateSiblingRanges(packages: readonly LoadedPackage[]): reado
   return violations;
 }
 
-// Two relative `file:` links written from different depths still name one directory (rule 3.1.1), so
+// Two relative `file:` links written from different depths still name one directory (rule NR-15), so
 // siblings are compared on the directory they link, shown workspace-relative, not on the text.
 function comparableSpec(pkg: LoadedPackage, spec: string, workspaceRoot: string | undefined): string {
   if (!spec.startsWith('file:')) return spec;

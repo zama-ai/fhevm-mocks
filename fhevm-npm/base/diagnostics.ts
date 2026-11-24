@@ -1,5 +1,37 @@
+import type { RuleId } from '../enforced-rules.ts';
+
+/**
+ * What a violation is tagged with, printed as `❌ [<tag>]`: the ID of the rule it breaks, or, for a check
+ * that no rule of rules/fhevm-npm/rules/ covers, the name of that check. Never an old section number:
+ * the rule books replaced them with IDs, and an `old` field keeps the number on the rule.
+ */
+export type ViolationTag = RuleId | UnruledCheck;
+
+/** The checks that no rule covers. A check moves to a RuleId once a rule covers it. */
+export type UnruledCheck =
+  | 'commit-scope'
+  | 'dependencies-order'
+  | 'deployments'
+  | 'fhevm-chains-origin'
+  | 'forge-fhevm-std-parity'
+  | 'forge-scripts'
+  | 'json-schema-coverage'
+  | 'json-schema-document'
+  | 'json-schema-reference'
+  | 'member-of'
+  | 'mirror'
+  | 'package-json'
+  | 'package-name'
+  | 'rehearse'
+  | 'safe-chain'
+  | 'scripts-order'
+  | 'update'
+  | 'vendored-origin'
+  | 'vendored-bump'
+  | 'vendored-sync';
+
 export type Violation = {
-  readonly rule: string;
+  readonly rule: ViolationTag;
   readonly packageKey: string;
   readonly message: string;
 };
@@ -18,6 +50,11 @@ export type CommandReport = {
    * failure mode a note exists to prevent — and never affects the exit code.
    */
   readonly notes?: readonly string[];
+  /**
+   * What the check leaves out on purpose, by its rules, as a frozen folder. Not a finding and not a
+   * warning: printed only with detailed output, so a reader can still see the scope.
+   */
+  readonly skipped?: readonly string[];
   readonly violations: readonly Violation[];
   readonly timings?: readonly Timing[];
 };
@@ -43,6 +80,7 @@ export function printReport(report: CommandReport, verbosity: Verbosity): void {
   }
 
   if (hasDetailedOutput(verbosity)) {
+    for (const skipped of report.skipped ?? []) console.log(`⏭️  not checked: ${skipped}`);
     if (report.verboseSuccesses !== undefined) {
       for (const success of report.verboseSuccesses) console.log(`✅ ${success}`);
     } else {

@@ -12,9 +12,9 @@
 // different notations, each internally consistent — so drift between them is silent, and the failure
 // mode is a stack that deploys cleanly with the wrong implementation behind a proxy.
 //
-// That is not hypothetical. Deriving v12 from v13 broke this four separate ways: array sizes, a
+// That is not hypothetical. Deriving `v12` from `v13` broke this four separate ways: array sizes, a
 // hardcoded ACLOwner nonce, twelve hardcoded loop bounds, and a test that contradicted the directory it
-// read. Each was correct in v13 by coincidence and wrong the moment the stack changed shape.
+// read. Each was correct in `v13` by coincidence and wrong the moment the stack changed shape.
 //
 // ## Why a text scan, and not a nicer design
 //
@@ -85,7 +85,7 @@ const DEPLOY_LAYER_FILES: ReadonlyArray<{ readonly label: string; readonly path:
   {
     label: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
     path: 'create2-deploy/script/upgrade/FhevmUpgradeBase.s.sol',
-    // The CREATE2 upgrade lane is what a rotation deletes from V(N-1) (ROTATION.md § 1), so on the next
+    // The CREATE2 upgrade lane is what a rotation deletes from <vN-1> (ROTATION.md § 1), so on the next
     // generation's branch this file is legitimately gone. Everything else in the list stays for the life
     // of the generation, so only this entry may be absent.
     optional: true,

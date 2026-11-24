@@ -55,12 +55,12 @@ test('reports both missing and stale inventory entries', () => {
   });
   assert.deepEqual(validateInventorySets(manifest, ['.', './missing']), [
     {
-      rule: '7.1.3',
+      rule: 'NR-72',
       packageKey: './missing/package.json',
       message: 'source package.json is missing from npm-manifest.json',
     },
     {
-      rule: '7.1.3',
+      rule: 'NR-72',
       packageKey: './npm-manifest.json',
       message: "entry './stale' has no discoverable source package.json",
     },
@@ -87,7 +87,7 @@ test('rejects a manifest package directory symlink escaping the workspace', () =
 
     const violations = validateInventoryPaths(workspace, root, manifest);
     assert.equal(violations.length, 1);
-    assert.equal(violations[0]?.rule, '7.1.4');
+    assert.equal(violations[0]?.rule, 'NR-73');
     assert.equal(violations[0]?.packageKey, './escaped');
   } finally {
     rmSync(root, { recursive: true, force: true });

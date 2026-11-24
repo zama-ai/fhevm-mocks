@@ -44,7 +44,7 @@ test('a package.json version must equal the central one; payloads the file lacks
   assert.deepEqual(validatePackageVersions([library('1.2.3'), plugin], central), []);
   assert.deepEqual(validatePackageVersions([library('1.2.4'), plugin], central), [
     {
-      rule: 'version-package',
+      rule: 'NR-37',
       packageKey: './library/pkg/package.json',
       message: 'package.json has 1.2.4; central version is 1.2.3 — run `version apply`',
     },
@@ -68,7 +68,7 @@ test('every lockfile entry resolving to a payload directory must record the cent
   const central = versions({ './library/pkg': '1.2.3', './cluster/plugin/pkg': '0.4.2' });
   assert.deepEqual(validateLockfileMemberVersions([library('1.2.3'), plugin], central, locks), [
     {
-      rule: 'version-lockfile',
+      rule: 'NR-37',
       packageKey: './cluster/package-lock.json',
       message: "records 1.2.2 for '../library/pkg'; central version is 1.2.3 — run `version apply`",
     },
@@ -108,14 +108,14 @@ test('a generated version file must embed the central version; payloads the file
   );
   assert.deepEqual(validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: '1.2.3-1' }]), [
     {
-      rule: 'version-generated',
+      rule: 'NR-37',
       packageKey: './library/pkg/src/Version.sol',
       message: 'embeds 1.2.3-1; central version is 1.2.3 — run `version apply`',
     },
   ]);
   assert.deepEqual(validateGeneratedVersions([library('1.2.3')], central, [{ file: versionSol, version: undefined }]), [
     {
-      rule: 'version-generated',
+      rule: 'NR-37',
       packageKey: './library/pkg/src/Version.sol',
       message:
         'embeds no version matching /VERSION = "([^"]*)";/; central version is 1.2.3 — run `npm run generate:version`',
@@ -159,12 +159,12 @@ test('a consumer lockfile must pin each payload at the central version; a versio
   assert.deepEqual(validateConsumerLockfileVersions([library('1.2.3')], central, [pin(undefined, true)]), []);
   assert.deepEqual(validateConsumerLockfileVersions([library('1.2.3')], central, [pin('1.2.3-1'), pin(undefined)]), [
     {
-      rule: 'version-consumer-lockfile',
+      rule: 'NR-37',
       packageKey: './library/test-consumer/esm/package-lock.json',
       message: "records 1.2.3-1 for 'node_modules/@scope/library'; central version is 1.2.3 — run `version apply`",
     },
     {
-      rule: 'version-consumer-lockfile',
+      rule: 'NR-37',
       packageKey: './library/test-consumer/esm/package-lock.json',
       message: `records no version for 'node_modules/@scope/library'; central version is 1.2.3 — ${regenerate}`,
     },

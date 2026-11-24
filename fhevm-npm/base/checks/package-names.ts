@@ -1,4 +1,4 @@
-import type { Violation } from '../diagnostics.ts';
+import type { Violation, ViolationTag } from '../diagnostics.ts';
 import type { LoadedPackage } from '../npm.ts';
 
 const PRIVATE_PACKAGE_KINDS = new Set(['dev', 'shared-helper', 'internal-consumer']);
@@ -12,10 +12,16 @@ export function validatePackageNames(packages: readonly LoadedPackage[]): readon
     const actualName = pkg.packageJson.name;
 
     if (expectedName === undefined && actualName !== undefined) {
-      violations.push(failure(pkg, `package.json name "${actualName}" is forbidden for kind ${pkg.inventory.kind}`));
+      violations.push(
+        failure(pkg, `package.json name "${actualName}" is forbidden for kind ${pkg.inventory.kind}`, 'package-name'),
+      );
     } else if (expectedName !== undefined && actualName !== expectedName) {
       violations.push(
-        failure(pkg, `package.json name ${quote(actualName)} does not match manifest name "${expectedName}"`),
+        failure(
+          pkg,
+          `package.json name ${quote(actualName)} does not match manifest name "${expectedName}"`,
+          'package-name',
+        ),
       );
     }
 
@@ -31,7 +37,7 @@ export function validatePackageNames(packages: readonly LoadedPackage[]): readon
           failure(
             pkg,
             `private development package version ${quote(pkg.packageJson.version)} must be "${PRIVATE_PACKAGE_VERSION}"`,
-            '1.2.1',
+            'NR-01',
           ),
         );
       }
@@ -39,7 +45,7 @@ export function validatePackageNames(packages: readonly LoadedPackage[]): readon
 
     if (pkg.inventory.kind === 'published') {
       if (pkg.packageJson.private === true) {
-        violations.push(failure(pkg, 'a published package cannot set private: true'));
+        violations.push(failure(pkg, 'a published package cannot set private: true', 'NR-09'));
       }
       if (actualName?.endsWith('-dev')) {
         violations.push(failure(pkg, `published package name "${actualName}" cannot end in -dev`));
@@ -50,7 +56,7 @@ export function validatePackageNames(packages: readonly LoadedPackage[]): readon
   return violations;
 }
 
-function failure(pkg: LoadedPackage, message: string, rule = '5.1.1'): Violation {
+function failure(pkg: LoadedPackage, message: string, rule: ViolationTag = 'NR-40'): Violation {
   return { rule, packageKey: packageJsonKey(pkg), message };
 }
 

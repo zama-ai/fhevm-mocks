@@ -31,7 +31,7 @@ interface IUUPSProxy {
  * so the two should share a layout exactly; a revert here, or a DB that stops answering for handles
  * minted before the round trip, says that reading is wrong.
  *
- * NEITHER IMPLEMENTATION IS COMPILED HERE, and that is rule 4.1 rather than a convenience. `new
+ * NEITHER IMPLEMENTATION IS COMPILED HERE, and that is FR-26 rather than a convenience. `new
  * FHEVMExecutor()` bakes in `internal/placeholders/`, so it calls a HCULimit that does not exist and
  * reverts on the first op. The production blob compiled against the LOCALHOST addresses is the one
  * `LocalHostUpgrade` already ships; the cleartext one is already behind the proxy, and its address is

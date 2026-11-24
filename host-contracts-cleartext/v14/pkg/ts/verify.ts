@@ -210,9 +210,10 @@ async function readAll(
  *
  * ## A caveat when snapshotting the PREVIOUS generation
  *
- * The getters are enumerated from THIS package's ABIs. Pointed at a v13 stack, a getter that v14 added
- * simply reverts and is recorded as `<reverted>` — harmless, and it stays `<reverted>` or starts working,
- * either of which reads correctly. What this cannot see is a getter v14 REMOVED: it is absent from the
+ * The getters are enumerated from THIS package's ABIs. Pointed at a previous-generation stack, a getter
+ * that the current generation added simply reverts and is recorded as `<reverted>` — harmless, and it stays
+ * `<reverted>` or starts working, either of which reads correctly. What this cannot see is a getter the
+ * current generation REMOVED: it is absent from the
  * enumeration, so its disappearance is invisible. Supply `abis` with the previous generation's ABIs to
  * close that gap when the previous package is available.
  */

@@ -1,6 +1,6 @@
 # fhevm-npm
 
-Autonomous Node-native TypeScript CLI for validating [`FHEVM_NPM_RULES.md`](../fhevm-npm-docs/FHEVM_NPM_RULES.md). It owns its dependencies,
+Autonomous Node-native TypeScript CLI for validating [the npm rules](../rules/fhevm-npm/rules/README.md). It owns its dependencies,
 TypeScript configuration and tests, and imports no code from the surrounding SDK.
 
 ```sh
@@ -15,6 +15,7 @@ node ./fhevm-npm.ts check ownership
 node ./fhevm-npm.ts check scripts
 node ./fhevm-npm.ts check lockfiles
 node ./fhevm-npm.ts check consumer-lockfiles
+node ./fhevm-npm.ts check forge-std-chains
 node ./fhevm-npm.ts check foundry
 node ./fhevm-npm.ts check json-schemas
 node ./fhevm-npm.ts check manifest-coverage
@@ -39,6 +40,8 @@ node ./fhevm-npm.ts sync fhevm-chains --latest
 node ./fhevm-npm.ts check fhevm-chains-origin
 node ./fhevm-npm.ts check deployments
 node ./fhevm-npm.ts check deployments --base origin/release/0.13.x
+node ./fhevm-npm.ts check md-links
+node ./fhevm-npm.ts check md-links --offline
 node ./fhevm-npm.ts sync hh-v2-constants          # hh-v2-constants: Hardhat 2 only, delete with hardhat/v2
 node ./fhevm-npm.ts sync hh-v2-constants --check  # hh-v2-constants
 node ./fhevm-npm.ts generate chain-constants

@@ -8,7 +8,7 @@
 //
 // It sits beside RULES.md rather than inside a generation because every generation has the SAME
 // layout — `v12/eslint.config.base.js` and `v13/eslint.config.base.js` were byte-identical before
-// this split. Under rule 22 a change to v13 must be ported to v12 in the same change, so two
+// this split. Under rule 22 a change to `v13` had to be ported to `v12` in the same change, so two
 // identical copies were two chances to forget; one file removes the obligation instead of restating
 // it. A new generation gets the layout by importing this, and only declares what is genuinely its
 // own.
