@@ -5,9 +5,9 @@ import { resourcesOfTest } from './locks.ts';
 import { fixedPortsOfSpec, portsOfSpec } from './port-spec.ts';
 
 /**
- * A lane: tests that run one after the other, in the order of the inventory. The lanes of a run go side
- * by side. Two tests that conflict are always in the same lane: they state a common fixed port, or each
- * of them uses a live chain.
+ * A lane: tests that run one after the other, in the order of the inventory, with the tests that write a
+ * resource last. The lanes of a run go side by side. Two tests that conflict are always in the same
+ * lane: they state a common fixed port, or each of them uses a live chain.
  */
 export type Lane = {
   /** The number of the lane, from 1. */
@@ -16,7 +16,7 @@ export type Lane = {
   readonly ports: readonly number[];
   /** True when the lane holds tests that use a live chain. */
   readonly liveChains: boolean;
-  /** The tests of the lane, in the order of the inventory. */
+  /** The tests of the lane, in the order they run: see `laneOrder`. */
   readonly entries: readonly InventoryEntry[];
 };
 
@@ -344,7 +344,8 @@ export type RunPlan = {
  *
  * The groups are taken from the heaviest to the lightest. Each one goes, whole, into the lane that holds
  * the lowest weight so far, and at equal weight into the lane with the lowest number. A lane that got no
- * group does not exist. With a maximum of 1, every test is in one lane, in the order of the inventory.
+ * group does not exist. With a maximum of 1, every test is in one lane, in the order of the inventory,
+ * with the tests that write a resource last.
  */
 export function planRun(input: GenerateLanesInput): RunPlan {
   const { entries, maximum } = input;
@@ -359,8 +360,8 @@ export function planRun(input: GenerateLanesInput): RunPlan {
   const resourcesOf = resourcesByTest({ entries, liveChainLanes });
   const shardOf = shardByTest({ entries, resourcesOf, count: shard.count });
   const ofShard = entries.filter((entry) => shardOf.get(entry.id) === shard.number);
-  const position = new Map(entries.map((entry, index) => [entry.id, index]));
   const lanes = fill({ groups: groupsOf({ entries: ofShard, resourcesOf }), count: maximum });
+  const inLaneOrder = laneOrder(entries);
 
   return {
     shardOf,
@@ -370,9 +371,23 @@ export function planRun(input: GenerateLanesInput): RunPlan {
         number: index + 1,
         ports: [...lane.resources].filter((resource) => typeof resource === 'number').sort((a, b) => a - b),
         liveChains: [...lane.resources].some(isLiveChainsShare),
-        entries: [...lane.entries].sort((a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0)),
+        entries: [...lane.entries].sort(inLaneOrder),
       })),
   };
+}
+
+/**
+ * The order of the tests of a lane: the tests that write a resource come last, and the order of the
+ * inventory decides otherwise. A test that writes a resource waits for every test of another lane that
+ * reads it, and its lane waits with it. Last, it waits only for what is left of those readers, while the
+ * tests before it run. The order depends on the inventory alone, so the lanes stay the same on every
+ * machine.
+ */
+function laneOrder(entries: readonly InventoryEntry[]): (a: InventoryEntry, b: InventoryEntry) => number {
+  const position = new Map(entries.map((entry, index) => [entry.id, index]));
+  const writes = (entry: InventoryEntry): number => (resourcesOfTest(entry.test).write.length > 0 ? 1 : 0);
+
+  return (a, b) => writes(a) - writes(b) || (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0);
 }
 
 export type ShardsOfSelectionInput = Pick<GenerateLanesInput, 'entries' | 'liveChainLanes'> & {

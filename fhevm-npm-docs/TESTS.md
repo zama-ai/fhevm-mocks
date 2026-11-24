@@ -184,7 +184,7 @@ Three make targets can serve as the build. Each one contains the one before it:
 
 A run needs `--max-lanes <n>`. A lane is a list of tests that run one after the other, and the lanes
 of a run go side by side. With `--max-lanes 1`, the run is serial: every test runs alone, in the
-order of the inventory.
+order of the inventory, with the tests that write a resource last.
 
 The engine builds the lanes from the inventory alone, so the same inventory, selection and maximum
 give the same lanes on every machine:
@@ -198,6 +198,9 @@ give the same lanes on every machine:
    [Keep a test away from a shared folder](#keep-a-test-away-from-a-shared-folder).
 5. The engine balances the lanes by the `duration` of their tests. A `slow` test weighs as much as
    20 `fast` tests, and a `very-slow` test as much as 60. A test with no `duration` weighs 20.
+6. Inside a lane, the tests run in the order of the inventory, with the tests that write a resource
+   last. A test that writes a resource waits for the tests of other lanes that read it, and its lane
+   waits with it. Last in its lane, it waits only for what is left of them.
 
 To print the lanes of a run without running it, give the same selection and maximum to `lanes`:
 

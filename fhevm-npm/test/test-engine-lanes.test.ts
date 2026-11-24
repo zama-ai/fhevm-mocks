@@ -357,6 +357,39 @@ test('a group weighs the sum of its tests: a heavy group goes before a larger li
   ]);
 });
 
+////////////////////////////////////////////////////////////////////////////////
+// The order of a lane
+////////////////////////////////////////////////////////////////////////////////
+
+/** A test that states a duration, and the resources it reads and writes. */
+function using(id: string, duration: Duration, resources: Pick<Test, 'read' | 'write'>): InventoryEntry {
+  return { id, test: fixtureTest({ duration, ...resources }) };
+}
+
+test('a test that writes a resource runs after the other tests of its lane, which do not wait for it', () => {
+  // The case of CI: the very slow reader takes lane 1 from the start. A writer first in lane 2 would
+  // wait for the whole reader, and every test after it in lane 2 would wait too.
+  const entries = [
+    using('reader', 'very-slow', { read: ['folder'] }),
+    using('writer', 'slow', { write: ['folder'] }),
+    timed('fast-1', 'fast'),
+    using('fast-reader', 'fast', { read: ['folder'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 2 }), [['reader'], ['fast-1', 'fast-reader', 'writer']]);
+});
+
+test('the tests of a lane that write a resource keep the order of the inventory between them', () => {
+  const entries = [
+    using('writer-b', 'fast', { write: ['b'] }),
+    using('writer-a', 'fast', { write: ['a'] }),
+    timed('other', 'fast'),
+    using('writer-b-again', 'fast', { write: ['b'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 1 }), [['other', 'writer-b', 'writer-a', 'writer-b-again']]);
+});
+
 test('a maximum of 1 gives one lane, with every test in the order of the inventory', () => {
   const entries = [entry('test-c'), entry('test-a', 9), entry('test-d', 8), entry('test-b', 9), entry('test-e')];
 
