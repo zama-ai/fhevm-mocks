@@ -42,7 +42,8 @@ export const delegatedUserDecryptSingleHandle = async (
 
   const signedPermit = await fhevm.client.signLegacyDecryptionPermit({
     contractAddresses,
-    startTimestamp: startTimeStamp,
+    // 3 seconds in the past: the node checks the start against its latest block, not the wall clock.
+    startTimestamp: startTimeStamp - 3,
     durationSeconds: durationDays * 24 * 60 * 60,
     signerAddress: delegateAddress,
     signer,

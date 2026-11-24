@@ -80,7 +80,8 @@ describe('DecryptMultipleValues', function () {
 
     const aliceSignedPermit = await fhevm.client.signLegacyDecryptionPermit({
       contractAddresses: [contractAddress],
-      startTimestamp,
+      // 3 seconds in the past: the node checks the start against its latest block, not the wall clock.
+      startTimestamp: startTimestamp - 3,
       // The legacy API measured validity in days; `@fhevm/sdk` takes seconds.
       durationSeconds: durationDays * 24 * 60 * 60,
       signerAddress: accounts.alice.address,
