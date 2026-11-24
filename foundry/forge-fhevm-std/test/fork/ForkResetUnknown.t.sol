@@ -40,7 +40,7 @@ contract ForkResetUnknownTest is TestFhevm {
 
     function setUp() public override {
         if (!ForkBlocks.enabled("sepolia")) return;
-        sepolia = getFhevmChain("testnet", "sepolia");
+        sepolia = ForkBlocks.withPrivateRpc(getFhevmChain("testnet", "sepolia"), "sepolia");
         blockA = ForkBlocks.recent(sepolia.rpcUrl);
         forked = true;
     }
@@ -83,13 +83,15 @@ contract ForkResetUnknownTest is TestFhevm {
      */
     function test_aResetOnOneForkLeavesTheOtherAlone() public {
         vm.skip(!forked);
+        // Two blocks the endpoint still serves: a block counted back by hand falls out of its window.
+        (uint256 newer, uint256 older) = ForkBlocks.recentPair(sepolia.rpcUrl);
 
-        uint256 forkA = fhevm.createSelectFork(sepolia, blockA);
+        uint256 forkA = fhevm.createSelectFork(sepolia, newer);
         euint32 onA = FHE_TEST.getEuint32Of(SENDER);
         forkUnknown(onA, 1000);
         assertEq(decryptPublic(onA), 1000, "stated on A");
 
-        uint256 forkB = fhevm.createSelectFork(sepolia, blockA - 1024);
+        uint256 forkB = fhevm.createSelectFork(sepolia, older);
         assertTrue(forkB != forkA, "two forks, not one");
 
         euint32 onB = FHE_TEST.getEuint32Of(SENDER);

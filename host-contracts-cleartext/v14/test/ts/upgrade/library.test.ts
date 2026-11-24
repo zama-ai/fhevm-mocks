@@ -37,6 +37,7 @@ import {
 import { privateKeyFromMnemonic, privateKeyToAddress } from '@fhevm/sdk-common-dev';
 import { expectedHcuLimit } from '../utils/expectedBootstrap.ts';
 import { createViemEthereumAdapters } from '@fhevm/sdk-vendored-dev/viemEthereumLib.ts';
+import { testPort } from '../../../internal/testPorts.ts';
 
 const IMPL_SLOT = ERC_1967_IMPL_SLOT;
 const FHE_TYPE_UINT64 = 5;
@@ -454,7 +455,7 @@ test('e2e: deploy a v13 cleartext stack, then upgrade it to v14 — cleartext su
   // config below has to describe the stack it upgrades. A distinct signer here is what made the survey
   // fail — the migration would have replaced the signer set instead of carrying it over.
 
-  const anvil = startAnvil({ port: 8620, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('upgrade-library-1'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
@@ -795,7 +796,7 @@ test('e2e: updateV13ToV14 with no migration config — defaults resolved from th
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
   const deployerAddress = privateKeyToAddress({ privateKey: deployerKey });
 
-  const anvil = startAnvil({ port: 8621, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('upgrade-library-2'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 

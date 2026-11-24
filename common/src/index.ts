@@ -20,3 +20,4 @@ export type { AnvilNode } from './anvil.ts';
 export { isPortOpen } from './net.ts';
 export { getContractAddressAtNonce, privateKeyFromMnemonic, privateKeyToAddress } from './ethUtils.ts';
 export type { PrivateKeyFromMnemonicArgs } from './ethUtils.ts';
+export { testPort } from './testPorts.ts';

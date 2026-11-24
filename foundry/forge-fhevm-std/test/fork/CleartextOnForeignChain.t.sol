@@ -113,7 +113,7 @@ contract CleartextOnForeignChainTest is TestFhevm {
     /// empty at the LOCAL address, must be refused by name, not deployed.
     function test_aChainWithALiveStackRefusesTheMock() public {
         vm.skip(!forked || !mainnetToo);
-        FhevmChain memory mainnet = getFhevmChain("mainnet", "mainnet");
+        FhevmChain memory mainnet = ForkBlocks.withPrivateRpc(getFhevmChain("mainnet", "mainnet"), "mainnet");
         FhevmChain memory pretender = cleartextChain("arbitrum");
         pretender.rpcUrl = mainnet.rpcUrl;
 
@@ -181,7 +181,7 @@ contract CleartextOnForeignChainTest is TestFhevm {
     /// resolves. The divergence is confined to chains upstream refuses.
     function test_onMainnetBothBuildsResolveTheRealAddresses() public {
         vm.skip(!mainnetToo);
-        FhevmChain memory mainnet = getFhevmChain("mainnet", "mainnet");
+        FhevmChain memory mainnet = ForkBlocks.withPrivateRpc(getFhevmChain("mainnet", "mainnet"), "mainnet");
         fhevm.createSelectFork(mainnet);
 
         FHECounterPublicDecrypt counter = new FHECounterPublicDecrypt();

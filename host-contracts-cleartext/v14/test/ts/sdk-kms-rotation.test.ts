@@ -28,6 +28,7 @@ import {
   trivialToNewProbe,
   userDecryptWith,
 } from './utils/sdkLines.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 describe.skipIf(SDK_LINES.length === 0)('after a KMS rotation, in a process that starts after it', () => {
   let env: Env | undefined;
@@ -39,7 +40,7 @@ describe.skipIf(SDK_LINES.length === 0)('after a KMS rotation, in a process that
   const made = new Map<string, Made>();
 
   beforeAll(async () => {
-    const e = await startEnv(startAnvil({ port: 8662, mnemonic: MNEMONIC }));
+    const e = await startEnv(startAnvil({ port: testPort('sdk-kms-rotation'), mnemonic: MNEMONIC }));
     env = e;
     for (const sdkName of SDK_LINES) {
       const { probeAddress, handle } = await trivialToNewProbe(e, clearValueOf(sdkName, 200));

@@ -62,11 +62,11 @@ contract TwoForksTest is TestFhevm {
         assertGt(LibFhevmProtocol.currentConfig().executor.code.length, 0, "deployed, from the constructor");
 
         if (!ForkBlocks.enabled("sepolia")) return; // opt in: [rpc_endpoints] sepolia, or SEPOLIA_RPC_URL
-        sepolia = getFhevmChain("testnet", "sepolia");
+        sepolia = ForkBlocks.withPrivateRpc(getFhevmChain("testnet", "sepolia"), "sepolia");
         (blockA, blockB) = ForkBlocks.recentPair(sepolia.rpcUrl);
         forked = true;
         if (!ForkBlocks.enabled("mainnet")) return;
-        mainnet = getFhevmChain("mainnet", "mainnet");
+        mainnet = ForkBlocks.withPrivateRpc(getFhevmChain("mainnet", "mainnet"), "mainnet");
         mainnetToo = true;
     }
 

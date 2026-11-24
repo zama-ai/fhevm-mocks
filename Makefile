@@ -738,6 +738,7 @@ check-npm-cli-pre-build: # Internal: run fhevm-npm checks that do not require ge
 	$(call run-fhevm-npm,check generation-parity)
 	$(call run-fhevm-npm,check scripts)
 	$(call run-fhevm-npm,check tsc-mode)
+	$(call run-fhevm-npm,check test-ports)
 	$(call run-fhevm-npm,check lockfiles)
 	$(call run-fhevm-npm,check extraneous)
 	$(call run-fhevm-npm,check consumer-lockfiles)
@@ -973,15 +974,16 @@ test-consumer-ci: clean-scratch compile-hh-v2-template compile-hh-v3-template ##
 # Each suite gets a FRESH node rather than sharing one: the hardhat plugin deploys the cleartext stack on
 # first connection, so a second suite meeting a stack it did not deploy is not the scenario under test.
 #
-# THE PORT MAP, because it is a cross-package invariant and nothing else states it in one place:
-#   8545        hardhat v2/v3 e2e, and the consumer rehearsals — never concurrent, see `ci`
-#   8546        forge-fhevm-std `test:anvil`
-#   8547        forge-fhevm-std `test:anvil-refusals` — resets its node between cases, so it cannot
-#               share one with 8546
-#   8548        forge-fhevm-std `test:anvil-mirror` — resets its node mid-test, same reason
-#   8557/8558   <vN-1> and <vN> create2 e2e (spawned by the suites themselves)
-#   8600-8651   <vN-1> and <vN> vitest suites; uniqueness enforced by test/anvil-ports.test.ts in each generation
-# Anything added here must claim a port no one else holds.
+# THE PORT MAP is test-ports.config.json, at the workspace root: every port on which a test starts a
+# node, each with one owner, so two suites never meet on a port. The tests of <vN> read their
+# port from it by name. What cannot read it carries the numbers it records: the tests of <vN-1>, which
+# are frozen, and the npm scripts of forge-fhevm-std (8546, 8547 and 8548: the refusal and mirror suites
+# reset or break their node, so they cannot share the first one). `check test-ports` holds
+# the file and those sources together.
+# 8545, the default anvil port, is the one shared port: the hardhat e2e suites below and the consumer
+# rehearsals use it, never at the same time — see `ci`.
+# Each group of that file owns a range of ports. Anything added must claim, in that file, a port inside
+# the range of its group.
 #
 # The two targets below are the bring-your-own-node ones with a node provided; they repeat the suite's
 # own invocation rather than recursing into it, so there is no sub-make inside the wrapper script.

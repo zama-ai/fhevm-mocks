@@ -1,12 +1,18 @@
 ---
 name: fhevm-hardhat3-setup
-description: Set up a new FHEVM + Hardhat 3 development environment from an empty directory, for a user who does not know FHEVM, and diagnose setup-time failures. Use when the user asks to create, install, bootstrap, or scaffold an FHEVM Hardhat 3 project, or when a new FHEVM Hardhat 3 project fails to install, compile, or run its first test.
+description: Set up a new FHEVM + Hardhat 3 development environment from an empty directory, for a user who does not know FHEVM, and diagnose setup-time failures. Use when the user asks to create, install, bootstrap, or scaffold an FHEVM Hardhat 3 project, or when a new FHEVM Hardhat 3 project fails to install, compile, typecheck, or run its first test — for example a `hardhat.config.ts` that imports `@fhevm/hardhat-plugin-v3`, or a test where `network.create()` returns no `fhevm`.
+metadata:
+  package: "@fhevm/hardhat-plugin-v3"
 ---
 
 # Set up an FHEVM + Hardhat 3 environment
 
 The goal is a project where `npx hardhat test` passes one FHEVM test. This skill covers setup only. It does not teach
 how to write FHEVM contracts. When the setup is done, send the user to <https://docs.zama.ai/protocol>.
+
+This skill covers the FHEVM layer. For Hardhat 3 itself — test layers, `network.create()`, `networkHelpers`, slow
+builds — also load the **`hardhat`** skill if it is available, and the **`hardhat-toolbox-viem`** skill for viem
+clients and assertions.
 
 Assume that the user does not know FHEVM. Explain each step in one or two plain sentences before you run it.
 
@@ -52,8 +58,8 @@ Do not use the `latest` tag of `@fhevm/sdk` as a guide. That tag can point to a 
 
 ## Procedure
 
-Run each step, and confirm its result before the next step. If a step fails, find the message in
-[Setup problems](#setup-problems).
+Run each step, and confirm its result before the next step. If a step fails, find the message in the section
+"Setup problems" below.
 
 ### 1. Check the tools
 
@@ -124,7 +130,17 @@ Expected output: `Compiled 1 Solidity file with solc 0.8.27 (evm target: cancun)
 
 The first build downloads the Solidity compiler, so it needs network access.
 
-### 6. Run the test
+### 6. Typecheck
+
+```sh
+npx hardhat build && npx tsc --noEmit
+```
+
+Expected output: none. The contract types come from the compiled ABI, so build first, then typecheck. The type of
+`fhevm` on the network connection comes from the plugin. A typecheck catches a wrong argument or a missing plugin
+before the test runs, and it is faster than the test.
+
+### 7. Run the test
 
 ```sh
 npx hardhat test
@@ -134,9 +150,13 @@ Expected output: `1 passing`. The test encrypts a value, adds it on chain, and d
 the compiler, the plugin, the cleartext contracts, and the SDK work together.
 
 No node needs to be started for this step. Hardhat creates a chain in the test process, and the plugin deploys the
-cleartext contracts on it.
+cleartext contracts on it. Each `network.create()` creates its own chain, with its own cleartext contracts.
 
-### 7. Optional: check the standalone node
+FHEVM tests are TypeScript tests (`test/*.ts`). The plugin deploys the cleartext contracts on a network connection,
+and Hardhat's Solidity tests (`.t.sol`, `npx hardhat test solidity`) do not run on one, so an FHEVM call in a
+Solidity test finds no FHEVM contracts. To run the TypeScript tests only, use `npx hardhat test nodejs`.
+
+### 8. Optional: check the standalone node
 
 Do this step only if the user wants a long-running local chain, for example for a frontend.
 
@@ -152,12 +172,13 @@ The node prints a line that starts with `fhevm: cleartext FHEVM stack on 'node' 
 that the plugin deployed the cleartext contracts. Stop the node when the check is done. Stop only the process that you
 started.
 
-### 8. Report
+### 9. Report
 
 Tell the user:
 
 - the installed versions of the plugin, the SDK, and `@fhevm/solidity`;
-- the commands for daily use: `npx hardhat build` and `npx hardhat test`;
+- the commands for daily use: `npx hardhat build`, `npx hardhat build && npx tsc --noEmit`, and `npx hardhat test`;
+- that FHEVM tests are TypeScript tests, not Solidity tests;
 - that the plugin works on local development chains (in-process, `hardhat node`, anvil), and that a public network
   needs more configuration, which this skill does not cover;
 - where to learn FHEVM: <https://docs.zama.ai/protocol>.

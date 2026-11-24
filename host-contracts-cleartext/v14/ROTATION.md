@@ -18,8 +18,9 @@ Make the deletions in the same change that moves `npm-manifest.json#generations`
 - The forge tests of `test/upgrade/` and `create2-deploy/upgrade/ts/testnet.ts` import `<vN-1>`, so `npm run test` and
   `npm run lint` fail to compile them.
 
-This file covers only the directory of `<vN>`. The rest of a rotation changes workspace files, which the Generations
-rules NR-22 to NR-27 govern. [rules/fhevm-npm/WORKSPACE.md](../../rules/fhevm-npm/WORKSPACE.md) introduces them.
+This file covers the directory of `<vN>`, and one workspace file that names the tests of `<vN>` (step 3). The rest of
+a rotation changes workspace files, which the Generations rules NR-22 to NR-27 govern.
+[rules/fhevm-npm/WORKSPACE.md](../../rules/fhevm-npm/WORKSPACE.md) introduces them.
 
 ## Delete files and edit `package.json`, nothing else
 
@@ -28,7 +29,8 @@ After the rotation, `<vN>` is frozen (R-04). `check generation-parity` compares 
 the `package.json` of `<vN>` (NR-27). Any other committed edit fails the check, even a fix to a comment. Make that kind
 of change on `release/<N>.x`, before the rotation.
 
-So the steps below only delete files and edit `package.json`.
+So inside `<vN>` the steps below only delete files and edit `package.json`. Step 3 edits a file at the workspace
+root, which the check does not compare.
 
 ## 1. Delete six folders
 
@@ -73,7 +75,25 @@ compatibility of `<vN>` stays tested on `release/<N>.x`.
 
 Change nothing else in `package.json`.
 
-## 3. Keep everything else
+## 3. Delete three names in `test-ports.config.json`
+
+`test-ports.config.json`, at the workspace root, gives each test of `<vN>` the port of its node, by name.
+`check test-ports` fails when the group of `<vN>` holds a name that no test of `<vN>` reads. The folders of step 1 were the only readers of three names. Delete them from the group
+`host-contracts-cleartext/<vN>`:
+
+```jsonc
+"create2-upgrade": …,
+"upgrade-library-1": …,
+"upgrade-library-2": …,
+```
+
+Keep every other name of the group, and every number. The two sdk tests of step 2 skip, but their files still read
+their names.
+
+The same change gives `<vN+1>` a group of its own and removes the group of `<vN-1>`. The `_readme` of the file says
+how.
+
+## 4. Keep everything else
 
 These files name `<vN-1>` or the deleted folders. They stay as they are:
 
@@ -91,12 +111,12 @@ These files name `<vN-1>` or the deleted folders. They stay as they are:
 - **`internal/zama-config/`.** It is the copy of the upstream `library-solidity/config` at the commit of
   `pkg/src/contracts` (NR-42c), and `check:zama-config` reads it. It leaves with `<vN>` itself.
 
-## 4. Delete this file, if you want
+## 5. Delete this file, if you want
 
 Once the steps above are done, this file describes work that is finished. A deletion is a change that
 `check generation-parity` accepts.
 
-## 5. Check the result
+## 6. Check the result
 
 Run from the workspace root, after you commit the change that moved `npm-manifest.json#generations`.
 `check generation-parity` compares `HEAD` with the release branch, so it does not see uncommitted edits. The `v-prev`

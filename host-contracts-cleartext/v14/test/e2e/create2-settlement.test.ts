@@ -22,13 +22,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { PACKAGE_ROOT_ABS_PATH } from '../../internal/constants.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Configuration
 ////////////////////////////////////////////////////////////////////////////////
 
-/** Away from 8557 (upgrade) and 8558 (fresh deploy), and from every `startAnvil` port (86xx). */
-const PORT = 8559;
+/** This suite's own port: away from the other e2e suites and from every `startAnvil` port. */
+const PORT = testPort('create2-settlement');
 const RPC_URL = `http://127.0.0.1:${PORT}`;
 const CONFIRMATIONS = 3;
 

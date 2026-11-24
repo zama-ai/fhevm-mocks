@@ -24,6 +24,7 @@ export const commandNames = [
   'lint-policy',
   'tsconfig-paths',
   'tsc-mode',
+  'test-ports',
   'commit-scope',
   'cleartext-config',
   'generations',
@@ -566,6 +567,21 @@ Why:
     )
     .action(() => {
       selected = 'tsc-mode';
+    });
+  check
+    .command('test-ports')
+    .description('Check test-ports.config.json: one range per group, and tests that use exactly their ports.')
+    .addHelpText(
+      'after',
+      `
+Why:
+  A test node started on a port that is already bound exits, and the test then talks to whatever else is
+  listening, or skips. test-ports.config.json gives every such port one owner, so two suites never meet
+  on one and can run at the same time.
+`,
+    )
+    .action(() => {
+      selected = 'test-ports';
     });
   // Rendering a committed file from a config it reads: `--check` on each compares instead of writing.
   const generate = program

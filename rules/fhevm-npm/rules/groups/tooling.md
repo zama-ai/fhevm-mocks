@@ -469,3 +469,74 @@ directive in it stays too.
 // ❌ No script runs Solhint, so this line silences nothing.
 // solhint-disable-next-line func-name-mixedcase
 ```
+
+<a id="nr-92"></a>
+
+## NR-92: Every test node port comes from test-ports.config.json `[GAP]`
+
+> A test starts a local node only on a port that `test-ports.config.json` gives its package.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check test-ports`
+
+Evidence:
+
+- Gap, loose check: a node started on a new port passes when it is started outside the sources that the check reads. The check reads the `test/` folders of the cleartext generations and the npm scripts of `foundry/forge-fhevm-std`. It does not read the Makefile, `scripts/`, or the tests of the other packages.
+
+`test-ports.config.json`, at the workspace root, lists every TCP port on which a test starts a local node. A test
+never chooses a port by itself.
+
+A node that starts on a busy port exits. The test then talks to the node that already holds the port, or skips. The
+run fails far from the cause, or reports success with fewer tests. With one owner for each port, two suites never
+meet on a port, and the suites of two packages can run at the same time.
+
+#### The file
+
+A group holds the ports of one owner. The owner is a package, named by its workspace path, or `shared`: the default
+anvil port, which the Hardhat e2e suites and the consumer tests use one at a time.
+
+- The groups are `shared`, `foundry/forge-fhevm-std`, and the generations of `npm-manifest.json#generations`. The file
+  has no other group.
+- Each group has a `range`: its first and its last port, both included. No two ranges overlap, and every port of a
+  group is inside its range.
+- The groups are listed by increasing range, and the ports of a group by increasing number. So no port appears twice.
+- The group of `<vN>` fills its range from the first port, one by one. A new test takes the next number, so nobody
+  has to choose one.
+
+Two kinds of port are not in the file: a port that the OS assigns at run time, and the port of the node that a
+generator starts.
+
+#### The sources
+
+Each owner uses exactly the ports of its group:
+
+- **`<vN>`.** A test reads its port with `testPort('<name>')`, from `internal/testPorts.ts`, and spells no port
+  number. Exactly one test reads each name of the group.
+- **`<vN-1>`.** It is frozen ([NR-27](../entries/NR-27.md)), so its tests keep the numbers they have. Its group records exactly
+  those numbers, which is why that group has gaps.
+- **`foundry/forge-fhevm-std`.** Its npm scripts cannot read the file. A script `test:<name>` that runs
+  `with-anvil.sh --port <port>` has the port `<name>` in the group, with the same number.
+- **`shared`.** It holds one port, the `ANVIL_PORT` of `common/src/constants.ts`.
+
+```ts
+// ✅ The port has a name in the group of the package.
+const anvil = startAnvil({ port: testPort('fhe-rand') });
+
+// ❌ A number that another suite can choose too.
+const anvil = startAnvil({ port: 8734 });
+```
+
+#### At a rotation
+
+The change that moves `npm-manifest.json#generations` also moves the groups:
+
+- The incoming generation gets a group with a new range, above every other range.
+- The outgoing generation keeps its range and its numbers. It loses the names of the suites that it deletes, which
+  its `ROTATION.md` lists.
+- The group of the retired generation leaves the file.
+
+#### The check
+
+`fhevm-npm check test-ports` checks the file and the sources above, and runs in `make check-pre`.
+`fhevm-npm check json-schemas` checks the shape of the file.

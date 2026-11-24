@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Vm} from "forge-std/Vm.sol";
 
 import {fhevm} from "../../pkg/src/FhevmVm.sol";
+import {StdFhevmChains} from "../../pkg/src/StdFhevmChains.sol";
 
 /**
  * @notice What a test needs before it may fork a REAL network: whether this run wants to reach one at
@@ -12,9 +13,11 @@ import {fhevm} from "../../pkg/src/FhevmVm.sol";
  * @dev Shared by `test/fork`, `test/internal` and `test/forkurl`, which is why it lives here rather than
  *      beside one of them. `test/anvil` deliberately does NOT use it: a local node is not a network.
  *
- * @dev WHY NOT A CONSTANT BLOCK. An ordinary node keeps state only for its most recent blocks and answers
- *      `state at block #N is pruned` for anything older — `ethereum-sepolia-rpc.publicnode.com`, the
- *      default this repo configures, keeps a few thousand (a day or so). A hardcoded block therefore
+ * @dev WHY NOT A CONSTANT BLOCK. An ordinary node keeps state only for its most recent blocks and refuses
+ *      anything older — `ethereum-sepolia-rpc.publicnode.com`, the default this repo configures, answers
+ *      `403 Archive requests require a personal token`. It serves about the last 128 blocks every time,
+ *      and older ones only some of the time: measured in November 2026, no refusal in 64 requests at 20
+ *      and 100 blocks behind the head, one in six at 167, and one in two at 2048. A hardcoded block therefore
  *      passes for as long as it takes the chain to move past that window and then fails for everyone,
  *      whichever block was picked. Worse, it fails ASYMMETRICALLY: forge caches fork state per block
  *      under ~/.foundry/cache, so a machine that ran the suite while the block was live keeps passing
@@ -22,16 +25,20 @@ import {fhevm} from "../../pkg/src/FhevmVm.sol";
  *      block they fork — only that it is recent enough to be served, final enough not to move, and, for
  *      the two-fork suites, that there are two distinct ones — so they ask for the head and count back.
  *
- * @dev STRIDE AND LAG. Rounding down to a multiple of `STRIDE` holds the answer still for ~3 hours at a
- *      time, so repeated `forge test` runs hit forge's on-disk fork cache rather than refetching state
- *      from a public endpoint on every run. `LAG` keeps the newer block at least that far behind the
- *      head, well past any reorg.
+ * @dev STRIDE AND LAG. `LAG` keeps the newer block that far behind the head, past any reorg seen on these
+ *      chains. Rounding down to a multiple of `STRIDE` holds the answer still for a few minutes, so runs
+ *      that follow each other hit forge's on-disk fork cache rather than refetching state from a public
+ *      endpoint. BOTH ARE SMALL ON PURPOSE: the newer block is `LAG` to `LAG + STRIDE` behind the head and
+ *      the older one a `STRIDE` further, and all of it, with the minutes a suite takes, must stay inside
+ *      the 128 blocks the endpoint serves. With 128 and 1024, the values this had, the newer block was
+ *      128 to 1152 blocks old and the older one up to 2176: always outside that window, so every read
+ *      that forge had not cached could be refused. The price is a cache that is cold more often.
  */
 library ForkBlocks {
     Vm private constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    uint256 private constant STRIDE = 1024;
-    uint256 private constant LAG = 128;
+    uint256 private constant STRIDE = 32;
+    uint256 private constant LAG = 32;
 
     /// @dev Set truthy to turn every REMOTE-rpc test in the suite into a skip.
     string private constant SKIP_VAR = "FHEVM_SKIP_RPC_TESTS";
@@ -72,6 +79,31 @@ library ForkBlocks {
     function enabled(string memory chainAlias) internal view returns (bool) {
         if (VM.envOr(SKIP_VAR, false)) return false;
         return fhevm.hasRpcUrlFor(chainAlias);
+    }
+
+    /**
+     * @notice The chain, with the private endpoint of this run in place of the configured one.
+     *
+     * @dev `FHEVM_<ALIAS>_RPC_URL`, as in `FHEVM_SEPOLIA_RPC_URL`: the URL of an endpoint to use for
+     *      `chainAlias` in place of the one `foundry.toml` configures. One variable per chain, because
+     *      the URL of a provider is the URL of one chain. Unset or empty, which is the default, the chain
+     *      comes back as it is.
+     *
+     *      WHY IT IS HERE AND NOT IN THE CONFIGURATION. `foundry.toml` commits a public endpoint for
+     *      each chain these suites fork, and a declared alias wins over the environment. A public
+     *      endpoint serves only recent state and refuses the rest when it likes, so a run that must not
+     *      fail for that reason, as in CI, needs an endpoint of its own, with archive state. Its URL
+     *      holds a key: it cannot be committed, and comes from the environment. A suite that forks
+     *      wraps the chain it gets from `getFhevmChain` with this, and uses the result everywhere.
+     */
+    function withPrivateRpc(StdFhevmChains.FhevmChain memory chain, string memory chainAlias)
+        internal
+        view
+        returns (StdFhevmChains.FhevmChain memory)
+    {
+        string memory url = VM.envOr(string.concat("FHEVM_", VM.toUppercase(chainAlias), "_RPC_URL"), string(""));
+        if (bytes(url).length != 0) chain.rpcUrl = url;
+        return chain;
     }
 
     /// @notice One recent block, for a suite that forks a single time.

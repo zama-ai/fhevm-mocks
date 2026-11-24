@@ -6,6 +6,7 @@ import { expect, test } from 'vitest';
 import { startAnvil, stopAnvil, waitForAnvil, MNEMONIC, DEPLOYER_ADDRESS_INDEX } from '@fhevm/sdk-common-dev';
 import { privateKeyFromMnemonic } from '@fhevm/sdk-common-dev';
 import { createViemEthereumAdapters } from '@fhevm/sdk-vendored-dev/viemEthereumLib.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 const FHE_TYPE_UINT64 = 5;
 
@@ -66,7 +67,7 @@ const CLEARTEXT_DB_ABI = [
 test(`${String(DRAWS)} consecutive fheRand calls all produce distinct handles`, async () => {
   const deployerKey = privateKeyFromMnemonic({ mnemonic: MNEMONIC, addressIndex: DEPLOYER_ADDRESS_INDEX });
 
-  const anvil = startAnvil({ port: 8634, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('fhe-rand'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 

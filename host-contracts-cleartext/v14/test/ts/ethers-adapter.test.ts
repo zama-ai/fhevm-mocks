@@ -14,13 +14,14 @@ import { ethers as EthersT } from 'ethers';
 import { expect, test } from 'vitest';
 import { startAnvil, stopAnvil, waitForAnvil, MNEMONIC, DEPLOYER_ADDRESS_INDEX } from '@fhevm/sdk-common-dev';
 import { createEthersEthereumAdapters, createEthersEthereumSigner } from '@fhevm/sdk-vendored-dev/ethersEthereumLib.ts';
+import { testPort } from '../../internal/testPorts.ts';
 
 const DEPLOYER_INDEX = DEPLOYER_ADDRESS_INDEX;
 
 ////////////////////////////////////////////////////////////////////////////////
 
 test('the reference ethers adapter deploys a stack at the precomputed addresses', async () => {
-  const anvil = startAnvil({ port: 8640, mnemonic: MNEMONIC });
+  const anvil = startAnvil({ port: testPort('ethers-adapter'), mnemonic: MNEMONIC });
   try {
     await waitForAnvil(anvil.rpcUrl);
 
