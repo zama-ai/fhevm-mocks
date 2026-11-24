@@ -286,19 +286,21 @@ Each such test uses two protections together:
    filter misses then skips, and does not call a live chain.
 
 The filters can only be checked by listing what each test selects. The optional field `list` gives a
-command that prints the cases of the test, one per line, and runs none of them. For a forge test, it is
-`scripts/forge-list.sh` with the arguments of the command:
+command that prints the cases of the test, one per line, and runs none of them. For a forge test, it
+calls the same script as the command, with `FHEVM_TEST_LIST=1`:
 
 ```json
 "test-forge-std-anvil": {
-  "command": "cd foundry/forge-fhevm-std && ANVIL_RPC_URL=... ../../scripts/forge-test.sh --match-path 'test/anvil/*'",
-  "list": "cd foundry/forge-fhevm-std && ../../scripts/forge-list.sh --match-path 'test/anvil/*'"
+  "command": "npm run --silent test-engine:anvil -w @fhevm/forge-std-dev",
+  "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:anvil -w @fhevm/forge-std-dev"
 }
 ```
 
-`forge-list.sh` calls `forge test --list`. It needs no network and no node, and compiles what is not
-compiled yet. Each line names the folder, the file, the contract and the function, and the profile when
-`FOUNDRY_PROFILE` sets one, so a function of two packages or of two profiles gives two lines.
+With `FHEVM_TEST_LIST=1`, `scripts/forge-test.sh` calls `forge test --list` with its arguments, and runs
+no test. It needs no network and no node, and compiles what is not compiled yet. Each line names the
+folder, the file, the contract and the function, and the profile when `FOUNDRY_PROFILE` sets one, so a
+function of two packages or of two profiles gives two lines. The test and its list run the same filters,
+so they cannot select different functions.
 
 To check the CI tests, run this on a built workspace:
 
@@ -322,10 +324,55 @@ workspace, the check takes about 20 seconds. It ends in one of three ways:
 
 The check has two limits:
 
-- It compares the `list` command and not the command. Give both the same filters, and change both in
-  the same edit.
 - It sees what a test selects, and not what runs: a selected case that skips itself counts. That is
   the intent, since a skip is the second protection and not the first.
+- It finds a case that two tests select, and not a case that no test selects. A filter that leaves out
+  more than the other tests run goes unnoticed.
+
+## Name the scripts of the test engine
+
+The inventory says which test runs, on which chains, in which folder. How a package selects its tests
+belongs to the package. So the command of a test of `host-contracts-cleartext` or `forge-fhevm-std`
+calls one script of its package, and the filters live in that script:
+
+```json
+"test-cleartext-v-cur-fork-mainnet": {
+  "command": "npm run --silent test-engine:fork-mainnet -w @fhevm/host-contracts-cleartext-v14-dev",
+  "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-mainnet -w @fhevm/host-contracts-cleartext-v14-dev"
+}
+```
+
+These scripts follow one convention, in every package:
+
+1. A script that the inventory calls is named `test-engine:<name>`.
+2. The main test of a package calls `test-engine:suite`. Every other test of the package has an ID made
+   of the ID of the main test, a hyphen, and its name: `test-cleartext-v-cur-fork-mainnet` calls
+   `test-engine:fork-mainnet`. So the same kind of test has the same name in every package.
+3. When `test-engine:<name>` runs more than forge, its forge part is `test-engine:<name>:forge`, and the
+   list command calls that part: vitest and `node --test` cannot list their tests without running them.
+4. The list command calls the forge script of the command, with `FHEVM_TEST_LIST=1`.
+5. The previous generation is frozen, and no script can be added to its `package.json`. Its scripts are
+   in the root `package.json`, and its tests call them with no `-w`. The previous generation has every
+   name of the current generation except `upgrade`. `test-cleartext-v-cur-upgrade` upgrades the previous
+   generation to the current one, so only the current generation has it. At the next rotation, the
+   current generation becomes the previous one with its scripts in place, and the scripts of the root
+   are deleted.
+6. Every `test-engine:` script is called by a test, and every test of a package that has a
+   `test-engine:suite` script calls one. The only exception is the `upgrade` script of the previous
+   generation: after a rotation, no test calls it any more.
+7. A script names the RPC variable of a chain only when its test declares that chain. `validate` checks
+   this for a command, and cannot see inside a script, so the convention test checks it for the
+   scripts.
+
+`fhevm-npm/test/all-tests-scripts.test.ts` checks the convention on the real files. `make build` runs it
+with the other tests of `fhevm-npm`.
+
+A script runs from the folder of its package, and needs no variable that the engine sets: the engine
+gives a test the URL of its node in `ANVIL_RPC_URL`, and the URLs of its live chains.
+
+`validate` refuses a command that names an RPC variable of a chain that the test does not declare. It
+reads only the command, so it cannot see a variable that a script names. A script that needs the URL
+of a chain that its test does not declare finds the variable empty when the engine runs it.
 
 ## Split a run over several machines
 
@@ -348,15 +395,15 @@ For example, take four tests: one `slow` test and three `fast` ones. With two ma
 test is a shard of its own, since it weighs more than the three others together:
 
 ```sh
-./fhevm-npm-cli test-engine lanes --max-lanes 2 --shard 1/2 test-cleartext-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
+./fhevm-npm-cli test-engine lanes --max-lanes 2 --shard 1/2 test-cleartext-v-cur-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
 ```
 
 ```text
-lane 1  port 8700,8714,8715  test-cleartext-upgrade
+lane 1  port 8700,8714,8715  test-cleartext-v-cur-upgrade
 ```
 
 ```sh
-./fhevm-npm-cli test-engine lanes --max-lanes 2 --shard 2/2 test-cleartext-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
+./fhevm-npm-cli test-engine lanes --max-lanes 2 --shard 2/2 test-cleartext-v-cur-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
 ```
 
 ```text
@@ -370,11 +417,11 @@ is in one shard, and in one only.
 To see every shard at once, give the number of machines to `shards`, with the same selection:
 
 ```sh
-./fhevm-npm-cli test-engine shards 2 test-cleartext-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
+./fhevm-npm-cli test-engine shards 2 test-cleartext-v-cur-upgrade test-hh-v3-plugin test-hh-v3-template test-hh-v3-e2e
 ```
 
 ```text
-shard 1 of 2  1 test(s)  test-cleartext-upgrade
+shard 1 of 2  1 test(s)  test-cleartext-v-cur-upgrade
 shard 2 of 2  3 test(s)  test-hh-v3-plugin, test-hh-v3-template, test-hh-v3-e2e
 ```
 
@@ -513,7 +560,7 @@ and writes its report:
 ```
 
 ```text
-would run  lane 1  test-forge-std  $ FHEVM_SKIP_RPC_TESTS=true npm run --silent test:forge -w @fhevm/forge-std-dev -- --no-match-path 'test/{fork,anvil,anvilMirror}/*' --no-match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\('
+would run  lane 1  test-forge-std  $ npm run --silent test-engine:suite -w @fhevm/forge-std-dev
 ```
 
 ## Run one test by hand
@@ -633,9 +680,11 @@ selected, or when a test with `"ci": false` was.
 2. For each chain with `startedBy`, state its `port`. Two tests that state a common fixed port never
    run at the same time, so give a test its own ports when it must run beside the others.
 3. Run `validate`, then `list` and `lanes`, to see the state of the test and its lane.
-4. If the test runs part of the cases of a package that another test also runs, give it a `list`
+4. If the test belongs to a package with `test-engine:` scripts, add its script to the package, and
+   name it as [Name the scripts of the test engine](#name-the-scripts-of-the-test-engine) says.
+5. If the test runs part of the cases of a package that another test also runs, give it a `list`
    command, and run `duplicates`.
-5. Run the test alone, by its ID, with `--max-lanes 1`.
+6. Run the test alone, by its ID, with `--max-lanes 1`.
 
 ## Limits
 

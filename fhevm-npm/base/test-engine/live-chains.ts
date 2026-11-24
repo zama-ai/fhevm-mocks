@@ -86,7 +86,7 @@ function namesVariable(input: { readonly text: string; readonly variable: string
 }
 
 /** One line for each RPC URL variable that the command of the test names without a declared chain. */
-function undeclaredRpcVariableLines(entry: InventoryEntry): readonly string[] {
+export function undeclaredRpcVariableLines(entry: InventoryEntry): readonly string[] {
   const declared = new Set(entry.test.chains.filter(isLiveChain).map((chain) => chain.chainid));
   const lines: string[] = [];
 
