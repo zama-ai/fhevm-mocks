@@ -162,7 +162,10 @@ run them alone, use `npm --prefix fhevm-npm test`.
 Never give `make build-ci` to the engine: it runs `make clean`, which deletes `test-logs` while the
 engine writes the log of the build there.
 
-`make ci-test-engine` runs this command. To change the number of lanes, give it
+`make ci-test-engine` runs this command with `--verbose`, so it prints the output of the build and of
+every test, as `make ci` does. The lanes run at the same time, so their lines mix: each line starts
+with the ID of its test, as in `[test-forge-std] `, and each file of `test-logs` holds one test in
+order. To change the number of lanes, give it
 `FHEVM_TEST_MAX_LANES`, as in `make ci-test-engine FHEVM_TEST_MAX_LANES=2`. Without it, the number
 is 4. `make ci` still runs the tests without the engine, as `make ci-legacy` does.
 

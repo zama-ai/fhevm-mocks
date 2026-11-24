@@ -488,6 +488,10 @@ ci-legacy: ## What `ci` runs today: `build-ci`, then every test target one after
 #   - it reads `.env`, so a fork test whose RPC variable is set there calls a live chain;
 #   - it writes the output of each test to `test-logs/`, and its report to `test-report.json`.
 #
+# Like `ci-legacy`, it prints the output of the build and of every test (`--verbose`). The lanes run at
+# the same time, so their lines mix: each line starts with the ID of its test, and each log file holds
+# one test in order.
+#
 # FHEVM_TEST_MAX_LANES is the highest number of lanes of the run. Lower it on a machine that cannot
 # run four tests at the same time, as in `make ci-test-engine FHEVM_TEST_MAX_LANES=2`.
 FHEVM_TEST_MAX_LANES ?= 4
@@ -497,7 +501,7 @@ FHEVM_TEST_MAX_LANES ?= 4
 # without this line the logs of an earlier run would stay beside the logs of this one.
 ci-test-engine: ## `ci-legacy` with the tests run by the test engine, in FHEVM_TEST_MAX_LANES lanes (default 4)
 	rm -rf ./test-logs
-	$(call run-fhevm-npm,test-engine run --ci --max-lanes $(FHEVM_TEST_MAX_LANES) --build "make build-ci-test-engine")
+	$(call run-fhevm-npm,test-engine run --ci --verbose --max-lanes $(FHEVM_TEST_MAX_LANES) --build "make build-ci-test-engine")
 
 # The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
 # rewrites or wipes it, and none of the create2 rehearsals. Dropped, and why:
