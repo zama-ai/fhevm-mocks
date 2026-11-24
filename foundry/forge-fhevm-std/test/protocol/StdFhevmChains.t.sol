@@ -127,26 +127,27 @@ contract StdFhevmChainsTest is Test, StdFhevmChains {
         );
         assertEq(
             getFhevmChain("devnet", "sepolia").kmsGeneration,
-            0x55bdE339a01DA46d2d3504b8d9A9F5412C85e5e7,
+            0x0dD49BCC50d4fa4d57df79eEB83a15cC450280aD,
             "devnet sepolia"
         );
 
         assertEq(getFhevmChain("mainnet", "polygon").kmsGeneration, address(0), "polygon has none");
         assertEq(getFhevmChain("testnet", "polygon_amoy").kmsGeneration, address(0), "amoy has none");
+        assertEq(getFhevmChain("testnet", "bnb_smart_chain_testnet").kmsGeneration, address(0), "testnet bnb has none");
         assertEq(getFhevmChain("devnet", "bnb_smart_chain_testnet").kmsGeneration, address(0), "bnb has none");
         assertEq(getFhevmChain("devnet", "hoodi").kmsGeneration, address(0), "hoodi has none");
     }
 
-    /// The table can be walked: the eight defaults, then whatever a test adds, in order.
+    /// The table can be walked: the nine defaults, then whatever a test adds, in order.
     function test_fhevmChainsWalksTheWholeTable() public {
-        assertEq(fhevmChains().length, 9, "the defaults: eight network stacks and anvil");
+        assertEq(fhevmChains().length, 10, "the defaults: nine network stacks and anvil");
         setFhevmChain("custom_chain", _data("devnet", 123456789, "https://custom.chain/"));
         FhevmChain[] memory all = fhevmChains();
-        assertEq(all.length, 10, "plus the override");
-        assertEq(all[9].chainAlias, "custom_chain", "appended last");
+        assertEq(all.length, 11, "plus the override");
+        assertEq(all[10].chainAlias, "custom_chain", "appended last");
         // Re-setting an existing key does not grow the table.
         setFhevmChain("custom_chain", _data("devnet", 123456790, "https://custom.chain/"));
-        assertEq(fhevmChains().length, 10, "same key, same row");
+        assertEq(fhevmChains().length, 11, "same key, same row");
     }
 
     /// By chain id, across groups: Sepolia serves two stacks, mainnet one, an unknown chain none.
@@ -157,6 +158,7 @@ contract StdFhevmChainsTest is Test, StdFhevmChains {
         assertEq(sepolia[1].fhevmGroup, "devnet");
         assertNotEq(sepolia[0].fhevmExecutor, sepolia[1].fhevmExecutor, "two different stacks");
         assertEq(getFhevmChains(1).length, 1);
+        assertEq(getFhevmChains(97).length, 2, "BNB Smart Chain testnet: testnet and devnet");
         assertEq(getFhevmChains(424242).length, 0);
     }
 
@@ -222,14 +224,14 @@ contract StdFhevmChainsTest is Test, StdFhevmChains {
         assertEq(getFhevmChain("anvil").inputVerification, LocalHostBootstrap.INPUT_VERIFICATION_ADDRESS);
     }
 
-    /// Every alias has a DECLARED default group. Sepolia and Amoy are served by two; the public one is the
-    /// default, and `devnet` is a default only where it is the sole group.
+    /// Every alias has a DECLARED default group. Sepolia, Amoy and BNB Smart Chain testnet are served by two; the
+    /// public one is the default, and `devnet` is a default only where it is the sole group.
     function test_getFhevmChain_byAliasAlone_usesTheDeclaredDefaultGroup() public {
         assertEq(defaultFhevmGroup("mainnet"), "mainnet");
         assertEq(defaultFhevmGroup("polygon"), "mainnet");
         assertEq(defaultFhevmGroup("sepolia"), "testnet");
         assertEq(defaultFhevmGroup("polygon_amoy"), "testnet");
-        assertEq(defaultFhevmGroup("bnb_smart_chain_testnet"), "devnet");
+        assertEq(defaultFhevmGroup("bnb_smart_chain_testnet"), "testnet");
         assertEq(defaultFhevmGroup("hoodi"), "devnet");
         assertEq(defaultFhevmGroup("anvil"), "local");
         assertEq(defaultFhevmGroup("nowhere"), "");

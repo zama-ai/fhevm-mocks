@@ -982,10 +982,17 @@ contract FhevmVm is IFhevmVm {
 
     // - Version gate ----------------------------------------------------------
 
-    /// @dev ANY RELEASE OF THE VENDORED LINE is accepted (rules.md 2.15): each contract's `getVersion()`
-    ///      must fall between what the line first shipped (`LibFhevmVersion.*_FLOOR`, fhevm v0.13.0) and
-    ///      what this SDK vendors (`LocalHostVersions`, the ceiling). Another line — older or newer — is
-    ///      refused by name before anything else is attempted.
+    /// @dev ANY RELEASE OF THE VENDORED LINE is accepted: each gated contract's `getVersion()` must
+    ///      fall between what the line first shipped (`LibFhevmVersion.*_FLOOR`) and what this SDK vendors
+    ///      (`LocalHostVersions`, the ceiling). Another line — older or newer — is refused by name before
+    ///      anything else is attempted, with the box that tells the user to upgrade this package.
+    ///
+    /// @dev FIVE CONTRACTS, NOT SEVEN, ON PURPOSE. `HCULimit` and `KMSGeneration` are not gated. A chain can
+    ///      run a newer `HCULimit` than this SDK vendors while the rest of its stack is on the vendored line
+    ///      (testnet Sepolia does), and gating it would refuse a fork that works. `upgradeToCleartext` then
+    ///      points the chain's `HCULimit` proxy at this SDK's own cleartext implementation, so the fork runs
+    ///      the vendored `HCULimit`, never the chain's. That swap is silent: if a newer `HCULimit` ever
+    ///      changes its storage layout, the fork can break here with no box to explain it.
     function _requireSupportedVersions(StdFhevmChains.FhevmChain memory chain) private view {
         if (LibCleartextProbe.isCleartext(chain.fhevmExecutor)) return;
         _requireVersion(chain, "ACL", chain.acl, LibFhevmVersion.ACL_FLOOR, LibFhevmVersion.aclCeiling());

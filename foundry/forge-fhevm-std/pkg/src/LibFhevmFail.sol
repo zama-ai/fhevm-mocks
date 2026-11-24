@@ -117,14 +117,18 @@ library LibFhevmFail {
         string memory ceiling,
         string memory actual
     ) internal pure returns (string memory) {
-        string[] memory what = new string[](3);
-        what[0] =
-            string.concat("The ", fhevmGroup, "/", chainAlias, " stack's ", contractName, " reports  \"", actual, "\"");
-        what[1] = string.concat("this forge-fhevm-std accepts  \"", floor, "\"  up to  \"", ceiling, "\"");
-        what[2] = "Proofs and digests would be built for the wrong ABI and fail far from here.";
-        string[] memory fix = new string[](2);
-        fix[0] = "upgrade forge-fhevm-std to a release that vendors this protocol version,";
-        fix[1] = "or point the test at a group whose stack matches (getFhevmChain(\"testnet\", ...) / \"mainnet\")";
+        string[] memory what = new string[](4);
+        what[0] = string.concat(
+            "@fhevm/forge ", StdFhevmVersion.VERSION, " cannot run on the ", fhevmGroup, "/", chainAlias, " stack."
+        );
+        what[1] = string.concat("Its ", contractName, " reports  \"", actual, "\"");
+        what[2] = string.concat("and this release accepts  \"", floor, "\"  up to  \"", ceiling, "\".");
+        what[3] = "Proofs and digests would be built for the wrong ABI and fail far from here.";
+        string[] memory fix = new string[](4);
+        fix[0] = "upgrade @fhevm/forge to a release that vendors this protocol version:";
+        fix[1] = "  npm view @fhevm/forge versions     (the published releases)";
+        fix[2] = "  npm install @fhevm/forge@latest";
+        fix[3] = "or point the test at a group whose stack matches (getFhevmChain(\"testnet\", ...) / \"mainnet\")";
         return render("UNSUPPORTED PROTOCOL VERSION", what, fix);
     }
 

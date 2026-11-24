@@ -514,6 +514,23 @@ abstract contract StdFhevmChains {
                 inputVerification: 0x483b9dE06E4E4C7D35CCf5837A1668487406D955
             })
         );
+        setFhevmChainWithDefaultRpcUrl(
+            "bnb_smart_chain_testnet",
+            FhevmChainData({
+                fhevmGroup: FHEVM_TESTNET_GROUP,
+                chainId: 97,
+                rpcUrl: "https://rpc.ankr.com/bsc_testnet_chapel",
+                relayerUrl: "https://relayer.testnet.zama.org",
+                acl: 0x9Adac873Ae2f737AF011f0778305Cff0B220ac36,
+                fhevmExecutor: 0x24f6bBCd97E2FE90E43cb9C32B89A9828d8Ece08,
+                inputVerifier: 0xDd378841F0125656b97818d9d371e1027Df4c424,
+                kmsVerifier: 0x1F7CAD0c05fDED5F988683AdfDB4F242b310cdcB,
+                protocolConfig: 0xC320dd3d4e15D8E4c20dff42fE09Aa936A88b3ED,
+                kmsGeneration: address(0),
+                decryption: 0x5D8BD78e2ea6bbE41f26dFe9fdaEAa349e077478,
+                inputVerification: 0x483b9dE06E4E4C7D35CCf5837A1668487406D955
+            })
+        );
 
         // devnet
         setFhevmChainWithDefaultRpcUrl(
@@ -523,14 +540,14 @@ abstract contract StdFhevmChains {
                 chainId: 11155111,
                 rpcUrl: "https://sepolia.infura.io/v3/b9794ad1ddf84dfb8c34d6bb5dca2001",
                 relayerUrl: "https://relayer.dev.zama.cloud",
-                acl: 0x1aC3073813148992aA928C9903681fA7Ec202b13,
-                fhevmExecutor: 0x356cc81A08aa782C96F00dC30b60d4f33f1a4e43,
-                inputVerifier: 0x160AaB6199FAEAEA1B27E62999c597E530a3abA9,
-                kmsVerifier: 0xDe8893C04e118431aeC076A39F6aFa951669F720,
-                protocolConfig: 0x257950EbB65A1D2b697f03D08E7D3Dc26CbDB304,
-                kmsGeneration: 0x55bdE339a01DA46d2d3504b8d9A9F5412C85e5e7,
-                decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
-                inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
+                acl: 0x274D67464238A0176f5686688294C0C0C87695CE,
+                fhevmExecutor: 0x25bAD8981E3DC5e400427dF7718B23337471837e,
+                inputVerifier: 0xf0b044e97E201beCDE38ceB2853653070411327C,
+                kmsVerifier: 0xe053E4858762F773553f6123dcC0116299055790,
+                protocolConfig: 0x06678E0EC3e348fE1Ce7908de586152be08bF16B,
+                kmsGeneration: 0x0dD49BCC50d4fa4d57df79eEB83a15cC450280aD,
+                decryption: 0x6933C9Fb890e2417e35b4cB0A66b2f84939a61E3,
+                inputVerification: 0x01d1829c7Eba4D1F53Ba4f1DfD6a269a8328fa5e
             })
         );
         setFhevmChainWithDefaultRpcUrl(
@@ -540,14 +557,14 @@ abstract contract StdFhevmChains {
                 chainId: 80002,
                 rpcUrl: "https://rpc-amoy.polygon.technology",
                 relayerUrl: "https://relayer.dev.zama.cloud",
-                acl: 0x78753a24821f1442e139F9a8b19acABB4DA643cF,
-                fhevmExecutor: 0x5fE86659DACAFc91C180d79D0c9E6E7C3d9c09aF,
-                inputVerifier: 0x92e65718A1A31388C3D9C45E46121fFd0a099081,
-                kmsVerifier: 0xAE8fd848428e0f332c0169ACC5b97Ac7c0B8696E,
-                protocolConfig: 0x803ec8b1198e6d0261fb96959f6d13CB0879AEef,
+                acl: 0x11602f8b66f8deDEd0EcDCAa098bcF937f2f318D,
+                fhevmExecutor: 0x8E01218Ec6C825E7AB32A20a724C40536bb69F35,
+                inputVerifier: 0x48812B8ECF9DE3788D07aD0d3feb621d41755AeA,
+                kmsVerifier: 0xAAfea113905ae09364cAC9AF308Bb426f63D6B53,
+                protocolConfig: 0x473C62A2E6B30AE61F5C99BBB2edc9BB51Cd6Bc9,
                 kmsGeneration: address(0),
-                decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
-                inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
+                decryption: 0x6933C9Fb890e2417e35b4cB0A66b2f84939a61E3,
+                inputVerification: 0x01d1829c7Eba4D1F53Ba4f1DfD6a269a8328fa5e
             })
         );
         setFhevmChainWithDefaultRpcUrl(
@@ -557,14 +574,14 @@ abstract contract StdFhevmChains {
                 chainId: 97,
                 rpcUrl: "https://rpc.ankr.com/bsc_testnet_chapel",
                 relayerUrl: "https://relayer.dev.zama.cloud",
-                acl: 0x90F1BC86eB99FC0235C21867133331F9C2d3CDE4,
-                fhevmExecutor: 0x5cb8D716998e5D7aD2a7B45b172e2287CaDE1B7c,
-                inputVerifier: 0xe8a9fA7cc4ab46Dfe9EE681f6059145275296891,
-                kmsVerifier: 0x0E2e5A922b9f6bB94245Cc26B30FaCb603d1BD49,
-                protocolConfig: 0xb5ca060165B169b46782044a82D9D043e4D5Fde3,
+                acl: 0x57a7452069EBe533f78A8af586cC9CA785293fec,
+                fhevmExecutor: 0x54cED3fF5B20A4F957D9553f25b0D2530F611D92,
+                inputVerifier: 0x9130e44D97b15EDc091ABa5A8B1dCEAD322aB840,
+                kmsVerifier: 0x1296ae537edDFBD31437927B94f3c5930Bd83eE3,
+                protocolConfig: 0x19AF5cea8629b203E170C2ede7B79DB645EF25fb,
                 kmsGeneration: address(0),
-                decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
-                inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
+                decryption: 0x6933C9Fb890e2417e35b4cB0A66b2f84939a61E3,
+                inputVerification: 0x01d1829c7Eba4D1F53Ba4f1DfD6a269a8328fa5e
             })
         );
         setFhevmChainWithDefaultRpcUrl(
@@ -574,14 +591,14 @@ abstract contract StdFhevmChains {
                 chainId: 560048,
                 rpcUrl: "https://rpc.hoodi.ethpandaops.io",
                 relayerUrl: "https://relayer.dev.zama.cloud",
-                acl: 0xC00119D680d63386E76b37Ec21e09E1A23399FBc,
-                fhevmExecutor: 0x91751a280a364e337D307A7f9719637E68Ec298E,
-                inputVerifier: 0x333b25BeBea93293179717e19298AacD876c7e37,
-                kmsVerifier: 0x9a359B9CbeAC4e87bC0A3DbAa96002fa8876754B,
-                protocolConfig: 0x31251B7F1Ce25c0E874121144173B1474555F327,
+                acl: 0x46194d2e24918f414F0a3FE11713f70e5cEd09E4,
+                fhevmExecutor: 0x3C7038171808e4560325688670aD292764B22A6F,
+                inputVerifier: 0x890ad817023b91308c23F6437Ac2E5F90F6e83eF,
+                kmsVerifier: 0xEa96BDC2f36Cab4BaeC82dbCFBcDbDFeBD265553,
+                protocolConfig: 0x01ee28C68A55242dc63Be2ab25d43bc67C3285C1,
                 kmsGeneration: address(0),
-                decryption: 0x14666350f146dD290F90775fD7C455F4214540F3,
-                inputVerification: 0x0cCBE5E1Ffb84b23E4e258038B2933EFF186CC3F
+                decryption: 0x6933C9Fb890e2417e35b4cB0A66b2f84939a61E3,
+                inputVerification: 0x01d1829c7Eba4D1F53Ba4f1DfD6a269a8328fa5e
             })
         );
 
@@ -591,7 +608,7 @@ abstract contract StdFhevmChains {
         setDefaultFhevmGroup("polygon", FHEVM_MAINNET_GROUP);
         setDefaultFhevmGroup("sepolia", FHEVM_TESTNET_GROUP);
         setDefaultFhevmGroup("polygon_amoy", FHEVM_TESTNET_GROUP);
-        setDefaultFhevmGroup("bnb_smart_chain_testnet", FHEVM_DEVNET_GROUP);
+        setDefaultFhevmGroup("bnb_smart_chain_testnet", FHEVM_TESTNET_GROUP);
         setDefaultFhevmGroup("hoodi", FHEVM_DEVNET_GROUP);
     }
 

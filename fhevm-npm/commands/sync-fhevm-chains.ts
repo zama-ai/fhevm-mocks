@@ -39,7 +39,9 @@ function resolveCommit(
   if (options.latest) return resolveHead();
   const pinned = pinnedCommit(options.workspaceRoot);
   if (pinned === undefined) {
-    throw new Error(`${CHAINS_CONFIG_FILE} does not exist yet — run sync-fhevm-chains --latest to create it`);
+    throw new Error(
+      `${CHAINS_CONFIG_FILE} does not exist yet — run \`fhevm-npm sync fhevm-chains --latest\` to create it`,
+    );
   }
   return pinned;
 }
