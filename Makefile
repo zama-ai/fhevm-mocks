@@ -492,7 +492,11 @@ ci-legacy: ## What `ci` runs today: `build-ci`, then every test target one after
 # run four tests at the same time, as in `make ci-test-engine FHEVM_TEST_MAX_LANES=2`.
 FHEVM_TEST_MAX_LANES ?= 4
 
+#
+# `test-logs` is deleted first, before the engine starts: `build-ci-test-engine` keeps the folder, so
+# without this line the logs of an earlier run would stay beside the logs of this one.
 ci-test-engine: ## `ci-legacy` with the tests run by the test engine, in FHEVM_TEST_MAX_LANES lanes (default 4)
+	rm -rf ./test-logs
 	$(call run-fhevm-npm,test-engine run --ci --max-lanes $(FHEVM_TEST_MAX_LANES) --build "make build-ci-test-engine")
 
 # The lane for a working tree you are still editing: every gate that reads the tree as it is, none that
