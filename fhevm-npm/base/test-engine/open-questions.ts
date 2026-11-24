@@ -30,14 +30,13 @@ export function measuredDurationsAndTheDurationField(): void {
 }
 
 /**
- * Open question 6, "To be defined": how the inventory records the resources that isolation needs,
- * other than ports and live chains. No field records one yet. Until the question is answered, the engine
- * keeps apart the tests that state a common fixed port, and the tests that use a live chain, and no
- * other tests.
+ * Open question 6, "To be defined": how to tell the engine that two live chains have two RPC providers,
+ * so that their tests can run at the same time. Until the question is answered, the engine takes the
+ * live chains as one resource, which a run uses in as many shares as it says.
  */
 export function resourcesThatIsolationNeeds(): void {
   logToBeImplemented(
-    'how the inventory records the resources that isolation needs, other than ports and live chains. The engine keeps apart the tests that share a port or that use a live chain only, for now.',
+    'how to tell the engine that two live chains have two RPC providers. The engine takes the live chains as one resource, for now.',
   );
 }
 

@@ -1,6 +1,7 @@
 import { TestEngineError } from './errors.ts';
 import type { Chain, Inventory, InventoryEntry, Test } from './inventory.ts';
 import { needsLiveChain } from './live-chains.ts';
+import { resourcesOfTest } from './locks.ts';
 import { fixedPortsOfSpec, portsOfSpec } from './port-spec.ts';
 
 /**
@@ -109,6 +110,9 @@ export const LIVE_CHAIN_LANES_VARIABLE = 'FHEVM_TEST_LIVE_CHAIN_LANES';
  *   provider allows more.
  * - The funded account of a live chain. The tests that send transactions on one chain sign with one
  *   account, whose transactions are numbered: two of them at the same time would use the same number.
+ * - A resource that the test writes, by the name that the inventory gives it. Two tests that write one
+ *   resource never run at the same time, so they share a lane. A test that reads a resource is not kept
+ *   in the lane of the test that writes it: the engine makes one wait for the other while the run goes.
  */
 type Resource = number | string;
 
@@ -120,6 +124,12 @@ function liveChainsShare(share: number): Resource {
 
 function isLiveChainsShare(resource: Resource): boolean {
   return typeof resource === 'string' && resource.startsWith(LIVE_CHAINS);
+}
+
+const WRITTEN_RESOURCE = 'written resource ';
+
+function writtenResourcesOfTest(test: Test): readonly Resource[] {
+  return resourcesOfTest(test).write.map((name) => `${WRITTEN_RESOURCE}${name}`);
 }
 
 function fundedAccountsOfTest(test: Test): readonly Resource[] {
@@ -148,7 +158,15 @@ function resourcesByTest(input: ResourcesInput): ReadonlyMap<string, readonly Re
       const share = shareOf.get(entry.id);
       const liveChains = share === undefined ? [] : [liveChainsShare(share)];
 
-      return [entry.id, [...fixedPortsOfTest(entry.test), ...liveChains, ...fundedAccountsOfTest(entry.test)]];
+      return [
+        entry.id,
+        [
+          ...fixedPortsOfTest(entry.test),
+          ...liveChains,
+          ...fundedAccountsOfTest(entry.test),
+          ...writtenResourcesOfTest(entry.test),
+        ],
+      ];
     }),
   );
 }
@@ -266,10 +284,11 @@ export const WHOLE_SELECTION: Shard = { number: 1, count: 1 };
 
 /**
  * True for a resource that every machine shares: a share of the live chains, since the key of an RPC
- * provider is the same on all of them, and a funded account. A fixed port is of one machine only.
+ * provider is the same on all of them, and a funded account. A fixed port is of one machine only, and
+ * so is a resource that a test writes: each machine has its own copy of the workspace.
  */
 function isSharedByMachines(resource: Resource): boolean {
-  return typeof resource === 'string';
+  return typeof resource === 'string' && !resource.startsWith(WRITTEN_RESOURCE);
 }
 
 type ShardsInput = GroupsInput & {

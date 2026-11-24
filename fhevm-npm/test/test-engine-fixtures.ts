@@ -44,6 +44,8 @@ export const FIXTURE_SCHEMA = {
       duration: { enum: ['fast', 'slow', 'very-slow'] },
       ci: { type: 'boolean' },
       skipped: { const: true },
+      read: { type: 'array', items: { type: 'string', minLength: 1 } },
+      write: { type: 'array', items: { type: 'string', minLength: 1 } },
       chains: {
         type: 'array',
         items: {

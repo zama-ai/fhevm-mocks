@@ -5,6 +5,7 @@ import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.
 import { TestEngineError } from './errors.ts';
 import { type JsonObject, readJsonObject } from './json.ts';
 import { checkRpcVariablesOfCommands } from './live-chains.ts';
+import { checkResources } from './locks.ts';
 import type { PortSpec } from './port-spec.ts';
 import { errorMessage } from './utils.ts';
 
@@ -65,6 +66,10 @@ export type Test = {
   readonly ci: boolean;
   readonly skipped?: true | undefined;
   readonly chains: readonly Chain[];
+  /** The resources that the test needs in their normal state while it runs, by name. */
+  readonly read?: readonly string[] | undefined;
+  /** The resources that the test alters while it runs, and puts back before it ends, by name. */
+  readonly write?: readonly string[] | undefined;
 };
 
 /** One test with its ID: what the engine passes around. */
@@ -91,8 +96,8 @@ export type LoadInventoryInput = {
 };
 
 /**
- * Loads an inventory, and validates it against its schema and against the live chains that its commands
- * name. Fails with one error that lists every violation.
+ * Loads an inventory, and validates it against its schema, against the live chains that its commands
+ * name, and against the rules of the resources that its tests name. Fails with one error that lists every violation.
  */
 export function loadInventory(input: LoadInventoryInput): Inventory {
   const document = readJsonObject(input.inventoryFile);
@@ -110,6 +115,7 @@ export function loadInventory(input: LoadInventoryInput): Inventory {
   const inventory = { file: input.inventoryFile, schemaFile, tests };
 
   checkRpcVariablesOfCommands(inventory);
+  checkResources(inventory);
 
   return inventory;
 }

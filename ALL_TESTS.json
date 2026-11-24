@@ -1,7 +1,7 @@
 {
   "$schema": "./ALL_TESTS.schema.json",
   "test-cleartext-v-prev": {
-    "command": "npm run --silent test -w @fhevm/host-contracts-cleartext-v13-dev",
+    "command": "npm run --silent test:forge -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:harness:run -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v13-dev && npm run --silent test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v13-dev",
     "package": "host-contracts-cleartext",
     "duration": "very-slow",
     "ci": true,
@@ -19,10 +19,19 @@
         "port": "8550-8699",
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
+  },
+  "test-cleartext-v-prev-templates": {
+    "command": "npm run --silent test:templates:run -w @fhevm/host-contracts-cleartext-v13-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": true,
+    "chains": [],
+    "write": ["host-contracts-cleartext/v13"]
   },
   "test-cleartext-v-cur": {
-    "command": "npm run --silent test -w @fhevm/host-contracts-cleartext-v14-dev",
+    "command": "npm run --silent test:forge -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:harness:run -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v14-dev && npm run --silent test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v14-dev",
     "package": "host-contracts-cleartext",
     "duration": "very-slow",
     "ci": true,
@@ -40,7 +49,16 @@
         "port": "8701-8713,8716-8726",
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
+  },
+  "test-cleartext-v-cur-templates": {
+    "command": "npm run --silent test:templates:run -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": true,
+    "chains": [],
+    "write": ["host-contracts-cleartext/v14"]
   },
   "test-cleartext-upgrade": {
     "command": "npm run --silent test:upgrade -w @fhevm/host-contracts-cleartext-v14-dev",
@@ -56,7 +74,8 @@
         "port": "8700,8714,8715",
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14", "host-contracts-cleartext/v13"]
   },
   "test-forge-std": {
     "command": "FHEVM_SKIP_RPC_TESTS=true npm run --silent test -w @fhevm/forge-std-dev",
@@ -76,7 +95,8 @@
     "package": "hardhat-v2-plugin",
     "duration": "fast",
     "ci": true,
-    "chains": []
+    "chains": [],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-hh-v2-template": {
     "command": "npm --prefix hardhat/v2 run --silent test -w @fhevm/hardhat-template-v2-dev",
@@ -89,7 +109,8 @@
         "fhevm": "local",
         "runtime": "hardhat"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-hh-v2-e2e": {
     "command": "npm --prefix hardhat/v2 run --silent test -w @fhevm/hardhat-plugin-v2-e2e-dev",
@@ -102,7 +123,8 @@
         "fhevm": "local",
         "runtime": "hardhat"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-hh-v3-plugin": {
     "command": "npm --prefix hardhat/v3 run --silent test -w @fhevm/hardhat-plugin-v3-dev",
@@ -165,7 +187,8 @@
         "port": 8545,
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
   },
   "test-consumer-cleartext-v-prev-esm": {
     "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v13/test-consumer/esm --run --ci",
@@ -181,7 +204,8 @@
         "port": 8545,
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
   },
   "test-consumer-cleartext-v-cur-cjs": {
     "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v14/test-consumer/cjs --run --ci",
@@ -197,7 +221,8 @@
         "port": 8545,
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-consumer-cleartext-v-cur-esm": {
     "command": "./fhevm-npm-cli test-consumer ./host-contracts-cleartext/v14/test-consumer/esm --run --ci",
@@ -213,7 +238,8 @@
         "port": 8545,
         "fresh": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-consumer-forge-std-esm": {
     "command": "./fhevm-npm-cli test-consumer ./foundry/forge-fhevm-std/test-consumer/esm --run --ci",
@@ -239,7 +265,8 @@
         "fhevm": "local",
         "runtime": "hardhat"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-consumer-hh-v3-plugin-esm": {
     "command": "./fhevm-npm-cli test-consumer ./hardhat/v3/plugin/test-consumer/esm --run --ci",
@@ -543,7 +570,8 @@
         "runtime": "remote",
         "wallet": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-hh-v2-e2e-sepolia-devnet": {
     "command": "npm --prefix hardhat/v2 run --silent test:sepolia:devnet -w @fhevm/hardhat-plugin-v2-e2e-dev",
@@ -556,7 +584,8 @@
         "runtime": "remote",
         "wallet": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-node-hh-v2-e2e": {
     "command": "cd hardhat/v2/e2e && ./test/test-hardhat-node.sh",
@@ -599,7 +628,8 @@
         "runtime": "remote",
         "wallet": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-hh-v3-template-sepolia": {
     "command": "npm --prefix hardhat/v3/fhevm-hardhat-template/pkg run test:sepolia",
@@ -639,7 +669,8 @@
         "fhevm": "devnet",
         "runtime": "forge-fork"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
   },
   "test-cleartext-v-prev-fork-testnet": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest)$'",
@@ -653,7 +684,8 @@
         "runtime": "forge-fork",
         "block": null
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
   },
   "test-cleartext-v-prev-fork-mainnet": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
@@ -666,7 +698,8 @@
         "fhevm": "mainnet",
         "runtime": "forge-fork"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
   },
   "test-cleartext-v-prev-fork-transient-storage": {
     "command": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
@@ -684,7 +717,8 @@
         "fhevm": "none",
         "runtime": "forge-fork"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v13"]
   },
   "test-cleartext-v-cur-fork-devnet": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|DevnetCleartextUpgradeTest)$'",
@@ -697,7 +731,8 @@
         "fhevm": "devnet",
         "runtime": "forge-fork"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-cleartext-v-cur-fork-testnet": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest|TestnetSinglePassCleartextUpgradeTest)$'",
@@ -711,7 +746,8 @@
         "runtime": "forge-fork",
         "block": null
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-cleartext-v-cur-fork-mainnet": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
@@ -724,7 +760,8 @@
         "fhevm": "mainnet",
         "runtime": "forge-fork"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-cleartext-v-cur-fork-transient-storage": {
     "command": "cd host-contracts-cleartext/v14 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
@@ -742,7 +779,8 @@
         "fhevm": "none",
         "runtime": "forge-fork"
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-forge-std-internal-fork-testnet": {
     "command": "cd foundry/forge-fhevm-std && ../../scripts/forge-test.sh --threads 2 --match-path test/internal/FhevmVm.t.sol --match-test '^(test_isOneObjectInEveryFork|test_eachContextHasItsOwnCleartextStore)\\('",
@@ -768,7 +806,8 @@
         "runtime": "remote",
         "wallet": true
       }
-    ]
+    ],
+    "read": ["host-contracts-cleartext/v14"]
   },
   "test-forge-std-internal-debug": {
     "command": "cd foundry/forge-fhevm-std && FOUNDRY_PROFILE=fhevm-debug ../../scripts/forge-test.sh --match-path test/internal/DebugZamaConfig.t.sol --match-test '^test_debug_constructsFromAnywhereAndResolvesByChain\\('",

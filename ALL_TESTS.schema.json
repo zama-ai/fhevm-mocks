@@ -67,7 +67,24 @@
           "items": {
             "$ref": "#/$defs/chain"
           }
+        },
+        "read": {
+          "$ref": "#/$defs/resources",
+          "description": "The resources that the test needs in their normal state from its start to its end. Several tests can read one resource at the same time. A test that reads a resource never runs while another test writes it."
+        },
+        "write": {
+          "$ref": "#/$defs/resources",
+          "description": "The resources that the test alters while it runs: it puts each one in a state that no other test can use, and puts it back as it was before it ends. A test that writes a resource has it alone: no other test reads it or writes it meanwhile. A name is in write or in read, not in both."
         }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "description": "Names of resources that tests share, such as the folder of a package. A name is free text: two tests share a resource when they state the same name. An empty list is the same as no list.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
       }
     },
     "chain": {

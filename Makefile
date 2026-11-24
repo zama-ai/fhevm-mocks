@@ -133,7 +133,7 @@ run-prettier-rules = npx --no-install prettier $(1) "rules/**/*.md"
 # Aggregates
 ########################################################################################################
 
-.PHONY: help graph build compile rebuild ci ci-fast ci-local build-ci ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-generated install install-fast install-ci install-npm-cli sync-pinned update-dependencies check-safechain publish-rehearse
+.PHONY: help graph build compile rebuild ci ci-fast ci-local build-ci build-ci-test-engine ci-from-scratch distclean regenerate-package-lock lint test check check-pre generate fmt fmt-check clean clean-build-output clean-generated install install-fast install-ci install-npm-cli sync-pinned update-dependencies check-safechain publish-rehearse
 
 help: ## List the targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -433,14 +433,27 @@ ci-from-scratch: ## Prove a fresh clone works: distclean everything, install, th
 # The phases are sequential recipe lines rather than prerequisites: prerequisites of one target may run
 # in any order under `-j`, and make abandons the rest of a recipe at its first failing line, so nothing
 # downstream of a failed gate can run.
+#
+# The argument is the clean target of the second phase. It is the only thing the two targets below differ in.
+define build-ci-gates
+$(call require-spotless-worktree)
+$(MAKE) $(1)
+$(MAKE) check-generated
+$(MAKE) check-pre
+$(MAKE) check-vendored-origin
+$(MAKE) build
+$(MAKE) check-post
+endef
+
 build-ci: ## Every ci gate EXCEPT the tests: clean, check-generated, checks, build, check-post
-	$(call require-spotless-worktree)
-	$(MAKE) clean
-	$(MAKE) check-generated
-	$(MAKE) check-pre
-	$(MAKE) check-vendored-origin
-	$(MAKE) build
-	$(MAKE) check-post
+	$(call build-ci-gates,clean)
+
+# The build of `fhevm-npm test-engine run --build "make build-ci-test-engine"`. The engine writes the log
+# of its build into `test-logs` while the build runs, and the logs of its tests after it. `clean`
+# deletes that folder, so `build-ci` as the build of the engine would delete the log of the build and
+# the folder the tests log into. This target runs the same gates, and keeps `test-logs`.
+build-ci-test-engine: ## `build-ci` for `fhevm-npm test-engine run --build`: the same gates, and it keeps test-logs
+	$(call build-ci-gates,clean-build-output)
 
 # The maximum run: every gate this workspace has. `build-ci` owns the build-and-check phases and the
 # reasoning about their order; this adds the tests on top.
@@ -522,7 +535,9 @@ rebuild: ## Clean everything, then compile from scratch (no gates — use 'build
 clean-scratch: ## Delete the tooling's $TMPDIR scratch roots (consumer installs, pack npm cache)
 	rm -rf "$${TMPDIR:-/tmp}/fhevm-npm-test-consumer" "$${TMPDIR:-/tmp}/fhevm-sdk-npm-cache"
 
-clean: clean-scratch ## Remove every package's build output and the tooling's scratch roots
+# `clean` without the logs of the test engine, for `build-ci-test-engine`: the engine writes into
+# `test-logs` while its build runs.
+clean-build-output: clean-scratch ## Remove every package's build output and the tooling's scratch roots
 	$(call run-hh-v3,$(W_HH_V3_TEMPLATE),clean)
 	$(call run-hh-v3,$(W_HH_V3_E2E),clean)
 	$(call run-hh-v3,$(W_HH_V3_PLUGIN),clean)
@@ -535,6 +550,10 @@ clean: clean-scratch ## Remove every package's build output and the tooling's sc
 	$(call run,$(W_VENDORED),clean)
 	$(call run,$(W_COMMON),clean)
 	rm -rf ./tarballs
+
+# `test-logs` is where `fhevm-npm test-engine run` writes its logs by default. Git ignores its files.
+clean: clean-build-output ## Remove every package's build output, the tooling's scratch roots and the test engine's logs
+	rm -rf ./test-logs
 
 # Deliberately NOT part of `clean`: this deletes committed, shipped payload, so a `clean` that did it
 # would leave `make clean && make build` emitting an incomplete package.

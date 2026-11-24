@@ -5,8 +5,16 @@ export type StartedTest = {
   readonly lane: number;
 };
 
+/** A test that waits for a resource that other tests hold. */
+export type WaitingTest = StartedTest & {
+  /** The tests that hold a resource it needs, or that wait for one before it. */
+  readonly heldBy: readonly string[];
+};
+
 /** Says that the tests of a run are alive, whatever the tests print themselves. */
 export type Progress = {
+  /** A test waits for a resource before it starts: prints one line. */
+  readonly waiting: (test: WaitingTest) => void;
   /** A test starts: prints one line. */
   readonly started: (test: StartedTest) => void;
   /** A test ended: it is in no later line. */
@@ -24,15 +32,20 @@ export type WatchProgressInput = {
 /**
  * Prints one line when a test starts and, at each interval, one line for each test that is still
  * running, with the time since it started. A test that prints nothing for minutes, as a forge test does
- * while one of its functions runs, then still shows that it runs, and for how long.
+ * while one of its functions runs, then still shows that it runs, and for how long. A test that waits
+ * for a resource has its own lines, until it starts.
  */
 export function watchProgress(input: WatchProgressInput): Progress {
   const running = new Map<string, { readonly lane: number; readonly startedAt: number }>();
+  const waiting = new Map<string, { readonly lane: number; readonly startedAt: number }>();
   const printRunning = (): void => {
-    const byLane = [...running].sort(([, a], [, b]) => a.lane - b.lane);
+    const lines = [
+      ...[...running].map(([id, test]) => ({ id, ...test, label: '⏳ running' })),
+      ...[...waiting].map(([id, test]) => ({ id, ...test, label: '⏸ waiting' })),
+    ].sort((a, b) => a.lane - b.lane);
 
-    for (const [id, { lane, startedAt }] of byLane) {
-      input.write(`⏳ running  lane ${lane}  ${id}  ${formatElapsed(performance.now() - startedAt)}`);
+    for (const { id, lane, startedAt, label } of lines) {
+      input.write(`${label}  lane ${lane}  ${id}  ${formatElapsed(performance.now() - startedAt)}`);
     }
   };
   const timer =
@@ -42,7 +55,14 @@ export function watchProgress(input: WatchProgressInput): Progress {
   timer?.unref();
 
   return {
+    waiting: ({ id, lane, heldBy }) => {
+      waiting.set(id, { lane, startedAt: performance.now() });
+      input.write(
+        `⏸ waiting  lane ${lane}  ${id}  for a resource that ${heldBy.join(', ')} ${heldBy.length === 1 ? 'uses' : 'use'}`,
+      );
+    },
     started: ({ id, lane }) => {
+      waiting.delete(id);
       running.set(id, { lane, startedAt: performance.now() });
       input.write(`▶ started  lane ${lane}  ${id}`);
     },

@@ -7,6 +7,7 @@ import { TestEngineError } from './errors.ts';
 import type { Inventory } from './inventory.ts';
 import { type RunPlan, type Shard, planRun } from './lanes.ts';
 import { type Locations, outputFilesIn } from './locations.ts';
+import { createLocks } from './locks.ts';
 import { environmentOfTest } from './nodes.ts';
 import {
   interruptedRun,
@@ -88,6 +89,8 @@ export async function runSelection(input: RunSelectionInput): Promise<Report> {
       nodeLogLines: input.nodeLogLines,
       verbose: input.verbose,
       interruption: interruption.signal,
+      locks: createLocks(),
+      onWait: progress.waiting,
       onStart: progress.started,
       onOutcome: (outcome) => {
         progress.ended(outcome.id);

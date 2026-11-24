@@ -1,10 +1,11 @@
 import type { InventoryEntry } from './inventory.ts';
 import type { Lane } from './lanes.ts';
+import { type Locks, resourcesOfTest } from './locks.ts';
 import { type NodeLog, openNodeLog } from './node-log.ts';
 import { type EnvironmentOfTestInput, type RunningNode, needsRunnerNode, runnerNodeChain, startNode } from './nodes.ts';
 import { formatDuration } from './output.ts';
 import { describeExit, isSuccess, startInGroup } from './process.ts';
-import type { StartedTest } from './progress.ts';
+import type { StartedTest, WaitingTest } from './progress.ts';
 import { type TestLog, openTestLog } from './test-log.ts';
 import { errorMessage } from './utils.ts';
 
@@ -41,6 +42,10 @@ export type RunTestsInput = {
   readonly interruption: AbortSignal;
   /** How long one test may take, from its start to its end. Undefined: as long as it takes. */
   readonly timeLimitMilliseconds: number | undefined;
+  /** The resources that the tests of the run name: a test starts only when it has all of its own. */
+  readonly locks: Locks;
+  /** Called when a test must wait for a resource before it starts. */
+  readonly onWait: (test: WaitingTest) => void;
   /** Called when a test starts, before anything of it runs. */
   readonly onStart: (test: StartedTest) => void;
   readonly onOutcome: (outcome: TestOutcome) => void;
@@ -50,6 +55,7 @@ export type RunTestsInput = {
  * Runs every lane, side by side, and resolves with the outcome of each test by ID when all have ended.
  * Inside a lane, a test starts only when the test before it has ended, with its node and everything it
  * started. A failing test stops nothing: the next test of its lane still runs, and none is run again.
+ * A test that names resources waits until it can have them all, and its lane waits with it.
  */
 export async function runTests(input: RunTestsInput): Promise<ReadonlyMap<string, TestOutcome>> {
   const outcomes = await Promise.all(input.lanes.map((lane) => runLane({ ...input, lane })));
@@ -65,10 +71,20 @@ async function runLane(input: RunLaneInput): Promise<readonly TestOutcome[]> {
   const outcomes: TestOutcome[] = [];
 
   for (const [index, entry] of input.lane.entries.entries()) {
-    input.onStart({ id: entry.id, lane: input.lane.number });
+    const started = { id: entry.id, lane: input.lane.number };
+    const release = await input.locks.acquire({
+      ...started,
+      resources: resourcesOfTest(entry.test),
+      interruption: input.interruption,
+      onWait: (heldBy) => input.onWait({ ...started, heldBy }),
+    });
+
+    input.onStart(started);
 
     const outcome = await runTest({ ...input, entry, lane: input.lane.number, position: index + 1 });
 
+    // Everything of the test is stopped: what it wrote is back as it was.
+    release();
     input.onOutcome(outcome);
     outcomes.push(outcome);
   }
@@ -76,7 +92,7 @@ async function runLane(input: RunLaneInput): Promise<readonly TestOutcome[]> {
   return outcomes;
 }
 
-type RunTestInput = Omit<RunTestsInput, 'lanes' | 'onStart' | 'onOutcome'> & {
+type RunTestInput = Omit<RunTestsInput, 'lanes' | 'locks' | 'onWait' | 'onStart' | 'onOutcome'> & {
   readonly entry: InventoryEntry;
   readonly lane: number;
   readonly position: number;

@@ -19,6 +19,7 @@ Run every command of this guide from the workspace root.
 ./fhevm-npm-cli test-engine run --max-lanes 1 test-forge-std  # one test, by its ID
 ./fhevm-npm-cli test-engine run --ci --max-lanes 4 --dry-run  # run nothing: print what would run
 ./fhevm-npm-cli test-engine run --ci --max-lanes 4 --build "make compile"   # build first, then run
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --build "make build-ci-test-engine"  # the same gates and tests as `make ci`
 ./fhevm-npm-cli test-engine shards 3 --ci                     # which tests each of 3 machines would run
 ./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 2/3 # the share of machine 2 of 3
 ./fhevm-npm-cli test-engine check-report test-report.json     # check the report of a run
@@ -39,14 +40,16 @@ The root is the folder that each test command starts from. It is the current fol
 
 Each test of the inventory has these fields:
 
-| Field      | Meaning                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| `command`  | The shell command that runs the test, from the root.                                        |
-| `package`  | The package that the test belongs to.                                                       |
-| `ci`       | `true`: the CI selection holds the test. `false`: a run with `--ci` leaves it out.          |
-| `skipped`  | `true`: no run runs the test, for now.                                                      |
-| `duration` | How long the test takes: `fast` under one minute, `slow` up to ten, `very-slow` beyond.     |
-| `chains`   | The chains that the test uses. Each one says where the chain runs, and who starts its node. |
+| Field      | Meaning                                                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command`  | The shell command that runs the test, from the root.                                                                                          |
+| `package`  | The package that the test belongs to.                                                                                                         |
+| `ci`       | `true`: the CI selection holds the test. `false`: a run with `--ci` leaves it out.                                                            |
+| `skipped`  | `true`: no run runs the test, for now.                                                                                                        |
+| `duration` | How long the test takes: `fast` under one minute, `slow` up to ten, `very-slow` beyond.                                                       |
+| `chains`   | The chains that the test uses. Each one says where the chain runs, and who starts its node.                                                   |
+| `read`     | The resources that the test needs in their normal state. See [Keep a test away from a shared folder](#keep-a-test-away-from-a-shared-folder). |
+| `write`    | The resources that the test alters while it runs, and puts back before it ends.                                                               |
 
 To check an inventory after an edit, run `validate`. It checks the inventory against its schema. It
 also refuses a command that names `SEPOLIA_RPC_URL`, `MAINNET_RPC_URL`, or `ARBITRUM_RPC_URL` when
@@ -134,6 +137,30 @@ The unit tests of `fhevm-npm` are not in the inventory. They test the tool that 
 engine included, so they run with the build: `make build` runs them, and `make compile` does not. To
 run them alone, use `npm --prefix fhevm-npm test`.
 
+### Run the same gates and tests as `make ci`
+
+`make ci` runs `make build-ci`, then its tests. To do the same with the engine, give it
+`make build-ci-test-engine` as the build, and select the tests of CI:
+
+```sh
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --build "make build-ci-test-engine"
+```
+
+`make build-ci-test-engine` runs the same gates as `make build-ci`, and keeps the folder `test-logs`.
+Never give `make build-ci` to the engine: it runs `make clean`, which deletes `test-logs` while the
+engine writes the log of the build there.
+
+Commit your work first: `make build-ci-test-engine` refuses a tree with uncommitted changes, and it
+deletes every build output before it compiles.
+
+Three make targets can serve as the build. Each one contains the one before it:
+
+| Build                       | What it runs                                                                                                     | When to use it                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `make compile`              | The compile of every package                                                                                     | To run tests again while you edit             |
+| `make build`                | `make compile`, after the formatting check, the lint of every package, and the unit tests of `fhevm-npm`         | For a full check of a tree with local changes |
+| `make build-ci-test-engine` | `make build` from a clean tree, with the check of the generated files, and the checks before and after the build | In CI, and before a push                      |
+
 ## Run tests side by side
 
 A run needs `--max-lanes <n>`. A lane is a list of tests that run one after the other, and the lanes
@@ -148,7 +175,9 @@ give the same lanes on every machine:
    provider limits the requests that one key may send, so such tests never run at the same time.
 3. The tests that send transactions on the same live chain share one lane, always: they sign with
    one account, and two transactions at the same time would take the same number.
-4. The engine balances the lanes by the `duration` of their tests. A `slow` test weighs as much as
+4. Two tests that write the same resource share a lane. See
+   [Keep a test away from a shared folder](#keep-a-test-away-from-a-shared-folder).
+5. The engine balances the lanes by the `duration` of their tests. A `slow` test weighs as much as
    20 `fast` tests, and a `very-slow` test as much as 60. A test with no `duration` weighs 20.
 
 To print the lanes of a run without running it, give the same selection and maximum to `lanes`:
@@ -176,6 +205,53 @@ lane 1  live chains  test-forge-std-fork-testnet -> test-forge-std-fork-resolve-
 Add `--json` to get the lanes as JSON.
 
 A run cannot be shorter than its longest test, whatever the maximum.
+
+## Keep a test away from a shared folder
+
+Some tests change files that other tests use. `templates.test.ts` of a cleartext package is one: it
+rebuilds the package with other addresses, checks the result, then puts everything back. For about
+two minutes, a `forge test` in the same folder fails, or runs on wrong bytecode.
+
+Two optional fields of a test say so. Each is a list of names:
+
+```json
+"test-cleartext-v-cur-templates":    { "write": ["host-contracts-cleartext/v14"] },
+"test-cleartext-v-cur-fork-mainnet": { "read": ["host-contracts-cleartext/v14"] }
+```
+
+- `write`: while the test runs, it puts the resource in a state that no other test can use. When the
+  test ends, the resource is back as it was.
+- `read`: the test needs the resource in its normal state from its start to its end.
+
+A name is free text, and here it is the folder of the package. The engine does not interpret it: two
+tests share a resource when they state the same name.
+
+| Two tests                                       | Can they run at the same time |
+| ----------------------------------------------- | ----------------------------- |
+| Both read the resource                          | Yes                           |
+| One reads the resource, and the other writes it | No. One waits for the other.  |
+| Both write the resource                         | No. They share a lane.        |
+| They name no common resource                    | Yes                           |
+
+A test that reads a resource stays in its own lane. Before a test starts, the engine takes all its
+resources in one step. When another test holds one of them in a way that excludes it, the test
+waits, and its lane with it:
+
+```text
+⏸ waiting  lane 3  test-cleartext-v-cur-templates  for a resource that test-hh-v2-plugin, test-hh-v2-template use
+```
+
+The tests that wait are served in the order they came. A reader that comes after a writer that
+waits does not pass in front of it.
+
+`validate` refuses two mistakes: a name that one test both reads and writes, and a name that a test
+reads and that no test writes. The second one is most often a typing mistake.
+
+A resource is of one machine: each shard has its own copy of the workspace, so two shards do not
+wait for each other. The time of a lane, at the end of a run, counts its tests and not its waits.
+
+A test that alters a resource and does not put it back is outside these fields. It harms every later
+test, whatever the lanes, and must be fixed.
 
 ## Split a run over several machines
 
@@ -234,9 +310,9 @@ get the shards as JSON.
 With three machines:
 
 ```sh
-./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 1/3 --build "make build-ci"   # machine 1
-./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 2/3 --build "make build-ci"   # machine 2
-./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 3/3 --build "make build-ci"   # machine 3
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 1/3 --build "make build-ci-test-engine"   # machine 1
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 2/3 --build "make build-ci-test-engine"   # machine 2
+./fhevm-npm-cli test-engine run --ci --max-lanes 4 --shard 3/3 --build "make build-ci-test-engine"   # machine 3
 ```
 
 Each machine builds once, runs its shard, and writes its own report.
