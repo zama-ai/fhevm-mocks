@@ -345,8 +345,8 @@ function syncPinnedTarget(
         }. ` +
         // A commit is immutable, so the tree is downloaded once and kept. The cache lives in the
         // system temp directory, which macOS prunes on a schedule — and it prunes FILES while leaving
-        // the directories, so a pruned slot still looks present and is reused forever. Reading it then
-        // reports the tree as holding nothing. Clearing it costs one re-download.
+        // the directories. The cache downloads a slot again when its number of files changed, so this
+        // hint is for what that count cannot see. Clearing the cache costs one re-download.
         `If this looks like the pinned tree is empty, the download cache was probably pruned: ` +
         `delete ${pinnedTreeCacheRoot()} and run again.`,
     });

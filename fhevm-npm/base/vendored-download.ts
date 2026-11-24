@@ -1,5 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,7 +35,7 @@ export function downloadPinnedTree(source: PinnedSource, into: string, download:
   const archive = join(into, 'source.tar.gz');
   download(archiveUrl(source), archive);
 
-  const extracted = join(into, 'extracted');
+  const extracted = join(into, EXTRACTED_NAME);
   mkdirSync(extracted, { recursive: true });
   execFileSync('tar', ['-xzf', archive, '-C', extracted], { stdio: ['ignore', 'ignore', 'pipe'] });
   // The archive has done its job; only the tree is worth keeping when `into` is the cache.
@@ -44,9 +53,13 @@ export function pinnedTreeCacheRoot(): string {
  * Runs the body with the pinned tree extracted. The extraction is keyed by repository and commit and
  * kept under `cacheRoot`, so a second entry at the same commit — or a second run — costs no download.
  *
- * A commit is immutable, which is what makes the cache safe to keep: the only reason to re-fetch is a
- * missing or half-written slot, and a half-written slot never exists — extraction happens in a scratch
- * directory that is renamed into place only once it is complete.
+ * A commit is immutable, which is what makes the cache safe to keep. The tool never writes half a slot:
+ * extraction happens in a scratch directory that is renamed into place only once it is complete.
+ *
+ * A slot can still lose files after it was written. The cache is in the system temp directory, and
+ * macOS deletes the files there that nothing read for three days, and keeps their directories. So each
+ * slot records how many files it holds, and a slot whose files no longer match that number is
+ * downloaded again.
  */
 export function withPinnedTree<T>(
   source: PinnedSource,
@@ -60,25 +73,56 @@ export function withPinnedTree<T>(
 /** The directory holding `source.from` at `source.commit`, downloading once per commit into `cacheRoot`. */
 export function cachedPinnedTree(source: PinnedSource, cacheRoot: string, download: Downloader = curl): string {
   const slot = join(cacheRoot, cacheKey(source));
-  const extracted = join(slot, 'extracted');
-  if (existsSync(extracted)) {
-    return subtreeOf(extracted, source);
-  }
+  const extracted = join(slot, EXTRACTED_NAME);
 
+  if (slotIsComplete(slot)) return subtreeOf(extracted, source);
+
+  // A slot that lost files, or that an older version wrote without its count, is of no use.
+  rmSync(slot, { recursive: true, force: true });
   mkdirSync(cacheRoot, { recursive: true });
+
   const staging = mkdtempSync(join(cacheRoot, `${cacheKey(source)}.partial-`));
+
   try {
     downloadPinnedTree(source, staging, download);
+    writeFileSync(join(staging, FILE_COUNT_NAME), `${String(countFiles(join(staging, EXTRACTED_NAME)))}\n`);
+
     try {
       renameSync(staging, slot);
     } catch (error) {
       // Another run filled the slot first. Its copy is the same commit, so use it and drop ours.
-      if (!existsSync(extracted)) throw error;
+      if (!slotIsComplete(slot)) throw error;
     }
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }
+
   return subtreeOf(extracted, source);
+}
+
+/** The directory of a slot that holds the extracted archive. */
+const EXTRACTED_NAME = 'extracted';
+
+/** The file of a slot that records how many files the extracted archive held when it was written. */
+const FILE_COUNT_NAME = 'file-count';
+
+/** True when the slot still holds every file that its archive had. */
+function slotIsComplete(slot: string): boolean {
+  const extracted = join(slot, EXTRACTED_NAME);
+  const countFile = join(slot, FILE_COUNT_NAME);
+
+  if (!existsSync(extracted) || !existsSync(countFile)) return false;
+
+  const recorded = readFileSync(countFile, 'utf8').trim();
+
+  return /^\d+$/.test(recorded) && Number(recorded) === countFiles(extracted);
+}
+
+/** How many entries under the directory are not directories. */
+function countFiles(directory: string): number {
+  const entries = readdirSync(directory, { recursive: true, withFileTypes: true });
+
+  return entries.filter((entry) => !entry.isDirectory()).length;
 }
 
 export function archiveUrl(source: PinnedSource): string {
