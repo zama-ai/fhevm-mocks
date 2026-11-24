@@ -275,6 +275,7 @@ const PRINTED_BY: Readonly<Record<string, readonly string[]>> = {
   'commands/check-cleartext-config.ts': ['check cleartext-config'],
   'base/checks/dependencies.ts': ['check dependencies'],
   'base/checks/docs.ts': ['check docs'],
+  'base/checks/env-vars.ts': ['check env-vars'],
   'base/checks/extraneous.ts': ['check extraneous'],
   'base/checks/forge-std-chains.ts': ['check forge-std-chains'],
   'base/checks/foundry.ts': ['check foundry'],

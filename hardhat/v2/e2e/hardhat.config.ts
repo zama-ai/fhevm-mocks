@@ -23,6 +23,12 @@ const MNEMONIC: string = vars.get('MNEMONIC', 'test test test test test test tes
 const ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
 const INFURA_API_KEY: string = vars.get('INFURA_API_KEY', 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz');
 
+// The URL of Sepolia comes from SEPOLIA_RPC_URL, the one name every test of the workspace reads for it.
+// Unset or empty, the suite keeps the Infura endpoint of the INFURA_API_KEY var, as before.
+const SEPOLIA_RPC_URL_FROM_ENV: string = process.env.SEPOLIA_RPC_URL ?? '';
+const SEPOLIA_RPC_URL: string =
+  SEPOLIA_RPC_URL_FROM_ENV !== '' ? SEPOLIA_RPC_URL_FROM_ENV : `https://sepolia.infura.io/v3/${INFURA_API_KEY}`;
+
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
@@ -48,7 +54,7 @@ const config: HardhatUserConfig = {
         count: 10,
       },
       chainId: 11155111,
-      url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+      url: SEPOLIA_RPC_URL,
     },
   },
   paths: {

@@ -68,7 +68,7 @@ export type GenerationParityInspection = {
  * `FHEVM_PARITY_REF_V13=<ref>` overrides the ref generation `v13` is compared against; `FHEVM_PARITY_REF_V1_0`
  * the one `v1.0` is (a variable name cannot hold a dot).
  */
-export const OVERRIDE_PREFIX = 'FHEVM_PARITY_REF_';
+export const PARITY_REF_VARIABLE_PREFIX = 'FHEVM_PARITY_REF_';
 
 /**
  * The overrides an environment declares, keyed by generation name (`v13`, `v1.0`), spelled back from the variable
@@ -78,8 +78,8 @@ export const OVERRIDE_PREFIX = 'FHEVM_PARITY_REF_';
 export function parityRefOverrides(env: Readonly<Record<string, string | undefined>>): Record<string, string> {
   const overrides: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
-    if (!key.startsWith(OVERRIDE_PREFIX) || value === undefined || value.trim() === '') continue;
-    overrides[generationNameFromEnvSuffix(key.slice(OVERRIDE_PREFIX.length))] = value.trim();
+    if (!key.startsWith(PARITY_REF_VARIABLE_PREFIX) || value === undefined || value.trim() === '') continue;
+    overrides[generationNameFromEnvSuffix(key.slice(PARITY_REF_VARIABLE_PREFIX.length))] = value.trim();
   }
   return overrides;
 }
@@ -159,7 +159,7 @@ export function inspectGenerationParity(
           rule: RULE,
           packageKey: './npm-manifest.json',
           message:
-            `${OVERRIDE_PREFIX}${name.toUpperCase()} names '${override}', but neither it nor ` +
+            `${PARITY_REF_VARIABLE_PREFIX}${name.toUpperCase()} names '${override}', but neither it nor ` +
             `'origin/${override}' resolves; fetch it, or unset the variable to compare with ` +
             `'${releaseBranch ?? 'the release branch'}'`,
         });
@@ -173,7 +173,7 @@ export function inspectGenerationParity(
     }
     if (override !== undefined) {
       overridden.push(
-        `${key}: compared with '${ref}' because ${OVERRIDE_PREFIX}${name.toUpperCase()} is set — this run ` +
+        `${key}: compared with '${ref}' because ${PARITY_REF_VARIABLE_PREFIX}${name.toUpperCase()} is set — this run ` +
           `does NOT prove parity with '${releaseBranch ?? 'the release branch'}', which is what this check ` +
           `is for; unset it once that branch carries the work`,
       );

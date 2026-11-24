@@ -85,6 +85,24 @@
         }
       }
     },
+    "envVarNames": {
+      "type": "array",
+      "description": "Every environment variable that this workspace designed: the workspace chose the name, and its code gives the name a meaning. A part written <PLACEHOLDER> stands for any text, for a name that code builds while it runs, as in <ALIAS>_RPC_URL. `check env-vars` holds the list to the sources: a file reads or sets no variable that is not listed here or in toolEnvVarNames, and a listed name is used. Sorted.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^([A-Z][A-Z0-9_]*|<[A-Z][A-Z0-9_]*>)(_?([A-Z0-9_]+|<[A-Z][A-Z0-9_]*>))*$"
+      }
+    },
+    "toolEnvVarNames": {
+      "type": "array",
+      "description": "Every environment variable that a tool defines and that this workspace reads or sets, such as FOUNDRY_PROFILE. Same form and same check as envVarNames. A name is in one of the two lists, never in both. Sorted.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^([A-Z][A-Z0-9_]*|<[A-Z][A-Z0-9_]*>)(_?([A-Z0-9_]+|<[A-Z][A-Z0-9_]*>))*$"
+      }
+    },
     "generations": {
       "type": "object",
       "description": "Names <vN> and <vN-1> of a multi-generation package family. Keyed by the family's directory (e.g. host-contracts-cleartext). Exactly two generations are live at any time: <vN> is the one every consumer depends on, and <vN-1> exists only so the upgrade path of <vN> from it can be built and tested.",

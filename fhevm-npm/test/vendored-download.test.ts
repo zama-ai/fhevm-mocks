@@ -117,7 +117,58 @@ test('withPinnedTree downloads a commit once and serves every later call from th
     // Only the extracted tree is kept: the 40 MB archive is not.
     const slots = readdirSync(cacheRoot).sort();
     assert.deepEqual(slots, [`zama-ai-fhevm-${source.commit}`, `zama-ai-fhevm-${'b'.repeat(40)}`]);
-    assert.deepEqual(readdirSync(join(cacheRoot, slots[0]!)), ['extracted']);
+    assert.deepEqual(readdirSync(join(cacheRoot, slots[0]!)).sort(), ['extracted', 'file-count']);
+  } finally {
+    rmSync(cacheRoot, { recursive: true, force: true });
+  }
+});
+
+/** Deletes every file under the directory and keeps the directories, as macOS does in its temp directory. */
+function deleteFilesAndKeepDirectories(directory: string): void {
+  for (const entry of readdirSync(directory, { recursive: true, withFileTypes: true })) {
+    if (!entry.isDirectory()) rmSync(join(entry.parentPath, entry.name));
+  }
+}
+
+test('withPinnedTree downloads a commit again when its slot lost files and kept its directories', () => {
+  const cacheRoot = mkdtempSync(join(tmpdir(), 'fhevm-npm-cache-'));
+  try {
+    let downloads = 0;
+    const counting: Downloader = (url, destination) => {
+      downloads += 1;
+      servingArchive({
+        'host-contracts/contracts/A.sol': 'x',
+        'host-contracts/contracts/shared/B.sol': 'y',
+        'library-solidity/config/ZamaConfig.sol': 'config',
+      })(url, destination);
+    };
+    const slot = join(cacheRoot, `zama-ai-fhevm-${source.commit}`);
+
+    const first = withPinnedTree(source, (tree) => tree, counting, cacheRoot);
+    assert.equal(downloads, 1);
+
+    // Every file of the slot is gone, its count included.
+    deleteFilesAndKeepDirectories(slot);
+    assert.equal(existsSync(join(first, 'shared')), true, 'the directories of the slot are kept');
+
+    const emptied = withPinnedTree(source, (tree) => tree, counting, cacheRoot);
+    assert.equal(downloads, 2, 'an emptied slot was served from the cache');
+    assert.equal(readFileSync(join(emptied, 'A.sol'), 'utf8'), 'x');
+
+    // One file is gone, in a subtree that this call does not read.
+    rmSync(join(slot, 'extracted', `fhevm-${source.commit}`, 'library-solidity', 'config', 'ZamaConfig.sol'));
+
+    const partial = withPinnedTree(source, (tree) => tree, counting, cacheRoot);
+    assert.equal(downloads, 3, 'a slot that lost one file was served from the cache');
+    assert.equal(readFileSync(join(partial, 'shared', 'B.sol'), 'utf8'), 'y');
+
+    // A slot that an older version wrote has no count: it is downloaded once more, then kept.
+    rmSync(join(slot, 'file-count'));
+    withPinnedTree(source, () => undefined, counting, cacheRoot);
+    assert.equal(downloads, 4, 'a slot with no count was served from the cache');
+
+    withPinnedTree(source, () => undefined, counting, cacheRoot);
+    assert.equal(downloads, 4, 'a complete slot was downloaded again');
   } finally {
     rmSync(cacheRoot, { recursive: true, force: true });
   }

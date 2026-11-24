@@ -16,9 +16,41 @@
 # Everything else is pass-through: the arguments go to `forge test` untouched, output is streamed live,
 # and forge's own exit code is this script's exit code whenever forge itself failed.
 #
+# FHEVM_TEST_LIST=1 runs nothing. It prints the test functions that the same arguments select, one per
+# line, and exits. It is how `fhevm-npm test-engine duplicates` reads what a test of ALL_TESTS.json
+# selects: the test and its list call the same script, so they cannot select different functions. Each
+# line names the package folder, the file, the contract and the function, and the Foundry profile when
+# FOUNDRY_PROFILE sets one, so the same function in two packages or two profiles gives two lines:
+#
+#   host-contracts-cleartext/v14/test/forge/ForkUserDecrypt.t.sol:ForkUserDecryptTest.test_x
+#   foundry/forge-fhevm-std/test/fork/TwoForks.t.sol:TwoForksTest.test_y [fhevm-debug]
+#
+# Listing compiles what is not compiled yet, and calls no network.
+#
 # Usage: ./scripts/forge-test.sh [forge test args...]
 
 set -uo pipefail
+
+if [[ "${FHEVM_TEST_LIST:-}" == "1" ]]; then
+  forge test --list --json --offline "$@" | node -e '
+    const [folder, profile] = process.argv.slice(1);
+    const suffix = profile === "" || profile === "default" ? "" : ` [${profile}]`;
+    let text = "";
+
+    process.stdin.on("data", (chunk) => (text += chunk));
+    process.stdin.on("end", () => {
+      // forge can print a line about its compiler before the JSON.
+      const tree = JSON.parse(text.slice(text.indexOf("{")));
+
+      for (const [file, contracts] of Object.entries(tree)) {
+        for (const [contract, functions] of Object.entries(contracts)) {
+          for (const name of functions) console.log(`${folder}${file}:${contract}.${name}${suffix}`);
+        }
+      }
+    });
+  ' "$(git rev-parse --show-prefix)" "${FOUNDRY_PROFILE:-}"
+  exit $?
+fi
 
 # The TEMPLATE form, not `mktemp -t forge-test`. BSD mktemp accepts a bare prefix and appends the random
 # part itself, so `-t` looked fine on macOS; GNU mktemp REQUIRES the `XXXXXX` and fails on the bare

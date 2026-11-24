@@ -204,3 +204,97 @@ Every docs folder holds a `skills/` folder. Git tracks files, not folders, so an
 The folder is committed, and no tool of the workspace reads it: no formatter, linter, compiler, test runner, link checker, or `fhevm-npm` check. Its files are written for a user of the package, in the layout of the user's project, so the rules of this workspace do not apply to them. npm never publishes the folder, because it is outside `pkg/`.
 
 `fhevm-npm check docs` checks the location and the `skills/` folder, that git does not ignore the folder, and that Prettier and ESLint, run from the package, read none of its files.
+
+<a id="r-10"></a>
+
+## R-10: List every environment variable `[GAP]`
+
+> The repository reads or sets no environment variable that npm-manifest.json does not list.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check env-vars`
+
+Evidence:
+
+- Gap, loose check: outside fhevm-npm, `check env-vars` finds a variable only where its name is written. A read whose name the code builds while it runs, such as `vm.envOr(string.concat(alias, "_RPC_URL"), ...)`, passes with a name that no list holds.
+
+An environment variable is an input that no signature shows. A reader of the code cannot find it, and two parts of the repository can give two names to the same thing. So every variable is listed in one place: `npm-manifest.json`, at the root of the repository.
+
+#### The rule
+
+1. Before you make the code read or set an environment variable that is not listed, add it to `npm-manifest.json`, in the same change.
+2. When the last use of a variable goes away, remove the variable from `npm-manifest.json`, in the same change.
+3. Before you add a variable, look for a listed one that already holds the same thing, and use it.
+
+`npm-manifest.json` has two lists, one for each kind of variable:
+
+- `envVarNames` holds the **variables of this repository**: the repository chose the name, and its code gives the name a meaning.
+- `toolEnvVarNames` holds the **variables of a tool**: a tool that the repository uses defines the name, and the repository sets it or reads it.
+
+A name is in one list only. Each list is sorted. A part of a name written `<PLACEHOLDER>` stands for any text: it lists a name that code builds while it runs, as in `<ALIAS>_RPC_URL` or `FHEVM_PARITY_REF_<GENERATION>`.
+
+`fhevm-npm check env-vars` enforces the rule, and `make check-pre` runs it:
+
+- A variable that a file reads, sets or names must be in one of the two lists.
+- A listed name with no placeholder must be used by a file.
+- In `fhevm-npm`, outside its tests, a read of `process.env` writes the name of its variable. A name that is computed there is refused, so the check finds every read of `fhevm-npm`.
+
+This rule keeps one table: the variables that change how tests run. Read it before you run tests, on a laptop or in CI.
+
+#### The names of new variables
+
+- The RPC URL of a chain is `<ALIAS>_RPC_URL`, where `<ALIAS>` is the alias of the chain in upper case, as in `SEPOLIA_RPC_URL`. It has no prefix, because the published forge library defines this name and prints it to its users. Every test reads the URL of a chain from this name, and from no other.
+- Every other new variable of this repository starts with `FHEVM_`. One that only tests read starts with `FHEVM_TEST_`.
+- A value that a test needs comes from the environment, so that a test runner and CI can see whether it is set.
+
+Some listed variables do not follow these names. They keep their names: a rename breaks the people and the workflows that set them. The previous generation is frozen, as R-04 says, so a variable that it reads cannot be renamed there.
+
+#### The variables that change how tests run
+
+Whoever launches the tests sets these, except the two that the test engine sets. The third column names the packages whose code reads or sets the variable, by their folder.
+
+| Variable                      | What it holds                                                                                                                                                                              | Packages                                                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SEPOLIA_RPC_URL`             | The RPC URL of Sepolia                                                                                                                                                                     | `host-contracts-cleartext/v13`, `host-contracts-cleartext/v14`, `foundry/forge-fhevm-std`, `hardhat/v2/e2e`, `hardhat/v3/e2e`, `hardhat/v3/fhevm-hardhat-template`, `fhevm-npm` |
+| `MAINNET_RPC_URL`             | The RPC URL of Ethereum mainnet                                                                                                                                                            | `host-contracts-cleartext/v13`, `host-contracts-cleartext/v14`, `foundry/forge-fhevm-std`, `fhevm-npm`                                                                          |
+| `ARBITRUM_RPC_URL`            | The RPC URL of Arbitrum                                                                                                                                                                    | `foundry/forge-fhevm-std`, `fhevm-npm`                                                                                                                                          |
+| `ANVIL_RPC_URL`               | The URL of a local test node. The test engine sets it.                                                                                                                                     | `foundry/forge-fhevm-std`, `fhevm-npm`                                                                                                                                          |
+| `ANVIL_PORT`                  | The port of a local test node. The test engine sets it.                                                                                                                                    | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_SKIP_RPC_TESTS`        | `true` skips every test that calls a live chain.                                                                                                                                           | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `FHEVM_FORK_FIXTURE_FLOOR`    | The block below which no fork test forks                                                                                                                                                   | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `SEPOLIA_FORK_BLOCK`          | The block that `npm run test:fork-url` forks from                                                                                                                                          | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `FOUNDRY_PROFILE`             | The Foundry profile: `fhevm-debug` selects the debug tests. A variable of Foundry.                                                                                                         | `foundry/forge-fhevm-std`                                                                                                                                                       |
+| `HARDHAT_NETWORK`             | The network of a Hardhat v2 test run. A variable of Hardhat.                                                                                                                               | `hardhat/v2/e2e`                                                                                                                                                                |
+| `MNEMONIC`                    | The mnemonic of the test accounts. A Hardhat variable.                                                                                                                                     | `hardhat/v2/e2e`, `hardhat/v2/fhevm-hardhat-template`, `hardhat/v3/e2e`                                                                                                         |
+| `SEPOLIA_PRIVATE_KEY`         | The key of the Sepolia account. A Hardhat variable.                                                                                                                                        | `hardhat/v3/fhevm-hardhat-template`                                                                                                                                             |
+| `INFURA_API_KEY`              | The Infura key that gives the Sepolia URL when `SEPOLIA_RPC_URL` is not set. A Hardhat variable.                                                                                           | `hardhat/v2/e2e`, `hardhat/v2/fhevm-hardhat-template`                                                                                                                           |
+| `ZAMA_FHEVM_API_KEY`          | The key sent to the relayer. A Hardhat variable.                                                                                                                                           | `hardhat/v2/plugin`                                                                                                                                                             |
+| `FHECOUNTER_ADDRESS`          | The address of the deployed contract that the Sepolia test calls                                                                                                                           | `hardhat/v3/fhevm-hardhat-template`                                                                                                                                             |
+| `FHEVM_TEST_REPORT`           | Where the test engine writes its report                                                                                                                                                    | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_LOGS`             | Where the test engine writes its logs                                                                                                                                                      | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_NODE_LOG_LINES`   | How many lines of a node log the test engine keeps                                                                                                                                         | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_LIVE_CHAIN_LANES` | How many lanes can hold tests that use a live chain. Unset, 1.                                                                                                                             | `fhevm-npm`                                                                                                                                                                     |
+| `FHEVM_TEST_MAX_LANES`        | The highest number of lanes of `make ci-test-engine`. Unset, 4.                                                                                                                            | The `Makefile` of the root                                                                                                                                                      |
+| `FHEVM_TEST_LIST`             | `1` makes `scripts/forge-test.sh` print the test functions that its arguments select, and run none. `fhevm-npm test-engine duplicates` sets it through the `list` field of ALL_TESTS.json. | The scripts of the root                                                                                                                                                         |
+| `FHEVM_GUID`                  | The identity of a run of the test engine, which sets it on each node it starts. Nobody else sets it.                                                                                       | `fhevm-npm`                                                                                                                                                                     |
+
+Five notes on the table:
+
+- The test engine in `fhevm-npm` reads the three RPC URL variables to know whether a test can run: a test whose variable is not set does not start. It gives each one only to the tests that declare its chain in `ALL_TESTS.json`.
+- A fork test that needs a fixed block needs an RPC URL with archive state. A test whose RPC variable is not set skips itself, or uses a public endpoint: the result then says nothing about the chain.
+- A test that sends transactions on a live chain spends real funds of the account that `MNEMONIC` or `SEPOLIA_PRIVATE_KEY` names.
+- Hardhat takes a Hardhat variable from its own store on the machine, or from the environment.
+- To set these variables for the test engine, write them in a `.env` file at the workspace root, which git ignores. `.env.example` lists them, and is committed with no value. A variable that the shell exports wins over the file.
+
+#### What counts as an environment variable
+
+- A name that code reads from the environment of its process: `vm.env…` in Solidity, `process.env` in TypeScript, `${NAME}` in a shell script that does not assign it first, `${NAME}` in a `foundry.toml`.
+- A name that code sets in the environment of a process it starts.
+- A Hardhat variable, read with `vars.get` or `configVariable`.
+- A make variable that the Makefile declares with `?=`, because make takes its value from the environment.
+- A key under `env:` in a GitHub workflow.
+
+These do not count: a variable that a shell script assigns before it reads it, a make variable that only the command line gives, and a constant of a programming language.
+
+The check does not read vendored code, the dependencies of forge, the deployment records, or prose: they belong to another repository, or they hold no code.

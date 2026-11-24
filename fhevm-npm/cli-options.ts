@@ -25,6 +25,7 @@ export const commandNames = [
   'tsconfig-paths',
   'tsc-mode',
   'test-ports',
+  'env-vars',
   'commit-scope',
   'cleartext-config',
   'generations',
@@ -582,6 +583,21 @@ Why:
     )
     .action(() => {
       selected = 'test-ports';
+    });
+  check
+    .command('env-vars')
+    .description('Check that npm-manifest.json lists every environment variable that the workspace reads or sets.')
+    .addHelpText(
+      'after',
+      `
+Why:
+  An environment variable is an input that no signature shows. With one list, in npm-manifest.json, two
+  parts of the workspace cannot give two names to the same thing, and a reader finds every variable.
+  A variable that a tool defines goes to toolEnvVarNames, and every other one to envVarNames.
+`,
+    )
+    .action(() => {
+      selected = 'env-vars';
     });
   // Rendering a committed file from a config it reads: `--check` on each compares instead of writing.
   const generate = program
