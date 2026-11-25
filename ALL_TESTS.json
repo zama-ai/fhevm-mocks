@@ -83,7 +83,7 @@
     "command": "npm run --silent test-engine:suite -w @fhevm/forge-std-dev",
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:suite -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
-    "duration": "fast",
+    "duration": "slow",
     "ci": true,
     "chains": [
       {
@@ -118,7 +118,7 @@
   "test-hh-v2-e2e": {
     "command": "npm --prefix hardhat/v2 run --silent test -w @fhevm/hardhat-plugin-v2-e2e-dev",
     "package": "hardhat-v2-e2e",
-    "duration": "fast",
+    "duration": "slow",
     "ci": true,
     "chains": [
       {
@@ -166,7 +166,7 @@
   "test-hh-v3-e2e": {
     "command": "npm --prefix hardhat/v3 run --silent test -w @fhevm/hardhat-plugin-v3-e2e-dev",
     "package": "hardhat-v3-e2e",
-    "duration": "fast",
+    "duration": "slow",
     "ci": true,
     "chains": [
       {
