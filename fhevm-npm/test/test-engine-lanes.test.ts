@@ -357,6 +357,112 @@ test('a group weighs the sum of its tests: a heavy group goes before a larger li
   ]);
 });
 
+////////////////////////////////////////////////////////////////////////////////
+// The order of a lane
+////////////////////////////////////////////////////////////////////////////////
+
+/** A test that states a duration, and the resources it reads and writes. */
+function using(id: string, duration: Duration, resources: Pick<Test, 'read' | 'write'>): InventoryEntry {
+  return { id, test: fixtureTest({ duration, ...resources }) };
+}
+
+test('a test that writes a resource joins the lane of the heaviest test that reads it, and runs after it', () => {
+  // The case of CI. In another lane, the writer would ask for the resource while the very slow reader
+  // holds it, and a waiting writer makes every later reader wait too: here, fast-reader. In the lane
+  // of the reader, the writer asks only when the reader has ended, and the short readers have ended too.
+  const entries = [
+    using('reader', 'very-slow', { read: ['folder'] }),
+    using('writer', 'slow', { write: ['folder'] }),
+    timed('fast-1', 'fast'),
+    using('fast-reader', 'fast', { read: ['folder'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 2 }), [
+    ['reader', 'writer'],
+    ['fast-1', 'fast-reader'],
+  ]);
+});
+
+test('between readers of equal weight, a writer joins the one that comes first in the inventory', () => {
+  const entries = [
+    using('first-reader', 'slow', { read: ['folder'] }),
+    using('second-reader', 'slow', { read: ['folder'] }),
+    using('writer', 'fast', { write: ['folder'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 3 }), [['first-reader', 'writer'], ['second-reader']]);
+});
+
+test('a test that writes two resources links the heaviest reader of each in one lane', () => {
+  const entries = [
+    using('reader-a', 'very-slow', { read: ['a'] }),
+    using('reader-b', 'very-slow', { read: ['b'] }),
+    using('writer', 'slow', { write: ['a', 'b'] }),
+    timed('other', 'fast'),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 3 }), [['reader-a', 'reader-b', 'writer'], ['other']]);
+});
+
+test('a reader that uses a live chain does not take the writers into the lane of the live chains', () => {
+  // The lane of the live chains runs its tests one after the other: a writer there would wait for all.
+  const entries = [
+    { id: 'fork-reader', test: fixtureTest({ chains: [SEPOLIA_FORK], duration: 'slow', read: ['folder'] }) },
+    using('writer', 'fast', { write: ['folder'] }),
+    timed('other', 'fast'),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 3 }), [['fork-reader'], ['writer'], ['other']]);
+});
+
+test('in a shard, a writer joins the heaviest reader of its own shard', () => {
+  // Each machine has its own copy of the workspace: a reader in another shard never meets the writer.
+  const entries = [
+    using('heavy-reader', 'very-slow', { read: ['folder'] }),
+    using('shard-reader', 'slow', { read: ['folder'] }),
+    timed('x', 'slow'),
+    using('writer', 'fast', { write: ['folder'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 3, shard: { number: 1, count: 2 } }), [['heavy-reader']]);
+  assert.deepEqual(lanesOf({ entries, maximum: 3, shard: { number: 2, count: 2 } }), [
+    ['shard-reader', 'writer'],
+    ['x'],
+  ]);
+});
+
+test('a reader of two resources joins the writers of one of them only, the first written in the inventory', () => {
+  // Joined to both, it would put the two writers in one lane, one after the other.
+  const entries = [
+    using('reader', 'slow', { read: ['a', 'b'] }),
+    using('writer-a', 'slow', { write: ['a'] }),
+    using('writer-b', 'slow', { write: ['b'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 3 }), [['reader', 'writer-a'], ['writer-b']]);
+});
+
+test('a reader that writes another resource still runs before the writers it joined', () => {
+  const entries = [
+    using('writer', 'fast', { write: ['a'] }),
+    using('reader', 'very-slow', { read: ['a'], write: ['b'] }),
+    timed('x', 'fast'),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 2 }), [['reader', 'writer'], ['x']]);
+});
+
+test('the tests of a lane that write a resource keep the order of the inventory between them', () => {
+  const entries = [
+    using('writer-b', 'fast', { write: ['b'] }),
+    using('writer-a', 'fast', { write: ['a'] }),
+    timed('other', 'fast'),
+    using('writer-b-again', 'fast', { write: ['b'] }),
+  ];
+
+  assert.deepEqual(lanesOf({ entries, maximum: 1 }), [['other', 'writer-b', 'writer-a', 'writer-b-again']]);
+});
+
 test('a maximum of 1 gives one lane, with every test in the order of the inventory', () => {
   const entries = [entry('test-c'), entry('test-a', 9), entry('test-d', 8), entry('test-b', 9), entry('test-e')];
 

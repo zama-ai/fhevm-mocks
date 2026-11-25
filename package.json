@@ -20,9 +20,9 @@
     "test-engine:fork-devnet": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest)$'",
     "test-engine:fork-mainnet": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForkUserDecryptTest|ForkCleartextContextTest)$'",
     "test-engine:fork-testnet": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(TestnetCleartextUpgradeTest)$'",
-    "test-engine:fork-transient-storage": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$'",
+    "test-engine:fork-transient-storage": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --threads 2 --match-contract '^(ForgeTransientStorageSemanticsTest)$' --no-match-test '^(test_aTransientWriteOutlivesTheCallThatMadeIt|test_nothingLeaksFromOneTestIntoAnother)\\('",
     "test-engine:suite": "npm run test-engine:suite:forge && npm run test:harness:run -w @fhevm/host-contracts-cleartext-v13-dev && npm run test:create2-deploy-e2e -w @fhevm/host-contracts-cleartext-v13-dev && npm run test:create2-hotfix-e2e -w @fhevm/host-contracts-cleartext-v13-dev",
-    "test-engine:suite:forge": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --no-match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|TestnetCleartextUpgradeTest|ForkUserDecryptTest|ForkCleartextContextTest|ForgeTransientStorageSemanticsTest)$'",
+    "test-engine:suite:forge": "cd host-contracts-cleartext/v13 && ../../scripts/forge-test.sh --no-match-contract '^(ForkForgeVariantMeasurementTest|ForkForgeVariantUpgradeTest|TestnetCleartextUpgradeTest|ForkUserDecryptTest|ForkCleartextContextTest|ForgeTransientStorageSemanticsTest)$' && ../../scripts/forge-test.sh --match-contract '^(ForgeTransientStorageSemanticsTest)$' --match-test '^(test_aTransientWriteOutlivesTheCallThatMadeIt|test_nothingLeaksFromOneTestIntoAnother)\\('",
     "test-engine:templates": "npm run test:templates:run -w @fhevm/host-contracts-cleartext-v13-dev",
     "test:ci": "make ci"
   },

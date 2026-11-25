@@ -37,6 +37,18 @@ jobs:
       contents: 'read' # Required to checkout repository code
     steps:
       # -----------------------------------------------------------------------
+      # 0. RunsOn
+      #    Required by `extras=s3-cache`, and it must be the first step. The
+      #    runner points ACTIONS_RESULTS_URL at the local RunsOn cache proxy,
+      #    and only this action gives that proxy the real GitHub results URL.
+      #    Without it, every actions/upload-artifact call below fails with
+      #    `Unexpected token 'O', "Original A"... is not valid JSON`.
+      #    The same pin as the workflows of zama-ai/kms.
+      # -----------------------------------------------------------------------
+      - name: Set up RunsOn
+        uses: runs-on/action@cd2b598b0515d39d78c38a02d529db87d2196d1e # v2.0.3
+
+      # -----------------------------------------------------------------------
       # 1. Checkout
       #    Pinned to a full commit SHA (not a mutable tag) to prevent supply
       #    chain attacks. persist-credentials: false removes the Git token from
@@ -181,6 +193,26 @@ jobs:
           ./fhevm-npm-cli test-engine run --inventory ALL_TESTS.json --ci --verbose --max-lanes 4
 
       # -----------------------------------------------------------------------
+      # 8b. Check that the tests left the worktree clean
+      #    Step 7 ends on a clean worktree: `check-generated` requires one, and
+      #    git ignores every build output. A test that leaves a file behind or
+      #    changes a tracked one, such as a lockfile a consumer test rewrites,
+      #    fails here. The engine's own outputs, test-report.json and
+      #    test-logs/, are ignored by git. It runs after a failed test step too.
+      # -----------------------------------------------------------------------
+      - name: Check that the tests left the worktree clean
+        if: ${{ !cancelled() }}
+        run: |
+          changes="$(git status --porcelain)"
+          if [ -n "${changes}" ]; then
+            echo "::error::The tests left the working tree changed. Each test must leave it as it found it."
+            printf '%s\n' "${changes}"
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "✅ The tests left the working tree clean."
+
+      # -----------------------------------------------------------------------
       # 9. Check the report
       #    The report of the run gives every selected test one state, and no
       #    test with "ci": true is missing from it. Every engine step names the
@@ -232,3 +264,34 @@ jobs:
           path: test-logs/
           if-no-files-found: warn
           retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Lint the workflows themselves, on their own runner.
+  #
+  # The same job as in sdk-cleartext-tests.yml, so that this workflow can replace it without
+  # dropping the lint. It is not a step of run-tests: it needs no build, so it should not wait
+  # behind one.
+  #
+  # zizmor-action uploads its findings as SARIF through codeql-action, so they land in the
+  # repository's code-scanning view like every other SAST result in the org. That upload is what
+  # `security-events: write` is for.
+  # ---------------------------------------------------------------------------
+  zizmor:
+    name: sdk-cleartext-tests-using-engine/zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: 'read' # Required to checkout repository code
+      security-events: 'write' # Required to write security events for SAST results
+    steps:
+      # A shallow checkout is enough: zizmor reads the workflow files as they are.
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: 'false'
+
+      - name: Run zizmor 🌈
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          persona: pedantic
+          version: 1.17.0
