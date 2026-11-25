@@ -7,7 +7,9 @@ import { fixedPortsOfSpec, portsOfSpec } from './port-spec.ts';
 /**
  * A lane: tests that run one after the other, in the order of the inventory, with the tests that write a
  * resource last. The lanes of a run go side by side. Two tests that conflict are always in the same
- * lane: they state a common fixed port, or each of them uses a live chain.
+ * lane: they state a common fixed port, each of them uses a live chain, they send transactions with the
+ * same funded account, or they write the same resource. The heaviest reader of a written resource joins
+ * its writers too: see `writersJoinedByReader`.
  */
 export type Lane = {
   /** The number of the lane, from 1. */
@@ -111,8 +113,10 @@ export const LIVE_CHAIN_LANES_VARIABLE = 'FHEVM_TEST_LIVE_CHAIN_LANES';
  * - The funded account of a live chain. The tests that send transactions on one chain sign with one
  *   account, whose transactions are numbered: two of them at the same time would use the same number.
  * - A resource that the test writes, by the name that the inventory gives it. Two tests that write one
- *   resource never run at the same time, so they share a lane. A test that reads a resource is not kept
- *   in the lane of the test that writes it: the engine makes one wait for the other while the run goes.
+ *   resource never run at the same time, so they share a lane. In a run, the heaviest test that reads
+ *   the resource shares it too, so it is in the lane of the writers: see `writersJoinedByReader`. The
+ *   other readers stay in their own lanes: the engine makes them and the writers wait for each other
+ *   while the run goes.
  */
 type Resource = number | string;
 
@@ -169,6 +173,44 @@ function resourcesByTest(input: ResourcesInput): ReadonlyMap<string, readonly Re
       ];
     }),
   );
+}
+
+/**
+ * The written resource that each reader shares with its writers, by the ID of the reader. A test that
+ * writes a resource waits for every test that reads it, and while it waits, every later reader waits
+ * behind it. So each written resource goes to the group of its heaviest reader, and the writer runs after
+ * that reader, in its lane: it asks for the resource when the longest use of it has ended. At equal
+ * weight, the reader that comes first in the inventory gets it.
+ *
+ * Give the tests of one shard only: each machine has its own copy of the workspace, so a reader of another
+ * shard never meets the writer. Some readers are left out, and their writers keep a lane of their own:
+ * - A reader that uses a live chain, or a funded account: it would take the writers into the lanes of the
+ *   live chains, whose tests run one after the other on every machine.
+ * - A reader that already got a resource: it would put the writers of two resources in one lane.
+ *
+ * A resource that no reader can take, as one that no test reads, goes to no reader.
+ */
+function writersJoinedByReader(entries: readonly InventoryEntry[]): ReadonlyMap<string, Resource> {
+  const written = new Set(entries.flatMap((entry) => resourcesOfTest(entry.test).write));
+  const joined = new Map<string, Resource>();
+  const canJoin = (entry: InventoryEntry): boolean => {
+    return !joined.has(entry.id) && !needsLiveChain(entry.test) && fundedAccountsOfTest(entry.test).length === 0;
+  };
+
+  // The resources in the order the inventory first writes them, so the result depends on the inventory alone.
+  for (const name of written) {
+    const readers = entries.filter((entry) => resourcesOfTest(entry.test).read.includes(name) && canJoin(entry));
+    // The first of the heaviest: a later reader replaces it only when it weighs more.
+    const heaviest = readers.reduce<InventoryEntry | undefined>((best, entry) => {
+      return best === undefined || weightOfTest(entry.test) > weightOfTest(best.test) ? entry : best;
+    }, undefined);
+
+    if (heaviest !== undefined) {
+      joined.set(heaviest.id, `${WRITTEN_RESOURCE}${name}`);
+    }
+  }
+
+  return joined;
 }
 
 /** Tests that conflicts link, directly or through other tests of the same list. */
@@ -360,8 +402,17 @@ export function planRun(input: GenerateLanesInput): RunPlan {
   const resourcesOf = resourcesByTest({ entries, liveChainLanes });
   const shardOf = shardByTest({ entries, resourcesOf, count: shard.count });
   const ofShard = entries.filter((entry) => shardOf.get(entry.id) === shard.number);
-  const lanes = fill({ groups: groupsOf({ entries: ofShard, resourcesOf }), count: maximum });
-  const inLaneOrder = laneOrder(entries);
+  // The readers that join writers are those of the shard: see `writersJoinedByReader`.
+  const joined = writersJoinedByReader(ofShard);
+  const laneResourcesOf = new Map(
+    [...resourcesOf].map(([id, resources]) => {
+      const written = joined.get(id);
+
+      return [id, written === undefined ? resources : [...resources, written]];
+    }),
+  );
+  const lanes = fill({ groups: groupsOf({ entries: ofShard, resourcesOf: laneResourcesOf }), count: maximum });
+  const inLaneOrder = laneOrder({ entries, joinedReaders: new Set(joined.keys()) });
 
   return {
     shardOf,
@@ -376,18 +427,29 @@ export function planRun(input: GenerateLanesInput): RunPlan {
   };
 }
 
+type LaneOrderInput = {
+  /** The tests of the selection, in the order of the inventory. */
+  readonly entries: readonly InventoryEntry[];
+  /** The IDs of the readers that joined writers: see `writersJoinedByReader`. */
+  readonly joinedReaders: ReadonlySet<string>;
+};
+
 /**
  * The order of the tests of a lane: the tests that write a resource come last, and the order of the
- * inventory decides otherwise. A test that writes a resource waits for every test of another lane that
- * reads it, and its lane waits with it. Last, it waits only for what is left of those readers, while the
- * tests before it run. The order depends on the inventory alone, so the lanes stay the same on every
- * machine.
+ * inventory decides otherwise. A reader that joined writers comes before them, even when it writes a
+ * resource too. A test that writes a resource waits for every test that reads it, and its lane waits with
+ * it. Last, it waits only for what is left of those readers, while the tests before it run. The order
+ * depends on the inventory alone, so the lanes stay the same on every machine.
  */
-function laneOrder(entries: readonly InventoryEntry[]): (a: InventoryEntry, b: InventoryEntry) => number {
-  const position = new Map(entries.map((entry, index) => [entry.id, index]));
-  const writes = (entry: InventoryEntry): number => (resourcesOfTest(entry.test).write.length > 0 ? 1 : 0);
+function laneOrder(input: LaneOrderInput): (a: InventoryEntry, b: InventoryEntry) => number {
+  const position = new Map(input.entries.map((entry, index) => [entry.id, index]));
+  const last = (entry: InventoryEntry): number => {
+    const writes = resourcesOfTest(entry.test).write.length > 0;
 
-  return (a, b) => writes(a) - writes(b) || (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0);
+    return writes && !input.joinedReaders.has(entry.id) ? 1 : 0;
+  };
+
+  return (a, b) => last(a) - last(b) || (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0);
 }
 
 export type ShardsOfSelectionInput = Pick<GenerateLanesInput, 'entries' | 'liveChainLanes'> & {

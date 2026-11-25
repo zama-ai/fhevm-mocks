@@ -194,13 +194,14 @@ give the same lanes on every machine:
    provider limits the requests that one key may send, so such tests never run at the same time.
 3. The tests that send transactions on the same live chain share one lane, always: they sign with
    one account, and two transactions at the same time would take the same number.
-4. Two tests that write the same resource share a lane. See
+4. Two tests that write the same resource share a lane. The heaviest test of the shard that reads
+   the resource, by `duration`, joins that lane too, with the tests it shares a port with. See
    [Keep a test away from a shared folder](#keep-a-test-away-from-a-shared-folder).
 5. The engine balances the lanes by the `duration` of their tests. A `slow` test weighs as much as
    20 `fast` tests, and a `very-slow` test as much as 60. A test with no `duration` weighs 20.
 6. Inside a lane, the tests run in the order of the inventory, with the tests that write a resource
-   last. A test that writes a resource waits for the tests of other lanes that read it, and its lane
-   waits with it. Last in its lane, it waits only for what is left of them.
+   last. A test that writes a resource waits for the tests that read it, and its lane waits with it.
+   After the heaviest reader, in its lane, it waits only for what is left of the others.
 
 To print the lanes of a run without running it, give the same selection and maximum to `lanes`:
 
@@ -209,8 +210,8 @@ To print the lanes of a run without running it, give the same selection and maxi
 ```
 
 ```text
-lane 1  port 8547  test-hh-v3-plugin -> test-hh-v3-e2e -> test-consumer-hh-v3-template -> test-forge-std-anvil-refusals
-lane 2  port 8546,8548  test-hh-v3-template -> test-consumer-hh-v3-plugin-esm -> test-forge-std-anvil -> test-forge-std-anvil-mirror
+lane 1  no shared resource  test-hh-v3-e2e
+lane 2  port 8546-8548  test-hh-v3-plugin -> test-hh-v3-template -> test-consumer-hh-v3-plugin-esm -> test-consumer-hh-v3-template -> test-forge-std-anvil -> test-forge-std-anvil-refusals -> test-forge-std-anvil-mirror
 ```
 
 If the plan of your RPC provider allows several tests at the same time, give the number with
@@ -255,9 +256,20 @@ tests share a resource when they state the same name.
 | Both write the resource                         | No. They share a lane.        |
 | They name no common resource                    | Yes                           |
 
-A test that reads a resource stays in its own lane. Before a test starts, the engine takes all its
-resources in one step. When another test holds one of them in a way that excludes it, the test
-waits, and its lane with it:
+The heaviest test that reads a resource runs in the lane of the tests that write it, before them. At
+equal `duration`, the first one in the inventory does. Some readers never join writers, and the writers
+then keep a lane of their own:
+
+- A reader that uses a live chain or a funded account. It would take the writers into the lane of the
+  live chains, whose tests run one after the other.
+- A reader that already joined the writers of another resource. It would put the writers of two
+  resources in one lane.
+- A reader in another shard. Each machine has its own copy of the workspace.
+
+The other readers stay in their own lanes. Before a test starts, the engine takes all its resources in
+one step. When another test holds one of them in a way that excludes it, the test waits, and its lane
+with it. A test that writes a resource and waits also makes every reader that comes after it wait, so
+that readers that keep coming cannot keep it waiting:
 
 ```text
 ⏸ waiting  lane 3  test-cleartext-v-cur-templates  for a resource that test-hh-v2-plugin, test-hh-v2-template use

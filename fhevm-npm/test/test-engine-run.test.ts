@@ -654,8 +654,11 @@ test('the time of a lane says how long it waited for a resource, so that the slo
     context,
     inventory: {
       $schema: SCHEMA,
-      'test-writer': fixtureTest({ command: 'sleep 2.2', duration: 'very-slow', write: ['folder'] }),
-      'test-reader': fixtureTest({ command: 'sleep 0.3', duration: 'fast', read: ['folder'] }),
+      // The heaviest reader takes the lane of the writer, and ends at once. The writer then waits for the
+      // long reader, in the other lane.
+      'test-first-reader': fixtureTest({ command: 'true', duration: 'very-slow', read: ['folder'] }),
+      'test-long-reader': fixtureTest({ command: 'sleep 2.2', duration: 'slow', read: ['folder'] }),
+      'test-writer': fixtureTest({ command: 'sleep 0.3', duration: 'fast', write: ['folder'] }),
     },
   });
 
@@ -665,22 +668,28 @@ test('the time of a lane says how long it waited for a resource, so that the slo
   const laneOf = (id: string): number | undefined => report.tests[id]?.lane;
   const lanes = report.timing?.lanes ?? [];
   const writer = lanes.find((lane) => lane.lane === laneOf('test-writer'));
-  const reader = lanes.find((lane) => lane.lane === laneOf('test-reader'));
+  const reader = lanes.find((lane) => lane.lane === laneOf('test-long-reader'));
 
   assert.equal(run.status, 0, run.stderr);
-  assert.notEqual(laneOf('test-writer'), laneOf('test-reader'), 'a reader and a writer are in two lanes');
-  assert.match(lines, new RegExp(`^lane ${String(laneOf('test-reader'))} {2}1 test\\(s\\) {2}0s, and waited 2s$`, 'm'));
-  assert.match(lines, new RegExp(`^lane ${String(laneOf('test-writer'))} {2}1 test\\(s\\) {2}2s$`, 'm'));
-  assert.equal(writer?.waitedMilliseconds, 0);
+  assert.equal(laneOf('test-writer'), laneOf('test-first-reader'), 'the writer is in the lane of its heaviest reader');
+  assert.notEqual(laneOf('test-writer'), laneOf('test-long-reader'), 'the long reader is in the other lane');
+  assert.match(lines, new RegExp(`^lane ${String(laneOf('test-writer'))} {2}2 test\\(s\\) {2}0s, and waited 2s$`, 'm'));
+  assert.match(lines, new RegExp(`^lane ${String(laneOf('test-long-reader'))} {2}1 test\\(s\\) {2}2s$`, 'm'));
+  // A lane that gets its resources at once still awaits them: on a loaded machine, that takes a few
+  // milliseconds.
   assert.ok(
-    reader !== undefined && reader.waitedMilliseconds >= 2000,
-    `the reader waited ${String(reader?.waitedMilliseconds)}ms`,
+    reader !== undefined && reader.waitedMilliseconds < 100,
+    `the long reader waited ${String(reader?.waitedMilliseconds)}ms`,
+  );
+  assert.ok(
+    writer !== undefined && writer.waitedMilliseconds >= 2000,
+    `the writer waited ${String(writer?.waitedMilliseconds)}ms`,
   );
 
-  // The reader's lane took its wait and its test: together, about as long as the tests of the run.
+  // The writer's lane took its wait and its tests: together, about as long as the tests of the run.
   const tests = report.timing?.testsMilliseconds ?? 0;
 
-  assert.ok(Math.abs(reader.waitedMilliseconds + reader.durationMilliseconds - tests) < 300);
+  assert.ok(Math.abs(writer.waitedMilliseconds + writer.durationMilliseconds - tests) < 300);
 });
 
 ////////////////////////////////////////////////////////////////////////////////

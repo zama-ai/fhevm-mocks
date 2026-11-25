@@ -200,7 +200,7 @@ test('a name in both lists, and a name that is read and never written, are rejec
   );
 });
 
-test('two tests that write one resource share a lane, and a test that reads it does not join them', () => {
+test('two tests that write one resource share a lane with its heaviest reader, and the other readers stay apart', () => {
   const entries = [
     { id: 'test-writes-a', test: fixtureTest({ write: ['foo'] }) },
     { id: 'test-reads-a', test: fixtureTest({ read: ['foo'] }) },
@@ -209,7 +209,8 @@ test('two tests that write one resource share a lane, and a test that reads it d
   ];
   const lanes = generateLanes({ entries, maximum: 4 }).map((lane) => lane.entries.map((entry) => entry.id));
 
-  assert.deepEqual(lanes, [['test-writes-a', 'test-writes-b'], ['test-reads-a'], ['test-reads-b']]);
+  // The two readers weigh the same: the first one in the inventory joins the writers, before them.
+  assert.deepEqual(lanes, [['test-reads-a', 'test-writes-a', 'test-writes-b'], ['test-reads-b']]);
 
   // Each machine has its own copy of the workspace: two shards take the two writers apart.
   const writers = entries.filter((entry) => entry.id.startsWith('test-writes'));
@@ -241,6 +242,9 @@ test('in a run, a test that writes a resource never runs beside a test that read
     context,
     inventory: {
       $schema: SCHEMA,
+      // The heaviest reader takes the lane of the writer, and ends at once: the writer then asks for the
+      // resource while the two other readers, in their own lanes, hold it.
+      'test-reads-first': fixtureTest({ command: 'true', duration: 'very-slow', read: ['foo'] }),
       // The two readers come first: a reader that comes after a writer that waits would wait behind it.
       'test-reads-a': fixtureTest({ command: reader('a', 'b'), read: ['foo'] }),
       'test-reads-b': fixtureTest({ command: reader('b', 'a'), read: ['foo'] }),
@@ -252,10 +256,20 @@ test('in a run, a test that writes a resource never runs beside a test that read
   const { tests } = run.report;
 
   assert.equal(run.status, 0, run.stdout.join('\n'));
-  assert.deepEqual(run.states, { 'test-reads-a': 'passed', 'test-reads-b': 'passed', 'test-writes': 'passed' });
-  assert.equal(new Set(Object.values(tests).map((entry) => entry.lane)).size, 3, 'the three tests have three lanes');
+  assert.deepEqual(run.states, {
+    'test-reads-first': 'passed',
+    'test-reads-a': 'passed',
+    'test-reads-b': 'passed',
+    'test-writes': 'passed',
+  });
+  assert.equal(
+    tests['test-writes']?.lane,
+    tests['test-reads-first']?.lane,
+    'the writer is in the lane of its heaviest reader',
+  );
+  assert.equal(new Set(Object.values(tests).map((entry) => entry.lane)).size, 3, 'the four tests have three lanes');
   assert.match(
     run.stdout.join('\n'),
-    /⏸ waiting  lane 3  test-writes  for a resource that test-reads-a, test-reads-b use$/m,
+    /⏸ waiting  lane 1  test-writes  for a resource that test-reads-a, test-reads-b use$/m,
   );
 });
