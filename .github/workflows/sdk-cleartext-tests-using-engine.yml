@@ -176,18 +176,30 @@ jobs:
       #    its test in front. The lanes run at the same time, so their lines mix;
       #    test-logs/<id>.log holds each test in order, and step 12 keeps it.
       #
-      #    No RPC URL is set, so the tests that need a live chain are
-      #    "unavailable": the engine does not start them, and the run still
-      #    passes. To run them, give SEPOLIA_RPC_URL and MAINNET_RPC_URL to this
-      #    step from secrets. FHEVM_SKIP_RPC_TESTS is not set here, unlike
-      #    sdk-cleartext-tests.yml: the offline forge suite sets it in its own
-      #    script, and setting it here would make a fork test skip even with a
-      #    URL.
+      #    The tests that need a live chain read its RPC URL from
+      #    SEPOLIA_RPC_URL, MAINNET_RPC_URL or ARBITRUM_RPC_URL. The step builds
+      #    the three QuickNode URLs from two secrets, FHEVM_QUICKNODE_ENDPOINT_NAME
+      #    and FHEVM_QUICKNODE_TOKEN_ID:
+      #      https://<endpoint>.<network>.quiknode.pro/<token>
+      #    The network is ethereum-sepolia for Sepolia and arbitrum-mainnet for
+      #    Arbitrum One. Ethereum mainnet has no network part:
+      #      https://<endpoint>.quiknode.pro/<token>
+      #    The engine gives each test only the variables of the chains it
+      #    declares. When either secret is missing, the three variables are
+      #    empty, the engine marks these tests "unavailable" and does not start
+      #    them, and the run still passes.
+      #    FHEVM_SKIP_RPC_TESTS is not set here, unlike sdk-cleartext-tests.yml:
+      #    the offline forge suite sets it in its own script, and setting it
+      #    here would make a fork test skip even with a URL.
       #
       #    The ulimit is the js-sdk workflow's: hardhat and forge open many files
       #    at once under the harness tests.
       # -----------------------------------------------------------------------
       - name: Test everything
+        env:
+          SEPOLIA_RPC_URL: ${{ secrets.FHEVM_QUICKNODE_ENDPOINT_NAME != '' && secrets.FHEVM_QUICKNODE_TOKEN_ID != '' && format('https://{0}.ethereum-sepolia.quiknode.pro/{1}', secrets.FHEVM_QUICKNODE_ENDPOINT_NAME, secrets.FHEVM_QUICKNODE_TOKEN_ID) || '' }}
+          MAINNET_RPC_URL: ${{ secrets.FHEVM_QUICKNODE_ENDPOINT_NAME != '' && secrets.FHEVM_QUICKNODE_TOKEN_ID != '' && format('https://{0}.quiknode.pro/{1}', secrets.FHEVM_QUICKNODE_ENDPOINT_NAME, secrets.FHEVM_QUICKNODE_TOKEN_ID) || '' }}
+          ARBITRUM_RPC_URL: ${{ secrets.FHEVM_QUICKNODE_ENDPOINT_NAME != '' && secrets.FHEVM_QUICKNODE_TOKEN_ID != '' && format('https://{0}.arbitrum-mainnet.quiknode.pro/{1}', secrets.FHEVM_QUICKNODE_ENDPOINT_NAME, secrets.FHEVM_QUICKNODE_TOKEN_ID) || '' }}
         run: |
           ulimit -n 65536
           ./fhevm-npm-cli test-engine run --inventory ALL_TESTS.json --ci --verbose --max-lanes 4
