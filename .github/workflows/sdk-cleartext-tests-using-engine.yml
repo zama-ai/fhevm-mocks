@@ -244,3 +244,34 @@ jobs:
           path: test-logs/
           if-no-files-found: warn
           retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Lint the workflows themselves, on their own runner.
+  #
+  # The same job as in sdk-cleartext-tests.yml, so that this workflow can replace it without
+  # dropping the lint. It is not a step of run-tests: it needs no build, so it should not wait
+  # behind one.
+  #
+  # zizmor-action uploads its findings as SARIF through codeql-action, so they land in the
+  # repository's code-scanning view like every other SAST result in the org. That upload is what
+  # `security-events: write` is for.
+  # ---------------------------------------------------------------------------
+  zizmor:
+    name: sdk-cleartext-tests-using-engine/zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: 'read' # Required to checkout repository code
+      security-events: 'write' # Required to write security events for SAST results
+    steps:
+      # A shallow checkout is enough: zizmor reads the workflow files as they are.
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: 'false'
+
+      - name: Run zizmor 🌈
+        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          persona: pedantic
+          version: 1.17.0
