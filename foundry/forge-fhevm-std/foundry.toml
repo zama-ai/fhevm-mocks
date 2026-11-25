@@ -27,6 +27,14 @@ out = "out-fhevm-debug"
 cache_path = "cache-fhevm-debug"
 remappings = ["@fhevm/solidity/config/ZamaConfig.sol=pkg/src/config/DebugZamaConfig.sol"]
 
+# FHETest compiled against fhevm release/0.14.x's ZamaConfig.sol (adds BSC Testnet, chain 97), for
+# `test/fheTest/deploy.sh --zama-config release-0.14.x`. Own `out` and `cache_path`, like
+# `fhevm-debug`, so the test build's artifacts never carry these addresses.
+[profile.zama-config-release-0-14-x]
+out = "out-zama-config-release-0.14.x"
+cache_path = "cache-zama-config-release-0.14.x"
+remappings = ["@fhevm/solidity/config/ZamaConfig.sol=test/fheTest/zama-config/release-0.14.x/ZamaConfig.sol"]
+
 # LINT runs here, and nowhere near the shared artifacts. `forge lint` writes a compilation cache of its
 # own shape, and a `cache/solidity-files-cache.json` left behind by it makes every later `forge test`
 # report "No tests found in project!" -- and exit 0, so a whole test tier passes having run nothing.
@@ -65,3 +73,8 @@ mainnet = "https://ethereum-rpc.publicnode.com"
 # Declared on purpose with a variable nothing sets: test/internal/DebugZamaConfig.t.sol proves that a declared
 # alias forge cannot read fails RENDERED, and is never replaced by a default (forge-std's rule).
 needs_env = "${FORGE_FHEVM_STD_UNSET_FOR_TESTS}"
+
+# The vendored upstream ZamaConfig.sol keeps fhevm's own formatting (prettier), so it still diffs cleanly
+# against its source; forge fmt would rewrite it.
+[fmt]
+ignore = ["test/fheTest/zama-config/**"]
