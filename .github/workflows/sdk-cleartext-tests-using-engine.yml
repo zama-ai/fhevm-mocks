@@ -193,6 +193,26 @@ jobs:
           ./fhevm-npm-cli test-engine run --inventory ALL_TESTS.json --ci --verbose --max-lanes 4
 
       # -----------------------------------------------------------------------
+      # 8b. Check that the tests left the worktree clean
+      #    Step 7 ends on a clean worktree: `check-generated` requires one, and
+      #    git ignores every build output. A test that leaves a file behind or
+      #    changes a tracked one, such as a lockfile a consumer test rewrites,
+      #    fails here. The engine's own outputs, test-report.json and
+      #    test-logs/, are ignored by git. It runs after a failed test step too.
+      # -----------------------------------------------------------------------
+      - name: Check that the tests left the worktree clean
+        if: ${{ !cancelled() }}
+        run: |
+          changes="$(git status --porcelain)"
+          if [ -n "${changes}" ]; then
+            echo "::error::The tests left the working tree changed. Each test must leave it as it found it."
+            printf '%s\n' "${changes}"
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "✅ The tests left the working tree clean."
+
+      # -----------------------------------------------------------------------
       # 9. Check the report
       #    The report of the run gives every selected test one state, and no
       #    test with "ci": true is missing from it. Every engine step names the
