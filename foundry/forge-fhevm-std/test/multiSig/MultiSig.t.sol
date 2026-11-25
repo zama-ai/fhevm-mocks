@@ -18,7 +18,7 @@ interface IACL {
     function multicall(bytes[] calldata data) external;
 }
 
-/// Port of fhevm4/library-solidity/test/multiSig/MultiSig.ts.
+/// Port of fhevm/library-solidity/test/multiSig/MultiSig.ts.
 ///
 ///   instance.createEncryptedInput(c, u) + input.add64(v)  -> encryptUint64(v, c, u)
 ///   userDecryptSingleHandle(h, c, instance, signer, ...)  -> decrypt(h, c, walletLabel)
