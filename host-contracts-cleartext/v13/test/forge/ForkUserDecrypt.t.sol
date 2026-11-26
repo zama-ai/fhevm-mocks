@@ -19,6 +19,7 @@ import {
     SignerSignaturePair,
     UserDecryptRequestV1
 } from "../../pkg/forge/src/shared/LibKmsVerifier.sol";
+import {ForkBlock} from "../utils/ForkBlock.sol";
 
 interface IUUPSProxy {
     function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
@@ -68,6 +69,8 @@ interface IPlaintextsView {
  *      decrypt path: the domain, the permit, the ACL walk and the payload.
  *
  *          MAINNET_RPC_URL=https://ethereum-rpc.publicnode.com forge test --match-contract ForkUserDecrypt
+ *
+ *      MAINNET_FORK_BLOCK=<block> pins the fork (the engine sets it from ALL_TESTS.json); unset, the latest block.
  */
 contract ForkUserDecryptTest is Test {
     address internal constant MAINNET_ACL = 0xcA2E8f1F656CD25C01F05d0b243Ab1ecd4a8ffb6;
@@ -87,7 +90,7 @@ contract ForkUserDecryptTest is Test {
         string memory rpc = vm.envOr("MAINNET_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return;
 
-        vm.createSelectFork(rpc);
+        ForkBlock.createSelectFork(rpc, "MAINNET_FORK_BLOCK");
         forked = true;
         alice = vm.addr(ALICE_PK);
         publicKey = abi.encodePacked(keccak256("transport key"));

@@ -145,3 +145,36 @@ test('a command that names the RPC URL variable of a live chain the test does no
     },
   );
 });
+
+test('a test that forks one chain at two different blocks is rejected', (context) => {
+  const at = (block: number | null | undefined) => ({
+    chainid: 1,
+    fhevm: 'mainnet',
+    runtime: 'forge-fork',
+    ...(block === undefined ? {} : { block }),
+  });
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: './ALL_TESTS.schema.json',
+      // Two forks of mainnet, at two blocks: one MAINNET_FORK_BLOCK cannot say both.
+      'test-a': fixtureTest({ chains: [at(100), at(200)] as never }),
+      // A pinned fork and an unpinned one of the same chain: the same.
+      'test-b': fixtureTest({ chains: [at(100), at(undefined)] as never }),
+      // Two forks at the same block, and a fork whose block is still to find: accepted.
+      'test-c': fixtureTest({ chains: [at(100), at(100)] as never }),
+      'test-d': fixtureTest({ chains: [at(null)] as never }),
+    },
+  });
+
+  assert.throws(
+    () => loadInventory({ inventoryFile: repository.inventoryFile, schemaFile: undefined }),
+    (error: Error) => {
+      assert.match(error.message, /2 test\(s\) that fork one chain at more than one block/);
+      assert.match(error.message, /test-a: forks chain 1 at blocks 100 and 200/);
+      assert.match(error.message, /test-b: forks chain 1 at blocks 100 and latest/);
+      assert.doesNotMatch(error.message, /test-c|test-d/);
+      return true;
+    },
+  );
+});

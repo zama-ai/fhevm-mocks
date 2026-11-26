@@ -608,6 +608,43 @@ test('a test gets the RPC URL of a live chain only when it declares that chain',
   assert.equal(process.env['SEPOLIA_RPC_URL'], 'https://sepolia.example.invalid');
 });
 
+test('a test gets the fork block of a chain only when it pins one', async (context) => {
+  const mainnetAt = (block?: number | null): Chain =>
+    block === undefined
+      ? { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' }
+      : { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork', block };
+  const seen = (file: string): string => `env | grep -E '_FORK_BLOCK=' | sort | tr '\\n' ' ' > ${file}`;
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-pinned': fixtureTest({ command: seen('seen-pinned'), chains: [mainnetAt(26493782)] }),
+      'test-latest': fixtureTest({ command: seen('seen-latest'), chains: [mainnetAt()] }),
+      'test-to-find': fixtureTest({ command: seen('seen-to-find'), chains: [mainnetAt(null)] }),
+      'test-local': fixtureTest({ command: seen('seen-local') }),
+    },
+  });
+
+  // A block left in the shell must not move a test that pins none.
+  withEnvironment({
+    context,
+    variables: {
+      MAINNET_RPC_URL: 'https://mainnet.example.invalid',
+      MAINNET_FORK_BLOCK: '1',
+      SEPOLIA_FORK_BLOCK: '2',
+    },
+  });
+
+  const run = await captureEngine({ context, argv: ['run', '--root', repository.root, '--max-lanes', '2'] });
+  const read = (file: string): string => readFileSync(join(repository.root, file), 'utf8');
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(read('seen-pinned'), 'MAINNET_FORK_BLOCK=26493782 ');
+  assert.equal(read('seen-latest'), '');
+  assert.equal(read('seen-to-find'), '');
+  assert.equal(read('seen-local'), '');
+});
+
 test('a run ends with the time of each lane, of the build, of the tests and of the whole run', async (context) => {
   const repository = writeFixtureRepository({
     context,

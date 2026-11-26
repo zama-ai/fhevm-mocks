@@ -19,6 +19,7 @@ import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.so
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
 import {FhevmGeneration, LibForgeFhevmHostVersions} from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
 import {FhevmChainsConfig} from "../utils/FhevmChainsConfig.sol";
+import {ForkBlock} from "../utils/ForkBlock.sol";
 
 interface IUUPSProxy {
     function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
@@ -100,7 +101,7 @@ abstract contract ForkCleartextUpgrade is Test {
         if (bytes(rpc).length == 0) return;
 
         _chain();
-        vm.createSelectFork(rpc);
+        ForkBlock.createSelectFork(rpc, "SEPOLIA_FORK_BLOCK");
         forked = true;
         owner = IACL(ACL).owner();
     }

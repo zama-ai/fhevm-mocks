@@ -63,17 +63,19 @@ of the engine makes the same checks before it does anything.
 Without any selection, a run holds every test of the inventory. Each of these keeps a part of it,
 and they combine:
 
-| Selection             | Keeps                                                                           |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `<id> <id>`           | The tests with these IDs.                                                       |
-| `--ci`                | The tests with `"ci": true`.                                                    |
-| `--match <regex>`     | The tests whose ID matches this regular expression.                             |
-| `--chain <chainid>`   | The tests with a chain on this chain id.                                        |
-| `--runtime <runtime>` | The tests with a chain of this runtime, such as `forge-fork`.                   |
-| `--live`              | The tests with a live chain: a chain of the runtime `forge-fork` or `remote`.   |
-| `--no-live`           | The tests with no live chain, and the tests with no chain at all.               |
-| `--wallet`            | The tests with a chain that has `"wallet": true`.                               |
-| `--no-wallet`         | The tests with no chain that has `"wallet": true`, the tests with no chain too. |
+| Selection             | Keeps                                                                                              |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `<id> <id>`           | The tests with these IDs.                                                                          |
+| `--ci`                | The tests with `"ci": true`.                                                                       |
+| `--match <regex>`     | The tests whose ID matches this regular expression.                                                |
+| `--chain <chainid>`   | The tests with a chain on this chain id.                                                           |
+| `--runtime <runtime>` | The tests with a chain of this runtime, such as `forge-fork`.                                      |
+| `--live`              | The tests with a live chain: a chain of the runtime `forge-fork` or `remote`.                      |
+| `--no-live`           | The tests with no live chain, and the tests with no chain at all.                                  |
+| `--wallet`            | The tests with a chain that has `"wallet": true`.                                                  |
+| `--no-wallet`         | The tests with no chain that has `"wallet": true`, the tests with no chain too.                    |
+| `--block pinned`      | The tests whose live chains are all forks at a pinned `block`.                                     |
+| `--block latest`      | The tests with a live chain at its latest block: a fork with no pinned `block`, or a remote chain. |
 
 `--no-wallet` is the way to leave out the tests that spend funds. A chain with `"wallet": false` is a
 remote chain that the test only reads, and a fork never needs a wallet: its test accounts are funded on
@@ -551,6 +553,40 @@ test starts.
 
 The engine checks only that the variable is set. A test that forks at a fixed block needs an RPC
 with archive state, and fails on one that has none.
+
+### Fork at a pinned block, or at the latest one
+
+A live chain moves on its own schedule: when its contracts are upgraded, a fork test at the latest
+block can fail with no change in this repository. So a fork suite runs twice, from two entries of the
+inventory:
+
+| Entry                        | Chain                        | `ci`    | A failure means                                               |
+| ---------------------------- | ---------------------------- | ------- | ------------------------------------------------------------- |
+| `test-…-fork-mainnet`        | `"block": 26493782`, pinned  | `true`  | This repository broke the suite.                              |
+| `test-…-fork-mainnet-latest` | no `block`: the latest block | `false` | The chain moved past what the code knows: a decision to make. |
+
+When a fork chain pins a numeric `block`, the engine gives the test `<CHAIN>_FORK_BLOCK`, as in
+`MAINNET_FORK_BLOCK=26493782`, and the suite forks at that block (`test/utils/ForkBlock.sol` in each
+`host-contracts-cleartext` package). A test that pins no block gets no such variable, even when your
+shell sets one. `"block": null` means a fixed block is needed and its number is still to find: the test
+forks the latest block until then.
+
+All the forks of one chain in a test pin the same block, or none: the engine refuses a test that forks
+mainnet at two blocks, since one variable cannot hold both.
+
+A `-latest` entry has no `list` command: it runs the cases of its pinned twin, and `duplicates` would
+report each of them twice.
+
+`--block` splits the live-chain tests in two, and a test with no live chain is in neither:
+
+```sh
+./fhevm-npm-cli test-engine run --block pinned   # nothing on the chains can change the result
+./fhevm-npm-cli test-engine run --block latest   # at least one chain at its latest block: may fail when it moves
+```
+
+Pin a block where the chain runs the stack the suite was written for. A suite of the previous
+generation keeps the last block before the chain left that generation, and has no `-latest` entry:
+the chain will not go back.
 
 A test whose chain has `"wallet": true` sends transactions, and spends real funds of the account it
 uses. Each such test has `"ci": false`, so a run with `--ci` never holds it. To run one, name it by

@@ -1,6 +1,6 @@
 import { TestEngineError } from './errors.ts';
 import type { ChainRuntime, InventoryEntry, Test } from './inventory.ts';
-import { isLiveChain } from './live-chains.ts';
+import { type BlockMode, blockModeOf, isLiveChain } from './live-chains.ts';
 import { errorMessage } from './utils.ts';
 
 /** The filters of a selection. A test must match every filter that is given. */
@@ -15,6 +15,8 @@ export type SelectionFilters = {
   readonly live?: boolean | undefined;
   /** True: only tests with a chain that needs a wallet. False: only tests with none. */
   readonly wallet?: boolean | undefined;
+  /** Only tests whose live chains are all at pinned blocks, or only tests with one at its latest block. */
+  readonly block?: BlockMode | undefined;
 };
 
 export type EntryPredicate = (entry: InventoryEntry) => boolean;
@@ -46,6 +48,11 @@ export function filterPredicates(filters: SelectionFilters): readonly EntryPredi
   if (filters.wallet !== undefined) {
     const wallet = filters.wallet;
     predicates.push(({ test }) => needsWallet(test) === wallet);
+  }
+
+  if (filters.block !== undefined) {
+    const block = filters.block;
+    predicates.push(({ test }) => blockModeOf(test) === block);
   }
 
   return predicates;

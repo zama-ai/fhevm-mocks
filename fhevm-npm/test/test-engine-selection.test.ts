@@ -219,3 +219,46 @@ test('--live and --wallet combine with --chain and --match, every filter narrowi
 test('a filter that is not given restricts nothing', () => {
   assert.deepEqual(selectedIds({ live: undefined, wallet: undefined }), [...LIVE_INVENTORY.tests.keys()]);
 });
+
+////////////////////////////////////////////////////////////////////////////////
+// Pinned and latest blocks
+////////////////////////////////////////////////////////////////////////////////
+
+const MAINNET_PINNED: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork', block: 26493782 };
+const SEPOLIA_TO_FIND: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork', block: null };
+
+const BLOCK_INVENTORY = fixtureInventory({
+  'test-plain': fixtureTest(),
+  'test-anvil': fixtureTest({ chains: [ANVIL_CHAIN] }),
+  'test-pinned': fixtureTest({ chains: [MAINNET_PINNED] }),
+  'test-latest': fixtureTest({ chains: [MAINNET_FORK] }),
+  'test-to-find': fixtureTest({ chains: [SEPOLIA_TO_FIND] }),
+  'test-remote': fixtureTest({ chains: [SEPOLIA_CHAIN] }),
+  'test-pinned-and-remote': fixtureTest({ chains: [MAINNET_PINNED, SEPOLIA_CHAIN] }),
+});
+
+function selectedByBlock(filters: SelectionFilters): readonly string[] {
+  const request = { ids: [], ci: false, filters };
+
+  return resolveSelection({ inventory: BLOCK_INVENTORY, request, environment: WITH_EVERY_RPC })
+    .filter((entry) => entry.state === 'selected')
+    .map((entry) => entry.id);
+}
+
+test('--block pinned selects the tests whose live chains are all forks at a pinned block', () => {
+  assert.deepEqual(selectedByBlock({ block: 'pinned' }), ['test-pinned']);
+});
+
+test('--block latest selects the tests with a live chain at its latest state: unpinned fork, block to find, remote', () => {
+  assert.deepEqual(selectedByBlock({ block: 'latest' }), [
+    'test-latest',
+    'test-to-find',
+    'test-remote',
+    'test-pinned-and-remote',
+  ]);
+});
+
+test('--block combines with the other filters', () => {
+  assert.deepEqual(selectedByBlock({ block: 'latest', chainId: 1 }), ['test-latest', 'test-pinned-and-remote']);
+  assert.deepEqual(selectedByBlock({ block: 'pinned', live: false }), []);
+});

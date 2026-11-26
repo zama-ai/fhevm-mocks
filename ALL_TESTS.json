@@ -699,7 +699,7 @@
         "chainid": 11155111,
         "fhevm": "testnet",
         "runtime": "forge-fork",
-        "block": null
+        "block": 12019645
       }
     ],
     "read": ["host-contracts-cleartext/v13"]
@@ -714,7 +714,8 @@
       {
         "chainid": 1,
         "fhevm": "mainnet",
-        "runtime": "forge-fork"
+        "runtime": "forge-fork",
+        "block": 26493782
       }
     ],
     "read": ["host-contracts-cleartext/v13"]
@@ -765,7 +766,21 @@
         "chainid": 11155111,
         "fhevm": "testnet",
         "runtime": "forge-fork",
-        "block": null
+        "block": 12019645
+      }
+    ],
+    "read": ["host-contracts-cleartext/v14"]
+  },
+  "test-cleartext-v-cur-fork-testnet-latest": {
+    "command": "npm run --silent test-engine:fork-testnet-latest -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
       }
     ],
     "read": ["host-contracts-cleartext/v14"]
@@ -776,6 +791,21 @@
     "package": "host-contracts-cleartext",
     "duration": "slow",
     "ci": true,
+    "chains": [
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
+        "runtime": "forge-fork",
+        "block": 26493782
+      }
+    ],
+    "read": ["host-contracts-cleartext/v14"]
+  },
+  "test-cleartext-v-cur-fork-mainnet-latest": {
+    "command": "npm run --silent test-engine:fork-mainnet-latest -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": false,
     "chains": [
       {
         "chainid": 1,

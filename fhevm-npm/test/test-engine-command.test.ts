@@ -142,6 +142,7 @@ test('each invalid request fails the run for its own reason', async (context) =>
     [['--bogus'], /unknown option '--bogus'/],
     [['--chain', '0'], /A chain id is a positive integer/],
     [['--runtime', 'docker'], /Allowed choices are forge,/],
+    [['--block', 'recent'], /Allowed choices are pinned, latest/],
     [['--match', '('], /is not a valid regular expression/],
   ];
 
