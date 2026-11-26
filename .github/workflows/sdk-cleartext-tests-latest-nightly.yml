@@ -6,20 +6,31 @@ name: sdk-cleartext-tests-latest-nightly
 # runs `--ci --no-latest`); they run here, once a night, and a red run means a chain moved past what the
 # code knows: a decision to make, not a broken pull request.
 #
-# The schedule fires only from the default branch: GitHub reads `schedule:` from the workflow file on
-# `main`. On release/0.14.x this file is started by hand (`workflow_dispatch`), or by a scheduled
-# workflow on `main` that dispatches it here.
+# GitHub fires `schedule:` only from the default branch, so the night run is started by
+# sdk-cleartext-nightly.yml on `main`, at 02:17 UTC, which calls this file at its release branch
+# (`workflow_call`, with `ref`). It can also be started by hand (`workflow_dispatch`).
 on:
-  schedule:
-    - cron: '17 2 * * *' # 02:17 UTC every night, off the top of the hour that every schedule uses
+  workflow_call:
+    inputs:
+      ref:
+        description: The branch to check out and test, such as release/0.14.x.
+        type: string
+        required: true
+    secrets:
+      FHEVM_QUICKNODE_ENDPOINT_NAME:
+        required: false
+      FHEVM_QUICKNODE_TOKEN_ID:
+        required: false
   workflow_dispatch:
 
 # No permissions at the workflow level — each job declares only what it needs.
 permissions: {}
 
 # A night run is never worth two at once: a manual run waits for the scheduled one.
+# A fixed name, not github.workflow: in a called workflow that is the caller's name, shared with the
+# other night run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: sdk-cleartext-tests-latest-nightly-${{ inputs.ref || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -47,6 +58,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Called from main, github.ref is main's: check out the branch that was asked for. Empty on
+          # a manual run, which checks out the branch it was started on.
+          ref: ${{ inputs.ref }}
           persist-credentials: 'false'
           fetch-depth: 0
 

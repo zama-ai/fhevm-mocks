@@ -5,20 +5,29 @@ name: sdk-cleartext-tests-nightly
 # reports the required `sdk-cleartext-tests/test (bpr)` check. This run stays as a second opinion: it
 # runs the suite the Makefile's way, serially, so a difference between the two shows here.
 #
-# The schedule fires only from the default branch: GitHub reads `schedule:` from the workflow file on
-# `main`. On release/0.14.x this file is started by hand (`workflow_dispatch`), or by a scheduled
-# workflow on `main` that dispatches it here.
+# GitHub fires `schedule:` only from the default branch, so the night run is started by
+# sdk-cleartext-nightly.yml on `main`, at 00:47 UTC, which calls this file at its release branch
+# (`workflow_call`, with `ref`). It can also be started by hand (`workflow_dispatch`).
+#
+# No zizmor job, unlike sdk-cleartext-tests.yml: that one lints every workflow file on each pull
+# request, and here it would need `security-events: write` from the caller on main.
 on:
-  schedule:
-    - cron: '47 0 * * *' # 00:47 UTC every night, before sdk-cleartext-tests-latest-nightly
+  workflow_call:
+    inputs:
+      ref:
+        description: The branch to check out and test, such as release/0.14.x.
+        type: string
+        required: true
   workflow_dispatch:
 
 # No permissions at the workflow level — each job declares only what it needs.
 permissions: {}
 
 # A night run is never worth two at once: a manual run waits for the scheduled one.
+# A fixed name, not github.workflow: in a called workflow that is the caller's name, shared with the
+# other night run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: sdk-cleartext-tests-nightly-${{ inputs.ref || github.ref }}
   cancel-in-progress: false
 
 # Harden every `npm ci` inside `make install-ci` against transient registry blips such as
@@ -55,6 +64,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Called from main, github.ref is main's: check out the branch that was asked for. Empty on
+          # a manual run, which checks out the branch it was started on.
+          ref: ${{ inputs.ref }}
           persist-credentials: 'false'
           fetch-depth: 0
 
@@ -201,34 +213,3 @@ jobs:
         run: |
           ulimit -n 65536
           make test-anvil-ci
-
-  # ---------------------------------------------------------------------------
-  # Lint the workflows themselves — always, on its own runner.
-  #
-  # Deliberately NOT a step of run-tests: that job is skipped on PRs that touch only
-  # the publish workflows, which is precisely when a workflow linter has the most to
-  # say. It also needs no build, so it should not sit behind ninety minutes of one.
-  #
-  # zizmor-action uploads its findings as SARIF through codeql-action, so they land in
-  # the repository's code-scanning view like every other SAST result in the org. That
-  # upload is what `security-events: write` is for — same shape as common-pull-request-lint.
-  # ---------------------------------------------------------------------------
-  zizmor:
-    name: sdk-cleartext-tests-nightly/zizmor
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: 'read' # Required to checkout repository code
-      security-events: 'write' # Required to write security events for SAST results
-    steps:
-      # A shallow checkout is enough: zizmor reads the workflow files as they are.
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: 'false'
-
-      - name: Run zizmor 🌈
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
-        with:
-          persona: pedantic
-          version: 1.17.0
