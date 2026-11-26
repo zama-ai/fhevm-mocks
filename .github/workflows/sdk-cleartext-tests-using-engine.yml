@@ -311,10 +311,13 @@ jobs:
       #    Lists, without running them, the forge functions that each test
       #    selects, and fails on a function that two tests select. It reads the
       #    workspace that step 7 built, and takes about 20 seconds.
+      #
+      #    Every test of the inventory, not only those with "ci": true: it runs
+      #    no test, so a test that only a run of --latest holds is checked too.
       # -----------------------------------------------------------------------
       - name: Check that no test case runs twice
         if: ${{ !cancelled() }}
-        run: ./fhevm-npm-cli test-engine duplicates --inventory ALL_TESTS.json --ci
+        run: ./fhevm-npm-cli test-engine duplicates --inventory ALL_TESTS.json
 
       # -----------------------------------------------------------------------
       # 11. Keep the report
