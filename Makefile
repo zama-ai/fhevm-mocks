@@ -270,17 +270,22 @@ install-fast: ## Install every installation root (sdk, fhevm-npm, each hardhat c
 	npm --prefix $(DIR_FHEVM_NPM) install --no-audit --no-fund
 	npm --prefix $(DIR_HH_V2) install --no-audit --no-fund
 	npm --prefix $(DIR_HH_V3) install --no-audit --no-fund
+	$(call run-fhevm-npm,check installed-optionals)
 	$(call run-fhevm-npm,install-forge-dependencies)
 
 # The strict variant, for CI and for publishing: `npm ci` installs exactly what each lockfile records,
 # fails when a lockfile and its package.json disagree, and never writes a lockfile. `install` above
 # would re-resolve and rewrite instead, so an artifact built after it is not provably the reviewed
 # resolution. It deletes node_modules first, which is why the daily loop keeps using `install`.
+# Both install targets then run `check installed-optionals`: npm leaves out an optional package whose
+# download failed and still exits 0, so a dropped platform binding (rolldown, esbuild, EDR) would
+# otherwise pass the install and only break the first test that loads it.
 install-ci: ## Install every installation root from its committed lockfile (npm ci), then forge dependencies
 	npm ci --no-audit --no-fund
 	npm --prefix $(DIR_FHEVM_NPM) ci --no-audit --no-fund
 	npm --prefix $(DIR_HH_V2) ci --no-audit --no-fund
 	npm --prefix $(DIR_HH_V3) ci --no-audit --no-fund
+	$(call run-fhevm-npm,check installed-optionals)
 	$(call run-fhevm-npm,install-forge-dependencies)
 
 # Move a pinned dependency: edit its spec in npm-manifest.json#dependencies.pinned, then run this. It also

@@ -21,6 +21,7 @@ import { checkPinnedDependencies } from './commands/check-pinned-dependencies.ts
 import { checkCleartextConfig } from './commands/check-cleartext-config.ts';
 import { checkCommitScope } from './commands/check-commit-scope.ts';
 import { checkExtraneous } from './commands/check-extraneous.ts';
+import { checkInstalledOptionals } from './commands/check-installed-optionals.ts';
 import { checkForgeStdChains } from './commands/check-forge-std-chains.ts';
 import { checkDocs } from './commands/check-docs.ts';
 import { checkGenerationParity } from './commands/check-generation-parity.ts';
@@ -89,6 +90,7 @@ const commands: Readonly<Record<CommandName, CheckCommand>> = {
   'generation-parity': checkGenerationParity,
   'forge-fhevm-std-parity': checkForgeFhevmStdParity,
   extraneous: checkExtraneous,
+  'installed-optionals': checkInstalledOptionals,
   'forge-std-chains': checkForgeStdChains,
   docs: checkDocs,
 };

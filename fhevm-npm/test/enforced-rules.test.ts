@@ -277,6 +277,7 @@ const PRINTED_BY: Readonly<Record<string, readonly string[]>> = {
   'base/checks/docs.ts': ['check docs'],
   'base/checks/env-vars.ts': ['check env-vars'],
   'base/checks/extraneous.ts': ['check extraneous'],
+  'base/checks/installed-optionals.ts': ['check installed-optionals'],
   'base/checks/forge-std-chains.ts': ['check forge-std-chains'],
   'base/checks/foundry.ts': ['check foundry'],
   'base/checks/generation-parity.ts': ['check generation-parity'],

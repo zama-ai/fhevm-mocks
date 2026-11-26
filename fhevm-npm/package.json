@@ -16,6 +16,7 @@
     "check:forge-std-chains": "node ./fhevm-npm.ts check forge-std-chains",
     "check:foundry": "node ./fhevm-npm.ts check foundry",
     "check:generation-parity": "node ./fhevm-npm.ts check generation-parity",
+    "check:installed-optionals": "node ./fhevm-npm.ts check installed-optionals",
     "check:json-schemas": "node ./fhevm-npm.ts check json-schemas",
     "check:lockfiles": "node ./fhevm-npm.ts check lockfiles",
     "check:manifest-coverage": "node ./fhevm-npm.ts check manifest-coverage",
