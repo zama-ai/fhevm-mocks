@@ -52,7 +52,7 @@ contract SepoliaForkTest is Test, StdFhevmChains, StdFhevmCheatsSafe {
 
     uint256 internal constant SEPOLIA_CHAIN_ID = 11_155_111;
 
-    /// @dev A deployed `FHETest` (fhevm4/sdk/js-sdk/contracts/src/FHETest.sol).
+    /// @dev A deployed `FHETest` (fhevm/sdk/js-sdk/contracts/src/FHETest.sol).
     address internal constant FHE_TEST = 0x6Bc47f6A33c0E04235f79e1Fc9A3cCD6e7Bbb5fc;
 
     /// @dev An address that really did set handles on it, long before any block this test forks at.

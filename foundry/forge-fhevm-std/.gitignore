@@ -11,3 +11,5 @@ cache-fhevm-debug
 out-lint
 cache-lint
 snapshots
+out-zama-config-release-0.14.x
+cache-zama-config-release-0.14.x

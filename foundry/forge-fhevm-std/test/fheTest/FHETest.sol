@@ -20,12 +20,12 @@ import {
     externalEaddress,
     externalEuint256
 } from "@fhevm/solidity/lib/FHE.sol";
-import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {ZamaMultiChainConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {CoprocessorConfig, Impl} from "@fhevm/solidity/lib/Impl.sol";
 import {FheType} from "@fhevm/solidity/lib/FheType.sol";
 
 /// @title A simple FHE Test contract
-contract FHETest is ZamaEthereumConfig {
+contract FHETest is ZamaMultiChainConfig {
     string public constant CONTRACT_NAME = "FHETestv2";
 
     mapping(address => mapping(FheType => bytes32)) internal _etypeMap;
