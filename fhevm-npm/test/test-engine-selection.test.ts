@@ -153,3 +153,69 @@ test('a live chain whose variable the engine does not know fails the run, for a 
   );
   assert.equal(resolveLive({ 'test-off': fixtureTest({ skipped: true, chains: [unknown] }) }, {})[0]?.state, 'skipped');
 });
+
+////////////////////////////////////////////////////////////////////////////////
+// Live chains and wallets
+////////////////////////////////////////////////////////////////////////////////
+
+const SEPOLIA_FORK: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' };
+const MAINNET_FORK: Chain = { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' };
+const SEPOLIA_WALLET: Chain = { chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: true };
+
+/** One test of each kind: no chain, a local chain, a fork, a remote chain read only, a remote chain with a wallet. */
+const LIVE_INVENTORY = fixtureInventory({
+  'test-plain': fixtureTest(),
+  'test-anvil': fixtureTest({ chains: [ANVIL_CHAIN] }),
+  'test-fork': fixtureTest({ chains: [SEPOLIA_FORK] }),
+  'test-mainnet-fork': fixtureTest({ chains: [MAINNET_FORK] }),
+  'test-read': fixtureTest({ chains: [SEPOLIA_CHAIN, MAINNET_FORK] }),
+  'test-wallet': fixtureTest({ chains: [SEPOLIA_WALLET] }),
+});
+
+/** Every live chain of `LIVE_INVENTORY` has its RPC URL, so that each state says what the filters decide. */
+const WITH_EVERY_RPC = { ...WITH_SEPOLIA, MAINNET_RPC_URL: 'https://mainnet.example.invalid' };
+
+function selectedIds(filters: SelectionFilters): readonly string[] {
+  const request = { ids: [], ci: false, filters };
+
+  return resolveSelection({ inventory: LIVE_INVENTORY, request, environment: WITH_EVERY_RPC })
+    .filter((entry) => entry.state === 'selected')
+    .map((entry) => entry.id);
+}
+
+test('--live selects the tests with a live chain: a fork or a remote chain', () => {
+  assert.deepEqual(selectedIds({ live: true }), ['test-fork', 'test-mainnet-fork', 'test-read', 'test-wallet']);
+});
+
+test('--no-live selects the tests with no live chain, chain-less ones included', () => {
+  assert.deepEqual(selectedIds({ live: false }), ['test-plain', 'test-anvil']);
+});
+
+test('--wallet selects the tests with a chain that needs a wallet', () => {
+  assert.deepEqual(selectedIds({ wallet: true }), ['test-wallet']);
+});
+
+test('--no-wallet selects the tests with no chain that needs a wallet, a read-only remote chain included', () => {
+  assert.deepEqual(selectedIds({ wallet: false }), [
+    'test-plain',
+    'test-anvil',
+    'test-fork',
+    'test-mainnet-fork',
+    'test-read',
+  ]);
+});
+
+test('--live and --no-wallet combine: the live-chain tests that need no funded account', () => {
+  assert.deepEqual(selectedIds({ live: true, wallet: false }), ['test-fork', 'test-mainnet-fork', 'test-read']);
+});
+
+test('--live and --wallet combine with --chain and --match, every filter narrowing', () => {
+  assert.deepEqual(selectedIds({ live: true, wallet: false, chainId: 1 }), ['test-mainnet-fork', 'test-read']);
+  assert.deepEqual(selectedIds({ live: true, chainId: 11155111, wallet: true }), ['test-wallet']);
+  assert.deepEqual(selectedIds({ live: true, wallet: false, match: 'fork' }), ['test-fork', 'test-mainnet-fork']);
+  assert.deepEqual(selectedIds({ live: false, wallet: true }), []);
+});
+
+test('a filter that is not given restricts nothing', () => {
+  assert.deepEqual(selectedIds({ live: undefined, wallet: undefined }), [...LIVE_INVENTORY.tests.keys()]);
+});

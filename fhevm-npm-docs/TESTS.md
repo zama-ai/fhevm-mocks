@@ -63,27 +63,41 @@ of the engine makes the same checks before it does anything.
 Without any selection, a run holds every test of the inventory. Each of these keeps a part of it,
 and they combine:
 
-| Selection             | Keeps                                                         |
-| --------------------- | ------------------------------------------------------------- |
-| `<id> <id>`           | The tests with these IDs.                                     |
-| `--ci`                | The tests with `"ci": true`.                                  |
-| `--match <regex>`     | The tests whose ID matches this regular expression.           |
-| `--chain <chainid>`   | The tests with a chain on this chain id.                      |
-| `--runtime <runtime>` | The tests with a chain of this runtime, such as `forge-fork`. |
+| Selection             | Keeps                                                                           |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `<id> <id>`           | The tests with these IDs.                                                       |
+| `--ci`                | The tests with `"ci": true`.                                                    |
+| `--match <regex>`     | The tests whose ID matches this regular expression.                             |
+| `--chain <chainid>`   | The tests with a chain on this chain id.                                        |
+| `--runtime <runtime>` | The tests with a chain of this runtime, such as `forge-fork`.                   |
+| `--live`              | The tests with a live chain: a chain of the runtime `forge-fork` or `remote`.   |
+| `--no-live`           | The tests with no live chain, and the tests with no chain at all.               |
+| `--wallet`            | The tests with a chain that has `"wallet": true`.                               |
+| `--no-wallet`         | The tests with no chain that has `"wallet": true`, the tests with no chain too. |
+
+`--no-wallet` is the way to leave out the tests that spend funds. A chain with `"wallet": false` is a
+remote chain that the test only reads, and a fork never needs a wallet: its test accounts are funded on
+the fork. So the live-chain tests that you can run without a funded account are:
+
+```sh
+./fhevm-npm-cli test-engine list --live --no-wallet
+```
+
+Of `--live` and `--no-live`, or of `--wallet` and `--no-wallet`, the last one given wins.
 
 The engine never detects CI. A CI job passes `--ci`, and so do you, to run what CI runs.
 
-To see what a selection holds before you run it, give the same selection to `list`:
+To see what a selection holds before you run it, give the same selection to `list`. It prints the
+tests that the selection holds, one per line, and leaves out the others:
 
 ```sh
 ./fhevm-npm-cli test-engine list --match 'forge-std'
 ```
 
 ```text
-selected      test-forge-std           31337/local/forge
-selected      test-forge-std-anvil     31337/local/anvil startedBy=runner fresh=true
-unavailable   test-forge-std-fork-url  11155111/testnet/forge-fork  not set: SEPOLIA_RPC_URL
-not-selected  test-hh-v3-template      31337/local/hardhat
+selected     test-forge-std           31337/local/forge
+selected     test-forge-std-anvil     31337/local/anvil startedBy=runner fresh=true
+unavailable  test-forge-std-fork-url  11155111/testnet/forge-fork  not set: SEPOLIA_RPC_URL
 ```
 
 | State          | Meaning                                                                             |
@@ -91,7 +105,7 @@ not-selected  test-hh-v3-template      31337/local/hardhat
 | `selected`     | The run runs the test.                                                              |
 | `skipped`      | The selection holds the test, and the test has `"skipped": true`.                   |
 | `unavailable`  | The selection holds the test, and the RPC URL of one of its live chains is not set. |
-| `not-selected` | The selection leaves the test out.                                                  |
+| `not-selected` | The selection leaves the test out. `list` does not print it; the report holds it.   |
 
 ## Set the environment variables
 

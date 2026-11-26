@@ -16,7 +16,7 @@ const RPC_VARIABLE_OF_CHAIN_ID: ReadonlyMap<number, string> = new Map([
 export type Environment = Readonly<Record<string, string | undefined>>;
 
 /** A chain that a test reaches through the RPC of a live chain: the chain itself, or a fork of it. */
-function isLiveChain(chain: Chain): boolean {
+export function isLiveChain(chain: Chain): boolean {
   return chain.runtime === 'remote' || chain.runtime === 'forge-fork';
 }
 

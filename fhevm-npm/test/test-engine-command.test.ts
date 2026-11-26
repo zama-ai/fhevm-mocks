@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { relative } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import test from 'node:test';
 
 import { selectionLines } from '../base/test-engine/listing.ts';
@@ -40,17 +41,52 @@ test('validate fails the run on an invalid inventory, and says what is wrong', a
   assert.match(result.stderr, /\/test-bad: missing required property 'ci'/);
 });
 
-test('list prints one line per test of the inventory, with its state', async (context) => {
+test('list prints one line per test that the selection holds, with its state', async (context) => {
   const repository = writeFixtureRepository({ context, inventory: INVENTORY });
 
   const result = await captureEngine({ context, argv: ['list', '--root', repository.root, '--ci'] });
 
   assert.equal(result.status, 0);
   assert.deepEqual(result.stdout, [
-    'selected      test-plain    no chain',
-    'selected      test-anvil    31337/local/anvil startedBy=runner fresh=true',
-    'not-selected  test-sepolia  11155111/testnet/remote wallet=false',
+    'selected  test-plain  no chain',
+    'selected  test-anvil  31337/local/anvil startedBy=runner fresh=true',
   ]);
+});
+
+test('list keeps the tests that the selection holds and that will not run: skipped, unavailable', async (context) => {
+  const inventory = { ...INVENTORY, 'test-off': fixtureTest({ skipped: true, chains: [ANVIL_CHAIN] }) };
+  const repository = writeFixtureRepository({ context, inventory });
+  const sepoliaRpcUrl = process.env.SEPOLIA_RPC_URL;
+  delete process.env.SEPOLIA_RPC_URL; // so that test-sepolia is unavailable on any machine
+  context.after(() => {
+    if (sepoliaRpcUrl !== undefined) process.env.SEPOLIA_RPC_URL = sepoliaRpcUrl;
+  });
+
+  const result = await captureEngine({ context, argv: ['list', '--root', repository.root, '--match', 'sepolia|off'] });
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(
+    result.stdout.map((line) => line.split(/\s+/).slice(0, 2).join(' ')),
+    ['unavailable test-sepolia', 'skipped test-off'],
+  );
+});
+
+test('list --live --no-wallet selects the live-chain tests that need no funded account', async (context) => {
+  const inventory = {
+    ...INVENTORY,
+    'test-fork': fixtureTest({ chains: [{ chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' }] }),
+    'test-wallet': fixtureTest({ chains: [{ chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: true }] }),
+  };
+  const repository = writeFixtureRepository({ context, inventory });
+  writeFileSync(join(repository.root, '.env'), 'SEPOLIA_RPC_URL=https://sepolia.example.invalid\n');
+
+  const result = await captureEngine({ context, argv: ['list', '--root', repository.root, '--live', '--no-wallet'] });
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(
+    result.stdout.map((line) => line.split(/\s+/).slice(0, 2).join(' ')),
+    ['selected test-sepolia', 'selected test-fork'],
+  );
 });
 
 test('an option with no command before it says that the command is missing, and names the commands', async (context) => {
