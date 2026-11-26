@@ -15,9 +15,17 @@ import { checkFhevmChainsOrigin } from '../commands/check-fhevm-chains-origin.ts
 const PIN = 'a'.repeat(40);
 
 const GROUPS = {
-  mainnet: { registryFile: 'dist/mainnet.json', relayerUrl: 'https://relayer.mainnet.example' },
-  testnet: { registryFile: 'dist/testnet.json', relayerUrl: 'https://relayer.testnet.example' },
-  devnet: { registryFile: 'dist/devnet.json', relayerUrl: 'https://relayer.devnet.example' },
+  mainnet: {
+    registryFile: 'dist/mainnet.json',
+    relayerUrl: 'https://relayer.mainnet.example',
+    canonicalHost: 'ethereum',
+  },
+  testnet: {
+    registryFile: 'dist/testnet.json',
+    relayerUrl: 'https://relayer.testnet.example',
+    canonicalHost: 'ethereum',
+  },
+  devnet: { registryFile: 'dist/devnet.json', relayerUrl: 'https://relayer.devnet.example', canonicalHost: 'ethereum' },
 };
 
 // A workspace holding the groups file the renderer reads its relayers and registry files from.
@@ -80,7 +88,10 @@ test('renders every network group: discovered hosts, complete gateway set, pinne
     const parsed = JSON.parse(text) as {
       $schema: string;
       source: { commit: string; files: string[] };
-      networks: Record<string, { relayerUrl: string; gateway: { id: number }; hosts: Record<string, unknown> }>;
+      networks: Record<
+        string,
+        { relayerUrl: string; canonicalHost: string; gateway: { id: number }; hosts: Record<string, unknown> }
+      >;
     };
     assert.equal(parsed.$schema, './fhevm-npm/schemas/fhevm-chains.config.schema.json');
     assert.equal(parsed.source.commit, PIN);
@@ -90,6 +101,14 @@ test('renders every network group: discovered hosts, complete gateway set, pinne
     assert.deepEqual(parsed.source.files, ['dist/mainnet.json', 'dist/testnet.json', 'dist/devnet.json']);
     assert.equal(parsed.networks['mainnet']?.gateway.id, 261131);
     assert.deepEqual(Object.keys(parsed.networks['mainnet']?.hosts ?? {}), ['ethereum', 'poly']);
+    // D-14: every group names its one canonical chain, by the key of one of its hosts.
+    assert.equal(parsed.networks['mainnet']?.canonicalHost, 'ethereum');
+    assert.deepEqual(Object.keys(parsed.networks['testnet'] ?? {}), [
+      'relayerUrl',
+      'canonicalHost',
+      'gateway',
+      'hosts',
+    ]);
 
     const hosts = parsed.networks['mainnet']?.hosts as Record<string, { contracts: Record<string, unknown> }>;
     assert.ok('kmsGeneration' in (hosts['ethereum']?.contracts ?? {}));
@@ -109,6 +128,20 @@ test('refuses a registry missing a required contract, or one on the wrong chain'
     await assert.rejects(
       renderChainsConfig(workspace, fakeReader(registry({ moveChain: 'GATEWAY_CONFIG' })), PIN),
       /GATEWAY_CONFIG is on chain 'elsewhere'/,
+    );
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('refuses a canonical host that the registry of its group does not hold', async () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'fhevm-npm-chains-'));
+  try {
+    const groups = { ...GROUPS, testnet: { ...GROUPS.testnet, canonicalHost: 'sepolia' } };
+    writeFileSync(join(workspace, NETWORK_GROUPS_CONFIG_FILE), JSON.stringify({ groups }));
+    await assert.rejects(
+      renderChainsConfig(workspace, fakeReader(registry()), PIN),
+      /testnet: canonicalHost 'sepolia' is not a host of the group: ethereum, poly/,
     );
   } finally {
     rmSync(workspace, { recursive: true, force: true });
@@ -153,12 +186,17 @@ test('check-fhevm-chains-origin follows the registry HEAD: address drift is red,
   }
 });
 
-test('the groups file is validated: unknown group, missing group, bad registry file, bad relayer', async () => {
+test('the groups file is validated: unknown group, missing group, bad registry file, bad relayer, bad canonical host', async () => {
   const cases: ReadonlyArray<[Record<string, unknown>, RegExp]> = [
     [{ ...GROUPS, staging: GROUPS.devnet }, /groups\.staging: unknown group/],
     [{ mainnet: GROUPS.mainnet, testnet: GROUPS.testnet }, /groups: missing group 'devnet'/],
     [{ ...GROUPS, devnet: { ...GROUPS.devnet, registryFile: 'devnet.json' } }, /groups\.devnet\.registryFile/],
     [{ ...GROUPS, devnet: { ...GROUPS.devnet, relayerUrl: 'relayer' } }, /groups\.devnet\.relayerUrl/],
+    [
+      { ...GROUPS, devnet: { registryFile: 'dist/devnet.json', relayerUrl: 'https://r.example' } },
+      /groups\.devnet\.canonicalHost/,
+    ],
+    [{ ...GROUPS, devnet: { ...GROUPS.devnet, canonicalHost: 'Ethereum Sepolia' } }, /groups\.devnet\.canonicalHost/],
   ];
   for (const [groups, expected] of cases) {
     const workspace = mkdtempSync(join(tmpdir(), 'fhevm-npm-chains-'));

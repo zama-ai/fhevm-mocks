@@ -95,10 +95,15 @@
     },
     "network": {
       "type": "object",
-      "required": ["relayerUrl", "gateway", "hosts"],
+      "required": ["relayerUrl", "canonicalHost", "gateway", "hosts"],
       "additionalProperties": false,
       "properties": {
         "relayerUrl": { "type": "string", "pattern": "^https?://\\S+$" },
+        "canonicalHost": {
+          "description": "The key, among hosts, of the one canonical chain of the group (D-14 of rules/global/definitions/).",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
         "gateway": { "$ref": "#/$defs/gatewayChain" },
         "hosts": {
           "type": "object",

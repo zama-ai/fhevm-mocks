@@ -28,7 +28,14 @@ export type NetworkGroupConfig = {
   readonly registryFile: string;
   /** Not in the registry: the relayer is Zama infrastructure, not an on-chain address. */
   readonly relayerUrl: string;
+  /**
+   * The key of the group's canonical chain among its hosts, as `ethereum_sepolia` (definition D-14 of
+   * `rules/global/definitions/`). Not in the registry: which host is canonical is decided here.
+   */
+  readonly canonicalHost: string;
 };
+
+const HOST_KEY = /^[a-z][a-z0-9_]*$/;
 
 /** The groups' source of truth, validated: every group in NETWORK_GROUPS, nothing else. */
 export function loadNetworkGroups(workspaceRoot: string): Readonly<Record<NetworkGroup, NetworkGroupConfig>> {
@@ -52,7 +59,19 @@ export function loadNetworkGroups(workspaceRoot: string): Readonly<Record<Networ
     if (typeof group.relayerUrl !== 'string' || !/^https?:\/\/\S+$/.test(group.relayerUrl)) {
       throw new Error(`${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.relayerUrl: expected an http(s) URL`);
     }
-    return [name, { registryFile: group.registryFile, relayerUrl: group.relayerUrl }] as const;
+    if (typeof group.canonicalHost !== 'string' || !HOST_KEY.test(group.canonicalHost)) {
+      throw new Error(
+        `${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.canonicalHost: expected the key of one of its hosts`,
+      );
+    }
+    return [
+      name,
+      {
+        registryFile: group.registryFile,
+        relayerUrl: group.relayerUrl,
+        canonicalHost: group.canonicalHost,
+      },
+    ] as const;
   });
   return Object.fromEntries(entries) as Record<NetworkGroup, NetworkGroupConfig>;
 }
@@ -148,7 +167,7 @@ export async function renderChainsConfig(
   const networks = Object.fromEntries(
     NETWORK_GROUPS.map((group) => {
       const registry = JSON.parse(reader.fetchFile(groups[group].registryFile, fetchRef)) as Registry;
-      return [group, renderNetwork(group, registry, groups[group].relayerUrl)];
+      return [group, renderNetwork(group, registry, groups[group])];
     }),
   );
 
@@ -166,7 +185,8 @@ export async function renderChainsConfig(
       '([PREFIX_]ACL_HOST), so a new host chain appears on the next sync.',
       '',
       'relayerUrl is deliberately NOT from the registry (the relayer is infrastructure, not an',
-      'on-chain address); it is decided in fhevm-network-groups.config.json. js-sdk chain',
+      'on-chain address); it is decided in fhevm-network-groups.config.json, and so is canonicalHost,',
+      'the key of the one host that is the canonical chain of the group. js-sdk chain',
       'definitions (src/core/chains/definitions/*.ts) are to be generated from this file.',
     ],
     source: {
@@ -187,13 +207,21 @@ type ChainFace = { readonly id: number; readonly contracts: Record<string, Addre
 function renderNetwork(
   network: NetworkGroup,
   registry: Registry,
-  relayerUrl: string,
-): { relayerUrl: string; gateway: ChainFace; hosts: Record<string, ChainFace> } {
+  group: NetworkGroupConfig,
+): { relayerUrl: string; canonicalHost: string; gateway: ChainFace; hosts: Record<string, ChainFace> } {
   const contracts = registry.contracts ?? {};
+  const hosts = Object.fromEntries(hostPrefixes(contracts).map((prefix) => renderHost(network, registry, prefix)));
+  // A group has exactly one canonical chain, and it is one of its hosts (D-14).
+  if (!(group.canonicalHost in hosts)) {
+    throw new Error(
+      `${network}: canonicalHost '${group.canonicalHost}' is not a host of the group: ${Object.keys(hosts).join(', ')}`,
+    );
+  }
   return {
-    relayerUrl,
+    relayerUrl: group.relayerUrl,
+    canonicalHost: group.canonicalHost,
     gateway: renderGateway(network, registry),
-    hosts: Object.fromEntries(hostPrefixes(contracts).map((prefix) => renderHost(network, registry, prefix))),
+    hosts,
   };
 }
 

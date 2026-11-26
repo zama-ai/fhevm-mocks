@@ -24,11 +24,16 @@
     "proseLines": { "type": "array", "minItems": 1, "items": { "type": "string" } },
     "group": {
       "type": "object",
-      "required": ["registryFile", "relayerUrl"],
+      "required": ["registryFile", "relayerUrl", "canonicalHost"],
       "additionalProperties": false,
       "properties": {
         "registryFile": { "type": "string", "pattern": "^dist/[a-z0-9_-]+\\.json$" },
-        "relayerUrl": { "type": "string", "pattern": "^https?://\\S+$" }
+        "relayerUrl": { "type": "string", "pattern": "^https?://\\S+$" },
+        "canonicalHost": {
+          "description": "The key, among the hosts of the group, of its one canonical chain (D-14 of rules/global/definitions/).",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
       }
     }
   }
