@@ -148,6 +148,73 @@ test('refuses a canonical host that the registry of its group does not hold', as
   }
 });
 
+const ISSUE = 'https://github.com/zama-ai/protocol-registry-internal/issues/203';
+
+function withGroups(groups: Record<string, unknown>): string {
+  const workspace = mkdtempSync(join(tmpdir(), 'fhevm-npm-chains-'));
+  writeFileSync(join(workspace, NETWORK_GROUPS_CONFIG_FILE), JSON.stringify({ groups }));
+  return workspace;
+}
+
+test('a host rename exception renames the key, keeps the chain, and says so loudly on every render', async (context) => {
+  const warnings: string[] = [];
+  context.mock.method(console, 'warn', (line: string) => warnings.push(line));
+  const devnet = { ...GROUPS.devnet, hostRenames: { poly: { to: 'polygon', issue: ISSUE } } };
+  const workspace = withGroups({ ...GROUPS, devnet });
+  try {
+    const text = await renderChainsConfig(workspace, fakeReader(registry()), PIN);
+    const networks = (JSON.parse(text) as { networks: Record<string, { hosts: Record<string, { id: number }> }> })
+      .networks;
+
+    assert.deepEqual(Object.keys(networks['devnet']?.hosts ?? {}), ['ethereum', 'polygon']);
+    assert.equal(networks['devnet']?.hosts['polygon']?.id, 137, 'the chain id is read under the registry key');
+    assert.deepEqual(Object.keys(networks['testnet']?.hosts ?? {}), ['ethereum', 'poly'], 'other groups untouched');
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? '', /devnet: the registry names host chain 137 'poly'; renamed to 'polygon'/);
+    assert.match(warnings[0] ?? '', new RegExp(ISSUE.replaceAll('/', '\\/')));
+    assert.match(warnings[0] ?? '', /remove the exception from fhevm-network-groups\.config\.json/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test('a host rename exception fails once the registry no longer has the key, or when the new key is taken', async (context) => {
+  context.mock.method(console, 'warn', () => undefined);
+  const cases: ReadonlyArray<[Record<string, unknown>, RegExp]> = [
+    [
+      { nowhere: { to: 'polygon', issue: ISSUE } },
+      /devnet: the registry has no host 'nowhere' any more: .*issues\/203 may be fixed\. Remove the exception/,
+    ],
+    [
+      { poly: { to: 'ethereum', issue: ISSUE } },
+      /devnet: cannot rename host 'poly' to 'ethereum': the group already has it/,
+    ],
+  ];
+  for (const [hostRenames, expected] of cases) {
+    const workspace = withGroups({ ...GROUPS, devnet: { ...GROUPS.devnet, hostRenames } });
+    try {
+      await assert.rejects(renderChainsConfig(workspace, fakeReader(registry()), PIN), expected);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  }
+});
+
+test('the canonical host is checked against the renamed keys', async (context) => {
+  context.mock.method(console, 'warn', () => undefined);
+  const devnet = { ...GROUPS.devnet, canonicalHost: 'polygon', hostRenames: { poly: { to: 'polygon', issue: ISSUE } } };
+  const workspace = withGroups({ ...GROUPS, devnet });
+  try {
+    const text = await renderChainsConfig(workspace, fakeReader(registry()), PIN);
+    assert.equal(
+      (JSON.parse(text) as { networks: { devnet: { canonicalHost: string } } }).networks.devnet.canonicalHost,
+      'polygon',
+    );
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
 test('check-fhevm-chains-origin: missing file, current file, tampered file', async () => {
   const workspace = makeWorkspace();
   const reader = fakeReader(registry());
@@ -197,6 +264,14 @@ test('the groups file is validated: unknown group, missing group, bad registry f
       /groups\.devnet\.canonicalHost/,
     ],
     [{ ...GROUPS, devnet: { ...GROUPS.devnet, canonicalHost: 'Ethereum Sepolia' } }, /groups\.devnet\.canonicalHost/],
+    [
+      { ...GROUPS, devnet: { ...GROUPS.devnet, hostRenames: { poly: { to: 'polygon' } } } },
+      /groups\.devnet\.hostRenames\.poly: expected \{ to, issue \}/,
+    ],
+    [
+      { ...GROUPS, devnet: { ...GROUPS.devnet, hostRenames: { poly: { to: 'Polygon', issue: 'x' } } } },
+      /groups\.devnet\.hostRenames\.poly: expected \{ to, issue \}/,
+    ],
   ];
   for (const [groups, expected] of cases) {
     const workspace = mkdtempSync(join(tmpdir(), 'fhevm-npm-chains-'));

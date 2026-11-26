@@ -33,6 +33,19 @@ export type NetworkGroupConfig = {
    * `rules/global/definitions/`). Not in the registry: which host is canonical is decided here.
    */
   readonly canonicalHost: string;
+  /**
+   * Exceptions to the registry's host keys, by registry key: the host is written under `to`. Each one
+   * names the upstream issue that will make it unnecessary, every render says so, and a render fails
+   * once the registry no longer has the key, so that a fixed registry removes the exception.
+   */
+  readonly hostRenames: Readonly<Record<string, HostRename>>;
+};
+
+export type HostRename = {
+  /** The key the host is written under, in place of the registry's. */
+  readonly to: string;
+  /** The upstream issue that asks the registry for the same name. */
+  readonly issue: string;
 };
 
 const HOST_KEY = /^[a-z][a-z0-9_]*$/;
@@ -64,12 +77,30 @@ export function loadNetworkGroups(workspaceRoot: string): Readonly<Record<Networ
         `${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.canonicalHost: expected the key of one of its hosts`,
       );
     }
+    const hostRenames = (group as { hostRenames?: unknown }).hostRenames ?? {};
+    if (typeof hostRenames !== 'object' || hostRenames === null || Array.isArray(hostRenames)) {
+      throw new Error(`${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.hostRenames: expected an object`);
+    }
+    for (const [from, rename] of Object.entries(hostRenames as Record<string, Partial<HostRename>>)) {
+      const valid =
+        HOST_KEY.test(from) &&
+        typeof rename?.to === 'string' &&
+        HOST_KEY.test(rename.to) &&
+        typeof rename.issue === 'string' &&
+        /^https:\/\/\S+$/.test(rename.issue);
+      if (!valid) {
+        throw new Error(
+          `${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.hostRenames.${from}: expected { to, issue }, with to a host key and issue an https URL`,
+        );
+      }
+    }
     return [
       name,
       {
         registryFile: group.registryFile,
         relayerUrl: group.relayerUrl,
         canonicalHost: group.canonicalHost,
+        hostRenames: hostRenames as Record<string, HostRename>,
       },
     ] as const;
   });
@@ -210,7 +241,11 @@ function renderNetwork(
   group: NetworkGroupConfig,
 ): { relayerUrl: string; canonicalHost: string; gateway: ChainFace; hosts: Record<string, ChainFace> } {
   const contracts = registry.contracts ?? {};
-  const hosts = Object.fromEntries(hostPrefixes(contracts).map((prefix) => renderHost(network, registry, prefix)));
+  const hosts = renameHosts(
+    network,
+    hostPrefixes(contracts).map((prefix) => renderHost(network, registry, prefix)),
+    group.hostRenames,
+  );
   // A group has exactly one canonical chain, and it is one of its hosts (D-14).
   if (!(group.canonicalHost in hosts)) {
     throw new Error(
@@ -223,6 +258,43 @@ function renderNetwork(
     gateway: renderGateway(network, registry),
     hosts,
   };
+}
+
+/**
+ * The hosts, in registry order, with each exception of `hostRenames` applied in place. Every rename is
+ * printed, every run: an exception is a debt to the registry, not a setting.
+ */
+function renameHosts(
+  network: NetworkGroup,
+  hosts: ReadonlyArray<[string, ChainFace]>,
+  renames: Readonly<Record<string, HostRename>>,
+): Record<string, ChainFace> {
+  const keys = new Set(hosts.map(([key]) => key));
+  for (const [from, { to, issue }] of Object.entries(renames)) {
+    if (!keys.has(from)) {
+      throw new Error(
+        `${network}: the registry has no host '${from}' any more: ${issue} may be fixed. Remove the exception from ${NETWORK_GROUPS_CONFIG_FILE}.`,
+      );
+    }
+    if (keys.has(to)) {
+      throw new Error(`${network}: cannot rename host '${from}' to '${to}': the group already has it`);
+    }
+  }
+  return Object.fromEntries(
+    hosts.map(([key, face]) => {
+      const rename = renames[key];
+      if (rename === undefined) return [key, face];
+      console.warn(
+        [
+          `⚠️  HOST RENAME EXCEPTION`,
+          `⚠️  ${network}: the registry names host chain ${face.id} '${key}'; renamed to '${rename.to}'.`,
+          `⚠️  Upstream: ${rename.issue}`,
+          `⚠️  Once the registry uses '${rename.to}', remove the exception from ${NETWORK_GROUPS_CONFIG_FILE}.`,
+        ].join('\n'),
+      );
+      return [rename.to, face];
+    }),
+  );
 }
 
 function renderGateway(network: NetworkGroup, registry: Registry): ChainFace {

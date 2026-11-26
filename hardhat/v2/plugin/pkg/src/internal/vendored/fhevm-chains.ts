@@ -213,8 +213,8 @@ export const FHEVM_CHAINS = {
           },
         },
       },
-      bnb_testnet: {
-        name: 'bnb_testnet',
+      bsc_testnet: {
+        name: 'bsc_testnet',
         id: 97,
         fhevm: {
           contracts: {

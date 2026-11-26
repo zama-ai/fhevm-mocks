@@ -7,7 +7,9 @@
     "know it — it is decided here, once. `fhevm-npm sync fhevm-chains` reads this file to render",
     "fhevm-chains.config.json. The supported groups are currently the closed set mainnet, testnet, and devnet.",
     "canonicalHost is the key of the one host chain that is the canonical chain of the group (D-14 of",
-    "rules/global/definitions/): Ethereum Mainnet for mainnet, Ethereum Sepolia for testnet and devnet."
+    "rules/global/definitions/): Ethereum Mainnet for mainnet, Ethereum Sepolia for testnet and devnet.",
+    "hostRenames are exceptions to the registry's host keys, each with the upstream issue that removes it:",
+    "every sync prints them, and a sync fails once the registry no longer has the key."
   ],
   "groups": {
     "mainnet": {
@@ -23,7 +25,13 @@
     "devnet": {
       "registryFile": "dist/devnet.json",
       "relayerUrl": "https://relayer.dev.zama.cloud",
-      "canonicalHost": "ethereum_sepolia"
+      "canonicalHost": "ethereum_sepolia",
+      "hostRenames": {
+        "bnb_testnet": {
+          "to": "bsc_testnet",
+          "issue": "https://github.com/zama-ai/protocol-registry-internal/issues/203"
+        }
+      }
     }
   }
 }

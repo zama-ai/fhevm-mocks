@@ -159,7 +159,7 @@
             "protocolConfig": { "address": "0x473C62A2E6B30AE61F5C99BBB2edc9BB51Cd6Bc9" }
           }
         },
-        "bnb_testnet": {
+        "bsc_testnet": {
           "id": 97,
           "contracts": {
             "acl": { "address": "0x57a7452069EBe533f78A8af586cC9CA785293fec" },

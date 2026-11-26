@@ -33,6 +33,20 @@
           "description": "The key, among the hosts of the group, of its one canonical chain (D-14 of rules/global/definitions/).",
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "hostRenames": {
+          "description": "Exceptions to the registry's host keys, by registry key. Each names the upstream issue that will make it unnecessary; every sync prints it, and a sync fails once the registry no longer has the key.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["to", "issue"],
+            "additionalProperties": false,
+            "properties": {
+              "to": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+              "issue": { "type": "string", "pattern": "^https://\\S+$" }
+            }
+          }
         }
       }
     }
