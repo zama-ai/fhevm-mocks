@@ -32,6 +32,7 @@ export const commandNames = [
   'generation-parity',
   'forge-fhevm-std-parity',
   'extraneous',
+  'installed-optionals',
   'forge-std-chains',
   'docs',
 ] as const;
@@ -414,6 +415,12 @@ Prerequisite:
     .description('Check that no package-lock.json carries an extraneous node.')
     .action(() => {
       selected = 'extraneous';
+    });
+  check
+    .command('installed-optionals')
+    .description('Check that every optional package the lockfile gives this platform is installed.')
+    .action(() => {
+      selected = 'installed-optionals';
     });
   check
     .command('docs')

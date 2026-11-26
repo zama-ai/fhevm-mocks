@@ -46,6 +46,7 @@ export const ENFORCED_RULES: Readonly<Record<string, readonly RuleId[]>> = {
   ],
   'check lockfiles': ['NR-64'],
   'check extraneous': ['NR-65'],
+  'check installed-optionals': ['NR-93'],
   'check forge-std-chains': ['NR-91'],
   'check docs': ['R-09'],
   // NR-91 for the generated copy: `--check` compares common-vendored/src/fhevm-chains.ts with the config.
