@@ -28,7 +28,27 @@ export type NetworkGroupConfig = {
   readonly registryFile: string;
   /** Not in the registry: the relayer is Zama infrastructure, not an on-chain address. */
   readonly relayerUrl: string;
+  /**
+   * The key of the group's canonical chain among its hosts, as `ethereum_sepolia` (definition D-14 of
+   * `rules/global/definitions/`). Not in the registry: which host is canonical is decided here.
+   */
+  readonly canonicalHost: string;
+  /**
+   * Exceptions to the registry's host keys, by registry key: the host is written under `to`. Each one
+   * names the upstream issue that will make it unnecessary, every render says so, and a render fails
+   * once the registry no longer has the key, so that a fixed registry removes the exception.
+   */
+  readonly hostRenames: Readonly<Record<string, HostRename>>;
 };
+
+export type HostRename = {
+  /** The key the host is written under, in place of the registry's. */
+  readonly to: string;
+  /** The upstream issue that asks the registry for the same name. */
+  readonly issue: string;
+};
+
+const HOST_KEY = /^[a-z][a-z0-9_]*$/;
 
 /** The groups' source of truth, validated: every group in NETWORK_GROUPS, nothing else. */
 export function loadNetworkGroups(workspaceRoot: string): Readonly<Record<NetworkGroup, NetworkGroupConfig>> {
@@ -52,7 +72,37 @@ export function loadNetworkGroups(workspaceRoot: string): Readonly<Record<Networ
     if (typeof group.relayerUrl !== 'string' || !/^https?:\/\/\S+$/.test(group.relayerUrl)) {
       throw new Error(`${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.relayerUrl: expected an http(s) URL`);
     }
-    return [name, { registryFile: group.registryFile, relayerUrl: group.relayerUrl }] as const;
+    if (typeof group.canonicalHost !== 'string' || !HOST_KEY.test(group.canonicalHost)) {
+      throw new Error(
+        `${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.canonicalHost: expected the key of one of its hosts`,
+      );
+    }
+    const hostRenames = (group as { hostRenames?: unknown }).hostRenames ?? {};
+    if (typeof hostRenames !== 'object' || hostRenames === null || Array.isArray(hostRenames)) {
+      throw new Error(`${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.hostRenames: expected an object`);
+    }
+    for (const [from, rename] of Object.entries(hostRenames as Record<string, Partial<HostRename>>)) {
+      const valid =
+        HOST_KEY.test(from) &&
+        typeof rename?.to === 'string' &&
+        HOST_KEY.test(rename.to) &&
+        typeof rename.issue === 'string' &&
+        /^https:\/\/\S+$/.test(rename.issue);
+      if (!valid) {
+        throw new Error(
+          `${NETWORK_GROUPS_CONFIG_FILE}#groups.${name}.hostRenames.${from}: expected { to, issue }, with to a host key and issue an https URL`,
+        );
+      }
+    }
+    return [
+      name,
+      {
+        registryFile: group.registryFile,
+        relayerUrl: group.relayerUrl,
+        canonicalHost: group.canonicalHost,
+        hostRenames: hostRenames as Record<string, HostRename>,
+      },
+    ] as const;
   });
   return Object.fromEntries(entries) as Record<NetworkGroup, NetworkGroupConfig>;
 }
@@ -148,7 +198,7 @@ export async function renderChainsConfig(
   const networks = Object.fromEntries(
     NETWORK_GROUPS.map((group) => {
       const registry = JSON.parse(reader.fetchFile(groups[group].registryFile, fetchRef)) as Registry;
-      return [group, renderNetwork(group, registry, groups[group].relayerUrl)];
+      return [group, renderNetwork(group, registry, groups[group])];
     }),
   );
 
@@ -166,7 +216,8 @@ export async function renderChainsConfig(
       '([PREFIX_]ACL_HOST), so a new host chain appears on the next sync.',
       '',
       'relayerUrl is deliberately NOT from the registry (the relayer is infrastructure, not an',
-      'on-chain address); it is decided in fhevm-network-groups.config.json. js-sdk chain',
+      'on-chain address); it is decided in fhevm-network-groups.config.json, and so is canonicalHost,',
+      'the key of the one host that is the canonical chain of the group. js-sdk chain',
       'definitions (src/core/chains/definitions/*.ts) are to be generated from this file.',
     ],
     source: {
@@ -187,14 +238,63 @@ type ChainFace = { readonly id: number; readonly contracts: Record<string, Addre
 function renderNetwork(
   network: NetworkGroup,
   registry: Registry,
-  relayerUrl: string,
-): { relayerUrl: string; gateway: ChainFace; hosts: Record<string, ChainFace> } {
+  group: NetworkGroupConfig,
+): { relayerUrl: string; canonicalHost: string; gateway: ChainFace; hosts: Record<string, ChainFace> } {
   const contracts = registry.contracts ?? {};
+  const hosts = renameHosts(
+    network,
+    hostPrefixes(contracts).map((prefix) => renderHost(network, registry, prefix)),
+    group.hostRenames,
+  );
+  // A group has exactly one canonical chain, and it is one of its hosts (D-14).
+  if (!(group.canonicalHost in hosts)) {
+    throw new Error(
+      `${network}: canonicalHost '${group.canonicalHost}' is not a host of the group: ${Object.keys(hosts).join(', ')}`,
+    );
+  }
   return {
-    relayerUrl,
+    relayerUrl: group.relayerUrl,
+    canonicalHost: group.canonicalHost,
     gateway: renderGateway(network, registry),
-    hosts: Object.fromEntries(hostPrefixes(contracts).map((prefix) => renderHost(network, registry, prefix))),
+    hosts,
   };
+}
+
+/**
+ * The hosts, in registry order, with each exception of `hostRenames` applied in place. Every rename is
+ * printed, every run: an exception is a debt to the registry, not a setting.
+ */
+function renameHosts(
+  network: NetworkGroup,
+  hosts: ReadonlyArray<[string, ChainFace]>,
+  renames: Readonly<Record<string, HostRename>>,
+): Record<string, ChainFace> {
+  const keys = new Set(hosts.map(([key]) => key));
+  for (const [from, { to, issue }] of Object.entries(renames)) {
+    if (!keys.has(from)) {
+      throw new Error(
+        `${network}: the registry has no host '${from}' any more: ${issue} may be fixed. Remove the exception from ${NETWORK_GROUPS_CONFIG_FILE}.`,
+      );
+    }
+    if (keys.has(to)) {
+      throw new Error(`${network}: cannot rename host '${from}' to '${to}': the group already has it`);
+    }
+  }
+  return Object.fromEntries(
+    hosts.map(([key, face]) => {
+      const rename = renames[key];
+      if (rename === undefined) return [key, face];
+      console.warn(
+        [
+          `⚠️  HOST RENAME EXCEPTION`,
+          `⚠️  ${network}: the registry names host chain ${face.id} '${key}'; renamed to '${rename.to}'.`,
+          `⚠️  Upstream: ${rename.issue}`,
+          `⚠️  Once the registry uses '${rename.to}', remove the exception from ${NETWORK_GROUPS_CONFIG_FILE}.`,
+        ].join('\n'),
+      );
+      return [rename.to, face];
+    }),
+  );
 }
 
 function renderGateway(network: NetworkGroup, registry: Registry): ChainFace {

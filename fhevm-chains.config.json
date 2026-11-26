@@ -12,7 +12,8 @@
     "([PREFIX_]ACL_HOST), so a new host chain appears on the next sync.",
     "",
     "relayerUrl is deliberately NOT from the registry (the relayer is infrastructure, not an",
-    "on-chain address); it is decided in fhevm-network-groups.config.json. js-sdk chain",
+    "on-chain address); it is decided in fhevm-network-groups.config.json, and so is canonicalHost,",
+    "the key of the one host that is the canonical chain of the group. js-sdk chain",
     "definitions (src/core/chains/definitions/*.ts) are to be generated from this file."
   ],
   "source": {
@@ -23,6 +24,7 @@
   "networks": {
     "mainnet": {
       "relayerUrl": "https://relayer.mainnet.zama.org",
+      "canonicalHost": "ethereum",
       "gateway": {
         "id": 261131,
         "contracts": {
@@ -65,6 +67,7 @@
     },
     "testnet": {
       "relayerUrl": "https://relayer.testnet.zama.org",
+      "canonicalHost": "ethereum_sepolia",
       "gateway": {
         "id": 10901,
         "contracts": {
@@ -119,6 +122,7 @@
     },
     "devnet": {
       "relayerUrl": "https://relayer.dev.zama.cloud",
+      "canonicalHost": "ethereum_sepolia",
       "gateway": {
         "id": 10900,
         "contracts": {
@@ -155,7 +159,7 @@
             "protocolConfig": { "address": "0x473C62A2E6B30AE61F5C99BBB2edc9BB51Cd6Bc9" }
           }
         },
-        "bnb_testnet": {
+        "bsc_testnet": {
           "id": 97,
           "contracts": {
             "acl": { "address": "0x57a7452069EBe533f78A8af586cC9CA785293fec" },

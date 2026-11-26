@@ -84,7 +84,7 @@ void test('public chains are classified by their live chain id, one entry per gr
       97,
       [
         ['testnet', 'bsc_testnet'],
-        ['devnet', 'bnb_testnet'],
+        ['devnet', 'bsc_testnet'], // renamed from the registry's bnb_testnet: fhevm-network-groups.config.json
       ],
     ],
     [560_048, [['devnet', 'ethereum_hoodi']]],
