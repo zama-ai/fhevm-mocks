@@ -1,0 +1,215 @@
+name: sdk-cleartext-tests-nightly
+
+# The whole suite through `make ci`, once a night. Pull requests are gated by the faster
+# sdk-cleartext-tests.yml, which runs the same tests through the test engine and now
+# reports the required `sdk-cleartext-tests/test (bpr)` check. This run stays as a second opinion: it
+# runs the suite the Makefile's way, serially, so a difference between the two shows here.
+#
+# GitHub fires `schedule:` only from the default branch, so the night run is started by
+# sdk-cleartext-nightly.yml on `main`, at 00:47 UTC, which calls this file at its release branch
+# (`workflow_call`, with `ref`). It can also be started by hand (`workflow_dispatch`).
+#
+# No zizmor job, unlike sdk-cleartext-tests.yml: that one lints every workflow file on each pull
+# request, and here it would need `security-events: write` from the caller on main.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The branch to check out and test, such as release/0.14.x.
+        type: string
+        required: true
+  workflow_dispatch:
+
+# No permissions at the workflow level — each job declares only what it needs.
+permissions: {}
+
+# A night run is never worth two at once: a manual run waits for the scheduled one.
+# A fixed name, not github.workflow: in a called workflow that is the caller's name, shared with the
+# other night run.
+concurrency:
+  group: sdk-cleartext-tests-nightly-${{ inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+# Harden every `npm ci` inside `make install-ci` against transient registry blips such as
+# ECONNRESET / "network aborted", the same way js-sdk-dod.yml does.
+env:
+  NPM_CONFIG_FETCH_RETRIES: '5'
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: '20000'
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: '120000'
+  NPM_CONFIG_FETCH_TIMEOUT: '600000'
+
+jobs:
+  run-tests:
+    # Not `sdk-cleartext-tests/test (bpr)`: that required check is sdk-cleartext-tests.yml's now.
+    name: sdk-cleartext-tests-nightly/test
+    # The runner js-sdk-tests.yml uses: runs-on.io, 4 vCPU, with the S3-backed cache extra.
+    runs-on: runs-on=${{ github.run_id }}/runner=4cpu-linux-x64/extras=s3-cache
+    # `make ci` takes about an hour and a half on a laptop. Generous until a real run says otherwise.
+    timeout-minutes: 180
+    permissions:
+      contents: 'read' # Required to checkout repository code
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      #    Pinned to a full commit SHA (not a mutable tag) to prevent supply
+      #    chain attacks. persist-credentials: false removes the Git token from
+      #    the local config so subsequent steps can't accidentally leak it.
+      #    fetch-depth: 0 is required here, unlike most workflows in this repo:
+      #    `make generate` runs `check-vendored-origin`, which reads vendored
+      #    files straight out of this repo's own git history at their pinned
+      #    origin commit (`git show <commit>:<path>`) to prove the vendored
+      #    copy still matches. A shallow checkout doesn't have that commit,
+      #    and the read fails with "unavailable locally".
+      # -----------------------------------------------------------------------
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Called from main, github.ref is main's: check out the branch that was asked for. Empty on
+          # a manual run, which checks out the branch it was started on.
+          ref: ${{ inputs.ref }}
+          persist-credentials: 'false'
+          fetch-depth: 0
+
+      # -----------------------------------------------------------------------
+      # 2. Node.js setup
+      #    The workspace requires Node >=22.6 (declared in package.json
+      #    "engines"). 22.x resolves to the latest 22, which matters here:
+      #    ./fhevm-npm-cli runs a .ts entry point with no flags and relies on
+      #    Node's built-in type stripping, on by default from 22.18.
+      #    UNLIKE js-sdk-tests.yml there is no registry-url: nothing in a test
+      #    run authenticates to a registry.
+      # -----------------------------------------------------------------------
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '>=22.23.4 <23'
+
+      # -----------------------------------------------------------------------
+      # 3. safe-chain
+      #    Aikido's supply-chain monitor. Hooks into npm install so that any
+      #    package with a known-malicious checksum is blocked before it can
+      #    execute. --ci makes it exit non-zero on any violation instead of
+      #    prompting interactively, and installs PATH shims rather than shell
+      #    aliases, so the npm runs inside `make` are covered too.
+      # -----------------------------------------------------------------------
+      - name: Install safe-chain
+        shell: bash
+        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/download/1.5.3/install-safe-chain.sh | sh -s -- --ci
+
+      # -----------------------------------------------------------------------
+      # 4. Foundry
+      #    Needed by the install (forge soldeer), the compiles and the tests.
+      #    `forge --version` reports the ref it was built from, so a tag says
+      #    "1.5.1-v1.5.1" and the stable channel says "1.5.1-stable".
+      #    check-foundry compares that whole string against
+      #    npm-manifest.json#foundry.version, so both must use the tag — and
+      #    both must be bumped together. Locally: foundryup --install v1.5.1
+      # -----------------------------------------------------------------------
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.5.1
+
+      # -----------------------------------------------------------------------
+      # 5. Upgrade npm
+      #    Pin to the same version as the sibling js-sdk and library-solidity
+      #    workflows, so a lockfile written by one is read by the same npm in
+      #    all of them. Nothing here publishes, so this is about `npm ci`
+      #    behaving identically everywhere, not about provenance.
+      # -----------------------------------------------------------------------
+      - name: Update npm
+        run: npm install -g npm@11.7.0
+
+      # -----------------------------------------------------------------------
+      # 6. Install dependencies
+      #    npm ci is strict and deterministic: it installs exactly what is in
+      #    package-lock.json, fails if the lockfile is out of sync, and never
+      #    modifies it. UNLIKE js-sdk-tests.yml one `npm ci` is not enough: this
+      #    workspace has four installation roots (sdk, fhevm-npm, hardhat/v2,
+      #    hardhat/v3) because hardhat's environment is per-module and each
+      #    major needs its own singleton. `make install-ci` runs npm ci in each,
+      #    then the forge dependencies, because the Makefile owns which roots
+      #    exist.
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: make install-ci
+
+      # -----------------------------------------------------------------------
+      # 6b. Install mlc
+      #    `check md-links`, which `make check-pre` runs, checks the .md links
+      #    with mlc (Markup Link Checker, https://github.com/becheran/mlc) and
+      #    skips with a warning when mlc is missing. Installed so the check
+      #    really runs here: pinned and built from source as tfhe-rs installs
+      #    it. Keep the version equal to the one in sdk-cleartext-docs.yml.
+      # -----------------------------------------------------------------------
+      - name: Install mlc
+        run: cargo install --locked --version 1.3.0 mlc
+
+      # -----------------------------------------------------------------------
+      # 7. Build everything
+      #    `build-ci` is every gate except the tests, in the Makefile's order:
+      #    clean, check-generated (delete + regenerate + require a spotless
+      #    tree), check-pre, check-vendored-origin, build (fmt-check, lint,
+      #    compile of every package), check-post. It refuses to start on a
+      #    dirty worktree, which is also what proves `make install-ci` left
+      #    none of the committed files touched.
+      # -----------------------------------------------------------------------
+      - name: Build everything
+        run: make build-ci
+
+      # -----------------------------------------------------------------------
+      # 8. Test everything
+      #    Every package's unit, forge and harness tests, in dependency order.
+      #    The suites that need a local node are NOT here: they are their own tier,
+      #    in step 10 below.
+      #
+      #    FHEVM_SKIP_RPC_TESTS keeps this lane OFFLINE. forge-fhevm-std commits an
+      #    `[rpc_endpoints] sepolia` in its foundry.toml, so `hasRpcUrlFor` is always
+      #    true and the per-suite opt-in can never skip on its own; without this the
+      #    default `forge test` calls a public endpoint on every push and goes red for
+      #    reasons unrelated to the change (rate limits, and pruned state under any
+      #    pinned block). The network suites are run deliberately instead, by
+      #    `make test-forge-std-fork` / `test-forge-std-fork-url`.
+      #
+      #    The ulimit is the js-sdk workflow's: hardhat and forge open many files
+      #    at once under the harness tests.
+      # -----------------------------------------------------------------------
+      - name: Test everything
+        env:
+          FHEVM_SKIP_RPC_TESTS: 'true'
+        run: |
+          ulimit -n 65536
+          make test
+
+      # -----------------------------------------------------------------------
+      # 9. Consumer rehearsal
+      #    Installs every consumer registered in npm-manifest.json#consumerTests
+      #    into an isolated temp directory and runs its suite, replaying each
+      #    committed lockfile — the closest thing to a publish rehearsal that
+      #    never reaches npmjs.com. Both hardhat templates are workspace members
+      #    with no lockfile by policy and resolve fresh. Steps 7, 8, 9 and 10 are
+      #    what `make ci` runs; they are separate steps only so the summary
+      #    names the phase that went red.
+      # -----------------------------------------------------------------------
+      - name: Consumer rehearsal
+        run: make test-consumer-ci
+
+      # -----------------------------------------------------------------------
+      # 10. Anvil suite
+      #    forge-fhevm-std's anvil suite, which needs a local EVM node. It starts
+      #    and stops its own through scripts/with-anvil.sh, so there is no service
+      #    to declare here and nothing is left listening afterwards. anvil itself
+      #    comes from the foundry toolchain installed in step 4 — no extra install.
+      #
+      #    `test-anvil-ci` is a SUBSET of the `test-anvil` tier: the two hardhat
+      #    e2e suites against anvil pass but cost ~4 minutes each, so they are not
+      #    yet paid for on every push. The Makefile target says how to promote one.
+      #
+      #    AFTER the consumer rehearsal on purpose: those rehearsals assert that
+      #    nothing holds port 8545 and fail outright if something does, and this
+      #    tier binds a node. `make ci` orders it the same way.
+      # -----------------------------------------------------------------------
+      - name: Anvil suite
+        run: |
+          ulimit -n 65536
+          make test-anvil-ci

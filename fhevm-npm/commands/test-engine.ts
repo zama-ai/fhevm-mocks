@@ -52,6 +52,10 @@ type SelectionOptions = {
   readonly ci: boolean;
   readonly chain?: number | undefined;
   readonly runtime?: ChainRuntime | undefined;
+  readonly live?: boolean | undefined;
+  readonly wallet?: boolean | undefined;
+  readonly latest?: boolean | undefined;
+  readonly pinned?: boolean | undefined;
 };
 
 type RunOptions = LocationOptions &
@@ -157,7 +161,7 @@ function testEngineProgram(reportingStatus: ActionWrapper): Command {
     .action(reportingStatus(validateInventory));
 
   addSelectionOptions(addLocationOptions(program.command('list [ids...]')))
-    .description('Print each test of the inventory with its selection state and its chains. Runs nothing.')
+    .description('Print each test that the selection holds, with its selection state and its chains. Runs nothing.')
     .action(reportingStatus(listSelection));
 
   addSelectionOptions(addLocationOptions(program.command('lanes [ids...]')))
@@ -263,9 +267,18 @@ function addSelectionOptions(command: Command): Command {
     .option('--match <regex>', 'only the tests whose ID matches this regular expression')
     .option('--ci', 'only the tests with "ci": true', false)
     .option('--chain <chainid>', 'only the tests with a chain on this chain id', parseChainId)
-    .addOption(
-      new Option('--runtime <runtime>', 'only the tests with a chain of this runtime').choices(CHAIN_RUNTIMES),
-    );
+    .addOption(new Option('--runtime <runtime>', 'only the tests with a chain of this runtime').choices(CHAIN_RUNTIMES))
+    .option('--live', 'only the tests with a live chain: a fork, or the remote chain itself')
+    .option('--no-live', 'only the tests with no live chain')
+    .option('--wallet', 'only the tests with a chain that needs a wallet: a funded account on a remote chain')
+    .option('--no-wallet', 'only the tests with no chain that needs a wallet')
+    .option(
+      '--latest',
+      'only the tests with a live chain at its latest block: a fork with no pinned block, or a remote chain',
+    )
+    .option('--no-latest', 'every test but those with a live chain at its latest block')
+    .option('--pinned', 'only the tests whose live chains are all forks at a pinned block')
+    .option('--no-pinned', 'every test but those whose live chains are all forks at a pinned block');
 }
 
 /**
@@ -393,7 +406,9 @@ function listSelection(ids: readonly string[], options: LocationOptions & Select
     environment: process.env,
   });
 
-  for (const line of selectionLines(resolved)) console.log(line);
+  const held = resolved.filter((entry) => entry.state !== 'not-selected');
+
+  for (const line of selectionLines(held)) console.log(line);
 
   return SUCCESS_EXIT_STATUS;
 }
@@ -634,6 +649,10 @@ function selectionRequest(input: SelectionRequestInput): SelectionRequest {
       match: input.options.match,
       chainId: input.options.chain,
       runtime: input.options.runtime,
+      live: input.options.live,
+      wallet: input.options.wallet,
+      latest: input.options.latest,
+      pinned: input.options.pinned,
     },
   };
 }

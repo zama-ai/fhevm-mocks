@@ -384,7 +384,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-testnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -398,7 +398,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-resolve-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -418,7 +418,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-switch-testnet-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -437,7 +437,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-cleartext-arbitrum -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 42161,
@@ -456,7 +456,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-cleartext-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 1,
@@ -474,7 +474,7 @@
     "command": "npm run --silent test-engine:fork-url -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -488,7 +488,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-testnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -502,7 +502,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-resolve-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -522,7 +522,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-switch-testnet-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -541,7 +541,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-cleartext-arbitrum -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 42161,
@@ -560,7 +560,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-cleartext-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 1,
@@ -678,7 +678,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-devnet",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -699,7 +699,7 @@
         "chainid": 11155111,
         "fhevm": "testnet",
         "runtime": "forge-fork",
-        "block": null
+        "block": 12019645
       }
     ],
     "read": ["host-contracts-cleartext/v13"]
@@ -714,7 +714,8 @@
       {
         "chainid": 1,
         "fhevm": "mainnet",
-        "runtime": "forge-fork"
+        "runtime": "forge-fork",
+        "block": 26493782
       }
     ],
     "read": ["host-contracts-cleartext/v13"]
@@ -724,7 +725,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-transient-storage",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 31337,
@@ -744,7 +745,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-devnet -w @fhevm/host-contracts-cleartext-v14-dev",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -765,7 +766,21 @@
         "chainid": 11155111,
         "fhevm": "testnet",
         "runtime": "forge-fork",
-        "block": null
+        "block": 12019645
+      }
+    ],
+    "read": ["host-contracts-cleartext/v14"]
+  },
+  "test-cleartext-v-cur-fork-testnet-latest": {
+    "command": "npm run --silent test-engine:fork-testnet-latest -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 11155111,
+        "fhevm": "testnet",
+        "runtime": "forge-fork"
       }
     ],
     "read": ["host-contracts-cleartext/v14"]
@@ -780,6 +795,21 @@
       {
         "chainid": 1,
         "fhevm": "mainnet",
+        "runtime": "forge-fork",
+        "block": 26493782
+      }
+    ],
+    "read": ["host-contracts-cleartext/v14"]
+  },
+  "test-cleartext-v-cur-fork-mainnet-latest": {
+    "command": "npm run --silent test-engine:fork-mainnet-latest -w @fhevm/host-contracts-cleartext-v14-dev",
+    "package": "host-contracts-cleartext",
+    "duration": "slow",
+    "ci": false,
+    "chains": [
+      {
+        "chainid": 1,
+        "fhevm": "mainnet",
         "runtime": "forge-fork"
       }
     ],
@@ -790,7 +820,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-transient-storage -w @fhevm/host-contracts-cleartext-v14-dev",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 31337,
@@ -810,7 +840,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:internal-fork-testnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,

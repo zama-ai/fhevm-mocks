@@ -36,6 +36,8 @@ const LIST_VARIABLE = 'FHEVM_TEST_LIST=1';
 
 /** The test that only the current generation has. */
 const UPGRADE = `${PREFIX}upgrade`;
+/** The suffix of a script that forks a live chain at its latest block, the twin of a pinned one. */
+const LATEST_SUFFIX = '-latest';
 
 /** The previous and the current generation of the cleartext packages, as their test IDs name them. */
 const PREVIOUS_GENERATION = 'test-cleartext-v-prev';
@@ -203,14 +205,16 @@ test('a forge part is called by its script, and every script of the test engine 
   }
 });
 
-test('the previous generation has, in the root package.json, the script names of the current generation, upgrade apart', () => {
+// A `-latest` script forks a live chain at its latest block. The previous generation has none where the
+// chain has left that generation: it will not come back, and such a run could only fail.
+test('the previous generation has, in the root package.json, the script names of the current generation, upgrade and -latest apart', () => {
   const namesOf = (main: string): readonly string[] => {
     const owner = owners.find((one) => mainTestOf(one) === main);
 
     assert.ok(owner !== undefined, `no package has the main test ${main}`);
 
     return Object.keys(owner.scripts)
-      .filter((script) => script.startsWith(PREFIX) && script !== UPGRADE)
+      .filter((script) => script.startsWith(PREFIX) && script !== UPGRADE && !script.endsWith(LATEST_SUFFIX))
       .sort();
   };
 

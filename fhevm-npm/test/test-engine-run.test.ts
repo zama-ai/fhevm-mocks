@@ -432,10 +432,10 @@ test('tests that use a live chain run one after the other, also in a run of seve
     context,
     inventory: {
       $schema: SCHEMA,
-      'test-wallet-a': fixtureTest({ command: 'touch ran-a', chains: [wallet] }),
+      'test-wallet-a': fixtureTest({ ci: false, command: 'touch ran-a', chains: [wallet] }),
       'test-local': fixtureTest({ command: 'touch ran-local' }),
-      'test-wallet-b': fixtureTest({ command: 'touch ran-b', chains: [wallet] }),
-      'test-reads': fixtureTest({ chains: [{ ...wallet, wallet: false }] }),
+      'test-wallet-b': fixtureTest({ ci: false, command: 'touch ran-b', chains: [wallet] }),
+      'test-reads': fixtureTest({ ci: false, chains: [{ ...wallet, wallet: false }] }),
     },
   });
 
@@ -467,8 +467,8 @@ test('a test whose live chain has no RPC URL set does not start, is unavailable,
     inventory: {
       $schema: SCHEMA,
       'test-local': fixtureTest({ command: 'touch ran-local' }),
-      'test-fork-a': fixtureTest({ command: 'touch ran-fork-a', chains: [sepolia] }),
-      'test-fork-b': fixtureTest({ command: 'touch ran-fork-b', chains: [sepolia] }),
+      'test-fork-a': fixtureTest({ ci: false, command: 'touch ran-fork-a', chains: [sepolia] }),
+      'test-fork-b': fixtureTest({ ci: false, command: 'touch ran-fork-b', chains: [sepolia] }),
     },
   });
   const argv = ['run', '--root', repository.root, '--max-lanes', '2'];
@@ -577,8 +577,8 @@ test('a test gets the RPC URL of a live chain only when it declares that chain',
     inventory: {
       $schema: SCHEMA,
       'test-local': fixtureTest({ command: seen('seen-local') }),
-      'test-sepolia': fixtureTest({ command: seen('seen-sepolia'), chains: [sepolia] }),
-      'test-both': fixtureTest({ command: seen('seen-both'), chains: [sepolia, mainnet] }),
+      'test-sepolia': fixtureTest({ ci: false, command: seen('seen-sepolia'), chains: [sepolia] }),
+      'test-both': fixtureTest({ ci: false, command: seen('seen-both'), chains: [sepolia, mainnet] }),
     },
   });
 
@@ -606,6 +606,43 @@ test('a test gets the RPC URL of a live chain only when it declares that chain',
   assert.equal(read('seen-both'), `${ofMainnet} ${other} ${ofSepolia} `);
   // The engine itself keeps the variables: a later test still gets its own.
   assert.equal(process.env['SEPOLIA_RPC_URL'], 'https://sepolia.example.invalid');
+});
+
+test('a test gets the fork block of a chain only when it pins one', async (context) => {
+  const mainnetAt = (block?: number | null): Chain =>
+    block === undefined
+      ? { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork' }
+      : { chainid: 1, fhevm: 'mainnet', runtime: 'forge-fork', block };
+  const seen = (file: string): string => `env | grep -E '_FORK_BLOCK=' | sort | tr '\\n' ' ' > ${file}`;
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: SCHEMA,
+      'test-pinned': fixtureTest({ command: seen('seen-pinned'), chains: [mainnetAt(26493782)] }),
+      'test-latest': fixtureTest({ ci: false, command: seen('seen-latest'), chains: [mainnetAt()] }),
+      'test-to-find': fixtureTest({ ci: false, command: seen('seen-to-find'), chains: [mainnetAt(null)] }),
+      'test-local': fixtureTest({ command: seen('seen-local') }),
+    },
+  });
+
+  // A block left in the shell must not move a test that pins none.
+  withEnvironment({
+    context,
+    variables: {
+      MAINNET_RPC_URL: 'https://mainnet.example.invalid',
+      MAINNET_FORK_BLOCK: '1',
+      SEPOLIA_FORK_BLOCK: '2',
+    },
+  });
+
+  const run = await captureEngine({ context, argv: ['run', '--root', repository.root, '--max-lanes', '2'] });
+  const read = (file: string): string => readFileSync(join(repository.root, file), 'utf8');
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(read('seen-pinned'), 'MAINNET_FORK_BLOCK=26493782 ');
+  assert.equal(read('seen-latest'), '');
+  assert.equal(read('seen-to-find'), '');
+  assert.equal(read('seen-local'), '');
 });
 
 test('a run ends with the time of each lane, of the build, of the tests and of the whole run', async (context) => {

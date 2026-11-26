@@ -19,6 +19,7 @@ import {IInputVerifier} from "../../pkg/forge/src/_internal/interfaces/IInputVer
 import {IKMSVerifier} from "../../pkg/forge/src/_internal/interfaces/IKMSVerifier.sol";
 import {IProtocolConfig} from "../../pkg/forge/src/_internal/interfaces/IProtocolConfig.sol";
 import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstrap.sol";
+import {ForkBlock} from "../utils/ForkBlock.sol";
 
 /**
  * @notice Running cleartext tooling against a forked production host: make the fork register the
@@ -31,6 +32,8 @@ import {LocalHostBootstrap} from "../../pkg/forge/src/_internal/LocalHostBootstr
  *      which one it got.
  *
  *          MAINNET_RPC_URL=https://ethereum-rpc.publicnode.com forge test --match-contract ForkCleartext
+ *
+ *      MAINNET_FORK_BLOCK=<block> pins the fork (the engine sets it from ALL_TESTS.json); unset, the latest block.
  */
 contract ForkCleartextContextTest is Test {
     address internal MAINNET_ACL;
@@ -114,12 +117,12 @@ contract ForkCleartextContextTest is Test {
         string memory sepoliaRpc = vm.envOr("SEPOLIA_RPC_URL", string(""));
 
         if (bytes(mainnetRpc).length > 0) {
-            vm.createSelectFork(mainnetRpc);
+            ForkBlock.createSelectFork(mainnetRpc, "MAINNET_FORK_BLOCK");
             (acl, inputVerifier) = (MAINNET_ACL, MAINNET_INPUT_VERIFIER);
             (kmsVerifier, protocolConfig) = (MAINNET_KMS_VERIFIER, MAINNET_PROTOCOL_CONFIG);
             kmsGeneration = MAINNET_KMS_GENERATION;
         } else if (bytes(sepoliaRpc).length > 0) {
-            vm.createSelectFork(sepoliaRpc);
+            ForkBlock.createSelectFork(sepoliaRpc, "SEPOLIA_FORK_BLOCK");
             (acl, inputVerifier) = (SEPOLIA_ACL, SEPOLIA_INPUT_VERIFIER);
             (kmsVerifier, protocolConfig) = (SEPOLIA_KMS_VERIFIER, SEPOLIA_PROTOCOL_CONFIG);
             kmsGeneration = SEPOLIA_KMS_GENERATION;

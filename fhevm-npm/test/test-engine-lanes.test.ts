@@ -594,8 +594,8 @@ test('the lanes for live chains come from the option, then from the variable, th
     context,
     inventory: {
       $schema: './ALL_TESTS.schema.json',
-      'test-fork-a': fixtureTest({ chains: [fork] }),
-      'test-fork-b': fixtureTest({ chains: [fork] }),
+      'test-fork-a': fixtureTest({ ci: false, chains: [fork] }),
+      'test-fork-b': fixtureTest({ ci: false, chains: [fork] }),
     },
   });
   const argv = ['lanes', '--root', repository.root, '--max-lanes', '4'];

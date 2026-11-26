@@ -4,7 +4,7 @@ import { portListener } from './engine-processes.ts';
 import { TestEngineError } from './errors.ts';
 import { GUID_VARIABLE, environmentWithoutGuid, newGuid } from './guid.ts';
 import type { Chain, InventoryEntry, NodeChain, Test } from './inventory.ts';
-import { withoutUndeclaredRpcVariables } from './live-chains.ts';
+import { withForkBlocksOfTest, withoutUndeclaredRpcVariables } from './live-chains.ts';
 import type { NodeLog } from './node-log.ts';
 import { isFixedPort, portsOfSpec } from './port-spec.ts';
 import { freePort } from './ports.ts';
@@ -289,15 +289,19 @@ export type EnvironmentOfTestInput = {
 };
 
 /**
- * The environment of a test command: the environment of the engine, with three changes.
+ * The environment of a test command: the environment of the engine, with these changes.
  * - It never carries the GUID of the engine: only a node does.
- * - It holds the RPC URL of a live chain only when the test declares that chain.
+ * - It holds the RPC URL of a live chain only when the test declares that chain, and the fork block of
+ *   a live chain only when the test pins one, as `MAINNET_FORK_BLOCK`.
  * - It gives the node that the engine started for the test, through two variables, the same for an
  *   anvil node and for a Hardhat node.
  */
 export function environmentOfTest(input: EnvironmentOfTestInput): NodeJS.ProcessEnv {
   const { entry, node } = input;
-  const environment = withoutUndeclaredRpcVariables({ entry, environment: environmentWithoutGuid() });
+  const environment = withForkBlocksOfTest({
+    entry,
+    environment: withoutUndeclaredRpcVariables({ entry, environment: environmentWithoutGuid() }),
+  });
 
   if (node === undefined) return environment;
 

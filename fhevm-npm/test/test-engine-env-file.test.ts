@@ -83,7 +83,11 @@ test('a run reads .env at the root: a test on a live chain runs, and gets the UR
     context,
     inventory: {
       $schema: SCHEMA,
-      'test-fork': fixtureTest({ command: 'printf "%s" "$SEPOLIA_RPC_URL" > seen-url', chains: [SEPOLIA_FORK] }),
+      'test-fork': fixtureTest({
+        ci: false,
+        command: 'printf "%s" "$SEPOLIA_RPC_URL" > seen-url',
+        chains: [SEPOLIA_FORK],
+      }),
     },
   });
   const argv = ['run', '--root', repository.root, '--max-lanes', '1'];
@@ -110,7 +114,7 @@ test('a run reads .env at the root: a test on a live chain runs, and gets the UR
 test('the environment wins over the env file, and --env-file names another file', async (context) => {
   const repository = writeFixtureRepository({
     context,
-    inventory: { $schema: SCHEMA, 'test-fork': fixtureTest({ chains: [SEPOLIA_FORK] }) },
+    inventory: { $schema: SCHEMA, 'test-fork': fixtureTest({ ci: false, chains: [SEPOLIA_FORK] }) },
   });
   const other = join(repository.root, 'other.env');
   const argv = ['list', '--root', repository.root, '--env-file', other];

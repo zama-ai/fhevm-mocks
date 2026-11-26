@@ -16,7 +16,7 @@ const RPC_VARIABLE_OF_CHAIN_ID: ReadonlyMap<number, string> = new Map([
 export type Environment = Readonly<Record<string, string | undefined>>;
 
 /** A chain that a test reaches through the RPC of a live chain: the chain itself, or a fork of it. */
-function isLiveChain(chain: Chain): boolean {
+export function isLiveChain(chain: Chain): boolean {
   return chain.runtime === 'remote' || chain.runtime === 'forge-fork';
 }
 
@@ -116,6 +116,146 @@ export function checkRpcVariablesOfCommands(inventory: Inventory): void {
     [
       `${inventory.file} has ${lines.length} command(s) that need a live chain the test does not declare:`,
       ...lines,
+    ].join('\n  '),
+  );
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Fork blocks
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * The variable that holds the block a test forks a live chain at: its RPC URL variable, with
+ * `_FORK_BLOCK` in place of `_RPC_URL`, as in `MAINNET_FORK_BLOCK`.
+ */
+function forkBlockVariableOf(rpcVariable: string): string {
+  return rpcVariable.replace(/_RPC_URL$/, '_FORK_BLOCK');
+}
+
+/** Every fork block variable the engine knows, one for each live chain. */
+const FORK_BLOCK_VARIABLES: readonly string[] = [...RPC_VARIABLE_OF_CHAIN_ID.values()].map(forkBlockVariableOf);
+
+/** The block a fork pins, or undefined when it forks the latest block, or one still to find (`null`). */
+function pinnedBlock(chain: Chain): number | undefined {
+  return chain.runtime === 'forge-fork' && typeof chain.block === 'number' ? chain.block : undefined;
+}
+
+/**
+ * One line for each chain that the test forks at more than one block. A test gets one block variable
+ * per chain, so all its forks of one chain must pin the same block, or none.
+ */
+export function conflictingForkBlockLines(entry: InventoryEntry): readonly string[] {
+  const blocksOfChainId = new Map<number, Set<number | undefined>>();
+
+  for (const chain of entry.test.chains) {
+    if (chain.runtime !== 'forge-fork') continue;
+    const blocks = blocksOfChainId.get(chain.chainid) ?? new Set();
+    blocks.add(pinnedBlock(chain));
+    blocksOfChainId.set(chain.chainid, blocks);
+  }
+
+  return [...blocksOfChainId]
+    .filter(([, blocks]) => blocks.size > 1)
+    .map(([chainId, blocks]) => {
+      const names = [...blocks].map((block) => (block === undefined ? 'latest' : String(block)));
+
+      return `${entry.id}: forks chain ${chainId} at blocks ${names.join(' and ')}.`;
+    });
+}
+
+/** Fails when a test forks one chain at more than one block: see `conflictingForkBlockLines`. */
+export function checkForkBlocks(inventory: Inventory): void {
+  const lines = [...inventory.tests].flatMap(([id, test]) => conflictingForkBlockLines({ id, test }));
+
+  if (lines.length === 0) return;
+
+  throw new TestEngineError(
+    [`${inventory.file} has ${lines.length} test(s) that fork one chain at more than one block:`, ...lines].join(
+      '\n  ',
+    ),
+  );
+}
+
+export type ForkBlocksOfTestInput = {
+  readonly entry: InventoryEntry;
+  readonly environment: NodeJS.ProcessEnv;
+};
+
+/**
+ * The environment with the fork block of each live chain that the test pins, and no other. A test that
+ * pins `"block": 26493782` on its mainnet fork gets `MAINNET_FORK_BLOCK=26493782`; a test that pins none
+ * gets no such variable, even when the engine's own environment holds one, so a block left in a shell
+ * never moves a test that forks the latest block.
+ */
+export function withForkBlocksOfTest(input: ForkBlocksOfTestInput): NodeJS.ProcessEnv {
+  const environment = { ...input.environment };
+
+  for (const variable of FORK_BLOCK_VARIABLES) delete environment[variable];
+
+  for (const chain of input.entry.test.chains) {
+    const block = pinnedBlock(chain);
+    const rpcVariable = RPC_VARIABLE_OF_CHAIN_ID.get(chain.chainid);
+
+    if (block !== undefined && rpcVariable !== undefined) environment[forkBlockVariableOf(rpcVariable)] = String(block);
+  }
+
+  return environment;
+}
+
+/** The state of the live chains that a test reaches: all at pinned blocks, or at least one at the latest. */
+export type BlockMode = 'pinned' | 'latest';
+
+/**
+ * `pinned` when the test reaches live chains and every one of them is a fork at a pinned block: nothing
+ * that happens on the chains can change its result. `latest` when it reaches at least one live chain at
+ * its latest state: a fork with no pinned block (a block still to find included), or a remote chain,
+ * which is always at its latest. Undefined for a test that reaches no live chain.
+ */
+export function blockModeOf(test: Test): BlockMode | undefined {
+  const live = test.chains.filter(isLiveChain);
+
+  if (live.length === 0) return undefined;
+
+  return live.every((chain) => pinnedBlock(chain) !== undefined) ? 'pinned' : 'latest';
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CI runs no test that a chain can break
+////////////////////////////////////////////////////////////////////////////////
+
+/** Why a live chain is at its latest block, or undefined when it is a fork at a pinned block. */
+function latestReasonOf(chain: Chain): string | undefined {
+  if (chain.runtime === 'remote') return `chain ${chain.chainid} is a remote chain`;
+  if (chain.runtime !== 'forge-fork') return undefined;
+  if (chain.block === null) return `chain ${chain.chainid} is a fork whose block is still to find`;
+  if (chain.block === undefined) return `chain ${chain.chainid} is a fork with no pinned block`;
+  return undefined;
+}
+
+/**
+ * One line for each test with `"ci": true` that reaches a live chain at its latest block. A chain moves
+ * on its own schedule, so such a test can fail with no change in this repository, and a CI run on a pull
+ * request must not hold it.
+ */
+export function ciAtLatestLines(entry: InventoryEntry): readonly string[] {
+  if (!entry.test.ci) return [];
+
+  const reasons = entry.test.chains.map(latestReasonOf).filter((reason) => reason !== undefined);
+
+  return reasons.length === 0 ? [] : [`${entry.id}: ${reasons.join(', ')}.`];
+}
+
+/** Fails when a test with `"ci": true` reaches a live chain at its latest block: see `ciAtLatestLines`. */
+export function checkCiIsNotLatest(inventory: Inventory): void {
+  const lines = [...inventory.tests].flatMap(([id, test]) => ciAtLatestLines({ id, test }));
+
+  if (lines.length === 0) return;
+
+  throw new TestEngineError(
+    [
+      `${inventory.file} has ${lines.length} test(s) with "ci": true that reach a live chain at its latest block:`,
+      ...lines,
+      'A chain can change their result with no change here. Pin each fork\'s "block", or set "ci": false.',
     ].join('\n  '),
   );
 }
