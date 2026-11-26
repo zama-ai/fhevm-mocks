@@ -153,3 +153,25 @@ cd hardhat/v2 && npm config get install-strategy
 # ❌ Asked from the repo root, reporting the outer .npmrc's value — which hardhat/v2 never reads.
 npm config get install-strategy
 ```
+
+<a id="nr-93"></a>
+
+## NR-93: An install holds every optional package its platform needs `[HOLD]`
+
+> After an install, every optional package that the lockfile gives this platform is on disk.
+
+Check: script.
+
+Checked by: `./fhevm-npm-cli check installed-optionals`
+
+When npm fails to fetch or build an optional package, it leaves the package out and still exits 0. Native bindings
+are optional packages, one per platform, so a lost binding passes the install and breaks the first tool that loads
+it, later and far from the cause.
+
+The lockfile says what a complete install holds. After every install, each optional package that fits the platform
+must be on disk, so the install step fails and names what is missing.
+
+```text
+❌ npm ci → exit 0, a native binding is missing → a test fails later: "Cannot find native binding"
+✅ npm ci → check installed-optionals → the install fails and names the missing binding
+```

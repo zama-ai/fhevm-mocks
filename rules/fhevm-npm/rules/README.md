@@ -54,7 +54,7 @@ To read the full text of every live rule on one page, open [groups/all.md](group
 | [Tooling](#tooling)               | Read these rules, and then NR-19, before you add a script, a tsconfig, a format or lint config, or a Foundry project. | 13    | [tooling.md](groups/tooling.md)               |
 | [Publishing](#publishing)         | Read these rules before you change what a payload ships, bump a version, or publish.                                  | 12    | [publishing.md](groups/publishing.md)         |
 | [Consumer tests](#consumer-tests) | Read these rules before you write or register a consumer test.                                                        | 10    | [consumer-tests.md](groups/consumer-tests.md) |
-| [Lockfiles](#lockfiles)           | Read these rules when a lockfile check fails or an install is broken.                                                 | 6     | [lockfiles.md](groups/lockfiles.md)           |
+| [Lockfiles](#lockfiles)           | Read these rules when a lockfile check fails or an install is broken.                                                 | 7     | [lockfiles.md](groups/lockfiles.md)           |
 | [Deployments](#deployments)       | Read these rules before you archive a deployment, an upgrade, or a hotfix.                                            | 10    | [deployments.md](groups/deployments.md)       |
 
 ## Packages
@@ -182,14 +182,15 @@ To read the full text of every live rule on one page, open [groups/all.md](group
 
 ## Lockfiles
 
-| ID                                 | Rule                                        | Short rule                                                                                                                             | Old number | Check      | Issues      |
-| ---------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------- | ----------- |
-| [NR-64](entries/NR-64.md) `[GAP]`  | One lockfile per installation root          | One authoritative lockfile per installation root.                                                                                      | 6.1.1      | script     | I-01, I-113 |
-| [NR-65](entries/NR-65.md) `[HOLD]` | No extraneous lockfile nodes                | No lockfile carries an extraneous node.                                                                                                | 6.1.2      | script     |             |
-| [NR-66](entries/NR-66.md) `[GAP]`  | Consumer lockfiles pin the central versions | An isolated consumer lockfile pins every published payload at its `versions.json` version, resolved to the payload its depender names. | 6.1.3      | script     | I-114       |
-| [NR-67](entries/NR-67.md) `[HOLD]` | Member changes invalidate the tree          | A member rename or a `workspaces` edit invalidates the tree, not just the lock.                                                        | 6.2.1      | impossible |             |
-| [NR-68](entries/NR-68.md) `[HOLD]` | Delete the tree when packages are missing   | When npm says "up to date" and packages are absent, delete the tree.                                                                   | 6.2.2      | impossible |             |
-| [NR-69](entries/NR-69.md) `[HOLD]` | The local .npmrc applies, not an ancestor   | `.npmrc` is read from the local prefix, not from ancestors.                                                                            | 6.2.3      | impossible | I-01        |
+| ID                                 | Rule                                                       | Short rule                                                                                                                             | Old number | Check      | Issues      |
+| ---------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------- | ----------- |
+| [NR-64](entries/NR-64.md) `[GAP]`  | One lockfile per installation root                         | One authoritative lockfile per installation root.                                                                                      | 6.1.1      | script     | I-01, I-113 |
+| [NR-65](entries/NR-65.md) `[HOLD]` | No extraneous lockfile nodes                               | No lockfile carries an extraneous node.                                                                                                | 6.1.2      | script     |             |
+| [NR-66](entries/NR-66.md) `[GAP]`  | Consumer lockfiles pin the central versions                | An isolated consumer lockfile pins every published payload at its `versions.json` version, resolved to the payload its depender names. | 6.1.3      | script     | I-114       |
+| [NR-67](entries/NR-67.md) `[HOLD]` | Member changes invalidate the tree                         | A member rename or a `workspaces` edit invalidates the tree, not just the lock.                                                        | 6.2.1      | impossible |             |
+| [NR-68](entries/NR-68.md) `[HOLD]` | Delete the tree when packages are missing                  | When npm says "up to date" and packages are absent, delete the tree.                                                                   | 6.2.2      | impossible |             |
+| [NR-69](entries/NR-69.md) `[HOLD]` | The local .npmrc applies, not an ancestor                  | `.npmrc` is read from the local prefix, not from ancestors.                                                                            | 6.2.3      | impossible | I-01        |
+| [NR-93](entries/NR-93.md) `[HOLD]` | An install holds every optional package its platform needs | After an install, every optional package that the lockfile gives this platform is on disk.                                             |            | script     |             |
 
 ## Deployments
 
