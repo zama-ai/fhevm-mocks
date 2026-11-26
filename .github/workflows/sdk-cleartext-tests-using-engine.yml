@@ -244,6 +244,12 @@ jobs:
       #    sdk-cleartext-tests.yml, plus the fork tests. It builds nothing: the
       #    build of step 7 is the one it tests.
       #
+      #    --no-latest leaves out every test that reaches a live chain at its
+      #    latest block: a chain moves on its own schedule, so such a test can
+      #    fail with no change in the pull request. The engine already refuses
+      #    such a test with "ci": true; the flag says it here too. A fork test
+      #    runs here only at a pinned block.
+      #
       #    The engine orders what `make ci` orders by hand. Tests that state one
       #    port, such as the consumer rehearsals and an anvil suite, never run at
       #    the same time. Each test whose node the engine starts gets a new one.
@@ -266,7 +272,7 @@ jobs:
       - name: Test everything
         run: |
           ulimit -n 65536
-          ./fhevm-npm-cli test-engine run --inventory ALL_TESTS.json --ci --verbose --max-lanes 4
+          ./fhevm-npm-cli test-engine run --inventory ALL_TESTS.json --ci --no-latest --verbose --max-lanes 4
 
       # -----------------------------------------------------------------------
       # 8b. Check that the tests left the worktree clean
