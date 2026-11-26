@@ -1,0 +1,120 @@
+name: sdk-cleartext-tests-latest
+
+# The tests that a live chain can break: every test of ALL_TESTS.json that reaches a live chain at its
+# latest block (`test-engine run --latest`). A chain moves on its own schedule, so these tests can fail
+# with no change in this repository. They never run on a pull request (sdk-cleartext-tests-using-engine
+# runs `--ci --no-latest`); they run here, once a night, and a red run means a chain moved past what the
+# code knows: a decision to make, not a broken pull request.
+#
+# The schedule fires only from the default branch: GitHub reads `schedule:` from the workflow file on
+# `main`. On release/0.14.x this file is started by hand (`workflow_dispatch`), or by a scheduled
+# workflow on `main` that dispatches it here.
+on:
+  schedule:
+    - cron: '17 2 * * *' # 02:17 UTC every night, off the top of the hour that every schedule uses
+  workflow_dispatch:
+
+# No permissions at the workflow level — each job declares only what it needs.
+permissions: {}
+
+# A night run is never worth two at once: a manual run waits for the scheduled one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  latest:
+    name: sdk-cleartext-tests-latest/test
+    # The runner of sdk-cleartext-tests-using-engine.yml: runs-on.io, 4 vCPU, with the S3-backed cache.
+    runs-on: runs-on=${{ github.run_id }}/runner=4cpu-linux-x64/extras=s3-cache
+    timeout-minutes: 90
+    permissions:
+      contents: 'read' # Required to checkout repository code
+    steps:
+      # -----------------------------------------------------------------------
+      # 0. RunsOn
+      #    Required by `extras=s3-cache`, and it must be the first step: see
+      #    sdk-cleartext-tests-using-engine.yml.
+      # -----------------------------------------------------------------------
+      - name: Set up RunsOn
+        uses: runs-on/action@cd2b598b0515d39d78c38a02d529db87d2196d1e # v2.0.3
+
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      #    fetch-depth: 0 for the same reason as sdk-cleartext-tests-using-engine.yml:
+      #    the build reads vendored files from this repository's history.
+      # -----------------------------------------------------------------------
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: 'false'
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '>=22.23.4 <23'
+
+      - name: Install safe-chain
+        shell: bash
+        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/download/1.5.3/install-safe-chain.sh | sh -s -- --ci
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.5.1
+
+      - name: Update npm
+        run: npm install -g npm@11.7.0
+
+      - name: Install dependencies
+        run: make install-ci
+
+      # -----------------------------------------------------------------------
+      # 2. Compile
+      #    Only what the tests need. The gates of `make build-ci` (lint, format,
+      #    generated files) belong to the pull request run: a night run that
+      #    went red on one of them would say nothing about the chains.
+      # -----------------------------------------------------------------------
+      - name: Compile
+        run: make compile
+
+      # -----------------------------------------------------------------------
+      # 3. Test the chains
+      #    --latest holds every test that reaches a live chain at its latest
+      #    block; no test with "ci": true can be one of them. --no-wallet leaves
+      #    out the tests that send transactions and spend the funds of an
+      #    account. --strict fails the run before any test starts when an RPC
+      #    URL is missing: without it, each test of that chain would be
+      #    "unavailable" and the run would pass having tested nothing.
+      #
+      #    The RPC URLs come from secrets, and must serve old state: a fork at a
+      #    pinned block needs an archive node. The engine gives each test only
+      #    the URLs of the chains it declares.
+      # -----------------------------------------------------------------------
+      - name: Test the chains at their latest block
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          ARBITRUM_RPC_URL: ${{ secrets.ARBITRUM_RPC_URL }}
+        run: |
+          ulimit -n 65536
+          ./fhevm-npm-cli test-engine run --inventory ALL_TESTS.json --latest --no-wallet --strict --verbose --max-lanes 4
+
+      - name: Keep the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-engine-latest-report
+          path: test-report.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Keep the logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-engine-latest-logs
+          path: test-logs/
+          if-no-files-found: warn
+          retention-days: 14
