@@ -36,7 +36,7 @@ This definition describes the protocol as it works now. If the protocol design c
 
 Aliases: host.
 
-A host chain is an EVM chain on which an FHEVM group deploys its host contracts, such as `ACL`, `FHEVMExecutor`, `KMSVerifier`, and `InputVerifier`. Not every host chain has every contract: some have no `KMSGeneration`.
+A host chain is an EVM chain on which an FHEVM group deploys its host contracts, such as `ACL`, `FHEVMExecutor`, `KMSVerifier`, and `InputVerifier`. Not every host chain has every contract: only the canonical chain of a group has a `KMSGeneration`. D-14 and D-15 say which contracts the canonical and the non-canonical chains hold.
 
 One host chain can host several groups, each with host contracts of its own at addresses of its own. Ethereum Sepolia hosts `testnet` and `devnet`, and so do Polygon Amoy and BSC Testnet. So a chain id names a host chain, but not a group: a text that means a group on Ethereum Sepolia names `testnet` or `devnet`.
 
@@ -62,6 +62,11 @@ Each FHEVM group names one of its host chains as its canonical chain. A group ha
 
 Being canonical belongs to the pair of a group and a host chain, and not to the chain alone. Ethereum Sepolia is the canonical chain of `testnet` and also of `devnet`: two groups share one chain, and each names it canonical. Every other host chain of a group is a non-canonical chain ([D-15](../entries/D-15.md)).
 
+The canonical chain holds the group's `KMSGeneration` and the group's `ProtocolConfig`:
+
+- `KMSGeneration`: a group has one, on its canonical chain. No other host chain of the group has one.
+- `ProtocolConfig`: the canonical chain holds the group's `ProtocolConfig`. Each non-canonical chain also has a `ProtocolConfig` of its own today.
+
 Every canonical chain is an Ethereum chain today. That is a fact about the groups as they are, not a requirement.
 
 This definition describes the protocol as it works now. A group can name another canonical chain, and a new group names its own.
@@ -81,6 +86,8 @@ A non-canonical chain is any host chain of an FHEVM group other than its canonic
 | `mainnet` | Polygon (137)                                                   |
 | `testnet` | Polygon Amoy (80002), BSC Testnet (97)                          |
 | `devnet`  | Polygon Amoy (80002), BSC Testnet (97), Ethereum Hoodi (560048) |
+
+A non-canonical chain has no `KMSGeneration`: the group has one, on its canonical chain. It has a `ProtocolConfig` of its own.
 
 A group can have any number of non-canonical chains, none included.
 
