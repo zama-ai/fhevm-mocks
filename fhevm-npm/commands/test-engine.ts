@@ -8,7 +8,6 @@ import { TestEngineError } from '../base/test-engine/errors.ts';
 import { FAILURE_EXIT_STATUS, RUN_FAILURE_EXIT_STATUS, SUCCESS_EXIT_STATUS } from '../base/test-engine/exit-status.ts';
 import { duplicateCases, listCases, listedLine } from '../base/test-engine/duplicates.ts';
 import { CHAIN_RUNTIMES, type ChainRuntime, type Inventory, loadInventory } from '../base/test-engine/inventory.ts';
-import { BLOCK_MODES, type BlockMode } from '../base/test-engine/live-chains.ts';
 import {
   DEFAULT_LIVE_CHAIN_LANES,
   LIVE_CHAIN_LANES_VARIABLE,
@@ -55,7 +54,8 @@ type SelectionOptions = {
   readonly runtime?: ChainRuntime | undefined;
   readonly live?: boolean | undefined;
   readonly wallet?: boolean | undefined;
-  readonly block?: BlockMode | undefined;
+  readonly latest?: boolean | undefined;
+  readonly pinned?: boolean | undefined;
 };
 
 type RunOptions = LocationOptions &
@@ -272,12 +272,13 @@ function addSelectionOptions(command: Command): Command {
     .option('--no-live', 'only the tests with no live chain')
     .option('--wallet', 'only the tests with a chain that needs a wallet: a funded account on a remote chain')
     .option('--no-wallet', 'only the tests with no chain that needs a wallet')
-    .addOption(
-      new Option(
-        '--block <block>',
-        'only the tests whose live chains are all forks at a pinned block (pinned), or with one at its latest block (latest)',
-      ).choices(BLOCK_MODES),
-    );
+    .option(
+      '--latest',
+      'only the tests with a live chain at its latest block: a fork with no pinned block, or a remote chain',
+    )
+    .option('--no-latest', 'every test but those with a live chain at its latest block')
+    .option('--pinned', 'only the tests whose live chains are all forks at a pinned block')
+    .option('--no-pinned', 'every test but those whose live chains are all forks at a pinned block');
 }
 
 /**
@@ -650,7 +651,8 @@ function selectionRequest(input: SelectionRequestInput): SelectionRequest {
       runtime: input.options.runtime,
       live: input.options.live,
       wallet: input.options.wallet,
-      block: input.options.block,
+      latest: input.options.latest,
+      pinned: input.options.pinned,
     },
   };
 }

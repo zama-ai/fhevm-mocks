@@ -74,8 +74,10 @@ and they combine:
 | `--no-live`           | The tests with no live chain, and the tests with no chain at all.                                  |
 | `--wallet`            | The tests with a chain that has `"wallet": true`.                                                  |
 | `--no-wallet`         | The tests with no chain that has `"wallet": true`, the tests with no chain too.                    |
-| `--block pinned`      | The tests whose live chains are all forks at a pinned `block`.                                     |
-| `--block latest`      | The tests with a live chain at its latest block: a fork with no pinned `block`, or a remote chain. |
+| `--latest`            | The tests with a live chain at its latest block: a fork with no pinned `block`, or a remote chain. |
+| `--no-latest`         | Every other test.                                                                                  |
+| `--pinned`            | The tests whose live chains are all forks at a pinned `block`.                                     |
+| `--no-pinned`         | Every other test.                                                                                  |
 
 `--no-wallet` is the way to leave out the tests that spend funds. A chain with `"wallet": false` is a
 remote chain that the test only reads, and a fork never needs a wallet: its test accounts are funded on
@@ -85,7 +87,7 @@ the fork. So the live-chain tests that you can run without a funded account are:
 ./fhevm-npm-cli test-engine list --live --no-wallet
 ```
 
-Of `--live` and `--no-live`, or of `--wallet` and `--no-wallet`, the last one given wins.
+Of the two flags of a pair, such as `--live` and `--no-live`, the last one given wins.
 
 The engine never detects CI. A CI job passes `--ci`, and so do you, to run what CI runs.
 
@@ -577,12 +579,31 @@ mainnet at two blocks, since one variable cannot hold both.
 A `-latest` entry has no `list` command: it runs the cases of its pinned twin, and `duplicates` would
 report each of them twice.
 
-`--block` splits the live-chain tests in two, and a test with no live chain is in neither:
+Each test is in one of three groups: no live chain (N), a live chain at its latest block (L), or
+live chains that are all forks at a pinned block (P). A test that forks a pinned block and also reads
+a chain at its latest block is in L: one chain that moves is enough to change its result. One flag
+gives each selection:
+
+| Selection | Flag          |
+| --------- | ------------- |
+| N + L + P | none          |
+| L + P     | `--live`      |
+| N         | `--no-live`   |
+| L         | `--latest`    |
+| N + P     | `--no-latest` |
+| P         | `--pinned`    |
+| N + L     | `--no-pinned` |
+
+`--no-latest` holds every test whose result only this repository can change, so a run on a pull
+request uses it. `--latest` holds the tests that a chain can break, for a run that watches the chains:
 
 ```sh
-./fhevm-npm-cli test-engine run --block pinned   # nothing on the chains can change the result
-./fhevm-npm-cli test-engine run --block latest   # at least one chain at its latest block: may fail when it moves
+./fhevm-npm-cli test-engine run --ci --no-latest   # nothing on the chains can change the result
+./fhevm-npm-cli test-engine run --latest           # may fail when a chain moves
 ```
+
+A combination that no test can match fails the run instead of selecting nothing: `--latest` with
+`--pinned`, and `--latest` or `--pinned` with `--no-live`.
 
 Pin a block where the chain runs the stack the suite was written for. A suite of the previous
 generation keeps the last block before the chain left that generation, and has no `-latest` entry:

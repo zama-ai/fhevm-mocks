@@ -1,6 +1,6 @@
 import { TestEngineError } from './errors.ts';
 import type { ChainRuntime, InventoryEntry, Test } from './inventory.ts';
-import { type BlockMode, blockModeOf, isLiveChain } from './live-chains.ts';
+import { blockModeOf, isLiveChain } from './live-chains.ts';
 import { errorMessage } from './utils.ts';
 
 /** The filters of a selection. A test must match every filter that is given. */
@@ -15,14 +15,18 @@ export type SelectionFilters = {
   readonly live?: boolean | undefined;
   /** True: only tests with a chain that needs a wallet. False: only tests with none. */
   readonly wallet?: boolean | undefined;
-  /** Only tests whose live chains are all at pinned blocks, or only tests with one at its latest block. */
-  readonly block?: BlockMode | undefined;
+  /** True: only tests with a live chain at its latest block. False: every other test. */
+  readonly latest?: boolean | undefined;
+  /** True: only tests whose live chains are all forks at a pinned block. False: every other test. */
+  readonly pinned?: boolean | undefined;
 };
 
 export type EntryPredicate = (entry: InventoryEntry) => boolean;
 
 /** One predicate for each filter that is given. A selection keeps the tests that satisfy all of them. */
 export function filterPredicates(filters: SelectionFilters): readonly EntryPredicate[] {
+  rejectContradictions(filters);
+
   const predicates: EntryPredicate[] = [];
 
   if (filters.match !== undefined) {
@@ -50,12 +54,36 @@ export function filterPredicates(filters: SelectionFilters): readonly EntryPredi
     predicates.push(({ test }) => needsWallet(test) === wallet);
   }
 
-  if (filters.block !== undefined) {
-    const block = filters.block;
-    predicates.push(({ test }) => blockModeOf(test) === block);
+  if (filters.latest !== undefined) {
+    const latest = filters.latest;
+    predicates.push(({ test }) => (blockModeOf(test) === 'latest') === latest);
+  }
+
+  if (filters.pinned !== undefined) {
+    const pinned = filters.pinned;
+    predicates.push(({ test }) => (blockModeOf(test) === 'pinned') === pinned);
   }
 
   return predicates;
+}
+
+/**
+ * Fails on a combination that no test can match. A test has no live chain, a live chain at its latest
+ * block, or only pinned forks: one of the three, never two. An empty run would pass and look like a
+ * success, so the request is refused instead.
+ */
+function rejectContradictions(filters: SelectionFilters): void {
+  const given: string[] = [];
+  if (filters.latest === true) given.push('--latest');
+  if (filters.pinned === true) given.push('--pinned');
+  if (filters.live === false) given.push('--no-live');
+
+  if (given.length < 2) return;
+
+  throw new TestEngineError(
+    `${given.slice(0, 2).join(' and ')} select no test: a test has no live chain, a live chain at its latest ` +
+      'block, or only forks at a pinned block, never two of these.',
+  );
 }
 
 /** True when a chain of the test needs a funded account, because the test sends transactions to it. */

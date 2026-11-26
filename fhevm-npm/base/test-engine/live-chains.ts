@@ -203,8 +203,7 @@ export function withForkBlocksOfTest(input: ForkBlocksOfTestInput): NodeJS.Proce
 }
 
 /** The state of the live chains that a test reaches: all at pinned blocks, or at least one at the latest. */
-export const BLOCK_MODES = ['pinned', 'latest'] as const;
-export type BlockMode = (typeof BLOCK_MODES)[number];
+export type BlockMode = 'pinned' | 'latest';
 
 /**
  * `pinned` when the test reaches live chains and every one of them is a fork at a pinned block: nothing

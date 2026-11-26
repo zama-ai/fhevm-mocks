@@ -245,20 +245,59 @@ function selectedByBlock(filters: SelectionFilters): readonly string[] {
     .map((entry) => entry.id);
 }
 
-test('--block pinned selects the tests whose live chains are all forks at a pinned block', () => {
-  assert.deepEqual(selectedByBlock({ block: 'pinned' }), ['test-pinned']);
+const N = ['test-plain', 'test-anvil'];
+const L = ['test-latest', 'test-to-find', 'test-remote', 'test-pinned-and-remote'];
+const P = ['test-pinned'];
+
+/** The IDs of `ids` in inventory order, so that a group union compares with a selection. */
+function inOrder(...groups: readonly (readonly string[])[]): readonly string[] {
+  const ids = groups.flat();
+
+  return [...BLOCK_INVENTORY.tests.keys()].filter((id) => ids.includes(id));
+}
+
+test('the live, latest and pinned flags give each of the seven selections of N, L and P with one flag', () => {
+  // N: no live chain. L: a live chain at its latest block, unpinned fork, block to find or remote chain,
+  // even next to a pinned fork. P: live chains that are all forks at a pinned block.
+  const cases: readonly (readonly [SelectionFilters, readonly string[]])[] = [
+    [{}, inOrder(N, L, P)],
+    [{ live: true }, inOrder(L, P)],
+    [{ latest: true }, inOrder(L)],
+    [{ pinned: false }, inOrder(N, L)],
+    [{ pinned: true }, inOrder(P)],
+    [{ latest: false }, inOrder(N, P)],
+    [{ live: false }, inOrder(N)],
+  ];
+
+  for (const [filters, expected] of cases)
+    assert.deepEqual(selectedByBlock(filters), expected, JSON.stringify(filters));
 });
 
-test('--block latest selects the tests with a live chain at its latest state: unpinned fork, block to find, remote', () => {
-  assert.deepEqual(selectedByBlock({ block: 'latest' }), [
-    'test-latest',
-    'test-to-find',
-    'test-remote',
-    'test-pinned-and-remote',
-  ]);
+test('--latest and --no-latest split the inventory: each test is in exactly one', () => {
+  const latest = selectedByBlock({ latest: true });
+  const rest = selectedByBlock({ latest: false });
+
+  assert.deepEqual([...latest, ...rest].sort(), [...BLOCK_INVENTORY.tests.keys()].sort());
+  assert.deepEqual(
+    latest.filter((id) => rest.includes(id)),
+    [],
+  );
 });
 
-test('--block combines with the other filters', () => {
-  assert.deepEqual(selectedByBlock({ block: 'latest', chainId: 1 }), ['test-latest', 'test-pinned-and-remote']);
-  assert.deepEqual(selectedByBlock({ block: 'pinned', live: false }), []);
+test('a redundant combination selects what its narrowest flag selects', () => {
+  assert.deepEqual(selectedByBlock({ live: true, latest: true }), inOrder(L));
+  assert.deepEqual(selectedByBlock({ live: true, latest: false }), inOrder(P));
+  assert.deepEqual(selectedByBlock({ live: true, pinned: false }), inOrder(L));
+  assert.deepEqual(selectedByBlock({ latest: false, pinned: false }), inOrder(N));
+  assert.deepEqual(selectedByBlock({ latest: true, chainId: 1 }), ['test-latest', 'test-pinned-and-remote']);
+});
+
+test('a combination that no test can match fails the run, and says why', () => {
+  const contradictions: readonly (readonly [SelectionFilters, RegExp])[] = [
+    [{ latest: true, pinned: true }, /--latest and --pinned select no test/],
+    [{ latest: true, live: false }, /--latest and --no-live select no test/],
+    [{ pinned: true, live: false }, /--pinned and --no-live select no test/],
+  ];
+
+  for (const [filters, reason] of contradictions) assert.throws(() => selectedByBlock(filters), reason);
 });
