@@ -1,0 +1,41 @@
+name: sdk-cleartext-nightly
+
+# The night runs of the release branches. GitHub fires `schedule:` only from the default branch, so
+# the night workflows of a release branch cannot schedule themselves: this file, on main, calls each
+# one at its branch (a reusable workflow, read at the ref it is called with).
+#
+#   00:47 UTC  sdk-cleartext-tests-nightly.yml         the whole suite through `make ci`
+#   02:17 UTC  sdk-cleartext-tests-latest-nightly.yml  the tests a live chain can break (--latest)
+#
+# A manual run (`workflow_dispatch`) calls both. To add a release branch, add its two jobs.
+on:
+  schedule:
+    - cron: "47 0 * * *"
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+# No permissions at the workflow level — each job declares only what it needs.
+permissions: {}
+
+jobs:
+  tests-v14:
+    name: release/0.14.x
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '47 0 * * *'
+    uses: zama-ai/fhevm-mocks/.github/workflows/sdk-cleartext-tests-nightly.yml@release/0.14.x # zizmor: ignore[unpinned-uses] our own release branch: the night run tests its head
+    with:
+      ref: release/0.14.x
+    permissions:
+      contents: "read" # Required to checkout repository code
+
+  latest-v14:
+    name: release/0.14.x latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 2 * * *'
+    uses: zama-ai/fhevm-mocks/.github/workflows/sdk-cleartext-tests-latest-nightly.yml@release/0.14.x # zizmor: ignore[unpinned-uses] our own release branch: the night run tests its head
+    with:
+      ref: release/0.14.x
+    # Only the two secrets it reads, not `secrets: inherit`.
+    secrets:
+      FHEVM_QUICKNODE_ENDPOINT_NAME: ${{ secrets.FHEVM_QUICKNODE_ENDPOINT_NAME }}
+      FHEVM_QUICKNODE_TOKEN_ID: ${{ secrets.FHEVM_QUICKNODE_TOKEN_ID }}
+    permissions:
+      contents: "read" # Required to checkout repository code
