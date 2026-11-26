@@ -432,10 +432,10 @@ test('tests that use a live chain run one after the other, also in a run of seve
     context,
     inventory: {
       $schema: SCHEMA,
-      'test-wallet-a': fixtureTest({ command: 'touch ran-a', chains: [wallet] }),
+      'test-wallet-a': fixtureTest({ ci: false, command: 'touch ran-a', chains: [wallet] }),
       'test-local': fixtureTest({ command: 'touch ran-local' }),
-      'test-wallet-b': fixtureTest({ command: 'touch ran-b', chains: [wallet] }),
-      'test-reads': fixtureTest({ chains: [{ ...wallet, wallet: false }] }),
+      'test-wallet-b': fixtureTest({ ci: false, command: 'touch ran-b', chains: [wallet] }),
+      'test-reads': fixtureTest({ ci: false, chains: [{ ...wallet, wallet: false }] }),
     },
   });
 
@@ -467,8 +467,8 @@ test('a test whose live chain has no RPC URL set does not start, is unavailable,
     inventory: {
       $schema: SCHEMA,
       'test-local': fixtureTest({ command: 'touch ran-local' }),
-      'test-fork-a': fixtureTest({ command: 'touch ran-fork-a', chains: [sepolia] }),
-      'test-fork-b': fixtureTest({ command: 'touch ran-fork-b', chains: [sepolia] }),
+      'test-fork-a': fixtureTest({ ci: false, command: 'touch ran-fork-a', chains: [sepolia] }),
+      'test-fork-b': fixtureTest({ ci: false, command: 'touch ran-fork-b', chains: [sepolia] }),
     },
   });
   const argv = ['run', '--root', repository.root, '--max-lanes', '2'];
@@ -577,8 +577,8 @@ test('a test gets the RPC URL of a live chain only when it declares that chain',
     inventory: {
       $schema: SCHEMA,
       'test-local': fixtureTest({ command: seen('seen-local') }),
-      'test-sepolia': fixtureTest({ command: seen('seen-sepolia'), chains: [sepolia] }),
-      'test-both': fixtureTest({ command: seen('seen-both'), chains: [sepolia, mainnet] }),
+      'test-sepolia': fixtureTest({ ci: false, command: seen('seen-sepolia'), chains: [sepolia] }),
+      'test-both': fixtureTest({ ci: false, command: seen('seen-both'), chains: [sepolia, mainnet] }),
     },
   });
 
@@ -619,8 +619,8 @@ test('a test gets the fork block of a chain only when it pins one', async (conte
     inventory: {
       $schema: SCHEMA,
       'test-pinned': fixtureTest({ command: seen('seen-pinned'), chains: [mainnetAt(26493782)] }),
-      'test-latest': fixtureTest({ command: seen('seen-latest'), chains: [mainnetAt()] }),
-      'test-to-find': fixtureTest({ command: seen('seen-to-find'), chains: [mainnetAt(null)] }),
+      'test-latest': fixtureTest({ ci: false, command: seen('seen-latest'), chains: [mainnetAt()] }),
+      'test-to-find': fixtureTest({ ci: false, command: seen('seen-to-find'), chains: [mainnetAt(null)] }),
       'test-local': fixtureTest({ command: seen('seen-local') }),
     },
   });

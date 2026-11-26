@@ -605,6 +605,10 @@ request uses it. `--latest` holds the tests that a chain can break, for a run th
 A combination that no test can match fails the run instead of selecting nothing: `--latest` with
 `--pinned`, and `--latest` or `--pinned` with `--no-live`.
 
+A test that a chain can break never has `"ci": true`: the engine refuses an inventory where a test
+with `"ci": true` reaches a live chain at its latest block, and names each chain. Pin the fork's
+`block` to run the test on pull requests, or set `"ci": false` to leave it to the run of `--latest`.
+
 Pin a block where the chain runs the stack the suite was written for. A suite of the previous
 generation keeps the last block before the chain left that generation, and has no `-latest` entry:
 the chain will not go back.

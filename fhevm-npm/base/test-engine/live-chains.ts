@@ -218,3 +218,44 @@ export function blockModeOf(test: Test): BlockMode | undefined {
 
   return live.every((chain) => pinnedBlock(chain) !== undefined) ? 'pinned' : 'latest';
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// CI runs no test that a chain can break
+////////////////////////////////////////////////////////////////////////////////
+
+/** Why a live chain is at its latest block, or undefined when it is a fork at a pinned block. */
+function latestReasonOf(chain: Chain): string | undefined {
+  if (chain.runtime === 'remote') return `chain ${chain.chainid} is a remote chain`;
+  if (chain.runtime !== 'forge-fork') return undefined;
+  if (chain.block === null) return `chain ${chain.chainid} is a fork whose block is still to find`;
+  if (chain.block === undefined) return `chain ${chain.chainid} is a fork with no pinned block`;
+  return undefined;
+}
+
+/**
+ * One line for each test with `"ci": true` that reaches a live chain at its latest block. A chain moves
+ * on its own schedule, so such a test can fail with no change in this repository, and a CI run on a pull
+ * request must not hold it.
+ */
+export function ciAtLatestLines(entry: InventoryEntry): readonly string[] {
+  if (!entry.test.ci) return [];
+
+  const reasons = entry.test.chains.map(latestReasonOf).filter((reason) => reason !== undefined);
+
+  return reasons.length === 0 ? [] : [`${entry.id}: ${reasons.join(', ')}.`];
+}
+
+/** Fails when a test with `"ci": true` reaches a live chain at its latest block: see `ciAtLatestLines`. */
+export function checkCiIsNotLatest(inventory: Inventory): void {
+  const lines = [...inventory.tests].flatMap(([id, test]) => ciAtLatestLines({ id, test }));
+
+  if (lines.length === 0) return;
+
+  throw new TestEngineError(
+    [
+      `${inventory.file} has ${lines.length} test(s) with "ci": true that reach a live chain at its latest block:`,
+      ...lines,
+      'A chain can change their result with no change here. Pin each fork\'s "block", or set "ci": false.',
+    ].join('\n  '),
+  );
+}

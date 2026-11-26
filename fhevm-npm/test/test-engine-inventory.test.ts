@@ -178,3 +178,39 @@ test('a test that forks one chain at two different blocks is rejected', (context
     },
   );
 });
+
+test('a CI test that reaches a live chain at its latest block is rejected, with why', (context) => {
+  const fork = (block?: number | null) => ({
+    chainid: 1,
+    fhevm: 'mainnet',
+    runtime: 'forge-fork',
+    ...(block === undefined ? {} : { block }),
+  });
+  const remote = { chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: false };
+  const repository = writeFixtureRepository({
+    context,
+    inventory: {
+      $schema: './ALL_TESTS.schema.json',
+      'test-unpinned': fixtureTest({ chains: [fork()] as never }),
+      'test-to-find': fixtureTest({ chains: [fork(null)] as never }),
+      'test-remote': fixtureTest({ chains: [fork(100), remote] as never }),
+      // Accepted: pinned forks only, no live chain, or a latest chain in a test that CI does not run.
+      'test-pinned': fixtureTest({ chains: [fork(100)] as never }),
+      'test-plain': fixtureTest(),
+      'test-nightly': fixtureTest({ ci: false, chains: [fork(), remote] as never }),
+    },
+  });
+
+  assert.throws(
+    () => loadInventory({ inventoryFile: repository.inventoryFile, schemaFile: undefined }),
+    (error: Error) => {
+      assert.match(error.message, /3 test\(s\) with "ci": true that reach a live chain at its latest block/);
+      assert.match(error.message, /test-unpinned: chain 1 is a fork with no pinned block\./);
+      assert.match(error.message, /test-to-find: chain 1 is a fork whose block is still to find\./);
+      assert.match(error.message, /test-remote: chain 11155111 is a remote chain\./);
+      assert.match(error.message, /Pin each fork's "block", or set "ci": false/);
+      assert.doesNotMatch(error.message, /test-pinned|test-plain|test-nightly/);
+      return true;
+    },
+  );
+});

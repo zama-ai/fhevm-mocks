@@ -4,7 +4,7 @@ import { Ajv2020, type ErrorObject, type ValidateFunction } from 'ajv/dist/2020.
 
 import { TestEngineError } from './errors.ts';
 import { type JsonObject, readJsonObject } from './json.ts';
-import { checkForkBlocks, checkRpcVariablesOfCommands } from './live-chains.ts';
+import { checkCiIsNotLatest, checkForkBlocks, checkRpcVariablesOfCommands } from './live-chains.ts';
 import { checkResources } from './locks.ts';
 import type { PortSpec } from './port-spec.ts';
 import { errorMessage } from './utils.ts';
@@ -118,6 +118,7 @@ export function loadInventory(input: LoadInventoryInput): Inventory {
 
   checkRpcVariablesOfCommands(inventory);
   checkForkBlocks(inventory);
+  checkCiIsNotLatest(inventory);
   checkResources(inventory);
 
   return inventory;

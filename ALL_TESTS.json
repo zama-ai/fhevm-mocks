@@ -384,7 +384,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-testnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -398,7 +398,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-resolve-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -418,7 +418,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-switch-testnet-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -437,7 +437,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-cleartext-arbitrum -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 42161,
@@ -456,7 +456,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-cleartext-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 1,
@@ -474,7 +474,7 @@
     "command": "npm run --silent test-engine:fork-url -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -488,7 +488,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-testnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -502,7 +502,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-resolve-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -522,7 +522,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-switch-testnet-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -541,7 +541,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-cleartext-arbitrum -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 42161,
@@ -560,7 +560,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-debug-cleartext-mainnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 1,
@@ -678,7 +678,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-devnet",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -725,7 +725,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-transient-storage",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 31337,
@@ -745,7 +745,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-devnet -w @fhevm/host-contracts-cleartext-v14-dev",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,
@@ -820,7 +820,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:fork-transient-storage -w @fhevm/host-contracts-cleartext-v14-dev",
     "package": "host-contracts-cleartext",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 31337,
@@ -840,7 +840,7 @@
     "list": "FHEVM_TEST_LIST=1 npm run --silent test-engine:internal-fork-testnet -w @fhevm/forge-std-dev",
     "package": "forge-fhevm-std",
     "duration": "slow",
-    "ci": true,
+    "ci": false,
     "chains": [
       {
         "chainid": 11155111,

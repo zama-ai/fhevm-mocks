@@ -74,8 +74,11 @@ test('list keeps the tests that the selection holds and that will not run: skipp
 test('list --live --no-wallet selects the live-chain tests that need no funded account', async (context) => {
   const inventory = {
     ...INVENTORY,
-    'test-fork': fixtureTest({ chains: [{ chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' }] }),
-    'test-wallet': fixtureTest({ chains: [{ chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: true }] }),
+    'test-fork': fixtureTest({ ci: false, chains: [{ chainid: 11155111, fhevm: 'testnet', runtime: 'forge-fork' }] }),
+    'test-wallet': fixtureTest({
+      ci: false,
+      chains: [{ chainid: 11155111, fhevm: 'testnet', runtime: 'remote', wallet: true }],
+    }),
   };
   const repository = writeFixtureRepository({ context, inventory });
   writeFileSync(join(repository.root, '.env'), 'SEPOLIA_RPC_URL=https://sepolia.example.invalid\n');
