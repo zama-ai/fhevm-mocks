@@ -17,7 +17,11 @@ import {ICleartextArithmetic} from "../../pkg/forge/src/_internal/interfaces/ICl
 import {IEmptyUUPSProxy} from "../../pkg/forge/src/_internal/interfaces/IEmptyUUPSProxy.sol";
 import {LibCleartextProbe} from "../../pkg/forge/src/shared/LibCleartextProbe.sol";
 import {FheType} from "../../pkg/forge/src/shared/LibFheType.sol";
-import {FhevmGeneration, LibForgeFhevmHostVersions} from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
+import {
+    FhevmGeneration,
+    HostVersions,
+    LibForgeFhevmHostVersions
+} from "../../pkg/forge/src/LibForgeFhevmHostVersions.sol";
 import {FhevmChainsConfig} from "../utils/FhevmChainsConfig.sol";
 import {ForkBlock} from "../utils/ForkBlock.sol";
 
@@ -62,12 +66,30 @@ abstract contract ForkCleartextUpgrade is Test {
     /// @dev The stack this case forks, and whether it needs bringing forward a generation first.
     function _chain() internal virtual;
 
-    /// @dev The generation the forked stack runs, read from each contract's `getVersion()` as `FhevmVm` reads it.
-    function _generation() internal view returns (FhevmGeneration) {
-        return LibForgeFhevmHostVersions.classify(
-            LibForgeFhevmHostVersions.read(
-                ACL, EXECUTOR, KMS_VERIFIER, INPUT_VERIFIER, HCU_LIMIT, PROTOCOL_CONFIG, KMS_GENERATION
-            )
+    /// @dev The versions the forked stack runs, read from each contract's `getVersion()` as `FhevmVm` reads them.
+    function _versions() internal view returns (HostVersions memory) {
+        return LibForgeFhevmHostVersions.read(
+            ACL, EXECUTOR, KMS_VERIFIER, INPUT_VERIFIER, HCU_LIMIT, PROTOCOL_CONFIG, KMS_GENERATION
+        );
+    }
+
+    /// @dev The versions, one `name=version` per contract, for a failure message.
+    function _describe(HostVersions memory versions) internal pure returns (string memory) {
+        return string.concat(
+            "ACL=",
+            versions.acl,
+            " FHEVMExecutor=",
+            versions.fhevmExecutor,
+            " KMSVerifier=",
+            versions.kmsVerifier,
+            " InputVerifier=",
+            versions.inputVerifier,
+            " HCULimit=",
+            versions.hcuLimit,
+            " ProtocolConfig=",
+            versions.protocolConfig,
+            " KMSGeneration=",
+            versions.kmsGeneration
         );
     }
 
@@ -108,13 +130,22 @@ abstract contract ForkCleartextUpgrade is Test {
 
     function test_aForkedProductionStackBecomesCleartext() public {
         vm.skip(!forked);
-        // A case written for a lagging chain tests the upgrade from the previous generation. Once the chain has
-        // upgraded, that upgrade has nothing to apply to, so the case skips. A chain on the current line can
-        // still read `Unknown`, when one contract runs a newer release than the one this SDK vendors.
-        vm.skip(
-            _isAGenerationBehind() && _generation() != FhevmGeneration.Previous,
-            "the chain is no longer a generation behind, so no generation upgrade is left to compose"
-        );
+        // A case written for a lagging chain tests the upgrade from the previous generation.
+        if (_isAGenerationBehind()) {
+            HostVersions memory versions = _versions();
+            FhevmGeneration generation = LibForgeFhevmHostVersions.classify(versions);
+            // `Unknown` is not "nothing to do": the chain runs host contracts that this SDK does not know, such
+            // as a release newer than the one it vendors. That is the drift a fork test exists to report.
+            require(
+                generation != FhevmGeneration.Unknown,
+                string.concat("the chain runs host contracts this SDK does not know: ", _describe(versions))
+            );
+            // Once the chain has upgraded, the upgrade from the previous generation has nothing to apply to.
+            vm.skip(
+                generation == FhevmGeneration.Current,
+                "the chain is no longer a generation behind, so no generation upgrade is left to compose"
+            );
+        }
 
         // -- 0. it really is a production stack ------------------------------------------------------
         assertFalse(LibCleartextProbe.isCleartext(EXECUTOR), "the chain runs the real executor");
