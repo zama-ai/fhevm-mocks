@@ -31,7 +31,7 @@
     "solhint-plugin-prettier": "^0.1.0",
     "solidity-coverage": "^0.8.15",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.5"
   },
   "scripts": {
     "prepare": "npm run build",
